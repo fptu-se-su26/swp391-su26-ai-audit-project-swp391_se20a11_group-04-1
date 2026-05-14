@@ -4,10 +4,10 @@
 
 | Item | Description |
 |---|---|
-| Course |  |
-| Class |  |
+| Course | SWP391 |
+| Class | SE20A11 |
 | Semester | SU26 |
-| Group |  |
+| Group | 4 |
 | Topic |  |
 | Repository |  |
 
@@ -18,7 +18,7 @@
 | No | Student ID | Full Name | GitHub Username | Role | Main Responsibility |
 |---:|---|---|---|---|---|
 | 1 |  |  |  | Leader |  |
-| 2 |  |  |  | Member |  |
+| 2 | DE190465 | Nguyễn Thành Đạt | NguyenThanhDat3004 | Member |  |
 | 3 |  |  |  | Member |  |
 | 4 |  |  |  | Member |  |
 | 5 |  |  |  | Member |  |
