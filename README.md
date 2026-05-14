@@ -21,7 +21,7 @@
 | 2 | DE190465 | Nguyễn Thành Đạt | NguyenThanhDat3004 | Member |  |
 | 3 | DE190364 | Nguyễn Lê  Trung Tín |Tinnguyen13-7    | Member |  |
 | 4 | DE190313 | Trần Công Tú | TuTran205 | Member |  |
-| 5 |  |  |  | Member |  |
+| 5 | DE200322 | Nguyễn Minh Hiếu | kunlu2816 | Member |  |
 
 ---
 
