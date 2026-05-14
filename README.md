@@ -19,7 +19,7 @@
 |---:|---|---|---|---|---|
 | 1 |  |  |  | Leader |  |
 | 2 | DE190465 | Nguyễn Thành Đạt | NguyenThanhDat3004 | Member |  |
-| 3 |  |  |  | Member |  |
+| 3 | DE190364 | nguyễn Lê Trung Tín |Tinnguyen13-7    | Member |  |
 | 4 |  |  |  | Member |  |
 | 5 |  |  |  | Member |  |
 
