@@ -1,0 +1,59 @@
+# ====================================================================
+# APPLICATION PROPERTIES EXAMPLE - SWP391 HYBRID PROJECT
+# Copy file này thành 'application.properties' và điền thông tin của bạn.
+# ====================================================================
+
+spring.application.name=spring_mvc
+server.port=8080
+
+# --- Database Config (SQL Server) ---
+spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=your_db_name;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true
+spring.datasource.username=your_username
+spring.datasource.password=your_password
+spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+# --- JPA / Hibernate ---
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+
+# --- Spring Security Basic Auth ---
+spring.security.user.name=your_default_user
+spring.security.user.password=your_default_password
+s-mall.remember-me.key=your-secret-remember-me-key
+
+# --- JWT Configuration (Dành cho React kết nối API) ---
+app.jwt.secret=generate-a-very-long-random-string-at-least-256-bits
+app.jwt.expiration-ms=86400000
+app.cors.allowed-origins=http://localhost:5173,http://localhost:3000
+
+# --- Mail Config (OTP Verification) ---
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=your_email@gmail.com
+spring.mail.password=your_app_password_not_login_password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# --- Redis Session Config ---
+spring.session.store-type=redis
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+
+# --- Encoding Config ---
+server.servlet.encoding.charset=UTF-8
+server.servlet.encoding.enabled=true
+server.servlet.encoding.force=true
+
+# --- Server IP for QR Code ---
+app.server-ip=192.168.x.x
+
+# --- File Upload Config ---
+spring.servlet.multipart.enabled=true
+spring.servlet.multipart.max-file-size=50MB
+spring.servlet.multipart.max-request-size=50MB
+
+# --- Groq AI Config ---
+groq.api.key=your_groq_api_key_here
+groq.api.model=llama-3.3-70b-versatile
+groq.api.url=https://api.groq.com/openai/v1/chat/completions
