@@ -1,0 +1,65 @@
+# ====================================================================
+# SWP391 - MASTER GITIGNORE (Hybrid Java Spring & React)
+# ====================================================================
+
+# --- SYSTEM FILES ---
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- BACKEND (Spring Boot / Maven) ---
+backend/target/
+backend/*.jar
+backend/*.war
+backend/*.ear
+backend/mvnw
+backend/mvnw.cmd
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Sensitive Backend Config
+backend/src/main/resources/application-local.properties
+backend/src/main/resources/secrets.properties
+backend/src/main/resources/application.properties
+
+# --- FRONTEND (Vite / React / Node) ---
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# --- IDE & TOOLS ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/extensions.json
+.settings/
+.project
+.classpath
+.factorypath
+bin/
+obj/
+
+# --- LOGS ---
+*.log
+logs/
+backend/logs/
+
+# --- TEMP & CACHE ---
+.cache/
+.eslintcache
+.stylelintcache
+.vite/
+.parcel-cache
+node_modules/
