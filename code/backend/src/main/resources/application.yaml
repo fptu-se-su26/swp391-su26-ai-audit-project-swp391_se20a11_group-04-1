@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/dev_track_ai
     username: postgres
-    password: MinhHieu2816@
+    password: 30042005
     driver-class-name: org.postgresql.Driver
 
   flyway:
