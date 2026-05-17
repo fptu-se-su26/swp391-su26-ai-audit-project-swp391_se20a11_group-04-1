@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/dev_track_ai
     username: postgres
-    password: 30042005
+    password: YOUR_DATABASE_PASSWORD_HERE # 👈 Điền mật khẩu database PostgreSQL local của bạn vào đây
     driver-class-name: org.postgresql.Driver
 
   flyway:
@@ -15,9 +15,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    #phan nay la mail gui thong bao ve vui long khong thay doi o day
-    username: 3004nguyenthanhdat@gmail.com
-    password: ipnauguklqkorxzs
+    username: email_cua_ban@gmail.com # 👈 Điền Gmail thật của bạn vào đây để gửi email
+    password: mat_khau_ung_dung_16_ky_tu # 👈 Điền mật khẩu ứng dụng 16 ký tự của bạn vào đây
     properties:
       mail:
         smtp:
