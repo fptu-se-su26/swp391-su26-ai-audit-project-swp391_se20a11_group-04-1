@@ -171,6 +171,85 @@ Hãy viết mã nguồn Java chuẩn chỉnh, đầy đủ cấu trúc, sử d�
    - Cấu hình `SecurityConfig.java` sử dụng bộ lọc mới nhất của Spring Security (Spring Boot 3.x), cho phép các endpoint auth đi qua không cần token (`permitAll()`).
 
 Hãy viết code chi tiết, giải thích rõ ràng và viết đầy đủ các dòng imports. Bắt đầu thực hiện ngay!
+---
+prompt 2: Thực hiện lưu các thông tin đã nhập vào trong ram của người dùng, giải phóng khi trình duyệt được đóng hoặc các trường đã đc submit thành công.
+Tôi muốn bạn thiết kế một giải pháp JavaScript (Vanilla JS) chuyên nghiệp và tối ưu nhất để tự động lưu trạng thái form nhập liệu (Form State Persistence) nhằm chống mất dữ liệu khi người dùng vô tình bấm F5 (refresh), chuyển hướng trang, hoặc quay lại (back/forward) trong cùng một tab trình duyệt.
+
+Yêu cầu giải pháp phải tuân thủ nghiêm ngặt các tiêu chuẩn kỹ thuật cấp độ Production dưới đây:
+
+1. Cơ chế Lưu trữ & Phạm vi (Storage & Scope):
+- Chỉ sử dụng `sessionStorage` (Web Storage API) để lưu trên RAM trình duyệt. Toàn bộ dữ liệu phải tự động biến mất khi đóng tab hoặc tắt trình duyệt để đảm bảo an toàn tuyệt đối.
+- Cần đặt tên Key lưu trữ riêng biệt cho từng form (ví dụ: `app-login-draft`, `app-register-draft`) để tránh xung đột dữ liệu chéo.
+
+2. Bảo mật tuyệt đối (Security - Hard Requirement):
+- Giải pháp phải tự động quét tất cả các input. Tuyệt đối KHÔNG ĐƯỢC LƯU các trường nhạy cảm như Mật khẩu (Password), Nhập lại mật khẩu (Confirm Password), hoặc mã OTP.
+- Cách nhận diện an toàn: Tự động loại trừ các ô input có `type="password"`, `name*="password"`, `id*="password"`, hoặc `id*="otp"`.
+
+3. Tối ưu Hiệu suất vượt trội (Performance & Best Practices):
+- Viết code dưới dạng một Module tự đóng gói (IIFE) hoặc Class để tránh làm ô nhiễm không gian tên toàn cục (Global Scope Pollution) của file giao diện.
+- Sử dụng kỹ thuật "Event Delegation" (Lắng nghe ủy quyền sự kiện) duy nhất trên thẻ `<form>` hoặc `document` để bắt sự kiện 'input'. Không lặp qua từng phần tử để addEventListener.
+- Hỗ trợ cả hai cơ chế map trường dữ liệu linh hoạt: theo `id` hoặc theo `name` của thẻ input (để tương thích hoàn hảo với cả JSP, Thymeleaf, Spring Form).
+
+4. Khôi phục dữ liệu thông minh (Smart Hydration):
+- Khi trang tải xong (`DOMContentLoaded`), chỉ khôi phục (auto-fill) dữ liệu vào các trường nếu ô nhập liệu đó ĐANG TRỐNG. Không được đè lên dữ liệu mặc định đã được Server render sẵn (ví dụ: dữ liệu sửa đổi profile, hoặc dữ liệu được Spring Validation trả về).
+
+5. Tự động Dọn dẹp (Self-Cleaning):
+- Tự động bắt sự kiện `submit` của form. Khi người dùng bấm gửi form thành công, phải lập tức gọi `sessionStorage.removeItem()` để giải phóng bộ nhớ RAM.
+- Cung cấp thêm một hàm dọn dẹp chủ động (ví dụ: check parameter trên URL như `?success=true` để xóa dữ liệu form nháp của bước trước).
+
+Hãy viết mã nguồn JavaScript hoàn chỉnh, cấu trúc cực kỳ rõ ràng, chú thích (comment) cẩn thận bằng Tiếng Việt và hướng dẫn tôi cách nhúng vào các trang HTML/JSP/React trong dự án một cách dễ dàng nhất.
+---
+Prompt 3: thực hiện cơ chế chống bruteforce và khóa đăng nhập khi mà login
+Tôi muốn bạn thiết kế và viết mã nguồn hoàn chỉnh cho hệ thống Backend REST API Đăng nhập (Login API) sử dụng Spring Boot 3.x (Java), Spring Security (cấu hình Session-based) và Spring Data Redis. Hệ thống này phải bảo vệ ứng dụng tuyệt đối khỏi các cuộc tấn công SQL Injection và Brute Force bằng cơ chế Khóa lũy tiến (Progressive Lockout) kết hợp với Ngắt mạch sớm (Fast-Fail). Yêu cầu sử dụng HTTP Session truyền thống (JSESSIONID cookie) thay vì JWT, và KHÔNG được làm thay đổi cấu trúc cơ sở dữ liệu hiện tại (không thêm cột vào bảng User SQL).
+
+Hãy triển khai chi tiết các thành phần kỹ thuật sau đây:
+
+1. Kiến trúc REST API:
+- Endpoint: POST `/api/v1/auth/login`
+- Dữ liệu nhận vào (Request Body JSON): `LoginRequest` gồm { `usernameOrEmail`, `password` }
+- Sử dụng `jakarta.validation` để validate đầu vào: username không được trống, lọc bỏ các ký tự lạ.
+- Dữ liệu trả về khi thành công (200 OK): Thiết lập thông tin người dùng vào `HttpSession` (ví dụ: `session.setAttribute("currentUser", user)`), lưu SecurityContext của Spring Security vào Session và trả về JSON chứa thông tin cơ bản của User. Trình duyệt sẽ tự động quản lý Session thông qua Cookie `JSESSIONID`.
+
+2. Cơ chế Chống SQL Injection (SQL Injection Prevention):
+- Sử dụng Spring Data JPA Repositories (Prepared Statements) để truy vấn dữ liệu SQL.
+- Tuyệt đối không dùng kỹ thuật nối chuỗi SQL trong code Java. Tất cả các câu truy vấn custom bằng `@Query` phải sử dụng Named Parameters (ví dụ: `:username`).
+
+3. Cơ chế Khóa lũy tiến lũy kế kết hợp Ngắt mạch sớm (Fast-Fail Progressive Lockout) bằng Redis:
+- Sử dụng `StringRedisTemplate` của Redis để quản lý số lần đăng nhập sai và trạng thái khóa.
+- Thiết lập 2 loại Key trên Redis:
+  + Key 1: `login:attempts:<username>` dùng để lưu số lần đăng nhập sai lũy kế.
+  + Key 2: `login:lock:<username>` dùng để đánh dấu trạng thái bị khóa.
+- Logic kiểm tra và xử lý ngắt mạch sớm (Fast-Fail):
+  + BƯỚC 1 (Ngắt mạch sớm): Ngay khi nhận request, việc đầu tiên là kiểm tra sự tồn tại của Key `login:lock:<username>` trên Redis. 
+    * Nếu Key này có tồn tại, lập tức trả về lỗi HTTP `423 Locked` kèm thông báo tài khoản đang bị khóa và thời gian còn lại.
+    * Ở bước này, TUYỆT ĐỐI không được truy vấn SQL Database để tìm User và TUYỆT ĐỐI không được chạy hàm băm mật khẩu `passwordEncoder.matches()` nhằm tiết kiệm tối đa CPU và kết nối database. Dù mật khẩu người dùng gửi lên là đúng hay sai cũng chặn ngay tại đây.
+  + BƯỚC 2: Nếu tài khoản không bị khóa, tiến hành truy vấn DB để tìm User. Nếu không thấy User, trả về `401 Unauthorized` ngay.
+  + BƯỚC 3: Tiến hành so khớp mật khẩu bằng `passwordEncoder.matches()`:
+    * Nếu mật khẩu đúng: Xóa hoàn toàn Key `login:attempts:<username>` và Key `login:lock:<username>` (nếu có) trên Redis. Tiến hành lưu thông tin vào `HttpSession` và SecurityContext, trả về 200 OK.
+    * Nếu mật khẩu sai: Tăng số lần sai trong Key `login:attempts:<username>` lên 1 (sử dụng `opsForValue().increment()`). Thiết lập thời gian tự hủy (TTL) cho Key này là 24 giờ. Lấy ra số lần sai hiện tại (`attempts`) và kiểm tra điều kiện khóa:
+      * Nếu `attempts >= 3` và `(attempts - 3) % 2 == 0`:
+        * Tính toán Lock Level: `level = (attempts - 3) / 2 + 1`.
+        * Tính toán thời gian khóa (phút): `lockTimeMinutes = level * 5`.
+        * Tạo Key `login:lock:<username>` trên Redis với giá trị "true" và thời gian tự hủy (TTL) chính là `lockTimeMinutes` phút.
+        * Trả về lỗi `423 Locked` thông báo tài khoản bị khóa trong `lockTimeMinutes` phút.
+      * Các trường hợp sai khác (ví dụ sai lần 1, 2, 4, 6): Trả về lỗi `401 Unauthorized` báo sai thông tin thông thường.
+
+4. Cơ chế Giới hạn Tần suất IP bằng Redis (IP Rate Limiting):
+- Thiết lập một Interceptor hoặc Filter để chặn request đăng nhập theo địa chỉ IP của Client.
+- Sử dụng Redis để quản lý số lượt request của IP thông qua Key: `login:ip:<ip_address>`.
+- Logic giới hạn:
+  + Mỗi khi có request, tăng giá trị Key `login:ip:<ip_address>` lên 1. Nếu là request đầu tiên, thiết lập TTL cho Key này là 1 phút.
+  + Nếu giá trị Key vượt quá 5 lượt/phút, trả về mã lỗi HTTP `429 Too Many Requests` ngay lập tức mà không cần truy vấn xuống database SQL hay chạy logic đăng nhập.
+
+5. Định dạng dữ liệu lỗi chuẩn RESTful:
+- Trả về JSON có cấu trúc rõ ràng cho mọi trường hợp lỗi:
+  + `400 Bad Request`: Định dạng dữ liệu gửi lên không hợp lệ.
+  + `401 Unauthorized`: Sai mật khẩu hoặc tài khoản không tồn tại.
+  + `423 Locked`: Tài khoản đang bị khóa tạm thời.
+  + `429 Too Many Requests`: IP bị giới hạn tần suất.
+
+Hãy viết code chi tiết đầy đủ (bao gồm Entity, Service, Controller, Security Configuration cho Session-based và Filter), giải thích logic và viết đầy đủ các dòng imports bằng Tiếng Việt.
+
 
 ```
 
