@@ -45,6 +45,8 @@ code/frontend/pnpm-debug.log*
 *.ipr
 .vscode/
 !.vscode/extensions.json
+.gemini/
+.gemini
 .settings/
 .project
 .classpath
@@ -67,4 +69,4 @@ node_modules/
 
 # --- CUSTOM RULES ---
 Nguyen_Thanh_Dat/coChe.md
-
+trigger.md
