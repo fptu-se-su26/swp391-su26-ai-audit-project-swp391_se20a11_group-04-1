@@ -15,6 +15,7 @@ import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.OtpService;
+import org.example.backend.service.RateLimitService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,6 +26,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -38,10 +46,12 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
+    private final RateLimitService rateLimitService;
 
     @Override
     public void requestRegistration(RegisterRequest request) {
-        log.info("Received account registration request for username: {}, email: {}", request.getUsername(), request.getEmail());
+        log.info("Received account registration request for username: {}, email: {}", request.getUsername(),
+                request.getEmail());
 
         // 1. Verify unique criteria in PostgreSQL
         if (userAccountRepository.existsByUsername(request.getUsername())) {
@@ -104,7 +114,8 @@ public class AuthServiceImpl implements AuthService {
         // 6. Bind bidirectional relationship
         userAccount.setProfile(userProfile);
 
-        // 7. Save UserAccount (automatically cascades to save UserProfile because of cascade=CascadeType.ALL)
+        // 7. Save UserAccount (automatically cascades to save UserProfile because of
+        // cascade=CascadeType.ALL)
         UserAccount savedAccount = userAccountRepository.save(userAccount);
         log.info("Successfully persisted new user account with ID: {}", savedAccount.getId());
 
@@ -125,61 +136,84 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserResponse login(String usernameOrEmail, String password, HttpSession session) {
-        log.info("Processing login request for username/email: {}", usernameOrEmail);
+    public UserResponse login(String usernameOrEmail, String password, HttpSession session, String ipAddress) {
+        log.info("Processing login request for username/email: {} from IP: {}", usernameOrEmail, ipAddress);
 
-        // Cấu hình các Key trên Redis
+        // BƯỚC 0: IP Rate Limiting (Chống DDoS / spam requests)
+        rateLimitService.checkRateLimit(ipAddress, "login", 5, 1);
+
+        // BƯỚC 0.1: Kiểm tra IP Blacklist vĩnh viễn (IP của hacker đã bị cấm)
+        if (rateLimitService.isIpBlacklisted(ipAddress)) {
+            log.warn("Login blocked. IP {} is permanently blacklisted.", ipAddress);
+            throw new CustomException("Địa chỉ IP của bạn bị cấm truy cập hệ thống vĩnh viễn do vi phạm an ninh.",
+                    HttpStatus.FORBIDDEN);
+        }
+
+        // BƯỚC 0.2: Kiểm tra IP Whitelist. Nếu đã được Whitelist -> Bỏ qua kiểm tra IP
+        // Lock mềm!
+        boolean isWhitelisted = rateLimitService.isIpWhitelisted(usernameOrEmail, ipAddress);
+        if (!isWhitelisted) {
+            rateLimitService.checkIpLock(ipAddress, "login");
+        }
+
+        // BƯỚC 0.3: Kiểm tra Khóa Toàn Cầu của tài khoản
+        if (rateLimitService.isGlobalLocked(usernameOrEmail)) {
+            log.warn("Login blocked. Account {} is globally locked.", usernameOrEmail);
+            throw new CustomException(
+                    "Tài khoản của bạn đã bị khóa cứng trên toàn cầu do phát hiện hoạt động dò quét xâm nhập. Vui lòng kiểm tra email bảo mật để xác minh danh tính.",
+                    HttpStatus.LOCKED);
+        }
+
+        // Cấu hình các Key trên Redis của tài khoản
         String lockKey = "login:lock:" + usernameOrEmail;
         String attemptKey = "login:attempts:" + usernameOrEmail;
 
-        // BƯỚC 1: Ngắt mạch sớm (Fast-Fail)
-        // Kiểm tra xem tài khoản có đang bị khóa tạm thời trong Redis không
+        // BƯỚC 1: Ngắt mạch sớm tài khoản (Khóa mềm tài khoản)
         Boolean isLocked = redisTemplate.hasKey(lockKey);
         if (Boolean.TRUE.equals(isLocked)) {
-            // Lấy thời gian khóa còn lại (TTL tính theo giây)
             Long expireSeconds = redisTemplate.getExpire(lockKey, TimeUnit.SECONDS);
             long expireMinutes = (expireSeconds != null && expireSeconds > 0) ? (expireSeconds + 59) / 60 : 5;
-            
+
             log.warn("Login fast-failed. Account is currently locked on Redis: {}", usernameOrEmail);
             throw new CustomException(
-                String.format("Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau %d phút.", expireMinutes),
-                HttpStatus.LOCKED
-            );
+                    String.format("Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau %d phút.", expireMinutes),
+                    HttpStatus.LOCKED);
         }
 
-        // BƯỚC 2: Truy vấn PostgreSQL để kiểm tra sự tồn tại của User (Không dùng nối chuỗi)
+        // BƯỚC 2: Truy vấn PostgreSQL kiểm tra xem User có tồn tại không.
+        // Chỉ lưu log đếm sai khi User thật tồn tại để tránh hacker spam tràn RAM
+        // Redis!
         UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> {
                     log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
                     throw new CustomException("Thông tin đăng nhập không chính xác.", HttpStatus.UNAUTHORIZED);
                 });
 
-        // BƯỚC 3: So khớp mật khẩu bằng passwordEncoder.matches()
+        // BƯỚC 3: So khớp mật khẩu
         boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
 
         if (matches) {
-            // Đăng nhập thành công! Xóa hoàn toàn các Key nháp lưu trạng thái thất bại trên Redis
+            // Đăng nhập thành công! Giải phóng các bộ đếm và khóa
             redisTemplate.delete(attemptKey);
             redisTemplate.delete(lockKey);
 
-            // Lưu thông tin vào HttpSession truyền thống (Session-based)
+            // CHỈ xóa lịch sử thất bại và khóa của CHÍNH thiết bị vừa đăng nhập thành công này
+            rateLimitService.clearFailureCount(ipAddress, "login");
+
+            // Giải phóng Khóa Toàn Cầu và xóa danh sách lưu thông tin IP lỗi của tài khoản để đưa tài khoản về trạng thái sạch sẽ
+            rateLimitService.unlockGlobally(user.getUsername());
+
             String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
-            
-            // 1. Tạo đối tượng Authentication đại diện cho phiên đăng nhập
+
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                user.getUsername(),
-                null,
-                AuthorityUtils.createAuthorityList("ROLE_" + roleName)
-            );
-            
-            // 2. Thiết lập SecurityContext
+                    user.getUsername(),
+                    null,
+                    AuthorityUtils.createAuthorityList("ROLE_" + roleName));
+
             SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
             securityContext.setAuthentication(authentication);
-            
-            // 3. Đưa SecurityContext vào HttpSession theo chuẩn Spring Security
+
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
-            
-            // 4. Lưu thêm thông tin định danh cực nhẹ (userId, userRole) vào Session thay vì lưu cả đối tượng Entity cồng kềnh
             session.setAttribute("userId", user.getId());
             session.setAttribute("userRole", roleName);
 
@@ -190,43 +224,178 @@ public class AuthServiceImpl implements AuthService {
                     .systemRole(roleName)
                     .build();
         } else {
-            // Đăng nhập thất bại: Tăng số lần sai trong Redis lên 1 (sử dụng increment)
+            // Đăng nhập thất bại -> Phân tích thiết bị và vị trí
+            String userAgent = "Unknown Device";
+            try {
+                ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+                        .getRequestAttributes();
+                if (attributes != null) {
+                    String ua = attributes.getRequest().getHeader("User-Agent");
+                    if (ua != null) {
+                        userAgent = parseUserAgent(ua);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to parse User-Agent", e);
+            }
+
+            String location = getIpLocation(ipAddress);
+
+            // Lưu thông tin IP gõ sai vào Redis Hash
+            rateLimitService.recordFailedIpInfo(user.getUsername(), ipAddress, userAgent, location);
+
+            // Ghi nhận IP đăng nhập lỗi mềm (Fast Lock IP nếu IP này sai 3 lần)
+            rateLimitService.recordIpFailure(ipAddress, "login", 3, 30);
+
+            // Tăng số lần gõ sai của riêng tài khoản này
             Long attempts = redisTemplate.opsForValue().increment(attemptKey);
-            
-            // Thiết lập thời gian tự hủy (TTL) cho Key attempt là 24 giờ
             redisTemplate.expire(attemptKey, 24, TimeUnit.HOURS);
 
             log.warn("Login failed. Incorrect password for user: {}. Current attempts: {}", usernameOrEmail, attempts);
 
-            if (attempts != null && attempts >= 3 && (attempts - 3) % 2 == 0) {
-                // Tính toán Lock Level và Thời gian khóa
-                long level = (attempts - 3) / 2 + 1;
-                long lockTimeMinutes = level * 5;
+            // Kiểm tra số lượng IP vi phạm của tài khoản này
+            Map<String, String> failedIpsMap = rateLimitService.getFailedIpsInfo(user.getUsername());
 
-                // Tạo Key lock trên Redis với giá trị "true" và TTL tương ứng (lockTimeMinutes phút)
-                redisTemplate.opsForValue().set(lockKey, "true", lockTimeMinutes, TimeUnit.MINUTES);
+            if (failedIpsMap.size() >= 2) {
+                // PHÁT HIỆN TẤN CÔNG ĐA IP (BOTNET / DISTRIBUTED ATTACK) -> KHÓA CỨNG TOÀN CẦU!
+                rateLimitService.lockGlobally(user.getUsername());
 
-                log.warn("Account {} is locked for {} minutes due to {} failed attempts (Lock Level: {}).",
-                        usernameOrEmail, lockTimeMinutes, attempts, level);
+                // Tạo token Whitelist và token Block riêng biệt cho từng IP vi phạm
+                Map<String, String> unlockTokensMap = new HashMap<>();
+                Map<String, String> blockTokensMap = new HashMap<>();
+                for (String failedIp : failedIpsMap.keySet()) {
+                    unlockTokensMap.put(failedIp, rateLimitService.createUnlockToken(user.getUsername(), failedIp));
+                    blockTokensMap.put(failedIp, rateLimitService.createBlockToken(failedIp));
+                }
 
-                // Tích hợp gửi email cảnh báo bảo mật bất đồng bộ (Fail-safe)
+                // Gửi Email khẩn cấp (Danger Theme)
                 try {
-                    String targetEmail = user.getEmail();
-                    String username = user.getUsername();
-                    emailService.sendSecurityAlertEmail(targetEmail, username, attempts.intValue(), lockTimeMinutes);
-                    log.info("Successfully triggered async security alert email to: {}", targetEmail);
+                    emailService.sendEmergencyAttackAlertEmail(user.getEmail(), user.getUsername(), failedIpsMap,
+                            unlockTokensMap, blockTokensMap);
+                    log.info("Successfully triggered async emergency multi-IP attack email to: {}", user.getEmail());
                 } catch (Exception mailEx) {
-                    log.error("Fail-safe catch: Failed to trigger security alert email for: {}", usernameOrEmail, mailEx);
+                    log.error("Failed to trigger emergency email", mailEx);
                 }
 
                 throw new CustomException(
-                    String.format("Tài khoản của bạn đã bị khóa tạm thời trong %d phút do nhập sai mật khẩu %d lần.", lockTimeMinutes, attempts),
-                    HttpStatus.LOCKED
-                );
+                        "Tài khoản của bạn đã bị khóa cứng trên toàn cầu do phát hiện hoạt động dò quét xâm nhập từ nhiều thiết bị lạ. Vui lòng kiểm tra email bảo mật để xác nhận danh tính.",
+                        HttpStatus.LOCKED);
             }
 
-            // Các trường hợp sai mật khẩu thông thường khác (sai lần 1, 2, 4, 6...)
+            // Nếu chỉ có 1 IP vi phạm, thực hiện khóa mềm tài khoản theo chu kỳ gõ sai
+            // (nhập sai 3 lần, 5 lần, 7 lần...)
+            if (attempts != null && attempts >= 3 && (attempts - 3) % 2 == 0) {
+                long level = (attempts - 3) / 2 + 1;
+                long lockTimeMinutes = level * 5;
+
+                redisTemplate.opsForValue().set(lockKey, "true", lockTimeMinutes, TimeUnit.MINUTES);
+                log.warn("Account {} is locked for {} minutes due to {} failed attempts (Lock Level: {}).",
+                        usernameOrEmail, lockTimeMinutes, attempts, level);
+
+                // Gửi email cảnh báo bảo mật đơn lẻ có kèm nút bấm Whitelist được mã hóa theo
+                // IP hiện tại
+                try {
+                    String unlockToken = rateLimitService.createUnlockToken(user.getUsername(), ipAddress);
+                    String unlockLink = "http://localhost:8080/api/v1/auth/unlock?token=" + unlockToken;
+                    emailService.sendSecurityAlertEmail(user.getEmail(), user.getUsername(), attempts.intValue(),
+                            lockTimeMinutes, userAgent, location, unlockLink);
+                    log.info("Successfully triggered async security alert email to: {}", user.getEmail());
+                } catch (Exception mailEx) {
+                    log.error("Failed to trigger security alert email", mailEx);
+                }
+
+                throw new CustomException(
+                        String.format(
+                                "Tài khoản của bạn đã bị khóa tạm thời trong %d phút do nhập sai mật khẩu %d lần.",
+                                lockTimeMinutes, attempts),
+                        HttpStatus.LOCKED);
+            }
+
             throw new CustomException("Thông tin đăng nhập không chính xác.", HttpStatus.UNAUTHORIZED);
         }
+    }
+
+    @Override
+    public String unlockAccountByToken(String token) {
+        String tokenVal = rateLimitService.getUsernameAndIpByUnlockToken(token);
+        if (tokenVal == null) {
+            throw new CustomException("Liên kết xác nhận đã hết hạn hoặc không hợp lệ.", HttpStatus.BAD_REQUEST);
+        }
+
+        String[] parts = tokenVal.split(":", 2);
+        String username = parts[0];
+        String ipAddress = parts[1];
+
+        // Whitelist IP của sếp trong 24h
+        rateLimitService.whitelistIp(username, ipAddress);
+
+        // Giải phóng Khóa Toàn Cầu
+        rateLimitService.unlockGlobally(username);
+
+        // Giải phóng Khóa IP mềm của IP này
+        rateLimitService.clearFailureCount(ipAddress, "login");
+
+        // Lấy chi tiết thiết bị để hiển thị
+        String deviceInfo = "IP: " + ipAddress;
+        Map<String, String> ipInfo = rateLimitService.getFailedIpsInfo(username);
+        if (ipInfo.containsKey(ipAddress)) {
+            deviceInfo = ipAddress + " - " + ipInfo.get(ipAddress);
+        }
+        return deviceInfo;
+    }
+
+    @Override
+    public String blockIpByToken(String token) {
+        String ipAddress = rateLimitService.getIpByBlockToken(token);
+        if (ipAddress == null) {
+            throw new CustomException("Liên kết chặn IP đã hết hạn hoặc không hợp lệ.", HttpStatus.BAD_REQUEST);
+        }
+
+        // Đưa IP của hacker vào Blacklist vĩnh viễn
+        rateLimitService.blacklistIp(ipAddress);
+
+        // Giải phóng Khóa IP mềm
+        rateLimitService.clearFailureCount(ipAddress, "login");
+
+        return ipAddress;
+    }
+
+    private String parseUserAgent(String ua) {
+        if (ua.contains("Windows"))
+            return "Windows PC";
+        if (ua.contains("Macintosh") || ua.contains("Mac OS"))
+            return "MacBook / macOS";
+        if (ua.contains("iPhone"))
+            return "iPhone / iOS";
+        if (ua.contains("Android"))
+            return "Android Phone";
+        if (ua.contains("Linux"))
+            return "Linux Device";
+        return "Thiết bị không xác định";
+    }
+
+    private String getIpLocation(String ip) {
+        if ("127.0.0.1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip) || ip.startsWith("192.168.")
+                || ip.startsWith("10.")) {
+            return "Localhost Development (Hà Nội, Việt Nam)";
+        }
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+            requestFactory.setConnectTimeout(1500);
+            requestFactory.setReadTimeout(1500);
+            restTemplate.setRequestFactory(requestFactory);
+
+            String url = "http://ip-api.com/json/" + ip;
+            Map<?, ?> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && "success".equals(response.get("status"))) {
+                String city = String.valueOf(response.get("city"));
+                String country = String.valueOf(response.get("country"));
+                return city + ", " + country;
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch GeoIP location for IP: {}", ip, e);
+        }
+        return "Vị trí không xác định";
     }
 }
