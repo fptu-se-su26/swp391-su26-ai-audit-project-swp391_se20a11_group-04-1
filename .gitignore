@@ -23,19 +23,19 @@ backend/src/main/resources/secrets.properties
 backend/src/main/resources/application.properties
 
 # --- FRONTEND (Vite / React / Node) ---
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/*.local
-frontend/.env
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
+code/frontend/node_modules/
+code/frontend/dist/
+code/frontend/dist-ssr/
+code/frontend/*.local
+code/frontend/.env
+code/frontend/.env.local
+code/frontend/.env.development.local
+code/frontend/.env.test.local
+code/frontend/.env.production.local
+code/frontend/npm-debug.log*
+code/frontend/yarn-debug.log*
+code/frontend/yarn-error.log*
+code/frontend/pnpm-debug.log*
 
 # --- IDE & TOOLS ---
 .idea/
