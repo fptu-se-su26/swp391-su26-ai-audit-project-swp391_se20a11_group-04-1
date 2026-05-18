@@ -21,6 +21,7 @@ backend/.mvn/wrapper/maven-wrapper.jar
 backend/src/main/resources/application-local.properties
 backend/src/main/resources/secrets.properties
 backend/src/main/resources/application.properties
+**/application.yaml
 
 # --- FRONTEND (Vite / React / Node) ---
 code/frontend/node_modules/
