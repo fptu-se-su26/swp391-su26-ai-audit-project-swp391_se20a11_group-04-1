@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import axiosInstance from '@api/axiosConfig'
+import authService from '../services/authService'
+import useFormPersist from '@hooks/useFormPersist'
 
 function RegisterPage() {
   const navigate = useNavigate()
@@ -23,43 +24,13 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({}) // Frontend & Backend Validation Errors
 
-  // 1. Khôi phục nháp từ sessionStorage khi F5 (Smart Hydration)
-  useEffect(() => {
-    try {
-      const savedDataRaw = sessionStorage.getItem('app-register-draft')
-      if (savedDataRaw) {
-        const savedData = JSON.parse(savedDataRaw)
-        setFormData((prev) => {
-          const updated = { ...prev }
-          if (savedData.fullName && !prev.fullName) updated.fullName = savedData.fullName
-          if (savedData.username && !prev.username) updated.username = savedData.username
-          if (savedData.email && !prev.email) updated.email = savedData.email
-          if (savedData.phone && !prev.phone) updated.phone = savedData.phone
-          if (savedData.terms !== undefined && !prev.terms) updated.terms = savedData.terms
-          return updated
-        })
-      }
-    } catch (err) {
-      console.error('Lỗi khôi phục form nháp:', err)
-    }
-  }, [])
-
-  // 2. Tự động lưu nháp khi các ô nhập liệu thay đổi
-  // Bảo mật: Loại trừ tuyệt đối password và confirmPassword
-  useEffect(() => {
-    try {
-      const dataToSave = {
-        fullName: formData.fullName,
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        terms: formData.terms,
-      }
-      sessionStorage.setItem('app-register-draft', JSON.stringify(dataToSave))
-    } catch (err) {
-      console.error('Lỗi lưu form nháp:', err)
-    }
-  }, [formData.fullName, formData.username, formData.email, formData.phone, formData.terms])
+  // Sử dụng custom hook useFormPersist để tự động lưu nháp dữ liệu form (loại trừ trường mật khẩu nhạy cảm)
+  useFormPersist('app-register-draft', {
+    data: formData,
+    setData: setFormData,
+    exclude: ['password', 'confirmPassword'],
+    storageType: 'session'
+  })
 
   // Handle Form Inputs Change
   const handleChange = (e) => {
@@ -137,7 +108,7 @@ function RegisterPage() {
     }
 
     try {
-      const response = await axiosInstance.post('/v1/auth/register/request', requestPayload)
+      const response = await authService.registerRequest(requestPayload)
       
       if (response.data?.success) {
         toast.success(response.data.message || 'Mã OTP đã được gửi đến email của bạn!')
@@ -176,10 +147,7 @@ function RegisterPage() {
     setLoading(true)
     
     try {
-      const response = await axiosInstance.post('/v1/auth/register/verify', {
-        email: formData.email,
-        otp: otp,
-      })
+      const response = await authService.registerVerify(formData.email, otp)
 
       if (response.data?.success) {
         toast.success('Đăng ký tài khoản thành công!')
@@ -210,7 +178,7 @@ function RegisterPage() {
         password: formData.password,
         phone: formData.phone || null,
       }
-      const response = await axiosInstance.post('/v1/auth/register/request', requestPayload)
+      const response = await authService.registerRequest(requestPayload)
       if (response.data?.success) {
         toast.success('Mã OTP mới đã được gửi lại vào email của bạn!')
       } else {
