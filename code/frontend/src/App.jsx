@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
-// Pages
-import LoginPage from '@pages/auth/LoginPage'
-import RegisterPage from '@pages/auth/RegisterPage'
-import DashboardPage from '@pages/dashboard/DashboardPage'
-import NotFoundPage from '@pages/error/NotFoundPage'
+// Feature Pages
+import LoginPage from '@features/auth/pages/LoginPage'
+import RegisterPage from '@features/auth/pages/RegisterPage'
+import DashboardPage from '@features/workspace/pages/DashboardPage'
+
+// Shared Feedback Components
+import NotFoundPage from '@components/feedback/NotFoundPage'
 
 // Route Guards
 import PrivateRoute from '@routes/PrivateRoute'
