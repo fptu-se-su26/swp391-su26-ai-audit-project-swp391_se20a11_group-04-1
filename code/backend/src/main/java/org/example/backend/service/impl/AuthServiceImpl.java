@@ -209,6 +209,16 @@ public class AuthServiceImpl implements AuthService {
                 log.warn("Account {} is locked for {} minutes due to {} failed attempts (Lock Level: {}).",
                         usernameOrEmail, lockTimeMinutes, attempts, level);
 
+                // Tích hợp gửi email cảnh báo bảo mật bất đồng bộ (Fail-safe)
+                try {
+                    String targetEmail = user.getEmail();
+                    String username = user.getUsername();
+                    emailService.sendSecurityAlertEmail(targetEmail, username, attempts.intValue(), lockTimeMinutes);
+                    log.info("Successfully triggered async security alert email to: {}", targetEmail);
+                } catch (Exception mailEx) {
+                    log.error("Fail-safe catch: Failed to trigger security alert email for: {}", usernameOrEmail, mailEx);
+                }
+
                 throw new CustomException(
                     String.format("Tài khoản của bạn đã bị khóa tạm thời trong %d phút do nhập sai mật khẩu %d lần.", lockTimeMinutes, attempts),
                     HttpStatus.LOCKED

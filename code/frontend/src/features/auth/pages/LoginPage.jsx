@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import axiosInstance from '@api/axiosConfig'
+import authService from '../services/authService'
+import useAuthStore from '@store/useAuthStore'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -77,19 +78,17 @@ function LoginPage() {
     setLoading(true)
     try {
       // Gọi API đăng nhập khớp hoàn toàn với Backend REST API
-      const response = await axiosInstance.post('/v1/auth/login', {
-        usernameOrEmail: formData.usernameOrEmail,
-        password: formData.password,
-      })
+      const response = await authService.login(
+        formData.usernameOrEmail,
+        formData.password
+      )
 
       if (response.data?.success) {
         toast.success('Đăng nhập thành công!')
         
-        // Trình duyệt tự quản lý JSESSIONID qua Cookie.
-        // Frontend React chỉ cần cất ID và Quyền (Role) để điều hướng và hiển thị UI
+        // Sử dụng Zustand store để quản lý thông tin phiên đăng nhập
         const { id, systemRole } = response.data?.data || {}
-        localStorage.setItem('userId', id)
-        localStorage.setItem('userRole', systemRole)
+        useAuthStore.getState().login(id, systemRole)
         
         setTimeout(() => {
           navigate('/dashboard')
@@ -125,8 +124,7 @@ function LoginPage() {
       // Trường hợp khi đang dev, server chưa bật: hỗ trợ đăng nhập giả lập để test giao diện
       console.warn('API login chưa sẵn sàng hoặc không kết nối được, kích hoạt chế độ giả lập.', err)
       toast.success('Đăng nhập thành công! (Chế độ giả lập)')
-      localStorage.setItem('userId', '1')
-      localStorage.setItem('userRole', 'USER')
+      useAuthStore.getState().login('1', 'USER')
       setTimeout(() => {
         navigate('/dashboard')
       }, 1000)
