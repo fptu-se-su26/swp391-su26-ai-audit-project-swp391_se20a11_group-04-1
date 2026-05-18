@@ -22,5 +22,17 @@ public interface AuthService {
      * Binds security context and user info to the HttpSession.
      * Receives raw Strings to eliminate LoginRequest DTO entirely.
      */
-    UserResponse login(String usernameOrEmail, String password, HttpSession session);
+    UserResponse login(String usernameOrEmail, String password, HttpSession session, String ipAddress);
+
+    /**
+     * Giải phóng Khóa Toàn Cầu của tài khoản và Whitelist IP tương ứng được lấy từ token.
+     * Trả về thông báo chi tiết thiết bị/địa điểm để hiển thị trên UI.
+     */
+    String unlockAccountByToken(String token);
+
+    /**
+     * Đưa địa chỉ IP được lấy từ token vào danh sách cấm vĩnh viễn (Blacklist).
+     * Trả về IP đã bị chặn để hiển thị trên UI.
+     */
+    String blockIpByToken(String token);
 }

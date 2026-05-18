@@ -7,8 +7,14 @@ public interface EmailService {
      */
     void sendOtpEmail(String toEmail, String otp);
 
+    void sendSecurityAlertEmail(String toEmail, String username, int failedAttempts, long lockTimeMinutes, String deviceInfo, String location, String unlockLink);
+
     /**
-     * Gửi email cảnh báo bảo mật khi tài khoản bị khóa tạm thời do nhập sai mật khẩu nhiều lần (Brute-Force).
+     * Gửi email cảnh báo khẩn cấp khi tài khoản bị tấn công từ nhiều IP khác nhau (Distributed Attack / Botnet),
+     * cung cấp danh sách thiết bị vi phạm kèm nút bấm Whitelist/Block riêng biệt cho từng IP.
      */
-    void sendSecurityAlertEmail(String toEmail, String username, int failedAttempts, long lockTimeMinutes);
+    void sendEmergencyAttackAlertEmail(String toEmail, String username, 
+                                       java.util.Map<String, String> ipDetailsMap, 
+                                       java.util.Map<String, String> unlockTokensMap, 
+                                       java.util.Map<String, String> blockTokensMap);
 }
