@@ -24,7 +24,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setTo(toEmail);
-            helper.setSubject("🔒 Xác Thực Đăng Ký Tài Khoản - DevTrack AI");
+            helper.setSubject(" Xác Thực Đăng Ký Tài Khoản - DevTrack AI");
             helper.setText(getHtmlContent(otp), true);
 
             mailSender.send(message);
@@ -41,35 +41,45 @@ public class EmailServiceImpl implements EmailService {
                 "<head>" +
                 "    <meta charset='utf-8'>" +
                 "    <style>" +
-                "        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333333; margin: 0; padding: 0; }" +
-                "        .email-container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e1e8ed; }" +
-                "        .email-header { background: linear-gradient(135deg, #4f46e5, #06b6d4); padding: 30px; text-align: center; color: #ffffff; }" +
+                "        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333333; margin: 0; padding: 0; }"
+                +
+                "        .email-container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e1e8ed; }"
+                +
+                "        .email-header { background: linear-gradient(135deg, #4f46e5, #06b6d4); padding: 30px; text-align: center; color: #ffffff; }"
+                +
                 "        .email-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 0.5px; }" +
                 "        .email-body { padding: 40px 35px; line-height: 1.6; }" +
                 "        .email-body h2 { color: #1e293b; font-size: 20px; margin-top: 0; font-weight: 600; }" +
-                "        .otp-container { background-color: #f1f5f9; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; border: 1px dashed #cbd5e1; }" +
-                "        .otp-code { font-size: 36px; font-weight: 800; color: #4f46e5; letter-spacing: 6px; font-family: 'Courier New', Courier, monospace; margin: 0; }" +
-                "        .email-footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }" +
+                "        .otp-container { background-color: #f1f5f9; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; border: 1px dashed #cbd5e1; }"
+                +
+                "        .otp-code { font-size: 36px; font-weight: 800; color: #4f46e5; letter-spacing: 6px; font-family: 'Courier New', Courier, monospace; margin: 0; }"
+                +
+                "        .email-footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }"
+                +
                 "        .warning-text { font-size: 13px; color: #ef4444; font-weight: 500; margin-top: 25px; }" +
                 "    </style>" +
                 "</head>" +
                 "<body>" +
                 "    <div class='email-container'>" +
                 "        <div class='email-header'>" +
-                "            <h1>🔒 DevTrack AI Authentication</h1>" +
+                "            <h1> DevTrack AI Authentication</h1>" +
                 "        </div>" +
                 "        <div class='email-body'>" +
                 "            <h2>Xác Thực Đăng Ký Tài Khoản</h2>" +
                 "            <p>Chào bạn,</p>" +
-                "            <p>Cảm ơn bạn đã lựa chọn tham gia hệ thống quản lý dự án thông minh <strong>DevTrack AI</strong>. Để hoàn tất quy trình đăng ký tài khoản 2 bước, vui lòng nhập mã OTP xác thực dưới đây:</p>" +
+                "            <p>Cảm ơn bạn đã lựa chọn tham gia hệ thống quản lý dự án thông minh <strong>DevTrack AI</strong>. Để hoàn tất quy trình đăng ký tài khoản 2 bước, vui lòng nhập mã OTP xác thực dưới đây:</p>"
+                +
                 "            <div class='otp-container'>" +
                 "                <p class='otp-code'>" + otp + "</p>" +
                 "            </div>" +
-                "            <p><strong>Lưu ý:</strong> Mã xác thực OTP này chỉ có hiệu lực sử dụng trong vòng <strong>5 phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai để bảo vệ tài khoản của bạn.</p>" +
-                "            <p class='warning-text'>⚠️ Nếu bạn không thực hiện yêu cầu đăng ký này, hãy bỏ qua email này.</p>" +
+                "            <p><strong>Lưu ý:</strong> Mã xác thực OTP này chỉ có hiệu lực sử dụng trong vòng <strong>5 phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai để bảo vệ tài khoản của bạn.</p>"
+                +
+                "            <p class='warning-text'>⚠️ Nếu bạn không thực hiện yêu cầu đăng ký này, hãy bỏ qua email này.</p>"
+                +
                 "        </div>" +
                 "        <div class='email-footer'>" +
-                "            <p>Đây là email tự động từ hệ thống DevTrack AI. Vui lòng không phản hồi lại email này.</p>" +
+                "            <p>Đây là email tự động từ hệ thống DevTrack AI. Vui lòng không phản hồi lại email này.</p>"
+                +
                 "            <p>&copy; 2026 DevTrack AI Team. All rights reserved.</p>" +
                 "        </div>" +
                 "    </div>" +

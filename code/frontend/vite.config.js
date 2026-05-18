@@ -20,6 +20,7 @@ export default defineConfig({
       '@api': '/src/api',
       '@components': '/src/components',
       '@pages': '/src/pages',
+      '@routes': '/src/routes',
       '@hooks': '/src/hooks',
       '@store': '/src/store',
       '@utils': '/src/utils',

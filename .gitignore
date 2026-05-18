@@ -63,3 +63,7 @@ backend/logs/
 .vite/
 .parcel-cache
 node_modules/
+
+# --- CUSTOM RULES ---
+Nguyen_Thanh_Dat/coChe.md
+
