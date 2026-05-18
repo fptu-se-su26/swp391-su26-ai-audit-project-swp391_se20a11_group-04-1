@@ -5,7 +5,8 @@ function DashboardPage() {
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userRole')
     toast.success('Đăng xuất thành công!')
     navigate('/login')
   }

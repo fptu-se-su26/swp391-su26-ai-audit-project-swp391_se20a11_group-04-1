@@ -1,8 +1,12 @@
 package org.example.backend.controller;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
+import java.util.Map;
+import org.example.backend.exception.CustomException;
+import org.springframework.http.HttpStatus;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
@@ -39,6 +43,29 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> verifyOtpAndRegister(@Valid @RequestBody VerifyOtpRequest request) {
         UserResponse registeredUser = authService.verifyOtpAndRegister(request);
         ApiResponse<UserResponse> response = ApiResponse.success(registeredUser, "Đăng ký tài khoản thành công!");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 3: Login, Authenticate, Session-based Session creation, IP Rate Limit, Progressive Lockout.
+     * POST /api/v1/auth/login
+     */
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<UserResponse>> login(@RequestBody Map<String, String> payload, HttpSession session) {
+        String usernameOrEmail = payload.get("usernameOrEmail");
+        String password = payload.get("password");
+
+        // Validate đầu vào nhanh chóng (Fail-Fast) bằng hiệu năng tối đa không cần Reflection DTO
+        if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty() 
+                || !usernameOrEmail.matches("^[a-zA-Z0-9@._-]+$")) {
+            throw new CustomException("Tên đăng nhập hoặc Email không hợp lệ.", HttpStatus.BAD_REQUEST);
+        }
+        if (password == null || password.trim().isEmpty()) {
+            throw new CustomException("Mật khẩu không được để trống.", HttpStatus.BAD_REQUEST);
+        }
+
+        UserResponse loginResponse = authService.login(usernameOrEmail, password, session);
+        ApiResponse<UserResponse> response = ApiResponse.success(loginResponse, "Đăng nhập thành công!");
         return ResponseEntity.ok(response);
     }
 }
