@@ -7,6 +7,8 @@ import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 import EvidenceListPage from '@features/evidence/pages/EvidenceListPage'
 import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
+import TestCasePage from '@features/testing/pages/TestCasePage'
+import TestCaseDetailPage from '@features/testing/pages/TestCaseDetailPage'
 
 // Shared Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
@@ -37,6 +39,10 @@ export function AppRoutes() {
           {/* Module 5: Evidence Vault */}
           <Route path="/evidence" element={<EvidenceListPage />} />
           <Route path="/evidence/:id" element={<EvidenceDetailPage />} />
+
+          {/* Module 4: Test Case Management */}
+          <Route path="/test-cases" element={<TestCasePage />} />
+          <Route path="/test-cases/:id" element={<TestCaseDetailPage />} />
 
           {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
         </Route>
