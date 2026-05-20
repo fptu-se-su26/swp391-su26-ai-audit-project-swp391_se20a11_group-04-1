@@ -1,79 +1,6 @@
-import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
-
 function DashboardPage() {
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-    localStorage.removeItem('userId')
-    localStorage.removeItem('userRole')
-    toast.success('Đăng xuất thành công!')
-    navigate('/login')
-  }
-
   return (
-    <div className="bg-surface text-on-surface font-body-md min-h-screen flex flex-col md:flex-row relative">
-      
-      {/* Sidebar */}
-      <aside className="w-full md:w-[280px] bg-surface-container border-b md:border-b-0 md:border-r border-outline-variant flex flex-col p-6 z-10 shrink-0">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-container text-on-primary-container">
-            <span className="material-symbols-outlined text-headline-md font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>
-              dataset
-            </span>
-          </div>
-          <div>
-            <h2 className="font-headline-sm text-sm font-bold text-on-surface leading-tight">DevTrack AI</h2>
-            <span className="text-[11px] font-semibold text-primary px-1.5 py-0.5 rounded bg-primary-fixed text-on-primary-fixed">
-              PRO ACCESS
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation Items */}
-        <nav className="flex-1 space-y-1">
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded bg-primary-fixed text-on-primary-fixed font-semibold transition-all">
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Dashboard</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded text-on-surface-variant hover:bg-surface-container-high transition-all">
-            <span className="material-symbols-outlined">analytics</span>
-            <span>AI Auditing</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded text-on-surface-variant hover:bg-surface-container-high transition-all">
-            <span className="material-symbols-outlined">source</span>
-            <span>Repositories</span>
-          </a>
-          <a href="#" className="flex items-center gap-3 px-3 py-2.5 rounded text-on-surface-variant hover:bg-surface-container-high transition-all">
-            <span className="material-symbols-outlined">settings</span>
-            <span>Settings</span>
-          </a>
-        </nav>
-
-        {/* User Info & Logout */}
-        <div className="pt-6 border-t border-outline-variant mt-6 flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center font-bold text-sm">
-              AD
-            </div>
-            <div>
-              <p className="font-semibold text-sm leading-tight">Audit Admin</p>
-              <p className="text-xs text-on-surface-variant">admin@devtrack.ai</p>
-            </div>
-          </div>
-          
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded border border-error text-error hover:bg-error-container hover:text-on-error-container transition-all font-semibold mt-2 h-[40px]"
-          >
-            <span className="material-symbols-outlined text-sm">logout</span>
-            <span>Đăng xuất</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 z-10 overflow-y-auto">
+    <div className="p-6 md:p-10 z-10 h-full">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <h1 className="font-headline-md text-2xl text-on-surface">Chào mừng trở lại!</h1>
@@ -169,7 +96,6 @@ function DashboardPage() {
             </table>
           </div>
         </section>
-      </main>
     </div>
   )
 }
