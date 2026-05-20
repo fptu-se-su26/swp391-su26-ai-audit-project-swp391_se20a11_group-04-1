@@ -216,12 +216,19 @@ public class AuthServiceImpl implements AuthService {
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
             session.setAttribute("userId", user.getId());
             session.setAttribute("userRole", roleName);
+            session.setAttribute("email", user.getEmail());
+            session.setAttribute("fullName", user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername());
 
             log.info("User {} successfully authenticated and session bound.", user.getUsername());
 
             return UserResponse.builder()
                     .id(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
                     .systemRole(roleName)
+                    .isActive(user.isActive())
+                    .createdAt(user.getCreatedAt())
                     .build();
         } else {
             // Đăng nhập thất bại -> Phân tích thiết bị và vị trí
@@ -397,5 +404,24 @@ public class AuthServiceImpl implements AuthService {
             log.error("Failed to fetch GeoIP location for IP: {}", ip, e);
         }
         return "Vị trí không xác định";
+    }
+
+    @Override
+    public UserResponse getCurrentUser(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Chưa đăng nhập hệ thống.", HttpStatus.UNAUTHORIZED);
+        }
+        UserAccount user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException("Tài khoản không tồn tại hoặc phiên đăng nhập đã hết hạn.", HttpStatus.UNAUTHORIZED));
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                .systemRole(user.getSystemRole() != null ? user.getSystemRole().getName() : "USER")
+                .isActive(user.isActive())
+                .createdAt(user.getCreatedAt())
+                .build();
     }
 }
