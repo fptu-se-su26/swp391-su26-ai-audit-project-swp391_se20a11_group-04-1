@@ -4,7 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.backend.exception.CustomException;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.service.EmailService;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -32,7 +32,7 @@ public class EmailServiceImpl implements EmailService {
             log.info("Successfully sent OTP HTML email to: {}", toEmail);
         } catch (MessagingException e) {
             log.error("Failed to send registration OTP email to: {}", toEmail, e);
-            throw new CustomException.BadRequestException("Failed to send OTP verification email");
+            throw new BadRequestException("Failed to send OTP verification email");
         }
     }
 

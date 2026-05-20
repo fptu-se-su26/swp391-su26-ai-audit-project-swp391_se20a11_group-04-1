@@ -6,7 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
 import java.util.Map;
-import org.example.backend.exception.CustomException;
+import org.example.backend.exception.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
@@ -64,10 +64,10 @@ public class AuthController {
         // Validate đầu vào nhanh chóng (Fail-Fast) bằng hiệu năng tối đa không cần Reflection DTO
         if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty() 
                 || !usernameOrEmail.matches("^[a-zA-Z0-9@._-]+$")) {
-            throw new CustomException("Tên đăng nhập hoặc Email không hợp lệ.", HttpStatus.BAD_REQUEST);
+            throw new BadRequestException("Tên đăng nhập hoặc Email không hợp lệ.");
         }
         if (password == null || password.trim().isEmpty()) {
-            throw new CustomException("Mật khẩu không được để trống.", HttpStatus.BAD_REQUEST);
+            throw new BadRequestException("Mật khẩu không được để trống.");
         }
 
         // Lấy IP thật của Client (Hỗ trợ qua Proxy/Nginx)

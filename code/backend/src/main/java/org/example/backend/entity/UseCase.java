@@ -6,7 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import com.fasterxml.jackson.databind.JsonNode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +35,11 @@ public class UseCase {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "main_flow", columnDefinition = "jsonb", nullable = false)
-    private JsonNode mainFlow;
+    private String mainFlow;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "alternative_flow", columnDefinition = "jsonb")
-    private JsonNode alternativeFlow;
+    private String alternativeFlow;
 
     @Column(length = 50)
     private String status = "DRAFT";

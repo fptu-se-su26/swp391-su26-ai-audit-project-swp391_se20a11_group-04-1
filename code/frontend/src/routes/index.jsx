@@ -5,6 +5,8 @@ import { LoginPage, RegisterPage } from '@features/auth'
 import { DashboardPage } from '@features/workspace'
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
+import EvidenceListPage from '@features/evidence/pages/EvidenceListPage'
+import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 
 // Shared Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
@@ -31,6 +33,10 @@ export function AppRoutes() {
           {/* Module 2: Requirement & Use Case Management */}
           <Route path="/use-cases" element={<UseCasePage />} />
           <Route path="/use-cases/:id" element={<UseCaseDetailPage />} />
+
+          {/* Module 5: Evidence Vault */}
+          <Route path="/evidence" element={<EvidenceListPage />} />
+          <Route path="/evidence/:id" element={<EvidenceDetailPage />} />
 
           {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
         </Route>
