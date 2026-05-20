@@ -2,6 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '@store/useAuthStore'
 import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
+import { getInitials } from '@utils/avatarHelper'
 
 /**
  * NavItem Component - Mục điều hướng đơn lẻ dùng NavLink cho active state tự động
@@ -39,6 +40,8 @@ const Sidebar = () => {
   const location = useLocation()
   const logout = useAuthStore((state) => state.logout)
   const userRole = useAuthStore((state) => state.userRole)
+  const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
+  const email = useAuthStore((state) => state.email) || 'guest@example.com'
 
   // Đọc trạng thái dự án hiện tại từ useProjectStore
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -188,12 +191,12 @@ const Sidebar = () => {
       {/* PERSISTENT USER STATUS & LOGOUT */}
       <div className="pt-5 border-t border-outline-variant mt-auto flex flex-col gap-3">
         <div className="flex items-center gap-3 p-1 rounded-lg">
-          <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner">
-            AD
+          <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
+            {getInitials(fullName)}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm leading-tight text-on-surface truncate">Anh Dung</p>
-            <p className="text-[11px] text-on-surface-variant truncate">dungsa@fpt.edu.vn</p>
+            <p className="font-semibold text-sm leading-tight text-on-surface truncate" title={fullName}>{fullName}</p>
+            <p className="text-[11px] text-on-surface-variant truncate" title={email}>{email}</p>
           </div>
         </div>
 

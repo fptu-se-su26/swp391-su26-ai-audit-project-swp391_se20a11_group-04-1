@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import useProjectStore from '@store/useProjectStore'
+import useAuthStore from '@store/useAuthStore'
+import { getInitials } from '@utils/avatarHelper'
 
 /**
  * AppLayout Component - Bố cục chính chứa thanh Top Header và Sidebar điều hướng động
@@ -8,6 +11,13 @@ import useProjectStore from '@store/useProjectStore'
 export function AppLayout() {
   const searchQuery = useProjectStore((state) => state.searchQuery)
   const setSearchQuery = useProjectStore((state) => state.setSearchQuery)
+  const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
+  const fetchMe = useAuthStore((state) => state.fetchMe)
+
+  // Tự động đồng bộ thông tin user từ DB/Redis Session khi load ứng dụng
+  useEffect(() => {
+    fetchMe()
+  }, [fetchMe])
 
   return (
     <div className="bg-surface text-on-surface font-body-md min-h-screen flex flex-col relative select-none">
@@ -50,8 +60,8 @@ export function AppLayout() {
 
           {/* Avatar Người Dùng */}
           <div className="flex items-center gap-2.5 pl-2 border-l border-outline-variant">
-            <div className="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold text-xs shadow-sm">
-              AD
+            <div className="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold text-xs shadow-sm shrink-0" title={fullName}>
+              {getInitials(fullName)}
             </div>
           </div>
 
