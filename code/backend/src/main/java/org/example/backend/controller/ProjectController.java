@@ -89,7 +89,7 @@ public class ProjectController {
      * Mời một thành viên mới vào dự án bằng email.
      */
     @PostMapping("/{projectId}/members/invite")
-    public ResponseEntity<ApiResponse<ProjectResponse.MemberDto>> inviteMember(
+    public ResponseEntity<ApiResponse<Void>> inviteMember(
             @PathVariable Long projectId,
             @RequestBody Map<String, String> payload,
             HttpSession session) {
@@ -106,9 +106,81 @@ public class ProjectController {
 
         log.info("📩 Request to invite member {} to project ID: {} by user ID: {}", email, projectId, userId);
 
-        ProjectResponse.MemberDto invitedMember = projectService.inviteMember(projectId, email, userId);
+        projectService.inviteMember(projectId, email, userId);
 
-        return ResponseEntity.ok(ApiResponse.success(invitedMember, "Mời thành viên tham gia dự án thành công!"));
+        return ResponseEntity.ok(ApiResponse.success(null, "Mời thành viên tham gia dự án thành công! Vui lòng chờ xác nhận."));
+    }
+
+    /**
+     * POST /api/v1/projects/invitations/accept
+     * Đồng ý tham gia dự án
+     */
+    @PostMapping("/invitations/accept")
+    public ResponseEntity<ApiResponse<Void>> acceptInvitation(
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        String token = (String) payload.get("token");
+        Number invitationIdNum = (Number) payload.get("invitationId");
+        Long invitationId = invitationIdNum != null ? invitationIdNum.longValue() : null;
+
+        if ((token == null || token.trim().isEmpty()) && invitationId == null) {
+            throw new CustomException.BadRequestException("Thiếu token hoặc ID lời mời.");
+        }
+
+        projectService.acceptInvitation(invitationId, token, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã đồng ý tham gia dự án."));
+    }
+
+    /**
+     * POST /api/v1/projects/invitations/reject
+     * Từ chối tham gia dự án
+     */
+    @PostMapping("/invitations/reject")
+    public ResponseEntity<ApiResponse<Void>> rejectInvitation(
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        String token = (String) payload.get("token");
+        Number invitationIdNum = (Number) payload.get("invitationId");
+        Long invitationId = invitationIdNum != null ? invitationIdNum.longValue() : null;
+
+        if ((token == null || token.trim().isEmpty()) && invitationId == null) {
+            throw new CustomException.BadRequestException("Thiếu token hoặc ID lời mời.");
+        }
+
+        projectService.rejectInvitation(invitationId, token, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã từ chối lời mời."));
+    }
+
+    /**
+     * DELETE /api/v1/projects/{projectId}/members/{memberUserId}
+     * Xóa thành viên khỏi dự án
+     */
+    @DeleteMapping("/{projectId}/members/{memberUserId}")
+    public ResponseEntity<ApiResponse<Void>> removeMember(
+            @PathVariable Long projectId,
+            @PathVariable Long memberUserId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        projectService.removeMember(projectId, memberUserId, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xóa thành viên khỏi dự án."));
     }
 
     /**
@@ -137,5 +209,34 @@ public class ProjectController {
         projectService.changeProjectLeader(projectId, newLeaderUserId, userId);
 
         return ResponseEntity.ok(ApiResponse.success(null, "Thay đổi Leader của dự án thành công!"));
+    }
+
+    /**
+     * PUT /api/v1/projects/{projectId}/members/{memberUserId}/role
+     * Thay đổi vai trò của thành viên trong dự án (ví dụ lên MENTOR).
+     */
+    @PutMapping("/{projectId}/members/{memberUserId}/role")
+    public ResponseEntity<ApiResponse<Void>> changeMemberRole(
+            @PathVariable Long projectId,
+            @PathVariable Long memberUserId,
+            @RequestBody Map<String, String> payload,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        String newRole = payload.get("role");
+        if (newRole == null || newRole.trim().isEmpty()) {
+            throw new CustomException.BadRequestException("Vai trò mới không được để trống.");
+        }
+
+        log.info("🔄 Request to change member role of user ID: {} in project ID: {} to role: {} by user ID: {}",
+                memberUserId, projectId, newRole, userId);
+
+        projectService.changeMemberRole(projectId, memberUserId, newRole.trim().toUpperCase(), userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Thay đổi vai trò thành viên thành công!"));
     }
 }

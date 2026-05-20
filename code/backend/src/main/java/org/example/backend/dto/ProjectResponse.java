@@ -31,6 +31,7 @@ public class ProjectResponse {
     public static class MemberDto {
         private Long id;
         private String name;
+        private String role;
     }
 
     @Getter

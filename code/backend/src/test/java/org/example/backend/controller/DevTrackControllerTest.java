@@ -6,6 +6,8 @@ import org.example.backend.dto.UserResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.ProjectService;
+import org.example.backend.service.NotificationService;
+import org.example.backend.dto.NotificationResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,11 +48,17 @@ class DevTrackControllerTest {
     @Mock
     ProjectService projectService;
 
+    @Mock
+    NotificationService notificationService;
+
     @InjectMocks
     AuthController authController;
 
     @InjectMocks
     ProjectController projectController;
+
+    @InjectMocks
+    NotificationController notificationController;
 
     // ─── Shared fixtures ──────────────────────────────────────────────────────
     MockHttpSession authenticatedSession;
@@ -343,6 +351,402 @@ class DevTrackControllerTest {
 
             assertThat(sorted.get(0).getId()).isEqualTo("LIVE");
             assertThat(sorted.get(1).getId()).isEqualTo("DONE");
+        }
+    }
+
+    // =========================================================================
+    // TC04 — Thay đổi vai trò thành viên
+    // =========================================================================
+    @Nested
+    @DisplayName("TC04 — Change Member Role")
+    class TC04_ChangeMemberRole {
+
+        @Test
+        @DisplayName("TC04a — Leader thay đổi vai trò thành viên thành công → 200 OK")
+        void changeRoleSuccess() {
+            // GIVEN
+            doNothing().when(projectService).changeMemberRole(100L, 2L, "MENTOR", 1L);
+
+            // WHEN
+            ResponseEntity<?> response = projectController.changeMemberRole(
+                    100L,
+                    2L,
+                    java.util.Map.of("role", "MENTOR"),
+                    authenticatedSession
+            );
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Thay đổi vai trò thành viên thành công!");
+
+            verify(projectService, times(1)).changeMemberRole(100L, 2L, "MENTOR", 1L);
+        }
+
+        @Test
+        @DisplayName("TC04b — Không có session → Ném CustomException 401, Service không được gọi")
+        void changeRoleNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    projectController.changeMemberRole(100L, 2L, java.util.Map.of("role", "MENTOR"), emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(projectService);
+        }
+
+        @Test
+        @DisplayName("TC04c — Thiếu role → Controller ném CustomException 400 ngay")
+        void changeRoleEmptyRole_throws400() {
+            assertThatThrownBy(() ->
+                    projectController.changeMemberRole(100L, 2L, java.util.Map.of("role", ""), authenticatedSession)
+            ).isInstanceOf(CustomException.class);
+
+            verifyNoInteractions(projectService);
+        }
+    }
+
+    // =========================================================================
+    // TC05 — Mời thành viên: ngăn chặn tự mời chính mình (Self-Invitation Guard)
+    //
+    // Kịch bản: Người dùng A (email: dattest@fpt.edu.vn) nhập chính email
+    //           của mình vào ô mời → Backend phải ném BadRequestException 400.
+    // =========================================================================
+    @Nested
+    @DisplayName("TC05 — Invite Member: Self-Invitation Guard")
+    class TC05_SelfInvitationGuard {
+
+        @Test
+        @DisplayName("TC05a — Mời bằng chính email mình → Service ném BadRequestException 400")
+        void inviteOwnEmail_throwsBadRequest() {
+            // GIVEN: Service ném lỗi khi cùng userId
+            doThrow(new CustomException.BadRequestException("Bạn không thể tự mời chính mình tham gia dự án."))
+                    .when(projectService).inviteMember(100L, "dattest@fpt.edu.vn", 1L);
+
+            // WHEN + THEN
+            assertThatThrownBy(() ->
+                    projectController.inviteMember(
+                            100L,
+                            java.util.Map.of("email", "dattest@fpt.edu.vn"),
+                            authenticatedSession
+                    )
+            ).isInstanceOf(CustomException.BadRequestException.class)
+             .hasMessageContaining("Bạn không thể tự mời chính mình");
+
+            verify(projectService, times(1)).inviteMember(100L, "dattest@fpt.edu.vn", 1L);
+        }
+
+        @Test
+        @DisplayName("TC05b — Mời email người khác → Service được gọi, 200 OK")
+        void inviteOtherEmail_returnsOk() {
+            // GIVEN: Service xử lý bình thường
+            doNothing().when(projectService).inviteMember(100L, "other@fpt.edu.vn", 1L);
+
+            // WHEN
+            ResponseEntity<?> response = projectController.inviteMember(
+                    100L,
+                    java.util.Map.of("email", "other@fpt.edu.vn"),
+                    authenticatedSession
+            );
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).contains("Mời thành viên tham gia dự án thành công");
+
+            verify(projectService, times(1)).inviteMember(100L, "other@fpt.edu.vn", 1L);
+        }
+
+        @Test
+        @DisplayName("TC05c — Email trống → Controller ném BadRequestException 400, Service không được gọi")
+        void inviteEmptyEmail_throws400() {
+            assertThatThrownBy(() ->
+                    projectController.inviteMember(
+                            100L,
+                            java.util.Map.of("email", ""),
+                            authenticatedSession
+                    )
+            ).isInstanceOf(CustomException.BadRequestException.class);
+
+            verifyNoInteractions(projectService);
+        }
+
+        @Test
+        @DisplayName("TC05d — Không có session → Ném CustomException 401, Service không được gọi")
+        void inviteNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    projectController.inviteMember(100L, java.util.Map.of("email", "other@fpt.edu.vn"), emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(projectService);
+        }
+    }
+
+    // =========================================================================
+    // TC06 — Notification: Ẩn nút Accept/Reject sau khi đã phản hồi
+    //
+    // Kịch bản: Sau khi người dùng nhấn "Đồng ý" hoặc "Từ chối" trên thanh
+    //           thông báo, API phải trả 200 OK → Frontend dựa vào response
+    //           thành công này để ẩn 2 nút và hiển thị trạng thái đã xử lý.
+    // =========================================================================
+    @Nested
+    @DisplayName("TC06 — Notification: Ẩn nút Accept/Reject sau khi phản hồi")
+    class TC06_NotificationHideButtons {
+
+        @Test
+        @DisplayName("TC06a — Đồng ý lời mời bằng invitationId → 200 OK, message xác nhận đã đồng ý")
+        void acceptInvitationById_returnsOk_uiShouldHideButtons() {
+            // GIVEN
+            doNothing().when(projectService).acceptInvitation(42L, null, 1L);
+
+            // WHEN
+            ResponseEntity<?> response = projectController.acceptInvitation(
+                    java.util.Map.of("invitationId", 42),
+                    authenticatedSession
+            );
+
+            // THEN: 200 OK → Frontend nhận signal để ẩn nút
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Đã đồng ý tham gia dự án.");
+
+            verify(projectService, times(1)).acceptInvitation(42L, null, 1L);
+        }
+
+        @Test
+        @DisplayName("TC06b — Từ chối lời mời bằng invitationId → 200 OK, message xác nhận đã từ chối")
+        void rejectInvitationById_returnsOk_uiShouldHideButtons() {
+            // GIVEN
+            doNothing().when(projectService).rejectInvitation(42L, null, 1L);
+
+            // WHEN
+            ResponseEntity<?> response = projectController.rejectInvitation(
+                    java.util.Map.of("invitationId", 42),
+                    authenticatedSession
+            );
+
+            // THEN: 200 OK → Frontend nhận signal để ẩn nút và hiển thị "Đã từ chối"
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Đã từ chối lời mời.");
+
+            verify(projectService, times(1)).rejectInvitation(42L, null, 1L);
+        }
+
+        @Test
+        @DisplayName("TC06c — Đồng ý bằng token (qua email link) → 200 OK")
+        void acceptInvitationByToken_returnsOk() {
+            // GIVEN
+            String token = "abc-def-ghi-token";
+            doNothing().when(projectService).acceptInvitation(null, token, 1L);
+
+            // WHEN
+            ResponseEntity<?> response = projectController.acceptInvitation(
+                    java.util.Map.of("token", token),
+                    authenticatedSession
+            );
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            verify(projectService, times(1)).acceptInvitation(null, token, 1L);
+        }
+
+        @Test
+        @DisplayName("TC06d — Đã xử lý trước đó → Service ném BadRequestException (lời mời đã được xử lý)")
+        void acceptAlreadyHandledInvitation_throwsBadRequest() {
+            // GIVEN: Lời mời đã ACCEPTED rồi, không thể accept lần 2
+            doThrow(new CustomException.BadRequestException("Lời mời này đã được xử lý."))
+                    .when(projectService).acceptInvitation(42L, null, 1L);
+
+            // WHEN + THEN
+            assertThatThrownBy(() ->
+                    projectController.acceptInvitation(
+                            java.util.Map.of("invitationId", 42),
+                            authenticatedSession
+                    )
+            ).isInstanceOf(CustomException.BadRequestException.class)
+             .hasMessageContaining("Lời mời này đã được xử lý.");
+        }
+
+        @Test
+        @DisplayName("TC06e — Thiếu cả token lẫn invitationId → Controller ném BadRequestException 400")
+        void acceptMissingBothFields_throws400() {
+            assertThatThrownBy(() ->
+                    projectController.acceptInvitation(
+                            java.util.Map.of(), // payload rỗng
+                            authenticatedSession
+                    )
+            ).isInstanceOf(CustomException.BadRequestException.class)
+             .hasMessageContaining("Thiếu token hoặc ID lời mời.");
+
+            verifyNoInteractions(projectService);
+        }
+    }
+
+    // =========================================================================
+    // TC07 — Notification Controller Tests
+    // =========================================================================
+    @Nested
+    @DisplayName("TC07 — Notification Controller")
+    class TC07_NotificationController {
+
+        @Test
+        @DisplayName("TC07a — Lấy danh sách thông báo thành công (có session) → 200 OK")
+        void getMyNotificationsSuccess_returnsList() {
+            // GIVEN
+            NotificationResponse notif = NotificationResponse.builder()
+                    .id(1L)
+                    .title("Mời tham gia dự án")
+                    .message("Bạn đã được mời tham gia")
+                    .type("INVITATION")
+                    .relatedId(10L)
+                    .isRead(false)
+                    .invitationStatus("PENDING")
+                    .build();
+
+            when(notificationService.getMyNotifications(1L)).thenReturn(List.of(notif));
+
+            // WHEN
+            ResponseEntity<?> response = notificationController.getMyNotifications(authenticatedSession);
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Lấy thông báo thành công.");
+
+            @SuppressWarnings("unchecked")
+            List<NotificationResponse> data = (List<NotificationResponse>) body.getData();
+            assertThat(data).hasSize(1);
+            assertThat(data.get(0).getId()).isEqualTo(1L);
+            assertThat(data.get(0).getInvitationStatus()).isEqualTo("PENDING");
+
+            verify(notificationService, times(1)).getMyNotifications(1L);
+        }
+
+        @Test
+        @DisplayName("TC07b — Lấy thông báo khi không đăng nhập → Ném CustomException 401")
+        void getMyNotificationsNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    notificationController.getMyNotifications(emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(notificationService);
+        }
+
+        @Test
+        @DisplayName("TC07c — Lấy số lượng thông báo chưa đọc → 200 OK")
+        void getUnreadCountSuccess_returnsCount() {
+            // GIVEN
+            when(notificationService.getUnreadCount(1L)).thenReturn(5L);
+
+            // WHEN
+            ResponseEntity<?> response = notificationController.getUnreadCount(authenticatedSession);
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Long> data = (java.util.Map<String, Long>) body.getData();
+            assertThat(data.get("count")).isEqualTo(5L);
+
+            verify(notificationService, times(1)).getUnreadCount(1L);
+        }
+
+        @Test
+        @DisplayName("TC07d — Lấy số lượng thông báo chưa đọc khi không đăng nhập → Ném 401")
+        void getUnreadCountNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    notificationController.getUnreadCount(emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(notificationService);
+        }
+
+        @Test
+        @DisplayName("TC07e — Đánh dấu đã đọc thành công → 200 OK")
+        void markAsReadSuccess_returnsOk() {
+            // GIVEN
+            doNothing().when(notificationService).markAsRead(100L, 1L);
+
+            // WHEN
+            ResponseEntity<?> response = notificationController.markAsRead(100L, authenticatedSession);
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Đã đánh dấu đọc.");
+
+            verify(notificationService, times(1)).markAsRead(100L, 1L);
+        }
+
+        @Test
+        @DisplayName("TC07f — Đánh dấu đã đọc khi chưa đăng nhập → Ném 401")
+        void markAsReadNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    notificationController.markAsRead(100L, emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(notificationService);
+        }
+
+        @Test
+        @DisplayName("TC07g — Đánh dấu đọc tất cả thành công → 200 OK")
+        void markAllAsReadSuccess_returnsOk() {
+            // GIVEN
+            doNothing().when(notificationService).markAllAsRead(1L);
+
+            // WHEN
+            ResponseEntity<?> response = notificationController.markAllAsRead(authenticatedSession);
+
+            // THEN
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            var body = (org.example.backend.dto.ApiResponse<?>) response.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.isSuccess()).isTrue();
+            assertThat(body.getMessage()).isEqualTo("Đã đánh dấu đọc tất cả.");
+
+            verify(notificationService, times(1)).markAllAsRead(1L);
+        }
+
+        @Test
+        @DisplayName("TC07h — Đánh dấu đọc tất cả khi chưa đăng nhập → Ném 401")
+        void markAllAsReadNoSession_throws401() {
+            MockHttpSession emptySession = new MockHttpSession();
+
+            assertThatThrownBy(() ->
+                    notificationController.markAllAsRead(emptySession)
+            ).isInstanceOf(CustomException.class)
+             .hasMessageContaining("Vui lòng đăng nhập");
+
+            verifyNoInteractions(notificationService);
         }
     }
 

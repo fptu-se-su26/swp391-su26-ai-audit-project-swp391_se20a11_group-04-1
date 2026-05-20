@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import { NotificationDropdown } from './NotificationDropdown'
 import useProjectStore from '@store/useProjectStore'
 import useAuthStore from '@store/useAuthStore'
 import { getInitials } from '@utils/avatarHelper'
@@ -53,10 +54,7 @@ export function AppLayout() {
           </div>
 
           {/* Biểu tượng thông báo */}
-          <button className="relative w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors">
-            <span className="material-symbols-outlined text-xl">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error border border-surface-container-lowest"></span>
-          </button>
+          <NotificationDropdown />
 
           {/* Avatar Người Dùng */}
           <div className="flex items-center gap-2.5 pl-2 border-l border-outline-variant">
