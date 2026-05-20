@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // Feature Pages (Imports từ Public APIs)
 import { LoginPage, RegisterPage } from '@features/auth'
 import { DashboardPage } from '@features/workspace'
+import UseCasePage from '@features/requirement/pages/UseCasePage'
+import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 
 // Shared Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
@@ -26,8 +28,11 @@ export function AppRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           
-          {/* Các route của 9 module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
-          {/* Ví dụ: <Route path="/requirement" element={<RequirementPage />} /> */}
+          {/* Module 2: Requirement & Use Case Management */}
+          <Route path="/use-cases" element={<UseCasePage />} />
+          <Route path="/use-cases/:id" element={<UseCaseDetailPage />} />
+
+          {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
         </Route>
       </Route>
 
