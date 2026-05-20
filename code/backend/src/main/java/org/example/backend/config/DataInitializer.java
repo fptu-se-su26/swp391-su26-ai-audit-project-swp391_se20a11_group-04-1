@@ -20,7 +20,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        log.info("🚀 Starting database seeding check via DataInitializer...");
+        log.info(" Starting database seeding check via DataInitializer...");
         
         // 1. Seed System Roles
         List<String> defaultRoles = List.of("USER", "ADMIN", "MENTOR");
@@ -53,7 +53,7 @@ public class DataInitializer implements CommandLineRunner {
                 log.info(" Default project role '{}' already exists. Skipping...", roleName);
             }
         }
-        
-        log.info("✅ Database seeding check finished successfully.");
+        log.info(" Database seeding check finished successfully.");
+
     }
 }

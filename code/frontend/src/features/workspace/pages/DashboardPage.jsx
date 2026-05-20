@@ -117,7 +117,7 @@ export function DashboardPage() {
     }
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-        
+
         {/* Glow Background nhẹ nhàng sang trọng */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
           <div className="absolute top-[5%] left-[10%] w-[350px] h-[350px] rounded-full bg-primary-fixed opacity-[0.12] blur-[90px]"></div>
@@ -125,7 +125,7 @@ export function DashboardPage() {
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto space-y-8">
-          
+
           {/* A. Dòng Tiêu Đề & Nút Thêm Mới */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -145,36 +145,33 @@ export function DashboardPage() {
 
           {/* B. Dòng Bộ Lọc (Tabs) & Sắp Xếp */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-outline-variant/60 pb-3">
-            
+
             {/* Tab lọc */}
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  activeTab === 'all'
-                    ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
-                    : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
-                }`}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'all'
+                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
+                  }`}
               >
                 All Projects ({totalCount})
               </button>
               <button
                 onClick={() => setActiveTab('active')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  activeTab === 'active'
-                    ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
-                    : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
-                }`}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'active'
+                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
+                  }`}
               >
                 Active ({activeCount})
               </button>
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  activeTab === 'completed'
-                    ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
-                    : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
-                }`}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'completed'
+                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
+                  }`}
               >
                 Completed ({completedCount})
               </button>
@@ -210,32 +207,30 @@ export function DashboardPage() {
                   key={project.id}
                   className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all duration-300 group"
                 >
-                  
+
                   {/* Banner Đầu: AI Insight */}
                   <div className="bg-primary/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-primary">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-sm font-bold">neurology</span>
                       <span className="tracking-wider uppercase text-[10px]">AI INSIGHT</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      project.aiInsight === 'On Track' ? 'bg-green-100 text-green-700' :
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${project.aiInsight === 'On Track' ? 'bg-green-100 text-green-700' :
                       project.aiInsight === 'At Risk' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
+                      }`}>
                       {project.aiInsight}
                     </span>
                   </div>
 
                   {/* Body Thẻ Dự Án */}
                   <div className="p-5 flex-1 flex flex-col">
-                    
+
                     {/* Nhãn chuyên ngành & Nhãn trạng thái */}
                     <div className="flex items-center gap-2">
                       <span className="bg-primary/5 text-primary text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase">
                         {project.major}
                       </span>
-                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${
-                        project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-blue-500/10 text-blue-600'
-                      }`}>
+                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-blue-500/10 text-blue-600'
+                        }`}>
                         {project.status}
                       </span>
                     </div>
@@ -259,7 +254,7 @@ export function DashboardPage() {
 
                     {/* Hộp Số Liệu KPI */}
                     <div className="grid grid-cols-2 gap-3.5 my-4.5">
-                      
+
                       {/* KPI 1: Yêu cầu rủi ro (At Risk Req) */}
                       <div className="bg-red-500/[0.04] border border-red-500/10 rounded-xl p-3 flex flex-col justify-between min-h-[76px]">
                         <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-red-500 uppercase tracking-wider">
@@ -302,7 +297,7 @@ export function DashboardPage() {
 
                   {/* Chân Thẻ: Avatar & Nút Vào Dự Án */}
                   <div className="border-t border-outline-variant/40 px-5 py-3.5 flex items-center justify-between bg-surface-container-low/20">
-                    
+
                     {/* Avatars chồng nhau */}
                     <div className="flex items-center -space-x-2.5 overflow-hidden">
                       {project.members.slice(0, 3).map((member, idx) => (
@@ -347,14 +342,14 @@ export function DashboardPage() {
   // ==========================================
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-      
+
       {/* Background Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full bg-tertiary-fixed opacity-[0.08] blur-[120px]"></div>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto space-y-8">
-        
+
         {/* Banner Dự án đầu trang */}
         <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-2">
@@ -374,7 +369,7 @@ export function DashboardPage() {
 
         {/* Các Chỉ Số KPI Nghiệp Vụ */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
+
           {/* Card 1: Requirements */}
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
             <div className="flex justify-between items-center text-outline">
@@ -435,7 +430,7 @@ export function DashboardPage() {
           <div className="space-y-2">
             <h3 className="font-extrabold text-base text-primary">Đề xuất thông minh từ AI (DevTrack AI Insights)</h3>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              Hệ thống phát hiện dự án **{activeProject.title}** hiện đang có **{activeProject.atRiskReqCount}** yêu cầu nghiệp vụ ở mức độ rủi ro chậm trễ cao do thiếu các bằng chứng kiểm thử (Evidence). 
+              Hệ thống phát hiện dự án **{activeProject.title}** hiện đang có **{activeProject.atRiskReqCount}** yêu cầu nghiệp vụ ở mức độ rủi ro chậm trễ cao do thiếu các bằng chứng kiểm thử (Evidence).
               Chúng tôi khuyên bạn nên truy cập mô-đun **Requirements** và **Traceability Matrix (RTM)** ở thanh Sidebar bên trái để cập nhật tài liệu kiểm thử, kéo giảm rủi ro về mức an toàn.
             </p>
           </div>
@@ -443,7 +438,7 @@ export function DashboardPage() {
 
         {/* Hoạt Động & Thành Viên Dự Án */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Cột 1 & 2: Danh sách hoạt động gần đây */}
           <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
             <h3 className="font-extrabold text-base text-on-surface">Nhật ký Hoạt động Gần đây</h3>
