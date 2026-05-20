@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
@@ -11,6 +11,16 @@ import useProjectStore from '@store/useProjectStore'
  */
 export function DashboardPage() {
   const navigate = useNavigate()
+
+  // Trạng thái modal và form tạo dự án mới
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    major: '',
+    type: 'WEB_APP',
+    deadline: '',
+    description: ''
+  })
 
   // Đọc dữ liệu và hàm từ Zustand store
   const {
@@ -25,27 +35,76 @@ export function DashboardPage() {
     loading,
     error,
     fetchProjects,
+    createProject,
+    loadMore,
+    visibleCount,
+    totalItems,
+    hasMorePages,
   } = useProjectStore()
 
-  // Fetch projects on component mount
+  // Fetch chỉ khi chưa có dữ liệu (giữ state khi user vào project detail và back)
   useEffect(() => {
-    fetchProjects()
-  }, [fetchProjects])
+    if (projects.length === 0) {
+      fetchProjects()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Xử lý tạo dự án mới
+  // Xử lý mở modal tạo dự án mới
   const handleCreateProject = () => {
-    toast.success('Chức năng "Tạo Dự án Mới" đang được phát triển!')
+    setIsModalOpen(true)
   }
 
-  // --- LOGIC LỌC VÀ SẮP XẾP DỰ ÁN ---
+  // Xử lý gửi form tạo dự án mới
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!formData.name.trim()) {
+      toast.error('Tên dự án không được để trống!')
+      return
+    }
+    if (!formData.major.trim()) {
+      toast.error('Chuyên ngành không được để trống!')
+      return
+    }
+    if (!formData.deadline) {
+      toast.error('Hạn chót dự án không được để trống!')
+      return
+    }
+    const selectedDeadline = new Date(formData.deadline)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (selectedDeadline < today) {
+      toast.error('Hạn chót dự án không được ở trong quá khứ!')
+      return
+    }
+
+    const success = await createProject(formData)
+    if (success) {
+      toast.success('Tạo dự án mới thành công!')
+      setIsModalOpen(false)
+      setFormData({
+        name: '',
+        major: '',
+        type: 'WEB_APP',
+        deadline: '',
+        description: ''
+      })
+    } else {
+      toast.error(error || 'Tạo dự án thất bại, vui lòng thử lại!')
+    }
+  }
+
+  // --- SMART SORT: ưu tiên deadline gần hôm nay nhất ---
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
   const filteredProjects = projects
-    // 1. Lọc theo Tab (All, Active, Completed)
+    // 1. Lọc theo Tab (bổ sung client-side nếu đã lọc server-side)
     .filter((project) => {
       if (activeTab === 'active') return project.status === 'ACTIVE'
       if (activeTab === 'completed') return project.status === 'COMPLETED'
       return true
     })
-    // 2. Lọc theo tìm kiếm (Query search)
+    // 2. Lọc theo tìm kiếm (client-side)
     .filter((project) => {
       const q = searchQuery.toLowerCase().trim()
       if (!q) return true
@@ -55,15 +114,42 @@ export function DashboardPage() {
         project.role.toLowerCase().includes(q)
       )
     })
-    // 3. Sắp xếp theo cài đặt
+    // 3. Smart Sort theo deadline priority
     .sort((a, b) => {
+      // Nếu user chọn sort khác (name, progress) thì dùng sort đó
       if (sortBy === 'name') return a.title.localeCompare(b.title)
       if (sortBy === 'progress') return b.progress - a.progress
-      return 0 // Mặc định giữ nguyên thứ tự (Recent)
+
+      // sortBy === 'recent' → Smart deadline sort
+      const aDeadline = new Date(a.deadline)
+      const bDeadline = new Date(b.deadline)
+      const aCompleted = a.status === 'COMPLETED' || a.status === 'ARCHIVED'
+      const bCompleted = b.status === 'COMPLETED' || b.status === 'ARCHIVED'
+      const aOverdue = !aCompleted && aDeadline < today
+      const bOverdue = !bCompleted && bDeadline < today
+
+      // Completed/Archived → cuối danh sách
+      if (aCompleted !== bCompleted) return aCompleted ? 1 : -1
+      // Non-overdue → trước overdue
+      if (aOverdue !== bOverdue) return aOverdue ? 1 : -1
+      // Cả 2 đều overdue → gần hôm nay nhất lên trước (DESC deadline)
+      if (aOverdue && bOverdue) return bDeadline - aDeadline
+      // Cả 2 đều non-overdue → deadline gần nhất lên trước (ASC deadline)
+      return aDeadline - bDeadline
     })
 
+  // Danh sách visible (slice theo visibleCount)
+  const visibleProjects = filteredProjects.slice(0, visibleCount)
+
+  // Có thể hiện thêm không? (trong bộ nhớ hoặc backend)
+  const canShowMore = visibleCount < filteredProjects.length || (filteredProjects.length >= projects.length && projects.length < totalItems && hasMorePages)
+  // Số dự án sẽ hiển thị khi bấm nút
+  const nextBatchCount = Math.min(3, filteredProjects.length - visibleCount > 0
+    ? filteredProjects.length - visibleCount
+    : totalItems - visibleCount)
+
   // Số lượng dự án để hiển thị lên nhãn Tab
-  const totalCount = projects.length
+  const totalCount = totalItems || projects.length
   const activeCount = projects.filter((p) => p.status === 'ACTIVE').length
   const completedCount = projects.filter((p) => p.status === 'COMPLETED').length
 
@@ -202,11 +288,13 @@ export function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all duration-300 group"
-                >
+              {visibleProjects.map((project) => {
+                const isOverdue = new Date(project.deadline) < new Date().setHours(0, 0, 0, 0) && project.status !== 'COMPLETED';
+                return (
+                  <div
+                    key={project.id}
+                    className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all duration-300 group"
+                  >
 
                   {/* Banner Đầu: AI Insight */}
                   <div className="bg-primary/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-primary">
@@ -267,12 +355,20 @@ export function DashboardPage() {
                       </div>
 
                       {/* KPI 2: Hạn chót (Deadline) */}
-                      <div className="bg-surface-container-low border border-outline-variant/40 rounded-xl p-3 flex flex-col justify-between min-h-[76px]">
-                        <div className="flex items-center gap-1.5 text-[9px] font-extrabold text-on-surface-variant uppercase tracking-wider">
-                          <span className="material-symbols-outlined text-xs">event</span>
-                          <span>Deadline</span>
+                      <div className={`rounded-xl p-3 flex flex-col justify-between min-h-[76px] ${
+                        isOverdue 
+                          ? 'bg-red-500/[0.04] border border-red-500/20' 
+                          : 'bg-surface-container-low border border-outline-variant/40'
+                      }`}>
+                        <div className={`flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-wider ${
+                          isOverdue ? 'text-red-500' : 'text-on-surface-variant'
+                        }`}>
+                          <span className="material-symbols-outlined text-xs">{isOverdue ? 'error' : 'event'}</span>
+                          <span>{isOverdue ? 'Overdue' : 'Deadline'}</span>
                         </div>
-                        <span className="text-xs font-extrabold text-on-surface mt-1 leading-tight">
+                        <span className={`text-xs font-extrabold mt-1 leading-tight ${
+                          isOverdue ? 'text-red-600' : 'text-on-surface'
+                        }`}>
                           {project.deadline}
                         </span>
                       </div>
@@ -328,11 +424,182 @@ export function DashboardPage() {
                   </div>
 
                 </div>
-              ))}
+              );
+              })}
+            </div>
+          )}
+
+          {/* D. Load More + Progress Info */}
+          {filteredProjects.length > 0 && (
+            <div className="flex flex-col items-center gap-3 pt-2 pb-4">
+              {/* Counter */}
+              <p className="text-xs text-on-surface-variant">
+                Đang hiển thị <span className="font-bold text-on-surface">{Math.min(visibleCount, filteredProjects.length)}</span>
+                {' '}trên <span className="font-bold text-on-surface">{totalCount}</span> dự án
+              </p>
+
+              {/* Load More Button */}
+              {canShowMore ? (
+                <button
+                  id="btn-load-more-projects"
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant text-sm font-bold hover:bg-surface-container hover:text-on-surface hover:border-primary/40 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      <span>Đang tải...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-base">expand_more</span>
+                      <span>Xem thêm ({nextBatchCount > 0 ? nextBatchCount : 3} dự án nữa)</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-on-surface-variant px-4 py-2 rounded-full bg-surface-container-lowest border border-outline-variant/40">
+                  <span className="material-symbols-outlined text-sm text-primary">check_circle</span>
+                  <span>Đã hiển thị hết tất cả dự án của bạn 🎉</span>
+                </div>
+              )}
             </div>
           )}
 
         </div>
+
+        {/* Modal Tạo Dự Án Mới */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030213]/60 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-lg bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-slideUp">
+              
+              {/* Header Modal */}
+              <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl font-bold">add_box</span>
+                  <h3 className="font-extrabold text-base text-on-surface">Create New Project</h3>
+                </div>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-outline hover:bg-surface-container hover:text-on-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+                
+                {/* Tên dự án */}
+                <div className="space-y-1.5">
+                  <label htmlFor="projName" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    Project Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="projName"
+                    type="text"
+                    required
+                    placeholder="E.g., DevTrack Management System"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Chuyên ngành */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="projMajor" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                      Major / Subject <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="projMajor"
+                      type="text"
+                      required
+                      placeholder="E.g., Software Engineering"
+                      value={formData.major}
+                      onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                  </div>
+
+                  {/* Loại dự án */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="projType" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                      Project Type
+                    </label>
+                    <select
+                      id="projType"
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary cursor-pointer hover:bg-surface-container transition-colors"
+                    >
+                      <option value="WEB_APP">Web Application</option>
+                      <option value="MOBILE">Mobile Application</option>
+                      <option value="DATABASE">Database Systems</option>
+                      <option value="RESEARCH">Research Project</option>
+                      <option value="OTHER">Other Type</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Hạn chót */}
+                <div className="space-y-1.5">
+                  <label htmlFor="projDeadline" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    Final Deadline <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="projDeadline"
+                    type="date"
+                    required
+                    value={formData.deadline}
+                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                </div>
+
+                {/* Mô tả */}
+                <div className="space-y-1.5">
+                  <label htmlFor="projDesc" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    Project Description
+                  </label>
+                  <textarea
+                    id="projDesc"
+                    rows="4"
+                    placeholder="Provide a high-level overview of your project, target audience, and core features..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                  ></textarea>
+                </div>
+
+                {/* Footer Modal Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/40 mt-6 bg-surface-container-lowest">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl border border-outline-variant text-on-surface hover:bg-surface-container text-xs font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-on-primary-fixed-variant text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-sm font-bold">check</span>
+                    <span>Create Project</span>
+                  </button>
+                </div>
+
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
     )
   }

@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "projects")
@@ -27,8 +29,8 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "project_type_enum")
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private ProjectType type;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -41,9 +43,9 @@ public class Project {
     @Column(nullable = false)
     private LocalDate deadline;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "project_status_enum")
     @Builder.Default
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private ProjectStatus status = ProjectStatus.PLANNING;
 
     @Column(length = 7)
