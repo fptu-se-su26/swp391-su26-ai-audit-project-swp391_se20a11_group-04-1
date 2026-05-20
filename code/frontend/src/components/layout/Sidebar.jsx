@@ -1,12 +1,40 @@
-import { useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '@store/useAuthStore'
 import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
 
 /**
- * Sidebar Component - Thanh điều hướng linh hoạt giữa cấp Portfolio và Project Workspace
+ * NavItem Component - Mục điều hướng đơn lẻ dùng NavLink cho active state tự động
  */
-export function Sidebar() {
+const NavItem = ({ to, icon, label, defaultIconClass = '' }) => (
+  <NavLink 
+    to={to} 
+    className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-in-out group ${
+      isActive 
+        ? 'bg-secondary-container text-on-secondary-container font-semibold shadow-sm' 
+        : 'text-secondary hover:bg-surface-container-low'
+    }`}
+  >
+    {({ isActive }) => (
+      <>
+        <span className={`material-symbols-outlined text-[20px] transition-colors ${
+          isActive 
+            ? 'icon-fill' 
+            : (defaultIconClass ? defaultIconClass : 'group-hover:text-primary')
+        }`}>
+          {icon}
+        </span>
+        <span className="font-body-md text-body-md">{label}</span>
+      </>
+    )}
+  </NavLink>
+)
+
+/**
+ * Sidebar Component - Thanh điều hướng dùng chung chứa danh sách các Module của DevTrackAI
+ * Hỗ trợ chuyển đổi động giữa cấp Portfolio và Project Workspace
+ */
+const Sidebar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const logout = useAuthStore((state) => state.logout)
@@ -29,23 +57,6 @@ export function Sidebar() {
     { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
   ]
 
-  // 2. Danh sách Menu cấp Project Workspace (Khi đã chọn dự án)
-  const projectMenuItems = [
-    { path: '/dashboard', label: 'Overview', icon: 'dashboard' },
-    { path: '/requirement', label: 'Requirements', icon: 'description' },
-    { path: '/kanban', label: 'Kanban Board', icon: 'view_week' },
-    { path: '/testing', label: 'Testing & Bugs', icon: 'bug_report' },
-    { path: '/evidence', label: 'Evidence Vault', icon: 'inventory_2' },
-    { path: '/rtm', label: 'Traceability Matrix', icon: 'grid_on' },
-    { path: '/code-insight', label: 'Code Insights', icon: 'source' },
-    { path: '/ai-engine', label: 'AI Engine', icon: 'neurology' },
-    { path: '/analytics', label: 'Contribution Analytics', icon: 'analytics' },
-  ]
-
-  if (userRole === 'MENTOR') {
-    projectMenuItems.push({ path: '/mentor', label: 'Mentor Dashboard', icon: 'supervisor_account' })
-  }
-
   // Xử lý click menu cấp Portfolio
   const handlePortfolioMenuClick = (item) => {
     if (item.path === '#') {
@@ -54,11 +65,6 @@ export function Sidebar() {
     }
     clearActiveProject()
     navigate(item.path)
-  }
-
-  // Xử lý click menu cấp Project Workspace
-  const handleProjectMenuClick = (path) => {
-    navigate(path)
   }
 
   return (
@@ -113,7 +119,6 @@ export function Sidebar() {
         {!activeProject ? (
           // A. Hiển thị Menu Portfolio
           portfolioMenuItems.map((item) => {
-            // Mặc định My Projects hoạt động ở path /dashboard khi activeProject = null
             const isActive = item.id === 'projects' && location.pathname === '/dashboard'
             return (
               <button
@@ -132,23 +137,51 @@ export function Sidebar() {
           })
         ) : (
           // B. Hiển thị Menu của riêng Dự Án
-          projectMenuItems.map((item) => {
-            const isActive = location.pathname === item.path
-            return (
-              <button
-                key={item.path}
-                onClick={() => handleProjectMenuClick(item.path)}
-                className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-lg transition-all font-semibold text-sm ${
-                  isActive
-                    ? 'bg-primary-container text-on-primary font-bold shadow-sm'
-                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            )
-          })
+          <div className="flex-1 space-y-1">
+            <NavItem to="/dashboard" icon="dashboard" label="Dashboard" />
+            <NavItem to="/requirements" icon="description" label="Requirements" />
+            <NavItem to="/use-cases" icon="account_tree" label="Use Cases" />
+            <NavItem to="/task-board" icon="assignment" label="Task Board" />
+            <NavItem to="/sprints" icon="history_toggle_off" label="Sprints" />
+            <NavItem to="/test-cases" icon="checklist_rtl" label="Test Cases" />
+            <NavItem to="/bugs" icon="bug_report" label="Bugs" />
+            <NavItem to="/evidence-vault" icon="inventory_2" label="Evidence Vault" />
+            <NavItem to="/traceability-matrix" icon="reorder" label="Traceability Matrix" />
+
+            {/* Intelligence Section */}
+            <div className="pt-4 pb-2">
+              <div className="h-px bg-outline-variant/50 w-full mb-2"></div>
+              <span className="px-3 font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">Intelligence</span>
+            </div>
+            
+            <NavItem 
+              to="/ai-assistant" 
+              icon="smart_toy" 
+              label="AI Assistant" 
+              defaultIconClass="text-primary-container"
+            />
+            <NavItem to="/code-insight" icon="code" label="Code Insight" />
+
+            {/* Team Section */}
+            <div className="pt-4 pb-2">
+              <div className="h-px bg-outline-variant/50 w-full mb-2"></div>
+              <span className="px-3 font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">Team</span>
+            </div>
+            
+            <NavItem to="/contribution" icon="groups" label="Contribution" />
+            <NavItem to="/mentor-view" icon="visibility" label="Mentor View" />
+
+            {/* Mentor Dashboard specific menu item */}
+            {userRole === 'MENTOR' && (
+              <div className="mt-2">
+                <NavItem to="/mentor" icon="supervisor_account" label="Mentor Dashboard" />
+              </div>
+            )}
+
+            <div className="mt-2">
+              <NavItem to="/project-settings" icon="settings" label="Project Settings" />
+            </div>
+          </div>
         )}
       </nav>
 
@@ -166,13 +199,12 @@ export function Sidebar() {
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg border border-error/50 text-error hover:bg-error/10 transition-all font-semibold text-xs h-[38px]"
+          className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-container-highest hover:bg-error-container hover:text-on-error-container border border-outline-variant rounded-lg text-on-surface font-body-md transition-colors shadow-sm"
         >
-          <span className="material-symbols-outlined text-sm">logout</span>
-          <span>Đăng xuất</span>
+          <span className="material-symbols-outlined text-[18px]">logout</span>
+          Đăng xuất
         </button>
       </div>
-      
     </aside>
   )
 }
