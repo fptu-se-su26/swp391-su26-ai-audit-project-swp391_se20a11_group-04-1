@@ -1,0 +1,369 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Evidence Vault - DevTrack AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#eff1f3",
+                        "primary": "#003c90",
+                        "surface": "#f7f9fb",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-high": "#e6e8ea",
+                        "tertiary-fixed": "#ffdbcd",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed-variant": "#7d2d00",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "surface-container-low": "#f2f4f6",
+                        "on-background": "#191c1e",
+                        "on-tertiary-fixed": "#360f00",
+                        "on-primary-fixed": "#001945",
+                        "on-surface-variant": "#434653",
+                        "on-tertiary-container": "#ffc0a7",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "secondary-container": "#d0e1fb",
+                        "primary-container": "#0f52ba",
+                        "primary-fixed": "#d9e2ff",
+                        "tertiary": "#732900",
+                        "on-surface": "#191c1e",
+                        "background": "#f7f9fb",
+                        "on-secondary-fixed": "#0b1c30",
+                        "outline-variant": "#c3c6d5",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "secondary": "#505f76",
+                        "surface-tint": "#1d59c1",
+                        "tertiary-container": "#993900",
+                        "surface-container": "#eceef0",
+                        "outline": "#737784",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb596",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#d3e4fe",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b0c6ff",
+                        "on-secondary-container": "#54647a",
+                        "inverse-primary": "#b0c6ff",
+                        "on-primary-container": "#bcceff",
+                        "on-primary-fixed-variant": "#00419c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack_sm": "8px",
+                        "stack_md": "16px",
+                        "topbar_height": "64px",
+                        "margin_desktop": "32px",
+                        "stack_lg": "24px",
+                        "margin_mobile": "16px",
+                        "gutter": "24px",
+                        "sidebar_width": "280px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col bg-surface fixed left-0 top-0 h-screen w-sidebar_width border-r border-outline-variant py-stack_lg z-40">
+<div class="px-stack_lg mb-stack_lg">
+<div class="flex items-center gap-stack_sm mb-stack_sm">
+<div class="w-8 h-8 rounded-DEFAULT bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" data-weight="fill">hub</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-primary">Student Event...</h2>
+<p class="font-label-md text-label-md text-secondary">Current Project</p>
+</div>
+</div>
+<button class="w-full mt-stack_sm bg-surface-container-high hover:bg-surface-container-highest text-primary font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center justify-center gap-2 transition-colors duration-200 ease-in-out border border-outline-variant">
+<span class="material-symbols-outlined text-[18px]">smart_toy</span>
+                AI Assistance
+            </button>
+</div>
+<div class="flex-1 overflow-y-auto px-stack_sm space-y-1">
+<!-- Navigation Items -->
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">description</span>
+<span class="font-body-md text-body-md">Requirements</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+<span class="font-body-md text-body-md">Use Cases</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">assignment</span>
+<span class="font-body-md text-body-md">Task Board</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">history_toggle_off</span>
+<span class="font-body-md text-body-md">Sprints</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">checklist_rtl</span>
+<span class="font-body-md text-body-md">Test Cases</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">bug_report</span>
+<span class="font-body-md text-body-md">Bugs</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT bg-secondary-container text-on-secondary-container font-semibold transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]" data-weight="fill">inventory_2</span>
+<span class="font-body-md text-body-md">Evidence Vault</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">reorder</span>
+<span class="font-body-md text-body-md">Traceability Matrix</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+<span class="font-body-md text-body-md">AI Assistant</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">code</span>
+<span class="font-body-md text-body-md">Code Insight</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">groups</span>
+<span class="font-body-md text-body-md">Contribution</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+<span class="font-body-md text-body-md">Mentor View</span>
+</a>
+<a class="flex items-center gap-stack_md px-stack_md py-2 rounded-DEFAULT text-secondary hover:bg-surface-container-low transition-all duration-200 ease-in-out mt-stack_lg" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body-md text-body-md">Project Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 flex flex-col md:ml-sidebar_width min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface-container-lowest fixed top-0 w-full md:w-[calc(100%-280px)] h-topbar_height border-b border-outline-variant flex justify-between items-center px-margin_desktop z-50">
+<div class="flex items-center gap-stack_md w-1/3">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-DEFAULT focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-all" placeholder="Search evidence, IDs..." type="text">
+</div>
+</div>
+<div class="flex items-center justify-end w-1/3 gap-stack_md">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-headline-sm text-headline-sm border border-outline-variant cursor-pointer active:scale-95 duration-150">
+                    VA
+                </div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 mt-topbar_height p-margin_mobile md:p-margin_desktop pb-24">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-stack_md mb-stack_lg">
+<div>
+<h1 class="font-headline-md text-headline-md text-on-surface mb-1">Evidence Vault</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage and review verification artifacts for project requirements.</p>
+</div>
+<div class="flex items-center gap-stack_md">
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface hover:bg-surface-container-low font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center gap-2 h-[44px] transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+                        Filter
+                    </button>
+<button class="bg-primary text-on-primary hover:bg-primary/90 font-body-md text-body-md py-2 px-4 rounded-DEFAULT flex items-center gap-2 h-[44px] transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[20px]">upload_file</span>
+                        Upload Evidence
+                    </button>
+</div>
+</div>
+<!-- Filter Chips (Optional context) -->
+<div class="flex flex-wrap gap-stack_sm mb-stack_lg">
+<span class="px-3 py-1 bg-surface-container border border-outline-variant rounded-full font-label-md text-label-md text-on-surface flex items-center gap-1 cursor-pointer hover:bg-surface-container-high">
+                    Type: All <span class="material-symbols-outlined text-[14px]">arrow_drop_down</span>
+</span>
+<span class="px-3 py-1 bg-surface-container border border-outline-variant rounded-full font-label-md text-label-md text-on-surface flex items-center gap-1 cursor-pointer hover:bg-surface-container-high">
+                    Status: Pending <span class="material-symbols-outlined text-[14px]">close</span>
+</span>
+</div>
+<!-- Bento Grid / Cards Area -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+<!-- Card 1: Pending Screenshot -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-shadow duration-200 group">
+<div class="h-32 bg-surface-container relative overflow-hidden border-b border-outline-variant">
+<img alt="UI Dashboard Screenshot" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" data-alt="A clear, high-resolution screenshot of a modern web application interface showing a dashboard with data visualizations. The UI is sleek, corporate, utilizing a slate and sapphire blue color palette. The image is cropped to show a specific widget displaying a successful transaction. The mood is professional, precise, and typical of high-end enterprise software." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-ktYMqlTjRGRFhWoah8D1g2nNjmHdXPFeu3I_Qzpdge8m6-S9MzfBqD51SRq3yXgvvNXK3B8p-I3W9xNRsbrTHdMZzm3cJ2eO23osc86RoWvjymW1fX0reTIGEiksmvWc-TWScm0vz1xaGMqHV7OZNpK4z6e1YARjTTxk294GySeQjWzEWGLonbkRN7PBPHu8DJXZF8kMnvOLf7N6WcXkZbRSfZNi4LXmw96WIAwl_rLYkb-XVutBxQp40GK-tIOggZ-vbQvqiK5A">
+<div class="absolute top-2 right-2 bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-sm font-label-md text-label-md flex items-center gap-1 border border-outline-variant shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">schedule</span> Pending
+                        </div>
+</div>
+<div class="p-stack_md flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-sm">EV-042</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">image</span>
+</div>
+<h3 class="font-headline-sm text-[16px] leading-tight text-on-surface mb-1 line-clamp-1">Login Success Verification</h3>
+<p class="font-body-md text-[13px] text-on-surface-variant mb-4 line-clamp-2">Screenshot capturing the successful redirection to the user dashboard after OAuth authentication.</p>
+<div class="mt-auto space-y-3">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">REQ-01</span>
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">TASK-12</span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-surface-container">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-md text-[10px]">SJ</div>
+<span class="font-body-md text-[12px] text-on-surface-variant">Sarah J.</span>
+</div>
+<span class="font-body-md text-[11px] text-outline">Oct 24, 2023</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Auto Checked API -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-shadow duration-200 group">
+<div class="h-32 bg-[#1e1e1e] relative overflow-hidden border-b border-outline-variant flex items-center justify-center">
+<!-- Abstract representation of code for visual variety -->
+<div class="text-[#b0c6ff] font-label-md text-[10px] opacity-70 p-4 leading-relaxed absolute inset-0 text-left whitespace-pre">
+{
+  "status": 200,
+  "data": {
+    "user_id": "usr_9x8f",
+    "token_valid": true,
+    "permissions": ["read", "write"]
+  }
+}
+                        </div>
+<div class="absolute top-2 right-2 bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-sm font-label-md text-label-md flex items-center gap-1 border border-outline-variant shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">robot_2</span> Auto Checked
+                        </div>
+</div>
+<div class="p-stack_md flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-sm">EV-041</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">data_object</span>
+</div>
+<h3 class="font-headline-sm text-[16px] leading-tight text-on-surface mb-1 line-clamp-1">Auth API Response Payload</h3>
+<p class="font-body-md text-[13px] text-on-surface-variant mb-4 line-clamp-2">JSON response from the /api/v1/auth/verify endpoint confirming valid JWT token structure.</p>
+<div class="mt-auto space-y-3">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">REQ-05</span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-surface-container">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">smart_toy</span>
+<span class="font-body-md text-[12px] text-on-surface-variant">DevTrack Auto</span>
+</div>
+<span class="font-body-md text-[11px] text-outline">Oct 24, 2023</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Accepted Commit -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-shadow duration-200 group">
+<div class="h-32 bg-surface-container relative overflow-hidden border-b border-outline-variant">
+<img alt="Git Graph Visualization" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity grayscale mix-blend-multiply" data-alt="A digital representation of a Git version control graph overlaid on a light background. Smooth, clean lines connect nodes representing commits. The aesthetic is highly technical, minimal, and clean, typical of a modern developer tool interface. The visual communicates organized, tracked progress in software development within a slate-grey structural setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvYWlygFMEEvrx17AnhEsjZ8_2whV-TlZlvRDCKnXRUw3ZQ0edMXCgA_pJ_UG7XECgPPGq0dg-PUoZtbItYL__izbccsGPOhr3KlhwL6WdPZo4CCNykB5xtdx5tk8IUYG3L7ZUBibu4QxxkaPV_rCoIL8C0dvFeNuzAsDUmg-deDIlNbX5qdOXHbEnb6oFKXQE6m9VSpDFsVemH66tdzfXHm_9IQuC0LFr3OL_jiX0ftvRKTQz8rKJSlYWFM4K7YkwSpMD2OkoKMWH">
+<div class="absolute top-2 right-2 bg-[#dcfce7] text-[#166534] px-2 py-0.5 rounded-sm font-label-md text-label-md flex items-center gap-1 border border-[#bbf7d0] shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Accepted
+                        </div>
+</div>
+<div class="p-stack_md flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-sm">EV-039</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">commit</span>
+</div>
+<h3 class="font-headline-sm text-[16px] leading-tight text-on-surface mb-1 line-clamp-1">Database Schema Migration</h3>
+<p class="font-body-md text-[13px] text-on-surface-variant mb-4 line-clamp-2">GitHub commit #a8f9b2c implementing the new user roles schema required for RBAC.</p>
+<div class="mt-auto space-y-3">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">REQ-08</span>
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">TASK-45</span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-surface-container">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-[10px]">MR</div>
+<span class="font-body-md text-[12px] text-on-surface-variant">Mike R.</span>
+</div>
+<span class="font-body-md text-[11px] text-outline">Oct 23, 2023</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 4: Rejected Report -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-shadow duration-200 group">
+<div class="h-32 bg-surface-container relative overflow-hidden border-b border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[48px] text-outline-variant opacity-50">picture_as_pdf</span>
+<div class="absolute top-2 right-2 bg-error-container text-on-error-container px-2 py-0.5 rounded-sm font-label-md text-label-md flex items-center gap-1 border border-[#fecaca] shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">cancel</span> Rejected
+                        </div>
+</div>
+<div class="p-stack_md flex-1 flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-sm">EV-038</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">description</span>
+</div>
+<h3 class="font-headline-sm text-[16px] leading-tight text-on-surface mb-1 line-clamp-1">Performance Load Test Report</h3>
+<p class="font-body-md text-[13px] text-error mb-4 line-clamp-2">Metrics do not meet the acceptable threshold defined in non-functional requirements. Re-run required.</p>
+<div class="mt-auto space-y-3">
+<div class="flex flex-wrap gap-1">
+<span class="px-1.5 py-0.5 bg-surface text-on-surface-variant border border-outline-variant rounded-sm font-label-md text-[10px]">NFR-02</span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-surface-container">
+<div class="flex items-center gap-2">
+<div class="w-5 h-5 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-label-md text-[10px]">AL</div>
+<span class="font-body-md text-[12px] text-on-surface-variant">Anna L.</span>
+</div>
+<span class="font-body-md text-[11px] text-outline">Oct 22, 2023</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
