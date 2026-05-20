@@ -196,20 +196,22 @@ export function ContributionPage() {
               <tbody className="divide-y divide-outline-variant/20">
                 {members.map((member) => (
                   <tr key={member.id} className="hover:bg-surface-container-low/20 transition-colors group">
-                    <td className="px-6 py-4.5 flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm shrink-0 select-none transition-transform group-hover:scale-105 ${member.bg || 'bg-secondary text-on-secondary'}`}>
-                        {member.initials || getInitials(member.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-on-surface truncate leading-snug">{member.name}</p>
-                        <p className="text-[11px] text-on-surface-variant truncate mt-0.5">Joined and active</p>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm shrink-0 select-none transition-transform group-hover:scale-105 ${member.bg || 'bg-secondary text-on-secondary'}`}>
+                          {member.initials || getInitials(member.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-on-surface truncate leading-snug">{member.name}</p>
+                          <p className="text-[11px] text-on-surface-variant truncate mt-0.5">Joined and active</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4.5">
+                    <td className="px-6 py-5">
                       {getRoleBadge(member.role)}
                     </td>
                     {isLeader && (
-                      <td className="px-6 py-4.5 text-right">
+                      <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {member.role === 'MEMBER' && (
                             <button

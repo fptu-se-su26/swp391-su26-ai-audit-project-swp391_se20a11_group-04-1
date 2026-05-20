@@ -19,6 +19,7 @@ export const useNotificationStore = create((set, get) => ({
       const response = await axiosInstance.get('/v1/notifications')
       const notifications = (response.data?.data || []).map((n) => ({
         ...n,
+        isRead: n.isRead !== undefined ? n.isRead : n.read,
         _resolved: n.invitationStatus
       }))
       const unreadCount = notifications.filter((n) => !n.isRead).length

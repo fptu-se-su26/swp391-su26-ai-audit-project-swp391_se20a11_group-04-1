@@ -66,14 +66,14 @@ export function NotificationDropdown() {
     const response = await acceptInvitation({ invitationId: notification.relatedId })
     if (response === true) {
       toast.success('Đồng ý tham gia dự án thành công!')
-      // Cập nhật optimistic: đánh dấu đã xử lý ngay lập tức, không chờ re-fetch
+      // Cập nhật optimistic: đánh dấu đã xử lý và đã đọc ngay lập tức, không chờ re-fetch
       useNotificationStore.setState((state) => ({
         notifications: state.notifications.map((n) =>
           n.id === notification.id
             ? { ...n, isRead: true, _resolved: 'ACCEPTED' }
             : n
         ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
+        unreadCount: Math.max(0, state.unreadCount - (notification.isRead ? 0 : 1)),
       }))
       fetchProjects() // Cập nhật danh sách dự án của user
     } else {
@@ -86,14 +86,14 @@ export function NotificationDropdown() {
     const response = await rejectInvitation({ invitationId: notification.relatedId })
     if (response === true) {
       toast.success('Đã từ chối lời mời tham gia dự án.')
-      // Cập nhật optimistic: đánh dấu đã xử lý ngay lập tức
+      // Cập nhật optimistic: đánh dấu đã xử lý và đã đọc ngay lập tức
       useNotificationStore.setState((state) => ({
         notifications: state.notifications.map((n) =>
           n.id === notification.id
             ? { ...n, isRead: true, _resolved: 'REJECTED' }
             : n
         ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
+        unreadCount: Math.max(0, state.unreadCount - (notification.isRead ? 0 : 1)),
       }))
     } else {
       toast.error(response?.error || 'Có lỗi xảy ra khi từ chối lời mời.')
