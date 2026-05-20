@@ -5,12 +5,15 @@ import { Toaster } from 'react-hot-toast'
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
 import DashboardPage from '@features/workspace/pages/DashboardPage'
+import UseCasePage from '@features/requirement/pages/UseCasePage'
+import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 
 // Shared Feedback Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
 
 // Route Guards
 import PrivateRoute from '@routes/PrivateRoute'
+import AppLayout from '@components/layout/AppLayout'
 
 function App() {
   return (
@@ -23,7 +26,11 @@ function App() {
 
         {/* Protected Routes */}
         <Route element={<PrivateRoute />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/use-cases" element={<UseCasePage />} />
+            <Route path="/use-cases/:id" element={<UseCaseDetailPage />} />
+          </Route>
         </Route>
 
         {/* Redirect & 404 */}
