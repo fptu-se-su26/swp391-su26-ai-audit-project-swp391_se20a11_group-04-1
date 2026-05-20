@@ -5,6 +5,11 @@ import { Toaster } from 'react-hot-toast'
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
 import DashboardPage from '@features/workspace/pages/DashboardPage'
+import RequirementsPage from '@features/requirement/pages/RequirementsPage'
+import RequirementDetailPage from '@features/requirement/pages/RequirementDetailPage'
+
+// Layouts
+import MainLayout from '@components/layout/MainLayout'
 
 // Shared Feedback Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
@@ -22,9 +27,13 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
 
         {/* Protected Routes */}
-        <Route element={<PrivateRoute />}>
+        {/*<Route element={<PrivateRoute />}>*/}
           <Route path="/dashboard" element={<DashboardPage />} />
-        </Route>
+          <Route element={<MainLayout />}>
+            <Route path="/requirements" element={<RequirementsPage />} />
+            <Route path="/requirements/:id" element={<RequirementDetailPage />} />
+          </Route>
+        {/*</Route>*/}
 
         {/* Redirect & 404 */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
