@@ -32,7 +32,7 @@ export const useProjectStore = create((set, get) => ({
     set({ loading: true, error: null })
     try {
       const { activeTab, searchQuery, sortBy } = get()
-      
+
       const params = {
         page: 0,
         size: 100, // Fetch all projects in a single page for portfolio view
@@ -62,9 +62,9 @@ export const useProjectStore = create((set, get) => ({
       set({ projects: items, loading: false })
     } catch (err) {
       console.error('Error fetching projects:', err)
-      set({ 
-        error: err.response?.data?.message || err.message || 'Failed to fetch projects', 
-        loading: false 
+      set({
+        error: err.response?.data?.message || err.message || 'Failed to fetch projects',
+        loading: false
       })
     }
   },
