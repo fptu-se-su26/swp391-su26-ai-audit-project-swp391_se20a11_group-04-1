@@ -180,6 +180,83 @@ export const useProjectStore = create((set, get) => ({
       return false
     }
   },
+
+  /**
+   * Mời thành viên mới vào dự án bằng email.
+   * Backend sẽ gửi lời mời + email — KHÔNG thêm thành viên trực tiếp.
+   */
+  inviteProjectMember: async (email) => {
+    const { activeProject } = get()
+    if (!activeProject) return false
+    set({ loading: true, error: null })
+    try {
+      await axiosInstance.post(`/v1/projects/${activeProject.id}/members/invite`, { email })
+      set({ loading: false })
+      return true
+    } catch (err) {
+      console.error('Error inviting member:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Mời thành viên thất bại'
+      set({ error: errMsg, loading: false })
+      return false
+    }
+  },
+
+  /**
+   * Xoá thành viên khỏi dự án (chỉ Project Leader mới được phép).
+   * Cập nhật optimistic local state ngay lập tức.
+   */
+  removeProjectMember: async (memberUserId) => {
+    const { activeProject } = get()
+    if (!activeProject) return false
+    set({ loading: true, error: null })
+    try {
+      await axiosInstance.delete(`/v1/projects/${activeProject.id}/members/${memberUserId}`)
+
+      const updatedMembers = (activeProject.members || []).filter((m) => m.id !== memberUserId)
+      const updatedProject = { ...activeProject, members: updatedMembers }
+      const updatedProjects = get().projects.map((p) => p.id === activeProject.id ? updatedProject : p)
+
+      set({ activeProject: updatedProject, projects: updatedProjects, loading: false })
+      return true
+    } catch (err) {
+      console.error('Error removing member:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Xoá thành viên thất bại'
+      set({ error: errMsg, loading: false })
+      return false
+    }
+  },
+
+  /**
+   * Thay đổi vai trò thành viên (ví dụ phong cấp Mentor).
+   * Cập nhật danh sách thành viên activeProject và projects ngay lập tức.
+   */
+  changeProjectMemberRole: async (memberUserId, newRole) => {
+    const { activeProject } = get()
+    if (!activeProject) return false
+    set({ loading: true, error: null })
+    try {
+      await axiosInstance.put(`/v1/projects/${activeProject.id}/members/${memberUserId}/role`, { role: newRole })
+
+      const updatedMembers = (activeProject.members || []).map((member) =>
+        member.id === memberUserId ? { ...member, role: newRole } : member
+      )
+      const updatedProject = { ...activeProject, members: updatedMembers }
+
+      const updatedProjects = get().projects.map((p) => p.id === activeProject.id ? updatedProject : p)
+
+      set({
+        activeProject: updatedProject,
+        projects: updatedProjects,
+        loading: false,
+      })
+      return true
+    } catch (err) {
+      console.error('Error changing member role:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Thay đổi vai trò thất bại'
+      set({ error: errMsg, loading: false })
+      return false
+    }
+  },
 }))
 
 export default useProjectStore

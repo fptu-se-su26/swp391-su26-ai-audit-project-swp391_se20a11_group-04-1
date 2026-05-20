@@ -281,4 +281,23 @@ public class EmailServiceImpl implements EmailService {
                 "</body>" +
                 "</html>";
     }
+
+    @Override
+    @Async
+    public void sendEmail(String toEmail, String subject, String body) {
+        log.info("Sending basic email asynchronously to: {}", toEmail);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(body, true);
+
+            mailSender.send(message);
+            log.info("Successfully sent basic email asynchronously to: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send basic email asynchronously to: {}", toEmail, e);
+        }
+    }
 }

@@ -15,7 +15,10 @@ import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRoleRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.ProjectInvitationRepository;
+import org.example.backend.repository.NotificationRepository;
 import org.example.backend.service.ProjectService;
+import org.example.backend.service.EmailService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,19 +32,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectServiceImpl implements ProjectService {
 
+
+
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectRoleRepository projectRoleRepository;
     private final UserAccountRepository userAccountRepository;
+    private final ProjectInvitationRepository projectInvitationRepository;
+    private final NotificationRepository notificationRepository;
+    private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -240,11 +252,8 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional
-    public ProjectResponse.MemberDto inviteMember(Long projectId, String email, Long invitedByUserId) {
+    public void inviteMember(Long projectId, String email, Long invitedByUserId) {
         log.info("📩 Service request to invite member by email: {} to project ID: {} by user ID: {}", email, projectId, invitedByUserId);
-
-        // Evict cache ngay khi có mutation
-        evictUserProjectsCache(invitedByUserId);
 
         // 1. Kiểm tra dự án tồn tại
         Project project = projectRepository.findById(projectId)
@@ -258,38 +267,197 @@ public class ProjectServiceImpl implements ProjectService {
         UserAccount invitedUser = userAccountRepository.findByEmail(email.trim())
                 .orElseThrow(() -> new CustomException.ResourceNotFoundException("Người dùng có email này không tồn tại trong hệ thống."));
 
+        // Không tự mời chính mình
+        if (invitedUser.getId().equals(inviter.getId())) {
+            throw new CustomException.BadRequestException("Bạn không thể tự mời chính mình tham gia dự án.");
+        }
+
         // 4. Kiểm tra xem người dùng đã là thành viên trong dự án chưa
         Optional<ProjectMember> existingMember = projectMemberRepository.findByProjectIdAndUserId(projectId, invitedUser.getId());
         if (existingMember.isPresent()) {
             throw new CustomException.BadRequestException("Người dùng đã là thành viên của dự án này.");
         }
 
-        // 5. Tìm vai trò MEMBER
+        // Kiểm tra xem đã có lời mời pending chưa (DB)
+        Optional<ProjectInvitation> existingInvite = projectInvitationRepository.findByProjectIdAndInviteeIdAndStatus(
+                projectId, invitedUser.getId(), ProjectInvitationStatus.PENDING);
+        if (existingInvite.isPresent()) {
+            throw new CustomException.BadRequestException("Người dùng này đã nhận được lời mời trước đó và đang chờ xác nhận.");
+        }
+
+        // Tạo token
+        String token = UUID.randomUUID().toString();
+
+        // 5. Tạo bản ghi Invitation (DB)
+        ProjectInvitation invitation = ProjectInvitation.builder()
+                .project(project)
+                .inviter(inviter)
+                .invitee(invitedUser)
+                .token(token)
+                .status(ProjectInvitationStatus.PENDING)
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        invitation = projectInvitationRepository.save(invitation);
+
+        // 6. Gửi Notification (DB)
+        String title = "Lời mời tham gia dự án";
+        String message = inviter.getProfile().getFullName() + " đã mời bạn tham gia dự án " + project.getName() + ".";
+        Notification notification = Notification.builder()
+                .recipient(invitedUser)
+                .title(title)
+                .message(message)
+                .type(NotificationType.INVITATION)
+                .relatedId(invitation.getId())
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        notificationRepository.save(notification);
+
+        // 7. Gửi Email
+        String acceptLink = "http://localhost:5173/invite/accept?token=" + token;
+        String emailBody = "<h3>Xin chào " + invitedUser.getProfile().getFullName() + "</h3>"
+                + "<p>Bạn vừa nhận được một lời mời tham gia dự án <b>" + project.getName() + "</b> từ " + inviter.getProfile().getFullName() + ".</p>"
+                + "<p>Vui lòng click vào đường dẫn bên dưới để đồng ý tham gia:</p>"
+                + "<a href=\"" + acceptLink + "\" style=\"display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;\">Đồng ý tham gia</a>"
+                + "<p>Lời mời sẽ hết hạn sau 7 ngày.</p>";
+        emailService.sendEmail(invitedUser.getEmail(), "DevTrack - Lời mời tham gia dự án", emailBody);
+
+        log.info("✨ Successfully sent invitation to member ID: {} for project ID: {}", invitedUser.getId(), projectId);
+    }
+
+    @Override
+    @Transactional
+    public void acceptInvitation(Long invitationId, String token, Long userId) {
+        ProjectInvitation invitation;
+        if (invitationId != null) {
+            invitation = projectInvitationRepository.findById(invitationId)
+                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Lời mời không tồn tại."));
+        } else if (token != null && !token.trim().isEmpty()) {
+            invitation = projectInvitationRepository.findByToken(token)
+                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
+        } else {
+            throw new CustomException.BadRequestException("Thiếu thông tin lời mời.");
+        }
+
+        if (!invitation.getInvitee().getId().equals(userId)) {
+            throw new CustomException("Bạn không có quyền thực hiện thao tác này.", HttpStatus.FORBIDDEN);
+        }
+
+        if (invitation.getStatus() != ProjectInvitationStatus.PENDING) {
+            throw new CustomException.BadRequestException("Lời mời này đã được xử lý.");
+        }
+
+        if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new CustomException.BadRequestException("Lời mời đã hết hạn.");
+        }
+
+        // Thay đổi trạng thái
+        invitation.setStatus(ProjectInvitationStatus.ACCEPTED);
+        projectInvitationRepository.save(invitation);
+
+        // Đánh dấu thông báo đã đọc và đổi nội dung
+        List<Notification> notifications = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
+        notifications.stream()
+                .filter(n -> n.getRelatedId() != null && n.getRelatedId().equals(invitation.getId()) && n.getType() == NotificationType.INVITATION)
+                .findFirst()
+                .ifPresent(n -> {
+                    n.setMessage("Bạn đã đồng ý tham gia dự án " + invitation.getProject().getName() + ".");
+                    n.setRead(true);
+                    notificationRepository.save(n);
+                });
+
+        // Kiểm tra xem đã là thành viên chưa (phòng hờ)
+        Optional<ProjectMember> existingMember = projectMemberRepository.findByProjectIdAndUserId(invitation.getProject().getId(), userId);
+        if (existingMember.isPresent()) {
+            return;
+        }
+
+        // Tìm vai trò MEMBER
         ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
                 .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
 
-        // 6. Tạo mới và lưu bản ghi thành viên dự án
+        // Add thành viên
         ProjectMember newMember = ProjectMember.builder()
-                .project(project)
-                .user(invitedUser)
+                .project(invitation.getProject())
+                .user(invitation.getInvitee())
                 .role(memberRole)
                 .joinedAt(LocalDateTime.now())
-                .invitedBy(inviter)
+                .invitedBy(invitation.getInviter())
                 .build();
-
         projectMemberRepository.save(newMember);
-        log.info("✨ Successfully added member ID: {} to project ID: {}", invitedUser.getId(), projectId);
+        
+        evictUserProjectsCache(userId);
+    }
 
-        // 7. Trả về thông tin DTO của thành viên vừa được mời
-        String name = invitedUser.getUsername();
-        if (invitedUser.getProfile() != null && invitedUser.getProfile().getFullName() != null) {
-            name = invitedUser.getProfile().getFullName();
+    @Override
+    @Transactional
+    public void rejectInvitation(Long invitationId, String token, Long userId) {
+        ProjectInvitation invitation;
+        if (invitationId != null) {
+            invitation = projectInvitationRepository.findById(invitationId)
+                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Lời mời không tồn tại."));
+        } else if (token != null && !token.trim().isEmpty()) {
+            invitation = projectInvitationRepository.findByToken(token)
+                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
+        } else {
+            throw new CustomException.BadRequestException("Thiếu thông tin lời mời.");
         }
 
-        return ProjectResponse.MemberDto.builder()
-                .id(invitedUser.getId())
-                .name(name)
-                .build();
+        if (!invitation.getInvitee().getId().equals(userId)) {
+            throw new CustomException("Bạn không có quyền thực hiện thao tác này.", HttpStatus.FORBIDDEN);
+        }
+
+        if (invitation.getStatus() != ProjectInvitationStatus.PENDING) {
+            throw new CustomException.BadRequestException("Lời mời này đã được xử lý.");
+        }
+
+        invitation.setStatus(ProjectInvitationStatus.REJECTED);
+        projectInvitationRepository.save(invitation);
+
+        // Đánh dấu thông báo đã đọc và đổi nội dung
+        List<Notification> notifications = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
+        notifications.stream()
+                .filter(n -> n.getRelatedId() != null && n.getRelatedId().equals(invitation.getId()) && n.getType() == NotificationType.INVITATION)
+                .findFirst()
+                .ifPresent(n -> {
+                    n.setMessage("Bạn đã từ chối tham gia dự án " + invitation.getProject().getName() + ".");
+                    n.setRead(true);
+                    notificationRepository.save(n);
+                });
+    }
+
+    @Override
+    @Transactional
+    public void removeMember(Long projectId, Long memberUserId, Long callingUserId) {
+        log.info("🗑️ Service request to remove member ID: {} from project ID: {} by user ID: {}", memberUserId, projectId, callingUserId);
+
+        // Lấy thông tin thành viên bị xoá
+        ProjectMember targetMember = projectMemberRepository.findByProjectIdAndUserId(projectId, memberUserId)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Thành viên không thuộc dự án."));
+
+        // Người gọi api
+        ProjectMember callingMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Bạn không thuộc dự án này."));
+
+        // Chỉ cho phép PROJECT_LEADER xoá
+        if (!"PROJECT_LEADER".equalsIgnoreCase(callingMember.getRole().getName())) {
+            throw new CustomException("Chỉ Trưởng dự án mới có quyền xóa thành viên.", HttpStatus.FORBIDDEN);
+        }
+
+        // Không được phép tự xóa chính mình nếu mình là Leader (phải chuyển quyền trước)
+        if (memberUserId.equals(callingUserId)) {
+            throw new CustomException.BadRequestException("Bạn đang là Trưởng dự án, vui lòng nhượng quyền trước khi rời dự án.");
+        }
+        
+        // Không xóa ai đang là PROJECT_LEADER
+        if ("PROJECT_LEADER".equalsIgnoreCase(targetMember.getRole().getName())) {
+            throw new CustomException.BadRequestException("Không thể xóa người đang giữ vai trò Trưởng dự án.");
+        }
+
+        projectMemberRepository.delete(targetMember);
+        evictUserProjectsCache(memberUserId);
+        evictUserProjectsCache(callingUserId);
+        log.info("✨ Successfully removed member ID: {} from project ID: {}", memberUserId, projectId);
     }
 
     @Override
@@ -337,6 +505,40 @@ public class ProjectServiceImpl implements ProjectService {
                 projectId, newLeaderUserId, currentLeaderUserId);
     }
 
+    @Override
+    @Transactional
+    public void changeMemberRole(Long projectId, Long memberUserId, String newRoleName, Long callingUserId) {
+        log.info("🔄 Service request to change role of member ID: {} in project ID: {} to role: {} by user ID: {}",
+                memberUserId, projectId, newRoleName, callingUserId);
+
+        // Evict cache ngay khi có mutation
+        evictUserProjectsCache(callingUserId);
+        evictUserProjectsCache(memberUserId);
+
+        // 1. Kiểm tra xem người yêu cầu có thực sự là PROJECT_LEADER của dự án đó không
+        ProjectMember callerMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
+                .orElseThrow(() -> new CustomException("Bạn không phải là thành viên của dự án này.", HttpStatus.FORBIDDEN));
+
+        if (!"PROJECT_LEADER".equalsIgnoreCase(callerMember.getRole().getName())) {
+            throw new CustomException("Chỉ Trưởng dự án mới có quyền phân quyền thành viên.", HttpStatus.FORBIDDEN);
+        }
+
+        // 2. Kiểm tra xem thành viên được phân quyền có thuộc dự án không
+        ProjectMember targetMember = projectMemberRepository.findByProjectIdAndUserId(projectId, memberUserId)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Thành viên không tồn tại trong dự án này."));
+
+        // 3. Tìm vai trò tương ứng trong DB
+        ProjectRole targetRole = projectRoleRepository.findByName(newRoleName)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò " + newRoleName + " không tồn tại trong hệ thống."));
+
+        // 4. Cập nhật vai trò
+        targetMember.setRole(targetRole);
+        projectMemberRepository.save(targetMember);
+
+        log.info("✨ Successfully changed member ID: {} in project ID: {} to role: {}",
+                memberUserId, projectId, newRoleName);
+    }
+
     /**
      * Private helper: Build Redis cache key from query parameters.
      */
@@ -371,7 +573,24 @@ public class ProjectServiceImpl implements ProjectService {
     private ProjectResponse mapToProjectResponse(Project project, Long userId) {
         String localRole = "Member";
         List<ProjectResponse.MemberDto> memberDtos = new ArrayList<>();
+        
+        Long creatorId = project.getCreatedBy() != null ? project.getCreatedBy().getId() : null;
+        boolean hasLeader = false;
+        boolean creatorFound = false;
 
+        // 1. Kiểm tra xem dự án đã có ai làm PROJECT_LEADER chưa
+        if (project.getMembers() != null) {
+            for (ProjectMember member : project.getMembers()) {
+                if ("PROJECT_LEADER".equalsIgnoreCase(member.getRole().getName())) {
+                    hasLeader = true;
+                }
+                if (creatorId != null && member.getUser().getId().equals(creatorId)) {
+                    creatorFound = true;
+                }
+            }
+        }
+
+        // 2. Map dữ liệu
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
                 String name = member.getUser().getUsername();
@@ -379,9 +598,16 @@ public class ProjectServiceImpl implements ProjectService {
                     name = member.getUser().getProfile().getFullName();
                 }
 
+                String roleName = member.getRole().getName();
+                boolean isCreator = creatorId != null && member.getUser().getId().equals(creatorId);
+                
+                // Fallback: NẾU nhóm CHƯA có Leader VÀ đây là người tạo -> Ép thành Leader
+                if (!hasLeader && isCreator) {
+                    roleName = "PROJECT_LEADER";
+                }
+
                 // Find the current logged-in user's role
                 if (member.getUser().getId().equals(userId)) {
-                    String roleName = member.getRole().getName();
                     if ("PROJECT_LEADER".equalsIgnoreCase(roleName)) {
                         localRole = "Project Leader";
                     } else if ("MENTOR".equalsIgnoreCase(roleName)) {
@@ -392,8 +618,28 @@ public class ProjectServiceImpl implements ProjectService {
                 memberDtos.add(ProjectResponse.MemberDto.builder()
                         .id(member.getUser().getId())
                         .name(name)
+                        .role(roleName)
                         .build());
             }
+        }
+
+        // 3. Fallback: Nếu không có leader và người tạo không nằm trong danh sách thành viên -> Add vào làm Leader
+        if (!hasLeader && !creatorFound && project.getCreatedBy() != null) {
+            UserAccount creator = project.getCreatedBy();
+            String name = creator.getUsername();
+            if (creator.getProfile() != null && creator.getProfile().getFullName() != null) {
+                name = creator.getProfile().getFullName();
+            }
+
+            if (creator.getId().equals(userId)) {
+                localRole = "Project Leader";
+            }
+
+            memberDtos.add(ProjectResponse.MemberDto.builder()
+                    .id(creator.getId())
+                    .name(name)
+                    .role("PROJECT_LEADER")
+                    .build());
         }
 
         return ProjectResponse.builder()
