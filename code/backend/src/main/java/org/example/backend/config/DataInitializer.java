@@ -20,11 +20,11 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        log.info(" Starting database seeding check via DataInitializer...");
+        log.info("🚀 Starting database seeding check via DataInitializer...");
         
         // 1. Seed System Roles
         List<String> defaultRoles = List.of("USER", "ADMIN", "MENTOR");
-        
+
         for (String roleName : defaultRoles) {
             if (roleRepository.findByName(roleName).isEmpty()) {
                 SystemRole newRole = SystemRole.builder()
@@ -54,6 +54,6 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
         
-        log.info(" Database seeding check finished successfully.");
+        log.info("✅ Database seeding check finished successfully.");
     }
 }

@@ -11,10 +11,10 @@ export function AppLayout() {
 
   return (
     <div className="bg-surface text-on-surface font-body-md min-h-screen flex flex-col relative select-none">
-      
+
       {/* 1. Thanh Top Header cao cấp bao trùm đầu ứng dụng */}
       <header className="h-[64px] border-b border-outline-variant bg-surface-container-lowest px-6 flex items-center justify-between z-30 sticky top-0 shrink-0 shadow-sm">
-        
+
         {/* Logo DevTrack AI phía trái */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary-container text-on-primary-container shadow-inner">
@@ -27,7 +27,7 @@ export function AppLayout() {
 
         {/* Khối tìm kiếm & Tiện ích bên phải */}
         <div className="flex items-center gap-6">
-          
+
           {/* Ô Tìm kiếm dự án */}
           <div className="relative hidden sm:block">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -68,7 +68,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </div>
-      
+
     </div>
   )
 }
