@@ -68,5 +68,6 @@ backend/logs/
 node_modules/
 
 # --- CUSTOM RULES ---
+coChe.md
 Nguyen_Thanh_Dat/coChe.md
 trigger.md
