@@ -72,3 +72,8 @@ coChe.md
 Nguyen_Thanh_Dat/coChe.md
 trigger.md
 private_notes/
+
+# --- LOCAL WORKING NOTES / ACCIDENTAL ROOT ARTIFACTS ---
+/package-lock.json
+/code/KANBAN_UPGRADE_PLAN.md
+/code/.gitignore

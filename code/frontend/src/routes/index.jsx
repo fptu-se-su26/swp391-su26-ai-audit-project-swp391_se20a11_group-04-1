@@ -5,6 +5,7 @@ import { LoginPage, RegisterPage } from '@features/auth'
 import { DashboardPage, ContributionPage, AcceptInvitePage } from '@features/workspace'
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
+import { KanbanBoardPage, TaskDetailPage, MyTasksPage } from '@features/kanban'
 
 // Shared Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
@@ -35,6 +36,11 @@ export function AppRoutes() {
 
           {/* Module 3: Team Contribution */}
           <Route path="/contribution" element={<ContributionPage />} />
+
+          {/* Module 3: Kanban */}
+          <Route path="/kanban" element={<KanbanBoardPage />} />
+          <Route path="/kanban/tasks/:id" element={<TaskDetailPage />} />
+          <Route path="/my-tasks" element={<MyTasksPage />} />
 
           {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
         </Route>

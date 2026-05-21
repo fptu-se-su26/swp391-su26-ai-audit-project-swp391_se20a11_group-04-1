@@ -127,3 +127,20 @@ a:hover { color: var(--color-primary); }
 .btn-secondary:hover {
   background: rgba(255,255,255,0.1);
 }
+
+/* Kanban Custom Scrollbar */
+.kanban-scroll::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+    background-color: #c3c6d5;
+    border-radius: 4px;
+}
+.kanban-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c3c6d5 transparent;
+}
