@@ -34,6 +34,6 @@ public class RegisterRequest implements Serializable {
     private String fullName;
 
     @Size(max = 20, message = "Phone number cannot exceed 20 characters")
-    @Pattern(regexp = "^$|[0-9]{10,11}$", message = "Phone number must be valid (10-11 digits)")
+    @Pattern(regexp = "^$|^[0-9]{10,11}$", message = "Phone number must be valid (10-11 digits)")
     private String phone;
 }

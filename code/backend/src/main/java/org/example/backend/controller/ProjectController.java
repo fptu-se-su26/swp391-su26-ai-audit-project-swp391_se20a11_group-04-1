@@ -7,6 +7,7 @@ import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.exception.CustomException;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.service.ProjectService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -75,7 +76,7 @@ public class ProjectController {
         log.info("🚀 Request to create new project received from user ID: {}. Name: {}", userId, request.getName());
 
         if (request.getName() == null || request.getName().trim().isEmpty()) {
-            throw new CustomException.BadRequestException("Tên dự án không được để trống.");
+            throw new BadRequestException("Tên dự án không được để trống.");
         }
 
         ProjectResponse createdProject = projectService.createProject(request, userId);
@@ -101,7 +102,7 @@ public class ProjectController {
 
         String email = payload.get("email");
         if (email == null || email.trim().isEmpty()) {
-            throw new CustomException.BadRequestException("Email thành viên được mời không được để trống.");
+            throw new BadRequestException("Email thành viên được mời không được để trống.");
         }
 
         log.info("📩 Request to invite member {} to project ID: {} by user ID: {}", email, projectId, userId);
@@ -130,7 +131,7 @@ public class ProjectController {
         Long invitationId = invitationIdNum != null ? invitationIdNum.longValue() : null;
 
         if ((token == null || token.trim().isEmpty()) && invitationId == null) {
-            throw new CustomException.BadRequestException("Thiếu token hoặc ID lời mời.");
+            throw new BadRequestException("Thiếu token hoặc ID lời mời.");
         }
 
         projectService.acceptInvitation(invitationId, token, userId);
@@ -156,7 +157,7 @@ public class ProjectController {
         Long invitationId = invitationIdNum != null ? invitationIdNum.longValue() : null;
 
         if ((token == null || token.trim().isEmpty()) && invitationId == null) {
-            throw new CustomException.BadRequestException("Thiếu token hoặc ID lời mời.");
+            throw new BadRequestException("Thiếu token hoặc ID lời mời.");
         }
 
         projectService.rejectInvitation(invitationId, token, userId);
@@ -200,7 +201,7 @@ public class ProjectController {
 
         Long newLeaderUserId = payload.get("newLeaderUserId");
         if (newLeaderUserId == null) {
-            throw new CustomException.BadRequestException("ID của Leader mới không được để trống.");
+            throw new BadRequestException("ID của Leader mới không được để trống.");
         }
 
         log.info("🔄 Request to change project ID: {} leader to user ID: {} by current leader ID: {}",
@@ -229,7 +230,7 @@ public class ProjectController {
 
         String newRole = payload.get("role");
         if (newRole == null || newRole.trim().isEmpty()) {
-            throw new CustomException.BadRequestException("Vai trò mới không được để trống.");
+            throw new BadRequestException("Vai trò mới không được để trống.");
         }
 
         log.info("🔄 Request to change member role of user ID: {} in project ID: {} to role: {} by user ID: {}",

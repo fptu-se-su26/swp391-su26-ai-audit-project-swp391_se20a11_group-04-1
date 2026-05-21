@@ -11,6 +11,8 @@ import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
+import org.example.backend.exception.ResourceNotFoundException;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRoleRepository;
@@ -44,8 +46,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectServiceImpl implements ProjectService {
-
-
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -164,7 +164,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 1. Tìm tài khoản người tạo
         UserAccount creator = userAccountRepository.findById(userId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Tài khoản người tạo không tồn tại trong hệ thống."));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản người tạo không tồn tại trong hệ thống."));
 
         // Evict cache ngay khi có mutation
         evictUserProjectsCache(userId);
@@ -208,7 +208,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         LocalDate deadline = request.getDeadline() != null ? request.getDeadline() : LocalDate.now().plusMonths(3);
         if (deadline.isBefore(LocalDate.now())) {
-            throw new CustomException.BadRequestException("Hạn chót dự án không được ở trong quá khứ.");
+            throw new BadRequestException("Hạn chót dự án không được ở trong quá khứ.");
         }
 
         // 4. Tạo và lưu thực thể Project
@@ -230,7 +230,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 5. Tìm vai trò PROJECT_LEADER
         ProjectRole leaderRole = projectRoleRepository.findByName("PROJECT_LEADER")
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại trong hệ thống."));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại trong hệ thống."));
 
         // 6. Gán người tạo làm Leader của dự án
         ProjectMember leaderMember = ProjectMember.builder()
@@ -257,32 +257,32 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 1. Kiểm tra dự án tồn tại
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Dự án không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
 
         // 2. Tìm tài khoản người mời
         UserAccount inviter = userAccountRepository.findById(invitedByUserId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Tài khoản người mời không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản người mời không tồn tại."));
 
         // 3. Tìm tài khoản người được mời bằng email
         UserAccount invitedUser = userAccountRepository.findByEmail(email.trim())
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Người dùng có email này không tồn tại trong hệ thống."));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng có email này không tồn tại trong hệ thống."));
 
         // Không tự mời chính mình
         if (invitedUser.getId().equals(inviter.getId())) {
-            throw new CustomException.BadRequestException("Bạn không thể tự mời chính mình tham gia dự án.");
+            throw new BadRequestException("Bạn không thể tự mời chính mình tham gia dự án.");
         }
 
         // 4. Kiểm tra xem người dùng đã là thành viên trong dự án chưa
         Optional<ProjectMember> existingMember = projectMemberRepository.findByProjectIdAndUserId(projectId, invitedUser.getId());
         if (existingMember.isPresent()) {
-            throw new CustomException.BadRequestException("Người dùng đã là thành viên của dự án này.");
+            throw new BadRequestException("Người dùng đã là thành viên của dự án này.");
         }
 
         // Kiểm tra xem đã có lời mời pending chưa (DB)
         Optional<ProjectInvitation> existingInvite = projectInvitationRepository.findByProjectIdAndInviteeIdAndStatus(
                 projectId, invitedUser.getId(), ProjectInvitationStatus.PENDING);
         if (existingInvite.isPresent()) {
-            throw new CustomException.BadRequestException("Người dùng này đã nhận được lời mời trước đó và đang chờ xác nhận.");
+            throw new BadRequestException("Người dùng này đã nhận được lời mời trước đó và đang chờ xác nhận.");
         }
 
         // Tạo token
@@ -331,12 +331,12 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectInvitation invitation;
         if (invitationId != null) {
             invitation = projectInvitationRepository.findById(invitationId)
-                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Lời mời không tồn tại."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Lời mời không tồn tại."));
         } else if (token != null && !token.trim().isEmpty()) {
             invitation = projectInvitationRepository.findByToken(token)
-                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
         } else {
-            throw new CustomException.BadRequestException("Thiếu thông tin lời mời.");
+            throw new BadRequestException("Thiếu thông tin lời mời.");
         }
 
         if (!invitation.getInvitee().getId().equals(userId)) {
@@ -344,11 +344,11 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         if (invitation.getStatus() != ProjectInvitationStatus.PENDING) {
-            throw new CustomException.BadRequestException("Lời mời này đã được xử lý.");
+            throw new BadRequestException("Lời mời này đã được xử lý.");
         }
 
         if (invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new CustomException.BadRequestException("Lời mời đã hết hạn.");
+            throw new BadRequestException("Lời mời đã hết hạn.");
         }
 
         // Thay đổi trạng thái
@@ -374,7 +374,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Tìm vai trò MEMBER
         ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
 
         // Add thành viên
         ProjectMember newMember = ProjectMember.builder()
@@ -385,8 +385,8 @@ public class ProjectServiceImpl implements ProjectService {
                 .invitedBy(invitation.getInviter())
                 .build();
         projectMemberRepository.save(newMember);
-        
-        evictUserProjectsCache(userId);
+
+        evictProjectCacheForAllMembers(invitation.getProject().getId());
     }
 
     @Override
@@ -395,12 +395,12 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectInvitation invitation;
         if (invitationId != null) {
             invitation = projectInvitationRepository.findById(invitationId)
-                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Lời mời không tồn tại."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Lời mời không tồn tại."));
         } else if (token != null && !token.trim().isEmpty()) {
             invitation = projectInvitationRepository.findByToken(token)
-                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
+                    .orElseThrow(() -> new ResourceNotFoundException("Đường dẫn không hợp lệ hoặc không tồn tại."));
         } else {
-            throw new CustomException.BadRequestException("Thiếu thông tin lời mời.");
+            throw new BadRequestException("Thiếu thông tin lời mời.");
         }
 
         if (!invitation.getInvitee().getId().equals(userId)) {
@@ -408,7 +408,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         if (invitation.getStatus() != ProjectInvitationStatus.PENDING) {
-            throw new CustomException.BadRequestException("Lời mời này đã được xử lý.");
+            throw new BadRequestException("Lời mời này đã được xử lý.");
         }
 
         invitation.setStatus(ProjectInvitationStatus.REJECTED);
@@ -433,11 +433,11 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Lấy thông tin thành viên bị xoá
         ProjectMember targetMember = projectMemberRepository.findByProjectIdAndUserId(projectId, memberUserId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Thành viên không thuộc dự án."));
+                .orElseThrow(() -> new ResourceNotFoundException("Thành viên không thuộc dự án."));
 
         // Người gọi api
         ProjectMember callingMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Bạn không thuộc dự án này."));
+                .orElseThrow(() -> new ResourceNotFoundException("Bạn không thuộc dự án này."));
 
         // Chỉ cho phép PROJECT_LEADER xoá
         if (!"PROJECT_LEADER".equalsIgnoreCase(callingMember.getRole().getName())) {
@@ -446,17 +446,17 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Không được phép tự xóa chính mình nếu mình là Leader (phải chuyển quyền trước)
         if (memberUserId.equals(callingUserId)) {
-            throw new CustomException.BadRequestException("Bạn đang là Trưởng dự án, vui lòng nhượng quyền trước khi rời dự án.");
+            throw new BadRequestException("Bạn đang là Trưởng dự án, vui lòng nhượng quyền trước khi rời dự án.");
         }
-        
+
         // Không xóa ai đang là PROJECT_LEADER
         if ("PROJECT_LEADER".equalsIgnoreCase(targetMember.getRole().getName())) {
-            throw new CustomException.BadRequestException("Không thể xóa người đang giữ vai trò Trưởng dự án.");
+            throw new BadRequestException("Không thể xóa người đang giữ vai trò Trưởng dự án.");
         }
 
         projectMemberRepository.delete(targetMember);
         evictUserProjectsCache(memberUserId);
-        evictUserProjectsCache(callingUserId);
+        evictProjectCacheForAllMembers(projectId);
         log.info("✨ Successfully removed member ID: {} from project ID: {}", memberUserId, projectId);
     }
 
@@ -467,8 +467,7 @@ public class ProjectServiceImpl implements ProjectService {
                 projectId, currentLeaderUserId, newLeaderUserId);
 
         // Evict cache ngay khi có mutation
-        evictUserProjectsCache(currentLeaderUserId);
-        evictUserProjectsCache(newLeaderUserId);
+        evictProjectCacheForAllMembers(projectId);
 
         // 1. Kiểm tra xem người yêu cầu có thực sự là PROJECT_LEADER hiện tại của dự án đó không
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentLeaderUserId)
@@ -480,7 +479,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 2. Kiểm tra xem thành viên mới được ứng cử có thuộc dự án không
         ProjectMember newLeaderMember = projectMemberRepository.findByProjectIdAndUserId(projectId, newLeaderUserId)
-                .orElseThrow(() -> new CustomException.BadRequestException("Thành viên được chọn không thuộc dự án này."));
+                .orElseThrow(() -> new BadRequestException("Thành viên được chọn không thuộc dự án này."));
 
         // Nếu trùng nhau thì không cần đổi
         if (newLeaderUserId.equals(currentLeaderUserId)) {
@@ -490,9 +489,9 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 3. Tìm 2 vai trò tương ứng từ DB
         ProjectRole leaderRole = projectRoleRepository.findByName("PROJECT_LEADER")
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại."));
         ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò MEMBER không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại."));
 
         // 4. Hoán đổi vai trò nguyên tử
         currentMember.setRole(memberRole);
@@ -512,8 +511,7 @@ public class ProjectServiceImpl implements ProjectService {
                 memberUserId, projectId, newRoleName, callingUserId);
 
         // Evict cache ngay khi có mutation
-        evictUserProjectsCache(callingUserId);
-        evictUserProjectsCache(memberUserId);
+        evictProjectCacheForAllMembers(projectId);
 
         // 1. Kiểm tra xem người yêu cầu có thực sự là PROJECT_LEADER của dự án đó không
         ProjectMember callerMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
@@ -525,11 +523,11 @@ public class ProjectServiceImpl implements ProjectService {
 
         // 2. Kiểm tra xem thành viên được phân quyền có thuộc dự án không
         ProjectMember targetMember = projectMemberRepository.findByProjectIdAndUserId(projectId, memberUserId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Thành viên không tồn tại trong dự án này."));
+                .orElseThrow(() -> new ResourceNotFoundException("Thành viên không tồn tại trong dự án này."));
 
         // 3. Tìm vai trò tương ứng trong DB
         ProjectRole targetRole = projectRoleRepository.findByName(newRoleName)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Vai trò " + newRoleName + " không tồn tại trong hệ thống."));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò " + newRoleName + " không tồn tại trong hệ thống."));
 
         // 4. Cập nhật vai trò
         targetMember.setRole(targetRole);
@@ -539,9 +537,6 @@ public class ProjectServiceImpl implements ProjectService {
                 memberUserId, projectId, newRoleName);
     }
 
-    /**
-     * Private helper: Build Redis cache key from query parameters.
-     */
     private String buildCacheKey(Long userId, int page, int size, String status, String search, String sortBy) {
         return String.format("%s%d:p%d:s%d:%s:%s:%s",
                 CACHE_PREFIX, userId, page, size,
@@ -550,10 +545,6 @@ public class ProjectServiceImpl implements ProjectService {
                 sortBy != null ? sortBy.toLowerCase() : "recent");
     }
 
-    /**
-     * Private helper: Evict all cached pages for a specific user.
-     * Called after any mutation (create, invite, change leader).
-     */
     private void evictUserProjectsCache(Long userId) {
         try {
             Set<String> keys = redisTemplate.keys(CACHE_PREFIX + userId + ":*");
@@ -566,19 +557,21 @@ public class ProjectServiceImpl implements ProjectService {
         }
     }
 
-    /**
-     * Helper Method: Map thực thể Project sang ProjectResponse DTO.
-     * Tái sử dụng tối đa logic map để tránh lặp code.
-     */
+    private void evictProjectCacheForAllMembers(Long projectId) {
+        List<ProjectMember> members = projectMemberRepository.findByProjectId(projectId);
+        for (ProjectMember member : members) {
+            evictUserProjectsCache(member.getUser().getId());
+        }
+    }
+
     private ProjectResponse mapToProjectResponse(Project project, Long userId) {
         String localRole = "Member";
         List<ProjectResponse.MemberDto> memberDtos = new ArrayList<>();
-        
+
         Long creatorId = project.getCreatedBy() != null ? project.getCreatedBy().getId() : null;
         boolean hasLeader = false;
         boolean creatorFound = false;
 
-        // 1. Kiểm tra xem dự án đã có ai làm PROJECT_LEADER chưa
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
                 if ("PROJECT_LEADER".equalsIgnoreCase(member.getRole().getName())) {
@@ -590,7 +583,6 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        // 2. Map dữ liệu
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
                 String name = member.getUser().getUsername();
@@ -600,13 +592,11 @@ public class ProjectServiceImpl implements ProjectService {
 
                 String roleName = member.getRole().getName();
                 boolean isCreator = creatorId != null && member.getUser().getId().equals(creatorId);
-                
-                // Fallback: NẾU nhóm CHƯA có Leader VÀ đây là người tạo -> Ép thành Leader
+
                 if (!hasLeader && isCreator) {
                     roleName = "PROJECT_LEADER";
                 }
 
-                // Find the current logged-in user's role
                 if (member.getUser().getId().equals(userId)) {
                     if ("PROJECT_LEADER".equalsIgnoreCase(roleName)) {
                         localRole = "Project Leader";
@@ -623,7 +613,6 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        // 3. Fallback: Nếu không có leader và người tạo không nằm trong danh sách thành viên -> Add vào làm Leader
         if (!hasLeader && !creatorFound && project.getCreatedBy() != null) {
             UserAccount creator = project.getCreatedBy();
             String name = creator.getUsername();

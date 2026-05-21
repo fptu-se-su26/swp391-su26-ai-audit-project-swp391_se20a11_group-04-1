@@ -118,12 +118,16 @@ function RegisterPage() {
       }
     } catch (err) {
       const errorData = err.response?.data
+      const status = err.response?.status
       
       if (errorData) {
         if (errorData.errors && typeof errorData.errors === 'object') {
           // Validation errors from Spring Boot (e.g. FieldName -> ErrorMessage)
           setErrors(errorData.errors)
           toast.error('Dữ liệu không hợp lệ. Vui lòng kiểm tra các ô màu đỏ!')
+        } else if (status === 500) {
+          // Server internal error - likely Redis/Email/DB configuration issue
+          toast.error('Hệ thống đang gặp sự cố. Vui lòng thử lại sau hoặc liên hệ quản trị viên!')
         } else {
           // Business error (e.g. email or username already exists)
           toast.error(errorData.message || 'Có lỗi xảy ra!')

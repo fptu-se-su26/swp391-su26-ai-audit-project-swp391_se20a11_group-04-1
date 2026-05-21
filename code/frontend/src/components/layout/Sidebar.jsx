@@ -118,7 +118,7 @@ const Sidebar = () => {
       )}
 
       {/* DANH SÁCH MENU ĐIỀU HƯỚNG */}
-      <nav className="flex-1 space-y-1 overflow-y-auto max-h-[55vh] pr-1 scrollbar-thin">
+      <nav className="flex-1 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
         {!activeProject ? (
           // A. Hiển thị Menu Portfolio
           portfolioMenuItems.map((item) => {
