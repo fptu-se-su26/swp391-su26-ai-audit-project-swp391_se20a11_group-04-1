@@ -144,7 +144,8 @@ const Sidebar = () => {
             <NavItem to="/dashboard" icon="dashboard" label="Dashboard" />
             <NavItem to="/requirements" icon="description" label="Requirements" />
             <NavItem to="/use-cases" icon="account_tree" label="Use Cases" />
-            <NavItem to="/task-board" icon="assignment" label="Task Board" />
+            <NavItem to="/kanban" icon="assignment" label="Task Board" />
+            <NavItem to="/my-tasks" icon="assignment_ind" label="My Tasks" />
             <NavItem to="/sprints" icon="history_toggle_off" label="Sprints" />
             <NavItem to="/test-cases" icon="checklist_rtl" label="Test Cases" />
             <NavItem to="/bugs" icon="bug_report" label="Bugs" />
