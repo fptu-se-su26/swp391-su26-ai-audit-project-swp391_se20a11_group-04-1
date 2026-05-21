@@ -29,12 +29,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/requirements/**").permitAll()
                 .anyRequest().authenticated()
 
 
             );
 
-        return http.build();
-    }
+        return http.build();   }
 }
