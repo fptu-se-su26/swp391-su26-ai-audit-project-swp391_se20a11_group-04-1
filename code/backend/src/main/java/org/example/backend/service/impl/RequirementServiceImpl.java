@@ -2,17 +2,33 @@ package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.dto.RequirementRequestDTO;
 import org.example.backend.dto.RequirementResponseDTO;
+import org.example.backend.entity.Priority;
 import org.example.backend.entity.Requirement;
+import org.example.backend.entity.RequirementStatus;
 import org.example.backend.entity.RequirementTag;
+import org.example.backend.entity.ProjectStatus;
+import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.RequirementRepository;
+import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.service.RequirementService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -22,11 +38,30 @@ public class RequirementServiceImpl implements RequirementService {
 
     private final RequirementRepository requirementRepository;
     private final org.example.backend.repository.ProjectRepository projectRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final UseCaseRepository useCaseRepository;
 
     @Override
     @Transactional
     public RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO, Long userId) {
         log.info("Creating new requirement: {}", requestDTO.getTitle());
+
+        if (requestDTO.getProjectId() == null) {
+            throw new CustomException.BadRequestException("Project is required when creating a requirement.");
+        }
+
+        var project = projectRepository.findById(requestDTO.getProjectId())
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Project not found"));
+                
+        if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
+            throw new CustomException.BadRequestException("Cannot add requirements to a project that is " + project.getStatus());
+        }
+
+        Long finalOwnerId = requestDTO.getOwnerId() != null ? requestDTO.getOwnerId() : userId;
+        UserAccount owner = userAccountRepository.findById(finalOwnerId)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Owner not found"));
+        UserAccount creator = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Creator not found"));
 
         Requirement requirement = Requirement.builder()
                 .title(requestDTO.getTitle())
@@ -34,10 +69,10 @@ public class RequirementServiceImpl implements RequirementService {
                 .type(requestDTO.getType())
                 .priority(requestDTO.getPriority())
                 .acceptanceCriteria(requestDTO.getAcceptanceCriteria())
-                .ownerId(requestDTO.getOwnerId() != null ? requestDTO.getOwnerId() : userId)
+                .owner(owner)
                 .evidenceRequired(requestDTO.getEvidenceRequired() != null ? requestDTO.getEvidenceRequired() : false)
-                .project(projectRepository.getReferenceById(requestDTO.getProjectId()))
-                .createdBy(userId)
+                .project(project)
+                .createdBy(creator)
                 .build();
 
         // Fix: @Builder.Default conflicts with .builder().status() — must set AFTER build()
@@ -66,10 +101,39 @@ public class RequirementServiceImpl implements RequirementService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RequirementResponseDTO> getAllRequirements() {
-        return requirementRepository.findAll().stream()
+    public PaginatedResponse<RequirementResponseDTO> getRequirements(
+            int page,
+            int size,
+            Long projectId,
+            String status,
+            String priority,
+            String tag) {
+        int currentPage = Math.max(page, 0);
+        int pageSize = Math.min(Math.max(size, 1), 10);
+
+        PageRequest pageRequest = PageRequest.of(
+                currentPage,
+                pageSize,
+                Sort.by(Sort.Direction.DESC, "id")
+        );
+
+        Page<Requirement> requirementsPage = requirementRepository.findAll(
+                buildRequirementSpec(projectId, status, priority, tag),
+                pageRequest
+        );
+
+        List<RequirementResponseDTO> items = requirementsPage.getContent().stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
+
+        return PaginatedResponse.<RequirementResponseDTO>builder()
+                .items(items)
+                .currentPage(requirementsPage.getNumber())
+                .pageSize(requirementsPage.getSize())
+                .totalItems(requirementsPage.getTotalElements())
+                .totalPages(requirementsPage.getTotalPages())
+                .hasMore(requirementsPage.hasNext())
+                .build();
     }
 
     @Override
@@ -84,8 +148,27 @@ public class RequirementServiceImpl implements RequirementService {
         requirement.setType(requestDTO.getType());
         requirement.setPriority(requestDTO.getPriority());
         requirement.setAcceptanceCriteria(requestDTO.getAcceptanceCriteria());
-        requirement.setOwnerId(requestDTO.getOwnerId());
+        
+        if (requestDTO.getOwnerId() != null) {
+            UserAccount owner = userAccountRepository.findById(requestDTO.getOwnerId())
+                    .orElseThrow(() -> new CustomException.ResourceNotFoundException("Owner not found"));
+            requirement.setOwner(owner);
+        }
+
         if (requestDTO.getStatus() != null) {
+            // Check project status before status update
+            var project = requirement.getProject();
+            if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
+                throw new CustomException.BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
+            }
+
+            // Enforce DONE State Constraints
+            if (requestDTO.getStatus() == RequirementStatus.DONE) {
+                boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, "DONE");
+                if (hasPendingUseCases) {
+                    throw new CustomException.BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
+                }
+            }
             requirement.setStatus(requestDTO.getStatus());
         }
         if (requestDTO.getEvidenceRequired() != null) {
@@ -128,14 +211,46 @@ public class RequirementServiceImpl implements RequirementService {
                 .type(req.getType())
                 .priority(req.getPriority())
                 .acceptanceCriteria(req.getAcceptanceCriteria())
-                .ownerId(req.getOwnerId())
+                .ownerId(req.getOwner() != null ? req.getOwner().getId() : null)
                 .status(req.getStatus())
                 .evidenceRequired(req.getEvidenceRequired())
                 .reqOrder(req.getReqOrder())
-                .createdBy(req.getCreatedBy())
+                .createdBy(req.getCreatedBy() != null ? req.getCreatedBy().getId() : null)
                 .createdAt(req.getCreatedAt())
                 .updatedAt(req.getUpdatedAt())
                 .tags(tags)
                 .build();
+    }
+
+    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (projectId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
+            }
+
+            if (status != null && !status.isBlank()) {
+                RequirementStatus parsedStatus = RequirementStatus.valueOf(normalizeEnumValue(status));
+                predicates.add(criteriaBuilder.equal(root.get("status"), parsedStatus));
+            }
+
+            if (priority != null && !priority.isBlank()) {
+                Priority parsedPriority = Priority.valueOf(normalizeEnumValue(priority));
+                predicates.add(criteriaBuilder.equal(root.get("priority"), parsedPriority));
+            }
+
+            if (tag != null && !tag.isBlank()) {
+                query.distinct(true);
+                Join<Requirement, RequirementTag> tagsJoin = root.join("tags", JoinType.LEFT);
+                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(tagsJoin.get("tag")), tag.trim().toLowerCase(Locale.ROOT)));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private String normalizeEnumValue(String value) {
+        return value.trim().replace(' ', '_').toUpperCase(Locale.ROOT);
     }
 }
