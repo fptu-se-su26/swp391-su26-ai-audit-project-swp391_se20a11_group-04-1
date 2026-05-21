@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.EvidenceRequest;
 import org.example.backend.dto.EvidenceResponse;
+import org.example.backend.dto.PageResponse;
 import org.example.backend.dto.EvidenceLinkRequest;
 import org.example.backend.dto.EvidenceStatusUpdateRequest;
 import org.example.backend.service.EvidenceService;
@@ -25,28 +26,17 @@ public class EvidenceController {
         this.evidenceService = evidenceService;
     }
 
-    @GetMapping("/test-evidence")
-    public String testEvidence() {
-        try {
-            evidenceService.searchEvidence(null, null, null, org.springframework.data.domain.PageRequest.of(0, 10));
-            return "SUCCESS";
-        } catch (Exception e) {
-            java.io.StringWriter sw = new java.io.StringWriter();
-            e.printStackTrace(new java.io.PrintWriter(sw));
-            return sw.toString();
-        }
-    }
-
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<Page<EvidenceResponse>>> searchEvidence(
+    public ResponseEntity<ApiResponse<PageResponse<EvidenceResponse>>> searchEvidence(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-        Page<EvidenceResponse> response = evidenceService.searchEvidence(keyword, type, status, pageable);
-        return ResponseEntity.ok(ApiResponse.success(response, "Success"));
+            @RequestParam(required = false) Long uploadedBy,
+            @org.springframework.data.web.PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) 
+            Pageable pageable) {
+        
+        Page<EvidenceResponse> response = evidenceService.searchEvidence(keyword, type, status, uploadedBy, pageable);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(response), "Evidence retrieved successfully"));
     }
 
     @GetMapping("/{id}")

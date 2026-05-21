@@ -42,7 +42,7 @@ public class TestCaseController {
     }
 
     @GetMapping
-    public ApiResponse<Page<TestCaseListItemResponse>> list(
+    public ApiResponse<org.example.backend.dto.PageResponse<TestCaseListItemResponse>> list(
             @PathVariable Long projectId,
             @RequestParam(required = false) TestCaseStatus status,
             @RequestParam(required = false) TestType type,
@@ -50,8 +50,9 @@ public class TestCaseController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
+        Page<TestCaseListItemResponse> page = testCaseService.list(projectId, status, type, requirementId, pageable);
         return ApiResponse.success(
-            testCaseService.list(projectId, status, type, requirementId, pageable),
+            org.example.backend.dto.PageResponse.from(page),
             "Test cases retrieved successfully"
         );
     }
