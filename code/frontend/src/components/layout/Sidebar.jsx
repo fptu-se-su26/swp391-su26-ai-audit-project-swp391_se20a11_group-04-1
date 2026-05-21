@@ -148,7 +148,7 @@ const Sidebar = () => {
             <NavItem to="/sprints" icon="history_toggle_off" label="Sprints" />
             <NavItem to="/test-cases" icon="checklist_rtl" label="Test Cases" />
             <NavItem to="/bugs" icon="bug_report" label="Bugs" />
-            <NavItem to="/evidence-vault" icon="inventory_2" label="Evidence Vault" />
+            <NavItem to="/evidence" icon="inventory_2" label="Evidence Vault" />
             <NavItem to="/traceability-matrix" icon="reorder" label="Traceability Matrix" />
 
             {/* Intelligence Section */}

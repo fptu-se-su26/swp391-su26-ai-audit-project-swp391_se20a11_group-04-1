@@ -9,7 +9,12 @@ import org.example.backend.dto.VerifyOtpRequest;
 import org.example.backend.entity.SystemRole;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.UserProfile;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
+import org.example.backend.exception.DuplicateResourceException;
+import org.example.backend.exception.ResourceNotFoundException;
+import org.example.backend.exception.UnauthorizedException;
+import org.example.backend.exception.ForbiddenException;
 import org.example.backend.repository.SystemRoleRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.AuthService;
@@ -56,12 +61,12 @@ public class AuthServiceImpl implements AuthService {
         // 1. Verify unique criteria in PostgreSQL
         if (userAccountRepository.existsByUsername(request.getUsername())) {
             log.warn("Registration request failed. Username already exists: {}", request.getUsername());
-            throw new CustomException.ConflictException("Username is already taken");
+            throw new DuplicateResourceException("Username is already taken");
         }
 
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration request failed. Email already exists: {}", request.getEmail());
-            throw new CustomException.ConflictException("Email is already registered");
+            throw new DuplicateResourceException("Email is already registered");
         }
 
         // 2. Generate secure random OTP
@@ -83,7 +88,7 @@ public class AuthServiceImpl implements AuthService {
         // 1. Validate OTP from Redis
         if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
             log.warn("Invalid or expired OTP provided for email: {}", request.getEmail());
-            throw new CustomException.BadRequestException("Invalid or expired OTP code");
+            throw new BadRequestException("Invalid or expired OTP code");
         }
 
         // 2. Load cached registration request DTO from Redis
@@ -93,7 +98,7 @@ public class AuthServiceImpl implements AuthService {
         SystemRole defaultRole = systemRoleRepository.findByName("USER")
                 .orElseThrow(() -> {
                     log.error("Critical System Configuration Error: Default role 'USER' is not initialized");
-                    return new CustomException.ResourceNotFoundException("Default system role 'USER' not found");
+                    return new ResourceNotFoundException("Default system role 'USER' not found");
                 });
 
         // 4. Create new UserAccount entity with hashed password
@@ -145,8 +150,7 @@ public class AuthServiceImpl implements AuthService {
         // BƯỚC 0.1: Kiểm tra IP Blacklist vĩnh viễn (IP của hacker đã bị cấm)
         if (rateLimitService.isIpBlacklisted(ipAddress)) {
             log.warn("Login blocked. IP {} is permanently blacklisted.", ipAddress);
-            throw new CustomException("Địa chỉ IP của bạn bị cấm truy cập hệ thống vĩnh viễn do vi phạm an ninh.",
-                    HttpStatus.FORBIDDEN);
+            throw new ForbiddenException("Địa chỉ IP của bạn bị cấm truy cập hệ thống vĩnh viễn do vi phạm an ninh.");
         }
 
         // BƯỚC 0.2: Kiểm tra IP Whitelist. Nếu đã được Whitelist -> Bỏ qua kiểm tra IP
@@ -186,7 +190,7 @@ public class AuthServiceImpl implements AuthService {
         UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> {
                     log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
-                    throw new CustomException("Thông tin đăng nhập không chính xác.", HttpStatus.UNAUTHORIZED);
+                    throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
                 });
 
         // BƯỚC 3: So khớp mật khẩu
@@ -318,7 +322,7 @@ public class AuthServiceImpl implements AuthService {
                         HttpStatus.LOCKED);
             }
 
-            throw new CustomException("Thông tin đăng nhập không chính xác.", HttpStatus.UNAUTHORIZED);
+            throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
         }
     }
 
@@ -326,7 +330,7 @@ public class AuthServiceImpl implements AuthService {
     public String unlockAccountByToken(String token) {
         String tokenVal = rateLimitService.getUsernameAndIpByUnlockToken(token);
         if (tokenVal == null) {
-            throw new CustomException("Liên kết xác nhận đã hết hạn hoặc không hợp lệ.", HttpStatus.BAD_REQUEST);
+            throw new BadRequestException("Liên kết xác nhận đã hết hạn hoặc không hợp lệ.");
         }
 
         String[] parts = tokenVal.split(":", 2);
@@ -355,7 +359,7 @@ public class AuthServiceImpl implements AuthService {
     public String blockIpByToken(String token) {
         String ipAddress = rateLimitService.getIpByBlockToken(token);
         if (ipAddress == null) {
-            throw new CustomException("Liên kết chặn IP đã hết hạn hoặc không hợp lệ.", HttpStatus.BAD_REQUEST);
+            throw new BadRequestException("Liên kết chặn IP đã hết hạn hoặc không hợp lệ.");
         }
 
         // Đưa IP của hacker vào Blacklist vĩnh viễn
