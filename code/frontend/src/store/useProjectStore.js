@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import axiosInstance from '@api/axiosConfig'
 import { getInitials, getAvatarColor } from '@/utils/avatarHelper'
 
@@ -15,7 +16,9 @@ const transformProject = (project) => {
 /**
  * useProjectStore - Quản lý trạng thái dự án toàn cục (Portfolio & Project Workspace)
  */
-export const useProjectStore = create((set, get) => ({
+export const useProjectStore = create(
+  persist(
+    (set, get) => ({
   // ── Dữ liệu dự án (tích lũy qua nhiều trang) ──────────────────────────────
   projects: [],           // Tất cả dự án đã tải từ backend (cumulative)
 
@@ -257,6 +260,11 @@ export const useProjectStore = create((set, get) => ({
       return false
     }
   },
-}))
+}),
+  {
+    name: 'devtrack-project-storage',
+    partialize: (state) => ({ activeProject: state.activeProject }),
+  }
+))
 
 export default useProjectStore
