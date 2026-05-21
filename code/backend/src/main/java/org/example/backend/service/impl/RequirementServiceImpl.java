@@ -23,12 +23,9 @@ public class RequirementServiceImpl implements RequirementService {
     private final RequirementRepository requirementRepository;
     private final org.example.backend.repository.ProjectRepository projectRepository;
 
-    // Hardcoded placeholder for now until Auth is implemented (for createdBy/audit)
-    private static final Long DEFAULT_USER_ID = 1L;
-
     @Override
     @Transactional
-    public RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO) {
+    public RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO, Long userId) {
         log.info("Creating new requirement: {}", requestDTO.getTitle());
 
         Requirement requirement = Requirement.builder()
@@ -37,10 +34,10 @@ public class RequirementServiceImpl implements RequirementService {
                 .type(requestDTO.getType())
                 .priority(requestDTO.getPriority())
                 .acceptanceCriteria(requestDTO.getAcceptanceCriteria())
-                .ownerId(requestDTO.getOwnerId())
+                .ownerId(requestDTO.getOwnerId() != null ? requestDTO.getOwnerId() : userId)
                 .evidenceRequired(requestDTO.getEvidenceRequired() != null ? requestDTO.getEvidenceRequired() : false)
                 .project(projectRepository.getReferenceById(requestDTO.getProjectId()))
-                .createdBy(DEFAULT_USER_ID)
+                .createdBy(userId)
                 .build();
 
         // Fix: @Builder.Default conflicts with .builder().status() — must set AFTER build()

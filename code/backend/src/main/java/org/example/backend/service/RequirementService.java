@@ -6,7 +6,7 @@ import org.example.backend.dto.RequirementResponseDTO;
 import java.util.List;
 
 public interface RequirementService {
-    RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO);
+    RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO, Long userId);
     RequirementResponseDTO getRequirementById(Long id);
     List<RequirementResponseDTO> getAllRequirements();
     RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
