@@ -7,11 +7,11 @@ import org.example.backend.entity.UseCaseActor;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.UserAccountRepository;
-import org.example.backend.exception.CustomException;
+import org.example.backend.exception.BadRequestException;
+import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.service.UseCaseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,7 +41,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     public UseCaseResponse createUseCase(UseCaseRequest request, String username) {
         UserAccount user = userAccountRepository.findByUsername(username)
-                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         UseCase useCase = new UseCase();
         mapRequestToEntity(request, useCase);
@@ -54,7 +54,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     public UseCaseResponse getUseCaseById(Long id) {
         UseCase useCase = useCaseRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Use case not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         return mapEntityToResponse(useCase);
     }
 
@@ -68,7 +68,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     public UseCaseResponse updateUseCaseStatus(Long id, String status) {
         UseCase useCase = useCaseRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Use case not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
         useCase.setStatus(status);
         UseCase saved = useCaseRepository.save(useCase);
@@ -78,7 +78,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     public UseCaseResponse updateUseCase(Long id, UseCaseRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Use case not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
         mapRequestToEntity(request, useCase);
         UseCase saved = useCaseRepository.save(useCase);
@@ -88,7 +88,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     public void deleteUseCase(Long id) {
         UseCase useCase = useCaseRepository.findById(id)
-                .orElseThrow(() -> new CustomException("Use case not found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         useCaseRepository.delete(useCase);
     }
 
@@ -121,8 +121,12 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (request.getName() != null) useCase.setName(request.getName());
         if (request.getPrecondition() != null) useCase.setPrecondition(request.getPrecondition());
         if (request.getPostcondition() != null) useCase.setPostcondition(request.getPostcondition());
-        if (request.getMainFlow() != null) useCase.setMainFlow(objectMapper.valueToTree(request.getMainFlow()));
-        if (request.getAlternativeFlow() != null) useCase.setAlternativeFlow(objectMapper.valueToTree(request.getAlternativeFlow()));
+        if (request.getMainFlow() != null) {
+            try { useCase.setMainFlow(objectMapper.writeValueAsString(request.getMainFlow())); } catch (Exception e) { throw new BadRequestException("Invalid main flow data format: " + e.getMessage()); }
+        }
+        if (request.getAlternativeFlow() != null) {
+            try { useCase.setAlternativeFlow(objectMapper.writeValueAsString(request.getAlternativeFlow())); } catch (Exception e) { throw new BadRequestException("Invalid alternative flow data format: " + e.getMessage()); }
+        }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
         if (request.getCompletenessScore() != null) useCase.setCompletenessScore(request.getCompletenessScore());
@@ -147,10 +151,10 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setPostcondition(useCase.getPostcondition());
         
         if (useCase.getMainFlow() != null) {
-            res.setMainFlow(objectMapper.convertValue(useCase.getMainFlow(), new TypeReference<Map<String, Object>>() {}));
+            try { res.setMainFlow(objectMapper.readValue(useCase.getMainFlow(), new TypeReference<Map<String, Object>>() {})); } catch (Exception e) { /* ignore */ }
         }
         if (useCase.getAlternativeFlow() != null) {
-            res.setAlternativeFlow(objectMapper.convertValue(useCase.getAlternativeFlow(), new TypeReference<Map<String, Object>>() {}));
+            try { res.setAlternativeFlow(objectMapper.readValue(useCase.getAlternativeFlow(), new TypeReference<Map<String, Object>>() {})); } catch (Exception e) { /* ignore */ }
         }
         
         if (useCase.getActors() != null) {

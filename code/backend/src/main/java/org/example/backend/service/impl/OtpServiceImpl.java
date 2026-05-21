@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.RegisterRequest;
-import org.example.backend.exception.CustomException;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.service.OtpService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -46,7 +46,7 @@ public class OtpServiceImpl implements OtpService {
             log.info("Successfully cached OTP and Registration DTO for email: {}", email);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize Registration Request for email: {}", email, e);
-            throw new CustomException.BadRequestException("Failed to process registration data");
+            throw new BadRequestException("Failed to process registration data");
         }
     }
 
@@ -65,14 +65,14 @@ public class OtpServiceImpl implements OtpService {
         
         if (requestJson == null) {
             log.warn("Registration request not found or expired for email: {}", email);
-            throw new CustomException.BadRequestException("Registration request has expired or does not exist");
+            throw new BadRequestException("Registration request has expired or does not exist");
         }
 
         try {
             return objectMapper.readValue(requestJson, RegisterRequest.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize Registration Request for email: {}", email, e);
-            throw new CustomException.BadRequestException("Failed to restore registration data");
+            throw new BadRequestException("Failed to restore registration data");
         }
     }
 
