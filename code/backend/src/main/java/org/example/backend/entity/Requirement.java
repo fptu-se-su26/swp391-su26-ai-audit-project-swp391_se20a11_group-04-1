@@ -49,8 +49,9 @@ public class Requirement {
     @JdbcTypeCode(SqlTypes.JSON)
     private String acceptanceCriteria;
 
-    @Column(name = "owner_id")
-    private Long ownerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private UserAccount owner;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -65,8 +66,9 @@ public class Requirement {
     @Column(name = "req_order")
     private Integer reqOrder;
 
-    @Column(name = "created_by", nullable = false)
-    private Long createdBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by", nullable = false)
+    private UserAccount createdBy;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

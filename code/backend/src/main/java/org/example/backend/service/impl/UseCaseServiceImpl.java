@@ -120,7 +120,17 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     private void mapRequestToEntity(UseCaseRequest request, UseCase useCase) {
-        if (request.getRequirementId() != null) useCase.setRequirement(requirementRepository.getReferenceById(request.getRequirementId()));
+        if (request.getRequirementId() != null) {
+            org.example.backend.entity.Requirement req = requirementRepository.findById(request.getRequirementId())
+                    .orElseThrow(() -> new CustomException("Requirement not found", HttpStatus.NOT_FOUND));
+            useCase.setRequirement(req);
+            
+            if (req.getType() == org.example.backend.entity.RequirementType.FUNCTIONAL) {
+                if (request.getMainFlow() == null || request.getMainFlow().isEmpty()) {
+                    throw new CustomException("main_flow is required for FUNCTIONAL requirements", HttpStatus.BAD_REQUEST);
+                }
+            }
+        }
         if (request.getCode() != null) useCase.setCode(request.getCode());
         if (request.getName() != null) useCase.setName(request.getName());
         if (request.getPrecondition() != null) useCase.setPrecondition(request.getPrecondition());
