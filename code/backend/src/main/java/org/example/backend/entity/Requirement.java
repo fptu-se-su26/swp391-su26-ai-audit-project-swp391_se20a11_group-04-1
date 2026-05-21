@@ -25,8 +25,9 @@ public class Requirement {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "project_id", nullable = false)
-    private Long projectId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;
@@ -83,5 +84,15 @@ public class Requirement {
     public void addTag(RequirementTag tag) {
         tags.add(tag);
         tag.setRequirement(this);
+    }
+
+    @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    private List<UseCase> useCases = new ArrayList<>();
+
+    public void addUseCase(UseCase useCase) {
+        useCases.add(useCase);
+        useCase.setRequirement(this);
     }
 }

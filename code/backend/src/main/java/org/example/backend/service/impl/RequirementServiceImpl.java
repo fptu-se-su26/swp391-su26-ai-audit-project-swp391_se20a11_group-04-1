@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class RequirementServiceImpl implements RequirementService {
 
     private final RequirementRepository requirementRepository;
+    private final org.example.backend.repository.ProjectRepository projectRepository;
 
     // Hardcoded placeholder for now until Auth is implemented (for createdBy/audit)
     private static final Long DEFAULT_USER_ID = 1L;
@@ -38,7 +39,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .acceptanceCriteria(requestDTO.getAcceptanceCriteria())
                 .ownerId(requestDTO.getOwnerId())
                 .evidenceRequired(requestDTO.getEvidenceRequired() != null ? requestDTO.getEvidenceRequired() : false)
-                .projectId(requestDTO.getProjectId())
+                .project(projectRepository.getReferenceById(requestDTO.getProjectId()))
                 .createdBy(DEFAULT_USER_ID)
                 .build();
 
@@ -124,7 +125,7 @@ public class RequirementServiceImpl implements RequirementService {
 
         return RequirementResponseDTO.builder()
                 .id(req.getId())
-                .projectId(req.getProjectId())
+                .projectId(req.getProject().getId())
                 .title(req.getTitle())
                 .description(req.getDescription())
                 .type(req.getType())

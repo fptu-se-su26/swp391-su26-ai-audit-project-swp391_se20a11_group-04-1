@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.BatchSize;
@@ -69,6 +70,10 @@ public class Project {
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 20)
     private List<ProjectMember> members;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Requirement> requirements = new ArrayList<>();
 
     // Các trường dữ liệu tính toán động (không có trong cơ sở dữ liệu vật lý)
     @Transient
