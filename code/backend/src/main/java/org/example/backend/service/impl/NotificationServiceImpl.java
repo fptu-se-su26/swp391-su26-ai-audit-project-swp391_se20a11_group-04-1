@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.NotificationResponse;
 import org.example.backend.entity.Notification;
 import org.example.backend.exception.CustomException;
+import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.NotificationRepository;
 import org.example.backend.repository.ProjectInvitationRepository;
 import org.example.backend.service.NotificationService;
@@ -38,7 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void markAsRead(Long notificationId, Long userId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new CustomException.ResourceNotFoundException("Thông báo không tồn tại."));
+                .orElseThrow(() -> new ResourceNotFoundException("Thông báo không tồn tại."));
 
         if (!notification.getRecipient().getId().equals(userId)) {
             throw new CustomException("Bạn không có quyền đánh dấu thông báo này.", HttpStatus.FORBIDDEN);

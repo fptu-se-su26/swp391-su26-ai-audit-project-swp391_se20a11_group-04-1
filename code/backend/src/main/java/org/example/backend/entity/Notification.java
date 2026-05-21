@@ -29,8 +29,9 @@ public class Notification {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
 
-    @Column(nullable = false, length = 50)
+    @Column(columnDefinition = "notification_type_enum", nullable = false)
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private NotificationType type;
 
     // Optional ID related to the notification (e.g., ProjectInvitation ID)
