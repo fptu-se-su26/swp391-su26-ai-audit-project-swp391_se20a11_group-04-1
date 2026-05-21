@@ -1,8 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 
-// Feature Pages (Imports từ Public APIs)
+// Feature Pages (Imports from Public APIs)
 import { LoginPage, RegisterPage } from '@features/auth'
 import { DashboardPage, ContributionPage, AcceptInvitePage } from '@features/workspace'
+import { RtmPage } from '@features/rtm'
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 
@@ -14,7 +15,7 @@ import AppLayout from '@components/layout/AppLayout'
 import PrivateRoute from './PrivateRoute'
 
 /**
- * Định tuyến tập trung của toàn ứng dụng (Centralized Routing)
+ * Centralized routing for the application.
  */
 export function AppRoutes() {
   return (
@@ -24,11 +25,11 @@ export function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/invite/accept" element={<AcceptInvitePage />} />
 
-      {/* 2. Protected Routes (Yêu cầu đăng nhập, sử dụng AppLayout làm khung chung) */}
+      {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          
+
           {/* Module 2: Requirement & Use Case Management */}
           <Route path="/use-cases" element={<UseCasePage />} />
           <Route path="/use-cases/:id" element={<UseCaseDetailPage />} />
@@ -36,7 +37,8 @@ export function AppRoutes() {
           {/* Module 3: Team Contribution */}
           <Route path="/contribution" element={<ContributionPage />} />
 
-          {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
+          {/* Module 6: Requirement Traceability Matrix */}
+          <Route path="/traceability-matrix" element={<RtmPage />} />
         </Route>
       </Route>
 
