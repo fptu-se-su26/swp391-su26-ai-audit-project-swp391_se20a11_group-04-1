@@ -33,6 +33,9 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send registration OTP email to: {}", toEmail, e);
             throw new CustomException.BadRequestException("Failed to send OTP verification email");
+        } catch (org.springframework.mail.MailException e) {
+            log.error("Mail Server Authentication/Connection Failed to: {}", toEmail, e);
+            throw new CustomException.BadRequestException("Lỗi cấu hình Email Server (SMTP). Vui lòng kiểm tra lại cấu hình email (Email/App Password) trong application.yaml.");
         }
     }
 
