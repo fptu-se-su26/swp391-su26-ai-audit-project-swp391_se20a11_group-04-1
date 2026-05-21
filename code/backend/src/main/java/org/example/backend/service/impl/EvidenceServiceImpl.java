@@ -57,7 +57,7 @@ public class EvidenceServiceImpl implements EvidenceService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<EvidenceResponse> searchEvidence(String keyword, String type, String status, Pageable pageable) {
+    public Page<EvidenceResponse> searchEvidence(String keyword, String type, String status, Long uploadedBy, Pageable pageable) {
         Specification<Evidence> spec = Specification.where((root, query, cb) -> cb.conjunction());
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -76,6 +76,10 @@ public class EvidenceServiceImpl implements EvidenceService {
 
         if (status != null && !status.trim().isEmpty()) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), EvidenceStatus.valueOf(status)));
+        }
+
+        if (uploadedBy != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("uploadedBy").get("id"), uploadedBy));
         }
 
         return evidenceRepository.findAll(spec, pageable).map(this::mapToResponse);

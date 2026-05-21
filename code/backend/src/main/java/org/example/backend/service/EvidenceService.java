@@ -10,7 +10,7 @@ import org.springframework.data.domain.Pageable;
 import java.io.IOException;
 
 public interface EvidenceService {
-    Page<EvidenceResponse> searchEvidence(String keyword, String type, String status, Pageable pageable);
+    Page<EvidenceResponse> searchEvidence(String keyword, String type, String status, Long uploadedBy, Pageable pageable);
     
     EvidenceResponse getEvidenceById(Long id);
     

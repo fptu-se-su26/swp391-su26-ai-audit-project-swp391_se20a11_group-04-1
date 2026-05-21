@@ -66,7 +66,7 @@ export const useTestCaseStore = create((set, get) => ({
         set({
           testCases: data.content,
           pagination: {
-            page: data.number,
+            page: data.page !== undefined ? data.page : data.number, // Support both new PageResponse (page) and old Spring Data (number)
             size: data.size,
             totalElements: data.totalElements,
             totalPages: data.totalPages,

@@ -54,16 +54,15 @@ const EvidenceListPage = () => {
 
       const data = await evidenceService.searchEvidence(params);
 
-      // Handle both SB3 (flat) and SB4 (nested page) response formats
+      // Use the PageResponse structure directly
       setEvidences(data.content || []);
-      const pageInfo = data.page || data;
-      setTotalPages(pageInfo.totalPages || 0);
-      setTotalElements(pageInfo.totalElements || 0);
+      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements || 0);
 
       // Calculate stats from response
       const allItems = data.content || [];
       setStats({
-        total: pageInfo.totalElements || allItems.length,
+        total: data.totalElements || allItems.length,
         pending: allItems.filter((e) => e.status === 'PENDING' || e.status === 'AUTO_CHECKED').length,
         accepted: allItems.filter((e) => e.status === 'ACCEPTED').length,
         rejected: allItems.filter((e) => e.status === 'REJECTED').length,
