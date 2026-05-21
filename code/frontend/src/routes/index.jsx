@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 
 // Feature Pages (Imports từ Public APIs)
 import { LoginPage, RegisterPage } from '@features/auth'
-import { DashboardPage } from '@features/workspace'
+import { DashboardPage, ContributionPage, AcceptInvitePage } from '@features/workspace'
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 
@@ -22,6 +22,7 @@ export function AppRoutes() {
       {/* 1. Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/invite/accept" element={<AcceptInvitePage />} />
 
       {/* 2. Protected Routes (Yêu cầu đăng nhập, sử dụng AppLayout làm khung chung) */}
       <Route element={<PrivateRoute />}>
@@ -31,6 +32,9 @@ export function AppRoutes() {
           {/* Module 2: Requirement & Use Case Management */}
           <Route path="/use-cases" element={<UseCasePage />} />
           <Route path="/use-cases/:id" element={<UseCaseDetailPage />} />
+
+          {/* Module 3: Team Contribution */}
+          <Route path="/contribution" element={<ContributionPage />} />
 
           {/* Các route của module tính năng khác sẽ được bổ sung tại đây khi phát triển */}
         </Route>

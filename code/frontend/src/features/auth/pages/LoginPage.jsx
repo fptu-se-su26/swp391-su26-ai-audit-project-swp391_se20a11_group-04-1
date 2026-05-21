@@ -87,8 +87,8 @@ function LoginPage() {
         toast.success('Đăng nhập thành công!')
         
         // Sử dụng Zustand store để quản lý thông tin phiên đăng nhập
-        const { id, systemRole } = response.data?.data || {}
-        useAuthStore.getState().login(id, systemRole)
+        const { id, systemRole, username, email, fullName } = response.data?.data || {}
+        useAuthStore.getState().login(id, systemRole, username, email, fullName)
         
         setTimeout(() => {
           navigate('/dashboard')
@@ -124,7 +124,7 @@ function LoginPage() {
       // Trường hợp khi đang dev, server chưa bật: hỗ trợ đăng nhập giả lập để test giao diện
       console.warn('API login chưa sẵn sàng hoặc không kết nối được, kích hoạt chế độ giả lập.', err)
       toast.success('Đăng nhập thành công! (Chế độ giả lập)')
-      useAuthStore.getState().login('1', 'USER')
+      useAuthStore.getState().login('1', 'USER', 'dungsa', 'dungsa@fpt.edu.vn', 'Anh Dung')
       setTimeout(() => {
         navigate('/dashboard')
       }, 1000)

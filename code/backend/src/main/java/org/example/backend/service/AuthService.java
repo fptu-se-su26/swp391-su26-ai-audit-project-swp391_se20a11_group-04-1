@@ -35,4 +35,9 @@ public interface AuthService {
      * Trả về IP đã bị chặn để hiển thị trên UI.
      */
     String blockIpByToken(String token);
+
+    /**
+     * Lấy thông tin tài khoản của người dùng đang đăng nhập trong session hiện tại.
+     */
+    UserResponse getCurrentUser(HttpSession session);
 }

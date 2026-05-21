@@ -17,4 +17,9 @@ public interface EmailService {
                                        java.util.Map<String, String> ipDetailsMap, 
                                        java.util.Map<String, String> unlockTokensMap, 
                                        java.util.Map<String, String> blockTokensMap);
+                                       
+    /**
+     * Gửi một email cơ bản
+     */
+    void sendEmail(String toEmail, String subject, String body);
 }

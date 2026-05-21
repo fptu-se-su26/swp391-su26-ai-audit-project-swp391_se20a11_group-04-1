@@ -82,6 +82,16 @@ public class AuthController {
     }
 
     /**
+     * Lấy thông tin người dùng hiện tại đang đăng nhập trong Session.
+     * GET /api/v1/auth/me
+     */
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(HttpSession session) {
+        UserResponse userResponse = authService.getCurrentUser(session);
+        return ResponseEntity.ok(ApiResponse.success(userResponse, "Lấy thông tin người dùng thành công!"));
+    }
+
+    /**
      * Xác nhận Whitelist IP và giải phóng khóa tài khoản toàn cầu từ email link.
      * GET /api/v1/auth/unlock
      */

@@ -43,6 +43,14 @@ export const authService = {
       otp,
     })
   },
+
+  /**
+   * Lấy thông tin tài khoản người dùng hiện tại đang đăng nhập
+   * @returns {Promise<any>} Response từ axiosInstance
+   */
+  getMe: async () => {
+    return axiosInstance.get('/v1/auth/me')
+  },
 }
 
 export default authService

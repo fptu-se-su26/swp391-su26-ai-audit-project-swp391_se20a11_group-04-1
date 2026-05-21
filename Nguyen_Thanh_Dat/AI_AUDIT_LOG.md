@@ -341,19 +341,94 @@ Viết tại đây...
 #### 4.1. Prompt đã sử dụng
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+Hãy đóng vai là một Senior Backend Developer chuyên nghiệp về Java Spring Boot và Database Administrator chuyên sâu về PostgreSQL. Tôi đang xây dựng tính năng phân trang danh sách dự án cho người dùng có lọc theo trạng thái (status) và tìm kiếm theo tên dự án (name).
+
+Dưới đây là bối cảnh và yêu cầu chi tiết để bạn triển khai giải pháp tối ưu:
+
+1. BỐI CẢNH DATABASE & FRAMEWORK:
+- Dự án sử dụng Spring Boot 3.x, Spring Data JPA, PostgreSQL.
+- Bảng `projects` có cột `name` (VARCHAR) và cột `status` là một custom PostgreSQL ENUM (`project_status_enum` chứa các giá trị: 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'OVERDUE').
+- Vì số lượng dự án có thể lên tới hàng chục ngàn dòng, tôi muốn phân trang trực tiếp dưới database (size 15 bản ghi/trang) thay vì kéo toàn bộ lên bộ nhớ RAM.
+- Giao diện Frontend React sử dụng nút "Xem thêm" (Load More) để tải thêm dữ liệu chứ không sử dụng các số trang truyền thống.
+
+2. CÁC YÊU CẦU LẬP TRÌNH & THIẾT KẾ:
+- Thiết kế một DTO phẳng `PaginatedResponse<T>` gồm danh sách dữ liệu và cờ `hasMore` (boolean) để báo cho Frontend biết còn trang tiếp theo hay không.
+- Phân trang bằng `Pageable` của Spring Data JPA, kết hợp sắp xếp thông minh: Dự án chưa quá hạn lên trước, dự án đã hoàn thành (COMPLETED) xuống cuối.
+- Khai báo các câu query trong `ProjectRepository` và cấu hình `@BatchSize(size = 20)` trên các mối quan hệ để chống lỗi N+1 Query.
+
+3. RÀNG BUỘC NGHIÊM NGẶT (POSTGRESQL STRICT TYPE CASTING & CONCAT):
+- Khi viết các truy vấn tùy chọn (Optional Filters), không viết query gộp có chứa logic kiểm tra Null của tham số truyền vào (ví dụ: `:status IS NULL OR p.status = :status`) vì PostgreSQL rất khắt khe về kiểu dữ liệu. Khi tham số `:status` truyền vào là `null`, JDBC sẽ coi nó là VARCHAR và so sánh với ENUM dẫn đến lỗi:
+  `ERROR: operator does not exist: project_status_enum = character varying`
+- Đồng thời, không viết query tìm kiếm kiểu: `LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))` vì khi `:search` là `null`, JDBC sẽ coi nó là kiểu nhị phân `bytea` và gây lỗi:
+  `ERROR: function lower(bytea) does not exist`
+- GIẢI PHÁP (Query Specialization): Để giải quyết triệt để lỗi ép kiểu của PostgreSQL, hãy triển khai 4 phương thức truy vấn chuyên biệt độc lập trong Repository:
+  1. `findAllActiveProjects(Pageable pageable)`: Không lọc gì cả.
+  2. `findAllActiveProjectsWithStatus(ProjectStatus status, Pageable pageable)`: Chỉ lọc theo trạng thái.
+  3. `findAllActiveProjectsWithSearch(String search, Pageable pageable)`: Chỉ lọc theo từ khóa tìm kiếm.
+  4. `findAllActiveProjectsWithStatusAndSearch(ProjectStatus status, String search, Pageable pageable)`: Lọc theo cả hai.
+- Sử dụng logic rẽ nhánh `if-else` sạch sẽ tại tầng Service để gọi đúng phương thức Repository tương ứng thay vì gộp chung vào một câu truy vấn SQL cồng kềnh.
+
+Hãy viết mã nguồn hoàn chỉnh cho Repository, Service, ServiceImpl và DTO `PaginatedResponse` tuân thủ các chỉ dẫn trên.
 ```
 
 #### 4.2. Kết quả AI gợi ý
 
 ```text
-Viết tại đây...
+AI đã đề xuất giải pháp hoàn chỉnh theo các hướng sau:
+
+1. PHÂN TRANG TẦNG DATABASE (Spring Data JPA Pageable):
+   - Thiết kế DTO PaginatedResponse<T> phẳng trả về danh sách projects và flag `hasMore` (boolean)
+     để Frontend biết có còn trang kế tiếp hay không mà không cần gửi thêm request.
+   - Phân trang dùng `Pageable` của Spring Data JPA với kích thước 15 bản ghi/trang.
+     Sắp xếp thông minh: Projects OVERDUE ít nhất nổi lên đầu, Projects COMPLETED xuống cuối.
+   - Đề xuất đánh Composite Index `(status, updated_at DESC)` trên bảng `projects` để
+     tối ưu tốc độ Order By + Pagination, đồng thời cấu hình `@BatchSize(size = 20)` trên
+     các quan hệ JPA để chặn đứng hoàn toàn lỗi N+1 Query.
+
+2. THIẾT KẾ QUERY (gợi ý ban đầu gộp vào một câu SQL):
+   - AI ban đầu gợi ý viết một câu query duy nhất dùng điều kiện nullable:
+     `WHERE (:status IS NULL OR p.status = :status)
+      AND LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))`
+   - Lý do AI đề xuất vậy là để tránh phải viết nhiều câu query tương tự nhau.
+
+3. XỬ LÝ LỖI IDE BẤT ĐỒNG BỘ (Visual Cache Out-of-sync):
+   - Khi IDE báo lỗi biên dịch do file bị ghi đè quá nhanh, AI hướng dẫn phân biệt
+     "lỗi ảo của IDE" và "lỗi thật của Java".
+   - Cách xác nhận: Chạy lệnh Maven thực tế `./mvnw clean compile`. Nếu trả về
+     BUILD SUCCESS thì lỗi chỉ là cache ảo của Language Server, không phải lỗi code.
+   - Giải pháp: Thực hiện "Clean Java Language Server Workspace" trên VS Code
+     hoặc "Invalidate Caches" trên IntelliJ để làm mới hoàn toàn index của IDE.
 ```
 
 #### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
 
 ```text
-Viết tại đây...
+Sinh viên đã tiếp nhận và sử dụng những phần sau từ gợi ý của AI:
+
+1. CHẤP NHẬN: Cấu trúc DTO phân trang `PaginatedResponse<T>`
+   - Tiếp nhận hoàn toàn thiết kế DTO phẳng với 2 trường: danh sách dữ liệu và
+     flag `hasMore` để Frontend biết có còn trang tiếp theo hay không mà không
+     cần gửi thêm request. Cấu trúc này rất gọn gàng và phù hợp với UI "Xem thêm".
+
+2. CHẤP NHẬN: Cơ chế phân trang bằng Pageable + Sắp xếp thông minh
+   - Áp dụng `Pageable` của Spring Data JPA phân trang 15 bản ghi/trang tại lớp
+     Repository, nối tiếp vào logic sắp xếp: dự án OVERDUE nổi lên đầu, COMPLETED
+     xuống cuối. Logic Load More trên Frontend đối chiếu `hasMore` trước khi gọi API.
+
+3. CHẤP NHẬN: Cấu hình `@BatchSize(size = 20)` chống lỗi N+1 Query
+   - Gắn `@BatchSize(size = 20)` vào các trường quan hệ (`@OneToMany`, `@ManyToOne`)
+     trong JPA Entity để Hibernate tự động gùm (batch) các sub-query lại,
+     chặn đứng lỗi N+1 Query nếu dự án có các collection lazy-load.
+
+4. CHẤP NHẬN: Hướng dẫn phân biệt lỗi IDE cache ảo và lỗi code thật
+   - Áp dụng quy trình xác nhận lỗi bằng `./mvnw clean compile` trước khi sử dụng
+     IDE để loại trừ lỗi nhìn thấy mà không có thực. Sau đó mới thực hiện
+     "Invalidate Caches" hướng dẫn bởi AI để làm sạch Language Server.
+
+5. TỪ CHỐI: Query gộp có logic NULL check
+   - Không sử dụng mẫu query `:status IS NULL OR p.status = :status` và
+     `LOWER(CONCAT('%', :search, '%'))` do gây lỗi ép kiểu nghiêm trọng của PostgreSQL.
+     (Chi tiết ở phần 4.4).
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
@@ -394,19 +469,105 @@ Viết tại đây...
 #### 4.1. Prompt đã sử dụng
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+Hãy đóng vai là một Senior Solutions Architect và Security Expert chuyên nghiệp. Tôi cần bạn thiết kế và triển khai hoàn chỉnh API Đăng nhập bảo mật cao (POST /api/v1/auth/login) tích hợp cơ chế chống Brute Force bằng Khóa lũy tiến (Progressive Lockout) và Rate Limiting địa chỉ IP sử dụng Spring Boot 3.x, Spring Security, Redis và React Frontend.
+
+Dưới đây là bối cảnh kiến trúc và các yêu cầu ràng buộc đặc biệt nghiêm ngặt:
+
+1. BỐI CẢNH HỆ THỐNG & CƠ CHẾ BẢO MẬT:
+- Hệ thống sử dụng HTTP Session truyền thống (JSESSIONID cookie lưu trên trình duyệt, quản lý phiên đồng bộ qua Redis) để duy trì trạng thái đăng nhập, TUYỆT ĐỐI không dùng JWT.
+- Cơ chế Khóa lũy tiến (Progressive Lockout) bằng Redis: sai 3 lần khóa 5 phút, sai 5 lần khóa 10 phút, sai 7 lần khóa 15 phút.
+- Ngắt mạch sớm (Fast-Fail): Kiểm tra trạng thái khóa trong Redis (`login:lock:<username>`) ngay khi nhận request. Nếu đang bị khóa, trả về lỗi HTTP 423 Locked ngay mà không được gọi Database hay chạy hàm băm BCrypt mật khẩu.
+- Giới hạn tần suất IP (Rate Limiting) bằng Redis: tối đa 5 requests/phút cho endpoint login. Vượt quá trả về lỗi HTTP 429 Too Many Requests.
+
+2. TRIẾT LÝ KIẾN TRÚC TỐI GIẢN CỰC HẠN (ZERO-REDUNDANCY DTO) - BẮT BUỘC:
+- **Tối ưu bộ nhớ Session:** Để tiết kiệm RAM trên Redis Session và chặn lỗi `LazyInitializationException` khi tuần tự hóa JPA Entities, TUYỆT ĐỐI không được lưu nguyên đối tượng Entity `UserAccount` cồng kềnh vào Session. Chỉ lưu trữ hai trường dữ liệu định danh siêu nhẹ là `userId` (Long) và `userRole` (String) vào session.
+- **Không tạo DTO dư thừa:** Để giữ cấu trúc thư mục cực kỳ sạch sẽ và dễ bảo trì, loại bỏ hoàn toàn việc tạo mới class `LoginRequest.java`. Đón nhận JSON request trực tiếp bằng `Map<String, String>` tại Controller và thực hiện kiểm tra Regex định dạng thủ công (bỏ qua quét Reflection cồng kềnh của thư viện validation để tiết kiệm tối đa CPU).
+- **Tái sử dụng DTO đầu ra:** Không tạo class `LoginResponse.java`. Tái sử dụng trực tiếp class `UserResponse` có sẵn trong dự án để gửi thông tin định danh tối thiểu `{ id, systemRole }` về Frontend.
+
+3. YÊU CẦU THIẾT KẾ TRẢI NGHIỆM GIAO DIỆN (UX LOCKOUT & POLLING SYNC):
+- **Giao diện không bị kẹt màn hình khóa (Account-Specific Lockdown):** Khi bị khóa tài khoản, giao diện cảnh báo đếm ngược chỉ kích hoạt khi ô nhập `Username` trùng khớp với tài khoản đang bị khóa. Ô nhập `Username` luôn được bật (enabled) để người dùng có thể đổi sang tài khoản khác và đăng nhập bình thường.
+- **Đếm ngược thời gian thực chống F5 (F5-Resilient Countdown):** Lưu timestamp kết thúc khóa (`lockoutEndTime`) và tên tài khoản bị khóa vào `localStorage` ở React để khi người dùng reload trang (F5), đồng hồ đếm ngược vẫn khôi phục chính xác thời gian còn lại.
+- **Đồng bộ real-time polling 5s & Khôi phục trạng thái thông báo:** 
+  - Khắc phục lỗi mất đồng bộ khiến các thông báo đã đọc/đã xử lý lời mời biến mất hoặc tự hiện lại sau 1-2s do bẫy JavaBeans: Thuộc tính `boolean isRead` trong backend response sinh getter `isRead()` khiến Jackson serialize thành khóa `"read"`. Hãy đính kèm `@JsonProperty("isRead")` vào DTO Java và thiết lập map dự phòng ở React: `isRead: n.isRead !== undefined ? n.isRead : n.read`.
+  - Cập nhật optimistic trạng thái `_resolved` thành 'ACCEPTED' hoặc 'REJECTED' ở React Store và giảm số lượng unread count chuẩn xác: `unreadCount: Math.max(0, state.unreadCount - (notification.isRead ? 0 : 1))` để tránh trừ âm hoặc trùng lặp count khi re-fetch.
+- **Căn chỉnh Spacing Bảng thành viên:** Gỡ bỏ class `flex items-center` khỏi thẻ `<td>` của bảng thành viên (vì flex trực tiếp phá hỏng cấu trúc cột của thẻ `<table>`), bọc nội dung bằng `div` flexbox con. Đồng thời, đổi padding dọc lẻ `py-4.5` (không được Tailwind hỗ trợ nên bị render thành 0px khiến các hàng dính sát nhau) thành class chuẩn `py-5`.
+
+Hãy viết mã nguồn chi tiết cho cả Backend (Spring Boot Controller, Service, DTO, Config) và React Frontend (Store, components) tuân thủ hoàn hảo tất cả các triết lý thiết kế tối giản và tối ưu trên.
 ```
 
 #### 4.2. Kết quả AI gợi ý
 
 ```text
-Viết tại đây...
+AI đã đề xuất một thiết kế hoàn chỉnh theo các hướng sau:
+
+1. CƠ CHẾ BẢO MẬT BACKEND (Redis Progressive Lockout + IP Rate Limiting):
+   - Thiết kế 2 loại Redis Key:
+     + `login:attempts:<username>`: Đếm số lần đăng nhập sai lũy kế (TTL 24h).
+     + `login:lock:<username>`: Đánh dấu tài khoản đang bị khóa tạm thời.
+   - Thuật toán Khóa lũy tiến:
+     + Sai lần 3 → Khóa 5 phút (Lock Level 1 × 5 phút).
+     + Sai lần 5 → Khóa 10 phút (Lock Level 2 × 5 phút).
+     + Sai lần 7 → Khóa 15 phút (Lock Level 3 × 5 phút).
+   - Luồng Fast-Fail 3 bước: (1) Kiểm tra Redis lock trước → 423 Locked ngay nếu bị khóa,
+     (2) Truy vấn DB tìm user → 401 nếu không tồn tại, (3) Băm BCrypt so sánh mật khẩu.
+   - Interceptor Rate Limiting: Theo dõi số lượt request theo IP qua Redis Key
+     `login:ip:<ip_address>` TTL 1 phút. Vượt 5 lượt → trả về 429 Too Many Requests.
+
+2. MÔ HÌNH DTO BAN ĐẦU (gợi ý truyền thống của AI):
+   - AI gợi ý tạo class `LoginRequest.java` để đón nhận dữ liệu đầu vào và dùng
+     annotation `@Valid` của jakarta.validation để tự động kiểm tra định dạng.
+   - AI gợi ý tạo class `LoginResponse.java` riêng để trả thông tin người dùng về Client.
+   - AI gợi ý lưu trữ nguyên đối tượng JPA Entity `UserAccount` vào Redis Session để
+     thuận tiện tra cứu thông tin về sau mà không cần query lại DB.
+
+3. CƠ CHẾ ĐỒNG BỘ THÔNG BÁO REAL-TIME (Frontend):
+   - AI đề xuất dùng trường `_resolved` tạm thời trong RAM của React Store để
+     theo dõi kết quả xử lý lời mời (ACCEPTED/REJECTED) ngay lập tức sau khi
+     người dùng nhấn Đồng ý/Từ chối, không cần chờ re-fetch từ server.
+   - Render 4 trạng thái rõ ràng: (1) Chưa phản hồi → hiện 2 nút,
+     (2) _resolved ACCEPTED → badge xanh, (3) _resolved REJECTED → badge xám,
+     (4) isRead=true từ server → badge "Đã xử lý".
+   - Khắc phục lỗi bất đồng bộ (Lombok/Jackson Boolean Serialization Trap):
+     Thêm `@JsonProperty("isRead")` vào NotificationResponse.java để Jackson
+     giữ đúng tên trường `isRead` trong JSON thay vì tự đổi thành `read`.
+   - Sửa layout bảng thành viên: Gỡ flex khỏi <td>, dùng <div> con có flex;
+     đổi padding `py-4.5` (Tailwind không hỗ trợ → render 0px) thành `py-5`.
 ```
 
 #### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
 
 ```text
-Viết tại đây...
+Sinh viên đã tiếp nhận và sử dụng những phần sau từ gợi ý của AI:
+
+1. CHẤP NHẬN: Thuật toán Khóa lũy tiến (Progressive Lockout) + Fast-Fail
+   - Sử dụng đúng công thức: `level = (attempts - 3) / 2 + 1`, `lockTime = level * 5`
+     cho phép tính thời gian khóa theo số lần sai. Đây là phần AI đề xuất rất chủn và được
+     giữ nguyên trong `AuthServiceImpl.java`.
+   - Kiểm tra khóa Redis trước (Fast-Fail): Xác nhận và triển khai đúng thứ tự 3 bước
+     (Redis lock check → DB query → BCrypt hash) tránh thiết kế nhầm theo thứ tự ngược lại.
+
+2. CHẤP NHẬN: Interceptor giới hạn tần suất IP (Rate Limiting)
+   - Sử dụng `RateLimitingInterceptor` lắng nghe mọi request gửi đến `/api/v1/auth/login`
+     qua Redis Key `login:ip:<ip>` với TTL 1 phút. Vượt 5 lần/phút → 429 Too Many Requests.
+   - Cấu trúc Interceptor và logic đếm số lượt Redis được giữ nguyên theo đề xuất của AI.
+
+3. CHẤP NHẬN: Giao diện đếm ngược khóa tài khoản chống F5 (F5-Resilient)
+   - Lưu timestamp kết thúc khóa (`lockoutEndTime`) và tần `lockoutUsername` vào
+     `localStorage` theo gợi ý của AI. Khi Component mount (`useEffect`), hệ thống
+     tính lại thời gian chên lệch và khôi phục đồng hồ đếm ngược nếu vẫn còn hiệu lực.
+
+4. CHẤP NHẬN: Trường `_resolved` và logic render 4 trạng thái thông báo
+   - Triển khai đúng mô hình `_resolved: 'ACCEPTED' | 'REJECTED'` trong React Store
+     để hiển thị badge trạng thái thông báo ngay sau khi người dùng tương tác,
+     không cần chờ server polling 5 giây mới cập nhật lại.
+
+5. TỪ CHỐI: Lưu Entity `UserAccount` nguyên vẹn vào Redis Session
+   - Không áp dụng việc lưu toàn bộ Entity vào session do cồng kềnh, dễ gây
+     `LazyInitializationException` khi serialize. (Chi tiết ở phần 4.4).
+
+6. TỪ CHỐI: Tạo thêm class `LoginRequest.java` và `LoginResponse.java`
+   - Không tạo 2 class DTO bổ sung do làm tăng số lượng file không cần thiết.
+     (Chi tiết ở phần 4.4).
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
