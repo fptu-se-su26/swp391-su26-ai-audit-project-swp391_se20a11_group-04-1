@@ -3,15 +3,25 @@
 -- Description: Add dev team members (Chi C, Hoang B, Tuan D) as user accounts
 --              so that owner_id FK in requirements table accepts values 2, 3, 4.
 --              Password for all = "password" (BCrypt hashed)
+--              NOTE: system_role_id is looked up dynamically from system_roles
+--              by name to avoid hardcoding sequence-dependent IDs.
 
 -- =========================================================
--- DEV TEAM MEMBERS
+-- DEV TEAM MEMBERS (role resolved dynamically by name)
 -- =========================================================
 INSERT INTO user_accounts (id, username, email, password_hash, system_role_id, is_active, created_at, updated_at)
-VALUES
-    (2, 'chi_c',    'chi.c@devtrack.local',   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 2, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (3, 'hoang_b',  'hoang.b@devtrack.local',  '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 2, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (4, 'tuan_d',   'tuan.d@devtrack.local',   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 2, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+SELECT 2, 'chi_c', 'chi.c@devtrack.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', id, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM system_roles WHERE name = 'USER'
+ON CONFLICT (username) DO NOTHING;
+
+INSERT INTO user_accounts (id, username, email, password_hash, system_role_id, is_active, created_at, updated_at)
+SELECT 3, 'hoang_b', 'hoang.b@devtrack.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', id, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM system_roles WHERE name = 'USER'
+ON CONFLICT (username) DO NOTHING;
+
+INSERT INTO user_accounts (id, username, email, password_hash, system_role_id, is_active, created_at, updated_at)
+SELECT 4, 'tuan_d', 'tuan.d@devtrack.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', id, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM system_roles WHERE name = 'USER'
 ON CONFLICT (username) DO NOTHING;
 
 -- =========================================================
