@@ -37,12 +37,12 @@ Nguyên tắc ghi changelog:
 
 | Phiên bản/Giai đoạn | Thời gian | Nội dung chính | Trạng thái |
 |---|---|---|---|
-| Phase 01 |  | Khởi tạo project | Not Started / In Progress / Completed |
-| Phase 02 |  | Phân tích yêu cầu | Not Started / In Progress / Completed |
-| Phase 03 |  | Thiết kế hệ thống | Not Started / In Progress / Completed |
-| Phase 04 |  | Implementation | Not Started / In Progress / Completed |
-| Phase 05 |  | Testing & Debug | Not Started / In Progress / Completed |
-| Phase 06 |  | Hoàn thiện báo cáo và demo | Not Started / In Progress / Completed |
+| Phase 01 |  | Khởi tạo project | Completed |
+| Phase 02 |  | Phân tích yêu cầu | Completed |
+| Phase 03 |  | Thiết kế hệ thống | In Progress |
+| Phase 04 |  | Implementation | In Progress |
+| Phase 05 |  | Testing & Debug | Not Started |
+| Phase 06 |  | Hoàn thiện báo cáo và demo | Not Started |
 
 ---
 
@@ -56,30 +56,30 @@ DD/MM/YYYY
 
 ## Đã hoàn thành
 
-- [ ] Tạo repository
-- [ ] Tạo cấu trúc thư mục project
-- [ ] Tạo file README.md
-- [ ] Tạo thư mục `docs/`
-- [ ] Tạo file `AI_AUDIT_LOG.md`
-- [ ] Tạo file `PROMPTS.md`
-- [ ] Tạo file `REFLECTION.md`
-- [ ] Tạo file `CHANGELOG.md`
-- [ ] Khởi tạo source code ban đầu
-- [ ] Cài đặt thư viện/công cụ cần thiết
-- [ ] Cấu hình môi trường chạy project
+- [x] Tạo repository
+- [x] Tạo cấu trúc thư mục project
+- [x] Tạo file README.md
+- [x] Tạo thư mục `docs/`
+- [x] Tạo file `AI_AUDIT_LOG.md`
+- [x] Tạo file `PROMPTS.md`
+- [x] Tạo file `REFLECTION.md`
+- [x] Tạo file `CHANGELOG.md`
+- [x] Khởi tạo source code ban đầu
+- [x] Cài đặt thư viện/công cụ cần thiết
+- [x] Cấu hình môi trường chạy project
 
 ## Thay đổi chi tiết
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+| 1 | Tạo cấu trúc project ban đầu | Team | Backend / Frontend | Git commit |
+| 2 | Setup PostgreSQL và Flyway | Team | Backend | Local run |
+| 3 | Tạo các file tài liệu AI audit | Team | docs/ | Repository |
 
 ## AI có hỗ trợ không?
 
 - [ ] Có
-- [ ] Không
+- [x] Không
 
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
@@ -111,34 +111,34 @@ DD/MM/YYYY
 
 ## Đã hoàn thành
 
-- [ ] Xác định problem statement
-- [ ] Xác định user roles
-- [ ] Viết user stories
-- [ ] Viết use cases
-- [ ] Xác định functional requirements
-- [ ] Xác định non-functional requirements
-- [ ] Xác định business rules
-- [ ] Xác định acceptance criteria
-- [ ] Review yêu cầu với giảng viên/nhóm
-- [ ] Chỉnh sửa yêu cầu sau feedback
+- [x] Xác định problem statement
+- [x] Xác định user roles
+- [x] Viết user stories
+- [x] Viết use cases
+- [x] Xác định functional requirements
+- [x] Xác định non-functional requirements
+- [x] Xác định business rules
+- [x] Xác định acceptance criteria
+- [x] Review yêu cầu với giảng viên/nhóm
+- [x] Chỉnh sửa yêu cầu sau feedback
 
 ## Thay đổi chi tiết
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+| 1 | Brainstorm ý tưởng project | Team | Requirement | Discussion |
+| 2 | Xác định target user là sinh viên IT | Team | Analysis | Requirement docs |
+| 3 | Thiết kế workflow requirement-centric | Team | Use case / Flow | Flow diagram |
 
 ## AI có hỗ trợ không?
 
-- [ ] Có
+- [x] Có
 - [ ] Không
 
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
 ```text
-Viết tại đây...
+AI hỗ trợ brainstorm ý tưởng project, viết use case, các business rules
 ```
 
 ## Commit/Screenshot minh chứng
@@ -165,34 +165,33 @@ DD/MM/YYYY
 
 ## Đã hoàn thành
 
-- [ ] Thiết kế kiến trúc tổng quan
-- [ ] Thiết kế database/ERD
+- [x] Thiết kế kiến trúc tổng quan
+- [x] Thiết kế database/ERD
 - [ ] Thiết kế API
-- [ ] Thiết kế giao diện/wireframe
-- [ ] Thiết kế flow xử lý
+- [x] Thiết kế giao diện/wireframe
+- [x] Thiết kế flow xử lý
 - [ ] Thiết kế class diagram
 - [ ] Thiết kế sequence diagram
-- [ ] Thiết kế security/authorization flow
-- [ ] Review thiết kế
-- [ ] Chỉnh sửa thiết kế sau feedback
+- [x] Thiết kế security/authorization flow
+- [x] Review thiết kế
+- [x] Chỉnh sửa thiết kế sau feedback
 
 ## Thay đổi chi tiết
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+| 1 | Thiết kế ERD | Hiếu | Database | Mermaid ERD |
+| 2 | Tạo UI prototype bằng Stitch | Team | UI/UX | Stitch screens |
 
 ## AI có hỗ trợ không?
 
-- [ ] Có
+- [x] Có
 - [ ] Không
 
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
 ```text
-Viết tại đây...
+AI hỗ trợ tạo prototype UI/UX
 ```
 
 ## Commit/Screenshot minh chứng

@@ -36,15 +36,15 @@ Sinh viên/nhóm cần ghi lại:
 
 Đánh dấu các công cụ AI đã sử dụng.
 
-- [ ] ChatGPT
-- [ ] Gemini
-- [ ] Claude
+- [x] ChatGPT
+- [x] Gemini
+- [x] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
-- [ ] Antigravity
+- [x] Antigravity
 - [ ] Microsoft Copilot
 - [ ] Perplexity
-- [ ] Công cụ khác: ....................................
+- [x] Công cụ khác: Stitch
 
 ---
 
@@ -52,10 +52,10 @@ Sinh viên/nhóm cần ghi lại:
 
 | STT | Ngày | Công cụ AI | Mục đích | Prompt tóm tắt | Kết quả chính | Có sử dụng vào bài không? | Minh chứng |
 |---:|---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  | Có / Không |  |
-| 2 |  |  |  |  |  | Có / Không |  |
-| 3 |  |  |  |  |  | Có / Không |  |
-| 4 |  |  |  |  |  | Có / Không |  |
+| 1 |  | ChatGPT | Brainstorm project | Ý tưởng project cho sinh viên IT | DevTrack AI | Có | Requirement docs |
+| 2 |  | ChatGPT | ERD review | Đánh giá ERD | Hoàn thiện database design | Có | ERD |
+| 3 |  | ChatGPT | RTM design | Thiết kế prototype kiến trúc RTM | Traceability workflow | Có | RTM docs |
+| 4 |  | ChatGPT / Stitch | UI/UX | Prompt generate UI | UI prototype | Có | Stitch screens |
 | 5 |  |  |  |  |  | Có / Không |  |
 | 6 |  |  |  |  |  | Có / Không |  |
 | 7 |  |  |  |  |  | Có / Không |  |
@@ -75,16 +75,15 @@ Sinh viên/nhóm cần ghi lại:
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích |  |
-| Phần việc liên quan | Requirement / Design / Database / Coding / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỏi ý tưởng / Hỏi giải thích / Hỏi review / Hỏi debug / Hỏi sinh code / Hỏi tối ưu |
+| Công cụ AI | ChatGPT |
+| Mục đích | Brainstorm project |
+| Phần việc liên quan | Requirement / Design |
+| Mức độ sử dụng | Hỏi ý tưởng |
 
 #### 5.1. Prompt nguyên văn
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+Dựa trên các project management system hiện tại, brainstorm cho tôi một ý tưởng mới phù hợp cho đối tượng là nhóm sinh viên. Đánh mạnh vào paintpoint của các nhóm sinh viên, idea giải quyết được vấn đề thực tế mà các nhóm đang gặp phải. Phù hợp với project trong 9 tuần
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
@@ -92,7 +91,7 @@ Dán nguyên văn prompt đã hỏi AI tại đây.
 Mô tả ngắn gọn vì sao sinh viên/nhóm cần dùng prompt này.
 
 ```text
-Viết tại đây...
+Lúc đầu nhóm chưa có hướng đi rõ ràng và muốn tìm một đề tài vừa đủ mới vừa phù hợp thời gian 9 tuần.
 ```
 
 #### 5.3. Kết quả AI trả về
@@ -100,7 +99,7 @@ Viết tại đây...
 Tóm tắt nội dung AI đã trả lời hoặc gợi ý.
 
 ```text
-Viết tại đây...
+AI đề xuất nhiều hướng khác nhau và gợi ý tập trung vào pain point của sinh viên IT.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
@@ -108,7 +107,7 @@ Viết tại đây...
 Mô tả phần nào từ kết quả AI đã được sử dụng vào bài tập/project.
 
 ```text
-Viết tại đây...
+Nhóm phát triển thành DevTrack AI.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
@@ -116,14 +115,14 @@ Viết tại đây...
 Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với kết quả AI trả về.
 
 ```text
-Viết tại đây...
+Nhóm tự phân tích lại scope và bổ sung requirement-centric workflow.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
 
 Đánh dấu các nhận xét phù hợp.
 
-- [ ] Prompt rõ ràng
+- [x] Prompt rõ ràng
 - [ ] Prompt có đủ bối cảnh
 - [ ] Prompt còn thiếu thông tin
 - [ ] Prompt tạo ra kết quả tốt
@@ -379,7 +378,7 @@ Viết tại đây...
 ### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
 
 ```text
-Viết tại đây...
+Cần mô tả rõ bối cảnh project, giới hạn thời gian, công nghệ sử dụng và mục tiêu cần đạt.
 ```
 
 Gợi ý:

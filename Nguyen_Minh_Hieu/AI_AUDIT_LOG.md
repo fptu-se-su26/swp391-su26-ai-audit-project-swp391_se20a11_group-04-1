@@ -344,11 +344,11 @@ Viết tại đây...
 
 | Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
 |---|:---:|:---:|:---:|:---:|---|
-| Phân tích yêu cầu |  |  |  |  |  |
-| Viết user story/use case |  |  |  |  |  |
-| Thiết kế database |  |  |  |  |  |
-| Thiết kế kiến trúc hệ thống |  |  |  |  |  |
-| Thiết kế giao diện |  |  |  |  |  |
+| Phân tích yêu cầu |  |  | x |  | AI hỗ trợ brainstorm và review |
+| Viết user story/use case |  | x |  |  | Nhóm tự chỉnh sửa nhiều |
+| Thiết kế database |  |  | x |  | AI hỗ trợ ERD |
+| Thiết kế kiến trúc hệ thống |  |  | x |  | AI hỗ trợ architecture |
+| Thiết kế giao diện |  |  | x |  | Stitch hỗ trợ prototype |
 | Code frontend |  |  |  |  |  |
 | Code backend |  |  |  |  |  |
 | Debug lỗi |  |  |  |  |  |
@@ -359,21 +359,6 @@ Viết tại đây...
 | Làm slide thuyết trình |  |  |  |  |  |
 
 
-| Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
-|---|:---:|:---:|:---:|:---:|---|
-| Phân tích yêu cầu |  |  | x |  | AI hỗ trợ brainstorm và review |
-| Viết user story/use case |  | x |  |  | Nhóm tự chỉnh sửa nhiều |
-| Thiết kế database |  |  | x |  | AI hỗ trợ ERD |
-| Thiết kế kiến trúc hệ thống |  |  | x |  | AI hỗ trợ architecture |
-| Thiết kế giao diện |  |  | x |  | Stitch hỗ trợ prototype |
-| Code frontend | x |  |  |  | Chưa triển khai nhiều |
-| Code backend | x |  |  |  | Đang setup |
-| Debug lỗi |  | x |  |  | Flyway và PostgreSQL |
-| Viết test case |  | x |  |  | AI hỗ trợ format |
-| Kiểm thử sản phẩm | x |  |  |  | Chưa hoàn thiện |
-| Tối ưu code | x |  |  |  | Chưa triển khai |
-| Viết báo cáo |  | x |  |  | AI hỗ trợ format |
-| Làm slide thuyết trình | x |  |  |  | Chưa thực hiện |
 ---
 
 ## 6. Các lỗi hoặc hạn chế từ AI
@@ -382,8 +367,8 @@ Ghi lại các trường hợp AI trả lời sai, thiếu, chưa phù hợp ho�
 
 | STT | Lỗi/hạn chế từ AI | Cách phát hiện | Cách xử lý/cải tiến |
 |---:|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
+| 1 | Một số flow UI bị thiếu logic | Review user flow | Chia prompt nhỏ hơn cho Stitch |
+| 2 | AI gợi ý DB hơi phức tạp | Team review | Giảm scope cho MVP |
 | 3 |  |  |  |
 
 ---
@@ -408,7 +393,7 @@ Có thể bao gồm:
 ### Nội dung kiểm chứng
 
 ```text
-Viết tại đây...
+Nhóm kiểm tra kết quả AI bằng cách review requirement với team, đối chiếu với workflow thực tế của sinh viên IT, phân tích tính khả thi trong thời gian 9 tuần và kiểm tra lại kiến trúc hệ thống trước khi áp dụng.
 ```
 
 ---
@@ -427,9 +412,9 @@ Viết tại đây...
 
 | Thành viên | MSSV | Nhiệm vụ chính | Có sử dụng AI không? | Minh chứng đóng góp |
 |---|---|---|---|---|
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
+| Nguyễn Minh Hiếu | DE200322 | Requirement & Design | Có | Requirement docs |
+| Nguyễn Minh Hiếu | DE200322 | Database & Backend | Có | ERD, SQL |
+| Nguyễn Minh Hiếu | DE200322 | UI/UX | Có | Stitch prototype |
 |  |  |  | Có / Không |  |
 
 ---
