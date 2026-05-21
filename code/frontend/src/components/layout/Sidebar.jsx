@@ -71,7 +71,7 @@ const Sidebar = () => {
   }
 
   return (
-    <aside className="w-full md:w-[280px] bg-surface-container border-b md:border-b-0 md:border-r border-outline-variant flex flex-col p-5 z-10 shrink-0 select-none">
+    <aside className="w-full md:w-[280px] md:fixed md:top-0 md:left-0 md:h-screen bg-surface-container border-b md:border-b-0 md:border-r border-outline-variant flex flex-col p-5 z-20 shrink-0 select-none">
       
       {/* PHẦN ĐẦU SIDEBAR: ĐỔI THEO TRẠNG THÁI ACTIVE PROJECT */}
       {!activeProject ? (
