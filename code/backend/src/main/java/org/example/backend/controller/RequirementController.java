@@ -8,6 +8,8 @@ import org.example.backend.service.RequirementService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.example.backend.exception.CustomException;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.List;
 
@@ -20,8 +22,12 @@ public class RequirementController {
     private final RequirementService requirementService;
 
     @PostMapping
-    public ResponseEntity<RequirementResponseDTO> createRequirement(@Valid @RequestBody RequirementRequestDTO requestDTO) {
-        RequirementResponseDTO responseDTO = requirementService.createRequirement(requestDTO);
+    public ResponseEntity<RequirementResponseDTO> createRequirement(@Valid @RequestBody RequirementRequestDTO requestDTO, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+        RequirementResponseDTO responseDTO = requirementService.createRequirement(requestDTO, userId);
         return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
     }
 
