@@ -18,8 +18,9 @@ public class UseCase {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "requirement_id", nullable = false)
-    private Long requirementId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requirement_id", nullable = false)
+    private Requirement requirement;
 
     @Column(name = "code", unique = true, length = 20)
     private String code;

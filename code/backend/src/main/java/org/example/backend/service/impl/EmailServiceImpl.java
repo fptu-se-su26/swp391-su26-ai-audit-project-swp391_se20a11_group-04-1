@@ -30,8 +30,12 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
             log.info("Successfully sent OTP HTML email to: {}", toEmail);
+        } catch (org.springframework.mail.MailException e) {
+            log.error("Mail Server Authentication/Connection Failed to: {}", toEmail, e);
+            throw new BadRequestException("Lỗi cấu hình Email Server (SMTP). Vui lòng kiểm tra lại cấu hình email (Email/App Password) trong application.yaml.");
         } catch (Exception e) {
             log.error("Failed to send registration OTP email to: {}", toEmail, e);
+            throw new BadRequestException("Failed to send OTP verification email");
         }
     }
 

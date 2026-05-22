@@ -5,6 +5,7 @@ import org.example.backend.dto.UseCaseResponse;
 import org.example.backend.entity.UseCase;
 import org.example.backend.entity.UseCaseActor;
 import org.example.backend.entity.UserAccount;
+import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.exception.BadRequestException;
@@ -34,6 +35,9 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Autowired
     private UserAccountRepository userAccountRepository;
+
+    @Autowired
+    private RequirementRepository requirementRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -116,7 +120,17 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     private void mapRequestToEntity(UseCaseRequest request, UseCase useCase) {
-        if (request.getRequirementId() != null) useCase.setRequirementId(request.getRequirementId());
+        if (request.getRequirementId() != null) {
+            org.example.backend.entity.Requirement req = requirementRepository.findById(request.getRequirementId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+            useCase.setRequirement(req);
+            
+            if (req.getType() == org.example.backend.entity.RequirementType.FUNCTIONAL) {
+                if (request.getMainFlow() == null || request.getMainFlow().isEmpty()) {
+                    throw new BadRequestException("main_flow is required for FUNCTIONAL requirements");
+                }
+            }
+        }
         if (request.getCode() != null) useCase.setCode(request.getCode());
         if (request.getName() != null) useCase.setName(request.getName());
         if (request.getPrecondition() != null) useCase.setPrecondition(request.getPrecondition());
@@ -144,7 +158,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     private UseCaseResponse mapEntityToResponse(UseCase useCase) {
         UseCaseResponse res = new UseCaseResponse();
         res.setId(useCase.getId());
-        res.setRequirementId(useCase.getRequirementId());
+        res.setRequirementId(useCase.getRequirement() != null ? useCase.getRequirement().getId() : null);
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());
         res.setPrecondition(useCase.getPrecondition());
