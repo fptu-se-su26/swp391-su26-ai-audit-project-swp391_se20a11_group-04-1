@@ -28,14 +28,14 @@ export function getInitials(fullName) {
  */
 export function getAvatarColor(fullName) {
   const colors = [
-    'bg-indigo-600 text-white',
-    'bg-emerald-600 text-white',
-    'bg-amber-600 text-white',
-    'bg-pink-600 text-white',
-    'bg-purple-600 text-white',
-    'bg-teal-600 text-white',
-    'bg-rose-600 text-white',
-    'bg-blue-600 text-white',
+    'bg-indigo-700 text-white',
+    'bg-emerald-700 text-white',
+    'bg-amber-700 text-white',
+    'bg-pink-700 text-white',
+    'bg-purple-700 text-white',
+    'bg-teal-700 text-white',
+    'bg-rose-700 text-white',
+    'bg-blue-700 text-white',
   ]
 
   if (!fullName) return colors[0]

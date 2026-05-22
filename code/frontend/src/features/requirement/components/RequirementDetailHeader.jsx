@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { getMemberById } from '../constants/members';
+import useProjectStore from '../../../store/useProjectStore';
 
 const RequirementDetailHeader = ({ requirement, onEdit }) => {
   if (!requirement) return null;
@@ -47,10 +47,15 @@ const RequirementDetailHeader = ({ requirement, onEdit }) => {
         <p className="font-body-md text-body-md text-secondary mt-1 flex items-center gap-2">
           <span className="material-symbols-outlined text-[16px]">person</span>
           Owner: {(() => {
-            const member = getMemberById(requirement.ownerId);
+            const activeProject = useProjectStore((state) => state.activeProject);
+            const projectMembers = activeProject?.members || [];
+            const member = projectMembers.find(m => m.id === requirement.ownerId);
             return member ? (
               <span className="flex items-center gap-1.5">
-                <span className={`w-5 h-5 rounded-full ${member.isPrimary ? 'bg-[#1e40af] text-white' : 'bg-[#dce9fe] text-[#2563eb]'} flex items-center justify-center font-bold text-[9px] border border-outline-variant`}>
+                <span 
+                  className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[9px] shadow-sm"
+                  style={{ backgroundColor: member.bg || '#2563eb' }}
+                >
                   {member.initials}
                 </span>
                 <span className="font-medium text-on-surface">{member.name}</span>

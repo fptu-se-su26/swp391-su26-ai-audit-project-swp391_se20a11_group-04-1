@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { requirementApi } from '../services/requirementApi';
-import { MEMBERS, getMemberById } from '../constants/members';
+import useProjectStore from '../../../store/useProjectStore';
+import { getInitials, getAvatarColor } from '../../../utils/avatarHelper';
 
 const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
-  const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0, progress = 0, ownerInitials, ownerName, isOwnerPrimary = false } = req;
+  const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0 } = req;
   const navigate = useNavigate();
   
   const [showOwnerMenu, setShowOwnerMenu] = useState(false);
@@ -27,12 +28,17 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Initialize owner from req.ownerId mapped to shared MEMBERS list
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const projectMembers = activeProject?.members || [];
+
+  const getMemberById = (memberId) => projectMembers.find(m => m.id === memberId);
+
+  // Initialize owner from req.ownerId mapped to project members
   const initialMember = getMemberById(req.ownerId);
   const [currentOwner, setCurrentOwner] = useState(
     initialMember
-      ? { initials: initialMember.initials, name: initialMember.name, isPrimary: initialMember.isPrimary }
-      : { initials: null, name: null, isPrimary: false }
+      ? { initials: initialMember.initials, name: initialMember.name, bg: initialMember.bg }
+      : { initials: null, name: null, bg: null }
   );
 
   // Sync owner state when req.ownerId changes (after parent re-fetches)
@@ -40,24 +46,24 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
     const member = getMemberById(req.ownerId);
     setCurrentOwner(
       member
-        ? { initials: member.initials, name: member.name, isPrimary: member.isPrimary }
-        : { initials: null, name: null, isPrimary: false }
+        ? { initials: member.initials, name: member.name, bg: member.bg }
+        : { initials: null, name: null, bg: null }
     );
-  }, [req.ownerId]);
+  }, [req.ownerId, projectMembers]);
 
   const handleOwnerSelect = async (e, member) => {
     e.stopPropagation();
-    setCurrentOwner({ initials: member.initials, name: member.name, isPrimary: member.isPrimary });
+    setCurrentOwner({ initials: member.initials, name: member.name, bg: member.bg });
     setShowOwnerMenu(false);
     try {
       const payload = {
-        projectId: req.projectId || 1,
+        projectId: req.projectId,
         title: req.title,
         description: req.description || '',
         type: req.type || 'FUNCTIONAL',
         priority: req.priority || 'MEDIUM',
         acceptanceCriteria: typeof req.acceptanceCriteria === 'string' ? req.acceptanceCriteria : JSON.stringify(req.acceptanceCriteria || []),
-        ownerId: member.id, // Guarantee this is a number 1-4
+        ownerId: member.id, // ID of the selected project member
         evidenceRequired: req.evidenceRequired || false,
         tags: req.tags || [],
         status: req.status || 'IN_PROGRESS'
@@ -71,8 +77,8 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
       const prevMember = getMemberById(req.ownerId);
       setCurrentOwner(
         prevMember
-          ? { initials: prevMember.initials, name: prevMember.name, isPrimary: prevMember.isPrimary }
-          : { initials: null, name: null, isPrimary: false }
+          ? { initials: prevMember.initials, name: prevMember.name, bg: prevMember.bg }
+          : { initials: null, name: null, bg: null }
       );
     }
   };
@@ -100,17 +106,17 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
   };
 
   return (
-    <div onClick={() => navigate(`/requirements/${id}`)} className="grid grid-cols-12 gap-4 px-stack_md py-4 items-center hover:bg-surface-bright transition-colors group cursor-pointer last:rounded-b-xl">
-      <div className="col-span-8 sm:col-span-5 md:col-span-4 lg:col-span-4 flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="font-label-md text-label-md text-primary bg-[#e6f0ff] px-2 py-1 rounded font-bold">REQ-{String(id).padStart(2, '0')}</span>
-          <span className="font-body-md text-body-md font-bold text-on-surface">{title}</span>
+    <div onClick={() => navigate(`/requirements/${id}`)} className="grid grid-cols-12 gap-3 px-stack_md py-3 items-center hover:bg-surface-bright transition-colors group cursor-pointer">
+      <div className="col-span-8 sm:col-span-5 md:col-span-4 lg:col-span-4 flex min-w-0 items-center gap-3">
+        <span className="font-label-md text-label-md text-primary bg-[#e6f0ff] px-2 py-1 rounded font-bold shrink-0">REQ-{String(id).padStart(2, '0')}</span>
+        <div className="min-w-0">
+          <span className="block truncate font-body-md text-body-md font-bold text-on-surface">{title}</span>
+          <span className="block truncate font-body-md text-sm text-secondary">
+            {type === 'FUNCTIONAL' ? 'Functional Requirement' : type === 'NON_FUNCTIONAL' ? 'Non-functional Requirement' : type}
+          </span>
         </div>
-        <span className="font-body-md text-body-md text-secondary text-sm">
-          {type === 'FUNCTIONAL' ? 'Functional Requirement' : type === 'NON_FUNCTIONAL' ? 'Non-functional Requirement' : type}
-        </span>
       </div>
-      <div className="col-span-3 sm:col-span-2 hidden sm:flex flex-col gap-1.5 justify-center">
+      <div className="col-span-3 sm:col-span-2 hidden sm:flex flex-row flex-wrap gap-1.5 items-center">
         {status && (
           <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${
             status === 'DRAFT'        ? 'bg-slate-50 text-slate-600 border-slate-200' :
@@ -135,22 +141,19 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
           </span>
         )}
       </div>
-      <div className="col-span-2 hidden lg:flex flex-wrap gap-1">
+      <div className="col-span-2 hidden lg:flex flex-wrap items-center gap-1">
         {tags?.map(tag => (
-          <span key={tag} className="bg-surface border border-outline-variant rounded-md shadow-sm text-xs font-body-md text-secondary px-2.5 py-1">
+          <span key={tag} className="bg-surface border border-outline-variant rounded-md shadow-sm text-xs font-body-md text-secondary px-2 py-0.5">
             {tag}
           </span>
         ))}
       </div>
-      <div className="col-span-3 lg:col-span-2 hidden md:flex flex-col gap-1">
+      <div className="col-span-3 lg:col-span-2 hidden md:flex items-center gap-3">
         <div className="flex items-center gap-2 text-xs font-body-md text-secondary">
           <span className="material-symbols-outlined text-[16px]">checklist</span> {tasksCount} Tasks
         </div>
         <div className="flex items-center gap-2 text-xs font-body-md text-secondary">
           <span className="material-symbols-outlined text-[16px]">inventory_2</span> {evidenceCount} Evidence
-        </div>
-        <div className="w-full max-w-[120px] bg-surface-container-high rounded-full h-1.5 mt-1">
-          <div className={`${progress > 0 ? 'bg-[#1e40af]' : 'bg-outline-variant'} h-1.5 rounded-full`} style={{ width: `${progress > 0 ? progress : 0}%` }}></div>
         </div>
       </div>
       <div className="col-span-4 sm:col-span-2 lg:col-span-2 flex items-center pr-2">
@@ -160,13 +163,14 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
             // Owner exists: clickable area to change owner
             <button 
               onClick={toggleOwnerMenu}
-              className="flex items-center justify-center gap-2 hover:bg-surface-container-low p-1 rounded-lg transition-colors text-left"
+              className="flex items-center justify-center hover:bg-surface-container-low p-1 rounded-lg transition-colors"
               title="Change Assignee"
             >
-              <div className={`w-6 h-6 rounded-full ${currentOwner.isPrimary ? 'bg-[#1e40af] text-white' : 'bg-[#dce9fe] text-[#2563eb]'} flex items-center justify-center font-bold text-[10px] border border-outline-variant`}>
-                {currentOwner.initials}
+              <div 
+                className="w-7 h-7 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-[10px] shadow-inner border border-outline-variant/40 shrink-0"
+              >
+                {getInitials(currentOwner.name)}
               </div>
-              <span className="font-body-md text-body-md text-on-surface hidden xl:block w-[45px] truncate">{currentOwner.name}</span>
             </button>
           ) : (
             // No owner: Show + button
@@ -185,16 +189,23 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
               <div className="px-3 py-2 text-xs font-label-md text-secondary uppercase border-b border-outline-variant mb-1 text-left">
                 Assign to
               </div>
-              {MEMBERS.map((member) => (
+              {projectMembers.length === 0 && (
+                <div className="px-3 py-2 text-xs text-secondary italic text-center">
+                  No active members in project
+                </div>
+              )}
+              {projectMembers.map((member) => (
                 <button
                   key={member.id}
                   onClick={(e) => handleOwnerSelect(e, member)}
                   className="w-full text-left px-3 py-2 hover:bg-surface-container-low flex items-center gap-2 transition-colors"
                 >
-                  <div className={`w-5 h-5 rounded-full ${member.isPrimary ? 'bg-[#1e40af] text-white' : 'bg-[#dce9fe] text-[#2563eb]'} flex items-center justify-center font-bold text-[9px] border border-outline-variant`}>
-                    {member.initials}
+                  <div 
+                    className="w-7 h-7 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-[10px] shadow-inner border border-outline-variant/40 shrink-0"
+                  >
+                    {getInitials(member.name)}
                   </div>
-                  <span className="font-body-md text-sm text-on-surface">{member.name}</span>
+                  <span className="font-body-md text-sm text-on-surface truncate">{member.name}</span>
                 </button>
               ))}
             </div>

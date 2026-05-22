@@ -19,17 +19,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
-        return new com.fasterxml.jackson.databind.ObjectMapper();
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/api/requirements/**").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll()
                 .anyRequest().authenticated()
 
 

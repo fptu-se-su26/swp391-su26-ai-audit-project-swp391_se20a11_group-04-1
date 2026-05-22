@@ -3,8 +3,8 @@ import axiosInstance from '../../../api/axiosConfig';
 const API_URL = '/requirements';
 
 export const requirementApi = {
-  getAllRequirements: async () => {
-    const response = await axiosInstance.get(API_URL);
+  getAllRequirements: async (params = {}) => {
+    const response = await axiosInstance.get(API_URL, { params });
     return response.data;
   },
 
@@ -14,9 +14,7 @@ export const requirementApi = {
   },
 
   createRequirement: async (requirementData) => {
-    // TODO: Get projectId from current active project context/URL
-    const payload = { ...requirementData, projectId: 1 };
-    const response = await axiosInstance.post(API_URL, payload);
+    const response = await axiosInstance.post(API_URL, requirementData);
     return response.data;
   },
 

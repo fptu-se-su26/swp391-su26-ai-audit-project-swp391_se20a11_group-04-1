@@ -1,6 +1,12 @@
 import React from 'react';
+import useAuthStore from '@store/useAuthStore';
+import { getInitials, getAvatarColor } from '@utils/avatarHelper';
 
 const TopNavBar = () => {
+  const fullName = useAuthStore((state) => state.fullName);
+  const initials = getInitials(fullName);
+  const avatarColor = getAvatarColor(fullName);
+
   return (
     <header className="bg-surface-container-lowest dark:bg-surface-dim text-primary dark:text-primary-fixed font-body-lg text-body-lg fixed top-0 w-full h-topbar_height border-b border-outline-variant dark:border-outline flex justify-between items-center px-margin_desktop z-50 md:w-[calc(100%-280px)]">
       <div className="flex items-center gap-4">
@@ -17,8 +23,9 @@ const TopNavBar = () => {
         <button className="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-colors p-2 rounded-full active:scale-95 duration-150">
           <span className="material-symbols-outlined">notifications</span>
         </button>
-        <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-label-md ml-2 cursor-pointer border border-outline-variant">
-          VA
+        {/* Avatar động theo người đăng nhập */}
+        <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shadow-inner shrink-0 cursor-pointer border border-outline-variant/40">
+          {initials}
         </div>
       </div>
     </header>

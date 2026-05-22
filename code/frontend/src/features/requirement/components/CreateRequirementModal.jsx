@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import RequirementFormHeader from './RequirementFormHeader';
 import RequirementFormDetails from './RequirementFormDetails';
 import RequirementFormCriteria from './RequirementFormCriteria';
@@ -7,66 +7,55 @@ import AIAcceleratorsCard from './AIAcceleratorsCard';
 import RequirementFormActionBar from './RequirementFormActionBar';
 import { requirementApi } from '../services/requirementApi';
 
-const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    type: 'FUNCTIONAL',
-    priority: 'MEDIUM',
-    evidenceRequired: false,
-    tags: [],
-    acceptanceCriteria: [],
-    ownerId: null
-  });
+const emptyForm = (projectId) => ({
+  title: '',
+  description: '',
+  type: 'FUNCTIONAL',
+  priority: 'MEDIUM',
+  evidenceRequired: false,
+  tags: [],
+  acceptanceCriteria: [],
+  ownerId: null,
+  projectId
+});
 
+const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, projectId }) => {
+  const [formData, setFormData] = useState(emptyForm(projectId));
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (editingData) {
-      let parsedCriteria = [];
-      if (editingData.acceptanceCriteria) {
-        try {
-          parsedCriteria = typeof editingData.acceptanceCriteria === 'string' 
-            ? JSON.parse(editingData.acceptanceCriteria) 
-            : editingData.acceptanceCriteria;
-        } catch (e) {
-          console.error("Failed to parse acceptance criteria", e);
-        }
+    if (!editingData) {
+      setFormData(emptyForm(projectId));
+      return;
+    }
+
+    let parsedCriteria = [];
+    if (editingData.acceptanceCriteria) {
+      try {
+        parsedCriteria = typeof editingData.acceptanceCriteria === 'string'
+          ? JSON.parse(editingData.acceptanceCriteria)
+          : editingData.acceptanceCriteria;
+      } catch (error) {
+        console.error('Failed to parse acceptance criteria', error);
       }
-
-      setFormData({
-        title: editingData.title || '',
-        description: editingData.description || '',
-        type: editingData.type || 'FUNCTIONAL',
-        priority: editingData.priority || 'MEDIUM',
-        evidenceRequired: editingData.evidenceRequired || false,
-        tags: editingData.tags || [],
-        acceptanceCriteria: Array.isArray(parsedCriteria) ? parsedCriteria : [],
-        ownerId: editingData.ownerId || null,
-        projectId: editingData.projectId || 1,  // preserve projectId for update
-        status: editingData.status || 'IN_PROGRESS' // preserve current status
-      });
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        type: 'FUNCTIONAL',
-        priority: 'MEDIUM',
-        evidenceRequired: false,
-        tags: [],
-        acceptanceCriteria: [],
-        ownerId: null
-      });
     }
-  }, [editingData, isOpen]);
 
-  // Prevent body scrolling when modal is open
+    setFormData({
+      title: editingData.title || '',
+      description: editingData.description || '',
+      type: editingData.type || 'FUNCTIONAL',
+      priority: editingData.priority || 'MEDIUM',
+      evidenceRequired: editingData.evidenceRequired || false,
+      tags: editingData.tags || [],
+      acceptanceCriteria: Array.isArray(parsedCriteria) ? parsedCriteria : [],
+      ownerId: editingData.ownerId || null,
+      projectId: editingData.projectId || projectId,
+      status: editingData.status || 'IN_PROGRESS'
+    });
+  }, [editingData, projectId]);
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.body.style.overflow = isOpen ? 'hidden' : 'unset';
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -75,35 +64,41 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData }) => 
   if (!isOpen) return null;
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async (targetStatus) => {
     if (!formData.title.trim()) {
-      alert("Vui lòng nhập Requirement Title!");
+      alert('Please enter a Requirement Title.');
       return;
     }
-    
+
+    const resolvedProjectId = formData.projectId || projectId;
+    if (!resolvedProjectId) {
+      alert('Please select a project before creating a Requirement.');
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
         ...formData,
-        acceptanceCriteria: JSON.stringify(formData.acceptanceCriteria || [])
+        projectId: resolvedProjectId,
+        acceptanceCriteria: JSON.stringify(formData.acceptanceCriteria || []),
+        status: targetStatus || 'IN_PROGRESS'
       };
 
-      // Save Draft → DRAFT | Save Requirement → IN_PROGRESS (always, create or edit)
-      payload.status = targetStatus ? targetStatus : 'IN_PROGRESS';
-
-      if (editingData && editingData.id) {
+      if (editingData?.id) {
         await requirementApi.updateRequirement(editingData.id, payload);
       } else {
         await requirementApi.createRequirement(payload);
       }
+
       onSuccess();
       onClose();
     } catch (error) {
-      console.error("Lỗi khi lưu Requirement:", error);
-      alert("Lưu thất bại! Xem chi tiết trong Console.");
+      console.error('Error saving requirement:', error);
+      alert('Save failed. Please check the console for details.');
     } finally {
       setLoading(false);
     }
@@ -111,13 +106,11 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData }) => 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-6 overflow-hidden">
-      {/* Modal Container */}
-      <div 
+      <div
         className="w-full max-w-7xl max-h-full flex flex-col bg-surface rounded-xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >
-        {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-margin_desktop">
           <RequirementFormHeader onClose={onClose} />
 
@@ -134,12 +127,11 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData }) => 
           </div>
         </div>
 
-        {/* Sticky Bottom Action Bar inside Modal */}
-        <RequirementFormActionBar 
-          onCancel={onClose} 
-          onSave={() => handleSave(null)} // Null means keep current or default to IN_REVIEW
-          onSaveDraft={() => handleSave('DRAFT')} 
-          loading={loading} 
+        <RequirementFormActionBar
+          onCancel={onClose}
+          onSave={() => handleSave(null)}
+          onSaveDraft={() => handleSave('DRAFT')}
+          loading={loading}
         />
       </div>
     </div>

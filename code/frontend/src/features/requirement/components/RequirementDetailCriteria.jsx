@@ -21,9 +21,9 @@ const RequirementDetailCriteria = ({ requirement }) => {
       {criteriaList && criteriaList.length > 0 ? (
         <ul className="space-y-3">
           {criteriaList.map((criteria, index) => (
-            <li key={index} className="flex items-start gap-3">
+            <li key={index} className="flex items-start gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
               <input className="mt-1 border-outline-variant text-primary focus:ring-primary rounded" type="checkbox" readOnly />
-              <span className="font-body-md text-body-md text-on-surface">{criteria}</span>
+              <span className="font-body-md text-sm text-slate-700 font-medium">{criteria}</span>
             </li>
           ))}
         </ul>
