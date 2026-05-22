@@ -31,6 +31,7 @@ public class Notification {
 
     @Column(nullable = false, length = 50)
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private NotificationType type;
 
     // Optional ID related to the notification (e.g., ProjectInvitation ID)

@@ -30,6 +30,8 @@ export const useAuthStore = create((set) => {
     if (username) localStorage.setItem('username', username)
     if (email) localStorage.setItem('email', email)
     if (fullName) localStorage.setItem('fullName', fullName)
+    // Reset project state khi user mới đăng nhập
+    localStorage.removeItem('devtrack-project-storage')
     set({
       userId: strId,
       userRole,
@@ -94,6 +96,8 @@ export const useAuthStore = create((set) => {
     localStorage.removeItem('username')
     localStorage.removeItem('email')
     localStorage.removeItem('fullName')
+    // Xóa project state của user cũ
+    localStorage.removeItem('devtrack-project-storage')
     set({
       userId: null,
       userRole: null,

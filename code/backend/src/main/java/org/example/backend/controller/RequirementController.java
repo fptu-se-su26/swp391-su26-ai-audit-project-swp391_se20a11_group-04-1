@@ -2,6 +2,7 @@ package org.example.backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.dto.RequirementRequestDTO;
 import org.example.backend.dto.RequirementResponseDTO;
 import org.example.backend.service.RequirementService;
@@ -10,8 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.example.backend.exception.CustomException;
 import jakarta.servlet.http.HttpSession;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/requirements")
@@ -32,8 +31,14 @@ public class RequirementController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RequirementResponseDTO>> getAllRequirements() {
-        return ResponseEntity.ok(requirementService.getAllRequirements());
+    public ResponseEntity<PaginatedResponse<RequirementResponseDTO>> getRequirements(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long projectId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String tag) {
+        return ResponseEntity.ok(requirementService.getRequirements(page, size, projectId, status, priority, tag));
     }
 
     @GetMapping("/{id}")
