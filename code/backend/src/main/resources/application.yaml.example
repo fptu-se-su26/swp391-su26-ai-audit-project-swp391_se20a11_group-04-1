@@ -3,7 +3,7 @@ spring:
     name: backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/dev_track_ai
+    url: jdbc:postgresql://localhost:5432/dev_track_ai?options=-c%20timezone=Asia/Ho_Chi_Minh
     username: postgres
     password: YOUR_DATABASE_PASSWORD_HERE # 👈 Điền mật khẩu database PostgreSQL local của bạn vào đây
     driver-class-name: org.postgresql.Driver
