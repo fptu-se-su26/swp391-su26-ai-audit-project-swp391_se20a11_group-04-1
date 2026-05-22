@@ -50,6 +50,5 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             );
 
-        return http.build();
-    }
+        return http.build();   }
 }

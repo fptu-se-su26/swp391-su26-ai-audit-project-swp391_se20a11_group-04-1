@@ -262,8 +262,8 @@ export const useProjectStore = create(
   },
     }),
     {
-      name: 'project-storage', // key in localStorage
-      partialize: (state) => ({ activeProject: state.activeProject }), // Only persist activeProject
+      name: 'devtrack-project-storage',
+      partialize: (state) => ({ activeProject: state.activeProject }),
     }
   )
 )
