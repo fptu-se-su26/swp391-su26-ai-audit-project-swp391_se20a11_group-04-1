@@ -2,6 +2,11 @@ spring:
   application:
     name: backend
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
   datasource:
     url: jdbc:postgresql://localhost:5432/dev_track_ai?options=-c%20timezone=Asia/Ho_Chi_Minh
     username: postgres

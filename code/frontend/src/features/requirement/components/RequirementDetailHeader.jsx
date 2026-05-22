@@ -1,8 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
 
 const RequirementDetailHeader = ({ requirement, onEdit }) => {
+  const { projectId } = useParams();
   if (!requirement) return null;
 
   return (
@@ -10,13 +11,13 @@ const RequirementDetailHeader = ({ requirement, onEdit }) => {
       <div className="flex-1">
         {/* Breadcrumb & Badges */}
         <div className="flex items-center gap-3 mb-3">
-          <Link to="/requirements" className="flex items-center gap-1 text-secondary hover:text-primary transition-colors font-body-md text-body-md">
+          <Link to={`/projects/${projectId}/requirements`} className="flex items-center gap-1 text-secondary hover:text-primary transition-colors font-body-md text-body-md">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Requirements
           </Link>
           <div className="w-px h-4 bg-outline-variant"></div>
           <span className="font-label-md text-label-md bg-[#e6f0ff] text-[#1e40af] px-2 py-1 rounded font-bold">
-            REQ-{String(requirement.id).padStart(2, '0')}
+            {requirement.reqCode || `REQ-${String(requirement.id).padStart(2, '0')}`}
           </span>
           {requirement.status && (
             <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${

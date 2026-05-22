@@ -6,9 +6,11 @@ import UseCasePagination from '../components/UseCasePagination';
 import Button from '../../../components/ui/Button';
 import UseCaseFormModal from '../components/UseCaseFormModal';
 import { useCaseService } from '../services/useCaseService';
+import useProjectStore from '../../../store/useProjectStore';
 import toast from 'react-hot-toast';
 
 const UseCasePage = () => {
+  const activeProject = useProjectStore((state) => state.activeProject);
   const [useCases, setUseCases] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,9 +24,11 @@ const UseCasePage = () => {
   const [statusFilter, setStatusFilter] = useState('');
 
   const fetchUseCases = async () => {
+    if (!activeProject?.id) return;
     setLoading(true);
     try {
       const params = {
+        projectId: activeProject.id,
         page: currentPage,
         size: pageSize,
       };
@@ -53,7 +57,15 @@ const UseCasePage = () => {
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [currentPage, pageSize, searchTerm, statusFilter]);
+  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id]);
+
+  useEffect(() => {
+    // Reset page and filters when project changes
+    setCurrentPage(0);
+    setSearchTerm('');
+    setStatusFilter('');
+    setUseCases([]);
+  }, [activeProject?.id]);
 
   const handleSearchChange = (val) => {
     setSearchTerm(val);

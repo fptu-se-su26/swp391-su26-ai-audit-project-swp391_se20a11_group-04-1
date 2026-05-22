@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { TYPE_ICON_MAP, TYPE_LABEL_MAP, STATUS_STYLE_MAP } from './EvidenceCard';
 
 /**
@@ -7,6 +7,7 @@ import { TYPE_ICON_MAP, TYPE_LABEL_MAP, STATUS_STYLE_MAP } from './EvidenceCard'
  */
 const EvidenceTable = ({ evidences = [] }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams();
 
   return (
     <div className="overflow-x-auto">
@@ -46,7 +47,7 @@ const EvidenceTable = ({ evidences = [] }) => {
             return (
               <tr
                 key={ev.id}
-                onClick={() => navigate(`/evidence/${ev.id}`)}
+                onClick={() => navigate(`/projects/${projectId}/evidence/${ev.id}`)}
                 className="border-b border-outline-variant hover:bg-surface-container-low cursor-pointer transition-colors group"
               >
                 {/* ID */}

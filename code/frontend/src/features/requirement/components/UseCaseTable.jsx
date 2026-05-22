@@ -1,8 +1,10 @@
 import React from 'react';
 import Badge from '../../../components/ui/Badge';
 import { Link } from 'react-router-dom';
+import useProjectStore from '../../../store/useProjectStore';
 
 const UseCaseTable = ({ useCases }) => {
+  const activeProject = useProjectStore((state) => state.activeProject);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse">
@@ -28,13 +30,13 @@ const UseCaseTable = ({ useCases }) => {
               <td className="py-3 px-4">
                 <div className="flex flex-col">
                   <span className="font-label-md text-label-md text-primary font-bold">{uc.code || `UC-${uc.id}`}</span>
-                  <Link to={`/use-cases/${uc.id}`} className="font-medium text-on-surface hover:text-primary transition-colors">{uc.name}</Link>
+                  <Link to={`/projects/${activeProject?.id}/use-cases/${uc.id}`} className="font-medium text-on-surface hover:text-primary transition-colors">{uc.name}</Link>
                 </div>
               </td>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-outline" style={{ fontSize: '16px' }}>description</span>
-                  <a href="#" className="text-primary hover:underline">REQ-{uc.requirementId || 'X'}</a>
+                  <a href="#" className="text-primary hover:underline">{uc.requirement?.reqCode || `REQ-${uc.requirementId || 'X'}`}</a>
                 </div>
               </td>
               <td className="py-3 px-4">

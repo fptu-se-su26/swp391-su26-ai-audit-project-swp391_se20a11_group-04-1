@@ -30,6 +30,7 @@ public class TestCaseService {
     private final TestCaseRepository testCaseRepository;
     private final TestStepRepository testStepRepository;
     private final TestCaseMapper testCaseMapper;
+    private final org.example.backend.repository.ProjectRepository projectRepository;
 
     public TestCaseResponse create(Long projectId, TestCaseRequest request, Long currentUserId) {
         // TODO: Validate member of project (skipped to avoid conflict with project module)
@@ -42,6 +43,15 @@ public class TestCaseService {
 
         List<TestStep> steps = buildSteps(request.getSteps(), testCase);
         testCase.setSteps(steps);
+
+        // Pessimistic Lock on Project
+        var project = projectRepository.findByIdWithPessimisticWrite(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        Integer maxSubId = testCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
+        int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        testCase.setProjectSubId(nextSubId);
+        testCase.setTcCode("TC-" + nextSubId);
 
         TestCase saved = testCaseRepository.save(testCase);
         return testCaseMapper.toResponse(saved);

@@ -142,14 +142,14 @@ const Sidebar = () => {
           // B. Hiển thị Menu của riêng Dự Án
           <div className="flex-1 space-y-1">
             <NavItem to="/dashboard" icon="dashboard" label="Dashboard" />
-            <NavItem to="/requirements" icon="description" label="Requirements" />
-            <NavItem to="/use-cases" icon="account_tree" label="Use Cases" />
-            <NavItem to="/task-board" icon="assignment" label="Task Board" />
-            <NavItem to="/sprints" icon="history_toggle_off" label="Sprints" />
-            <NavItem to="/test-cases" icon="checklist_rtl" label="Test Cases" />
-            <NavItem to="/bugs" icon="bug_report" label="Bugs" />
-            <NavItem to="/evidence" icon="inventory_2" label="Evidence Vault" />
-            <NavItem to="/traceability-matrix" icon="reorder" label="Traceability Matrix" />
+            <NavItem to={`/projects/${activeProject.id}/requirements`} icon="description" label="Requirements" />
+            <NavItem to={`/projects/${activeProject.id}/use-cases`} icon="account_tree" label="Use Cases" />
+            <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
+            <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
+            <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
+            <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
+            <NavItem to={`/projects/${activeProject.id}/evidence`} icon="inventory_2" label="Evidence Vault" />
+            <NavItem to={`/projects/${activeProject.id}/traceability-matrix`} icon="reorder" label="Traceability Matrix" />
 
             {/* Intelligence Section */}
             <div className="pt-4 pb-2">
@@ -158,12 +158,12 @@ const Sidebar = () => {
             </div>
             
             <NavItem 
-              to="/ai-assistant" 
+              to={`/projects/${activeProject.id}/ai-assistant`} 
               icon="smart_toy" 
               label="AI Assistant" 
               defaultIconClass="text-primary-container"
             />
-            <NavItem to="/code-insight" icon="code" label="Code Insight" />
+            <NavItem to={`/projects/${activeProject.id}/code-insight`} icon="code" label="Code Insight" />
 
             {/* Team Section */}
             <div className="pt-4 pb-2">
@@ -171,18 +171,18 @@ const Sidebar = () => {
               <span className="px-3 font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">Team</span>
             </div>
             
-            <NavItem to="/contribution" icon="groups" label="Contribution" />
-            <NavItem to="/mentor-view" icon="visibility" label="Mentor View" />
+            <NavItem to={`/projects/${activeProject.id}/contribution`} icon="groups" label="Contribution" />
+            <NavItem to={`/projects/${activeProject.id}/mentor-view`} icon="visibility" label="Mentor View" />
 
             {/* Mentor Dashboard specific menu item */}
             {userRole === 'MENTOR' && (
               <div className="mt-2">
-                <NavItem to="/mentor" icon="supervisor_account" label="Mentor Dashboard" />
+                <NavItem to={`/projects/${activeProject.id}/mentor`} icon="supervisor_account" label="Mentor Dashboard" />
               </div>
             )}
 
             <div className="mt-2">
-              <NavItem to="/project-settings" icon="settings" label="Project Settings" />
+              <NavItem to={`/projects/${activeProject.id}/project-settings`} icon="settings" label="Project Settings" />
             </div>
           </div>
         )}

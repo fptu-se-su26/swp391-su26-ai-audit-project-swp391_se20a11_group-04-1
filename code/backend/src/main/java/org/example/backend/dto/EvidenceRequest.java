@@ -7,6 +7,9 @@ import jakarta.validation.constraints.NotNull;
 
 @Data
 public class EvidenceRequest {
+    @NotNull(message = "Project ID is required")
+    private Long projectId;
+
     @NotNull(message = "Type is required")
     private String type;
 

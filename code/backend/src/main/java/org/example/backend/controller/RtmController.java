@@ -61,6 +61,12 @@ public class RtmController {
         return ResponseEntity.ok(ApiResponse.success(response, "RTM snapshots loaded"));
     }
 
+    @PutMapping("/migrate-snapshots")
+    public ResponseEntity<ApiResponse<String>> migrateSnapshots() {
+        rtmService.migrateSnapshotsToProjectScopedCode();
+        return ResponseEntity.ok(ApiResponse.success("Success", "Historical RTM snapshots migrated successfully."));
+    }
+
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

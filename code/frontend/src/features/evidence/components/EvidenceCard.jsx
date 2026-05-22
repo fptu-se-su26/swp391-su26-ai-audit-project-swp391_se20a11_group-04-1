@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 /**
  * Map evidence type → Material icon name
@@ -80,6 +80,7 @@ const STATUS_STYLE_MAP = {
  */
 const EvidenceCard = ({ evidence }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams();
   const type = evidence.type || 'DOCUMENT';
   const status = evidence.status || 'PENDING';
   const typeIcon = TYPE_ICON_MAP[type] || 'description';
@@ -106,7 +107,7 @@ const EvidenceCard = ({ evidence }) => {
 
   return (
     <div
-      onClick={() => navigate(`/evidence/${evidence.id}`)}
+      onClick={() => navigate(`/projects/${projectId}/evidence/${evidence.id}`)}
       className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col hover:shadow-[0_6px_20px_rgba(0,0,0,0.07)] transition-all duration-200 group cursor-pointer hover:-translate-y-0.5"
     >
       {/* Thumbnail Area */}

@@ -1,8 +1,10 @@
 package org.example.backend.controller;
 
+import org.example.backend.annotation.PreAuthorizeProjectMember;
 import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.UseCaseRequest;
 import org.example.backend.dto.UseCaseResponse;
+import org.example.backend.dto.UseCaseStatusUpdateRequest;
 import org.example.backend.service.UseCaseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -29,7 +32,9 @@ public class UseCaseController {
     }
 
     @GetMapping("/search")
+    @PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Page<UseCaseResponse>>> searchUseCases(
+            @RequestParam Long projectId,
             @RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false, defaultValue = "") String status,
             @RequestParam(defaultValue = "0") int page,
@@ -37,36 +42,41 @@ public class UseCaseController {
         String searchKeyword = keyword.isEmpty() ? null : keyword;
         String searchStatus = status.isEmpty() ? null : status;
         Pageable pageable = PageRequest.of(page, size);
-        Page<UseCaseResponse> response = useCaseService.searchUseCases(searchKeyword, searchStatus, pageable);
+        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<UseCaseResponse>>> getAllUseCases() {
-        List<UseCaseResponse> response = useCaseService.getAllUseCases();
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<List<UseCaseResponse>>> getAllUseCases(@RequestParam Long projectId) {
+        List<UseCaseResponse> response = useCaseService.getAllUseCases(projectId);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UseCaseResponse>> getUseCase(@PathVariable Long id) {
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<UseCaseResponse>> getUseCase(@PathVariable Long id, @RequestParam Long projectId) {
         UseCaseResponse response = useCaseService.getUseCaseById(id);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case retrieved"));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestBody org.example.backend.dto.UseCaseStatusUpdateRequest request) {
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseStatusUpdateRequest request) {
         UseCaseResponse response = useCaseService.updateUseCaseStatus(id, request.getStatus());
         return ResponseEntity.ok(ApiResponse.success(response, "Use case status updated"));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCase(@PathVariable Long id, @RequestBody UseCaseRequest request) {
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCase(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseRequest request) {
         UseCaseResponse response = useCaseService.updateUseCase(id, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case updated"));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUseCase(@PathVariable Long id) {
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<Void>> deleteUseCase(@PathVariable Long id, @RequestParam Long projectId) {
         useCaseService.deleteUseCase(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Use case deleted"));
     }

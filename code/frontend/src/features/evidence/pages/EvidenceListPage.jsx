@@ -9,12 +9,14 @@ import EvidenceFormModal from '../components/EvidenceFormModal';
 import EvidenceDeleteConfirmModal from '../components/EvidenceDeleteConfirmModal';
 import Button from '../../../components/ui/Button';
 import toast from 'react-hot-toast';
+import { useParams } from 'react-router-dom';
 
 /**
  * EvidenceListPage — Trang danh sách Evidence Vault
  * Hỗ trợ Grid View + Table View, search, filter, pagination, CRUD
  */
 const EvidenceListPage = () => {
+  const { projectId } = useParams();
   // Data state
   const [evidences, setEvidences] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,7 @@ const EvidenceListPage = () => {
     setLoading(true);
     try {
       const params = {
+        projectId: projectId,
         page: currentPage,
         size: pageSize,
       };
@@ -82,10 +85,12 @@ const EvidenceListPage = () => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchEvidences();
+      if (projectId) {
+        fetchEvidences();
+      }
     }, 500);
     return () => clearTimeout(delayDebounceFn);
-  }, [fetchEvidences]);
+  }, [fetchEvidences, projectId]);
 
   // Handlers
   const handleSearchChange = (val) => {
@@ -105,6 +110,7 @@ const EvidenceListPage = () => {
 
   const handleCreateOrUpdate = async (formData, editId) => {
     try {
+      formData.append('projectId', projectId);
       if (editId) {
         await evidenceService.updateEvidence(editId, formData);
         toast.success('Evidence updated successfully');

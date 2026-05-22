@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import useProjectStore from '../../../store/useProjectStore';
+import { requirementApi } from '../../requirement/services/requirementApi';
+import { testCaseService } from '../../testing/services/testCaseService';
 import { EVIDENCE_TYPES } from './EvidenceToolbar';
 
 // Evidence types that support file upload
@@ -12,6 +15,7 @@ const URL_TYPES = ['GITHUB_COMMIT', 'API_RESPONSE', 'FIGMA_LINK', 'DEPLOY_LINK']
 const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
   const isEditMode = !!editData;
   const fileInputRef = useRef(null);
+  const activeProject = useProjectStore(state => state.activeProject);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -127,7 +131,49 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
   };
 
   // Add linked entity
-  const [linkInput, setLinkInput] = useState({ entityType: 'REQUIREMENT', entityId: '' });
+  const [linkInput, setLinkInput] = useState({ entityType: 'REQUIREMENT', entityId: '', entityLabel: '' });
+  const [targetOptions, setTargetOptions] = useState([]);
+  const [loadingTargets, setLoadingTargets] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !activeProject?.id || !linkInput.entityType) return;
+    
+    setLoadingTargets(true);
+    setLinkInput(prev => ({ ...prev, entityId: '', entityLabel: '' }));
+    
+    const fetchTargets = async () => {
+      try {
+        let options = [];
+        if (linkInput.entityType === 'REQUIREMENT') {
+          const res = await requirementApi.getAllRequirements({ projectId: activeProject.id });
+          const data = res.items || res.data?.content || res.data || res || [];
+          options = data.map(item => ({ id: item.id, code: item.reqCode || `REQ-${item.id}`, title: item.title }));
+        } else if (linkInput.entityType === 'TEST_CASE') {
+          const res = await testCaseService.getTestCases(activeProject.id, {});
+          const data = res.items || res.data?.content || res.data || res || [];
+          options = data.map(item => ({ id: item.id, code: item.tcCode || item.code || `TC-${item.id}`, title: item.title }));
+        }
+        setTargetOptions(options);
+      } catch (err) {
+        console.error("Failed to load targets", err);
+        setTargetOptions([]);
+      } finally {
+        setLoadingTargets(false);
+      }
+    };
+    
+    fetchTargets();
+  }, [linkInput.entityType, activeProject?.id, isOpen]);
+
+  const handleTargetChange = (e) => {
+    const selectedId = e.target.value;
+    const selectedOpt = targetOptions.find(opt => String(opt.id) === selectedId);
+    setLinkInput(prev => ({
+      ...prev,
+      entityId: selectedId,
+      entityLabel: selectedOpt ? `[${selectedOpt.code}] ${selectedOpt.title}` : ''
+    }));
+  };
 
   const addLinkedEntity = () => {
     if (!linkInput.entityId) return;
@@ -138,9 +184,9 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
 
     setFormData((prev) => ({
       ...prev,
-      linkedEntities: [...prev.linkedEntities, { ...linkInput, entityId: Number(linkInput.entityId) }],
+      linkedEntities: [...prev.linkedEntities, { ...linkInput, entityId: Number(linkInput.entityId), entityLabel: linkInput.entityLabel }],
     }));
-    setLinkInput((prev) => ({ ...prev, entityId: '' }));
+    setLinkInput((prev) => ({ ...prev, entityId: '', entityLabel: '' }));
   };
 
   const removeLinkedEntity = (idx) => {
@@ -339,26 +385,32 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
               <select
                 value={linkInput.entityType}
                 onChange={(e) => setLinkInput((prev) => ({ ...prev, entityType: e.target.value }))}
-                className="px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+                className="w-1/3 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
               >
                 <option value="REQUIREMENT">Requirement</option>
                 <option value="TASK">Task</option>
                 <option value="TEST_CASE">Test Case</option>
-                <option value="BUG_REPORT">Bug Report</option>
-                <option value="SPRINT">Sprint</option>
               </select>
-              <input
-                type="number"
+              <select
                 value={linkInput.entityId}
-                onChange={(e) => setLinkInput((prev) => ({ ...prev, entityId: e.target.value }))}
-                placeholder="Entity ID"
-                min="1"
-                className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all"
-              />
+                onChange={handleTargetChange}
+                disabled={loadingTargets || targetOptions.length === 0}
+                className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+              >
+                <option value="" disabled>
+                  {loadingTargets ? 'Loading...' : targetOptions.length === 0 ? 'No items found' : 'Select Target'}
+                </option>
+                {targetOptions.map(opt => (
+                  <option key={opt.id} value={opt.id}>
+                    [{opt.code || '?'}] {opt.title}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={addLinkedEntity}
-                className="px-3 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors"
+                disabled={!linkInput.entityId}
+                className="px-3 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">add</span>
               </button>
@@ -366,18 +418,18 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
 
             {/* Linked entity chips */}
             {formData.linkedEntities.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mt-3">
                 {formData.linkedEntities.map((link, idx) => (
                   <span
                     key={idx}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-surface border border-outline-variant rounded-lg font-label-md text-[11px] text-on-surface-variant"
                   >
-                    <span className="font-semibold">{link.entityType.replace('_', ' ')}</span>
-                    #{link.entityId}
+                    <span className="font-semibold text-primary">{link.entityType.replace('_', ' ')}:</span>
+                    {link.entityLabel || `#${link.entityId}`}
                     <button
                       type="button"
                       onClick={() => removeLinkedEntity(idx)}
-                      className="ml-0.5 hover:text-error transition-colors"
+                      className="ml-1 hover:text-error transition-colors flex items-center"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
                     </button>

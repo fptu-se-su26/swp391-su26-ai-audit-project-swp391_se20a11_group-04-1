@@ -9,8 +9,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+import java.util.Optional;
+
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Project p WHERE p.id = :projectId")
+    Optional<Project> findByIdWithPessimisticWrite(@Param("projectId") Long projectId);
 
     /**
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).

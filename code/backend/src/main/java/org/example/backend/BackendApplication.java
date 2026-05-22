@@ -10,9 +10,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class BackendApplication {
 
     public static void main(String[] args) {
-        // Sửa ở đây: Dùng "GMT+7" thay vì "Asia/Ho_Chi_Minh"
-        // để đảm bảo bất kỳ phiên bản PostgreSQL nào cũng hiểu được.
-        TimeZone.setDefault(TimeZone.getTimeZone("GMT+7"));
+        // Sửa ở đây: Fix lỗi "Asia/Saigon" của PostgreSQL JDBC Driver
+        System.setProperty("user.timezone", "Asia/Ho_Chi_Minh");
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
 
         SpringApplication.run(BackendApplication.class, args);
     }

@@ -57,8 +57,12 @@ public class EvidenceServiceImpl implements EvidenceService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<EvidenceResponse> searchEvidence(String keyword, String type, String status, Long uploadedBy, Pageable pageable) {
+    public Page<EvidenceResponse> searchEvidence(Long projectId, String keyword, String type, String status, Long uploadedBy, Pageable pageable) {
         Specification<Evidence> spec = Specification.where((root, query, cb) -> cb.conjunction());
+
+        if (projectId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("projectId"), projectId));
+        }
 
         if (keyword != null && !keyword.trim().isEmpty()) {
             String likeKeyword = "%" + keyword.toLowerCase() + "%";
@@ -97,8 +101,8 @@ public class EvidenceServiceImpl implements EvidenceService {
     public EvidenceResponse createEvidence(EvidenceRequest request) throws IOException {
         Evidence evidence = new Evidence();
         
-        // Mock project ID for MVP
-        evidence.setProjectId(1L);
+        // Set project ID from request
+        evidence.setProjectId(request.getProjectId());
         evidence.setUploadedBy(getCurrentUser());
         
         evidence.setType(EvidenceType.valueOf(request.getType()));

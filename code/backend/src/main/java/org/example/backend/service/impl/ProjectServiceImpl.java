@@ -158,6 +158,37 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ProjectResponse getProjectById(Long projectId, Long userId) {
+        log.info("🔍 Request to fetch project details for project ID: {} by user ID: {}", projectId, userId);
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
+
+        // Kiểm tra xem user có phải là thành viên của dự án không
+        boolean isMember = false;
+        if (project.getMembers() != null) {
+            for (ProjectMember pm : project.getMembers()) {
+                if (pm.getUser().getId().equals(userId)) {
+                    isMember = true;
+                    break;
+                }
+            }
+        }
+
+        // Nếu người tạo gọi thì cũng cho phép (trường hợp chưa có member)
+        if (!isMember && project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId)) {
+            isMember = true;
+        }
+
+        if (!isMember) {
+            throw new CustomException("Bạn không có quyền truy cập dự án này.", HttpStatus.FORBIDDEN);
+        }
+
+        return mapToProjectResponse(project, userId);
+    }
+
+    @Override
     @Transactional
     public ProjectResponse createProject(ProjectResponse.CreateProjectRequest request, Long userId) {
         log.info("🚀 Service request to create a new project: {} by user ID: {}", request.getName(), userId);

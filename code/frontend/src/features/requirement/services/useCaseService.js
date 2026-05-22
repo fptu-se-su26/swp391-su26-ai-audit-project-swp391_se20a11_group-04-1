@@ -8,14 +8,14 @@ export const useCaseService = {
   },
 
   // Lấy danh sách tất cả Use Case
-  getAllUseCases: async () => {
-    const response = await axiosInstance.get('/v1/use-cases');
+  getAllUseCases: async (projectId) => {
+    const response = await axiosInstance.get('/v1/use-cases', { params: { projectId } });
     return response.data.data;
   },
 
   // Lấy chi tiết 1 Use Case theo ID
-  getUseCaseById: async (useCaseId) => {
-    const response = await axiosInstance.get(`/v1/use-cases/${useCaseId}`);
+  getUseCaseById: async (useCaseId, projectId) => {
+    const response = await axiosInstance.get(`/v1/use-cases/${useCaseId}`, { params: { projectId } });
     return response.data.data;
   },
 
@@ -26,20 +26,20 @@ export const useCaseService = {
   },
 
   // Cập nhật trạng thái Use Case (Patch)
-  updateUseCaseStatus: async (useCaseId, status) => {
-    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, { status });
+  updateUseCaseStatus: async (useCaseId, status, projectId) => {
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, { status }, { params: { projectId } });
     return response.data.data;
   },
 
   // Cập nhật Use Case
-  updateUseCase: async (useCaseId, data) => {
-    const response = await axiosInstance.put(`/v1/use-cases/${useCaseId}`, data);
+  updateUseCase: async (useCaseId, data, projectId) => {
+    const response = await axiosInstance.put(`/v1/use-cases/${useCaseId}`, data, { params: { projectId } });
     return response.data.data;
   },
 
   // Xóa Use Case
-  deleteUseCase: async (useCaseId) => {
-    const response = await axiosInstance.delete(`/v1/use-cases/${useCaseId}`);
+  deleteUseCase: async (useCaseId, projectId) => {
+    const response = await axiosInstance.delete(`/v1/use-cases/${useCaseId}`, { params: { projectId } });
     return response.data;
   }
 };

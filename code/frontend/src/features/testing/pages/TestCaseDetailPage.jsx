@@ -36,7 +36,7 @@ export default function TestCaseDetailPage() {
     <div className="flex-1 p-margin_desktop overflow-y-auto">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-secondary mb-4">
-        <Link to={`/test-cases`} className="hover:text-primary hover:underline font-body-md transition-colors">Test Cases</Link>
+        <Link to={`/projects/${projectId}/test-cases`} className="hover:text-primary hover:underline font-body-md transition-colors">Test Cases</Link>
         <span className="material-symbols-outlined text-sm">chevron_right</span>
         <span className="font-body-md font-medium text-on-surface">{testCase.code}</span>
       </div>

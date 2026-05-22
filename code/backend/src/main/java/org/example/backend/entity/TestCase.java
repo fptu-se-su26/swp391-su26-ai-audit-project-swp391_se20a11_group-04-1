@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 @Entity
@@ -20,6 +22,8 @@ import org.hibernate.type.SqlTypes;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@SQLDelete(sql = "UPDATE test_cases SET is_deleted = true WHERE id = ?")
+@SQLRestriction("is_deleted = false")
 public class TestCase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,6 +32,12 @@ public class TestCase {
     // Use raw IDs instead of entity mapping to avoid creating out-of-scope entities
     @Column(name = "project_id", nullable = false)
     private Long projectId;
+
+    @Column(name = "project_sub_id")
+    private Integer projectSubId;
+
+    @Column(name = "tc_code", length = 50)
+    private String tcCode;
 
     @Column(name = "requirement_id", nullable = false)
     private Long requirementId;
@@ -60,6 +70,9 @@ public class TestCase {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
     
     @PrePersist
     protected void onCreate() {

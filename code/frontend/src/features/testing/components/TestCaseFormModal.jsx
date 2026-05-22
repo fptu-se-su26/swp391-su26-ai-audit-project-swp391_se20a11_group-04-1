@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react'
+import useProjectStore from '../../../store/useProjectStore'
+import { requirementApi } from '../../requirement/services/requirementApi'
+import toast from 'react-hot-toast'
 
 /**
  * TestCaseFormModal — Modal tạo hoặc sửa Test Case
@@ -12,6 +15,26 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
     expectedResult: '',
     steps: []
   })
+
+  const activeProject = useProjectStore(state => state.activeProject)
+  const [requirements, setRequirements] = useState([])
+  const [loadingReqs, setLoadingReqs] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && activeProject?.id) {
+      setLoadingReqs(true)
+      requirementApi.getAllRequirements({ projectId: activeProject.id })
+        .then(res => {
+          const reqs = res.items || res.data?.content || res.data || res || []
+          setRequirements(Array.isArray(reqs) ? reqs : [])
+        })
+        .catch(err => {
+          console.error(err)
+          toast.error("Failed to load requirements")
+        })
+        .finally(() => setLoadingReqs(false))
+    }
+  }, [isOpen, activeProject?.id])
 
   useEffect(() => {
     if (isOpen) {
@@ -97,15 +120,20 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="flex flex-col gap-1.5">
                 <label className="font-label-md text-label-md text-on-surface">Requirement ID <span className="text-error">*</span></label>
-                {/* Note: In a real app this would be a dropdown fetching from /requirements. Since we mock requirements, we use a simple input */}
-                <input
-                  type="number"
+                <select
                   required
                   value={formData.requirementId}
                   onChange={e => setFormData({ ...formData, requirementId: e.target.value })}
-                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
-                  placeholder="E.g., 12"
-                />
+                  disabled={loadingReqs}
+                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all cursor-pointer"
+                >
+                  <option value="" disabled>{loadingReqs ? 'Loading requirements...' : 'Select a Requirement'}</option>
+                  {requirements.map(req => (
+                    <option key={req.id} value={req.id}>
+                      [{req.reqCode || 'REQ-?'}] {req.title}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col gap-1.5">

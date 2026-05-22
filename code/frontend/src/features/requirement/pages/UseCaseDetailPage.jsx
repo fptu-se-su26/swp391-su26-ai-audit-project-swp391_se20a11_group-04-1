@@ -10,7 +10,7 @@ import UseCaseAIAnalysis from '../components/UseCaseAIAnalysis';
 import toast from 'react-hot-toast';
 
 const UseCaseDetailPage = () => {
-  const { id } = useParams();
+  const { projectId, id } = useParams();
   const [useCase, setUseCase] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +22,7 @@ const UseCaseDetailPage = () => {
 
   const fetchUseCase = useCallback(async () => {
     try {
-      const data = await useCaseService.getUseCaseById(id);
+      const data = await useCaseService.getUseCaseById(id, projectId);
       setUseCase(data);
     } catch (error) {
       console.error(error);
@@ -30,7 +30,7 @@ const UseCaseDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, projectId]);
 
   useEffect(() => {
     fetchUseCase();
@@ -70,7 +70,7 @@ const UseCaseDetailPage = () => {
     if (newStatus === useCase.status) return;
     setUpdatingStatus(true);
     try {
-      await useCaseService.updateUseCaseStatus(id, newStatus);
+      await useCaseService.updateUseCaseStatus(id, newStatus, projectId);
       toast.success('Status updated successfully!');
       // Update local state without fetching all data again
       setUseCase(prev => ({ ...prev, status: newStatus }));
@@ -101,7 +101,7 @@ const UseCaseDetailPage = () => {
         completenessScore: editData.completenessScore,
       };
 
-      await useCaseService.updateUseCase(id, payload);
+      await useCaseService.updateUseCase(id, payload, projectId);
       toast.success('Use Case updated successfully!');
       setIsEditing(false);
       setEditData(null);

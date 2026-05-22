@@ -81,6 +81,39 @@ export const useProjectStore = create(
   },
 
   /**
+   * Tải chi tiết 1 dự án bằng ID.
+   * Dùng khi reload lại trang project details mà chưa có activeProject hoàn chỉnh.
+   */
+  fetchProjectById: async (projectId) => {
+    set({ loading: true, error: null })
+    try {
+      const response = await axiosInstance.get(`/v1/projects/${projectId}`)
+      const rawProject = response.data?.data
+      if (rawProject) {
+        const fullProject = transformProject(rawProject)
+        set({ activeProject: fullProject, loading: false })
+        
+        // Update it in the projects list if it exists
+        const { projects } = get()
+        const index = projects.findIndex(p => p.id === fullProject.id)
+        if (index !== -1) {
+          const newProjects = [...projects]
+          newProjects[index] = fullProject
+          set({ projects: newProjects })
+        }
+      } else {
+        set({ loading: false })
+      }
+    } catch (err) {
+      console.error('Error fetching project by id:', err)
+      set({
+        error: err.response?.data?.message || err.message || 'Failed to fetch project detail',
+        loading: false,
+      })
+    }
+  },
+
+  /**
    * Hiển thị thêm 3 thẻ dự án.
    * - Nếu đã có đủ dữ liệu trong bộ nhớ → chỉ tăng visibleCount.
    * - Nếu hết dữ liệu nhưng backend còn → tự động fetch trang tiếp theo

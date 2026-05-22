@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { STATUS_STYLE_MAP, TYPE_LABEL_MAP, TYPE_ICON_MAP } from './EvidenceCard';
 
 /**
@@ -8,6 +8,7 @@ import { STATUS_STYLE_MAP, TYPE_LABEL_MAP, TYPE_ICON_MAP } from './EvidenceCard'
  */
 const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
   const navigate = useNavigate();
+  const { projectId } = useParams();
   const type = evidence.type || 'DOCUMENT';
   const status = evidence.status || 'PENDING';
   const statusStyle = STATUS_STYLE_MAP[status] || STATUS_STYLE_MAP.PENDING;
@@ -28,7 +29,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 mb-4">
         <button
-          onClick={() => navigate('/evidence')}
+          onClick={() => navigate(`/projects/${projectId}/evidence`)}
           className="flex items-center gap-1 font-body-md text-[13px] text-primary hover:text-primary/80 transition-colors"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>

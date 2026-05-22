@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
  * Hiển thị preview, metadata, linked entities, review panel
  */
 const EvidenceDetailPage = () => {
-  const { id } = useParams();
+  const { id, projectId } = useParams();
   const navigate = useNavigate();
 
   const [evidence, setEvidence] = useState(null);
@@ -28,7 +28,7 @@ const EvidenceDetailPage = () => {
   const fetchEvidence = async () => {
     setLoading(true);
     try {
-      const data = await evidenceService.getEvidenceById(id);
+      const data = await evidenceService.getEvidenceById(id, projectId);
       setEvidence(data);
     } catch (error) {
       console.error('Failed to fetch evidence:', error);
@@ -53,7 +53,7 @@ const EvidenceDetailPage = () => {
 
   const handleUpdate = async (formData) => {
     try {
-      await evidenceService.updateEvidence(id, formData);
+      await evidenceService.updateEvidence(id, formData, projectId);
       toast.success('Evidence updated successfully');
       fetchEvidence();
     } catch (error) {
@@ -66,9 +66,9 @@ const EvidenceDetailPage = () => {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await evidenceService.deleteEvidence(id);
+      await evidenceService.deleteEvidence(id, projectId);
       toast.success('Evidence deleted successfully');
-      navigate('/evidence');
+      navigate(`/projects/${projectId}/evidence`);
     } catch (error) {
       console.error('Failed to delete evidence:', error);
       toast.error('Failed to delete evidence');
@@ -80,7 +80,7 @@ const EvidenceDetailPage = () => {
   const handleReview = async (status, comment) => {
     setIsReviewing(true);
     try {
-      await evidenceService.updateEvidenceStatus(id, status, comment);
+      await evidenceService.updateEvidenceStatus(id, status, comment, projectId);
       toast.success(`Evidence ${status.toLowerCase().replace('_', ' ')} successfully`);
       fetchEvidence();
     } catch (error) {
@@ -93,7 +93,7 @@ const EvidenceDetailPage = () => {
 
   const handleUnlink = async (linkId) => {
     try {
-      await evidenceService.unlinkEvidence(id, linkId);
+      await evidenceService.unlinkEvidence(id, linkId, projectId);
       toast.success('Link removed');
       fetchEvidence();
     } catch (error) {
@@ -125,7 +125,7 @@ const EvidenceDetailPage = () => {
             The evidence you're looking for doesn't exist or has been deleted.
           </span>
           <button
-            onClick={() => navigate('/evidence')}
+            onClick={() => navigate(`/projects/${projectId}/evidence`)}
             className="mt-2 px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors font-body-md text-body-md flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
