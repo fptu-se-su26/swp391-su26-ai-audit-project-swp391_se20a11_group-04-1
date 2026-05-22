@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import taskService from '../service/taskService'
+import taskService from '../services/taskService'
 import { mapTaskFromApi, mapTaskToApi } from '../utils/taskMapper'
 
 export const TASK_STATUSES = [
