@@ -17,6 +17,11 @@ public interface ProjectService {
     );
 
     /**
+     * Lấy chi tiết dự án theo ID (bao gồm cả danh sách thành viên)
+     */
+    ProjectResponse getProjectById(Long projectId, Long userId);
+
+    /**
      * Tạo mới một dự án và tự động gán quyền PROJECT_LEADER cho người tạo
      */
     ProjectResponse createProject(ProjectResponse.CreateProjectRequest request, Long userId);

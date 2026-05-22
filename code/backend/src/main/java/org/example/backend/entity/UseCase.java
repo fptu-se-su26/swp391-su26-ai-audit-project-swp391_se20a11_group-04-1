@@ -5,6 +5,8 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -13,10 +15,18 @@ import java.util.List;
 @Entity
 @Table(name = "use_cases")
 @Data
+@SQLDelete(sql = "UPDATE use_cases SET is_deleted = true WHERE id = ?")
+@SQLRestriction("is_deleted = false")
 public class UseCase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "project_id", nullable = false)
+    private Long projectId;
+
+    @Column(name = "project_sub_id")
+    private Integer projectSubId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "requirement_id", nullable = false)
@@ -62,6 +72,9 @@ public class UseCase {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
 
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();

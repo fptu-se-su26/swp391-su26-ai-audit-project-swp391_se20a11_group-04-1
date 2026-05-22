@@ -19,7 +19,7 @@ const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
         <div>
           <p className="font-label-md text-label-md text-secondary uppercase mb-1">Linked Requirement</p>
           <a className="font-body-lg text-body-lg text-primary hover:underline font-semibold flex items-center gap-1" href="#">
-            REQ-{useCase.requirementId} <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+            {useCase.reqCode || `REQ-${useCase.requirementId}`} <span className="material-symbols-outlined text-[16px]">open_in_new</span>
           </a>
         </div>
       </div>

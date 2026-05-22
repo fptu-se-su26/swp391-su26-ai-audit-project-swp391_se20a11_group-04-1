@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import StatusBadge from './StatusBadge'
 import TypeBadge from './TypeBadge'
 
@@ -11,6 +11,7 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const navigate = useNavigate()
+  const { projectId } = useParams()
 
   // Close menu khi click ngoài
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
   return (
     <tr 
       className="border-b border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer"
-      onClick={() => navigate(`/test-cases/${testCase.id}`)}
+      onClick={() => navigate(`/projects/${projectId}/test-cases/${testCase.id}`)}
     >
       <td className="py-3 px-4 font-label-md text-label-md text-primary">{testCase.code}</td>
       <td className="py-3 px-4 font-medium">{testCase.title}</td>
@@ -64,7 +65,7 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
           <div className="absolute right-4 top-full z-30 mt-1 w-36 bg-surface-container-lowest border border-outline-variant rounded-lg shadow-lg py-1">
             <button
               className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/test-cases/${testCase.id}`) }}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/projects/${projectId}/test-cases/${testCase.id}`) }}
             >
               <span className="material-symbols-outlined text-[18px]">visibility</span>
               View

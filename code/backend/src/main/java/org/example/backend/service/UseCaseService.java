@@ -9,9 +9,9 @@ import java.util.List;
 public interface UseCaseService {
     UseCaseResponse createUseCase(UseCaseRequest request, String username);
     UseCaseResponse getUseCaseById(Long id);
-    List<UseCaseResponse> getAllUseCases();
+    List<UseCaseResponse> getAllUseCases(Long projectId);
     UseCaseResponse updateUseCase(Long id, UseCaseRequest request);
     UseCaseResponse updateUseCaseStatus(Long id, String status);
     void deleteUseCase(Long id);
-    Page<UseCaseResponse> searchUseCases(String keyword, String status, Pageable pageable);
+    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Pageable pageable);
 }

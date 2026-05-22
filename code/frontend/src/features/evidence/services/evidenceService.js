@@ -23,8 +23,8 @@ export const evidenceService = {
   },
 
   // Lấy chi tiết 1 Evidence theo ID
-  getEvidenceById: async (evidenceId) => {
-    const response = await axiosInstance.get(`/v1/evidence/${evidenceId}`);
+  getEvidenceById: async (evidenceId, projectId) => {
+    const response = await axiosInstance.get(`/v1/evidence/${evidenceId}`, { params: { projectId } });
     return response.data.data;
   },
 
@@ -37,32 +37,32 @@ export const evidenceService = {
   },
 
   // Cập nhật Evidence
-  updateEvidence: async (evidenceId, data) => {
-    const response = await axiosInstance.put(`/v1/evidence/${evidenceId}`, data);
+  updateEvidence: async (evidenceId, data, projectId) => {
+    const response = await axiosInstance.put(`/v1/evidence/${evidenceId}`, data, { params: { projectId } });
     return response.data.data;
   },
 
   // Cập nhật trạng thái Evidence (review: accept / reject / needs_clarification)
-  updateEvidenceStatus: async (evidenceId, status, comment) => {
-    const response = await axiosInstance.patch(`/v1/evidence/${evidenceId}/status`, { status, comment });
+  updateEvidenceStatus: async (evidenceId, status, comment, projectId) => {
+    const response = await axiosInstance.patch(`/v1/evidence/${evidenceId}/status`, { status, comment }, { params: { projectId } });
     return response.data.data;
   },
 
   // Xóa Evidence
-  deleteEvidence: async (evidenceId) => {
-    const response = await axiosInstance.delete(`/v1/evidence/${evidenceId}`);
+  deleteEvidence: async (evidenceId, projectId) => {
+    const response = await axiosInstance.delete(`/v1/evidence/${evidenceId}`, { params: { projectId } });
     return response.data;
   },
 
   // Thêm liên kết Entity cho Evidence
-  linkEvidence: async (evidenceId, entityType, entityId) => {
-    const response = await axiosInstance.post(`/v1/evidence/${evidenceId}/links`, { entityType, entityId });
+  linkEvidence: async (evidenceId, entityType, entityId, projectId) => {
+    const response = await axiosInstance.post(`/v1/evidence/${evidenceId}/links`, { entityType, entityId }, { params: { projectId } });
     return response.data.data;
   },
 
   // Xóa liên kết Entity khỏi Evidence
-  unlinkEvidence: async (evidenceId, linkId) => {
-    const response = await axiosInstance.delete(`/v1/evidence/${evidenceId}/links/${linkId}`);
+  unlinkEvidence: async (evidenceId, linkId, projectId) => {
+    const response = await axiosInstance.delete(`/v1/evidence/${evidenceId}/links/${linkId}`, { params: { projectId } });
     return response.data;
   },
 };

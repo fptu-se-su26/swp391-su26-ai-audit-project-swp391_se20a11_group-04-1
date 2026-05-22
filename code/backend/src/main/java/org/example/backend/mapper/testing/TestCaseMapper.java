@@ -29,7 +29,7 @@ public class TestCaseMapper {
     public TestCaseResponse toResponse(TestCase tc) {
         TestCaseResponse res = new TestCaseResponse();
         res.setId(tc.getId());
-        res.setCode("TC-" + String.format("%02d", tc.getId()));
+        res.setCode(tc.getTcCode());
         res.setTitle(tc.getTitle());
         res.setType(tc.getType());
         res.setPrecondition(tc.getPrecondition());
@@ -53,7 +53,7 @@ public class TestCaseMapper {
     public TestCaseListItemResponse toListItem(TestCase tc) {
         TestCaseListItemResponse res = new TestCaseListItemResponse();
         res.setId(tc.getId());
-        res.setCode("TC-" + String.format("%02d", tc.getId()));
+        res.setCode(tc.getTcCode());
         res.setTitle(tc.getTitle());
         res.setRequirementCode("REQ-" + tc.getRequirementId());
         res.setType(tc.getType());

@@ -14,6 +14,7 @@ import java.util.List;
 public class RequirementResponseDTO {
     private Long id;
     private Long projectId;
+    private String reqCode;
     private String title;
     private String description;
     private RequirementType type;

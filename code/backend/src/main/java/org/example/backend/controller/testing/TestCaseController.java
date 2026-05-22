@@ -13,7 +13,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.example.backend.annotation.PreAuthorizeProjectMember;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -26,6 +28,7 @@ public class TestCaseController {
     private final TestCaseService testCaseService;
 
     @PostMapping
+    @PreAuthorizeProjectMember
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TestCaseResponse> create(
             @PathVariable Long projectId,
@@ -42,6 +45,7 @@ public class TestCaseController {
     }
 
     @GetMapping
+    @PreAuthorizeProjectMember
     public ApiResponse<org.example.backend.dto.PageResponse<TestCaseListItemResponse>> list(
             @PathVariable Long projectId,
             @RequestParam(required = false) TestCaseStatus status,
@@ -58,6 +62,7 @@ public class TestCaseController {
     }
 
     @GetMapping("/{testCaseId}")
+    @PreAuthorizeProjectMember
     public ApiResponse<TestCaseResponse> getById(
             @PathVariable Long projectId,
             @PathVariable Long testCaseId) {
@@ -69,6 +74,7 @@ public class TestCaseController {
     }
 
     @PutMapping("/{testCaseId}")
+    @PreAuthorizeProjectMember
     public ApiResponse<TestCaseResponse> update(
             @PathVariable Long projectId,
             @PathVariable Long testCaseId,

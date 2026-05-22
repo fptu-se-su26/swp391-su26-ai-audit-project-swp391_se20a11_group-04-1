@@ -15,6 +15,9 @@ import java.util.Optional;
 @Repository
 public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     
+    @Query(value = "SELECT MAX(project_sub_id) FROM test_cases WHERE project_id = :projectId", nativeQuery = true)
+    Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
+
     @Query("""
         SELECT tc FROM TestCase tc
         WHERE tc.projectId = :projectId

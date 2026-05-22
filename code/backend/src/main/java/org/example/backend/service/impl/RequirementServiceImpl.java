@@ -51,7 +51,8 @@ public class RequirementServiceImpl implements RequirementService {
             throw new BadRequestException("Project is required when creating a requirement.");
         }
 
-        var project = projectRepository.findById(requestDTO.getProjectId())
+        // Lock the project row to prevent race conditions on auto-increment calculation
+        var project = projectRepository.findByIdWithPessimisticWrite(requestDTO.getProjectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
                 
         if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
@@ -75,6 +76,12 @@ public class RequirementServiceImpl implements RequirementService {
                 .project(project)
                 .createdBy(creator)
                 .build();
+
+        // Calculate next projectSubId and reqCode safely inside the transaction with Pessimistic Lock
+        Integer maxSubId = requirementRepository.findMaxProjectSubIdByProjectId(project.getId());
+        int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        requirement.setProjectSubId(nextSubId);
+        requirement.setReqCode("REQ-" + nextSubId);
 
         // Fix: @Builder.Default conflicts with .builder().status() — must set AFTER build()
         if (requestDTO.getStatus() != null) {
@@ -207,6 +214,7 @@ public class RequirementServiceImpl implements RequirementService {
         return RequirementResponseDTO.builder()
                 .id(req.getId())
                 .projectId(req.getProject().getId())
+                .reqCode(req.getReqCode())
                 .title(req.getTitle())
                 .description(req.getDescription())
                 .type(req.getType())

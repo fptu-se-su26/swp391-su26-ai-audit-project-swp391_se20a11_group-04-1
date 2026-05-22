@@ -120,7 +120,7 @@ public class RtmServiceImpl implements RtmService {
                            COUNT(*) FILTER (WHERE t.status::text = 'BLOCKED') AS task_blocked,
                            COALESCE(json_agg(json_build_object(
                                'id', t.id,
-                               'code', concat('TSK-', t.id),
+                               'code', COALESCE(t.task_code, concat('TSK-', t.id)),
                                'title', t.title,
                                'status', t.status::text,
                                'owner', COALESCE(tup.full_name, tua.username, 'Unassigned'),
@@ -141,7 +141,7 @@ public class RtmServiceImpl implements RtmService {
                            COUNT(*) FILTER (WHERE tc.status::text = 'NOT_RUN') AS test_not_run,
                            COALESCE(json_agg(json_build_object(
                                'id', tc.id,
-                               'code', concat('TC-', tc.id),
+                               'code', COALESCE(tc.tc_code, concat('TC-', tc.id)),
                                'title', tc.title,
                                'status', tc.status::text,
                                'owner', '',
@@ -224,7 +224,8 @@ public class RtmServiceImpl implements RtmService {
                        COALESCE(tr.tasks, '[]'::json)::text AS tasks,
                        COALESCE(ts.test_cases, '[]'::json)::text AS test_cases,
                        COALESCE(br.bugs, '[]'::json)::text AS bugs,
-                       COALESCE(er.evidence, '[]'::json)::text AS evidence
+                       COALESCE(er.evidence, '[]'::json)::text AS evidence,
+                       r.req_code
                 FROM requirements r
                 LEFT JOIN user_accounts ua ON ua.id = r.owner_id
                 LEFT JOIN user_profiles up ON up.user_id = ua.id
@@ -265,9 +266,11 @@ public class RtmServiceImpl implements RtmService {
                 evidenceRequired, taskTotal, taskBlocked, testFailed, testBlocked, openBugCount, criticalBugCount, evidenceCount);
         String traceabilityStatus = deriveStatus(requirementStatus, taskTotal, taskDone, testTotal, testPassed, riskReasons);
 
+        String reqCode = row.length > 23 && row[23] != null ? asString(row[23]) : "REQ-" + requirementId;
+
         return new RtmRowResponse(
                 requirementId,
-                "REQ-" + requirementId,
+                reqCode,
                 asString(row[1]),
                 asString(row[2]),
                 asString(row[3]),
@@ -432,5 +435,68 @@ public class RtmServiceImpl implements RtmService {
             return localDateTime;
         }
         return null;
+    }
+
+    @Override
+    @Transactional
+    public void migrateSnapshotsToProjectScopedCode() {
+        List<Object[]> snapshots = entityManager.createNativeQuery(
+                "SELECT id, snapshot_data::text FROM rtm_snapshots").getResultList();
+
+        for (Object[] row : snapshots) {
+            Long snapshotId = asLong(row[0]);
+            JsonNode data = parseJson(row[1]);
+
+            if (data.has("rows")) {
+                for (JsonNode rtmRow : data.get("rows")) {
+                    if (rtmRow.has("requirementId")) {
+                        Long reqId = rtmRow.get("requirementId").asLong();
+                        try {
+                            String reqCode = (String) entityManager.createNativeQuery("SELECT req_code FROM requirements WHERE id = :id")
+                                    .setParameter("id", reqId)
+                                    .getSingleResult();
+                            if (reqCode != null) {
+                                ((com.fasterxml.jackson.databind.node.ObjectNode) rtmRow).put("requirementCode", reqCode);
+                            }
+                        } catch (Exception e) {
+                            // ignore if not found
+                        }
+                    }
+
+                    updateItemsCode(rtmRow, "tasks", "SELECT task_code FROM tasks WHERE id = :id");
+                    updateItemsCode(rtmRow, "testCases", "SELECT tc_code FROM test_cases WHERE id = :id");
+                }
+            }
+
+            try {
+                String updatedJson = objectMapper.writeValueAsString(data);
+                entityManager.createNativeQuery("UPDATE rtm_snapshots SET snapshot_data = CAST(:data AS jsonb) WHERE id = :id")
+                        .setParameter("data", updatedJson)
+                        .setParameter("id", snapshotId)
+                        .executeUpdate();
+            } catch (Exception e) {
+                // log.error("Failed to update snapshot " + snapshotId, e);
+            }
+        }
+    }
+
+    private void updateItemsCode(JsonNode rtmRow, String fieldName, String query) {
+        if (rtmRow.has(fieldName)) {
+            for (JsonNode item : rtmRow.get(fieldName)) {
+                if (item.has("id")) {
+                    Long itemId = item.get("id").asLong();
+                    try {
+                        String code = (String) entityManager.createNativeQuery(query)
+                                .setParameter("id", itemId)
+                                .getSingleResult();
+                        if (code != null) {
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) item).put("code", code);
+                        }
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
+            }
+        }
     }
 }

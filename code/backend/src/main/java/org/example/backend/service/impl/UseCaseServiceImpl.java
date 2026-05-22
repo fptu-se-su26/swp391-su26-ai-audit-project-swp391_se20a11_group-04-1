@@ -42,6 +42,9 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private org.example.backend.repository.ProjectRepository projectRepository;
+
     @Override
     public UseCaseResponse createUseCase(UseCaseRequest request, String username) {
         UserAccount user = userAccountRepository.findByUsername(username)
@@ -50,6 +53,15 @@ public class UseCaseServiceImpl implements UseCaseService {
         UseCase useCase = new UseCase();
         mapRequestToEntity(request, useCase);
         useCase.setCreatedBy(user);
+
+        // Pessimistic Lock on Project
+        var project = projectRepository.findByIdWithPessimisticWrite(useCase.getProjectId())
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
+        int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        useCase.setProjectSubId(nextSubId);
+        useCase.setCode("UC-" + nextSubId);
 
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
@@ -63,8 +75,8 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public List<UseCaseResponse> getAllUseCases() {
-        return useCaseRepository.findAll().stream()
+    public List<UseCaseResponse> getAllUseCases(Long projectId) {
+        return useCaseRepository.findByProjectId(projectId).stream()
                 .map(this::mapEntityToResponse)
                 .collect(Collectors.toList());
     }
@@ -97,9 +109,13 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(String keyword, String status, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            if (projectId != null) {
+                predicates.add(cb.equal(root.get("projectId"), projectId));
+            }
 
             if (keyword != null && !keyword.trim().isEmpty()) {
                 String pattern = "%" + keyword.toLowerCase() + "%";
@@ -124,6 +140,7 @@ public class UseCaseServiceImpl implements UseCaseService {
             org.example.backend.entity.Requirement req = requirementRepository.findById(request.getRequirementId())
                     .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
             useCase.setRequirement(req);
+            useCase.setProjectId(req.getProject().getId());
             
             if (req.getType() == org.example.backend.entity.RequirementType.FUNCTIONAL) {
                 if (request.getMainFlow() == null || request.getMainFlow().isEmpty()) {

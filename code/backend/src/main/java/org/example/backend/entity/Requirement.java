@@ -3,6 +3,8 @@ package org.example.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -19,6 +21,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
+@SQLDelete(sql = "UPDATE requirements SET is_deleted = true WHERE id = ?")
+@SQLRestriction("is_deleted = false")
 public class Requirement {
 
     @Id
@@ -63,6 +67,12 @@ public class Requirement {
     @Builder.Default
     private Boolean evidenceRequired = false;
 
+    @Column(name = "project_sub_id")
+    private Integer projectSubId;
+
+    @Column(name = "req_code", length = 50)
+    private String reqCode;
+
     @Column(name = "req_order")
     private Integer reqOrder;
 
@@ -77,6 +87,10 @@ public class Requirement {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean isDeleted = false;
 
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

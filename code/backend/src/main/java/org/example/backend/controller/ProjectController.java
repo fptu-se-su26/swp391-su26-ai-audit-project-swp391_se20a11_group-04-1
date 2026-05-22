@@ -59,6 +59,24 @@ public class ProjectController {
     }
 
     /**
+     * GET /api/v1/projects/{projectId}
+     * Lấy chi tiết một dự án bằng ID
+     */
+    @GetMapping("/{projectId}")
+    public ResponseEntity<ApiResponse<ProjectResponse>> getProjectById(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        ProjectResponse project = projectService.getProjectById(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(project, "Lấy chi tiết dự án thành công!"));
+    }
+
+    /**
      * POST /api/v1/projects
      * Tạo mới một dự án. Người tạo sẽ tự động được gán vai trò PROJECT_LEADER.
      */

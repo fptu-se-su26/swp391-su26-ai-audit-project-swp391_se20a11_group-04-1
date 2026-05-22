@@ -14,4 +14,6 @@ public interface RtmService {
     RtmSnapshotResponse saveSnapshot(Long projectId, Long sprintId, Long userId);
 
     List<RtmSnapshotResponse> getSnapshots(Long projectId, Long userId);
+
+    void migrateSnapshotsToProjectScopedCode();
 }

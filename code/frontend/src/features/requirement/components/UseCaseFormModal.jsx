@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useCaseService } from '../services/useCaseService';
+import { requirementApi } from '../services/requirementApi';
+import useProjectStore from '../../../store/useProjectStore';
 import Button from '../../../components/ui/Button';
-
-// TODO: Replace with actual API call when Requirement module is ready
-const mockRequirements = [
-  { id: 1, code: 'REQ-01', title: 'User Authentication' },
-  { id: 2, code: 'REQ-02', title: 'Payment Gateway Integration' },
-  { id: 3, code: 'REQ-03', title: 'Dashboard Analytics' }
-];
 
 const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
-    code: '',
     name: '',
     requirementId: '',
     actorsText: '',
@@ -30,39 +24,40 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
     .split('\n')
     .filter(step => step.trim() !== '');
   const [loading, setLoading] = useState(false);
-  const [codeError, setCodeError] = useState('');
+  
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const [requirements, setRequirements] = useState([]);
+  const [loadingReqs, setLoadingReqs] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && activeProject?.id) {
+      setLoadingReqs(true);
+      // Giả sử API requirement search có hỗ trợ projectId
+      requirementApi.getAllRequirements({ projectId: activeProject.id })
+        .then(res => {
+          // Backend returns PaginatedResponse which has an 'items' array
+          const reqs = res.items || res.data?.content || res.data || res || [];
+          setRequirements(Array.isArray(reqs) ? reqs : []);
+        })
+        .catch(err => {
+          console.error(err);
+          toast.error("Failed to load requirements");
+        })
+        .finally(() => {
+          setLoadingReqs(false);
+        });
+    }
+  }, [isOpen, activeProject?.id]);
 
   if (!isOpen) return null;
-
-  const validateCode = (code) => {
-    if (!code) {
-      setCodeError('');
-      return false;
-    }
-    const regex = /^UC-\d{2,}$/;
-    if (!regex.test(code)) {
-      setCodeError('Format must be UC-XX (e.g., UC-01)');
-      return false;
-    }
-    setCodeError('');
-    return true;
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    
-    if (name === 'code') {
-      validateCode(value);
-    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateCode(formData.code)) {
-      toast.error('Please fix the Use Case Code format');
-      return;
-    }
 
     if (!formData.requirementId) {
       toast.error('Please select a Linked Requirement');
@@ -83,9 +78,9 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         : { flows: [] };
 
       const payload = {
-        code: formData.code,
         name: formData.name,
         requirementId: parseInt(formData.requirementId),
+        projectId: activeProject?.id,
         actors: formData.actorsText ? formData.actorsText.split(',').map(a => a.trim()).filter(a => a) : [],
         status: formData.status,
         version: formData.version,
@@ -96,15 +91,16 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         completenessScore: 0
       };
       
+      // Update useCaseService to pass projectId if needed by backend, though it's typically sent in URL
+      // Since useCaseService.createUseCase currently expects just the data, we append it if needed, or if API doesn't need it, we don't.
       await useCaseService.createUseCase(payload);
       toast.success('Use Case created successfully!');
       
       setFormData({
-        code: '', name: '', requirementId: '', actorsText: '', status: 'DRAFT', version: 'v1.0',
+        name: '', requirementId: '', actorsText: '', status: 'DRAFT', version: 'v1.0',
         precondition: '', postcondition: '', mainFlowText: '', alternativeFlowText: '',
         branchFromStep: ''
       });
-      setCodeError('');
       onSuccess(); 
       onClose();   
     } catch (error) {
@@ -148,19 +144,6 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block font-label-md text-label-md text-on-surface mb-1.5">Use Case Code *</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">tag</span>
-                    <input 
-                      type="text" name="code" required placeholder="UC-01"
-                      value={formData.code} onChange={handleChange}
-                      className={`w-full h-11 pl-10 pr-3 bg-surface-container-lowest border rounded-xl outline-none text-body-md transition-all
-                        ${codeError ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary'}`} 
-                    />
-                  </div>
-                  {codeError && <p className="text-error text-xs mt-1.5 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">error</span>{codeError}</p>}
-                </div>
-                <div>
                   <label className="block font-label-md text-label-md text-on-surface mb-1.5">Use Case Name *</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">title</span>
@@ -203,9 +186,10 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                       name="requirementId" required
                       value={formData.requirementId} onChange={handleChange}
                       className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md appearance-none cursor-pointer transition-all"
+                      disabled={loadingReqs}
                     >
-                      <option value="" disabled>Select Requirement</option>
-                      {mockRequirements.map(req => (
+                      <option value="" disabled>{loadingReqs ? 'Loading...' : 'Select Requirement'}</option>
+                      {requirements.map(req => (
                         <option key={req.id} value={req.id}>{req.code} - {req.title}</option>
                       ))}
                     </select>
@@ -328,7 +312,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         {/* Footer */}
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-outline-variant bg-surface-container-lowest">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="useCaseForm" variant="primary" disabled={loading || !!codeError}>
+          <Button type="submit" form="useCaseForm" variant="primary" disabled={loading}>
             {loading ? (
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>

@@ -5,7 +5,7 @@ import useProjectStore from '../../../store/useProjectStore';
 import { getInitials, getAvatarColor } from '../../../utils/avatarHelper';
 
 const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
-  const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0 } = req;
+  const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0, reqCode } = req;
   const navigate = useNavigate();
   
   const [showOwnerMenu, setShowOwnerMenu] = useState(false);
@@ -106,9 +106,9 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
   };
 
   return (
-    <div onClick={() => navigate(`/requirements/${id}`)} className="grid grid-cols-12 gap-3 px-stack_md py-3 items-center hover:bg-surface-bright transition-colors group cursor-pointer">
+    <div onClick={() => navigate(`/projects/${activeProject?.id}/requirements/${id}`)} className="grid grid-cols-12 gap-3 px-stack_md py-3 items-center hover:bg-surface-bright transition-colors group cursor-pointer">
       <div className="col-span-8 sm:col-span-5 md:col-span-4 lg:col-span-4 flex min-w-0 items-center gap-3">
-        <span className="font-label-md text-label-md text-primary bg-[#e6f0ff] px-2 py-1 rounded font-bold shrink-0">REQ-{String(id).padStart(2, '0')}</span>
+        <span className="font-label-md text-label-md text-primary bg-[#e6f0ff] px-2 py-1 rounded font-bold shrink-0">{reqCode || `REQ-${String(id).padStart(2, '0')}`}</span>
         <div className="min-w-0">
           <span className="block truncate font-body-md text-body-md font-bold text-on-surface">{title}</span>
           <span className="block truncate font-body-md text-sm text-secondary">
