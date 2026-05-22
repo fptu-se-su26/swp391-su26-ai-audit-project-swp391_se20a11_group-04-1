@@ -76,3 +76,8 @@ Nguyen_Minh_Hieu/AI_PROJECT_CONTEXT_LOG.md
 Nguyen_Minh_Hieu/MODULE_IMPLEMENTATION_TECHNIQUE_LOG.md
 Nguyen_Minh_Hieu/AGENT_HANDOFF_GUIDE.md
 lichsu/
+
+# --- LOCAL WORKING NOTES / ACCIDENTAL ROOT ARTIFACTS ---
+/package-lock.json
+/code/KANBAN_UPGRADE_PLAN.md
+/code/.gitignore

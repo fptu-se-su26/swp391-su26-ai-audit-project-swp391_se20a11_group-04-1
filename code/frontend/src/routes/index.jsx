@@ -16,6 +16,7 @@ import RequirementDetailPage from '@features/requirement/pages/RequirementDetail
 // Feature Pages - Use Cases
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
+import { KanbanBoardPage, TaskDetailPage, MyTasksPage } from '@features/kanban'
 
 // Feature Pages - Test Cases
 import TestCasePage from '@features/testing/pages/TestCasePage'
@@ -76,6 +77,11 @@ export function AppRoutes() {
             
             {/* Module 5: Team Contribution */}
             <Route path="contribution" element={<ContributionPage />} />
+
+            {/* Module 6: Task Board */}
+            <Route path="task-board" element={<KanbanBoardPage />} />
+            <Route path="tasks/:id" element={<TaskDetailPage />} />
+            <Route path="my-tasks" element={<MyTasksPage />} />
 
             {/* Module 6: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />

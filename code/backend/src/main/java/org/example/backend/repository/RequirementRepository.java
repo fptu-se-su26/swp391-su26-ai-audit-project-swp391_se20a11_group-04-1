@@ -13,4 +13,6 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
 
     @Query(value = "SELECT MAX(project_sub_id) FROM requirements WHERE project_id = :projectId", nativeQuery = true)
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
+
+    boolean existsByIdAndProjectId(Long id, Long projectId);
 }
