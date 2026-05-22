@@ -16,7 +16,7 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const isLoginRequest = error.config?.url?.endsWith('/v1/auth/login')
-    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest) {
+    if (error.response?.status === 401 && !isLoginRequest) {
       // Khi phiên đăng nhập hết hạn hoặc bị từ chối, chuyển hướng về trang login
       localStorage.removeItem('userId')
       localStorage.removeItem('userRole')
