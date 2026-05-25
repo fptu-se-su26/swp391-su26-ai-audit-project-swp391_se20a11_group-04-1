@@ -1,450 +1,97 @@
-# Changelog
+# Changelog - Module 3 Task/Kanban
 
-## 1. Quy định ghi Changelog
+## 1. Thong tin
 
-File này dùng để ghi lại các thay đổi quan trọng trong quá trình thực hiện bài tập, lab, assignment hoặc project.
-
-Nguyên tắc ghi changelog:
-
-- Chỉ ghi những gì đã hoàn thành thật sự.
-- Không ghi kế hoạch nếu chưa thực hiện.
-- Mỗi thay đổi nên có ngày, nội dung, người thực hiện và minh chứng.
-- Nếu có AI hỗ trợ, cần ghi rõ AI đã hỗ trợ phần nào.
-- Nếu có commit GitHub, cần ghi link commit.
-- Nếu có lỗi đã sửa, cần ghi rõ lỗi, nguyên nhân và cách xử lý.
-
----
-
-## 2. Thông tin project
-
-| Thông tin | Nội dung |
+| Thong tin | Noi dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Repository URL |  |
-| Ngày bắt đầu |  |
-| Ngày hoàn thành |  |
+| Sinh vien | Nguyen Le Trung Tin |
+| MSSV | DE190364 |
+| Module | Module 3 - Task/Kanban Management |
+| Branch | feature/de190364-task-crud |
+| Thoi gian | 21/05/2026 - 22/05/2026 |
+| Commit | - [feat(task): implement kanban task management](https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/7acf2fe25519c9564ff0580580eff6b2eff83390)<br>- [complete crud task](https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/69982bd62b7540b48719dbd56b54a2be52e16f83) |
 
----
+## 2. Cac thay doi chinh
 
-## 3. Tổng quan các phiên bản/giai đoạn
+### Frontend
 
-| Phiên bản/Giai đoạn | Thời gian | Nội dung chính | Trạng thái |
-|---|---|---|---|
-| Phase 01 |  | Khởi tạo project | Not Started / In Progress / Completed |
-| Phase 02 |  | Phân tích yêu cầu | Not Started / In Progress / Completed |
-| Phase 03 |  | Thiết kế hệ thống | Not Started / In Progress / Completed |
-| Phase 04 |  | Implementation | Not Started / In Progress / Completed |
-| Phase 05 |  | Testing & Debug | Not Started / In Progress / Completed |
-| Phase 06 |  | Hoàn thiện báo cáo và demo | Not Started / In Progress / Completed |
+- Them module `features/kanban`.
+- Them cac component:
+  - `KanbanHeader.jsx`
+  - `KanbanFilters.jsx`
+  - `KanbanColumn.jsx`
+  - `TaskCard.jsx`
+  - `TaskDetailDrawer.jsx`
+  - `TaskFormModal.jsx`
+- Them cac page:
+  - `KanbanBoardPage.jsx`
+  - `TaskDetailPage.jsx`
+  - `MyTasksPage.jsx`
+- Them Zustand store:
+  - `store/useKanbanStore.js`
+- Them service goi API:
+  - `services/taskService.js`
+- Them mapper:
+  - `utils/taskMapper.js`
+- Them keo tha task giua cac cot Kanban.
+- Them thao tac create/edit/delete task.
+- Them kebab menu tren task card de sua/xoa task.
+- Them drawer xem nhanh task.
+- Them trang full detail cho task.
+- Them nut thu gon tu full detail ve drawer/panel.
+- Them My Tasks vao sidebar.
+- Sua route sai `/task-board` thanh `/kanban`.
+- Luu `activeProject` vao localStorage de reload khong mat workspace sidebar.
 
----
+### Backend
 
-# [Phase 01] Khởi tạo project
+- Them `TaskController.java`.
+- Them DTO:
+  - `TaskRequest.java`
+  - `TaskResponse.java`
+  - `TaskStatusUpdateRequest.java`
+  - `TaskAssigneeUpdateRequest.java`
+- Them entity:
+  - `Task.java`
+  - `TaskChecklist.java`
+  - `TaskStatus.java`
+  - `TaskType.java`
+  - `Priority.java`
+- Them repository:
+  - `TaskRepository.java`
+  - `TaskChecklistRepository.java`
+- Them service:
+  - `TaskService.java`
+  - `TaskServiceImpl.java`
+- Them cac API:
+  - `GET /api/v1/projects/{projectId}/tasks`
+  - `POST /api/v1/projects/{projectId}/tasks`
+  - `GET /api/v1/tasks/{taskId}`
+  - `PUT /api/v1/tasks/{taskId}`
+  - `DELETE /api/v1/tasks/{taskId}`
+  - `PATCH /api/v1/tasks/{taskId}/status`
+  - `PATCH /api/v1/tasks/{taskId}/assignee`
+  - `GET /api/v1/my-tasks`
 
-## Ngày thực hiện
+### Git va convention
 
-```text
-DD/MM/YYYY
-```
+- Doi branch thanh `feature/de190364-task-crud`.
+- Doi folder goi API Kanban thanh `features/kanban/services`.
+- Cap nhat `.gitignore` de tranh push file local/nham cho:
+  - `/package-lock.json`
+  - `/code/KANBAN_UPGRADE_PLAN.md`
+  - `/code/.gitignore`
 
-## Đã hoàn thành
-
-- [ ] Tạo repository
-- [ ] Tạo cấu trúc thư mục project
-- [ ] Tạo file README.md
-- [ ] Tạo thư mục `docs/`
-- [ ] Tạo file `AI_AUDIT_LOG.md`
-- [ ] Tạo file `PROMPTS.md`
-- [ ] Tạo file `REFLECTION.md`
-- [ ] Tạo file `CHANGELOG.md`
-- [ ] Khởi tạo source code ban đầu
-- [ ] Cài đặt thư viện/công cụ cần thiết
-- [ ] Cấu hình môi trường chạy project
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 02] Phân tích yêu cầu
-
-## Ngày thực hiện
+## 3. Kiem tra da thuc hien
 
 ```text
-DD/MM/YYYY
+Backend build: .\mvnw.cmd -q -DskipTests package
+Frontend build: npm.cmd run build
+Ket qua: pass
 ```
 
-## Đã hoàn thành
-
-- [ ] Xác định problem statement
-- [ ] Xác định user roles
-- [ ] Viết user stories
-- [ ] Viết use cases
-- [ ] Xác định functional requirements
-- [ ] Xác định non-functional requirements
-- [ ] Xác định business rules
-- [ ] Xác định acceptance criteria
-- [ ] Review yêu cầu với giảng viên/nhóm
-- [ ] Chỉnh sửa yêu cầu sau feedback
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 03] Thiết kế hệ thống
-
-## Ngày thực hiện
-
-```text
-DD/MM/YYYY
-```
-
-## Đã hoàn thành
-
-- [ ] Thiết kế kiến trúc tổng quan
-- [ ] Thiết kế database/ERD
-- [ ] Thiết kế API
-- [ ] Thiết kế giao diện/wireframe
-- [ ] Thiết kế flow xử lý
-- [ ] Thiết kế class diagram
-- [ ] Thiết kế sequence diagram
-- [ ] Thiết kế security/authorization flow
-- [ ] Review thiết kế
-- [ ] Chỉnh sửa thiết kế sau feedback
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 04] Implementation
-
-## Ngày thực hiện
-
-```text
-DD/MM/YYYY
-```
-
-## Đã hoàn thành
-
-- [ ] Tạo project structure
-- [ ] Cài đặt database connection
-- [ ] Xây dựng backend
-- [ ] Xây dựng frontend
-- [ ] Xây dựng authentication/authorization
-- [ ] Xử lý CRUD
-- [ ] Xử lý validation
-- [ ] Tích hợp API
-- [ ] Xử lý upload/download file
-- [ ] Xử lý lỗi
-- [ ] Tối ưu giao diện
-- [ ] Cập nhật README hướng dẫn chạy
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 05] Testing & Debug
-
-## Ngày thực hiện
-
-```text
-DD/MM/YYYY
-```
-
-## Đã hoàn thành
-
-- [ ] Viết test case
-- [ ] Chạy test chức năng chính
-- [ ] Kiểm tra output
-- [ ] Kiểm tra validation
-- [ ] Kiểm tra lỗi giao diện
-- [ ] Kiểm tra lỗi database
-- [ ] Kiểm tra phân quyền
-- [ ] Kiểm tra bảo mật cơ bản
-- [ ] Fix bug
-- [ ] Chạy lại sau khi fix bug
-- [ ] Ghi nhận kết quả test
-
-## Danh sách lỗi đã xử lý
-
-| STT | Lỗi phát hiện | Nguyên nhân | Cách xử lý | Trạng thái |
-|---:|---|---|---|---|
-| 1 |  |  |  | Open / Fixed / Pending |
-| 2 |  |  |  | Open / Fixed / Pending |
-| 3 |  |  |  | Open / Fixed / Pending |
-| 4 |  |  |  | Open / Fixed / Pending |
-| 5 |  |  |  | Open / Fixed / Pending |
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 06] Hoàn thiện báo cáo và demo
-
-## Ngày thực hiện
-
-```text
-DD/MM/YYYY
-```
-
-## Đã hoàn thành
-
-- [ ] Hoàn thiện source code
-- [ ] Hoàn thiện README.md
-- [ ] Hoàn thiện report
-- [ ] Hoàn thiện slide
-- [ ] Hoàn thiện video demo
-- [ ] Kiểm tra lại `AI_AUDIT_LOG.md`
-- [ ] Kiểm tra lại `PROMPTS.md`
-- [ ] Hoàn thiện `REFLECTION.md`
-- [ ] Kiểm tra lại `CHANGELOG.md`
-- [ ] Đóng gói bài nộp
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# 4. Tổng kết thay đổi cuối project
-
-## 4.1. Các chức năng đã hoàn thành
-
-| STT | Chức năng | Trạng thái | Minh chứng | Ghi chú |
-|---:|---|---|---|---|
-| 1 |  | Completed / Partial / Not Completed |  |  |
-| 2 |  | Completed / Partial / Not Completed |  |  |
-| 3 |  | Completed / Partial / Not Completed |  |  |
-| 4 |  | Completed / Partial / Not Completed |  |  |
-| 5 |  | Completed / Partial / Not Completed |  |  |
-
----
-
-## 4.2. Các chức năng chưa hoàn thành
-
-| STT | Chức năng | Lý do chưa hoàn thành | Hướng cải thiện |
-|---:|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-
----
-
-## 4.3. Tổng hợp AI hỗ trợ trong project
-
-| Hạng mục | AI có hỗ trợ không? | Mức độ hỗ trợ | Ghi chú |
-|---|---|---|---|
-| Requirement | Có / Không | Ít / Trung bình / Nhiều |  |
-| Design | Có / Không | Ít / Trung bình / Nhiều |  |
-| Database | Có / Không | Ít / Trung bình / Nhiều |  |
-| Coding | Có / Không | Ít / Trung bình / Nhiều |  |
-| Debug | Có / Không | Ít / Trung bình / Nhiều |  |
-| Testing | Có / Không | Ít / Trung bình / Nhiều |  |
-| Report | Có / Không | Ít / Trung bình / Nhiều |  |
-| Presentation | Có / Không | Ít / Trung bình / Nhiều |  |
-
----
-
-## 4.4. Bài học rút ra
-
-```text
-Viết tại đây...
-```
-
----
-
-## 4.5. Hướng cải thiện tiếp theo
-
-```text
-Viết tại đây...
-```
-
----
-
-# 5. Cam kết cập nhật Changelog
-
-Sinh viên/nhóm cam kết rằng nội dung changelog phản ánh đúng các thay đổi đã thực hiện trong quá trình làm bài tập/project.
-
-| Đại diện sinh viên/nhóm | Ngày xác nhận |
-|---|---|
-|  |  |
+## 4. Ghi chu
+
+- Database migration da co san bang `tasks`, `task_assignees`, `task_checklists`, nen khong tao migration moi.
+- Neu database local chua co project/member/task thi can seed data de test UI Kanban voi du lieu that.
+- File `application.yaml` la config local va khong duoc push.
