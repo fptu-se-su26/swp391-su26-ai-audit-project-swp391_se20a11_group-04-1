@@ -81,7 +81,7 @@ class EvidenceServiceImplTest {
 
         when(evidenceRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(page);
 
-        Page<EvidenceResponse> result = evidenceService.searchEvidence("keyword", "SCREENSHOT", "PENDING", 1L, pageable);
+        Page<EvidenceResponse> result = evidenceService.searchEvidence(1L, "keyword", "SCREENSHOT", "PENDING", 1L, pageable);
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());

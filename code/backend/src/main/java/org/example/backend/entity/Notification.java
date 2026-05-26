@@ -34,6 +34,14 @@ public class Notification {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private NotificationType type;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @Column(name = "entity_type", length = 50)
+    @Enumerated(EnumType.STRING)
+    private NotificationEntityType entityType;
+
     // Optional ID related to the notification (e.g., ProjectInvitation ID)
     @Column(name = "entity_id")
     private Long relatedId;

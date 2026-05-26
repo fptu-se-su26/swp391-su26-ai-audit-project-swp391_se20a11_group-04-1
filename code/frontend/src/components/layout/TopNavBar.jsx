@@ -2,6 +2,8 @@ import React from 'react';
 import useAuthStore from '@store/useAuthStore';
 import { getInitials, getAvatarColor } from '@utils/avatarHelper';
 
+import { NotificationDropdown } from './NotificationDropdown';
+
 const TopNavBar = () => {
   const fullName = useAuthStore((state) => state.fullName);
   const initials = getInitials(fullName);
@@ -20,9 +22,7 @@ const TopNavBar = () => {
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
           <input className="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-body-md font-body-md text-on-surface focus:ring-2 focus:ring-primary-container w-[200px] lg:w-[300px] transition-all" placeholder="Search..." type="text" />
         </div>
-        <button className="text-on-surface-variant dark:text-on-secondary-fixed-variant hover:bg-surface-container-high dark:hover:bg-on-secondary-fixed-variant transition-colors p-2 rounded-full active:scale-95 duration-150">
-          <span className="material-symbols-outlined">notifications</span>
-        </button>
+        <NotificationDropdown />
         {/* Avatar động theo người đăng nhập */}
         <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shadow-inner shrink-0 cursor-pointer border border-outline-variant/40">
           {initials}

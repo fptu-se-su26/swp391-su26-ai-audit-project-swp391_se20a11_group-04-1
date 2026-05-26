@@ -335,6 +335,8 @@ public class ProjectServiceImpl implements ProjectService {
         String message = inviter.getProfile().getFullName() + " đã mời bạn tham gia dự án " + project.getName() + ".";
         Notification notification = Notification.builder()
                 .recipient(invitedUser)
+                .project(project)
+                .entityType(org.example.backend.entity.NotificationEntityType.PROJECT_INVITATION)
                 .title(title)
                 .message(message)
                 .type(NotificationType.INVITATION)
@@ -342,7 +344,19 @@ public class ProjectServiceImpl implements ProjectService {
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+
+        // Phát WebSocket notification real-time tới người nhận
+        String jsonPayload = String.format(
+            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"INVITATION\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"PROJECT_INVITATION\",\"isRead\":false,\"createdAt\":\"%s\",\"invitationStatus\":\"PENDING\"}}",
+            savedNotification.getId(),
+            savedNotification.getTitle(),
+            savedNotification.getMessage(),
+            savedNotification.getRelatedId(),
+            project.getId(),
+            savedNotification.getCreatedAt().toString()
+        );
+        org.example.backend.config.NotificationWebSocketHandler.sendToUser(invitedUser.getId(), jsonPayload);
 
         // 7. Gửi Email
         String acceptLink = "http://localhost:5173/invite/accept?token=" + token;
@@ -417,7 +431,58 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
         projectMemberRepository.save(newMember);
 
+        // Tạo thực thể Notification mới cho Người mời (Inviter) để lưu trữ bền vững trong DB
+        String notifTitle = "Thành viên đã chấp nhận lời mời";
+        String notifMessage = invitation.getInvitee().getProfile().getFullName() + " đã chấp nhận lời mời của bạn";
+        Notification acceptedNotif = Notification.builder()
+                .recipient(invitation.getInviter()) // Người nhận là người mời
+                .project(invitation.getProject())
+                .entityType(org.example.backend.entity.NotificationEntityType.PROJECT_INVITATION)
+                .title(notifTitle)
+                .message(notifMessage)
+                .type(org.example.backend.entity.NotificationType.SYSTEM)
+                .relatedId(invitation.getId())
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        Notification savedNotif = notificationRepository.save(acceptedNotif);
+
         evictProjectCacheForAllMembers(invitation.getProject().getId());
+
+        // Đảm bảo WebSocket chỉ gửi sau khi Transaction đã commit và cache đã bị xóa hoàn toàn để tránh race condition
+        final Long inviterId = invitation.getInviter().getId();
+        final String refreshPayload = String.format(
+            "{\"type\":\"REFRESH_PROJECTS\",\"projectId\":%d,\"message\":\"Thành viên %s đã đồng ý tham gia dự án %s!\"}",
+            invitation.getProject().getId(),
+            invitation.getInvitee().getProfile().getFullName(),
+            invitation.getProject().getName()
+        );
+
+        // Chuẩn bị payload WebSocket cho thông báo SYSTEM (Notification Center) để hiển thị real-time
+        final String notifPayload = String.format(
+            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"PROJECT_INVITATION\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+            savedNotif.getId(),
+            savedNotif.getTitle(),
+            savedNotif.getMessage(),
+            savedNotif.getRelatedId(),
+            invitation.getProject().getId(),
+            savedNotif.getCreatedAt().toString()
+        );
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
+                        org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, notifPayload);
+                    }
+                }
+            );
+        } else {
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, notifPayload);
+        }
     }
 
     @Override
