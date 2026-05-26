@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import { NotificationDropdown } from './NotificationDropdown'
 import useProjectStore from '@store/useProjectStore'
 import useAuthStore from '@store/useAuthStore'
+import useNotificationStore from '@store/useNotificationStore'
 import { getInitials } from '@utils/avatarHelper'
 
 /**
@@ -14,11 +15,20 @@ export function AppLayout() {
   const setSearchQuery = useProjectStore((state) => state.setSearchQuery)
   const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
   const fetchMe = useAuthStore((state) => state.fetchMe)
+  const userId = useAuthStore((state) => state.userId)
+  const initWebSocket = useNotificationStore((state) => state.initWebSocket)
 
   // Tự động đồng bộ thông tin user từ DB/Redis Session khi load ứng dụng
   useEffect(() => {
     fetchMe()
   }, [fetchMe])
+
+  // Tự động thiết lập kết nối WebSocket real-time khi có userId hợp lệ
+  useEffect(() => {
+    if (userId) {
+      initWebSocket(userId)
+    }
+  }, [userId, initWebSocket])
 
   return (
     <div className="bg-surface text-on-surface font-body-md min-h-screen flex flex-col relative select-none">

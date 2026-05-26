@@ -3,6 +3,7 @@ package org.example.backend.controller;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.UserResponse;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.ProjectService;
@@ -423,7 +424,7 @@ class DevTrackControllerTest {
         @DisplayName("TC05a — Mời bằng chính email mình → Service ném BadRequestException 400")
         void inviteOwnEmail_throwsBadRequest() {
             // GIVEN: Service ném lỗi khi cùng userId
-            doThrow(new CustomException.BadRequestException("Bạn không thể tự mời chính mình tham gia dự án."))
+            doThrow(new BadRequestException("Bạn không thể tự mời chính mình tham gia dự án."))
                     .when(projectService).inviteMember(100L, "dattest@fpt.edu.vn", 1L);
 
             // WHEN + THEN
@@ -433,7 +434,7 @@ class DevTrackControllerTest {
                             java.util.Map.of("email", "dattest@fpt.edu.vn"),
                             authenticatedSession
                     )
-            ).isInstanceOf(CustomException.BadRequestException.class)
+            ).isInstanceOf(BadRequestException.class)
              .hasMessageContaining("Bạn không thể tự mời chính mình");
 
             verify(projectService, times(1)).inviteMember(100L, "dattest@fpt.edu.vn", 1L);
@@ -471,7 +472,7 @@ class DevTrackControllerTest {
                             java.util.Map.of("email", ""),
                             authenticatedSession
                     )
-            ).isInstanceOf(CustomException.BadRequestException.class);
+            ).isInstanceOf(BadRequestException.class);
 
             verifyNoInteractions(projectService);
         }
@@ -567,7 +568,7 @@ class DevTrackControllerTest {
         @DisplayName("TC06d — Đã xử lý trước đó → Service ném BadRequestException (lời mời đã được xử lý)")
         void acceptAlreadyHandledInvitation_throwsBadRequest() {
             // GIVEN: Lời mời đã ACCEPTED rồi, không thể accept lần 2
-            doThrow(new CustomException.BadRequestException("Lời mời này đã được xử lý."))
+            doThrow(new BadRequestException("Lời mời này đã được xử lý."))
                     .when(projectService).acceptInvitation(42L, null, 1L);
 
             // WHEN + THEN
@@ -576,7 +577,7 @@ class DevTrackControllerTest {
                             java.util.Map.of("invitationId", 42),
                             authenticatedSession
                     )
-            ).isInstanceOf(CustomException.BadRequestException.class)
+            ).isInstanceOf(BadRequestException.class)
              .hasMessageContaining("Lời mời này đã được xử lý.");
         }
 
@@ -588,7 +589,7 @@ class DevTrackControllerTest {
                             java.util.Map.of(), // payload rỗng
                             authenticatedSession
                     )
-            ).isInstanceOf(CustomException.BadRequestException.class)
+            ).isInstanceOf(BadRequestException.class)
              .hasMessageContaining("Thiếu token hoặc ID lời mời.");
 
             verifyNoInteractions(projectService);
@@ -612,6 +613,8 @@ class DevTrackControllerTest {
                     .message("Bạn đã được mời tham gia")
                     .type("INVITATION")
                     .relatedId(10L)
+                    .projectId(4L)
+                    .entityType("PROJECT_INVITATION")
                     .isRead(false)
                     .invitationStatus("PENDING")
                     .build();
@@ -633,6 +636,8 @@ class DevTrackControllerTest {
             assertThat(data).hasSize(1);
             assertThat(data.get(0).getId()).isEqualTo(1L);
             assertThat(data.get(0).getInvitationStatus()).isEqualTo("PENDING");
+            assertThat(data.get(0).getProjectId()).isEqualTo(4L);
+            assertThat(data.get(0).getEntityType()).isEqualTo("PROJECT_INVITATION");
 
             verify(notificationService, times(1)).getMyNotifications(1L);
         }
