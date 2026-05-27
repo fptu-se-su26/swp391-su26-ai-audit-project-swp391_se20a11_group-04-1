@@ -13,6 +13,25 @@ export const taskService = {
     return unwrap(response) || []
   },
 
+  getProjectColumns: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/kanban-columns`)
+    return unwrap(response) || []
+  },
+
+  createColumn: async (projectId, payload) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/kanban-columns`, payload)
+    return unwrap(response)
+  },
+
+  updateColumn: async (projectId, columnId, payload) => {
+    const response = await axiosInstance.put(`/v1/projects/${projectId}/kanban-columns/${columnId}`, payload)
+    return unwrap(response)
+  },
+
+  archiveColumn: async (projectId, columnId) => {
+    await axiosInstance.delete(`/v1/projects/${projectId}/kanban-columns/${columnId}`)
+  },
+
   getTask: async (taskId) => {
     const response = await axiosInstance.get(`/v1/tasks/${taskId}`)
     return unwrap(response)
@@ -37,8 +56,13 @@ export const taskService = {
     await axiosInstance.delete(`/v1/tasks/${taskId}`)
   },
 
-  updateTaskStatus: async (taskId, status, blockedReason) => {
-    const response = await axiosInstance.patch(`/v1/tasks/${taskId}/status`, { status, blockedReason })
+  updateTaskStatus: async (taskId, status, blockedReason, columnId) => {
+    const payload = {
+      blockedReason,
+      status: status || null,
+      columnId: columnId ? Number(columnId) : null,
+    }
+    const response = await axiosInstance.patch(`/v1/tasks/${taskId}/status`, payload)
     return unwrap(response)
   },
 

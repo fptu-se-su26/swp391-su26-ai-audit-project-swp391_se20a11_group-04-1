@@ -141,7 +141,7 @@ const Sidebar = () => {
         ) : (
           // B. Hiển thị Menu của riêng Dự Án
           <div className="flex-1 space-y-1">
-            <NavItem to="/dashboard" icon="dashboard" label="Dashboard" />
+            <NavItem to={`/projects/${activeProject.id}/dashboard`} icon="dashboard" label="Dashboard" />
             <NavItem to={`/projects/${activeProject.id}/requirements`} icon="description" label="Requirements" />
             <NavItem to={`/projects/${activeProject.id}/use-cases`} icon="account_tree" label="Use Cases" />
             <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
