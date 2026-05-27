@@ -24,10 +24,16 @@ public class TaskResponse {
     private String type;
     private UserSummary primaryAssignee;
     private String priority;
+    private LocalDate startDate;
     private LocalDate deadline;
+    private BigDecimal weight;
     private BigDecimal estimatedHours;
     private String status;
+    private Long columnId;
+    private String columnName;
     private String blockedReason;
+    private boolean overduePenaltyApplied;
+    private LocalDateTime overduePenaltyAppliedAt;
     private Long createdById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

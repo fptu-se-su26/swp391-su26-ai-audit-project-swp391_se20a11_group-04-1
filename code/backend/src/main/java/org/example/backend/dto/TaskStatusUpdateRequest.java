@@ -7,5 +7,6 @@ import lombok.Setter;
 @Setter
 public class TaskStatusUpdateRequest {
     private String status;
+    private Long columnId;
     private String blockedReason;
 }

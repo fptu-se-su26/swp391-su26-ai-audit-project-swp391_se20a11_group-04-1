@@ -63,7 +63,15 @@ public class Task {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private Priority priority;
 
+    @Column(name = "start_date", nullable = false)
+    @Builder.Default
+    private LocalDate startDate = LocalDate.now();
+
     private LocalDate deadline;
+
+    @Column(nullable = false, precision = 3, scale = 1)
+    @Builder.Default
+    private BigDecimal weight = BigDecimal.ONE;
 
     @Column(name = "estimated_hours")
     private BigDecimal estimatedHours;
@@ -73,8 +81,19 @@ public class Task {
     @Builder.Default
     private TaskStatus status = TaskStatus.TODO;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "column_id")
+    private KanbanColumn kanbanColumn;
+
     @Column(name = "blocked_reason", columnDefinition = "TEXT")
     private String blockedReason;
+
+    @Column(name = "overdue_penalty_applied", nullable = false)
+    @Builder.Default
+    private boolean overduePenaltyApplied = false;
+
+    @Column(name = "overdue_penalty_applied_at")
+    private LocalDateTime overduePenaltyAppliedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
