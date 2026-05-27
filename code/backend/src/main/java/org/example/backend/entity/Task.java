@@ -65,6 +65,9 @@ public class Task {
 
     private LocalDate deadline;
 
+    @Column(name = "sprint_plan_date")
+    private LocalDate sprintPlanDate;
+
     @Column(name = "estimated_hours")
     private BigDecimal estimatedHours;
 
