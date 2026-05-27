@@ -15,6 +15,19 @@ const taskStatusClasses = {
   BLOCKED: 'bg-error-container text-on-error-container',
 }
 
+const formatUpdatedAt = (value) => {
+  if (!value) return 'Last updated not available'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Last updated recently'
+  return `Last updated ${date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`
+}
+
 const TaskPicker = ({ tasks, onAssign, assigning }) => {
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => {
@@ -121,6 +134,9 @@ const SprintDetailDrawer = ({
                 <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-md ${statusClasses[sprint.status] || statusClasses.PLANNED}`}>{statusLabel}</span>
                 <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-surface-container-high text-on-surface-variant">
                   {sprint.startDate} to {sprint.endDate}
+                </span>
+                <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-md bg-surface-container text-on-surface-variant">
+                  {formatUpdatedAt(sprint.updatedAt)}
                 </span>
               </div>
               <h2 className="text-2xl font-black text-on-surface truncate">{sprint.name}</h2>
