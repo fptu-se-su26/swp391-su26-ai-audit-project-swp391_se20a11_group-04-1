@@ -8,9 +8,14 @@ const emptyFormData = {
   assigneeId: '',
   assigneeName: '',
   sprintId: '',
+  startDate: '',
+  deadline: '',
+  weight: '1.0',
+  estimatedHours: '',
   type: 'DEV',
   priority: 'MEDIUM',
   status: 'TODO',
+  columnId: '',
   blockedReason: '',
 }
 
@@ -20,12 +25,14 @@ const TaskFormModal = ({
   assigneeOptions = [],
   requirementOptions = [],
   sprintOptions = [],
+  columnOptions = TASK_STATUSES,
   onClose,
   onSubmit,
 }) => {
   const [formData, setFormData] = useState({
     ...emptyFormData,
   })
+  const [errors, setErrors] = useState({})
 
   const isEditMode = Boolean(task)
 
@@ -40,27 +47,62 @@ const TaskFormModal = ({
         assigneeId: task.assignee?.id ? String(task.assignee.id) : '',
         assigneeName: task.assignee?.name || '',
         sprintId: task.sprintId ? String(task.sprintId) : '',
+        startDate: task.startDate || '',
+        deadline: task.deadline || '',
+        weight: task.weight ? String(task.weight) : '1.0',
+        estimatedHours: task.estimatedHours ? String(task.estimatedHours) : '',
         type: task.type || 'DEV',
         priority: task.priority || 'MEDIUM',
         status: task.status || 'TODO',
+        columnId: task.columnId || columnOptions.find((column) => column.statusKey === task.status)?.id || '',
         blockedReason: task.blockedReason || '',
       })
     } else {
       setFormData({ ...emptyFormData })
     }
+    setErrors({})
   }, [isOpen, task])
 
   if (!isOpen) return null
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }))
+    setErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
   }
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!formData.title.trim()) return
+    const nextErrors = {}
+
+    if (!formData.title.trim()) {
+      nextErrors.title = 'Title is required.'
+    }
+
+    if (formData.status === 'BLOCKED' && !formData.blockedReason.trim()) {
+      nextErrors.blockedReason = 'Reason is required.'
+    }
+
+    if (formData.weight && (Number(formData.weight) < 1 || Number(formData.weight) > 2)) {
+      nextErrors.weight = 'Weight must be 1.0 - 2.0.'
+    }
+
+    if (formData.startDate && formData.deadline && formData.deadline < formData.startDate) {
+      nextErrors.deadline = 'Deadline must be after start.'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      return
+    }
+
     onSubmit(formData)
     setFormData({ ...emptyFormData })
+    setErrors({})
   }
 
   return (
@@ -82,10 +124,16 @@ const TaskFormModal = ({
             <input
               value={formData.title}
               onChange={(event) => updateField('title', event.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-invalid={Boolean(errors.title)}
+              className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                errors.title ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+              }`}
               placeholder="Implement task feature"
               autoFocus
             />
+            {errors.title && (
+              <p className="text-xs font-semibold text-error">{errors.title}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -180,12 +228,66 @@ const TaskFormModal = ({
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Status</label>
               <select
-                value={formData.status}
-                onChange={(event) => updateField('status', event.target.value)}
+                value={formData.columnId || columnOptions.find((column) => column.statusKey === formData.status)?.id || ''}
+                onChange={(event) => {
+                  const column = columnOptions.find((item) => item.id === event.target.value)
+                  updateField('columnId', event.target.value)
+                  updateField('status', column?.statusKey || formData.status)
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {TASK_STATUSES.map((status) => <option key={status.id} value={status.id}>{status.title}</option>)}
+                {columnOptions.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Start date</label>
+              <input
+                type="date"
+                value={formData.startDate}
+                onChange={(event) => updateField('startDate', event.target.value)}
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
+              <input
+                type="date"
+                value={formData.deadline}
+                onChange={(event) => updateField('deadline', event.target.value)}
+                aria-invalid={Boolean(errors.deadline)}
+                className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                  errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                }`}
+              />
+              {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Weight</label>
+              <input
+                type="number"
+                min="1"
+                max="2"
+                step="0.1"
+                value={formData.weight}
+                onChange={(event) => updateField('weight', event.target.value)}
+                aria-invalid={Boolean(errors.weight)}
+                className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                  errors.weight ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                }`}
+              />
+              {errors.weight && <p className="text-xs font-semibold text-error">{errors.weight}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={formData.estimatedHours}
+                onChange={(event) => updateField('estimatedHours', event.target.value)}
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="4"
+              />
             </div>
           </div>
 
@@ -195,9 +297,15 @@ const TaskFormModal = ({
               <input
                 value={formData.blockedReason}
                 onChange={(event) => updateField('blockedReason', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-invalid={Boolean(errors.blockedReason)}
+                className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                  errors.blockedReason ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                }`}
                 placeholder="Waiting for..."
               />
+              {errors.blockedReason && (
+                <p className="text-xs font-semibold text-error">{errors.blockedReason}</p>
+              )}
             </div>
           )}
 

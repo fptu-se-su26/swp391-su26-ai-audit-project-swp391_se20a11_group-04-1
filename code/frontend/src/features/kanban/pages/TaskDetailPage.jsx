@@ -9,7 +9,7 @@ const TaskDetailPage = () => {
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const activeProject = useProjectStore((state) => state.activeProject)
-  const { tasks, loading, fetchTaskById, updateTask, deleteTask, updateTaskStatus, toggleChecklistItem } = useKanbanStore()
+  const { tasks, columns, loading, fetchTaskById, updateTask, deleteTask, updateTaskStatus, toggleChecklistItem } = useKanbanStore()
   const task = tasks.find((item) => item.id === id)
   const taskBoardPath = projectId ? `/projects/${projectId}/task-board` : '/dashboard'
 
@@ -139,6 +139,34 @@ const TaskDetailPage = () => {
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">speed</span>
               <span className="text-on-surface text-body-md font-body-md">{task.sprint}</span>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">event_available</span>
+              <span className="text-on-surface text-body-md font-body-md">Start: {task.startDate || 'Not set'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">event</span>
+              <span className={`${task.overduePenaltyApplied ? 'text-error font-semibold' : 'text-on-surface'} text-body-md font-body-md`}>
+                Deadline: {task.deadline || 'Not set'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">fitness_center</span>
+              <span className="text-on-surface text-body-md font-body-md">Weight: {task.weight || 1}x</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">timer</span>
+              <span className="text-on-surface text-body-md font-body-md">
+                Estimate: {task.estimatedHours ? `${task.estimatedHours}h` : 'Not set'}
+              </span>
+            </div>
+            {task.overduePenaltyApplied && (
+              <div className="flex items-center gap-2 rounded bg-error/10 px-2 py-1 text-error">
+                <span className="material-symbols-outlined text-[18px]">warning</span>
+                <span className="text-body-md font-body-md">
+                  Penalty applied{task.overduePenaltyAppliedAt ? ` at ${task.overduePenaltyAppliedAt}` : ''}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -238,6 +266,7 @@ const TaskDetailPage = () => {
         isOpen={isEditOpen}
         task={task}
         assigneeOptions={activeProject?.members || []}
+        columnOptions={columns}
         onClose={() => setIsEditOpen(false)}
         onSubmit={handleUpdateTask}
       />

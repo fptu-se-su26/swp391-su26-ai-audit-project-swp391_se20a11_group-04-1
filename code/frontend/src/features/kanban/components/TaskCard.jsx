@@ -22,11 +22,19 @@ const getEvidenceClass = (status) => {
   return 'text-outline'
 }
 
-const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onDragStart, onDragEnd }) => {
+const formatShortDate = (value) => {
+  if (!value) return 'No due'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, onDelete, onDragStart, onDragEnd }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const completed = task.checklist.filter((item) => item.done).length
   const isDone = task.status === 'DONE'
   const isBlocked = task.status === 'BLOCKED'
+  const priorityLabel = isCompact ? task.priority.slice(0, 3) : task.priority
 
   const handleMenuClick = (event) => {
     event.stopPropagation()
@@ -49,6 +57,7 @@ const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onD
     <div
       role="button"
       tabIndex={0}
+      data-kanban-no-pan
       draggable
       onClick={() => onClick(task.id)}
       onKeyDown={(event) => {
@@ -59,7 +68,7 @@ const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onD
       }}
       onDragStart={(event) => onDragStart(event, task.id)}
       onDragEnd={onDragEnd}
-      className={`w-full text-left rounded-lg p-3 transition-all group border relative ${
+      className={`w-full text-left rounded-lg ${isCompact ? 'p-2' : 'p-3'} transition-all group border relative ${
         isBlocked
           ? 'bg-[#fef2f2] border-[#fca5a5]'
           : isDone
@@ -69,17 +78,19 @@ const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onD
               : 'bg-surface-container-lowest border-outline-variant hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'opacity-50 scale-[0.98]' : ''}`}
     >
-      <div className="flex justify-between items-start mb-2 gap-2">
-        <span className={`font-label-md text-label-md ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
+      <div className={`flex justify-between items-start gap-2 ${isCompact ? 'mb-1' : 'mb-2'}`}>
+        <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
           {task.id}
         </span>
         <div className="flex items-start justify-end gap-1">
           <div className="flex flex-wrap justify-end gap-1">
-            <span className={`${typeClasses[task.type] || typeClasses.DOCS} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
-              {task.type}
-            </span>
+            {!isCompact && (
+              <span className={`${typeClasses[task.type] || typeClasses.DOCS} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
+                {task.type}
+              </span>
+            )}
             <span className={`${priorityClasses[task.priority] || priorityClasses.MEDIUM} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
-              {task.priority}
+              {priorityLabel}
             </span>
           </div>
           <div className="relative shrink-0">
@@ -88,10 +99,10 @@ const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onD
               onClick={handleMenuClick}
               onMouseDown={(event) => event.stopPropagation()}
               draggable={false}
-              className="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors"
+              className={`${isCompact ? 'w-5 h-5' : 'w-6 h-6'} flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors`}
               aria-label={`Open actions for ${task.id}`}
             >
-              <span className="material-symbols-outlined text-[18px]">more_vert</span>
+              <span className={`material-symbols-outlined ${isCompact ? 'text-[16px]' : 'text-[18px]'}`}>more_vert</span>
             </button>
             {isMenuOpen && (
               <div
@@ -120,36 +131,48 @@ const TaskCard = ({ task, isSelected, isDragging, onClick, onEdit, onDelete, onD
         </div>
       </div>
 
-      <h4 className={`text-sm font-semibold mb-3 leading-snug ${isDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
+      <h4 className={`${isCompact ? 'text-[13px] mb-1.5 line-clamp-2' : 'text-sm mb-3'} font-semibold leading-snug ${isDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
         {task.title}
       </h4>
 
-      {isBlocked && task.blockedReason && (
+      {!isCompact && isBlocked && task.blockedReason && (
         <div className="bg-surface-container-lowest p-2 rounded text-xs border border-error-container mb-3 flex items-start space-x-1">
           <span className="material-symbols-outlined text-[14px] text-error mt-0.5">block</span>
           <span className="text-on-surface-variant">{task.blockedReason}</span>
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 border-t border-surface-container-high pt-2">
-        <div className="flex items-center space-x-1 bg-surface-container px-1.5 py-0.5 rounded text-[11px] font-medium">
-          <span className="material-symbols-outlined text-[14px]">assignment</span>
-          <span>{task.requirement}</span>
+      <div className={`flex items-center justify-between text-xs text-on-surface-variant border-t border-surface-container-high ${isCompact ? 'pt-1.5 mb-1.5' : 'pt-2 mb-3'}`}>
+        <div className="flex min-w-0 items-center space-x-1 bg-surface-container px-1.5 py-0.5 rounded text-[11px] font-medium">
+          <span className="material-symbols-outlined text-[14px] shrink-0">assignment</span>
+          <span className="truncate">{task.requirement}</span>
         </div>
-        <div className={`w-6 h-6 rounded-full ${task.assignee.color} flex items-center justify-center font-semibold text-[10px] border border-outline-variant`}>
+        <div className={`${isCompact ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[10px]'} rounded-full ${task.assignee.color} flex items-center justify-center font-semibold border border-outline-variant shrink-0 ml-1.5`}>
           {task.assignee.initials}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <div className={`flex items-center space-x-1 text-[11px] ${getEvidenceClass(task.evidenceStatus)}`} title="Evidence status">
-          <span className="material-symbols-outlined text-[14px]">inventory_2</span>
-          <span>{task.evidenceStatus}</span>
+      <div className={`flex flex-wrap ${isCompact ? 'gap-1.5 text-[10px]' : 'gap-2'}`}>
+        <div className={`flex items-center space-x-1 text-[11px] ${task.overduePenaltyApplied ? 'text-error font-semibold' : 'text-outline'}`} title="Deadline">
+          <span className="material-symbols-outlined text-[14px]">event</span>
+          <span>{formatShortDate(task.deadline)}</span>
         </div>
-        <div className="flex items-center space-x-1 text-[11px] text-outline" title="Test status">
-          <span className="material-symbols-outlined text-[14px]">fact_check</span>
-          <span>{task.testStatus}</span>
+        <div className="flex items-center space-x-1 text-[11px] text-outline" title="Weight">
+          <span className="material-symbols-outlined text-[14px]">fitness_center</span>
+          <span>{task.weight || 1}x</span>
         </div>
+        {!isCompact && (
+          <>
+            <div className={`flex items-center space-x-1 text-[11px] ${getEvidenceClass(task.evidenceStatus)}`} title="Evidence status">
+              <span className="material-symbols-outlined text-[14px]">inventory_2</span>
+              <span>{task.evidenceStatus}</span>
+            </div>
+            <div className="flex items-center space-x-1 text-[11px] text-outline" title="Test status">
+              <span className="material-symbols-outlined text-[14px]">fact_check</span>
+              <span>{task.testStatus}</span>
+            </div>
+          </>
+        )}
         <div className="flex items-center space-x-1 text-[11px] text-outline" title="Checklist">
           <span className="material-symbols-outlined text-[14px]">checklist</span>
           <span>{completed}/{task.checklist.length}</span>
