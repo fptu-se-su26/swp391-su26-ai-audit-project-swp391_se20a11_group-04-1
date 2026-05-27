@@ -20,6 +20,18 @@ const statusDot = {
 
 const formatStatus = (value) => String(value || 'PLANNED').replaceAll('_', ' ')
 
+const formatUpdatedAt = (value) => {
+  if (!value) return 'Not updated yet'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Updated recently'
+  return `Updated ${date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`
+}
+
 const SummaryCard = ({ label, value, icon, helper }) => (
   <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-sm">
     <div className="flex items-center justify-between">
@@ -46,6 +58,7 @@ const SprintCard = ({ sprint, selected, onOpen }) => (
         </div>
         <h3 className="text-lg font-black text-on-surface truncate">{sprint.name}</h3>
         <p className="text-xs text-on-surface-variant mt-1">{sprint.startDate} to {sprint.endDate}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mt-1">{formatUpdatedAt(sprint.updatedAt)}</p>
       </div>
       <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
     </div>
