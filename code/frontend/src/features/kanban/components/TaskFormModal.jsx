@@ -106,20 +106,20 @@ const TaskFormModal = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-surface-container-lowest border border-outline-variant rounded-xl shadow-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface">
+    <div className="fixed inset-y-0 right-0 z-[60] flex justify-end bg-transparent pointer-events-none">
+      <div className="h-full w-full md:w-[420px] xl:w-[30vw] xl:min-w-[420px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
+        <div className="px-5 py-3 border-b border-outline-variant flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">{isEditMode ? 'edit' : 'add_task'}</span>
             <h3 className="font-bold text-on-surface">{isEditMode ? `Edit ${task.id}` : 'New Task'}</h3>
           </div>
-          <button type="button" onClick={onClose} className="text-on-surface-variant hover:text-on-surface">
+          <button type="button" onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high" aria-label="Close task form">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="space-y-1.5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 kanban-scroll">
+          <div className="space-y-1">
             <label className="text-xs font-bold text-on-surface-variant uppercase">Title</label>
             <input
               value={formData.title}
@@ -136,18 +136,18 @@ const TaskFormModal = ({
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-bold text-on-surface-variant uppercase">Description</label>
             <textarea
               value={formData.description}
               onChange={(event) => updateField('description', event.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary resize-none h-24"
+              className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary resize-none h-20"
               placeholder="What should be done?"
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Requirement</label>
               <select
                 value={formData.requirementId}
@@ -162,7 +162,7 @@ const TaskFormModal = ({
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Assignee</label>
               {assigneeOptions.length > 0 ? (
                 <select
@@ -190,7 +190,7 @@ const TaskFormModal = ({
                 />
               )}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Type</label>
               <select
                 value={formData.type}
@@ -200,7 +200,7 @@ const TaskFormModal = ({
                 {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Priority</label>
               <select
                 value={formData.priority}
@@ -210,7 +210,7 @@ const TaskFormModal = ({
                 {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Sprint</label>
               <select
                 value={formData.sprintId}
@@ -225,7 +225,7 @@ const TaskFormModal = ({
                 ))}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Status</label>
               <select
                 value={formData.columnId || columnOptions.find((column) => column.statusKey === formData.status)?.id || ''}
@@ -239,7 +239,7 @@ const TaskFormModal = ({
                 {columnOptions.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Start date</label>
               <input
                 type="date"
@@ -248,7 +248,7 @@ const TaskFormModal = ({
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
               <input
                 type="date"
@@ -261,7 +261,7 @@ const TaskFormModal = ({
               />
               {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Weight</label>
               <input
                 type="number"
@@ -277,7 +277,7 @@ const TaskFormModal = ({
               />
               {errors.weight && <p className="text-xs font-semibold text-error">{errors.weight}</p>}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
               <input
                 type="number"
@@ -292,7 +292,7 @@ const TaskFormModal = ({
           </div>
 
           {formData.status === 'BLOCKED' && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Blocked reason</label>
               <input
                 value={formData.blockedReason}
@@ -309,12 +309,10 @@ const TaskFormModal = ({
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-outline-variant">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container text-sm font-semibold">
-              Cancel
-            </button>
-            <button type="submit" className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-surface-tint text-sm font-semibold">
-              {isEditMode ? 'Save Changes' : 'Create Task'}
+          <div className="sticky bottom-0 -mx-5 -mb-4 flex justify-end border-t border-outline-variant bg-surface-container-lowest px-5 py-3">
+            <button type="submit" className="h-9 px-4 rounded-lg bg-primary text-on-primary hover:bg-surface-tint text-sm font-semibold flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">{isEditMode ? 'save' : 'add_task'}</span>
+              <span>{isEditMode ? 'Save' : 'Create Task'}</span>
             </button>
           </div>
         </form>
