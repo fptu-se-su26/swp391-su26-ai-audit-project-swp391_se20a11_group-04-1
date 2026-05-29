@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import StatusIndicator from './StatusIndicator'
 
 function LinkedList({ title, icon, items, emptyText }) {
@@ -31,11 +32,32 @@ function LinkedList({ title, icon, items, emptyText }) {
 }
 
 export function RtmDetailDrawer({ row, onClose }) {
+  useEffect(() => {
+    if (!row) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [row, onClose])
+
   if (!row) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true">
-      <div className="w-full sm:w-[600px] h-full bg-surface-container-lowest border-l border-outline-variant shadow-2xl flex flex-col animate-slide-left">
+    <div
+      className="fixed inset-0 z-[80] flex justify-end bg-black/40 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:w-[600px] h-full bg-surface-container-lowest border-l border-outline-variant shadow-2xl flex flex-col animate-slide-left"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="p-6 border-b border-outline-variant/60 bg-surface-container-lowest flex justify-between items-start gap-4 sticky top-0 z-10">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">

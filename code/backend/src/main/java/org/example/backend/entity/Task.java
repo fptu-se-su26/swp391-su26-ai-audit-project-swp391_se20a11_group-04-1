@@ -69,6 +69,9 @@ public class Task {
 
     private LocalDate deadline;
 
+    @Column(name = "sprint_plan_date")
+    private LocalDate sprintPlanDate;
+
     @Column(nullable = false, precision = 3, scale = 1)
     @Builder.Default
     private BigDecimal weight = BigDecimal.ONE;
