@@ -17,9 +17,12 @@ public class TaskRequest {
     private String type;
     private Long primaryAssigneeId;
     private String priority;
+    private LocalDate startDate;
     private LocalDate deadline;
+    private BigDecimal weight;
     private BigDecimal estimatedHours;
     private String status;
+    private Long columnId;
     private String blockedReason;
     private List<ChecklistItemRequest> checklist;
 

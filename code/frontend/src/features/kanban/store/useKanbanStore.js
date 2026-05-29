@@ -4,11 +4,11 @@ import { mapTaskFromApi, mapTaskToApi } from '../utils/taskMapper'
 import { requirementApi } from '@features/requirement/services/requirementApi'
 
 export const TASK_STATUSES = [
-  { id: 'TODO', title: 'Todo', color: 'bg-outline' },
-  { id: 'IN_PROGRESS', title: 'In Progress', color: 'bg-primary' },
-  { id: 'IN_REVIEW', title: 'In Review', color: 'bg-[#a855f7]' },
-  { id: 'DONE', title: 'Done', color: 'bg-[#16a34a]' },
-  { id: 'BLOCKED', title: 'Blocked', color: 'bg-error' },
+  { id: 'TODO', title: 'Todo', statusKey: 'TODO', color: 'bg-outline' },
+  { id: 'IN_PROGRESS', title: 'In Progress', statusKey: 'IN_PROGRESS', color: 'bg-primary' },
+  { id: 'IN_REVIEW', title: 'In Review', statusKey: 'IN_REVIEW', color: 'bg-[#a855f7]' },
+  { id: 'DONE', title: 'Done', statusKey: 'DONE', color: 'bg-[#16a34a]' },
+  { id: 'BLOCKED', title: 'Blocked', statusKey: 'BLOCKED', color: 'bg-error' },
 ]
 
 export const priorityOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
@@ -17,8 +17,19 @@ export const typeOptions = ['DEV', 'UI/UX', 'QA', 'BUG', 'DOCS']
 const replaceTask = (tasks, updatedTask) =>
   tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
 
+const mapColumnFromApi = (column) => ({
+  id: String(column.id),
+  title: column.name,
+  statusKey: column.statusKey || null,
+  color: column.color || 'bg-outline',
+  order: column.columnOrder || 0,
+  isDefault: Boolean(column.defaultColumn),
+  isArchived: Boolean(column.archived),
+})
+
 export const useKanbanStore = create((set, get) => ({
   tasks: [],
+  columns: TASK_STATUSES,
   requirementOptions: [],
   sprintOptions: [],
   selectedTaskId: null,
@@ -35,13 +46,19 @@ export const useKanbanStore = create((set, get) => ({
 
   fetchProjectTasks: async (projectId) => {
     if (!projectId) {
-      set({ tasks: [], selectedTaskId: null })
+      set({ tasks: [], columns: TASK_STATUSES, selectedTaskId: null })
       return
     }
     set({ loading: true, error: null })
     try {
+      const columns = await taskService.getProjectColumns(projectId)
       const tasks = await taskService.getProjectTasks(projectId)
-      set({ tasks: tasks.map(mapTaskFromApi), loading: false })
+      const mappedColumns = columns.map(mapColumnFromApi)
+      set({
+        columns: mappedColumns.length > 0 ? mappedColumns : TASK_STATUSES,
+        tasks: tasks.map(mapTaskFromApi),
+        loading: false,
+      })
     } catch (error) {
       set({ error: error.response?.data?.message || error.message || 'Failed to fetch tasks', loading: false })
     }
@@ -120,6 +137,38 @@ export const useKanbanStore = create((set, get) => ({
     },
   })),
 
+  addColumn: async (projectId, payload) => {
+    set({ error: null })
+    try {
+      const column = mapColumnFromApi(await taskService.createColumn(projectId, payload))
+      set((state) => ({ columns: [...state.columns, column].sort((a, b) => a.order - b.order) }))
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to create column' })
+    }
+  },
+
+  updateColumn: async (projectId, columnId, payload) => {
+    set({ error: null })
+    try {
+      const column = mapColumnFromApi(await taskService.updateColumn(projectId, columnId, payload))
+      set((state) => ({
+        columns: state.columns.map((item) => item.id === column.id ? column : item).sort((a, b) => a.order - b.order),
+      }))
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to update column' })
+    }
+  },
+
+  archiveColumn: async (projectId, columnId) => {
+    set({ error: null })
+    try {
+      await taskService.archiveColumn(projectId, columnId)
+      set((state) => ({ columns: state.columns.filter((column) => column.id !== String(columnId)) }))
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to archive column' })
+    }
+  },
+
   addTask: async (projectId, payload) => {
     set({ loading: true, error: null })
     try {
@@ -167,15 +216,27 @@ export const useKanbanStore = create((set, get) => ({
     }
   },
 
-  updateTaskStatus: async (taskId, status) => {
+  updateTaskStatus: async (taskId, status, columnId = null) => {
     const previousTasks = get().tasks
+    const targetColumn = columnId ? get().columns.find((column) => column.id === String(columnId)) : null
+    const nextStatus = targetColumn?.statusKey || status
     set((state) => ({
-      tasks: state.tasks.map((task) => task.id === String(taskId) ? { ...task, status } : task),
+      tasks: state.tasks.map((task) => task.id === String(taskId) ? {
+        ...task,
+        status: nextStatus || task.status,
+        columnId: columnId ? String(columnId) : task.columnId,
+        columnName: targetColumn?.title || task.columnName,
+      } : task),
       error: null,
     }))
 
     try {
-      const task = mapTaskFromApi(await taskService.updateTaskStatus(taskId, status))
+      const task = mapTaskFromApi(await taskService.updateTaskStatus(
+        taskId,
+        targetColumn ? targetColumn.statusKey : nextStatus,
+        undefined,
+        columnId
+      ))
       set((state) => ({ tasks: replaceTask(state.tasks, task) }))
     } catch (error) {
       set({ tasks: previousTasks, error: error.response?.data?.message || error.message || 'Failed to update task status' })

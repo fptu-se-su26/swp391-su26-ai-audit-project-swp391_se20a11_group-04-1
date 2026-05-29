@@ -12,15 +12,19 @@ import java.util.Optional;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "kanbanColumn"})
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     @Query("select t from Task t where t.id = :id")
     Optional<Task> findWithDetailsById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t where t.primaryAssignee is not null")
+    List<Task> findAllSlaCandidates();
 
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project"})
     List<Task> findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(Long projectId, Long sprintId);
