@@ -141,13 +141,14 @@ const Sidebar = () => {
         ) : (
           // B. Hiển thị Menu của riêng Dự Án
           <div className="flex-1 space-y-1">
-            <NavItem to="/dashboard" icon="dashboard" label="Dashboard" />
+            <NavItem to={`/projects/${activeProject.id}/dashboard`} icon="dashboard" label="Dashboard" />
             <NavItem to={`/projects/${activeProject.id}/requirements`} icon="description" label="Requirements" />
             <NavItem to={`/projects/${activeProject.id}/use-cases`} icon="account_tree" label="Use Cases" />
             <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
             <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
             <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
             <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
+            <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
             <NavItem to={`/projects/${activeProject.id}/evidence`} icon="inventory_2" label="Evidence Vault" />
             <NavItem to={`/projects/${activeProject.id}/traceability-matrix`} icon="reorder" label="Traceability Matrix" />
