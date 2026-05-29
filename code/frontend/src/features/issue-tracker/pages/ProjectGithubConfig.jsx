@@ -33,6 +33,11 @@ export function ProjectGithubConfig() {
   const [pinging, setPinging] = useState(false)
   const [helpModalType, setHelpModalType] = useState(null) // null | 'pat' | 'webhook' | 'ngrok' | 'troubleshoot'
 
+  const [deliveries, setDeliveries] = useState([])
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false)
+  const [redelivering, setRedelivering] = useState(null) // deliveryId being redelivered
+  const [showDeliveries, setShowDeliveries] = useState(false)
+
   // Webhook URL endpoint computed dynamically
   const webhookUrl = `${window.location.origin}/api/v1/github/webhook`
 
@@ -100,8 +105,21 @@ export function ProjectGithubConfig() {
       }
     }
 
+    const fetchDeliveries = async () => {
+      setLoadingDeliveries(true)
+      try {
+        const data = await bugService.getWebhookDeliveries(projectId)
+        setDeliveries(data || [])
+      } catch (err) {
+        console.error('Error loading deliveries:', err)
+      } finally {
+        setLoadingDeliveries(false)
+      }
+    }
+
     fetchConfig().then(() => {
       triggerAutoPing()
+      fetchDeliveries()
     })
 
     // Start active polling every 10 seconds for real-time updates
@@ -201,6 +219,15 @@ export function ProjectGithubConfig() {
             toast.error('Ping failed! Check webhook secret.')
           }
         }
+        
+        // Auto refresh delivery history if expanded
+        if (showDeliveries) {
+          try {
+            const data = await bugService.getWebhookDeliveries(projectId)
+            setDeliveries(data || [])
+          } catch {}
+        }
+        
         setPinging(false)
       }, 3000)
     } catch (err) {
@@ -456,7 +483,7 @@ export function ProjectGithubConfig() {
                   <p>Last successful delivery: {lastWebhookReceivedAt ? new Date(lastWebhookReceivedAt).toLocaleString() : 'Just now'}</p>
                 )}
                 {webhookStatus === 'FAILED' && (
-                  <p className="text-red-600">Last delivery failed (Signature Mismatch) at: {lastWebhookReceivedAt ? new Date(lastWebhookReceivedAt).toLocaleString() : 'Unknown'}. Please check your secret key!</p>
+                  <p className="text-red-600">Last delivery failed at: {lastWebhookReceivedAt ? new Date(lastWebhookReceivedAt).toLocaleString() : 'Unknown'}. Please check your Ngrok URL, Spring Boot console, or Webhook Secret!</p>
                 )}
               </div>
 
@@ -500,6 +527,122 @@ export function ProjectGithubConfig() {
                       Unable to fetch rate limit. Token might be invalid or expired.
                     </div>
                   ) : null}
+                </div>
+              )}
+
+              {/* Webhook Delivery History - Collapsible */}
+              {hasToken && (
+                <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm overflow-hidden">
+                  {/* Header — always visible, click to toggle */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const next = !showDeliveries
+                      setShowDeliveries(next)
+                      if (next && deliveries.length === 0) {
+                        setLoadingDeliveries(true)
+                        try {
+                          const data = await bugService.getWebhookDeliveries(projectId)
+                          setDeliveries(data || [])
+                        } catch { /* silent */ } finally {
+                          setLoadingDeliveries(false)
+                        }
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-surface-container-low transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-primary">history</span>
+                      <span className="text-xs font-black text-on-surface uppercase tracking-wider">Delivery History</span>
+                      <span className="text-[9px] bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded">last 2</span>
+                    </div>
+                    <span className={`material-symbols-outlined text-sm text-on-surface-variant transition-transform duration-200 ${showDeliveries ? 'rotate-180' : ''}`}>
+                      expand_more
+                    </span>
+                  </button>
+
+                  {/* Body — only rendered when expanded */}
+                  {showDeliveries && (
+                    <div className="px-5 pb-5 space-y-3">
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setLoadingDeliveries(true)
+                            try {
+                              const data = await bugService.getWebhookDeliveries(projectId)
+                              setDeliveries(data || [])
+                            } catch { /* silent */ } finally {
+                              setLoadingDeliveries(false)
+                            }
+                          }}
+                          className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
+                        >
+                          <span className={`material-symbols-outlined text-xs ${loadingDeliveries ? 'animate-spin' : ''}`}>refresh</span>
+                          Refresh
+                        </button>
+                      </div>
+
+                      {loadingDeliveries ? (
+                        <div className="flex justify-center py-4">
+                          <span className="material-symbols-outlined text-2xl text-primary animate-spin">progress_activity</span>
+                        </div>
+                      ) : deliveries.length === 0 ? (
+                        <p className="text-xs text-on-surface-variant italic text-center py-3">No delivery history yet. Try pinging the webhook.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                          {deliveries.slice(0, 2).map((d) => (
+                            <div key={d.id} className="flex items-center justify-between gap-3 bg-surface-container-low rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.status === 'OK' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                <span className="text-[10px] font-bold text-on-surface-variant uppercase">{d.event}</span>
+                                <span className="text-[10px] text-on-surface-variant truncate">
+                                  {new Date(d.delivered_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                  d.status_code >= 200 && d.status_code < 300
+                                    ? 'bg-green-500/10 text-green-600'
+                                    : 'bg-red-500/10 text-red-600'
+                                }`}>{d.status_code}</span>
+                                <button
+                                  type="button"
+                                  disabled={redelivering === d.id}
+                                  onClick={async () => {
+                                    setRedelivering(d.id)
+                                    try {
+                                      setRedelivering(d.id)
+                                      await bugService.redeliverWebhook(projectId, d.id)
+                                      toast.success(`Redelivery triggered for event #${d.id}`)
+                                      
+                                      // Wait 2.5s to let GitHub process the redelivery queue
+                                      await new Promise(resolve => setTimeout(resolve, 2500))
+                                      try {
+                                        const data = await bugService.getWebhookDeliveries(projectId)
+                                        setDeliveries(data || [])
+                                      } catch {}
+                                      
+                                    } catch (err) {
+                                      toast.error(err.response?.data?.message || 'Redeliver failed')
+                                    } finally {
+                                      setRedelivering(null)
+                                    }
+                                  }}
+                                  className="flex items-center gap-0.5 text-[9px] font-bold text-primary hover:underline disabled:opacity-50"
+                                >
+                                  {redelivering === d.id
+                                    ? <span className="material-symbols-outlined text-[10px] animate-spin">progress_activity</span>
+                                    : <span className="material-symbols-outlined text-[10px]">replay</span>}
+                                  Redeliver
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

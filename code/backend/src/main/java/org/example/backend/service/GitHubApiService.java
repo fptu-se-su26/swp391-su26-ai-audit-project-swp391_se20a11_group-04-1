@@ -66,4 +66,14 @@ public interface GitHubApiService {
      * Encrypts a plaintext token using the system's AES key.
      */
     String encryptToken(String plaintext);
+
+    /**
+     * Fetches recent webhook delivery history from GitHub (last 30 deliveries).
+     */
+    Object getWebhookDeliveries(Long projectId, Long userId);
+
+    /**
+     * Triggers a redelivery of a specific webhook delivery by its GitHub delivery ID.
+     */
+    void redeliverWebhook(Long projectId, Long deliveryId, Long userId);
 }

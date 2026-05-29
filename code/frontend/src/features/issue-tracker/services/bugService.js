@@ -78,6 +78,24 @@ export const bugService = {
   },
 
   /**
+   * Fetches webhook delivery history from GitHub (last 30 deliveries)
+   * GET /v1/projects/{projectId}/github-integration/deliveries
+   */
+  getWebhookDeliveries: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/github-integration/deliveries`)
+    return response.data.data
+  },
+
+  /**
+   * Triggers a redeliver of a specific webhook delivery
+   * POST /v1/projects/{projectId}/github-integration/deliveries/{deliveryId}/redeliver
+   */
+  redeliverWebhook: async (projectId, deliveryId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/deliveries/${deliveryId}/redeliver`)
+    return response.data.data
+  },
+
+  /**
    * Retrieves details of a specific Task including checklist items
    * GET /v1/tasks/{taskId}
    */
