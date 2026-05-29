@@ -59,6 +59,8 @@ export function AppRoutes() {
           
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />

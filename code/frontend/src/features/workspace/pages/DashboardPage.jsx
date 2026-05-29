@@ -42,6 +42,11 @@ export function DashboardPage() {
     hasMorePages,
   } = useProjectStore()
 
+  const openProject = (project) => {
+    selectProject(project)
+    navigate(`/projects/${project.id}/dashboard`)
+  }
+
   // Fetch chỉ khi chưa có dữ liệu (giữ state khi user vào project detail và back)
   useEffect(() => {
     if (projects.length === 0) {
@@ -325,7 +330,7 @@ export function DashboardPage() {
 
                     {/* Tên Dự Án */}
                     <h2
-                      onClick={() => selectProject(project)}
+                      onClick={() => openProject(project)}
                       className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
                     >
                       {project.title}
@@ -414,7 +419,7 @@ export function DashboardPage() {
 
                     {/* Nút Open Project */}
                     <button
-                      onClick={() => selectProject(project)}
+                      onClick={() => openProject(project)}
                       className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>Open Project</span>
@@ -607,6 +612,21 @@ export function DashboardPage() {
   // ==========================================
   // CHẾ ĐỘ 2: GIAO DIỆN TỔNG QUAN DỰ ÁN CHI TIẾT (PROJECT WORKSPACE OVERVIEW)
   // ==========================================
+  if (!activeProject?.members) {
+    return (
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
+        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+          <div className="h-32 rounded-2xl bg-surface-container-high"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="h-32 rounded-xl bg-surface-container-high"></div>
+            ))}
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
 
