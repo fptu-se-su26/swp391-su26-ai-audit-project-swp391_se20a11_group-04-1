@@ -26,6 +26,7 @@ public class TaskResponse {
     private String priority;
     private LocalDate startDate;
     private LocalDate deadline;
+    private LocalDate sprintPlanDate;
     private BigDecimal weight;
     private BigDecimal estimatedHours;
     private String status;
