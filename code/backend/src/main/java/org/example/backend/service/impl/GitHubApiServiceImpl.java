@@ -169,8 +169,15 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                 return;
             }
 
-            if (!isValidSignature(payloadBytes, signatureHeader, decryptToken(matchedIntegration.getWebhookSecretEncrypted()))) {
-                log.error("Webhook signature mismatch for repo: {}/{}", repoOwner, repoName);
+            String decryptedSecret = decryptToken(matchedIntegration.getWebhookSecretEncrypted());
+            log.debug("Verifying webhook signature. Secret length: {}, Secret preview: {}",
+                    decryptedSecret != null ? decryptedSecret.length() : 0,
+                    decryptedSecret != null && decryptedSecret.length() > 4
+                            ? decryptedSecret.substring(0, 4) + "****" : "[empty]");
+
+            if (!isValidSignature(payloadBytes, signatureHeader, decryptedSecret)) {
+                log.error("Webhook signature mismatch for repo: {}/{}. Header: {}", repoOwner, repoName,
+                        signatureHeader != null ? signatureHeader.substring(0, Math.min(20, signatureHeader.length())) + "..." : "null");
                 throw new CustomException("Invalid webhook signature", HttpStatus.FORBIDDEN);
             }
 
@@ -648,5 +655,121 @@ public class GitHubApiServiceImpl implements GitHubApiService {
      */
     private boolean isLeaderRole(String roleName) {
         return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
+    }
+
+    @Override
+    public Object getWebhookDeliveries(Long projectId, Long userId) {
+        GitHubIntegration integration = getIntegration(projectId, userId);
+        if (integration == null) throw new CustomException("GitHub integration not found", HttpStatus.NOT_FOUND);
+
+        String token = getDecryptedUserToken(userId);
+        String hooksUrl = "https://api.github.com/repos/" + integration.getRepoOwner()
+                + "/" + integration.getRepoName() + "/hooks";
+
+        // 1. Get hook list to find hook ID
+        HttpHeaders headers = buildAuthHeaders(token);
+        ResponseEntity<List> hooksResp = restTemplate.exchange(hooksUrl, HttpMethod.GET,
+                new HttpEntity<>(headers), List.class);
+        if (hooksResp.getBody() == null || hooksResp.getBody().isEmpty()) {
+            throw new CustomException("No webhook found on GitHub repository", HttpStatus.NOT_FOUND);
+        }
+        
+        Long hookId = null;
+        for (Object item : hooksResp.getBody()) {
+            Map<String, Object> hook = (Map<String, Object>) item;
+            Map<String, Object> config = (Map<String, Object>) hook.get("config");
+            if (config != null && config.get("url") != null && config.get("url").toString().contains("/api/v1/github/webhook")) {
+                Object idObj = hook.get("id");
+                if (idObj instanceof Number) hookId = ((Number) idObj).longValue();
+                else if (idObj instanceof String) hookId = Long.parseLong((String) idObj);
+                break;
+            }
+        }
+        
+        if (hookId == null) {
+             throw new CustomException("Could not find the specific Audit Tool webhook on this repository", HttpStatus.NOT_FOUND);
+        }
+
+        // 2. Get deliveries for that hook
+        String deliveriesUrl = hooksUrl + "/" + hookId + "/deliveries?per_page=30";
+        ResponseEntity<List> deliveriesResp = restTemplate.exchange(deliveriesUrl, HttpMethod.GET,
+                new HttpEntity<>(headers), List.class);
+                
+        // Fix JavaScript precision loss: convert huge Long IDs to Strings before returning to frontend
+        List<Map<String, Object>> deliveries = deliveriesResp.getBody();
+        if (deliveries != null) {
+            for (Map<String, Object> delivery : deliveries) {
+                if (delivery.get("id") != null) {
+                    delivery.put("id", delivery.get("id").toString());
+                }
+            }
+        }
+        return deliveries;
+    }
+
+    @Override
+    public void redeliverWebhook(Long projectId, Long deliveryId, Long userId) {
+        GitHubIntegration integration = getIntegration(projectId, userId);
+        if (integration == null) throw new CustomException("GitHub integration not found", HttpStatus.NOT_FOUND);
+
+        String token = getDecryptedUserToken(userId);
+        String hooksUrl = "https://api.github.com/repos/" + integration.getRepoOwner()
+                + "/" + integration.getRepoName() + "/hooks";
+
+        // 1. Get hook ID
+        HttpHeaders headers = buildAuthHeaders(token);
+        ResponseEntity<List> hooksResp = restTemplate.exchange(hooksUrl, HttpMethod.GET,
+                new HttpEntity<>(headers), List.class);
+        if (hooksResp.getBody() == null || hooksResp.getBody().isEmpty()) {
+            throw new CustomException("No webhook found on GitHub repository", HttpStatus.NOT_FOUND);
+        }
+        
+        Long hookId = null;
+        for (Object item : hooksResp.getBody()) {
+            Map<String, Object> hook = (Map<String, Object>) item;
+            Map<String, Object> config = (Map<String, Object>) hook.get("config");
+            if (config != null && config.get("url") != null && config.get("url").toString().contains("/api/v1/github/webhook")) {
+                Object idObj = hook.get("id");
+                if (idObj instanceof Number) hookId = ((Number) idObj).longValue();
+                else if (idObj instanceof String) hookId = Long.parseLong((String) idObj);
+                break;
+            }
+        }
+
+        if (hookId == null) {
+            throw new CustomException("Could not find the specific Audit Tool webhook on this repository", HttpStatus.NOT_FOUND);
+        }
+
+        // 2. Trigger redeliver
+        String redeliverUrl = hooksUrl + "/" + hookId + "/deliveries/" + deliveryId + "/attempts";
+        try {
+            // Need empty body string for POST requests sometimes
+            HttpEntity<String> entity = new HttpEntity<>("", headers);
+            restTemplate.exchange(redeliverUrl, HttpMethod.POST, entity, String.class);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.error("Failed to redeliver webhook {}. HTTP {}. Body: {}", deliveryId, e.getStatusCode(), errorBody);
+            throw new CustomException("GitHub API Error: " + errorBody, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            log.error("Failed to redeliver webhook for delivery ID {}", deliveryId, e);
+            throw new CustomException("Failed to trigger redelivery: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+        log.info("Webhook delivery {} redelivered for project {}", deliveryId, projectId);
+    }
+
+    /** Builds GitHub authorization headers with Bearer token */
+    private HttpHeaders buildAuthHeaders(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.set("Accept", "application/vnd.github+json");
+        headers.set("X-GitHub-Api-Version", "2022-11-28");
+        return headers;
+    }
+
+    /** Gets decrypted PAT for userId, throws if not found */
+    private String getDecryptedUserToken(Long userId) {
+        return userGithubTokenRepository.findById(userId)
+                .map(t -> decryptToken(t.getAccessTokenEncrypted()))
+                .orElseThrow(() -> new CustomException("No GitHub token configured for this user", HttpStatus.BAD_REQUEST));
     }
 }

@@ -176,4 +176,21 @@ public class BugReportController {
         gitHubApiService.pingWebhook(projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Ping triggered successfully"));
     }
+
+    @GetMapping("/projects/{projectId}/github-integration/deliveries")
+    public ResponseEntity<ApiResponse<Object>> getDeliveries(@PathVariable Long projectId, HttpSession session) {
+        Long userId = requireUser(session);
+        Object deliveries = gitHubApiService.getWebhookDeliveries(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(deliveries, "Deliveries fetched"));
+    }
+
+    @PostMapping("/projects/{projectId}/github-integration/deliveries/{deliveryId}/redeliver")
+    public ResponseEntity<ApiResponse<Void>> redeliverWebhook(
+            @PathVariable Long projectId,
+            @PathVariable Long deliveryId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        gitHubApiService.redeliverWebhook(projectId, deliveryId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Redelivery triggered successfully"));
+    }
 }
