@@ -20,6 +20,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -38,8 +39,11 @@ public class SprintServiceImpl implements SprintService {
     @Transactional(readOnly = true)
     public List<SprintResponse> getProjectSprints(Long projectId, Long userId) {
         ensureProjectMember(projectId, userId);
+        Map<Long, List<Task>> tasksBySprintId = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
+                .filter(task -> task.getSprintId() != null)
+                .collect(Collectors.groupingBy(Task::getSprintId));
         return sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId).stream()
-                .map(this::toSprintResponse)
+                .map(sprint -> toSprintResponse(sprint, tasksBySprintId.getOrDefault(sprint.getId(), List.of())))
                 .collect(Collectors.toList());
     }
 
@@ -59,6 +63,7 @@ public class SprintServiceImpl implements SprintService {
                 .capacityHours(validateCapacity(request.getCapacityHours()))
                 .build();
         validateDateRange(sprint.getStartDate(), sprint.getEndDate());
+        validateScheduleRules(projectId, null, sprint.getStartDate(), sprint.getEndDate(), sprint.getStatus());
 
         return toSprintResponse(sprintRepository.save(sprint));
     }
@@ -84,6 +89,7 @@ public class SprintServiceImpl implements SprintService {
             sprint.setStatus(parseEnum(request.getStatus(), SprintStatus.class, sprint.getStatus()));
         }
         validateDateRange(sprint.getStartDate(), sprint.getEndDate());
+        validateScheduleRules(projectId, sprint.getId(), sprint.getStartDate(), sprint.getEndDate(), sprint.getStatus());
         clearOutOfRangePlanDates(sprint);
 
         return toSprintResponse(sprintRepository.save(sprint));
@@ -103,7 +109,9 @@ public class SprintServiceImpl implements SprintService {
     public SprintResponse updateSprintStatus(Long projectId, Long sprintId, SprintStatusUpdateRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
         Sprint sprint = findSprint(projectId, sprintId);
-        sprint.setStatus(parseEnum(request.getStatus(), SprintStatus.class, sprint.getStatus()));
+        SprintStatus nextStatus = parseRequiredEnum(request != null ? request.getStatus() : null, SprintStatus.class, "Sprint status is required");
+        validateScheduleRules(projectId, sprint.getId(), sprint.getStartDate(), sprint.getEndDate(), nextStatus);
+        sprint.setStatus(nextStatus);
         return toSprintResponse(sprintRepository.save(sprint));
     }
 
@@ -123,6 +131,9 @@ public class SprintServiceImpl implements SprintService {
         Sprint sprint = findSprint(projectId, sprintId);
         Task task = findProjectTask(projectId, taskId);
 
+        if (task.getSprintId() != null && !Objects.equals(task.getSprintId(), sprint.getId())) {
+            throw new BadRequestException("Task is already assigned to another sprint");
+        }
         task.setSprintId(sprint.getId());
         if (task.getSprintPlanDate() != null && !isInsideSprint(task.getSprintPlanDate(), sprint)) {
             task.setSprintPlanDate(null);
@@ -200,6 +211,16 @@ public class SprintServiceImpl implements SprintService {
         }
     }
 
+    private void validateScheduleRules(Long projectId, Long sprintId, LocalDate startDate, LocalDate endDate, SprintStatus status) {
+        if (sprintRepository.existsOverlappingSprint(projectId, sprintId, startDate, endDate)) {
+            throw new BadRequestException("Sprint date range overlaps with another sprint in this project");
+        }
+        if (status == SprintStatus.ACTIVE
+                && sprintRepository.existsByProjectIdAndStatusExcludingId(projectId, SprintStatus.ACTIVE, sprintId)) {
+            throw new BadRequestException("Only one active sprint is allowed per project");
+        }
+    }
+
     private BigDecimal validateCapacity(BigDecimal capacityHours) {
         if (capacityHours == null) return null;
         if (capacityHours.compareTo(BigDecimal.ZERO) < 0) {
@@ -236,11 +257,21 @@ public class SprintServiceImpl implements SprintService {
         }
     }
 
+    private <T extends Enum<T>> T parseRequiredEnum(String value, Class<T> enumType, String message) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new BadRequestException(message);
+        }
+        return parseEnum(value, enumType, null);
+    }
+
     private SprintResponse toSprintResponse(Sprint sprint) {
-        List<Task> tasks = taskRepository.findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(
+        return toSprintResponse(sprint, taskRepository.findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(
                 sprint.getProject().getId(),
                 sprint.getId()
-        );
+        ));
+    }
+
+    private SprintResponse toSprintResponse(Sprint sprint, List<Task> tasks) {
         int totalTasks = tasks.size();
         int doneTasks = (int) tasks.stream().filter(task -> task.getStatus() == TaskStatus.DONE).count();
         int inProgressTasks = (int) tasks.stream()
@@ -301,11 +332,17 @@ public class SprintServiceImpl implements SprintService {
                 .type(task.getType() != null ? task.getType().name() : null)
                 .primaryAssignee(toUserSummary(task.getPrimaryAssignee()))
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .startDate(task.getStartDate())
                 .deadline(task.getDeadline())
                 .sprintPlanDate(task.getSprintPlanDate())
+                .weight(task.getWeight())
                 .estimatedHours(task.getEstimatedHours())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .columnId(task.getKanbanColumn() != null ? task.getKanbanColumn().getId() : null)
+                .columnName(task.getKanbanColumn() != null ? task.getKanbanColumn().getName() : null)
                 .blockedReason(task.getBlockedReason())
+                .overduePenaltyApplied(task.isOverduePenaltyApplied())
+                .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
