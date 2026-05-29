@@ -14,6 +14,9 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.entity.enums.BugStatus;
+import org.example.backend.repository.BugReportRepository;
+import org.example.backend.service.GitHubApiService;
 import org.example.backend.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,8 @@ public class TaskServiceImpl implements TaskService {
     private final UserAccountRepository userAccountRepository;
     private final RequirementRepository requirementRepository;
     private final SprintRepository sprintRepository;
+    private final BugReportRepository bugReportRepository;
+    private final GitHubApiService gitHubApiService;
 
     @Override
     @Transactional(readOnly = true)
@@ -89,7 +94,9 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         applyRequest(task, request, task.getProject().getId());
-        return toResponse(taskRepository.save(task));
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        return toResponse(savedTask);
     }
 
     @Override
@@ -100,7 +107,9 @@ public class TaskServiceImpl implements TaskService {
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
-        return toResponse(taskRepository.save(task));
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        return toResponse(savedTask);
     }
 
     @Override
@@ -109,7 +118,36 @@ public class TaskServiceImpl implements TaskService {
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
         setAssignee(task, request.getAssigneeId(), projectId);
-        return toResponse(taskRepository.save(task));
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        return toResponse(savedTask);
+    }
+
+    private void syncWithBugReport(Task task, Long userId) {
+        if (task.getType() == TaskType.BUG_FIX) {
+            bugReportRepository.findByRelatedTaskId(task.getId()).ifPresent(bug -> {
+                // Synchronize Status
+                if (task.getStatus() == TaskStatus.DONE) {
+                    bug.setStatus(BugStatus.FIXED);
+                } else if (task.getStatus() == TaskStatus.IN_PROGRESS) {
+                    bug.setStatus(BugStatus.IN_PROGRESS);
+                } else if (task.getStatus() == TaskStatus.TODO) {
+                    bug.setStatus(BugStatus.OPEN);
+                }
+                
+                // Synchronize Assignee
+                bug.setAssignedTo(task.getPrimaryAssignee());
+                
+                bugReportRepository.save(bug);
+                
+                // Trigger outbound GitHub Issue status sync non-blocking
+                try {
+                    gitHubApiService.updateGitHubIssueStatus(bug, userId);
+                } catch (Exception e) {
+                    // Non-blocking log
+                }
+            });
+        }
     }
 
     @Override

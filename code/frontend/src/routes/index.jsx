@@ -29,6 +29,9 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 // Feature Pages - RTM
 import RtmPage from '@features/rtm/pages/RtmPage'
 
+// Feature Pages - Issue Tracker
+import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig } from '@features/issue-tracker'
+
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
 import ProjectLayout from '@components/layout/ProjectLayout'
@@ -59,6 +62,8 @@ export function AppRoutes() {
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
             
+            <Route path="dashboard" element={<DashboardPage />} />
+            
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
             <Route path="requirements/:id" element={<RequirementDetailPage />} />
@@ -83,7 +88,14 @@ export function AppRoutes() {
             <Route path="tasks/:id" element={<TaskDetailPage />} />
             <Route path="my-tasks" element={<MyTasksPage />} />
 
-            {/* Module 6: Traceability Matrix */}
+            {/* Module 7: Issue Tracker */}
+            <Route path="issues" element={<IssueTrackerDashboard />} />
+            <Route path="issues/:bugId" element={<IssueDetailView />} />
+            <Route path="bugs" element={<NotFoundPage />} />
+            <Route path="bugs/:bugId" element={<IssueDetailView />} />
+            <Route path="github-config" element={<ProjectGithubConfig />} />
+
+            {/* Module 8: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
             
           </Route>

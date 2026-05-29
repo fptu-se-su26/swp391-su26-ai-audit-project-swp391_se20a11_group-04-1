@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 
@@ -27,6 +27,7 @@ export function DashboardPage() {
     projects,
     activeProject,
     selectProject,
+    clearActiveProject,
     activeTab,
     setActiveTab,
     searchQuery,
@@ -48,6 +49,15 @@ export function DashboardPage() {
       fetchProjects()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const location = useLocation()
+  const isGlobalDashboard = location.pathname === '/dashboard'
+
+  useEffect(() => {
+    if (isGlobalDashboard && activeProject) {
+      clearActiveProject()
+    }
+  }, [location.pathname, activeProject, clearActiveProject, isGlobalDashboard])
 
   // Xử lý mở modal tạo dự án mới
   const handleCreateProject = () => {
@@ -156,7 +166,7 @@ export function DashboardPage() {
   // ==========================================
   // CHẾ ĐỘ 1: GIAO DIỆN DANH MỤC DỰ ÁN PORTFOLIO (HÌNH MẪU)
   // ==========================================
-  if (!activeProject) {
+  if (isGlobalDashboard) {
     if (loading && projects.length === 0) {
       return (
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
@@ -325,7 +335,10 @@ export function DashboardPage() {
 
                     {/* Tên Dự Án */}
                     <h2
-                      onClick={() => selectProject(project)}
+                      onClick={() => {
+                        selectProject(project)
+                        navigate(`/projects/${project.id}/dashboard`)
+                      }}
                       className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
                     >
                       {project.title}
@@ -414,7 +427,10 @@ export function DashboardPage() {
 
                     {/* Nút Open Project */}
                     <button
-                      onClick={() => selectProject(project)}
+                      onClick={() => {
+                        selectProject(project)
+                        navigate(`/projects/${project.id}/dashboard`)
+                      }}
                       className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>Open Project</span>
@@ -607,6 +623,14 @@ export function DashboardPage() {
   // ==========================================
   // CHẾ ĐỘ 2: GIAO DIỆN TỔNG QUAN DỰ ÁN CHI TIẾT (PROJECT WORKSPACE OVERVIEW)
   // ==========================================
+  if (!activeProject || !activeProject.members) {
+    return (
+      <main className="flex-1 flex justify-center items-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
 
