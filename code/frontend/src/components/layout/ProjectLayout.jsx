@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
-import { Outlet, useParams, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, useParams, Navigate } from 'react-router-dom';
 import useProjectStore from '../../store/useProjectStore';
 
 const ProjectLayout = () => {
   const { projectId } = useParams();
-  const location = useLocation();
   const activeProject = useProjectStore((state) => state.activeProject);
   const selectProject = useProjectStore((state) => state.selectProject);
   const fetchProjectById = useProjectStore((state) => state.fetchProjectById);
