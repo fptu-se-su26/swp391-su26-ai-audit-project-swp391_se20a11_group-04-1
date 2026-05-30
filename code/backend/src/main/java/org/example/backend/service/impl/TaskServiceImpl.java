@@ -153,9 +153,13 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getSprintId() == null) {
             task.setSprintId(null);
+            task.setSprintPlanDate(null);
         } else {
             if (!sprintRepository.existsByIdAndProjectId(request.getSprintId(), projectId)) {
                 throw new BadRequestException("Sprint does not exist in this project");
+            }
+            if (!request.getSprintId().equals(task.getSprintId())) {
+                task.setSprintPlanDate(null);
             }
             task.setSprintId(request.getSprintId());
         }
@@ -271,6 +275,7 @@ public class TaskServiceImpl implements TaskService {
                 .startDate(task.getStartDate())
                 .deadline(task.getDeadline())
                 .weight(task.getWeight())
+                .sprintPlanDate(task.getSprintPlanDate())
                 .estimatedHours(task.getEstimatedHours())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
                 .columnId(task.getKanbanColumn() != null ? task.getKanbanColumn().getId() : null)
