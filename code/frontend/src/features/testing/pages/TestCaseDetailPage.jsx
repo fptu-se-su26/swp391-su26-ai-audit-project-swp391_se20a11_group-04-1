@@ -1,12 +1,40 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import useTestCaseStore from '../stores/useTestCaseStore'
 import StatusBadge from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
+import LiveTestRunner from '../components/LiveTestRunner'
+import TestCaseFormModal from '../components/TestCaseFormModal'
 
 export default function TestCaseDetailPage() {
   const { projectId = '1', id: testCaseId } = useParams()
-  const { selectedTestCase: testCase, isLoading, error, fetchTestCaseDetail } = useTestCaseStore()
+  const {
+    selectedTestCase: testCase,
+    isLoading,
+    error,
+    fetchTestCaseDetail,
+    isFormOpen,
+    editingTestCase,
+    openEditForm,
+    closeForm,
+    updateTestCase
+  } = useTestCaseStore()
+
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formError, setFormError] = useState(null)
+
+  const handleFormSubmit = async (payload) => {
+    setIsSubmitting(true)
+    setFormError(null)
+    try {
+      await updateTestCase(projectId, testCaseId, payload)
+      await fetchTestCaseDetail(projectId, testCaseId)
+    } catch (err) {
+      setFormError(err.response?.data?.message || err.message || 'An error occurred while saving.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     if (testCaseId) {
@@ -31,6 +59,8 @@ export default function TestCaseDetailPage() {
       </div>
     )
   }
+
+  const stepsToRender = testCase.type === 'UI' ? (testCase.stepsStructured || testCase.steps_structured || []) : (testCase.steps || []);
 
   return (
     <div className="flex-1 p-margin_desktop overflow-y-auto">
@@ -62,6 +92,13 @@ export default function TestCaseDetailPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => { setFormError(null); openEditForm(testCase); }}
+            className="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-on-surface border border-outline-variant rounded hover:bg-surface-container transition-colors font-medium text-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span>
+            Edit Test Case
+          </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-on-surface border border-outline-variant rounded hover:bg-surface-container transition-colors font-medium text-sm">
             <span className="material-symbols-outlined text-[18px]">bug_report</span>
             Create Bug
@@ -96,6 +133,15 @@ export default function TestCaseDetailPage() {
                 <span className="block text-xs font-semibold text-secondary uppercase tracking-wider mb-1">Module</span>
                 <span className="text-on-surface font-medium">Authentication (Placeholder)</span>
               </div>
+              {testCase.type === 'UI' && (testCase.baseUrl || testCase.base_url) && (
+                <div className="col-span-2 mt-2">
+                  <span className="block text-xs font-semibold text-secondary uppercase tracking-wider mb-1">Base URL (Automated Test)</span>
+                  <a href={testCase.baseUrl || testCase.base_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline font-medium">
+                    {testCase.baseUrl || testCase.base_url}
+                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  </a>
+                </div>
+              )}
             </div>
             <div>
               <h4 className="font-label-md text-label-md text-on-surface mb-2">Preconditions</h4>
@@ -120,11 +166,24 @@ export default function TestCaseDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="text-sm">
-                  {testCase.steps && testCase.steps.length > 0 ? (
-                    testCase.steps.map((step) => (
-                      <tr key={step.id || step.stepNumber} className="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
-                        <td className="py-3 px-4 font-medium text-secondary">{step.stepNumber}</td>
-                        <td className="py-3 px-4 text-on-surface">{step.description}</td>
+                  {stepsToRender && stepsToRender.length > 0 ? (
+                    stepsToRender.map((step, idx) => (
+                      <tr key={step.id || step.order || step.stepNumber || idx} className="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
+                        <td className="py-3 px-4 font-medium text-secondary">{step.order || step.stepNumber || (idx + 1)}</td>
+                        <td className="py-3 px-4 text-on-surface">
+                          {testCase.type === 'UI' ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="font-semibold text-primary uppercase text-xs">{step.action}</span>
+                              {step.path && <span className="text-sm">Path: <code className="bg-surface-container px-1 py-0.5 rounded">{step.path}</code></span>}
+                              {step.selector && <span className="text-sm">Selector: <code className="bg-surface-container px-1 py-0.5 rounded">{step.selector}</code></span>}
+                              {step.value && <span className="text-sm">Value: <code className="bg-surface-container px-1 py-0.5 rounded">{step.value}</code></span>}
+                              {step.expected && <span className="text-sm">Expected: <code className="bg-surface-container px-1 py-0.5 rounded">{step.expected}</code></span>}
+                              {step.description && <span className="text-xs text-secondary italic">{step.description}</span>}
+                            </div>
+                          ) : (
+                            step.description
+                          )}
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -136,6 +195,7 @@ export default function TestCaseDetailPage() {
               </table>
             </div>
           </section>
+
         </div>
 
         {/* Side Right Column (4 cols) */}
@@ -195,6 +255,25 @@ export default function TestCaseDetailPage() {
           </section>
         </div>
       </div>
+
+      {/* Test Run Panel - Full Width */}
+      <section className="mt-8 mb-8">
+        <h3 className="font-headline-sm text-headline-sm text-on-surface mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">live_tv</span>
+          Live Execution Tracker
+        </h3>
+        <LiveTestRunner testCase={testCase} />
+      </section>
+
+      {/* Edit Modal */}
+      <TestCaseFormModal
+        isOpen={isFormOpen && editingTestCase?.id === testCase.id}
+        testCase={editingTestCase}
+        onClose={() => { closeForm(); setFormError(null) }}
+        onSubmit={handleFormSubmit}
+        isSubmitting={isSubmitting}
+        error={formError}
+      />
     </div>
   )
 }

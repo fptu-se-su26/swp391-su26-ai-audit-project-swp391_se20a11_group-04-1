@@ -6,6 +6,7 @@ import org.example.backend.entity.enums.TestType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -34,8 +35,16 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     );
 
     Optional<TestCase> findByIdAndProjectId(Long id, Long projectId);
-
     long countByProjectId(Long projectId);
 
     long countByProjectIdAndStatus(Long projectId, TestCaseStatus status);
+
+    // --- Playwright / Automation methods ---
+    @Modifying
+    @Query("UPDATE TestCase tc SET tc.cachedPlaywrightScript = :script, tc.scriptSource = :source, tc.scriptGeneratedAt = CURRENT_TIMESTAMP WHERE tc.id = :id")
+    void updateScriptCache(@Param("id") Long id, @Param("script") String script, @Param("source") String source);
+
+    @Modifying
+    @Query("UPDATE TestCase tc SET tc.lastRunStatus = :status, tc.lastRunId = :runId, tc.lastRunAt = CURRENT_TIMESTAMP, tc.runCount = tc.runCount + 1 WHERE tc.id = :id")
+    void updateLastRunInfo(@Param("id") Long id, @Param("status") String status, @Param("runId") String runId);
 }
