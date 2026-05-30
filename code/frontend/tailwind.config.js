@@ -89,6 +89,15 @@ export default {
         "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
         "display-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
         "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        }
+      },
+      animation: {
+        shimmer: 'shimmer 3s infinite linear',
       }
     },
   },
