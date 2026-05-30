@@ -340,14 +340,7 @@ export function DashboardPage() {
 
                     {/* Tên Dự Án */}
                     <h2
-<<<<<<< HEAD
-                      onClick={() => {
-                        selectProject(project)
-                        navigate(`/projects/${project.id}/dashboard`)
-                      }}
-=======
                       onClick={() => openProject(project)}
->>>>>>> origin/develop
                       className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
                     >
                       {project.title}
@@ -436,14 +429,7 @@ export function DashboardPage() {
 
                     {/* Nút Open Project */}
                     <button
-<<<<<<< HEAD
-                      onClick={() => {
-                        selectProject(project)
-                        navigate(`/projects/${project.id}/dashboard`)
-                      }}
-=======
                       onClick={() => openProject(project)}
->>>>>>> origin/develop
                       className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>Open Project</span>
@@ -636,12 +622,6 @@ export function DashboardPage() {
   // ==========================================
   // CHẾ ĐỘ 2: GIAO DIỆN TỔNG QUAN DỰ ÁN CHI TIẾT (PROJECT WORKSPACE OVERVIEW)
   // ==========================================
-<<<<<<< HEAD
-  if (!activeProject || !activeProject.members) {
-    return (
-      <main className="flex-1 flex justify-center items-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-=======
   if (!activeProject?.members) {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
@@ -653,7 +633,6 @@ export function DashboardPage() {
             ))}
           </div>
         </div>
->>>>>>> origin/develop
       </main>
     )
   }

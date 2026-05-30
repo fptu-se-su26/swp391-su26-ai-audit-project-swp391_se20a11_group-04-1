@@ -69,11 +69,29 @@ export const bugService = {
   },
 
   /**
+   * Creates a new GitHub repository for the authenticated user
+   * POST /v1/github/repos
+   */
+  createGithubRepo: async (data) => {
+    const response = await axiosInstance.post(`/v1/github/repos`, data)
+    return response.data.data
+  },
+
+  /**
    * Triggers a webhook ping event from GitHub to test the connection
    * POST /v1/projects/{projectId}/github-integration/ping
    */
   pingWebhook: async (projectId) => {
     const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/ping`)
+    return response.data.data
+  },
+
+  /**
+   * Auto-configures the webhook on GitHub
+   * POST /v1/projects/{projectId}/github-integration/auto-configure
+   */
+  autoConfigureWebhook: async (projectId, webhookUrl, events, webhookSecret) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/auto-configure`, { webhookUrl, events, webhookSecret })
     return response.data.data
   },
 
