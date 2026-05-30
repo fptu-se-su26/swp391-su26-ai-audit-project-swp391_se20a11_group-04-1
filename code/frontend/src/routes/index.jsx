@@ -29,6 +29,9 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 // Feature Pages - RTM
 import RtmPage from '@features/rtm/pages/RtmPage'
 
+// Feature Pages - Reports
+import { WeeklyReportPage } from '@features/report'
+
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
 import ProjectLayout from '@components/layout/ProjectLayout'
@@ -87,6 +90,9 @@ export function AppRoutes() {
 
             {/* Module 6: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
+
+            {/* Module 7: Reports */}
+            <Route path="reports" element={<WeeklyReportPage />} />
             
           </Route>
         </Route>

@@ -151,6 +151,7 @@ const Sidebar = () => {
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
             <NavItem to={`/projects/${activeProject.id}/evidence`} icon="inventory_2" label="Evidence Vault" />
             <NavItem to={`/projects/${activeProject.id}/traceability-matrix`} icon="reorder" label="Traceability Matrix" />
+            <NavItem to={`/projects/${activeProject.id}/reports`} icon="assessment" label="Reports" />
 
             {/* Intelligence Section */}
             <div className="pt-4 pb-2">
