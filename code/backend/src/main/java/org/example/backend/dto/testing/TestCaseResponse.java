@@ -23,4 +23,6 @@ public class TestCaseResponse {
     private LocalDateTime updatedAt;
     private String lastExecutedBy;
     private LocalDateTime lastExecutedAt;
+    private String baseUrl;
+    private Object stepsStructured;
 }

@@ -29,4 +29,7 @@ public class TestCaseRequest {
 
     @Valid
     private List<TestStepRequest> steps = new ArrayList<>();
+
+    private String baseUrl;
+    private Object stepsStructured;
 }

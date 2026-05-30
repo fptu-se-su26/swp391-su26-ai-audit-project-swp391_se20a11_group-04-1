@@ -73,6 +73,36 @@ public class TestCase {
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
+
+    // --- Playwright / Automation Fields ---
+
+    @Column(name = "base_url", length = 500)
+    private String baseUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "steps_structured", columnDefinition = "jsonb")
+    private String stepsStructured;
+
+    @Column(name = "cached_playwright_script", columnDefinition = "TEXT")
+    private String cachedPlaywrightScript;
+
+    @Column(name = "script_source", length = 20)
+    private String scriptSource;
+
+    @Column(name = "script_generated_at")
+    private LocalDateTime scriptGeneratedAt;
+
+    @Column(name = "last_run_status", length = 10)
+    private String lastRunStatus;
+
+    @Column(name = "last_run_at")
+    private LocalDateTime lastRunAt;
+
+    @Column(name = "last_run_id", length = 100)
+    private String lastRunId;
+
+    @Column(name = "run_count", nullable = false)
+    private Integer runCount = 0;
     
     @PrePersist
     protected void onCreate() {
