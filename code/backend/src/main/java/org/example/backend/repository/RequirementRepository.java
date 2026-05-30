@@ -15,4 +15,17 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 
     boolean existsByIdAndProjectId(Long id, Long projectId);
+
+    /** Đếm tổng số requirement trong project (dùng cho RTM coverage) */
+    long countByProjectId(Long projectId);
+
+    /**
+     * Đếm số requirement có ít nhất 1 task liên kết (dùng cho RTM coverage %).
+     */
+    @Query(value = "SELECT COUNT(DISTINCT r.id) FROM requirements r " +
+                   "WHERE r.project_id = :projectId " +
+                   "AND r.is_deleted = false " +
+                   "AND EXISTS (SELECT 1 FROM tasks t WHERE t.requirement_id = r.id)",
+           nativeQuery = true)
+    long countRequirementsWithTasksByProjectId(@Param("projectId") Long projectId);
 }

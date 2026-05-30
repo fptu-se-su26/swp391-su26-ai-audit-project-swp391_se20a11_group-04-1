@@ -148,3 +148,29 @@ a:hover { color: var(--color-primary); }
     scrollbar-width: thin;
     scrollbar-color: #c3c6d5 transparent;
 }
+
+/* =====================================================
+   Weekly View - Custom Classes
+   ===================================================== */
+
+/* Cột hôm nay trong weekly grid */
+.today-col {
+  background-color: #EEF4FF;
+  border-left: 1.5px solid #93C5FD !important;
+  border-right: 1.5px solid #93C5FD !important;
+}
+
+/* Cột ngày nhiều task */
+.heavy-day {
+  background-color: #FFFBEB !important;
+}
+
+/* Cột cuối tuần */
+.weekend-bg {
+  background-color: #FAFAFA !important;
+}
+
+/* Material Symbols fill variant */
+.icon-fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
