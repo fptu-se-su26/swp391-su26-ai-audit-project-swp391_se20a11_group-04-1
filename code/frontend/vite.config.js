@@ -12,6 +12,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         xfwd: true,
+        ws: true, // ✅ Quan trọng: Hỗ trợ proxy kết nối WebSocket
       }
     }
   },

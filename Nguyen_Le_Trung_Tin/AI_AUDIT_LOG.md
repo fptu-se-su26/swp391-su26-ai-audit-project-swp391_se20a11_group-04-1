@@ -1,366 +1,180 @@
-# AI Audit Log
+# AI Audit Log - Nguyen Le Trung Tin
 
-## 1. Thông tin chung
+## 1. Thong tin chung
 
-| Thông tin | Nội dung |
+| Thong tin | Noi dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Ngày bắt đầu |  |
-| Ngày hoàn thành |  |
+| Mon hoc | SWP391 |
+| Ma mon hoc | SWP391 |
+| Lop | SE20A11 |
+| Hoc ky | SU26 |
+| Ten project | DevTrack AI |
+| Sinh vien | Nguyen Le Trung Tin |
+| MSSV | DE190364 |
+| Module phu trach | Module 3 - Task/Kanban Management |
+| Thoi gian thuc hien | 21/05/2026 - 22/05/2026 |
+| Branch | feature/de190364-task-crud |
+| Commit | - [feat(task): implement kanban task management](https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/7acf2fe25519c9564ff0580580eff6b2eff83390)<br>- [complete crud task](https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/69982bd62b7540b48719dbd56b54a2be52e16f83) |
 
----
+## 2. Cong cu AI da su dung
 
-## 2. Công cụ AI đã sử dụng
-
-Đánh dấu các công cụ AI đã sử dụng trong quá trình thực hiện bài tập/project.
-
-- [ ] ChatGPT
+- [x] ChatGPT
 - [ ] Gemini
 - [ ] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
-- [ ] Antigravity
-- [ ] Perplexity
-- [ ] Microsoft Copilot
-- [ ] Công cụ khác: ....................................
+- [x] Antigravity
+- [ ] Khac
 
----
+## 3. Muc tieu su dung AI
 
-## 3. Mục tiêu sử dụng AI
+Su dung AI de ho tro phan tich va trien khai Module 3 Task/Kanban cho du an DevTrack AI. Phan viec bao gom thiet ke Task Board, task detail drawer, full task detail page, My Tasks, keo tha task giua cac cot, tao/sua/xoa task, chon assignee tu thanh vien project, them backend Task API va ket noi frontend voi backend thong qua service layer.
 
-Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ những công việc nào.
+## 4. Nhat ky su dung AI
 
-Ví dụ:
+### Lan 1 - Phan tich huong lam Module 3
 
-- Phân tích yêu cầu bài toán
-- Gợi ý ý tưởng giải pháp
-- Thiết kế database
-- Thiết kế giao diện
-- Viết code mẫu
-- Debug lỗi
-- Tối ưu code
-- Viết test case
-- Kiểm tra bảo mật
-- Viết báo cáo
-- Chuẩn bị slide thuyết trình
-- Tìm hiểu công nghệ mới
-
-### Mô tả mục tiêu sử dụng AI
-
-```text
-Viết tại đây...
-
-## 4. Nhật ký sử dụng AI chi tiết
-
-> Mỗi lần sử dụng AI cho một phần quan trọng của bài tập/project, sinh viên cần ghi lại theo mẫu bên dưới.  
-> Sinh viên/nhóm có thể nhân bản mẫu “Lần sử dụng AI” nhiều lần tùy theo số lần sử dụng AI thực tế.
-
----
-
-### Lần sử dụng AI số 1
-
-| Nội dung | Thông tin |
+| Noi dung | Thong tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngay su dung | 21/05/2026 |
+| Cong cu AI | ChatGPT |
+| Muc dich | Xac dinh nen lam Kanban theo thu tu nao |
+| Phan viec lien quan | Frontend, Backend, Design |
+| Muc do su dung | Ho tro nhieu |
 
-#### 4.1. Prompt đã sử dụng
-
-```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
-```
-
-#### 4.2. Kết quả AI gợi ý
-
-Tóm tắt nội dung AI đã trả lời hoặc gợi ý.
+**Prompt tom tat**
 
 ```text
-Viết tại đây...
+Toi dang lam do dang Module 3. Bay gio nen lam Kanban truoc, bat dau bang store + component refactor + task drawer/modal. Hay xem code va huong dan/trien khai theo cau truc phu hop.
 ```
 
-#### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
+**Ket qua AI goi y**
 
-Mô tả rõ phần nào được sử dụng lại từ gợi ý của AI.
+AI goi y tach Kanban thanh store, components va pages. Module nen co Task Board, TaskCard, KanbanColumn, TaskDetailDrawer, TaskFormModal va TaskDetailPage. Luong nguoi dung nen bat dau tu Task Board, click task de mo drawer, sau do co the mo full detail.
 
-```text
-Viết tại đây...
-```
+**Phan da ap dung**
 
-#### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+- Tao cau truc `features/kanban`.
+- Tach UI thanh cac component rieng.
+- Them task drawer/modal.
+- Them route Task Board, Task Detail va My Tasks.
+- Them keo tha task giua cac cot.
 
-Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với gợi ý ban đầu của AI.
+**Phan tu chinh sua**
 
-```text
-Viết tại đây...
-```
+Tu kiem tra lai route, sidebar, trang reload, hanh vi dong/mo panel va cach dat folder theo convention cua team.
 
-#### 4.5. Minh chứng
+### Lan 2 - Chuyen tu UI demo sang huong du an that
 
-| Loại minh chứng | Nội dung |
+| Noi dung | Thong tin |
 |---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link video demo |  |
-| Ghi chú khác |  |
+| Ngay su dung | 22/05/2026 |
+| Cong cu AI | ChatGPT |
+| Muc dich | Kiem tra Module 3 da dung huong du an chua |
+| Phan viec lien quan | Backend, Frontend, Database |
+| Muc do su dung | Ho tro nhieu |
 
-#### 4.6. Nhận xét cá nhân/nhóm
-
-Sinh viên/nhóm học được gì sau lần sử dụng AI này?
+**Prompt tom tat**
 
 ```text
-Viết tại đây...
+Muon lam dung huong du an thi can gi? Kiem tra backend hien tai da co Task API chua va trien khai theo huong Backend giu layer-based, Frontend giu feature-based.
 ```
 
----
+**Ket qua AI goi y**
 
-### Lần sử dụng AI số 2
+AI kiem tra thay database migration da co cac bang `tasks`, `task_assignees`, `task_checklists`, nhung backend chua co Task entity/repository/service/controller. Frontend Kanban van dung mock data. Huong dung la them backend Task API va sua frontend de goi API that.
 
-| Nội dung | Thông tin |
+**Phan da ap dung**
+
+- Them backend Task API theo cau truc layer-based.
+- Them entity, dto, repository, service, controller cho Task.
+- Them frontend `features/kanban/services/taskService.js`.
+- Them `features/kanban/utils/taskMapper.js`.
+- Sua Zustand store de fetch/create/update/delete task qua API.
+
+### Lan 3 - Git, branch va convention team
+
+| Noi dung | Thong tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngay su dung | 22/05/2026 |
+| Cong cu AI | ChatGPT |
+| Muc dich | Kiem tra file truoc khi commit/push |
+| Phan viec lien quan | Git, Project convention |
+| Muc do su dung | Ho tro mot phan |
 
-#### 4.1. Prompt đã sử dụng
+**Ket qua da ap dung**
 
-```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
-```
+- Doi branch thanh `feature/de190364-task-crud`.
+- Kiem tra file nao can commit va file nao khong nen push.
+- Them `.gitignore` cho file local/nham cho.
+- Chuyen `service/taskService.js` thanh `services/taskService.js` de dong bo voi convention cac module khac.
 
-#### 4.2. Kết quả AI gợi ý
+### Lan 4 - Refactor static HTML sang React component va modular hoa UI
 
-```text
-Viết tại đây...
-```
-
-#### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Viết tại đây...
-```
-
-#### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Viết tại đây...
-```
-
-#### 4.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
+| Noi dung | Thong tin |
 |---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link video demo |  |
-| Ghi chú khác |  |
+| Ngay su dung | 21/05/2026 |
+| Cong cu AI | Antigravity |
+| Muc dich | Chuyen file HTML tinh sang React va chia nhỏ component |
+| Phan viec lien quan | Frontend, Refactor UI |
+| Muc do su dung | Sinh chinh noi dung |
 
-#### 4.6. Nhận xét cá nhân/nhóm
+**Ket qua da ap dung**
+- Trich xuat phan layout chinh tu các file HTML nhan duoc de tao thanh `KanbanBoardPage.jsx`, `TaskDetailPage.jsx`, `MyTasksPage.jsx`.
+- Chia nho `KanbanBoardPage.jsx` thanh cac component con: `KanbanColumn.jsx`, `TaskCard.jsx`, `KanbanFilters.jsx`, `KanbanHeader.jsx`, `TaskDetailDrawer.jsx`, `TaskFormModal.jsx` theo dung blueprint features/kanban.
+- Tao file upgrade plan `KANBAN_UPGRADE_PLAN.md` de theo doi cac nang cap giao dien trong tuong lai ma chua can viet logic phuc tap ngay lap tuc.
 
-```text
-Viết tại đây...
-```
+### Lan 5 - Cau hinh local database va debug loi bat dau backend
 
----
-
-### Lần sử dụng AI số 3
-
-| Nội dung | Thông tin |
+| Noi dung | Thong tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngay su dung | 22/05/2026 |
+| Cong cu AI | Antigravity |
+| Muc dich | Thiet lap postgres local, xu ly Redis va start server |
+| Phan viec lien quan | Backend, DevOps, Local Environment |
+| Muc do su dung | Ho tro nhieu |
 
-#### 4.1. Prompt đã sử dụng
+**Ket qua da ap dung**
+- Tao file `application.yaml` chua thong tin ket noi Postgres local voi password `123`, giai thich cho nguoi dung hieu rang file nay da co trong `.gitignore` nen khong anh huong den project chung cua nhom.
+- Giai thich nguyen nhan va huong dan nguoi dung chay terminal dung duong dan `cd code/frontend` thay vi go sai chinh ta `cd fronrend`.
+- Ho tro phan tich va giai thich loi `Unable to connect to Redis` khi khoi chay backend vi chua bat Redis server local.
 
-```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
-```
+## 5. Bang tong hop muc do AI ho tro
 
-#### 4.2. Kết quả AI gợi ý
-
-```text
-Viết tại đây...
-```
-
-#### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Viết tại đây...
-```
-
-#### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Viết tại đây...
-```
-
-#### 4.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link video demo |  |
-| Ghi chú khác |  |
-
-#### 4.6. Nhận xét cá nhân/nhóm
-
-```text
-Viết tại đây...
-```
-
----
-
-## 5. Bảng tổng hợp mức độ sử dụng AI
-
-Đánh dấu mức độ AI hỗ trợ ở từng hạng mục.
-
-| Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
+| Hang muc | Khong dung AI | AI ho tro it | AI ho tro nhieu | AI sinh chinh | Ghi chu |
 |---|:---:|:---:|:---:|:---:|---|
-| Phân tích yêu cầu |  |  |  |  |  |
-| Viết user story/use case |  |  |  |  |  |
-| Thiết kế database |  |  |  |  |  |
-| Thiết kế kiến trúc hệ thống |  |  |  |  |  |
-| Thiết kế giao diện |  |  |  |  |  |
-| Code frontend |  |  |  |  |  |
-| Code backend |  |  |  |  |  |
-| Debug lỗi |  |  |  |  |  |
-| Viết test case |  |  |  |  |  |
-| Kiểm thử sản phẩm |  |  |  |  |  |
-| Tối ưu code |  |  |  |  |  |
-| Viết báo cáo |  |  |  |  |  |
-| Làm slide thuyết trình |  |  |  |  |  |
+| Phan tich yeu cau Module 3 |  |  | x |  | Xac dinh pham vi Kanban |
+| Thiet ke giao dien |  |  | x |  | Task Board, drawer, modal |
+| Thiet ke backend API |  |  | x |  | Task API theo layer-based |
+| Code frontend |  |  | x |  | Kanban store/components/pages |
+| Code backend |  |  | x |  | Task entity/service/controller |
+| Debug loi |  |  | x |  | Route, Redis, sidebar, panel state |
+| Git workflow |  | x |  |  | Kiem tra branch va file can push |
 
----
+## 6. Han che tu AI va cach xu ly
 
-## 6. Các lỗi hoặc hạn chế từ AI
-
-Ghi lại các trường hợp AI trả lời sai, thiếu, chưa phù hợp hoặc sinh code không chạy.
-
-| STT | Lỗi/hạn chế từ AI | Cách phát hiện | Cách xử lý/cải tiến |
+| STT | Han che | Cach phat hien | Cach xu ly |
 |---:|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
+| 1 | Ban dau de file goi API trong folder `api`/`service`, chua dung convention team | So sanh voi module auth va requirement thay dang dung `services` | Doi thanh `features/kanban/services/taskService.js` |
+| 2 | Can kiem tra lai file nao nen push | `git status` hien nhieu file local va generated file | Them/cap nhat `.gitignore`, chi add file lien quan Module 3 |
+| 3 | Chua test duoc end-to-end vi database local chua co du lieu day du | Khi chuan bi test Task Board | Ghi chu can seed project/member/task de test sau |
 
----
+## 7. Kiem chung ket qua AI
 
-## 7. Kiểm chứng kết quả AI
+- Chay backend build bang Maven wrapper.
+- Chay frontend build bang `npm run build`.
+- Kiem tra `git status` de tranh push nham file local.
+- So sanh cau truc folder voi convention hien co cua project.
+- Kiem tra logic backend co check user la member cua project truoc khi thao tac task.
 
-Mô tả cách sinh viên/nhóm kiểm tra lại kết quả do AI gợi ý.
+## 8. Dong gop ca nhan
 
-Có thể bao gồm:
+Em phu trach Module 3 Task/Kanban Management. Cac phan da lam gom Task Board UI, drag/drop task, task drawer, full task detail, My Tasks, create/edit/delete task, assignee dropdown theo project member, backend Task API va ket noi frontend voi backend.
 
-- Chạy thử chương trình
-- Viết test case
-- So sánh với yêu cầu đề bài
-- Kiểm tra output
-- Đối chiếu tài liệu môn học
-- Hỏi lại giảng viên
-- Review cùng thành viên nhóm
-- Kiểm tra lỗi bảo mật
-- Kiểm tra bằng dữ liệu mẫu
-- So sánh trước và sau khi dùng AI
+## 9. Reflection ngan
 
-### Nội dung kiểm chứng
+AI giup em nhin ro hon cach chia nho mot module full-stack thanh cac phan de lam: UI, store, service goi API, mapper du lieu, backend entity/service/controller. Em khong su dung ket qua AI mot cach nguyen ven ma co kiem tra lai theo cau truc san co cua du an va convention cua team.
 
-```text
-Viết tại đây...
-```
+## 10. Cam ket
 
----
-
-## 8. Đóng góp cá nhân hoặc đóng góp nhóm
-
-### 8.1. Đối với bài cá nhân
-
-Mô tả phần sinh viên tự làm, phần AI hỗ trợ và phần đã tự cải tiến.
-
-```text
-Viết tại đây...
-```
-
-### 8.2. Đối với bài nhóm
-
-| Thành viên | MSSV | Nhiệm vụ chính | Có sử dụng AI không? | Minh chứng đóng góp |
-|---|---|---|---|---|
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-
----
-
-## 9. Reflection cuối bài
-
-### 9.1. AI đã hỗ trợ em/nhóm ở điểm nào?
-
-```text
-Viết tại đây...
-```
-
-### 9.2. Phần nào em/nhóm không sử dụng theo gợi ý của AI? Vì sao?
-
-```text
-Viết tại đây...
-```
-
-### 9.3. Em/nhóm đã kiểm tra tính đúng đắn của kết quả AI như thế nào?
-
-```text
-Viết tại đây...
-```
-
-### 9.4. Nếu không có AI, phần nào sẽ khó khăn nhất?
-
-```text
-Viết tại đây...
-```
-
-### 9.5. Sau bài tập/project này, em/nhóm học được gì về môn học?
-
-```text
-Viết tại đây...
-```
-
-### 9.6. Sau bài tập/project này, em/nhóm học được gì về cách sử dụng AI có trách nhiệm?
-
-```text
-Viết tại đây...
-```
-
----
-
-## 10. Cam kết học thuật
-
-Sinh viên/nhóm cam kết rằng:
-
-- Nội dung AI hỗ trợ đã được ghi nhận trung thực.
-- Không nộp nguyên văn kết quả AI mà không kiểm tra.
-- Có khả năng giải thích các phần đã nộp.
-- Chịu trách nhiệm về tính đúng đắn của sản phẩm cuối cùng.
-- Hiểu rằng việc sử dụng AI không khai báo có thể ảnh hưởng đến kết quả đánh giá.
-
-| Đại diện sinh viên/nhóm | Ngày xác nhận |
-|---|---|
-|  |  |
+Em cam ket noi dung tren phan anh dung qua trinh su dung AI trong khi lam Module 3. Cac ket qua AI duoc kiem tra, chinh sua va tich hop lai theo yeu cau cua du an.

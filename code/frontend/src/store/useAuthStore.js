@@ -98,6 +98,12 @@ export const useAuthStore = create((set) => {
     localStorage.removeItem('fullName')
     // Xóa project state của user cũ
     localStorage.removeItem('devtrack-project-storage')
+
+    // Đóng WebSocket
+    import('@store/useNotificationStore').then(({ useNotificationStore }) => {
+      useNotificationStore.getState().closeWebSocket()
+    })
+
     set({
       userId: null,
       userRole: null,

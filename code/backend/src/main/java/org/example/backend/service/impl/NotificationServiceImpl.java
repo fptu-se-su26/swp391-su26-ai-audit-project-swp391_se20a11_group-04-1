@@ -74,6 +74,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(notification.getMessage())
                 .type(notification.getType().name())
                 .relatedId(notification.getRelatedId())
+                .projectId(notification.getProject() != null ? notification.getProject().getId() : null)
+                .entityType(notification.getEntityType() != null ? notification.getEntityType().name() : null)
                 .isRead(notification.isRead())
                 .createdAt(notification.getCreatedAt())
                 .invitationStatus(invitationStatus)

@@ -15,6 +15,8 @@ public class NotificationResponse {
     private String message;
     private String type; // INVITATION, SYSTEM
     private Long relatedId; // ID of ProjectInvitation if type is INVITATION
+    private Long projectId;
+    private String entityType;
     
     @JsonProperty("isRead")
     private boolean isRead;

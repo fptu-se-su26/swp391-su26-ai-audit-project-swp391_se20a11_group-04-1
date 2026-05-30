@@ -17,6 +17,7 @@ import RequirementDetailPage from '@features/requirement/pages/RequirementDetail
 import UseCasePage from '@features/requirement/pages/UseCasePage'
 import UseCaseDetailPage from '@features/requirement/pages/UseCaseDetailPage'
 import { KanbanBoardPage, TaskDetailPage, MyTasksPage } from '@features/kanban'
+import { SprintPage } from '@features/sprint'
 
 // Feature Pages - Test Cases
 import TestCasePage from '@features/testing/pages/TestCasePage'
@@ -58,6 +59,8 @@ export function AppRoutes() {
           
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
@@ -82,6 +85,7 @@ export function AppRoutes() {
             <Route path="task-board" element={<KanbanBoardPage />} />
             <Route path="tasks/:id" element={<TaskDetailPage />} />
             <Route path="my-tasks" element={<MyTasksPage />} />
+            <Route path="sprints" element={<SprintPage />} />
 
             {/* Module 6: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />

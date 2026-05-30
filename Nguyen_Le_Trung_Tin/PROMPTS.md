@@ -1,462 +1,103 @@
-# Prompt Log
+# Prompt Log - Nguyen Le Trung Tin
 
-## 1. Thông tin chung
+## 1. Thong tin chung
 
-| Thông tin | Nội dung |
+| Thong tin | Noi dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Ngày bắt đầu |  |
-| Ngày cập nhật gần nhất |  |
+| Mon hoc | SWP391 |
+| Project | DevTrack AI |
+| Sinh vien | Nguyen Le Trung Tin |
+| MSSV | DE190364 |
+| Module | Module 3 - Task/Kanban Management |
+| Cong cu AI | ChatGPT |
+| Thoi gian | 21/05/2026 - 22/05/2026 |
 
----
+## 2. Cac prompt quan trong da su dung
 
-## 2. Mục đích của file Prompt Log
-
-File này dùng để ghi lại các prompt quan trọng đã sử dụng trong quá trình thực hiện bài tập, lab, assignment hoặc project.
-
-Sinh viên/nhóm cần ghi lại:
-
-- Đã hỏi AI điều gì.
-- Mục đích sử dụng prompt.
-- Công cụ AI đã sử dụng.
-- AI đã trả lời hoặc gợi ý gì.
-- Kết quả đó có được áp dụng vào bài hay không.
-- Sinh viên/nhóm đã kiểm tra, chỉnh sửa hoặc cải tiến gì sau khi nhận kết quả từ AI.
-
----
-
-## 3. Công cụ AI đã sử dụng
-
-Đánh dấu các công cụ AI đã sử dụng.
-
-- [ ] ChatGPT
-- [ ] Gemini
-- [ ] Claude
-- [ ] GitHub Copilot
-- [ ] Cursor
-- [ ] Antigravity
-- [ ] Microsoft Copilot
-- [ ] Perplexity
-- [ ] Công cụ khác: ....................................
-
----
-
-## 4. Bảng tổng hợp prompt đã sử dụng
-
-| STT | Ngày | Công cụ AI | Mục đích | Prompt tóm tắt | Kết quả chính | Có sử dụng vào bài không? | Minh chứng |
-|---:|---|---|---|---|---|---|---|
-| 1 |  |  |  |  |  | Có / Không |  |
-| 2 |  |  |  |  |  | Có / Không |  |
-| 3 |  |  |  |  |  | Có / Không |  |
-| 4 |  |  |  |  |  | Có / Không |  |
-| 5 |  |  |  |  |  | Có / Không |  |
-| 6 |  |  |  |  |  | Có / Không |  |
-| 7 |  |  |  |  |  | Có / Không |  |
-| 8 |  |  |  |  |  | Có / Không |  |
-| 9 |  |  |  |  |  | Có / Không |  |
-| 10 |  |  |  |  |  | Có / Không |  |
-
----
-
-## 5. Prompt chi tiết
-
-> Sinh viên/nhóm có thể nhân bản mẫu “Prompt số...” nhiều lần tùy số lượng prompt thực tế đã sử dụng.
-
----
-
-### Prompt số 1
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích |  |
-| Phần việc liên quan | Requirement / Design / Database / Coding / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỏi ý tưởng / Hỏi giải thích / Hỏi review / Hỏi debug / Hỏi sinh code / Hỏi tối ưu |
-
-#### 5.1. Prompt nguyên văn
+### Prompt 1 - Phan tich huong lam Module 3
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+Ban dong vai tro nhu mot senior full-stack developer co kinh nghiem voi React, Zustand, Spring Boot va PostgreSQL. Toi dang lam Module 3 Task/Kanban cho du an DevTrack AI mon SWP391. Project hien co frontend React/Vite, backend Spring Boot, PostgreSQL va frontend dang to chuc theo features. Toi chua chac nen bat dau tu Kanban UI, store, task drawer/modal hay backend API truoc. Hay doc cau truc du an hien tai, phan tich huong trien khai Module 3 sao cho phu hop, roi de xuat thu tu lam viec ro rang. Toi muon cau tra loi bang tieng Viet, co phan danh gia tinh trang hien tai, cau truc folder nen dung, cac buoc trien khai uu tien va rui ro can tranh khi push code cho team. Vi du neu frontend dang dung feature-based thi nen dat code trong `features/kanban`, con backend dang dung layer-based thi nen them Task vao `controller`, `dto`, `entity`, `repository`, `service`.
 ```
 
-#### 5.2. Bối cảnh khi viết prompt
+**Ket qua su dung:** Dung de xac dinh pham vi Module 3 va thu tu uu tien: Kanban UI, store, drawer/modal, full detail, sau do ket noi backend.
 
-Mô tả ngắn gọn vì sao sinh viên/nhóm cần dùng prompt này.
+### Prompt 2 - Refactor Kanban UI
 
 ```text
-Viết tại đây...
+Ban hay xem nhu toi dang nho mot frontend engineer review va refactor Task Board. Toi co trang Kanban trong DevTrack AI voi cac cot Todo, In Progress, In Review, Done va Blocked. Toi muon tach code sach hon de de doc, de mo rong va dung cau truc `features/kanban`. Hay de xuat cach tach thanh store va components nhu KanbanHeader, KanbanFilters, KanbanColumn, TaskCard, TaskDetailDrawer, TaskFormModal. Store can quan ly danh sach task, task dang chon, trang thai mo drawer/modal, tao task, sua task, xoa task va doi status. Tra loi bang tieng Viet, giai thich vai tro tung component, state/action can co va luong hoat dong khi click task hoac bam New Task.
 ```
 
-#### 5.3. Kết quả AI trả về
+**Ket qua su dung:** Dung de tach Task Board thanh nhieu component nho, tao store rieng va giam viec viet tat ca logic trong mot page.
 
-Tóm tắt nội dung AI đã trả lời hoặc gợi ý.
+### Prompt 3 - Keo tha task giua cac cot
 
 ```text
-Viết tại đây...
+Toi muon them keo tha task giua cac cot trong Kanban bang React. Ban hay giai thich nhu mot frontend developer co kinh nghiem xu ly drag-and-drop. Hien task co status nhu TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED. Khi keo task sang cot khac thi status phai cap nhat theo cot moi. Toi muon dung cach don gian, de hieu, chua can them thu vien neu khong can thiet. Hay giai thich nguyen ly drag/drop, cac event can dung, state can quan ly, cach goi action update status va cach tranh loi UX nhu click task bi nham voi thao tac drag. Vi du keo TASK-12 tu IN_PROGRESS sang DONE thi goi `updateTaskStatus('TASK-12', 'DONE')`.
 ```
 
-#### 5.4. Kết quả đã áp dụng vào bài
+**Ket qua su dung:** Dung de them HTML5 drag/drop cho TaskCard va KanbanColumn.
 
-Mô tả phần nào từ kết quả AI đã được sử dụng vào bài tập/project.
+### Prompt 4 - Task drawer va full detail
 
 ```text
-Viết tại đây...
+Toi dang thiet ke phan xem chi tiet task cho Module 3. Ban hay dong vai mot frontend engineer co tu duy san pham. Trong Task Board, khi click vao task thi toi muon mo panel/drawer ben phai de xem nhanh thong tin. Ngoai ra toi cung muon co mot trang full detail rieng cho task. Hay giup toi phan tich drawer dung de lam gi, full detail page dung de lam gi, hai phan nay nen giong va khac nhau o dau. Toi can co nut Open full detail trong drawer va mot nut mui ten o trang full detail de thu gon lai ve panel. Hay de xuat luong dieu huong phu hop, vi du tu drawer di den `/kanban/tasks/{taskId}`, con tu full detail quay ve `/kanban` va mo lai panel cua dung task.
 ```
 
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+**Ket qua su dung:** Dung de them luong Open full detail va Collapse to panel.
 
-Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với kết quả AI trả về.
+### Prompt 5 - Kiem tra dung huong du an
 
 ```text
-Viết tại đây...
+Toi da lam duoc UI Kanban nhung chua chac da dung huong du an vi du lieu task ban dau van la mock/local state. Ban hay dong vai technical lead va kiem tra giup toi. Du an dung Spring Boot backend, PostgreSQL database va React frontend. Trong migration database da co cac bang `tasks`, `task_assignees`, `task_checklists`. Hay xem backend hien tai da co Task entity, repository, service, controller chua va frontend da goi API that chua. Sau do ket luan ro phan nao da dung, phan nao con thieu, va buoc tiep theo can lam de chuyen tu demo UI sang chuc nang that co luu database.
 ```
 
-#### 5.6. Đánh giá chất lượng prompt
+**Ket qua su dung:** Dung de quyet dinh chuyen Kanban tu mock data sang backend API va PostgreSQL.
 
-Đánh dấu các nhận xét phù hợp.
-
-- [ ] Prompt rõ ràng
-- [ ] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [ ] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [ ] Cần hỏi lại AI nhiều lần
-- [ ] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link tài liệu/báo cáo |  |
-| Ghi chú khác |  |
-
-#### 5.8. Ghi chú thêm
+### Prompt 6 - Them backend Task API
 
 ```text
-Viết tại đây...
+Ban la backend developer chuyen Spring Boot, JPA/Hibernate va PostgreSQL. Du an DevTrack AI hien dang to chuc backend theo layer-based gom `controller`, `dto`, `entity`, `repository`, `service`, `service/impl`. Database migration da co bang `tasks`, `task_assignees`, `task_checklists`, nen toi khong muon tao migration moi neu chua can. Hay giup toi them backend Task API theo dung cau truc hien tai, gom Task entity, TaskChecklist entity, enum TaskStatus/TaskType/Priority, TaskRepository, TaskChecklistRepository, TaskService, TaskServiceImpl, TaskController va DTO request/response. API can ho tro lay task theo project, tao task, sua task, xoa task, cap nhat status, cap nhat assignee va lay My Tasks. Hay luu y kiem tra user phai la member cua project truoc khi xem hoac thao tac task.
 ```
 
----
+**Ket qua su dung:** Dung de them cac file backend Task theo cau truc layer-based.
 
-### Prompt số 2
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích |  |
-| Phần việc liên quan | Requirement / Design / Database / Coding / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỏi ý tưởng / Hỏi giải thích / Hỏi review / Hỏi debug / Hỏi sinh code / Hỏi tối ưu |
-
-#### 5.1. Prompt nguyên văn
+### Prompt 7 - Noi frontend voi backend API
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+Toi can noi frontend Kanban voi backend API that. Ban hay dong vai frontend developer chuyen React architecture. Module Kanban nam trong `features/kanban`, con team quy dinh file goi API frontend-backend nen dat trong folder `services`. Backend da co Task API. Hay tao huong trien khai voi `features/kanban/services/taskService.js` de goi API va `features/kanban/utils/taskMapper.js` de map du lieu backend sang UI. API tra ve cac field nhu `primaryAssignee`, `requirementId`, `sprintId`, `status`, `type`, nhung UI can hien thi assignee name/initials, requirement label, sprint label va type ngan nhu DEV hoac UI/UX. Hay cap nhat Zustand store de fetch task theo project, tao/sua/xoa task, update status khi keo tha va fetch My Tasks.
 ```
 
-#### 5.2. Bối cảnh khi viết prompt
+**Ket qua su dung:** Dung de them `services/taskService.js`, `utils/taskMapper.js` va sua Kanban store.
 
+### Prompt 8 - Kiem tra Git truoc khi push
+ 
 ```text
-Viết tại đây...
+Toi da hoan thanh code Module 3 Task/Kanban va chuan bi push len Git trong project nhom. Ban hay dong vai mentor huong dan Git an toan. Hay giup toi kiem tra `git status`, xac dinh file nao nen commit, file nao khong nen push, vi du khong push `application.yaml`, `node_modules`, `dist`, `target`, file ghi chu ca nhan hoac package-lock o root neu tao nham. Toi cung can doi ten branch dung convention thanh `feature/de190364-task-crud`, viet commit message phu hop va chi push theo quy dinh cua team. Hay huong dan tung buoc ngan gon de toi chay lenh, chup man hinh ket qua roi lam buoc tiep theo.
 ```
-
-#### 5.3. Kết quả AI trả về
-
+ 
+**Ket qua su dung:** Dung de kiem tra branch, file stage, commit message va `.gitignore`.
+ 
+### Prompt 9 - Refactor static HTML sang React component va modular hoa UI
+ 
 ```text
-Viết tại đây...
+Hien gio toi da co 3 trang giao dien (Task Board, Task Detail, My Tasks) do stick (designer) tao ra bang HTML tinh. Toi muon lam phan Frontend truoc, ban hay xem cay thu muc trong frontend va cho toi biet phai tao cac file nhu the nao. Toi se dua ma HTML cho ban va nho ban giup refactor thanh cac component React va Zustand store hop le theo features/kanban, sau do chia nho KanbanBoardPage thanh cac component con nhu KanbanColumn, TaskCard, KanbanFilters, KanbanHeader, TaskDetailDrawer, TaskFormModal de de quan ly va ho tro logic sau nay.
 ```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
+ 
+**Ket qua su dung:** Dung de thiet lap toan bo cau truc UI Kanban, tach nho cac component con tu trang HTML tinh cua designer.
+ 
+### Prompt 10 - Thiet lap moi truong local va debug loi bat dau backend
+ 
 ```text
-Viết tại đây...
+Toi muon ban giup kiem tra va thiet lap de chay Backend server Spring Boot len de test fullstack. Toi dang dung PostgreSQL voi password local la 123. Hay huong dan toi cau hinh file application.yaml o dau va lieu viec cau hinh nay co anh huong den code chung cua ca nhom khi day len git repository khong. Ngoai ra khi toi go cd fronrend va gap loi run terminal hoac gap loi 'Unable to connect to Redis' khi bat backend thi phai xu ly nhu the nao.
 ```
+ 
+**Ket qua su dung:** Dung de tao dung file application.yaml cho postgres local ma khong bi commit nham len git, sua dung duong dan cd frontend va phan tich nguyen nhan loi thieu Redis server.
+ 
+## 3. Prompt quan trong nhat
 
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+Prompt quan trong nhat la Prompt 5 vi no giup xac dinh Module 3 chua nen dung lai o UI demo ma can ket noi backend/database that. Tu do em chuyen huong sang them Task API va service frontend.
 
-```text
-Viết tại đây...
-```
+## 4. Bai hoc ve cach viet prompt
 
-#### 5.6. Đánh giá chất lượng prompt
-
-- [ ] Prompt rõ ràng
-- [ ] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [ ] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [ ] Cần hỏi lại AI nhiều lần
-- [ ] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link tài liệu/báo cáo |  |
-| Ghi chú khác |  |
-
-#### 5.8. Ghi chú thêm
-
-```text
-Viết tại đây...
-```
-
----
-
-### Prompt số 3
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích |  |
-| Phần việc liên quan | Requirement / Design / Database / Coding / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỏi ý tưởng / Hỏi giải thích / Hỏi review / Hỏi debug / Hỏi sinh code / Hỏi tối ưu |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
-```
-
-#### 5.2. Bối cảnh khi viết prompt
-
-```text
-Viết tại đây...
-```
-
-#### 5.3. Kết quả AI trả về
-
-```text
-Viết tại đây...
-```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
-```text
-Viết tại đây...
-```
-
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
-
-```text
-Viết tại đây...
-```
-
-#### 5.6. Đánh giá chất lượng prompt
-
-- [ ] Prompt rõ ràng
-- [ ] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [ ] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [ ] Cần hỏi lại AI nhiều lần
-- [ ] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit |  |
-| File liên quan |  |
-| Screenshot |  |
-| Kết quả chạy/test |  |
-| Link tài liệu/báo cáo |  |
-| Ghi chú khác |  |
-
-#### 5.8. Ghi chú thêm
-
-```text
-Viết tại đây...
-```
-
----
-
-## 6. Prompt quan trọng nhất
-
-Chọn một prompt có ảnh hưởng lớn nhất đến bài tập/project.
-
-### 6.1. Prompt được chọn
-
-```text
-Dán prompt quan trọng nhất tại đây.
-```
-
-### 6.2. Vì sao prompt này quan trọng?
-
-```text
-Viết tại đây...
-```
-
-### 6.3. Kết quả prompt này mang lại
-
-```text
-Viết tại đây...
-```
-
-### 6.4. Sinh viên/nhóm đã kiểm tra kết quả như thế nào?
-
-```text
-Viết tại đây...
-```
-
-### 6.5. Sinh viên/nhóm đã cải tiến gì từ kết quả AI?
-
-```text
-Viết tại đây...
-```
-
----
-
-## 7. Prompt chưa hiệu quả
-
-Ghi lại ít nhất một prompt chưa tạo ra kết quả tốt hoặc chưa phù hợp.
-
-### 7.1. Prompt chưa hiệu quả
-
-```text
-Dán prompt chưa hiệu quả tại đây.
-```
-
-### 7.2. Vì sao prompt này chưa hiệu quả?
-
-```text
-Viết tại đây...
-```
-
-Gợi ý nguyên nhân:
-
-- Prompt quá ngắn.
-- Thiếu bối cảnh bài toán.
-- Không nêu rõ yêu cầu đầu ra.
-- Không cung cấp ngôn ngữ lập trình/công nghệ đang dùng.
-- Không đưa lỗi cụ thể.
-- Không đưa ví dụ input/output.
-- Không yêu cầu AI giải thích.
-- Hỏi AI làm toàn bộ thay vì hỏi từng phần.
-
-### 7.3. Cách cải thiện prompt
-
-```text
-Viết tại đây...
-```
-
-### 7.4. Prompt sau khi cải tiến
-
-```text
-Dán prompt đã được cải tiến tại đây.
-```
-
-### 7.5. Kết quả sau khi cải tiến prompt
-
-```text
-Viết tại đây...
-```
-
----
-
-## 8. Bài học về cách viết prompt
-
-### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
-
-```text
-Viết tại đây...
-```
-
-Gợi ý:
-
-- Mục tiêu cần đạt.
-- Bối cảnh bài toán.
-- Công nghệ/ngôn ngữ lập trình đang dùng.
-- Input/output mong muốn.
-- Ràng buộc của đề bài.
-- Lỗi đang gặp.
-- Format kết quả mong muốn.
-- Yêu cầu AI giải thích từng bước.
-
-### 8.2. Em/nhóm đã học được gì về cách đặt câu hỏi cho AI?
-
-```text
-Viết tại đây...
-```
-
-### 8.3. Lần sau em/nhóm sẽ cải thiện prompt như thế nào?
-
-```text
-Viết tại đây...
-```
-
----
-
-## 9. Phân loại prompt đã sử dụng
-
-Đánh dấu số lượng prompt theo từng nhóm.
-
-| Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
-|---|---:|---|
-| Prompt phân tích yêu cầu |  |  |
-| Prompt giải thích kiến thức |  |  |
-| Prompt thiết kế giải pháp |  |  |
-| Prompt thiết kế database |  |  |
-| Prompt sinh code mẫu |  |  |
-| Prompt debug lỗi |  |  |
-| Prompt viết test case |  |  |
-| Prompt review code |  |  |
-| Prompt tối ưu code |  |  |
-| Prompt viết báo cáo |  |  |
-| Prompt chuẩn bị thuyết trình |  |  |
-| Prompt khác |  |  |
-
----
-
-## 10. Checklist chất lượng prompt
-
-Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
-
-| Tiêu chí | Đã đạt? | Ghi chú |
-|---|:---:|---|
-| Prompt có mục tiêu rõ ràng |  |  |
-| Prompt có đủ bối cảnh |  |  |
-| Prompt có nêu công nghệ/ngôn ngữ sử dụng |  |  |
-| Prompt có nêu yêu cầu đầu ra |  |  |
-| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc |  |  |
-| Prompt có yêu cầu AI giải thích hoặc phân tích |  |  |
-| Kết quả AI được kiểm tra lại |  |  |
-| Kết quả AI được chỉnh sửa trước khi sử dụng |  |  |
-| Prompt quan trọng được ghi lại đầy đủ |  |  |
-| Prompt sai/chưa hiệu quả được rút kinh nghiệm |  |  |
-
----
-
-## 11. Cam kết sử dụng prompt minh bạch
-
-Sinh viên/nhóm cam kết rằng:
-
-- Các prompt quan trọng đã được ghi lại trung thực.
-- Không che giấu việc sử dụng AI trong các phần quan trọng của bài.
-- Không nộp nguyên văn kết quả AI nếu chưa kiểm tra và chỉnh sửa.
-- Có khả năng giải thích các phần đã sử dụng từ AI.
-- Chịu trách nhiệm với sản phẩm cuối cùng.
-
-| Đại diện sinh viên/nhóm | Ngày xác nhận |
-|---|---|
-|  |  |
+Prompt tot nen co du vai tro AI, boi canh project, yeu cau cu the, format mong muon va vi du. Khi prompt noi ro project dang dung React, Zustand, Spring Boot va PostgreSQL, AI tra loi sat voi cau truc du an hon va de ap dung hon.

@@ -12,6 +12,7 @@ import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
+import org.example.backend.repository.KanbanColumnRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.TaskService;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,11 +37,14 @@ public class TaskServiceImpl implements TaskService {
     private final UserAccountRepository userAccountRepository;
     private final RequirementRepository requirementRepository;
     private final SprintRepository sprintRepository;
+    private final KanbanColumnRepository kanbanColumnRepository;
+    private final KanbanColumnServiceImpl kanbanColumnService;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<TaskResponse> getProjectTasks(Long projectId, Long userId) {
         ensureProjectMember(projectId, userId);
+        kanbanColumnService.ensureDefaultColumns(projectId);
         return taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -76,11 +81,16 @@ public class TaskServiceImpl implements TaskService {
                 .title(requiredText(request.getTitle(), "Task title is required"))
                 .type(parseEnum(request.getType(), TaskType.class, TaskType.DEVELOPMENT))
                 .priority(parseEnum(request.getPriority(), Priority.class, Priority.MEDIUM))
+                .startDate(request.getStartDate() != null ? request.getStartDate() : java.time.LocalDate.now())
+                .weight(request.getWeight() != null ? validateWeight(request.getWeight()) : BigDecimal.ONE)
                 .status(parseEnum(request.getStatus(), TaskStatus.class, TaskStatus.TODO))
                 .checklist(new ArrayList<>())
                 .build();
 
         applyRequest(task, request, projectId);
+        if (task.getKanbanColumn() == null) {
+            setColumnFromStatus(task, projectId, task.getStatus());
+        }
         return toResponse(taskRepository.save(task));
     }
 
@@ -96,7 +106,13 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
-        task.setStatus(parseEnum(request.getStatus(), TaskStatus.class, task.getStatus()));
+        if (request.getColumnId() != null) {
+            setColumn(task, request.getColumnId(), task.getProject().getId());
+        } else if (request.getStatus() != null) {
+            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+            task.setStatus(nextStatus);
+            setColumnFromStatus(task, task.getProject().getId(), nextStatus);
+        }
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
@@ -137,20 +153,52 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getSprintId() == null) {
             task.setSprintId(null);
+            task.setSprintPlanDate(null);
         } else {
             if (!sprintRepository.existsByIdAndProjectId(request.getSprintId(), projectId)) {
                 throw new BadRequestException("Sprint does not exist in this project");
+            }
+            if (!request.getSprintId().equals(task.getSprintId())) {
+                task.setSprintPlanDate(null);
             }
             task.setSprintId(request.getSprintId());
         }
         if (request.getType() != null) task.setType(parseEnum(request.getType(), TaskType.class, task.getType()));
         if (request.getPriority() != null) task.setPriority(parseEnum(request.getPriority(), Priority.class, task.getPriority()));
+        if (request.getStartDate() != null) task.setStartDate(request.getStartDate());
         if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
+        if (task.getDeadline() != null && task.getStartDate() != null && task.getDeadline().isBefore(task.getStartDate())) {
+            throw new BadRequestException("Task deadline must be on or after start date");
+        }
+        if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
-        if (request.getStatus() != null) task.setStatus(parseEnum(request.getStatus(), TaskStatus.class, task.getStatus()));
+        if (request.getColumnId() != null) {
+            setColumn(task, request.getColumnId(), projectId);
+        } else if (request.getStatus() != null) {
+            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+            task.setStatus(nextStatus);
+            setColumnFromStatus(task, projectId, nextStatus);
+        }
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
         if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId);
         if (request.getChecklist() != null) replaceChecklist(task, request.getChecklist());
+    }
+
+    private void setColumn(Task task, Long columnId, Long projectId) {
+        KanbanColumn column = kanbanColumnRepository.findById(columnId)
+                .filter(item -> item.getProject() != null && projectId.equals(item.getProject().getId()) && !item.isArchived())
+                .orElseThrow(() -> new BadRequestException("Kanban column does not exist in this project"));
+        task.setKanbanColumn(column);
+        if (column.getStatusKey() != null) {
+            task.setStatus(parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus()));
+        }
+    }
+
+    private void setColumnFromStatus(Task task, Long projectId, TaskStatus status) {
+        if (status == null) return;
+        kanbanColumnService.ensureDefaultColumns(projectId);
+        kanbanColumnRepository.findByProjectIdAndStatusKey(projectId, status.name())
+                .ifPresent(task::setKanbanColumn);
     }
 
     private void setAssignee(Task task, Long assigneeId, Long projectId) {
@@ -195,6 +243,13 @@ public class TaskServiceImpl implements TaskService {
         return value.trim();
     }
 
+    private BigDecimal validateWeight(BigDecimal weight) {
+        if (weight.compareTo(BigDecimal.ONE) < 0 || weight.compareTo(new BigDecimal("2.0")) > 0) {
+            throw new BadRequestException("Task weight must be between 1.0 and 2.0");
+        }
+        return weight;
+    }
+
     private <T extends Enum<T>> T parseEnum(String value, Class<T> enumType, T fallback) {
         if (value == null || value.trim().isEmpty()) return fallback;
         try {
@@ -217,10 +272,17 @@ public class TaskServiceImpl implements TaskService {
                 .type(task.getType() != null ? task.getType().name() : null)
                 .primaryAssignee(toUserSummary(task.getPrimaryAssignee()))
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .startDate(task.getStartDate())
                 .deadline(task.getDeadline())
+                .weight(task.getWeight())
+                .sprintPlanDate(task.getSprintPlanDate())
                 .estimatedHours(task.getEstimatedHours())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .columnId(task.getKanbanColumn() != null ? task.getKanbanColumn().getId() : null)
+                .columnName(task.getKanbanColumn() != null ? task.getKanbanColumn().getName() : null)
                 .blockedReason(task.getBlockedReason())
+                .overduePenaltyApplied(task.isOverduePenaltyApplied())
+                .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
