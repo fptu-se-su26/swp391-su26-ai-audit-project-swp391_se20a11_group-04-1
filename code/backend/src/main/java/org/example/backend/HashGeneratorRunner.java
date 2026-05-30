@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-@Component
+// @Component
 public class HashGeneratorRunner implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
