@@ -1,10 +1,8 @@
 package org.example.backend.service;
 
-import org.example.backend.dto.TaskAssigneeUpdateRequest;
-import org.example.backend.dto.TaskRequest;
-import org.example.backend.dto.TaskResponse;
-import org.example.backend.dto.TaskStatusUpdateRequest;
+import org.example.backend.dto.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface TaskService {
@@ -16,4 +14,8 @@ public interface TaskService {
     TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId);
     TaskResponse updateTaskAssignee(Long taskId, TaskAssigneeUpdateRequest request, Long userId);
     void deleteTask(Long taskId, Long userId);
+
+    // ── Daily / Weekly View ───────────────────────────────────────────────────
+    DailyViewResponse getDailyView(Long projectId, Long userId, LocalDate date);
+    WeeklyViewResponse getWeeklyView(Long projectId, Long userId, LocalDate weekStart);
 }

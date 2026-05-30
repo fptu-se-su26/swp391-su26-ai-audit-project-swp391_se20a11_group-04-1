@@ -63,9 +63,8 @@ public class Task {
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private Priority priority;
 
-    @Column(name = "start_date", nullable = false)
-    @Builder.Default
-    private LocalDate startDate = LocalDate.now();
+    @Column(name = "start_date")
+    private LocalDate startDate;
 
     private LocalDate deadline;
 
@@ -98,6 +97,12 @@ public class Task {
     @Column(name = "overdue_penalty_applied_at")
     private LocalDateTime overduePenaltyAppliedAt;
 
+    @Column(name = "task_code", length = 50)
+    private String taskCode;
+
+    @Column(name = "project_sub_id")
+    private Integer projectSubId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private UserAccount createdBy;
@@ -109,6 +114,9 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orderIndex ASC, id ASC")

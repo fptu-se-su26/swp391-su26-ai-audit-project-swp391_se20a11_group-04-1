@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -78,6 +80,48 @@ public class TaskController {
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getMyTasks(HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(taskService.getMyTasks(userId), "My tasks retrieved"));
+    }
+
+    // ── Daily / Weekly View ───────────────────────────────────────────────────
+
+    /**
+     * GET /api/v1/projects/{projectId}/tasks/daily?date=2026-05-27
+     * Trả về data đã tính sẵn cho Daily View: overdue/due/done tasks, stats, member progress, AI insight.
+     * Nếu không truyền date → dùng ngày hôm nay.
+     */
+    @GetMapping("/projects/{projectId}/tasks/daily")
+    public ResponseEntity<ApiResponse<DailyViewResponse>> getDailyView(
+            @PathVariable Long projectId,
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            LocalDate date,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        LocalDate targetDate = (date != null) ? date : LocalDate.now();
+        return ResponseEntity.ok(ApiResponse.success(
+                taskService.getDailyView(projectId, userId, targetDate),
+                "Daily view retrieved"));
+    }
+
+    /**
+     * GET /api/v1/projects/{projectId}/tasks/weekly?weekStart=2026-05-25
+     * Trả về data đã tính sẵn cho Weekly View: tasksByDay, weekStats, sprint, teamWorkload, AI insight.
+     * Nếu không truyền weekStart → dùng Thứ 2 của tuần hiện tại.
+     */
+    @GetMapping("/projects/{projectId}/tasks/weekly")
+    public ResponseEntity<ApiResponse<WeeklyViewResponse>> getWeeklyView(
+            @PathVariable Long projectId,
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            LocalDate weekStart,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        LocalDate targetWeekStart = (weekStart != null)
+                ? weekStart
+                : LocalDate.now().with(DayOfWeek.MONDAY);
+        return ResponseEntity.ok(ApiResponse.success(
+                taskService.getWeeklyView(projectId, userId, targetWeekStart),
+                "Weekly view retrieved"));
     }
 
     private Long requireUser(HttpSession session) {
