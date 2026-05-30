@@ -98,6 +98,19 @@ public class BugReportController {
         response.put("createdAt", bug.getCreatedAt());
         response.put("updatedAt", bug.getUpdatedAt());
 
+        if (bug.getRelatedTask() != null && bug.getRelatedTask().getChecklist() != null) {
+            response.put("checklist", bug.getRelatedTask().getChecklist().stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", item.getId());
+                    map.put("content", item.getContent());
+                    map.put("done", item.isDone());
+                    map.put("orderIndex", item.getOrderIndex());
+                    return map;
+                })
+                .collect(Collectors.toList()));
+        }
+
         response.put("assignedTo", toUserSummaryMap(bug.getAssignedTo()));
         response.put("createdBy", toUserSummaryMap(bug.getCreatedBy()));
         return response;

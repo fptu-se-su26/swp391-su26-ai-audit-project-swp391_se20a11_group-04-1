@@ -1,6 +1,7 @@
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.*;
 import org.example.backend.entity.*;
 import org.example.backend.exception.BadRequestException;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -100,7 +102,18 @@ public class TaskServiceImpl implements TaskService {
         if (task.getKanbanColumn() == null) {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
-        return toResponse(taskRepository.save(task));
+        Task savedTask = taskRepository.save(task);
+
+        // Outbound sync: create GitHub Issue for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.createGitHubIssueForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
+
+        return toResponse(savedTask);
     }
 
     @Override
@@ -110,6 +123,14 @@ public class TaskServiceImpl implements TaskService {
         applyRequest(task, request, task.getProject().getId());
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
         return toResponse(savedTask);
     }
 
@@ -136,6 +157,14 @@ public class TaskServiceImpl implements TaskService {
         }
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
         return toResponse(savedTask);
     }
 
@@ -158,6 +187,8 @@ public class TaskServiceImpl implements TaskService {
                     bug.setStatus(BugStatus.FIXED);
                 } else if (task.getStatus() == TaskStatus.IN_PROGRESS) {
                     bug.setStatus(BugStatus.IN_PROGRESS);
+                } else if (task.getStatus() == TaskStatus.IN_REVIEW) {
+                    bug.setStatus(BugStatus.VERIFIED);
                 } else if (task.getStatus() == TaskStatus.TODO) {
                     bug.setStatus(BugStatus.OPEN);
                 }
@@ -646,6 +677,11 @@ public class TaskServiceImpl implements TaskService {
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
         if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId);
         if (request.getChecklist() != null) replaceChecklist(task, request.getChecklist());
+        if (request.getParentId() != null) {
+            Task parentTask = taskRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new CustomException("Parent task not found", HttpStatus.NOT_FOUND));
+            task.setParent(parentTask);
+        }
     }
 
     private void setColumn(Task task, Long columnId, Long projectId) {
@@ -754,6 +790,8 @@ public class TaskServiceImpl implements TaskService {
                         .sorted(Comparator.comparingInt(TaskChecklist::getOrderIndex))
                         .map(this::toChecklistResponse)
                         .collect(Collectors.toList()))
+                .parentId(task.getParent() != null ? task.getParent().getId() : null)
+                .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
                 .build();
     }
 

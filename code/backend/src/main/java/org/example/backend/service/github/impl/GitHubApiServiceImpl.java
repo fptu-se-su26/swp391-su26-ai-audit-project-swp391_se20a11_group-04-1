@@ -43,7 +43,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     private final UserGithubTokenRepository userGithubTokenRepository;
     private final ObjectMapper objectMapper;
     private final EncryptionService encryptionService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = new RestTemplate(new org.springframework.http.client.JdkClientHttpRequestFactory());
 
     @Value("${github.client-id}")
     private String clientId;
@@ -103,6 +103,163 @@ public class GitHubApiServiceImpl implements GitHubApiService {
         }
     }
 
+    private String extractUserDescription(String fullBody) {
+        if (fullBody == null) return null;
+        int descIdx = fullBody.indexOf("### 📝 Description");
+        if (descIdx == -1) {
+            return fullBody;
+        }
+
+        int startIdx = descIdx + "### 📝 Description".length();
+        while (startIdx < fullBody.length() && (fullBody.charAt(startIdx) == '\r' || fullBody.charAt(startIdx) == '\n')) {
+            startIdx++;
+        }
+
+        int nextSectionIdx = fullBody.length();
+        int checklistIdx = fullBody.indexOf("### ✅ Checklist", startIdx);
+        int subtasksIdx = fullBody.indexOf("### ⛓️ Sub-tasks", startIdx);
+        int footerIdx = fullBody.indexOf("> *Sync generated", startIdx);
+
+        if (checklistIdx != -1 && checklistIdx < nextSectionIdx) {
+            nextSectionIdx = checklistIdx;
+        }
+        if (subtasksIdx != -1 && subtasksIdx < nextSectionIdx) {
+            nextSectionIdx = subtasksIdx;
+        }
+        if (footerIdx != -1 && footerIdx < nextSectionIdx) {
+            nextSectionIdx = footerIdx;
+        }
+
+        return fullBody.substring(startIdx, nextSectionIdx).trim();
+    }
+
+    private String buildTaskIssueBody(Task task) {
+        StringBuilder body = new StringBuilder();
+        body.append("### 📋 Task Details\n");
+        body.append(String.format("**Type**: %s\n", task.getType()));
+        body.append(String.format("**Priority**: %s\n", task.getPriority()));
+        if (task.getParent() != null) {
+            Integer parentNum = task.getParent().getGithubIssueNumber();
+            body.append(String.format("**Parent Task**: %s\n", 
+                    parentNum != null ? "#" + parentNum : task.getParent().getTitle()));
+        }
+        if (task.getDeadline() != null) body.append(String.format("**Deadline**: %s\n", task.getDeadline()));
+        if (task.getDescription() != null && !task.getDescription().isBlank()) {
+            body.append("\n### 📝 Description\n").append(task.getDescription()).append("\n");
+        }
+        if (task.getChecklist() != null && !task.getChecklist().isEmpty()) {
+            body.append("\n### ✅ Checklist\n");
+            task.getChecklist().forEach(item ->
+                body.append(item.isDone() ? "- [x] " : "- [ ] ").append(item.getContent()).append("\n")
+            );
+        }
+
+        // Subtasks checklist section
+        List<Task> subTasks = taskRepository.findByParentId(task.getId());
+        if (subTasks != null && !subTasks.isEmpty()) {
+            body.append("\n### ⛓️ Sub-tasks\n");
+            for (Task sub : subTasks) {
+                String check = (sub.getStatus() == TaskStatus.DONE) ? "- [x] " : "- [ ] ";
+                if (sub.getGithubIssueNumber() != null) {
+                    body.append(check).append("#").append(sub.getGithubIssueNumber()).append("\n");
+                } else {
+                    body.append(check).append(sub.getTitle()).append(" (Pending Sync)\n");
+                }
+            }
+        }
+
+        return body.toString();
+    }
+
+    private void updateParentGitHubIssueBody(Task parentTask, String accessToken, GitHubIntegration integration) {
+        if (parentTask.getGithubIssueNumber() == null) {
+            log.warn("Cannot update parent issue body: parent task has no GitHub issue number stored.");
+            return;
+        }
+
+        String parentUrl = String.format("https://api.github.com/repos/%s/%s/issues/%d",
+                integration.getRepoOwner(), integration.getRepoName(), parentTask.getGithubIssueNumber());
+
+        String updatedBody = buildTaskIssueBody(parentTask);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("body", updatedBody);
+
+        HttpHeaders headers = createGitHubHeaders(accessToken);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            log.info("Updating parent GitHub issue #{} body", parentTask.getGithubIssueNumber());
+            restTemplate.exchange(parentUrl, HttpMethod.PATCH, entity, Map.class);
+            log.info("Parent GitHub issue #{} body updated successfully", parentTask.getGithubIssueNumber());
+        } catch (Exception e) {
+            log.error("Failed to update parent GitHub issue #{} body: ", parentTask.getGithubIssueNumber(), e);
+        }
+    }
+
+    @Override
+    public void createGitHubIssueForTask(Task task, Long userId) {
+        Long projectId = task.getProject().getId();
+        GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId).orElse(null);
+        if (integration == null) {
+            log.warn("Skipping GitHub sync for Task ID: {}. No integration found for project {}", task.getId(), projectId);
+            return;
+        }
+
+        Long integrationOwnerId = integration.getConnectedBy().getId();
+        UserGithubToken userToken = userGithubTokenRepository.findById(integrationOwnerId).orElse(null);
+        if (userToken == null) {
+            log.warn("Skipping GitHub sync for Task ID: {}. Project Leader's GitHub token is missing.", task.getId());
+            return;
+        }
+
+        String accessToken = decryptToken(userToken.getAccessTokenEncrypted());
+        String url = String.format("https://api.github.com/repos/%s/%s/issues",
+                integration.getRepoOwner(), integration.getRepoName());
+
+        // Determine label based on task type
+        String label = switch (task.getType()) {
+            case TESTING  -> "testing";
+            case BUG_FIX  -> "bug";
+            default       -> "enhancement";
+        };
+
+        String issueBody = buildTaskIssueBody(task);
+        String issueTitle = task.getParent() != null ? String.format("[Sub-task] %s", task.getTitle()) : task.getTitle();
+        List<String> labels = new ArrayList<>();
+        labels.add(label);
+        if (task.getParent() != null) {
+            labels.add("sub-task");
+        }
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("title", issueTitle);
+        requestBody.put("body", issueBody);
+        requestBody.put("labels", labels);
+
+        HttpHeaders headers = createGitHubHeaders(accessToken);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            log.info("Creating GitHub issue for Task ID: {} on repo: {}/{}", task.getId(), integration.getRepoOwner(), integration.getRepoName());
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            if (response.getStatusCode() == HttpStatus.CREATED && response.getBody() != null) {
+                Integer issueNumber = (Integer) response.getBody().get("number");
+                String issueUrl = (String) response.getBody().get("html_url");
+                task.setGithubIssueNumber(issueNumber);
+                task.setGithubIssueUrl(issueUrl);
+                taskRepository.save(task);
+                log.info("GitHub Issue #{} created for Task ID: {}", issueNumber, task.getId());
+
+                if (task.getParent() != null) {
+                    updateParentGitHubIssueBody(task.getParent(), accessToken, integration);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to create GitHub issue for Task ID: {}: ", task.getId(), e);
+        }
+    }
+
     @Override
     public void updateGitHubIssueStatus(BugReport bugReport, Long userId) {
         Long projectId = bugReport.getProject().getId();
@@ -146,6 +303,56 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             log.info("GitHub issue #{} state updated successfully", issueNumber);
         } catch (Exception e) {
             log.error("Failed to sync status to GitHub issue #{}: ", issueNumber, e);
+        }
+    }
+
+    @Override
+    public void updateGitHubIssueStatusForTask(Task task, Long userId) {
+        if (task.getGithubIssueNumber() == null) {
+            log.info("Task ID: {} has no GitHub issue number stored. Auto-creating issue on GitHub.", task.getId());
+            createGitHubIssueForTask(task, userId);
+            return;
+        }
+
+        Long projectId = task.getProject().getId();
+        GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId).orElse(null);
+        if (integration == null) {
+            log.warn("Skipping GitHub status sync for Task ID: {}. No integration found.", task.getId());
+            return;
+        }
+
+        Long integrationOwnerId = integration.getConnectedBy().getId();
+        UserGithubToken userToken = userGithubTokenRepository.findById(integrationOwnerId).orElse(null);
+        if (userToken == null) {
+            log.warn("Skipping GitHub status sync for Task ID: {}. Project Leader token missing.", task.getId());
+            return;
+        }
+
+        String accessToken = decryptToken(userToken.getAccessTokenEncrypted());
+        String url = String.format("https://api.github.com/repos/%s/%s/issues/%d",
+                integration.getRepoOwner(), integration.getRepoName(), task.getGithubIssueNumber());
+
+        // DONE → closed, everything else → open
+        String state = (task.getStatus() == TaskStatus.DONE) ? "closed" : "open";
+        String updatedBody = buildTaskIssueBody(task);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("state", state);
+        requestBody.put("body", updatedBody);
+
+        HttpHeaders headers = createGitHubHeaders(accessToken);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            log.info("Updating GitHub issue #{} for Task ID: {} to state: {}", task.getGithubIssueNumber(), task.getId(), state);
+            restTemplate.exchange(url, HttpMethod.PATCH, entity, Map.class);
+            log.info("GitHub issue #{} updated successfully.", task.getGithubIssueNumber());
+
+            if (task.getParent() != null) {
+                updateParentGitHubIssueBody(task.getParent(), accessToken, integration);
+            }
+        } catch (Exception e) {
+            log.error("Failed to sync GitHub issue status for Task ID: {}: ", task.getId(), e);
         }
     }
 
@@ -204,10 +411,14 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                 log.info("Processing webhook event: issues.{} for Issue #{}", action, issueNumber);
 
                 BugReport bug = findBugReportByIssueNumber(matchedIntegration.getProject().getId(), issueNumber);
+                Task existingTask = taskRepository.findByProjectIdOrderByUpdatedAtDesc(matchedIntegration.getProject().getId()).stream()
+                        .filter(t -> t.getGithubIssueNumber() != null && t.getGithubIssueNumber().equals(issueNumber))
+                        .findFirst()
+                        .orElse(null);
 
                 if ("opened".equalsIgnoreCase(action)) {
-                    if (bug != null) {
-                        log.info("Bug report already exists for Issue #{}", issueNumber);
+                    if (bug != null || existingTask != null) {
+                        log.info("Issue #{} already exists as Bug Report or Task, ignoring webhook duplicate creation.", issueNumber);
                         return; // Ignore duplicates
                     }
 
@@ -239,6 +450,30 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                             .checklist(new ArrayList<>())
                             .createdBy(creator)
                             .build();
+
+                    // Parse checklist from Markdown
+                    if (bodyText != null) {
+                        String[] lines = bodyText.split("\\r?\\n");
+                        int order = 0;
+                        for (String line : lines) {
+                            String trimmed = line.trim();
+                            if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
+                                if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
+                                    continue;
+                                }
+                                boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
+                                String content = trimmed.substring(6).trim();
+                                TaskChecklist item = TaskChecklist.builder()
+                                        .task(task)
+                                        .content(content)
+                                        .done(isDone)
+                                        .orderIndex(order++)
+                                        .build();
+                                task.getChecklist().add(item);
+                            }
+                        }
+                    }
+
                     task = taskRepository.save(task);
 
                     // Link task and save metadata
@@ -257,6 +492,76 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                             taskRepository.save(bug.getRelatedTask());
                         }
                         log.info("Bug Report ID: {} status marked as CLOSED", bug.getId());
+                    } else if (existingTask != null) {
+                        existingTask.setStatus(TaskStatus.DONE);
+                        existingTask.setCompletedAt(LocalDateTime.now());
+                        taskRepository.save(existingTask);
+                        log.info("Task ID: {} status marked as DONE from GitHub Webhook", existingTask.getId());
+                    }
+                } else if ("edited".equalsIgnoreCase(action)) {
+                    if (bug != null) {
+                        bug.setTitle(title != null ? title.replace("[BUG] ", "") : bug.getTitle());
+                        bug.setDescription(extractUserDescription(bodyText));
+                        bugReportRepository.save(bug);
+                        
+                        if (bug.getRelatedTask() != null) {
+                            Task task = bug.getRelatedTask();
+                            task.setTitle("[BUG] " + bug.getTitle());
+                            task.setDescription(extractUserDescription(bodyText));
+                            
+                            task.getChecklist().clear();
+                            if (bodyText != null) {
+                                String[] lines = bodyText.split("\\r?\\n");
+                                int order = 0;
+                                for (String line : lines) {
+                                    String trimmed = line.trim();
+                                    if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
+                                        if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
+                                            continue;
+                                        }
+                                        boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
+                                        String content = trimmed.substring(6).trim();
+                                        TaskChecklist item = TaskChecklist.builder()
+                                                .task(task)
+                                                .content(content)
+                                                .done(isDone)
+                                                .orderIndex(order++)
+                                                .build();
+                                        task.getChecklist().add(item);
+                                    }
+                                }
+                            }
+                            taskRepository.save(task);
+                        }
+                        log.info("Bug Report ID: {} updated from GitHub Webhook", bug.getId());
+                    } else if (existingTask != null) {
+                        existingTask.setTitle(title);
+                        existingTask.setDescription(extractUserDescription(bodyText));
+                        
+                        existingTask.getChecklist().clear();
+                        if (bodyText != null) {
+                            String[] lines = bodyText.split("\\r?\\n");
+                            int order = 0;
+                            for (String line : lines) {
+                                String trimmed = line.trim();
+                                if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
+                                    if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
+                                        continue;
+                                    }
+                                    boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
+                                    String content = trimmed.substring(6).trim();
+                                    TaskChecklist item = TaskChecklist.builder()
+                                            .task(existingTask)
+                                            .content(content)
+                                            .done(isDone)
+                                            .orderIndex(order++)
+                                            .build();
+                                    existingTask.getChecklist().add(item);
+                                }
+                            }
+                        }
+                        taskRepository.save(existingTask);
+                        log.info("Task ID: {} updated from GitHub Webhook", existingTask.getId());
                     }
                 } else if ("reopened".equalsIgnoreCase(action)) {
                     if (bug != null) {
@@ -267,13 +572,18 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                             taskRepository.save(bug.getRelatedTask());
                         }
                         log.info("Bug Report ID: {} status reopened as OPEN", bug.getId());
+                    } else if (existingTask != null) {
+                        existingTask.setStatus(TaskStatus.TODO);
+                        existingTask.setCompletedAt(null);
+                        taskRepository.save(existingTask);
+                        log.info("Task ID: {} status marked as TODO from GitHub Webhook", existingTask.getId());
                     }
                 } else if ("assigned".equalsIgnoreCase(action) || "unassigned".equalsIgnoreCase(action)) {
-                    if (bug != null) {
-                        Map<String, Object> assigneeMap = (Map<String, Object>) issue.get("assignee");
-                        String assigneeName = assigneeMap != null ? (String) assigneeMap.get("login") : null;
-                        UserAccount assignee = assigneeName != null ? findUserByGitHubUsername(assigneeName, null) : null;
+                    Map<String, Object> assigneeMap = (Map<String, Object>) issue.get("assignee");
+                    String assigneeName = assigneeMap != null ? (String) assigneeMap.get("login") : null;
+                    UserAccount assignee = assigneeName != null ? findUserByGitHubUsername(assigneeName, null) : null;
 
+                    if (bug != null) {
                         bug.setAssignedTo(assignee);
                         bugReportRepository.save(bug);
 
@@ -286,7 +596,24 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                             }
                             taskRepository.save(task);
                         }
+                    } else if (existingTask != null) {
+                        existingTask.setPrimaryAssignee(assignee);
+                        existingTask.getAssignees().clear();
+                        if (assignee != null) {
+                        existingTask.getAssignees().add(assignee);
+                        }
+                        taskRepository.save(existingTask);
+                        log.info("Task ID: {} assignee updated from GitHub Webhook", existingTask.getId());
                     }
+                }
+
+                // Broadcast WebSocket event to refresh frontend issue list in real-time
+                try {
+                    String wsMessage = String.format("{\"type\":\"REFRESH_BUGS\",\"projectId\":%d}", matchedIntegration.getProject().getId());
+                    org.example.backend.config.NotificationWebSocketHandler.broadcast(wsMessage);
+                    log.info("📢 Broadcasted REFRESH_BUGS WebSocket event for Project ID: {}", matchedIntegration.getProject().getId());
+                } catch (Exception e) {
+                    log.error("Failed to broadcast REFRESH_BUGS event for Project ID: {}", matchedIntegration.getProject().getId(), e);
                 }
             }
         } catch (CustomException e) {

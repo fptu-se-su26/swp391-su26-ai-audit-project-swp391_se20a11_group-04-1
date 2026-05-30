@@ -90,8 +90,8 @@ class GitHubApiServiceImplTest {
         mockIntegration = GitHubIntegration.builder()
                 .id(1L)
                 .project(mockProject)
-                .repoOwner("fptu-se-su26")
-                .repoName("swp391-audit-project")
+                .repoOwner("mock-owner")
+                .repoName("mock-repo")
                 .webhookSecretEncrypted(encryptionService.encrypt(WEBHOOK_SECRET))
                 .connectedBy(mockUser)
                 .build();
@@ -106,7 +106,7 @@ class GitHubApiServiceImplTest {
                 .environment(Environment.DEV)
                 .createdBy(mockUser)
                 .status(BugStatus.OPEN)
-                .stepsToReproduce("{\"github_issue_number\":12,\"github_issue_url\":\"https://github.com/fptu-se-su26/swp391-audit-project/issues/12\"}")
+                .stepsToReproduce("{\"github_issue_number\":12,\"github_issue_url\":\"https://github.com/mock-owner/mock-repo/issues/12\"}")
                 .build();
 
         // Project leader role
@@ -129,7 +129,7 @@ class GitHubApiServiceImplTest {
     @DisplayName("handleWebhook — Throws FORBIDDEN when HMAC signature does not match")
     void handleWebhook_InvalidSignature_ThrowsForbidden() {
         String badSignature = "sha256=invalidvalue";
-        String payload = "{\"repository\":{\"name\":\"swp391-audit-project\",\"owner\":{\"login\":\"fptu-se-su26\"}}}";
+        String payload = "{\"repository\":{\"name\":\"mock-repo\",\"owner\":{\"login\":\"mock-owner\"}}}";
 
         lenient().when(gitHubIntegrationRepository.findAll()).thenReturn(List.of(mockIntegration));
 
@@ -146,8 +146,8 @@ class GitHubApiServiceImplTest {
     void handleWebhook_IssuesOpened_CreatesBugAndTask() throws Exception {
         String payload = "{"
                 + "\"action\":\"opened\","
-                + "\"repository\":{\"name\":\"swp391-audit-project\",\"owner\":{\"login\":\"fptu-se-su26\"}},"
-                + "\"issue\":{\"number\":15,\"html_url\":\"https://github.com/fptu-se-su26/swp391-audit-project/issues/15\",\"title\":\"[BUG] Null pointer exception\",\"body\":\"Occurs on login\"},"
+                + "\"repository\":{\"name\":\"mock-repo\",\"owner\":{\"login\":\"mock-owner\"}},"
+                + "\"issue\":{\"number\":15,\"html_url\":\"https://github.com/mock-owner/mock-repo/issues/15\",\"title\":\"[BUG] Null pointer exception\",\"body\":\"Occurs on login\"},"
                 + "\"sender\":{\"login\":\"datnt\"}"
                 + "}";
 
@@ -183,8 +183,8 @@ class GitHubApiServiceImplTest {
     void handleWebhook_IssuesClosed_MarksBugClosedAndTaskDone() throws Exception {
         String payload = "{"
                 + "\"action\":\"closed\","
-                + "\"repository\":{\"name\":\"swp391-audit-project\",\"owner\":{\"login\":\"fptu-se-su26\"}},"
-                + "\"issue\":{\"number\":12,\"html_url\":\"https://github.com/fptu-se-su26/swp391-audit-project/issues/12\"}"
+                + "\"repository\":{\"name\":\"mock-repo\",\"owner\":{\"login\":\"mock-owner\"}},"
+                + "\"issue\":{\"number\":12,\"html_url\":\"https://github.com/mock-owner/mock-repo/issues/12\"}"
                 + "}";
 
         String signature = hmac(payload, WEBHOOK_SECRET);
@@ -287,8 +287,8 @@ class GitHubApiServiceImplTest {
         GitHubIntegration result = gitHubApiService.getIntegration(PROJECT_ID, USER_ID);
 
         assertThat(result).isNotNull();
-        assertThat(result.getRepoOwner()).isEqualTo("fptu-se-su26");
-        assertThat(result.getRepoName()).isEqualTo("swp391-audit-project");
+        assertThat(result.getRepoOwner()).isEqualTo("mock-owner");
+        assertThat(result.getRepoName()).isEqualTo("mock-repo");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -397,7 +397,7 @@ class GitHubApiServiceImplTest {
 
         Map<String, Object> githubResponse = new HashMap<>();
         githubResponse.put("number", 42);
-        githubResponse.put("html_url", "https://github.com/fptu-se-su26/swp391-audit-project/issues/42");
+        githubResponse.put("html_url", "https://github.com/mock-owner/mock-repo/issues/42");
 
         lenient().when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(githubResponse, HttpStatus.CREATED));
@@ -406,6 +406,38 @@ class GitHubApiServiceImplTest {
 
         verify(bugReportRepository, times(1)).save(mockBugReport);
         assertThat(mockBugReport.getStepsToReproduce()).contains("\"github_issue_number\":42");
+    }
+
+    @Test
+    @DisplayName("updateGitHubIssueStatusForTask — Auto-creates GitHub issue if issue number is NULL (Self-Healing)")
+    void updateGitHubIssueStatusForTask_NullIssueNumber_AutoCreatesIssue() {
+        // GIVEN
+        Task task = Task.builder()
+                .id(99L)
+                .title("Sub-task leak check")
+                .type(TaskType.BUG_FIX)
+                .project(mockProject)
+                .checklist(new ArrayList<>())
+                .githubIssueNumber(null) // NULL to trigger self-healing
+                .build();
+
+        lenient().when(gitHubIntegrationRepository.findByProjectId(PROJECT_ID)).thenReturn(Optional.of(mockIntegration));
+        lenient().when(userGithubTokenRepository.findById(USER_ID)).thenReturn(Optional.of(mockOAuthToken));
+
+        Map<String, Object> githubResponse = new HashMap<>();
+        githubResponse.put("number", 88);
+        githubResponse.put("html_url", "https://github.com/mock-owner/mock-repo/issues/88");
+
+        lenient().when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity<>(githubResponse, HttpStatus.CREATED));
+
+        // WHEN
+        gitHubApiService.updateGitHubIssueStatusForTask(task, USER_ID);
+
+        // THEN
+        verify(taskRepository, times(1)).save(task);
+        assertThat(task.getGithubIssueNumber()).isEqualTo(88);
+        assertThat(task.getGithubIssueUrl()).isEqualTo("https://github.com/mock-owner/mock-repo/issues/88");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

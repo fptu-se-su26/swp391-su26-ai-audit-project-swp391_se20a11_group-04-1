@@ -1,6 +1,7 @@
 package org.example.backend.service.github;
 
 import org.example.backend.entity.BugReport;
+import org.example.backend.entity.Task;
 
 /**
  * Service handling direct API communications with GitHub.
@@ -16,12 +17,28 @@ public interface GitHubApiService {
     void createGitHubIssue(BugReport bugReport, Long userId);
 
     /**
+     * Creates a corresponding GitHub Issue for a Feature/Task.
+     *
+     * @param task   the Task entity (DEVELOPMENT, TESTING, REFACTOR, etc.)
+     * @param userId the ID of the user performing the action
+     */
+    void createGitHubIssueForTask(Task task, Long userId);
+
+    /**
      * Synchronizes the status of the GitHub Issue (open/closed) based on the BugReport's state.
      *
      * @param bugReport the BugReport entity
      * @param userId the ID of the user performing the action
      */
     void updateGitHubIssueStatus(BugReport bugReport, Long userId);
+
+    /**
+     * Synchronizes the status of the GitHub Issue (open/closed) for a Feature/Task.
+     *
+     * @param task   the Task entity
+     * @param userId the ID of the user performing the action
+     */
+    void updateGitHubIssueStatusForTask(Task task, Long userId);
 
     /**
      * Handles incoming GitHub Webhook events (issues opened, closed, assigned, edited).
