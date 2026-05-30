@@ -17,6 +17,7 @@ public class TaskRequest {
     private String type;
     private Long primaryAssigneeId;
     private String priority;
+    private LocalDate startDate;
     private LocalDate deadline;
     private BigDecimal estimatedHours;
     private String status;
