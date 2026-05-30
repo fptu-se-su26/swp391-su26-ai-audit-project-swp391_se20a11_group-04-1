@@ -1,0 +1,10 @@
+{
+  "base_url": "http://localhost:5173",
+  "steps_structured": [
+    { "order": 1, "action": "goto",       "path": "/login",               "description": "Mở trang login" },
+    { "order": 2, "action": "fill",       "selector": "#email",           "value": "test@gmail.com" },
+    { "order": 3, "action": "fill",       "selector": "#password",        "value": "123456" },
+    { "order": 4, "action": "click",      "selector": "button[type=submit]" },
+    { "order": 5, "action": "expect_url", "expected": "/dashboard",       "description": "Redirect về dashboard" }
+  ]
+}
