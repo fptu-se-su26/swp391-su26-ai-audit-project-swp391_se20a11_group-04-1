@@ -12,41 +12,52 @@ function generateFromTemplate(testCase, runId) {
             let code = '';
 
             const sel = (step.selector || '').replace(/"/g, '\\"');
-            const val = (step.value || '').replace(/"/g, '\\"');
-            const exp = (step.expected || '').replace(/"/g, '\\"');
+            let val = (step.value || '').replace(/"/g, '\\"');
+            let exp = (step.expected || '').replace(/"/g, '\\"');
             const pth = (step.path || '').replace(/"/g, '\\"');
+
+            // Xử lý Macro Variables cho Data Dependency
+            const timestamp = Date.now();
+            const randomStr = Math.random().toString(36).substring(2, 8);
+            if (val.includes('{{RANDOM_EMAIL}}')) val = val.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
+            if (val.includes('{{RANDOM_TEXT}}')) val = val.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
+            if (val.includes('{{TIMESTAMP}}')) val = val.replace('{{TIMESTAMP}}', `${timestamp}`);
+            
+            if (exp.includes('{{RANDOM_EMAIL}}')) exp = exp.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
+            if (exp.includes('{{RANDOM_TEXT}}')) exp = exp.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
+            if (exp.includes('{{TIMESTAMP}}')) exp = exp.replace('{{TIMESTAMP}}', `${timestamp}`);
 
             switch (step.action) {
                 case 'goto':
-                    code = `await page.goto("${base_url}${pth}");\n    await page.waitForTimeout(800);`;
+                    code = `await page.goto("${base_url}${pth}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
                     break;
                 case 'fill':
                     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-                        code = `await highlight("${sel}", "Chọn ngày: ${val}");\n    await page.fill("${sel}", "${val}");\n    await page.waitForTimeout(200);`;
+                        code = `await highlight("${sel}", "Chọn ngày: ${val}");\n    await page.fill("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(200);`;
                     } else {
-                        code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "");\n    await page.locator("${sel}").pressSequentially("${val}", { delay: 50 });\n    await page.waitForTimeout(200);`;
+                        code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "", { timeout: 5000 });\n    await page.locator("${sel}").pressSequentially("${val}", { delay: 50, timeout: 5000 });\n    await page.waitForTimeout(200);`;
                     }
                     break;
                 case 'click':
-                    code = `await highlight("${sel}", "Click");\n    await page.click("${sel}");\n    await page.waitForTimeout(500);`;
+                    code = `await highlight("${sel}", "Click");\n    await page.click("${sel}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
                     break;
                 case 'wait_for':
                     code = `await page.waitForSelector("${sel}", { timeout: 5000 });`;
                     break;
                 case 'select':
-                    code = `await highlight("${sel}", "Chọn: ${val}");\n    await page.selectOption("${sel}", "${val}");\n    await page.waitForTimeout(500);`;
+                    code = `await highlight("${sel}", "Chọn: ${val}");\n    await page.selectOption("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
                     break;
                 case 'expect_url':
-                    code = `await expect(page).toHaveURL("${base_url}${exp}");`;
+                    code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${base_url}${exp}", { timeout: 5000 });`;
                     break;
                 case 'expect_text':
-                    code = `await highlight("${sel}", "Check Text: ${exp}");\n    await expect(page.locator("${sel}")).toContainText("${exp}");`;
+                    code = `await highlight("${sel}", "Check Text: ${exp}");\n    await expect(page.locator("${sel}"), "Lỗi Text: Không tìm thấy nội dung. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toContainText("${exp}", { timeout: 5000 });`;
                     break;
                 case 'expect_visible':
-                    code = `await highlight("${sel}", "Check Visible");\n    await expect(page.locator("${sel}")).toBeVisible();`;
+                    code = `await highlight("${sel}", "Check Visible");\n    await expect(page.locator("${sel}"), "Lỗi Hiển thị: Không thấy element. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toBeVisible({ timeout: 5000 });`;
                     break;
                 case 'expect_hidden':
-                    code = `await expect(page.locator("${sel}")).toBeHidden();`;
+                    code = `await expect(page.locator("${sel}")).toBeHidden({ timeout: 5000 });`;
                     break;
                 default:
                     code = `// [UNKNOWN ACTION] ${step.action}`;

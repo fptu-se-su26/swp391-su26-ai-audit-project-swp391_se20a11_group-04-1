@@ -88,9 +88,9 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
         order: i + 1,
         action: s.action || 'goto',
         path: s.action === 'goto' ? s.path : undefined,
-        selector: (s.action === 'fill' || s.action === 'click') ? s.selector : undefined,
-        value: s.action === 'fill' ? s.value : undefined,
-        expected: s.action === 'expect_url' ? s.expected : undefined,
+        selector: ['fill', 'click', 'wait_for', 'select', 'expect_text', 'expect_visible', 'expect_hidden'].includes(s.action) ? s.selector : undefined,
+        value: ['fill', 'select'].includes(s.action) ? s.value : undefined,
+        expected: ['expect_url', 'expect_text'].includes(s.action) ? s.expected : undefined,
         description: s.description || undefined
       }))
     } else {
