@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const statusTone = {
   TODO: 'bg-outline/15 text-on-surface-variant border-outline-variant',
@@ -68,6 +68,10 @@ const TaskMiniCard = ({ task, onDragStart, onRemove }) => (
 
 const WeeklyPlanner = ({ sprint, tasks, onPlanDateChange, onRemoveTask }) => {
   const [weekStart, setWeekStart] = useState(() => sprint?.startDate || '')
+
+  useEffect(() => {
+    setWeekStart(sprint?.startDate || '')
+  }, [sprint?.id, sprint?.startDate])
 
   const weekDays = useMemo(() => {
     if (!sprint?.startDate || !sprint?.endDate) return []

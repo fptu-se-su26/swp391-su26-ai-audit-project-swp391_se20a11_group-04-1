@@ -1,3 +1,4 @@
 export { default as KanbanBoardPage } from './pages/KanbanBoardPage';
 export { default as TaskDetailPage } from './pages/TaskDetailPage';
-export { default as MyTasksPage } from './pages/MyTasksPage';
+// MyTasksPage đã chuyển sang features/my-task
+export { default as MyTasksPage } from '../my-task/pages/MyTasksPage';
