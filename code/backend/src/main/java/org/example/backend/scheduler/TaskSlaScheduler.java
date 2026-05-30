@@ -77,7 +77,7 @@ public class TaskSlaScheduler {
     @Scheduled(fixedDelayString = "${app.events.outbox-publish-delay-ms:30000}")
     public void publishOutboxEvents() {
         try {
-            outboxPublisherService.publishPendingEvents();
+            outboxPublisherService.retryFailedEvents();
         } catch (Exception ex) {
             log.error("OUTBOX_PUBLISH failed", ex);
         }

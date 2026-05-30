@@ -1,5 +1,7 @@
 package org.example.backend.service.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.entity.OutboxEvent;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,10 +14,22 @@ import org.springframework.stereotype.Service;
 public class KafkaEventPublisher implements EventPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void publish(OutboxEvent event) {
-        kafkaTemplate.send(resolveTopic(event), String.valueOf(event.getAggregateId()), event.getPayload()).join();
+        kafkaTemplate.send(resolveTopic(event), String.valueOf(event.getAggregateId()), toEnvelope(event)).join();
+    }
+
+    private String toEnvelope(OutboxEvent event) {
+        try {
+            ObjectNode envelope = objectMapper.createObjectNode();
+            envelope.put("eventType", event.getEventType());
+            envelope.set("payload", objectMapper.readTree(event.getPayload()));
+            return objectMapper.writeValueAsString(envelope);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid outbox event payload", ex);
+        }
     }
 
     private String resolveTopic(OutboxEvent event) {

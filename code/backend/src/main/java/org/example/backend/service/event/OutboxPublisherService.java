@@ -21,6 +21,16 @@ public class OutboxPublisherService {
     @Transactional
     public int publishPendingEvents() {
         List<OutboxEvent> events = outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
+        return publishEvents(events);
+    }
+
+    @Transactional
+    public int retryFailedEvents() {
+        List<OutboxEvent> events = outboxEventRepository.findTop50ByStatusAndRetryCountGreaterThanOrderByCreatedAtAsc("FAILED", 0);
+        return publishEvents(events);
+    }
+
+    private int publishEvents(List<OutboxEvent> events) {
         int published = 0;
         for (OutboxEvent event : events) {
             try {

@@ -1,7 +1,11 @@
 package org.example.backend.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.example.backend.dto.OutboxEventActivityResponse;
 import org.example.backend.dto.OutboxSummaryResponse;
+import org.example.backend.dto.SchedulerEmailResponse;
 import org.example.backend.dto.SchedulerRunResponse;
 import org.example.backend.dto.SlaDashboardResponse;
 import org.example.backend.dto.SlaFlagResponse;
@@ -42,8 +46,10 @@ public class SlaDashboardServiceImpl implements SlaDashboardService {
     private final ProjectMemberRepository projectMemberRepository;
     private final SchedulerRunLogRepository schedulerRunLogRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final EmailLogRepository emailLogRepository;
     private final TaskSlaRuleService taskSlaRuleService;
     private final UserAccountRepository userAccountRepository;
+    private final ObjectMapper objectMapper;
     private final Clock clock;
 
     @Override
@@ -139,7 +145,193 @@ public class SlaDashboardServiceImpl implements SlaDashboardService {
                 .failedCount(outboxEventRepository.countByStatus("FAILED"))
                 .publishedTodayCount(outboxEventRepository.countByStatusAndPublishedAtAfter("PUBLISHED", todayStart))
                 .latestError(latestError)
+                .recentEvents(outboxEventRepository.findTop12ByOrderByCreatedAtDesc().stream()
+                        .map(this::toOutboxActivity)
+                        .toList())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchedulerEmailResponse> getSchedulerRunEmails(String jobName, Long userId) {
+        ensureLoggedIn(userId);
+        SchedulerRunLog runLog = latestRunOrThrow(jobName);
+        return emailLogRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(
+                        runLog.getStartedAt(),
+                        runLogEnd(runLog))
+                .stream()
+                .filter(email -> emailMatchesJob(jobName, email))
+                .map(this::toSchedulerEmail)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OutboxEventActivityResponse> getSchedulerRunEvents(String jobName, Long userId) {
+        ensureLoggedIn(userId);
+        SchedulerRunLog runLog = latestRunOrThrow(jobName);
+        return outboxEventRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(
+                        runLog.getStartedAt(),
+                        runLogEnd(runLog))
+                .stream()
+                .filter(event -> eventMatchesJob(jobName, event))
+                .map(this::toOutboxActivity)
+                .toList();
+    }
+
+    private SchedulerRunLog latestRunOrThrow(String jobName) {
+        return schedulerRunLogRepository.findTopByJobNameOrderByStartedAtDesc(jobName)
+                .orElseThrow(() -> new CustomException("Scheduler run not found", HttpStatus.NOT_FOUND));
+    }
+
+    private LocalDateTime runLogEnd(SchedulerRunLog runLog) {
+        return runLog.getFinishedAt() != null ? runLog.getFinishedAt() : LocalDateTime.now(clock);
+    }
+
+    private boolean emailMatchesJob(String jobName, EmailLog email) {
+        if ("DAILY_DIGEST_SEND".equals(jobName)) {
+            return "DAILY_MEMBER_DIGEST".equals(email.getEmailType());
+        }
+        return "OUTBOX_PUBLISH".equals(jobName) || "WEEKLY_REPORT_GENERATE".equals(jobName);
+    }
+
+    private boolean eventMatchesJob(String jobName, OutboxEvent event) {
+        return switch (jobName) {
+            case "DAILY_DIGEST_BUILD" -> "DAILY_DIGEST_BUILT".equals(event.getEventType());
+            case "DAILY_DIGEST_SEND" -> "EMAIL_DAILY_DIGEST_SENT".equals(event.getEventType());
+            case "WEEKLY_REPORT_GENERATE" -> "WEEKLY_REPORT_GENERATED".equals(event.getEventType());
+            case "OUTBOX_PUBLISH" -> true;
+            default -> false;
+        };
+    }
+
+    private SchedulerEmailResponse toSchedulerEmail(EmailLog email) {
+        UserAccount recipient = email.getRecipient();
+        return SchedulerEmailResponse.builder()
+                .id(email.getId())
+                .recipientName(resolveAssigneeName(recipient))
+                .recipientEmail(email.getRecipientEmail())
+                .subject(email.getSubject())
+                .status(email.getStatus())
+                .errorMessage(email.getErrorMessage())
+                .createdAt(email.getCreatedAt())
+                .sentAt(email.getSentAt())
+                .build();
+    }
+
+    private OutboxEventActivityResponse toOutboxActivity(OutboxEvent event) {
+        JsonNode payload = parsePayload(event.getPayload());
+        UserAccount recipient = resolvePayloadUser(payload);
+        String payloadEmail = text(payload, "email");
+        String recipientName = recipient != null ? resolveAssigneeName(recipient) : fallbackRecipientName(event, payload);
+        String recipientEmail = recipient != null ? recipient.getEmail() : payloadEmail;
+
+        return OutboxEventActivityResponse.builder()
+                .id(event.getId())
+                .eventType(event.getEventType())
+                .status(event.getStatus())
+                .recipientName(recipientName)
+                .recipientEmail(recipientEmail)
+                .actionLabel(actionLabel(event.getEventType()))
+                .message(activityMessage(event.getEventType()))
+                .targetLabel(targetLabel(event))
+                .createdAt(event.getCreatedAt())
+                .publishedAt(event.getPublishedAt())
+                .build();
+    }
+
+    private JsonNode parsePayload(String payload) {
+        if (payload == null || payload.isBlank()) {
+            return objectMapper.createObjectNode();
+        }
+        try {
+            return objectMapper.readTree(payload);
+        } catch (Exception ignored) {
+            return objectMapper.createObjectNode();
+        }
+    }
+
+    private UserAccount resolvePayloadUser(JsonNode payload) {
+        Long userId = firstLong(payload, "userId", "assigneeId", "reviewerId", "recipientId");
+        if (userId != null) {
+            return userAccountRepository.findById(userId).orElse(null);
+        }
+        String email = text(payload, "email");
+        if (email != null && !email.isBlank()) {
+            return userAccountRepository.findByEmail(email).orElse(null);
+        }
+        return null;
+    }
+
+    private Long firstLong(JsonNode payload, String... fields) {
+        for (String field : fields) {
+            JsonNode value = payload.get(field);
+            if (value != null && value.canConvertToLong()) {
+                return value.asLong();
+            }
+        }
+        return null;
+    }
+
+    private String text(JsonNode payload, String field) {
+        JsonNode value = payload.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        String text = value.asText();
+        return text == null || text.isBlank() ? null : text;
+    }
+
+    private String fallbackRecipientName(OutboxEvent event, JsonNode payload) {
+        String name = text(payload, "recipientName");
+        if (name != null) {
+            return name;
+        }
+        if ("WEEKLY_REPORT_GENERATED".equals(event.getEventType())) {
+            return "Leader and mentor";
+        }
+        if ("EVIDENCE_REVIEW_REQUIRED".equals(event.getEventType())) {
+            return "Evidence reviewer";
+        }
+        return "Project team";
+    }
+
+    private String actionLabel(String eventType) {
+        return switch (eventType) {
+            case "TASK_PENALTY_APPLIED" -> "Task penalty alert";
+            case "WEEKLY_REPORT_GENERATED" -> "Weekly report generated";
+            case "EMAIL_DAILY_DIGEST_SENT" -> "Daily digest email sent";
+            case "DAILY_DIGEST_BUILT" -> "Daily digest built";
+            case "EVIDENCE_REVIEW_REQUIRED" -> "Evidence review requested";
+            default -> eventType != null ? eventType.replace('_', ' ') : "Notification";
+        };
+    }
+
+    private String activityMessage(String eventType) {
+        return switch (eventType) {
+            case "TASK_PENALTY_APPLIED" -> "The task missed its SLA or evidence rule, so a penalty alert was sent.";
+            case "WEEKLY_REPORT_GENERATED" -> "A weekly report was generated for leader and mentor review.";
+            case "EMAIL_DAILY_DIGEST_SENT" -> "A daily reminder email was sent to the related member.";
+            case "DAILY_DIGEST_BUILT" -> "The system grouped risky tasks into a daily reminder list.";
+            case "EVIDENCE_REVIEW_REQUIRED" -> "New evidence is waiting for leader or mentor review.";
+            default -> "The system processed a queued notification.";
+        };
+    }
+
+    private String targetLabel(OutboxEvent event) {
+        String aggregateType = event.getAggregateType();
+        Long aggregateId = event.getAggregateId();
+        if (aggregateType == null || aggregateId == null) {
+            return "Project related";
+        }
+        return switch (aggregateType) {
+            case "TASK", "Task" -> "Task #" + aggregateId;
+            case "EVIDENCE", "Evidence" -> "Evidence #" + aggregateId;
+            case "WEEKLY_REPORT", "WeeklyReport" -> "Weekly report #" + aggregateId;
+            case "DAILY_DIGEST", "DailyDigest" -> "Daily digest #" + aggregateId;
+            case "PROJECT", "Project" -> "Project #" + aggregateId;
+            default -> aggregateType + " #" + aggregateId;
+        };
     }
 
     private List<SlaFlagResponse> buildFlags(int penaltyCount, int frozenTaskCount, long maxFrozenDays,
@@ -240,24 +432,24 @@ public class SlaDashboardServiceImpl implements SlaDashboardService {
     private String buildViolationReason(Task task, TaskSlaEvaluation evaluation) {
         List<String> reasons = new ArrayList<>();
         if (evaluation.has(TaskSlaCategory.OVERDUE_FROZEN)) {
-            reasons.add("trễ " + evaluation.overdueDays() + " ngày, cần leader xử lý");
+            reasons.add("overdue by " + evaluation.overdueDays() + " day(s), leader action needed");
         } else if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
-            reasons.add("trễ " + evaluation.overdueDays() + " ngày");
+            reasons.add("overdue by " + evaluation.overdueDays() + " day(s)");
         }
         if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) || task.isOverduePenaltyApplied()) {
-            reasons.add("đã chạm điều kiện penalty");
+            reasons.add("penalty condition reached");
         }
         if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-            reasons.add("Done nhưng thiếu accepted evidence");
+            reasons.add("Done but missing accepted evidence");
         }
         if (evaluation.has(TaskSlaCategory.DUE_SOON)) {
             reasons.add("deadline trong 24h");
         }
         if (evaluation.has(TaskSlaCategory.BLOCKED)) {
-            reasons.add("đang blocked" + (task.getBlockedReason() != null ? ": " + task.getBlockedReason() : ""));
+            reasons.add("blocked" + (task.getBlockedReason() != null ? ": " + task.getBlockedReason() : ""));
         }
         if (reasons.isEmpty()) {
-            reasons.add("cần kiểm tra SLA");
+            reasons.add("SLA review needed");
         }
         return String.join("; ", reasons);
     }

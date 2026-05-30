@@ -109,6 +109,14 @@ const schedulerName = {
   OUTBOX_PUBLISH: 'Outbox Publish',
 }
 
+const schedulerAccent = {
+  TASK_SLA_SCAN: 'border-l-blue-500 bg-blue-50/60',
+  DAILY_DIGEST_BUILD: 'border-l-amber-500 bg-amber-50/60',
+  DAILY_DIGEST_SEND: 'border-l-emerald-500 bg-emerald-50/60',
+  WEEKLY_REPORT_GENERATE: 'border-l-violet-500 bg-violet-50/60',
+  OUTBOX_PUBLISH: 'border-l-sky-500 bg-sky-50/60',
+}
+
 const schedulerItems = (run) => Math.max(run?.totalScanned || 0, run?.totalCreated || 0, run?.totalSent || 0)
 
 const schedulerTone = (status) => {
@@ -116,6 +124,34 @@ const schedulerTone = (status) => {
   if (status === 'FAILED') return 'bg-red-50 text-red-700'
   if (status === 'RUNNING') return 'bg-blue-50 text-blue-700'
   return 'bg-surface-container-low text-on-surface-variant'
+}
+
+const eventTone = (status) => {
+  if (status === 'PUBLISHED' || status === 'SUCCESS') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  if (status === 'FAILED') return 'bg-red-50 text-red-700 border-red-200'
+  if (status === 'PENDING') return 'bg-amber-50 text-amber-700 border-amber-200'
+  return 'bg-surface-container-low text-on-surface-variant border-outline-variant'
+}
+
+const schedulerEventTypes = {
+  DAILY_DIGEST_BUILD: ['DAILY_DIGEST_BUILT'],
+  DAILY_DIGEST_SEND: ['EMAIL_DAILY_DIGEST_SENT'],
+  WEEKLY_REPORT_GENERATE: ['WEEKLY_REPORT_GENERATED'],
+  OUTBOX_PUBLISH: ['TASK_PENALTY_APPLIED', 'WEEKLY_REPORT_GENERATED', 'EMAIL_DAILY_DIGEST_SENT', 'EVIDENCE_REVIEW_REQUIRED'],
+}
+
+const schedulerDetailIntro = {
+  TASK_SLA_SCAN: 'This run scans tasks for overdue, due-soon, missing-evidence, and penalty risks.',
+  DAILY_DIGEST_BUILD: 'This run groups risky tasks into the daily reminder list.',
+  DAILY_DIGEST_SEND: 'This run sends reminder emails to the related members.',
+  WEEKLY_REPORT_GENERATE: 'This run generates the weekly report for leader and mentor review.',
+  OUTBOX_PUBLISH: 'This run publishes queued notifications such as emails, penalty alerts, evidence reviews, and reports.',
+}
+
+const primarySchedulerStat = (job) => {
+  if (job?.totalSent > 0) return ['Sent', job.totalSent]
+  if (job?.totalCreated > 0) return ['Created', job.totalCreated]
+  return ['Scanned', job?.totalScanned || 0]
 }
 
 const metricDetails = {
@@ -165,6 +201,10 @@ export function WeeklyReportPage() {
   const [outboxSummary, setOutboxSummary] = useState(null)
   const [issueFilter, setIssueFilter] = useState({ type: 'all' })
   const [selectedScheduler, setSelectedScheduler] = useState(null)
+  const [schedulerTab, setSchedulerTab] = useState('emails')
+  const [schedulerEmails, setSchedulerEmails] = useState([])
+  const [schedulerEvents, setSchedulerEvents] = useState([])
+  const [schedulerDetailLoading, setSchedulerDetailLoading] = useState(false)
 
   const refreshLiveData = useCallback(async () => {
     if (!activeProject?.id) return
@@ -205,6 +245,34 @@ export function WeeklyReportPage() {
   useEffect(() => {
     loadReports()
   }, [loadReports])
+
+  useEffect(() => {
+    if (!selectedScheduler?.jobName) return
+    let active = true
+    setSchedulerDetailLoading(true)
+    Promise.all([
+      weeklyReportService.getSchedulerRunEmails(selectedScheduler.jobName),
+      weeklyReportService.getSchedulerRunEvents(selectedScheduler.jobName),
+    ])
+      .then(([emails, events]) => {
+        if (!active) return
+        setSchedulerEmails(emails || [])
+        setSchedulerEvents(events || [])
+      })
+      .catch((err) => {
+        console.error('Error loading scheduler detail:', err)
+        if (active) {
+          setSchedulerEmails([])
+          setSchedulerEvents([])
+        }
+      })
+      .finally(() => {
+        if (active) setSchedulerDetailLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedScheduler?.jobName])
 
   const tabReports = useMemo(() => ({
     this: reports[0] || null,
@@ -260,6 +328,11 @@ export function WeeklyReportPage() {
   const flags = slaDashboard?.flags || []
   const overdueCount = slaDashboard?.overdueCount ?? selectedReport?.totalOverdueTasks ?? 0
   const outboxPending = outboxSummary?.pendingCount || 0
+  const outboxEvents = outboxSummary?.recentEvents || []
+  const selectedEventTypes = schedulerEventTypes[selectedScheduler?.jobName] || []
+  const selectedSchedulerEvents = selectedEventTypes.length > 0
+    ? outboxEvents.filter((event) => selectedEventTypes.includes(event.eventType))
+    : []
   const filteredViolations = violations.filter((violation) => {
     if (issueFilter.type === 'member') return violation.assigneeId === issueFilter.memberId
     if (issueFilter.type === 'category') return violation.categories?.includes(issueFilter.category)
@@ -590,48 +663,120 @@ export function WeeklyReportPage() {
 
             <section className="rounded-xl border border-outline-variant/60 bg-surface-container-lowest shadow-sm">
               <div className="border-b border-outline-variant/60 p-4">
-                <h2 className="text-base font-black">Scheduler</h2>
-                <p className="mt-1 text-xs font-bold text-on-surface-variant">OUTBOX pending: {outboxPending}. Click a job for run detail.</p>
-              </div>
-              <div className="divide-y divide-outline-variant/60">
-                {schedulerRuns.map((job) => (
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-black">Scheduler</h2>
+                    <p className="mt-1 text-xs font-bold text-on-surface-variant">Click a job to inspect emails and outbox events.</p>
+                  </div>
                   <button
-                    key={job.jobName}
                     type="button"
-                    onClick={() => setSelectedScheduler(job)}
-                    className={`flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-surface-container-low ${
-                      selectedScheduler?.jobName === job.jobName ? 'bg-secondary-container/70' : ''
+                    onClick={() => {
+                      const outboxJob = schedulerRuns.find((job) => job.jobName === 'OUTBOX_PUBLISH')
+                      if (outboxJob) setSelectedScheduler(outboxJob)
+                      setSchedulerTab('events')
+                    }}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black ${
+                      outboxPending > 0
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     }`}
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black">{schedulerName[job.jobName] || job.jobName}</p>
-                      <p className="text-xs font-bold text-on-surface-variant">
-                        {formatSchedulerTime(job.finishedAt || job.startedAt)} - {schedulerItems(job)} item(s)
-                      </p>
-                    </div>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${schedulerTone(job.status)}`}>{job.status}</span>
+                    Outbox: {outboxPending} pending
                   </button>
-                ))}
+                </div>
+              </div>
+              <div className="grid gap-3 p-4">
+                {schedulerRuns.map((job) => {
+                  const [statLabel, statValue] = primarySchedulerStat(job)
+                  return (
+                    <button
+                      key={job.jobName}
+                      type="button"
+                      onClick={() => {
+                        setSelectedScheduler(job)
+                        setSchedulerTab(job.jobName === 'DAILY_DIGEST_SEND' ? 'emails' : 'events')
+                      }}
+                      className={`rounded-xl border border-l-4 p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${
+                        schedulerAccent[job.jobName] || 'border-l-slate-400 bg-surface-container-lowest'
+                      } ${selectedScheduler?.jobName === job.jobName ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black">{schedulerName[job.jobName] || job.jobName}</p>
+                          <p className="mt-1 text-xs font-bold text-on-surface-variant">{formatSchedulerTime(job.finishedAt || job.startedAt)}</p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${schedulerTone(job.status)}`}>{job.status}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-2xl font-black leading-none text-on-surface">{statValue}</p>
+                          <p className="mt-1 text-[10px] font-black uppercase text-on-surface-variant">{statLabel}</p>
+                        </div>
+                        <MiniChip label="created" value={job.totalCreated || 0} />
+                        <MiniChip label="sent" value={job.totalSent || 0} />
+                      </div>
+                    </button>
+                  )
+                })}
                 {schedulerRuns.length === 0 && (
                   <p className="p-4 text-center text-xs font-bold text-on-surface-variant">No scheduler runs yet.</p>
                 )}
               </div>
               {selectedScheduler && (
                 <div className="border-t border-outline-variant/60 bg-surface-container-low p-4">
-                  <p className="text-xs font-black uppercase text-on-surface-variant">Run detail</p>
+                  <p className="text-xs font-black uppercase text-on-surface-variant">What did the system do?</p>
                   <p className="mt-1 text-sm font-black text-on-surface">{schedulerName[selectedScheduler.jobName] || selectedScheduler.jobName}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <MiniChip label="scanned" value={selectedScheduler.totalScanned || 0} />
-                    <MiniChip label="created" value={selectedScheduler.totalCreated || 0} />
-                    <MiniChip label="sent" value={selectedScheduler.totalSent || 0} />
-                    <MiniChip label="status" value={selectedScheduler.status || '-'} />
-                  </div>
-                  <p className="mt-3 text-xs leading-5 text-on-surface-variant">
-                    Started {formatDateTime(selectedScheduler.startedAt)}. Finished {formatDateTime(selectedScheduler.finishedAt)}.
+                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">
+                    {schedulerDetailIntro[selectedScheduler.jobName] || 'This run processed background system work.'}
                   </p>
-                  {selectedScheduler.errorMessage && (
-                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{selectedScheduler.errorMessage}</p>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-xl bg-surface-container-lowest p-3"><p className="text-2xl font-black leading-none">{selectedScheduler.totalScanned || 0}</p><p className="mt-1 text-[10px] font-black uppercase text-on-surface-variant">Scanned</p></div>
+                    <div className="rounded-xl bg-surface-container-lowest p-3"><p className="text-2xl font-black leading-none">{selectedScheduler.totalCreated || 0}</p><p className="mt-1 text-[10px] font-black uppercase text-on-surface-variant">Created</p></div>
+                    <div className="rounded-xl bg-surface-container-lowest p-3"><p className="text-2xl font-black leading-none">{selectedScheduler.totalSent || 0}</p><p className="mt-1 text-[10px] font-black uppercase text-on-surface-variant">Sent</p></div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="h-2 overflow-hidden rounded-full bg-outline-variant/50"><div className={`h-full rounded-full ${selectedScheduler.status === 'FAILED' ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: selectedScheduler.finishedAt ? '100%' : '45%' }} /></div>
+                    <div className="mt-2 flex justify-between gap-3 text-[11px] font-bold text-on-surface-variant"><span>Start {formatDateTime(selectedScheduler.startedAt)}</span><span>Finish {formatDateTime(selectedScheduler.finishedAt)}</span></div>
+                  </div>
+
+                  <div className="mt-4 inline-flex w-full rounded-lg bg-surface-container-lowest p-1">
+                    {[
+                      ['emails', `Emails sent (${schedulerEmails.length})`],
+                      ['events', `Outbox events (${schedulerEvents.length})`],
+                    ].map(([key, label]) => (
+                      <button key={key} type="button" onClick={() => setSchedulerTab(key)} className={`min-h-9 flex-1 rounded-md px-3 text-xs font-black transition-colors ${schedulerTab === key ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>{label}</button>
+                    ))}
+                  </div>
+
+                  {schedulerDetailLoading ? (
+                    <p className="mt-3 rounded-lg bg-surface-container-lowest px-3 py-3 text-center text-xs font-bold text-on-surface-variant">Loading detail...</p>
+                  ) : schedulerTab === 'emails' ? (
+                    <div className="mt-3 space-y-2">
+                      {schedulerEmails.map((email) => (
+                        <article key={email.id} className="flex items-start gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-xs font-black text-on-primary-fixed">{(email.recipientName || email.recipientEmail || '?').slice(0, 1).toUpperCase()}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-black">{email.recipientName || 'Unknown recipient'}</p><p className="truncate text-xs font-bold text-on-surface-variant">{email.recipientEmail}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${eventTone(email.status)}`}>{email.status}</span></div>
+                            <p className="mt-2 text-xs font-bold text-on-surface">{email.subject}</p><p className="mt-1 text-[11px] font-semibold text-on-surface-variant">{formatDateTime(email.sentAt || email.createdAt)}</p>{email.errorMessage && <p className="mt-2 text-xs font-bold text-red-700">{email.errorMessage}</p>}
+                          </div>
+                        </article>
+                      ))}
+                      {schedulerEmails.length === 0 && <p className="rounded-lg bg-surface-container-lowest px-3 py-3 text-center text-xs font-bold text-on-surface-variant">No emails for the latest run of this job.</p>}
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {schedulerEvents.map((event) => (
+                        <article key={event.id} className="rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-3">
+                          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-black text-on-surface">{event.actionLabel || event.eventType}</p><p className="mt-1 text-xs leading-5 text-on-surface-variant">{event.message}</p></div><span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${eventTone(event.status)}`}>{event.status || '-'}</span></div>
+                          <div className="mt-3 grid grid-cols-1 gap-2 text-xs md:grid-cols-2"><div className="rounded-lg bg-surface-container-low px-3 py-2"><p className="font-black text-on-surface-variant">Sent to</p><p className="mt-1 truncate font-bold text-on-surface">{event.recipientName || 'Project team'}</p>{event.recipientEmail && <p className="mt-0.5 truncate font-semibold text-on-surface-variant">{event.recipientEmail}</p>}</div><div className="rounded-lg bg-surface-container-low px-3 py-2"><p className="font-black text-on-surface-variant">Related item</p><p className="mt-1 truncate font-bold text-on-surface">{event.targetLabel || '-'}</p><p className="mt-0.5 font-semibold text-on-surface-variant">{formatDateTime(event.publishedAt || event.createdAt)}</p></div></div>
+                        </article>
+                      ))}
+                      {schedulerEvents.length === 0 && <p className="rounded-lg bg-surface-container-lowest px-3 py-3 text-center text-xs font-bold text-on-surface-variant">No outbox events for the latest run of this job.</p>}
+                    </div>
                   )}
+                  {selectedScheduler.errorMessage && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{selectedScheduler.errorMessage}</p>}
                 </div>
               )}
             </section>

@@ -26,6 +26,16 @@ export const weeklyReportService = {
     return response.data.data
   },
 
+  getSchedulerRunEmails: async (jobName) => {
+    const response = await axiosInstance.get(`/v1/scheduler/runs/${jobName}/emails`)
+    return response.data.data
+  },
+
+  getSchedulerRunEvents: async (jobName) => {
+    const response = await axiosInstance.get(`/v1/scheduler/runs/${jobName}/events`)
+    return response.data.data
+  },
+
   getOutboxSummary: async () => {
     const response = await axiosInstance.get('/v1/outbox/summary')
     return response.data.data
