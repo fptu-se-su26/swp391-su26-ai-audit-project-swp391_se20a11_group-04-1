@@ -47,7 +47,12 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                       <option value="goto">Navigate (goto)</option>
                       <option value="fill">Input (fill)</option>
                       <option value="click">Click</option>
+                      <option value="select">Select Option</option>
+                      <option value="wait_for">Wait for Element</option>
                       <option value="expect_url">Expect URL</option>
+                      <option value="expect_text">Expect Text</option>
+                      <option value="expect_visible">Expect Visible</option>
+                      <option value="expect_hidden">Expect Hidden</option>
                     </select>
 
                     {/* Dynamic Inputs based on Action */}
@@ -62,7 +67,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                       />
                     )}
 
-                    {(step.action === 'fill' || step.action === 'click') && (
+                    {['fill', 'click', 'wait_for', 'select', 'expect_text', 'expect_visible', 'expect_hidden'].includes(step.action) && (
                       <input
                         type="text"
                         value={step.selector || ''}
@@ -73,23 +78,23 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                       />
                     )}
 
-                    {step.action === 'fill' && (
+                    {['fill', 'select'].includes(step.action) && (
                       <input
                         type="text"
                         value={step.value || ''}
                         onChange={(e) => handleChangeStep(index, 'value', e.target.value)}
-                        placeholder="Value to input"
+                        placeholder={step.action === 'select' ? "Option value to select" : "Value to input"}
                         className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
                         required
                       />
                     )}
 
-                    {step.action === 'expect_url' && (
+                    {['expect_url', 'expect_text'].includes(step.action) && (
                       <input
                         type="text"
                         value={step.expected || ''}
                         onChange={(e) => handleChangeStep(index, 'expected', e.target.value)}
-                        placeholder="Expected URL (e.g. /dashboard)"
+                        placeholder={step.action === 'expect_text' ? "Expected Text" : "Expected URL (e.g. /dashboard)"}
                         className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
                         required
                       />
