@@ -62,6 +62,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Ho tro Kafka event bus cho SLA/notification flow (co local fallback khi chua bat Kafka) -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
         <!-- Ho tro quan ly Distributed Session qua Redis -->
         <dependency>
             <groupId>org.springframework.session</groupId>

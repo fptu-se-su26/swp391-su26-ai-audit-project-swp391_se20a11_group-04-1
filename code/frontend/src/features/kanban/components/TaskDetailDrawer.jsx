@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { TASK_STATUSES } from '../store/useKanbanStore'
 
-const TaskDetailDrawer = ({ task, onClose, onStatusChange, onToggleChecklist }) => {
+const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChange, onToggleChecklist }) => {
   const { projectId } = useParams()
   const taskDetailPath = task && projectId ? `/projects/${projectId}/tasks/${task.id}` : '#'
 
@@ -17,7 +17,7 @@ const TaskDetailDrawer = ({ task, onClose, onStatusChange, onToggleChecklist }) 
                 {task.id}
               </span>
               <span className="bg-primary text-white font-label-md text-[10px] px-1.5 py-0.5 rounded">
-                {task.status.replaceAll('_', ' ')}
+                {(task.columnName || task.status).replaceAll('_', ' ')}
               </span>
             </div>
             <button
@@ -72,16 +72,43 @@ const TaskDetailDrawer = ({ task, onClose, onStatusChange, onToggleChecklist }) 
                 <span className="text-xs font-semibold text-outline uppercase block mb-1">Sprint</span>
                 <span className="text-on-background font-medium">{task.sprint}</span>
               </div>
+              <div>
+                <span className="text-xs font-semibold text-outline uppercase block mb-1">Start</span>
+                <span className="text-on-background font-medium">{task.startDate || 'Not set'}</span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-outline uppercase block mb-1">Deadline</span>
+                <span className={task.overduePenaltyApplied ? 'text-error font-semibold' : 'text-on-background font-medium'}>
+                  {task.deadline || 'Not set'}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-outline uppercase block mb-1">Weight</span>
+                <span className="text-on-background font-medium">{task.weight || 1}x</span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-outline uppercase block mb-1">Estimate</span>
+                <span className="text-on-background font-medium">{task.estimatedHours ? `${task.estimatedHours}h` : 'Not set'}</span>
+              </div>
             </div>
+
+            {task.overduePenaltyApplied && (
+              <div className="rounded-lg border border-error/20 bg-error/10 p-3 text-xs text-error">
+                Overdue penalty applied{task.overduePenaltyAppliedAt ? ` at ${task.overduePenaltyAppliedAt}` : ''}.
+              </div>
+            )}
 
             <div>
               <h3 className="text-sm font-bold text-on-background border-b border-outline-variant pb-2 mb-3">Status</h3>
               <select
-                value={task.status}
-                onChange={(event) => onStatusChange(task.id, event.target.value)}
+                value={task.columnId || columns.find((column) => column.statusKey === task.status)?.id || ''}
+                onChange={(event) => {
+                  const column = columns.find((item) => item.id === event.target.value)
+                  onStatusChange(task.id, column?.statusKey || task.status, column?.id || null)
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-background focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {TASK_STATUSES.map((status) => (
+                {columns.map((status) => (
                   <option key={status.id} value={status.id}>
                     {status.title}
                   </option>

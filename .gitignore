@@ -71,13 +71,16 @@ node_modules/
 coChe.md
 Nguyen_Thanh_Dat/coChe.md
 trigger.md
-private_notes/
+private_notes/schema.sql
 Nguyen_Minh_Hieu/AI_PROJECT_CONTEXT_LOG.md
 Nguyen_Minh_Hieu/MODULE_IMPLEMENTATION_TECHNIQUE_LOG.md
 Nguyen_Minh_Hieu/AGENT_HANDOFF_GUIDE.md
 lichsu/
+schema.sql
+AIRequirement.md
 
 # --- LOCAL WORKING NOTES / ACCIDENTAL ROOT ARTIFACTS ---
 /package-lock.json
 /code/KANBAN_UPGRADE_PLAN.md
 /code/.gitignore
+/Tin/

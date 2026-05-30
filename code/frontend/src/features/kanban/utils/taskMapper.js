@@ -27,11 +27,12 @@ const getInitials = (name = 'Unassigned') =>
     .toUpperCase() || 'UA'
 
 const buildAssignee = (assignee) => {
-  const name = assignee?.name || assignee?.email || 'Unassigned'
+  const name = assignee?.fullName || assignee?.name || assignee?.email || 'Unassigned'
 
   return {
-    id: assignee?.id || null,
+    id: assignee?.id ? String(assignee.id) : null,  // luôn là string để so sánh nhất quán
     name,
+    fullName: name,  // thêm fullName để AiInsightPanel dùng
     email: assignee?.email || '',
     initials: getInitials(name),
     color: 'bg-surface-container-highest text-on-surface-variant',
@@ -45,14 +46,31 @@ export const mapTaskFromApi = (task) => ({
   type: backendToUiType[task.type] || 'DEV',
   priority: task.priority || 'MEDIUM',
   status: task.status || 'TODO',
+  columnId: task.columnId ? String(task.columnId) : null,
+  columnName: task.columnName || '',
   sprint: task.sprintName || (task.sprintId ? `Sprint ${task.sprintId}` : 'No Sprint'),
   sprintId: task.sprintId || null,
+  startDate: task.startDate || '',
+  deadline: task.deadline || '',
+  weight: task.weight ?? 1,
+  estimatedHours: task.estimatedHours ?? '',
+  overduePenaltyApplied: Boolean(task.overduePenaltyApplied),
+  overduePenaltyAppliedAt: task.overduePenaltyAppliedAt || '',
+  sprintPlanDate: task.sprintPlanDate || null,
   assignee: buildAssignee(task.primaryAssignee),
   requirement: task.requirementCode || (task.requirementId ? `REQ-${String(task.requirementId).padStart(2, '0')}` : 'No Requirement'),
   requirementId: task.requirementId || null,
   evidenceStatus: 'Not Uploaded',
   testStatus: 'Not Run',
   blockedReason: task.blockedReason || '',
+  // Thêm các field cần cho Daily/Weekly view
+  deadline: task.deadline || null,
+  estimatedHours: task.estimatedHours || null,
+  updatedAt: task.updatedAt || null,
+  createdAt: task.createdAt || null,
+  evidenceCount: task.evidenceCount || 0,
+  // sprintId giữ nguyên number để match với activeSprint.id
+  sprintId: task.sprintId ? Number(task.sprintId) : null,
   checklist: (task.checklist || []).map((item) => ({
     id: String(item.id),
     text: item.content,
@@ -74,7 +92,12 @@ export const mapTaskToApi = (payload) => ({
   type: uiToBackendType[payload.type] || 'DEVELOPMENT',
   primaryAssigneeId: payload.assigneeId ? Number(payload.assigneeId) : null,
   priority: payload.priority || 'MEDIUM',
+  startDate: payload.startDate || null,
+  deadline: payload.deadline || null,
+  weight: payload.weight ? Number(payload.weight) : 1,
+  estimatedHours: payload.estimatedHours ? Number(payload.estimatedHours) : null,
   status: payload.status || 'TODO',
+  columnId: payload.columnId ? Number(payload.columnId) : null,
   blockedReason: payload.status === 'BLOCKED' ? payload.blockedReason?.trim() || 'Reason not provided yet' : '',
   checklist: (payload.checklist || []).map((item, index) => ({
     id: Number.isFinite(Number(item.id)) ? Number(item.id) : null,
