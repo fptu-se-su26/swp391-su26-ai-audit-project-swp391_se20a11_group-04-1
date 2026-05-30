@@ -8,7 +8,7 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.entity.enums.Environment;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
-import org.example.backend.service.GitHubApiService;
+import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.service.TaskService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

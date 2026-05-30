@@ -31,7 +31,7 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 import RtmPage from '@features/rtm/pages/RtmPage'
 
 // Feature Pages - Issue Tracker
-import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig } from '@features/issue-tracker'
+import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage } from '@features/issue-tracker'
 
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
@@ -59,6 +59,7 @@ export function AppRoutes() {
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/github/callback" element={<GitHubCallbackPage />} />
           
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>

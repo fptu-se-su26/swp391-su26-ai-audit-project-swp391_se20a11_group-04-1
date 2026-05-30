@@ -1,4 +1,4 @@
-package org.example.backend.service.impl;
+package org.example.backend.service.github.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +9,8 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.entity.enums.Environment;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
-import org.example.backend.service.GitHubApiService;
+import org.example.backend.service.EncryptionService;
+import org.example.backend.service.github.GitHubApiService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -41,12 +42,17 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     private final ProjectMemberRepository projectMemberRepository;
     private final UserGithubTokenRepository userGithubTokenRepository;
     private final ObjectMapper objectMapper;
+    private final EncryptionService encryptionService;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String ALGORITHM = "AES";
-    
-    @Value("${github.encryption.key}")
-    private String encryptionKey;
+    @Value("${github.client-id}")
+    private String clientId;
+
+    @Value("${github.client-secret}")
+    private String clientSecret;
+
+    @Value("${github.redirect-uri}")
+    private String redirectUri;
 
     @Override
     public void createGitHubIssue(BugReport bugReport, Long userId) {
@@ -54,8 +60,10 @@ public class GitHubApiServiceImpl implements GitHubApiService {
         GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId)
                 .orElseThrow(() -> new CustomException("GitHub integration not found for this project", HttpStatus.BAD_REQUEST));
 
-        UserGithubToken userToken = userGithubTokenRepository.findById(userId)
-                .orElseThrow(() -> new CustomException("No GitHub Personal Access Token configured for your account. Please configure it in the project settings.", HttpStatus.BAD_REQUEST));
+        // CHUYỂN ĐỔI QUAN TRỌNG: Lấy Token của người đã kết nối (Project Leader) thay vì token của người đang thao tác
+        Long integrationOwnerId = integration.getConnectedBy().getId();
+        UserGithubToken userToken = userGithubTokenRepository.findById(integrationOwnerId)
+                .orElseThrow(() -> new CustomException("The Project Leader's GitHub connection is broken or missing.", HttpStatus.BAD_REQUEST));
 
         String accessToken = decryptToken(userToken.getAccessTokenEncrypted());
         String url = String.format("https://api.github.com/repos/%s/%s/issues",
@@ -111,9 +119,10 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             return;
         }
 
-        UserGithubToken userToken = userGithubTokenRepository.findById(userId).orElse(null);
+        Long integrationOwnerId = integration.getConnectedBy().getId();
+        UserGithubToken userToken = userGithubTokenRepository.findById(integrationOwnerId).orElse(null);
         if (userToken == null) {
-            log.warn("Skipping GitHub status sync. No GitHub token configured for user ID: {}", userId);
+            log.warn("Skipping GitHub status sync. The Project Leader's GitHub token is missing.");
             return;
         }
 
@@ -402,21 +411,10 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     }
 
     /**
-     * Helper decrypting the access token using standard AES-128 key.
-     * Fallbacks to raw Base64 decode or plaintext if not encrypted to ensure backward compatibility.
+     * Helper decrypting the access token using EncryptionService.
      */
     public String decryptToken(String encrypted) {
-        if (encrypted == null || encrypted.trim().isEmpty()) return encrypted;
-        try {
-            SecretKeySpec secretKey = new SecretKeySpec(encryptionKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, secretKey);
-            byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encrypted));
-            return new String(decryptedBytes, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            // Decryption failed. It is not a valid encrypted token.
-            return null;
-        }
+        return encryptionService.decrypt(encrypted);
     }
 
     @Override
@@ -596,7 +594,6 @@ public class GitHubApiServiceImpl implements GitHubApiService {
 
         String repoOwner = (String) request.get("repoOwner");
         String repoName = (String) request.get("repoName");
-        String accessToken = (String) request.get("accessToken");
         String webhookSecret = (String) request.get("webhookSecret");
 
         if (repoOwner == null || repoOwner.trim().isEmpty()) {
@@ -617,18 +614,9 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             integration.setWebhookSecretEncrypted(encryptToken(webhookSecret.trim()));
         }
 
-        // Upsert user's PAT to user_github_tokens table if provided
-        if (accessToken != null && !accessToken.trim().isEmpty()) {
-            UserGithubToken userToken = userGithubTokenRepository.findById(userId)
-                    .orElse(UserGithubToken.builder().user(user).build());
-            userToken.setAccessTokenEncrypted(encryptToken(accessToken.trim()));
-            userToken.setUpdatedAt(java.time.LocalDateTime.now());
-            userGithubTokenRepository.save(userToken);
-        }
-
         boolean hasToken = userGithubTokenRepository.findById(userId).isPresent();
         if (!hasToken) {
-            throw new CustomException("Personal Access Token (PAT) is required for the first GitHub connection.", HttpStatus.BAD_REQUEST);
+            throw new CustomException("You must link your GitHub account first.", HttpStatus.BAD_REQUEST);
         }
 
         return gitHubIntegrationRepository.save(integration);
@@ -636,17 +624,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
 
     @Override
     public String encryptToken(String plaintext) {
-        if (plaintext == null || plaintext.trim().isEmpty()) return plaintext;
-        try {
-            SecretKeySpec secretKey = new SecretKeySpec(encryptionKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
-            Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-            byte[] encryptedBytes = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encryptedBytes);
-        } catch (Exception e) {
-            log.error("Failed to encrypt GitHub token: ", e);
-            return plaintext;
-        }
+        return encryptionService.encrypt(plaintext);
     }
 
     /**
@@ -771,5 +749,186 @@ public class GitHubApiServiceImpl implements GitHubApiService {
         return userGithubTokenRepository.findById(userId)
                 .map(t -> decryptToken(t.getAccessTokenEncrypted()))
                 .orElseThrow(() -> new CustomException("No GitHub token configured for this user", HttpStatus.BAD_REQUEST));
+    }
+
+    @Override
+    public String getOAuthUrl() {
+        return String.format("https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=repo,read:user&prompt=consent", clientId, redirectUri);
+    }
+
+    @Override
+    public String exchangeCodeForToken(String code, Long userId) {
+        String url = "https://github.com/login/oauth/access_token";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, String> body = new HashMap<>();
+        body.put("client_id", clientId);
+        body.put("client_secret", clientSecret);
+        body.put("code", code);
+        body.put("redirect_uri", redirectUri);
+
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                String accessToken = (String) response.getBody().get("access_token");
+                if (accessToken != null) {
+                    UserAccount user = userAccountRepository.findById(userId).orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+                    UserGithubToken token = userGithubTokenRepository.findById(userId).orElse(UserGithubToken.builder().user(user).build());
+                    token.setAccessTokenEncrypted(encryptToken(accessToken));
+                    token.setUpdatedAt(LocalDateTime.now());
+                    userGithubTokenRepository.save(token);
+                    log.info("✅ GitHub OAuth successful! Access token encrypted and saved for User ID: {}", userId);
+                    return "Success";
+                } else {
+                    throw new CustomException("Failed to retrieve access token from GitHub", HttpStatus.BAD_REQUEST);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exchanging code for token", e);
+            throw new CustomException("Failed to exchange code for token: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        throw new CustomException("Failed to connect to GitHub", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Override
+    public Object getUserRepositories(Long userId) {
+        String token = getDecryptedUserToken(userId);
+        HttpHeaders headers = buildAuthHeaders(token);
+        String url = "https://api.github.com/user/repos?sort=updated&per_page=100";
+        try {
+            ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), List.class);
+            return response.getBody();
+        } catch (Exception e) {
+            log.error("Failed to fetch user repositories", e);
+            throw new CustomException("Failed to fetch user repositories from GitHub", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    @Override
+    public Object createRepository(Long userId, String name, String description, boolean isPrivate) {
+        String token = getDecryptedUserToken(userId);
+        HttpHeaders headers = buildAuthHeaders(token);
+        String url = "https://api.github.com/user/repos";
+        
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", name);
+        if (description != null && !description.trim().isEmpty()) {
+            body.put("description", description);
+        }
+        body.put("private", isPrivate);
+        
+        try {
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            return response.getBody();
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.error("Failed to create GitHub repository. HTTP {}. Body: {}", e.getStatusCode(), errorBody);
+            throw new CustomException("Failed to create GitHub repository: " + errorBody, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            log.error("Failed to create GitHub repository", e);
+            throw new CustomException("Failed to create GitHub repository", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    @Override
+    public void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, List<String> events, String webhookSecret) {
+        GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new CustomException("No GitHub configuration found for this project", HttpStatus.BAD_REQUEST));
+        
+        String token = getDecryptedUserToken(userId);
+        HttpHeaders headers = buildAuthHeaders(token);
+        String hooksUrl = "https://api.github.com/repos/" + integration.getRepoOwner()
+                + "/" + integration.getRepoName() + "/hooks";
+                
+        // 0. Update secret if a new one is provided
+        if (webhookSecret != null && !webhookSecret.trim().isEmpty()) {
+            integration.setWebhookSecretEncrypted(encryptToken(webhookSecret.trim()));
+            gitHubIntegrationRepository.save(integration);
+        }
+        
+        // 1. Check if webhook already exists
+        try {
+            ResponseEntity<List> hooksResp = restTemplate.exchange(hooksUrl, HttpMethod.GET, new HttpEntity<>(headers), List.class);
+            if (hooksResp.getBody() != null) {
+                for (Object item : hooksResp.getBody()) {
+                    Map<String, Object> hook = (Map<String, Object>) item;
+                    Map<String, Object> config = (Map<String, Object>) hook.get("config");
+                    if (config != null && webhookUrl.equals(config.get("url"))) {
+                        // Webhook already exists, update it to be safe
+                        Long hookId = ((Number) hook.get("id")).longValue();
+                        updateWebhook(hookId, hooksUrl, webhookUrl, integration.getWebhookSecretEncrypted(), events, headers);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch existing webhooks", e);
+            throw new CustomException("Failed to check existing webhooks on GitHub", HttpStatus.BAD_REQUEST);
+        }
+
+        // 2. Create new webhook
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", "web");
+        body.put("active", true);
+        if (events == null || events.isEmpty()) {
+            body.put("events", Arrays.asList("push"));
+        } else if (events.contains("*")) {
+            body.put("events", Arrays.asList("*"));
+        } else {
+            body.put("events", events);
+        }
+        
+        Map<String, String> config = new HashMap<>();
+        config.put("url", webhookUrl);
+        config.put("content_type", "json");
+        config.put("insecure_ssl", "0");
+        String secret = decryptToken(integration.getWebhookSecretEncrypted());
+        config.put("secret", secret);
+        
+        body.put("config", config);
+        
+        try {
+            restTemplate.postForEntity(hooksUrl, new HttpEntity<>(body, headers), Map.class);
+            log.info("Auto-configured webhook for project {} at {}", projectId, hooksUrl);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.error("Failed to create webhook. HTTP {}. Body: {}", e.getStatusCode(), errorBody);
+            throw new CustomException("GitHub API Error: " + errorBody, HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            log.error("Failed to create webhook", e);
+            throw new CustomException("Failed to auto-configure webhook on GitHub", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void updateWebhook(Long hookId, String hooksUrl, String webhookUrl, String encryptedSecret, List<String> events, HttpHeaders headers) {
+        String updateUrl = hooksUrl + "/" + hookId;
+        Map<String, Object> body = new HashMap<>();
+        body.put("active", true);
+        if (events == null || events.isEmpty()) {
+            body.put("events", Arrays.asList("push"));
+        } else if (events.contains("*")) {
+            body.put("events", Arrays.asList("*"));
+        } else {
+            body.put("events", events);
+        }
+        
+        Map<String, String> config = new HashMap<>();
+        config.put("url", webhookUrl);
+        config.put("content_type", "json");
+        config.put("insecure_ssl", "0");
+        config.put("secret", decryptToken(encryptedSecret));
+        
+        body.put("config", config);
+        
+        try {
+            // Using PATCH to update
+            restTemplate.exchange(updateUrl, HttpMethod.PATCH, new HttpEntity<>(body, headers), Map.class);
+            log.info("Updated existing webhook {} at {}", hookId, updateUrl);
+        } catch (Exception e) {
+            log.warn("Failed to update existing webhook. It might still work if config is identical.", e);
+        }
     }
 }

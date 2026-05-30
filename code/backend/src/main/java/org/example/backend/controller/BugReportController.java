@@ -7,7 +7,7 @@ import org.example.backend.entity.BugReport;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.BugReportService;
-import org.example.backend.service.GitHubApiService;
+import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.entity.GitHubIntegration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -121,7 +121,9 @@ public class BugReportController {
         Long userId = requireUser(session);
         GitHubIntegration config = gitHubApiService.getIntegration(projectId, userId);
         if (config == null) {
-            return ResponseEntity.ok(ApiResponse.success(null, "No GitHub integration found"));
+            Map<String, Object> emptyConfig = new HashMap<>();
+            emptyConfig.put("hasToken", gitHubApiService.hasUserToken(userId));
+            return ResponseEntity.ok(ApiResponse.success(emptyConfig, "No GitHub integration found"));
         }
         
         Map<String, Object> response = new HashMap<>();
@@ -175,6 +177,29 @@ public class BugReportController {
         Long userId = requireUser(session);
         gitHubApiService.pingWebhook(projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Ping triggered successfully"));
+    }
+
+    @PostMapping("/projects/{projectId}/github-integration/auto-configure")
+    public ResponseEntity<ApiResponse<Void>> autoConfigureWebhook(
+            @PathVariable Long projectId,
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        String webhookUrl = (String) payload.get("webhookUrl");
+        if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
+            throw new CustomException("Webhook URL is required", HttpStatus.BAD_REQUEST);
+        }
+        
+        List<String> events = null;
+        Object eventsObj = payload.get("events");
+        if (eventsObj instanceof List) {
+            events = (List<String>) eventsObj;
+        }
+        
+        String webhookSecret = (String) payload.get("webhookSecret");
+        
+        gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, webhookSecret);
+        return ResponseEntity.ok(ApiResponse.success(null, "Webhook auto-configured successfully"));
     }
 
     @GetMapping("/projects/{projectId}/github-integration/deliveries")

@@ -6,7 +6,7 @@ import org.example.backend.entity.GitHubIntegration;
 import org.example.backend.entity.UserGithubToken;
 import org.example.backend.repository.GitHubIntegrationRepository;
 import org.example.backend.repository.UserGithubTokenRepository;
-import org.example.backend.service.GitHubApiService;
+import org.example.backend.service.github.GitHubApiService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 

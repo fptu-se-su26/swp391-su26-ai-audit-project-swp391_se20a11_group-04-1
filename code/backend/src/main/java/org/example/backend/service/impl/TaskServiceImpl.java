@@ -12,13 +12,10 @@ import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.KanbanColumnRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
-<<<<<<< HEAD
 import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.BugReportRepository;
-import org.example.backend.service.GitHubApiService;
-=======
+import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
->>>>>>> origin/develop
 import org.example.backend.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -46,14 +43,11 @@ public class TaskServiceImpl implements TaskService {
     private final UserAccountRepository userAccountRepository;
     private final RequirementRepository requirementRepository;
     private final SprintRepository sprintRepository;
-<<<<<<< HEAD
     private final BugReportRepository bugReportRepository;
     private final GitHubApiService gitHubApiService;
-=======
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
->>>>>>> origin/develop
 
     @Override
     @Transactional
@@ -167,12 +161,12 @@ public class TaskServiceImpl implements TaskService {
                 } else if (task.getStatus() == TaskStatus.TODO) {
                     bug.setStatus(BugStatus.OPEN);
                 }
-                
+
                 // Synchronize Assignee
                 bug.setAssignedTo(task.getPrimaryAssignee());
-                
+
                 bugReportRepository.save(bug);
-                
+
                 // Trigger outbound GitHub Issue status sync non-blocking
                 try {
                     gitHubApiService.updateGitHubIssueStatus(bug, userId);
@@ -213,8 +207,8 @@ public class TaskServiceImpl implements TaskService {
         // Gộp overdue + blocked (tránh trùng)
         List<Task> overdueAndBlocked = new ArrayList<>(overdue);
         blocked.stream()
-               .filter(b -> overdueAndBlocked.stream().noneMatch(o -> o.getId().equals(b.getId())))
-               .forEach(overdueAndBlocked::add);
+                .filter(b -> overdueAndBlocked.stream().noneMatch(o -> o.getId().equals(b.getId())))
+                .forEach(overdueAndBlocked::add);
 
         // Sort by priority (CRITICAL -> LOW)
         java.util.Comparator<Task> prioritySorter = java.util.Comparator.comparing(Task::getPriority, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()));
@@ -287,12 +281,12 @@ public class TaskServiceImpl implements TaskService {
         for (int i = 0; i < 7; i++) {
             tasksByDay.put(monday.plusDays(i).toString(), new ArrayList<>());
         }
-        
+
         LocalDate today = LocalDate.now();
         for (Task t : weekTasks) {
             LocalDate actualStart = t.getStartDate() != null ? t.getStartDate() : t.getDeadline();
             LocalDate actualEnd = t.getDeadline() != null ? t.getDeadline() : t.getStartDate();
-            
+
             if (actualStart != null && actualEnd != null) {
                 if (actualStart.isAfter(actualEnd)) {
                     LocalDate temp = actualStart;
@@ -301,18 +295,18 @@ public class TaskServiceImpl implements TaskService {
                 }
 
                 TaskCalendarItemResponse dto = toCalendarItem(t, today);
-                
+
                 LocalDate renderStart = actualStart.isBefore(monday) ? monday : actualStart;
                 LocalDate renderEnd = actualEnd.isAfter(sunday) ? sunday : actualEnd;
-                
+
                 int startIndex = (int) java.time.temporal.ChronoUnit.DAYS.between(monday, renderStart);
                 int endIndex = (int) java.time.temporal.ChronoUnit.DAYS.between(monday, renderEnd);
-                
+
                 dto.setSpanStartIndex(startIndex);
                 dto.setSpanLength(endIndex - startIndex + 1);
                 dto.setIsStartCut(actualStart.isBefore(monday));
                 dto.setIsEndCut(actualEnd.isAfter(sunday));
-                
+
                 spanTasks.add(dto);
             }
         }

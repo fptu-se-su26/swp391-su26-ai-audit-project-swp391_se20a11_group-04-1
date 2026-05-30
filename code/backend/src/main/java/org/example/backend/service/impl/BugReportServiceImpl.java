@@ -12,7 +12,7 @@ import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
 import org.example.backend.service.BugReportService;
-import org.example.backend.service.GitHubApiService;
+import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
