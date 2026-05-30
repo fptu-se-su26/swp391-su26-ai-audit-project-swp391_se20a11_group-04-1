@@ -41,6 +41,12 @@ spring:
     store-type: redis
     timeout: 30m # Session hết hạn sau 30 phút
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -61,3 +67,9 @@ cloudinary:
   cloud-name: "YOUR_CLOUD_NAME_HERE"
   api-key: "YOUR_API_KEY_HERE"
   api-secret: "YOUR_API_SECRET_HERE"
+
+app:
+  events:
+    # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
+    publisher: local
+    outbox-publish-delay-ms: 30000

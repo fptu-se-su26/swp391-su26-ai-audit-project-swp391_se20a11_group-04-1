@@ -613,6 +613,8 @@ class DevTrackControllerTest {
                     .message("Bạn đã được mời tham gia")
                     .type("INVITATION")
                     .relatedId(10L)
+                    .projectId(4L)
+                    .entityType("PROJECT_INVITATION")
                     .isRead(false)
                     .invitationStatus("PENDING")
                     .build();
@@ -634,6 +636,8 @@ class DevTrackControllerTest {
             assertThat(data).hasSize(1);
             assertThat(data.get(0).getId()).isEqualTo(1L);
             assertThat(data.get(0).getInvitationStatus()).isEqualTo("PENDING");
+            assertThat(data.get(0).getProjectId()).isEqualTo(4L);
+            assertThat(data.get(0).getEntityType()).isEqualTo("PROJECT_INVITATION");
 
             verify(notificationService, times(1)).getMyNotifications(1L);
         }

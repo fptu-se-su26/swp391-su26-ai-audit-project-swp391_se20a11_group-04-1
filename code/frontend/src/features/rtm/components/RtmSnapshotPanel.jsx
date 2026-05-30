@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 function formatDate(value) {
   if (!value) return 'Unknown time'
   return new Intl.DateTimeFormat('en', {
@@ -7,11 +9,31 @@ function formatDate(value) {
 }
 
 export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
+  useEffect(() => {
+    if (!open) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-[1px]">
-      <aside className="w-full sm:w-[420px] h-full bg-surface-container-lowest border-l border-outline-variant shadow-2xl flex flex-col">
+    <div
+      className="fixed inset-0 z-[80] flex justify-end bg-black/30 backdrop-blur-[1px]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <aside
+        className="w-full sm:w-[420px] h-full bg-surface-container-lowest border-l border-outline-variant shadow-2xl flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="p-5 border-b border-outline-variant/60 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-black text-lg text-on-surface flex items-center gap-2">

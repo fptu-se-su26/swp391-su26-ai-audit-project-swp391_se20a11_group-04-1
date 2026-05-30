@@ -22,14 +22,9 @@ export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
-  // Fetch thông báo định kỳ hoặc khi mở dropdown
+  // Fetch thông báo ban đầu khi component mount
   useEffect(() => {
     fetchNotifications()
-    // Poll mỗi 5 giây để cập nhật số thông báo (gần như thời gian thực)
-    const interval = setInterval(() => {
-      fetchNotifications()
-    }, 5000)
-    return () => clearInterval(interval)
   }, [fetchNotifications])
 
   // Đóng dropdown khi click ra ngoài

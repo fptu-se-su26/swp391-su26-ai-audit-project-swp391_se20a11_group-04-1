@@ -1,9 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopNavBar from './TopNavBar';
+import useAuthStore from '@store/useAuthStore';
+import useNotificationStore from '@store/useNotificationStore';
 
 const MainLayout = () => {
+  const userId = useAuthStore((state) => state.userId);
+  const initWebSocket = useNotificationStore((state) => state.initWebSocket);
+
+  useEffect(() => {
+    if (userId) {
+      initWebSocket(userId);
+    }
+  }, [userId, initWebSocket]);
+
   return (
     <div className="flex min-h-screen bg-background text-on-background">
       <Sidebar />
