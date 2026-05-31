@@ -53,9 +53,21 @@ public class RequirementController {
         return ResponseEntity.ok(requirementService.updateRequirement(id, requestDTO));
     }
 
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<RequirementResponseDTO> updateRequirementStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+        return ResponseEntity.ok(requirementService.updateRequirementStatus(id, status));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRequirement(@PathVariable Long id) {
         requirementService.deleteRequirement(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/tags")
+    public ResponseEntity<java.util.List<String>> getTagsByProject(@RequestParam Long projectId) {
+        return ResponseEntity.ok(requirementService.getTagsByProject(projectId));
     }
 }

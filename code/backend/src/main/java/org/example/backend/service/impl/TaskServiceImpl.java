@@ -95,15 +95,27 @@ public class TaskServiceImpl implements TaskService {
         if (task.getKanbanColumn() == null) {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
-        return toResponse(taskRepository.save(task));
+        task = taskRepository.save(task);
+        if (task.getRequirementId() != null) {
+            syncRequirementStatus(task.getRequirementId());
+        }
+        return toResponse(task);
     }
 
     @Override
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
+        Long oldReqId = task.getRequirementId();
         applyRequest(task, request, task.getProject().getId());
-        return toResponse(taskRepository.save(task));
+        task = taskRepository.save(task);
+        if (oldReqId != null && !oldReqId.equals(task.getRequirementId())) {
+            syncRequirementStatus(oldReqId);
+        }
+        if (task.getRequirementId() != null) {
+            syncRequirementStatus(task.getRequirementId());
+        }
+        return toResponse(task);
     }
 
     @Override
@@ -127,7 +139,11 @@ public class TaskServiceImpl implements TaskService {
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
-        return toResponse(taskRepository.save(task));
+        task = taskRepository.save(task);
+        if (task.getRequirementId() != null) {
+            syncRequirementStatus(task.getRequirementId());
+        }
+        return toResponse(task);
     }
 
     @Override
@@ -143,7 +159,12 @@ public class TaskServiceImpl implements TaskService {
     public void deleteTask(Long taskId, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
+        Long reqId = task.getRequirementId();
         taskRepository.delete(task);
+        taskRepository.flush();
+        if (reqId != null) {
+            syncRequirementStatus(reqId);
+        }
     }
 
     // =========================================================================
@@ -752,5 +773,38 @@ public class TaskServiceImpl implements TaskService {
                 .done(item.isDone())
                 .orderIndex(item.getOrderIndex())
                 .build();
+    }
+
+    private void syncRequirementStatus(Long requirementId) {
+        if (requirementId == null) return;
+        Requirement req = requirementRepository.findById(requirementId).orElse(null);
+        if (req == null) return;
+
+        List<Task> reqTasks = taskRepository.findByRequirementId(requirementId);
+        if (reqTasks.isEmpty()) return;
+
+        boolean allDone = true;
+        boolean anyStarted = false;
+
+        for (Task t : reqTasks) {
+            if (t.getStatus() != TaskStatus.DONE) {
+                allDone = false;
+            }
+            if (t.getStatus() == TaskStatus.IN_PROGRESS || t.getStatus() == TaskStatus.IN_REVIEW || t.getStatus() == TaskStatus.DONE) {
+                anyStarted = true;
+            }
+        }
+
+        if (allDone) {
+            if (req.getStatus() != RequirementStatus.IN_REVIEW && req.getStatus() != RequirementStatus.DONE) {
+                req.setStatus(RequirementStatus.IN_REVIEW);
+                requirementRepository.save(req);
+            }
+        } else if (anyStarted) {
+            if (req.getStatus() == RequirementStatus.DRAFT || req.getStatus() == RequirementStatus.IN_REVIEW) {
+                req.setStatus(RequirementStatus.IN_PROGRESS);
+                requirementRepository.save(req);
+            }
+        }
     }
 }

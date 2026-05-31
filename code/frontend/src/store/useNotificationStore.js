@@ -227,6 +227,10 @@ export const useNotificationStore = create((set, get) => ({
               }
             )
           }
+
+          if (payload.type === 'AI_PROGRESS') {
+            window.dispatchEvent(new CustomEvent('AI_PROGRESS', { detail: payload.data }))
+          }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
         }

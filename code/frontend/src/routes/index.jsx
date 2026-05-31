@@ -12,6 +12,7 @@ import AcceptInvitePage from '@features/workspace/pages/AcceptInvitePage'
 // Feature Pages - Requirements
 import RequirementsPage from '@features/requirement/pages/RequirementsPage'
 import RequirementDetailPage from '@features/requirement/pages/RequirementDetailPage'
+import AiStagingReviewPage from '@features/requirement/pages/AiStagingReviewPage'
 
 // Feature Pages - Use Cases
 import UseCasePage from '@features/requirement/pages/UseCasePage'
@@ -64,6 +65,7 @@ export function AppRoutes() {
             
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
+            <Route path="requirements/staging" element={<AiStagingReviewPage />} />
             <Route path="requirements/:id" element={<RequirementDetailPage />} />
             
             {/* Module 2: Use Case Management */}
