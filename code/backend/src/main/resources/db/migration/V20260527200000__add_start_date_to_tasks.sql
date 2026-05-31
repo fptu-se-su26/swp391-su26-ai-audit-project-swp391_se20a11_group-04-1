@@ -2,7 +2,7 @@
 -- Description: Add start_date to tasks and seed multi-day data
 
 -- 1. Add start_date column
-ALTER TABLE tasks ADD COLUMN start_date DATE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS start_date DATE;
 
 -- 2. Update existing tasks to simulate multi-day spans
 -- We set start_date to 3 days before deadline for some tasks, 
