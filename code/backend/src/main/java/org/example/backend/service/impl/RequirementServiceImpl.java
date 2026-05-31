@@ -8,7 +8,6 @@ import org.example.backend.dto.RequirementResponseDTO;
 import org.example.backend.entity.Priority;
 import org.example.backend.entity.Requirement;
 import org.example.backend.entity.RequirementStatus;
-import org.example.backend.entity.RequirementTag;
 import org.example.backend.entity.ProjectStatus;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.BadRequestException;
@@ -89,10 +88,7 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         if (requestDTO.getTags() != null) {
-            for (String tagName : requestDTO.getTags()) {
-                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
-                requirement.addTag(tag);
-            }
+            requirement.setTags(new ArrayList<>(requestDTO.getTags()));
         }
 
         Requirement savedReq = requirementRepository.save(requirement);
@@ -183,15 +179,42 @@ public class RequirementServiceImpl implements RequirementService {
             requirement.setEvidenceRequired(requestDTO.getEvidenceRequired());
         }
 
-        // Update tags — orphan removal handles deletion of old tags
         requirement.getTags().clear();
         if (requestDTO.getTags() != null) {
-            for (String tagName : requestDTO.getTags()) {
-                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
-                requirement.addTag(tag);
+            requirement.getTags().addAll(requestDTO.getTags());
+        }
+
+        Requirement updatedReq = requirementRepository.save(requirement);
+        return mapToDTO(updatedReq);
+    }
+
+    @Override
+    @Transactional
+    public RequirementResponseDTO updateRequirementStatus(Long id, String status) {
+        log.info("Updating status for requirement id: {} to {}", id, status);
+        Requirement requirement = requirementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
+
+        var project = requirement.getProject();
+        if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
+            throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
+        }
+
+        RequirementStatus parsedStatus;
+        try {
+            parsedStatus = RequirementStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid status: " + status);
+        }
+
+        if (parsedStatus == RequirementStatus.DONE) {
+            boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, "DONE");
+            if (hasPendingUseCases) {
+                throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
             }
         }
 
+        requirement.setStatus(parsedStatus);
         Requirement updatedReq = requirementRepository.save(requirement);
         return mapToDTO(updatedReq);
     }
@@ -207,9 +230,7 @@ public class RequirementServiceImpl implements RequirementService {
     }
 
     private RequirementResponseDTO mapToDTO(Requirement req) {
-        List<String> tags = req.getTags().stream()
-                .map(RequirementTag::getTag)
-                .collect(Collectors.toList());
+        List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
 
         return RequirementResponseDTO.builder()
                 .id(req.getId())
@@ -228,6 +249,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .createdAt(req.getCreatedAt())
                 .updatedAt(req.getUpdatedAt())
                 .tags(tags)
+                .aiGenerated(req.getAiGenerated() != null ? req.getAiGenerated() : false)
                 .build();
     }
 
@@ -250,13 +272,21 @@ public class RequirementServiceImpl implements RequirementService {
             }
 
             if (tag != null && !tag.isBlank()) {
-                query.distinct(true);
-                Join<Requirement, RequirementTag> tagsJoin = root.join("tags", JoinType.LEFT);
-                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(tagsJoin.get("tag")), tag.trim().toLowerCase(Locale.ROOT)));
+                jakarta.persistence.criteria.Expression<String> tagsString = criteriaBuilder.function("array_to_string", String.class, root.get("tags"), criteriaBuilder.literal(","));
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(tagsString), "%" + tag.trim().toLowerCase(Locale.ROOT) + "%"));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<String> getTagsByProject(Long projectId) {
+        if (projectId == null) {
+            throw new BadRequestException("Project ID is required to fetch tags.");
+        }
+        return requirementRepository.findAllDistinctTagsByProjectId(projectId);
     }
 
     private String normalizeEnumValue(String value) {

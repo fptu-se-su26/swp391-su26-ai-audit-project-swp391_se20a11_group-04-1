@@ -36,7 +36,6 @@ const UseCasePage = () => {
       if (statusFilter) params.status = statusFilter;
 
       const data = await useCaseService.searchUseCases(params);
-      console.log('API response data:', data);
       
       // Handle both SB3 (flat) and SB4 (nested page) formats
       setUseCases(data.content || []);

@@ -33,6 +33,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     long countBySprintId(Long sprintId);
 
+    List<Task> findByRequirementId(Long requirementId);
+
     // ── Daily View queries ────────────────────────────────────────────────────
 
     /** Task quá hạn: deadline < date AND status != DONE AND != BLOCKED */

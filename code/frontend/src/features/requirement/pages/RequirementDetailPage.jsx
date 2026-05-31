@@ -43,7 +43,7 @@ const RequirementDetailPage = () => {
 
   return (
     <div className="max-w-[1600px] mx-auto pb-32">
-      <RequirementDetailHeader requirement={requirement} />
+      <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mt-stack_md">
         {/* Left Column: Details */}
