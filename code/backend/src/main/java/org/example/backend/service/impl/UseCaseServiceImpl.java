@@ -61,7 +61,7 @@ public class UseCaseServiceImpl implements UseCaseService {
         Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         useCase.setProjectSubId(nextSubId);
-        useCase.setCode("UC-" + nextSubId);
+        useCase.setCode("P" + project.getId() + "-UC-" + nextSubId);
 
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
