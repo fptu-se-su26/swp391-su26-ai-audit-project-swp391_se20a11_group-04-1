@@ -43,6 +43,22 @@ export const testCaseService = {
   deleteTestCase: async (projectId, testCaseId) => {
     await axiosInstance.delete(`/v1/projects/${projectId}/test-cases/${testCaseId}`)
   },
+
+  /**
+   * Run Test Case
+   */
+  triggerTestRun: async (testCaseId) => {
+    const response = await axiosInstance.post(`/v1/test-cases/${testCaseId}/run`)
+    return response.data.data
+  },
+
+  /**
+   * Get Test Run Status (Polling)
+   */
+  getTestRunStatus: async (runId) => {
+    const response = await axiosInstance.get(`/v1/test-runs/${runId}/status`)
+    return response.data.data
+  },
 }
 
 export default testCaseService

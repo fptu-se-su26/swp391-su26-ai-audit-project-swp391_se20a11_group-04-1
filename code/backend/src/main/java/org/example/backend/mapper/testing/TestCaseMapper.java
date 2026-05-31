@@ -3,10 +3,15 @@ package org.example.backend.mapper.testing;
 import org.example.backend.dto.testing.*;
 import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class TestCaseMapper {
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public TestCase toEntity(TestCaseRequest request) {
         TestCase tc = new TestCase();
@@ -15,6 +20,12 @@ public class TestCaseMapper {
         tc.setPrecondition(request.getPrecondition());
         tc.setExpectedResult(request.getExpectedResult());
         tc.setRequirementId(request.getRequirementId());
+        tc.setBaseUrl(request.getBaseUrl());
+        if (request.getStepsStructured() != null) {
+            try {
+                tc.setStepsStructured(objectMapper.writeValueAsString(request.getStepsStructured()));
+            } catch (Exception e) {}
+        }
         return tc;
     }
 
@@ -24,6 +35,12 @@ public class TestCaseMapper {
         tc.setPrecondition(request.getPrecondition());
         tc.setExpectedResult(request.getExpectedResult());
         tc.setRequirementId(request.getRequirementId());
+        tc.setBaseUrl(request.getBaseUrl());
+        if (request.getStepsStructured() != null) {
+            try {
+                tc.setStepsStructured(objectMapper.writeValueAsString(request.getStepsStructured()));
+            } catch (Exception e) {}
+        }
     }
 
     public TestCaseResponse toResponse(TestCase tc) {
@@ -47,6 +64,12 @@ public class TestCaseMapper {
         // Mock last execution as it is handled by another task
         res.setLastExecutedBy(null);
         res.setLastExecutedAt(null);
+        res.setBaseUrl(tc.getBaseUrl());
+        if (tc.getStepsStructured() != null) {
+            try {
+                res.setStepsStructured(objectMapper.readValue(tc.getStepsStructured(), Object.class));
+            } catch (Exception e) {}
+        }
         return res;
     }
 

@@ -401,7 +401,7 @@ export function DashboardPage() {
 
                     {/* Avatars chồng nhau */}
                     <div className="flex items-center -space-x-2.5 overflow-hidden">
-                      {project.members.slice(0, 3).map((member, idx) => (
+                      {(project.members || []).slice(0, 3).map((member, idx) => (
                         <div
                           key={idx}
                           title={member.name}
@@ -410,9 +410,9 @@ export function DashboardPage() {
                           {member.initials}
                         </div>
                       ))}
-                      {project.members.length > 3 && (
+                      {(project.members?.length || 0) > 3 && (
                         <div className="w-7 h-7 rounded-full border-2 border-surface-container-lowest bg-surface-container-high text-on-surface-variant flex items-center justify-center text-[9px] font-bold shadow-sm shrink-0">
-                          +{project.members.length - 3}
+                          +{(project.members?.length || 0) - 3}
                         </div>
                       )}
                     </div>
@@ -480,7 +480,7 @@ export function DashboardPage() {
         {/* Modal Tạo Dự Án Mới */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030213]/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-lg bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-slideUp">
+            <div className="create-project-modal w-full max-w-lg bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-slideUp">
               
               {/* Header Modal */}
               <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
@@ -759,9 +759,9 @@ export function DashboardPage() {
 
           {/* Cột 3: Quản lý thành viên nhóm */}
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({activeProject.members.length})</h3>
+            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({activeProject.members?.length || 0})</h3>
             <div className="space-y-3">
-              {activeProject.members.map((member, idx) => (
+              {(activeProject.members || []).map((member, idx) => (
                 <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${member.bg}`}>

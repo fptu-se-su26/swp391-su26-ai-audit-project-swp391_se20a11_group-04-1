@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import TestStepEditor from './TestStepEditor'
 import useProjectStore from '../../../store/useProjectStore'
 import { requirementApi } from '../../requirement/services/requirementApi'
 import toast from 'react-hot-toast'
@@ -13,6 +14,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
     type: 'UI',
     precondition: '',
     expectedResult: '',
+    baseUrl: '',
     steps: []
   })
 
@@ -45,7 +47,8 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           type: testCase.type || 'UI',
           precondition: testCase.precondition || '',
           expectedResult: testCase.expectedResult || '',
-          steps: testCase.steps ? [...testCase.steps] : []
+          baseUrl: testCase.baseUrl || '',
+          steps: (testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps) ? [...(testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps)] : []
         })
       } else {
         setFormData({
@@ -54,7 +57,8 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           type: 'UI',
           precondition: '',
           expectedResult: '',
-          steps: [{ description: '' }]
+          baseUrl: '',
+          steps: [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }]
         })
       }
     }
@@ -64,16 +68,50 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // Formatting steps for backend
+    
+    if (formData.type === 'UI' && !formData.baseUrl) {
+      toast.error('Base URL is required for UI tests.')
+      return
+    }
+
     const payload = {
-      ...formData,
+      title: formData.title,
       requirementId: formData.requirementId ? Number(formData.requirementId) : null,
-      steps: formData.steps.map((s, i) => ({
+      type: formData.type,
+      precondition: formData.precondition,
+      expectedResult: formData.expectedResult
+    }
+
+    if (formData.type === 'UI') {
+      payload.baseUrl = formData.baseUrl
+      payload.stepsStructured = formData.steps.map((s, i) => ({
+        order: i + 1,
+        action: s.action || 'goto',
+        path: s.action === 'goto' ? s.path : undefined,
+        selector: ['fill', 'click', 'wait_for', 'select', 'expect_text', 'expect_visible', 'expect_hidden'].includes(s.action) ? s.selector : undefined,
+        value: ['fill', 'select'].includes(s.action) ? s.value : undefined,
+        expected: ['expect_url', 'expect_text'].includes(s.action) ? s.expected : undefined,
+        description: s.description || undefined
+      }))
+    } else {
+      payload.steps = formData.steps.map((s, i) => ({
         stepNumber: i + 1,
         description: s.description
       }))
     }
+
     onSubmit(payload)
+  }
+
+  const handleTypeChange = (e) => {
+    const newType = e.target.value
+    setFormData(prev => ({
+      ...prev,
+      type: newType,
+      steps: newType === 'UI' 
+        ? [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }]
+        : [{ description: '' }]
+    }))
   }
 
   // Handle overlay click to close
@@ -84,7 +122,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
   return (
     <div id="modal-overlay" onClick={handleOverlayClick} className="fixed inset-0 bg-[#00000080] z-50 flex items-center justify-center p-4">
       <div className="bg-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
-        
+
         {/* Header */}
         <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center">
           <h2 className="font-headline-sm text-headline-sm text-on-surface">
@@ -103,7 +141,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
             </div>
           )}
           <form id="testCaseForm" onSubmit={handleSubmit} className="flex flex-col gap-5">
-            
+
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-label-md text-on-surface">Title <span className="text-error">*</span></label>
               <input
@@ -141,7 +179,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                 <select
                   required
                   value={formData.type}
-                  onChange={e => setFormData({ ...formData, type: e.target.value })}
+                  onChange={handleTypeChange}
                   className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
                 >
                   <option value="UI">UI</option>
@@ -152,6 +190,24 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                 </select>
               </div>
             </div>
+
+            {formData.type === 'UI' && (
+              <div className="flex flex-col gap-1.5 p-4 bg-primary-container/10 border border-primary/20 rounded-lg">
+                <label className="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[18px]">public</span>
+                  Base URL (for UI Automation) <span className="text-error">*</span>
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={formData.baseUrl || ''}
+                  onChange={e => setFormData({ ...formData, baseUrl: e.target.value })}
+                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                  placeholder="E.g., http://localhost:5173"
+                />
+                <span className="text-xs text-on-surface-variant mt-1">This URL is required to run Playwright test scripts.</span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-label-md text-on-surface">Precondition</label>
@@ -164,8 +220,6 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
               />
             </div>
 
-            {/* Test Steps Component Placeholder */}
-            {/* Since TestStepEditor needs to be implemented separately or imported, I'll inline a simple version here or import it if I created it */}
             <TestStepEditorWrapper formData={formData} setFormData={setFormData} />
 
             <div className="flex flex-col gap-1.5">
@@ -208,12 +262,11 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
   )
 }
 
-// Inline wrapper for the TestStepEditor to avoid circular dependencies if any
-import TestStepEditor from './TestStepEditor'
 function TestStepEditorWrapper({ formData, setFormData }) {
   return (
     <TestStepEditor
       steps={formData.steps}
+      isUiTest={formData.type === 'UI'}
       onChange={(newSteps) => setFormData({ ...formData, steps: newSteps })}
     />
   )
