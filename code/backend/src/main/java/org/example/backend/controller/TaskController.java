@@ -76,6 +76,33 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.updateTaskAssignee(taskId, request, userId), "Task assignee updated"));
     }
 
+    @PostMapping("/tasks/{taskId}/request-review")
+    public ResponseEntity<ApiResponse<TaskResponse>> requestTaskReview(
+            @PathVariable Long taskId,
+            @RequestBody(required = false) TaskReviewRequest request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(taskService.requestTaskReview(taskId, request, userId), "Task review requested"));
+    }
+
+    @PostMapping("/tasks/{taskId}/approve")
+    public ResponseEntity<ApiResponse<TaskResponse>> approveTaskReview(
+            @PathVariable Long taskId,
+            @RequestBody(required = false) TaskReviewRequest request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(taskService.approveTaskReview(taskId, request, userId), "Task review approved"));
+    }
+
+    @PostMapping("/tasks/{taskId}/reject")
+    public ResponseEntity<ApiResponse<TaskResponse>> rejectTaskReview(
+            @PathVariable Long taskId,
+            @RequestBody TaskReviewRequest request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(taskService.rejectTaskReview(taskId, request, userId), "Task review rejected"));
+    }
+
     @GetMapping("/my-tasks")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getMyTasks(HttpSession session) {
         Long userId = requireUser(session);

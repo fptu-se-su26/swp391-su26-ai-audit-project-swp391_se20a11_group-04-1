@@ -13,6 +13,10 @@ public interface TaskService {
     TaskResponse updateTask(Long taskId, TaskRequest request, Long userId);
     TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId);
     TaskResponse updateTaskAssignee(Long taskId, TaskAssigneeUpdateRequest request, Long userId);
+    TaskResponse requestTaskReview(Long taskId, TaskReviewRequest request, Long userId);
+    TaskResponse approveTaskReview(Long taskId, TaskReviewRequest request, Long userId);
+    TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId);
+    List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId);
     void deleteTask(Long taskId, Long userId);
 
     // ── Daily / Weekly View ───────────────────────────────────────────────────

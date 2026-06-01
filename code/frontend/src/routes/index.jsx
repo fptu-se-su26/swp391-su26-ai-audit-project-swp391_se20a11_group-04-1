@@ -30,6 +30,9 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 // Feature Pages - RTM
 import RtmPage from '@features/rtm/pages/RtmPage'
 
+// Feature Pages - Code Insight
+import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
+
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
 import ProjectLayout from '@components/layout/ProjectLayout'
@@ -89,6 +92,7 @@ export function AppRoutes() {
 
             {/* Module 6: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
+            <Route path="code-insight" element={<CodeInsightPage />} />
             
           </Route>
         </Route>

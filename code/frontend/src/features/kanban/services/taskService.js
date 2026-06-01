@@ -70,6 +70,21 @@ export const taskService = {
     const response = await axiosInstance.patch(`/v1/tasks/${taskId}/assignee`, { assigneeId })
     return unwrap(response)
   },
+
+  requestTaskReview: async (taskId, reason = '') => {
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/request-review`, { reason })
+    return unwrap(response)
+  },
+
+  approveTaskReview: async (taskId, reason = '') => {
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/approve`, { reason })
+    return unwrap(response)
+  },
+
+  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/reject`, { reason, targetStatus })
+    return unwrap(response)
+  },
 }
 
 export default taskService
