@@ -24,6 +24,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
 
+    @EntityGraph(attributePaths = {"primaryAssignee", "project", "kanbanColumn"})
+    List<Task> findByProjectIdAndStatusOrderByUpdatedAtDesc(Long projectId, org.example.backend.entity.TaskStatus status);
+
     @EntityGraph(attributePaths = {"primaryAssignee", "project"})
     @Query("select t from Task t where t.primaryAssignee is not null")
     List<Task> findAllSlaCandidates();

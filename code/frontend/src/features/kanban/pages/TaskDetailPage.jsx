@@ -4,14 +4,34 @@ import TaskFormModal from '../components/TaskFormModal'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
+const isLeaderRole = (role = '') => {
+  const normalized = role.toUpperCase().replace(/\s+/g, '_')
+  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
+}
+
 const TaskDetailPage = () => {
   const { projectId, id } = useParams()
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const activeProject = useProjectStore((state) => state.activeProject)
-  const { tasks, columns, loading, fetchTaskById, updateTask, deleteTask, updateTaskStatus, toggleChecklistItem } = useKanbanStore()
+  const {
+    tasks,
+    columns,
+    loading,
+    error,
+    fetchTaskById,
+    updateTask,
+    deleteTask,
+    updateTaskStatus,
+    requestTaskReview,
+    approveTaskReview,
+    rejectTaskReview,
+    toggleChecklistItem,
+  } = useKanbanStore()
   const task = tasks.find((item) => item.id === id)
   const taskBoardPath = projectId ? `/projects/${projectId}/task-board` : '/dashboard'
+  const codeInsightPath = projectId ? `/projects/${projectId}/code-insight` : '/dashboard'
+  const canDecideReview = isLeaderRole(activeProject?.role)
 
   useEffect(() => {
     if (!task) {
@@ -54,6 +74,20 @@ const TaskDetailPage = () => {
 
   const handleCollapseToPanel = () => {
     navigate(taskBoardPath, { state: { openTaskId: task.id } })
+  }
+
+  const handleRequestReview = async () => {
+    await requestTaskReview(task.id, 'Ready for leader review')
+  }
+
+  const handleApproveReview = async () => {
+    await approveTaskReview(task.id, 'Approved from task detail')
+  }
+
+  const handleRejectReview = async () => {
+    const reason = window.prompt('Why should this task be returned for changes?')
+    if (!reason || !reason.trim()) return
+    await rejectTaskReview(task.id, reason.trim(), 'IN_PROGRESS')
   }
 
   return (
@@ -99,10 +133,65 @@ const TaskDetailPage = () => {
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 Delete
               </button>
-              <button className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm">
+              <button
+                type="button"
+                onClick={() => navigate(codeInsightPath)}
+                className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm"
+              >
                 <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-                AI Review
+                Code Insight
               </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-error">
+              {error}
+            </div>
+          )}
+
+          <div className="mb-4 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-on-surface">Review Gate</h2>
+              <p className="text-sm text-on-surface-variant">
+                {task.status === 'IN_REVIEW'
+                  ? 'This task is waiting for leader approval before it can be Done.'
+                  : task.status === 'DONE'
+                    ? 'This task has been approved as Done.'
+                    : 'Request review when the implementation is ready for leader approval.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {task.status !== 'DONE' && task.status !== 'IN_REVIEW' && (
+                <button
+                  type="button"
+                  onClick={handleRequestReview}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container"
+                >
+                  <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                  Request Review
+                </button>
+              )}
+              {task.status === 'IN_REVIEW' && canDecideReview && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRejectReview}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-container text-error px-3 py-2 text-sm font-semibold hover:bg-error-container/70"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApproveReview}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    Approve Done
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

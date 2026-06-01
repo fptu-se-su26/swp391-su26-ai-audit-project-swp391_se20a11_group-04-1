@@ -243,6 +243,42 @@ export const useKanbanStore = create((set, get) => ({
     }
   },
 
+  requestTaskReview: async (taskId, reason = '') => {
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.requestTaskReview(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to request task review', loading: false })
+      return null
+    }
+  },
+
+  approveTaskReview: async (taskId, reason = '') => {
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.approveTaskReview(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to approve task review', loading: false })
+      return null
+    }
+  },
+
+  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.rejectTaskReview(taskId, reason, targetStatus))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to reject task review', loading: false })
+      return null
+    }
+  },
+
   toggleChecklistItem: async (taskId, checklistId) => {
     const task = get().tasks.find((item) => item.id === String(taskId))
     if (!task) return

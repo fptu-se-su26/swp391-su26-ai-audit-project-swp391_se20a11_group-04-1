@@ -11,6 +11,7 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.KanbanColumnRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.TaskReviewDecisionRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
@@ -43,6 +44,7 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
+    private final TaskReviewDecisionRepository taskReviewDecisionRepository;
 
     @Override
     @Transactional
@@ -91,7 +93,7 @@ public class TaskServiceImpl implements TaskService {
                 .checklist(new ArrayList<>())
                 .build();
 
-        applyRequest(task, request, projectId);
+        applyRequest(task, request, projectId, userId);
         if (task.getKanbanColumn() == null) {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
@@ -102,7 +104,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
-        applyRequest(task, request, task.getProject().getId());
+        applyRequest(task, request, task.getProject().getId(), userId);
         return toResponse(taskRepository.save(task));
     }
 
@@ -111,18 +113,21 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         if (request.getColumnId() != null) {
+            KanbanColumn column = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new CustomException("Column not found", HttpStatus.NOT_FOUND));
+            if (column.getStatusKey() != null) {
+                TaskStatus nextStatus = parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus());
+                ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
+                task.setStatus(nextStatus);
+                applyCompletionTimestamp(task, nextStatus);
+            }
             setColumn(task, request.getColumnId(), task.getProject().getId());
         } else if (request.getStatus() != null) {
             TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+            ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
             task.setStatus(nextStatus);
             setColumnFromStatus(task, task.getProject().getId(), nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
-                }
-            } else {
-                task.setCompletedAt(null);
-            }
+            applyCompletionTimestamp(task, nextStatus);
         }
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
@@ -137,6 +142,84 @@ public class TaskServiceImpl implements TaskService {
         ensureProjectMember(projectId, userId);
         setAssignee(task, request.getAssigneeId(), projectId);
         return toResponse(taskRepository.save(task));
+    }
+
+    @Override
+    public TaskResponse requestTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        Task task = findTask(taskId);
+        ensureProjectMember(task.getProject().getId(), userId);
+        if (task.getStatus() == TaskStatus.DONE) {
+            throw new BadRequestException("Done task cannot be requested for review");
+        }
+        if (task.getStatus() == TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Task is already in review");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.IN_REVIEW);
+        task.setCompletedAt(null);
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.IN_REVIEW);
+        task = taskRepository.save(task);
+        recordReviewDecision(task, userId, TaskReviewDecisionType.REQUEST_REVIEW, fromStatus, TaskStatus.IN_REVIEW,
+                request != null ? request.getReason() : null);
+        return toResponse(task);
+    }
+
+    @Override
+    public TaskResponse approveTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Only tasks in review can be approved");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.DONE);
+        if (task.getCompletedAt() == null) {
+            task.setCompletedAt(LocalDateTime.now());
+        }
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.DONE);
+        task = taskRepository.save(task);
+        recordReviewDecision(task, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
+                request != null ? request.getReason() : null);
+        return toResponse(task);
+    }
+
+    @Override
+    public TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Only tasks in review can be rejected");
+        }
+
+        String reason = requiredText(request != null ? request.getReason() : null, "Reject reason is required");
+        TaskStatus targetStatus = parseEnum(request != null ? request.getTargetStatus() : null, TaskStatus.class, TaskStatus.IN_PROGRESS);
+        if (targetStatus != TaskStatus.IN_PROGRESS && targetStatus != TaskStatus.BLOCKED) {
+            throw new BadRequestException("Rejected task must return to IN_PROGRESS or BLOCKED");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(targetStatus);
+        task.setCompletedAt(null);
+        if (targetStatus == TaskStatus.BLOCKED) {
+            task.setBlockedReason(reason);
+        }
+        setColumnFromStatus(task, task.getProject().getId(), targetStatus);
+        task = taskRepository.save(task);
+        recordReviewDecision(task, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
+        return toResponse(task);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId) {
+        ensureProjectMember(projectId, userId);
+        return taskRepository.findByProjectIdAndStatusOrderByUpdatedAtDesc(projectId, TaskStatus.IN_REVIEW).stream()
+                .map(task -> taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId())
+                        .map(this::toReviewDecisionResponse)
+                        .orElseGet(() -> toSyntheticReviewQueueItem(task)))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -559,7 +642,7 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
     }
 
-    private void applyRequest(Task task, TaskRequest request, Long projectId) {
+    private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
         if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
         if (request.getRequirementId() == null) {
@@ -592,18 +675,18 @@ public class TaskServiceImpl implements TaskService {
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
         if (request.getColumnId() != null) {
+            KanbanColumn column = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new CustomException("Column not found", HttpStatus.NOT_FOUND));
+            if (column.getStatusKey() != null) {
+                ensureRegularStatusUpdateAllowed(task, parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus()), userId);
+            }
             setColumn(task, request.getColumnId(), projectId);
         } else if (request.getStatus() != null) {
             TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+            ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
             task.setStatus(nextStatus);
             setColumnFromStatus(task, projectId, nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
-                }
-            } else {
-                task.setCompletedAt(null);
-            }
+            applyCompletionTimestamp(task, nextStatus);
         }
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
         if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId);
@@ -662,10 +745,75 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    private void ensureProjectLeader(Long projectId, Long userId) {
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+        String roleName = member.getRole() != null ? member.getRole().getName() : "";
+        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName)) {
+            throw new CustomException("Only project leader can approve or reject task reviews", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private boolean isProjectLeader(Long projectId, Long userId) {
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(member -> {
+                    String roleName = member.getRole() != null ? member.getRole().getName() : "";
+                    return "PROJECT_LEADER".equalsIgnoreCase(roleName) || "LEADER".equalsIgnoreCase(roleName);
+                })
+                .orElse(false);
+    }
+
+    private void ensureRegularStatusUpdateAllowed(Task task, TaskStatus nextStatus, Long userId) {
+        if (nextStatus != TaskStatus.DONE) {
+            return;
+        }
+        if (!isProjectLeader(task.getProject().getId(), userId)) {
+            throw new BadRequestException("Task must be reviewed by project leader before Done");
+        }
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Move task to In Review before approving it as Done");
+        }
+        throw new BadRequestException("Use the review approval action to mark this task as Done");
+    }
+
+    private void applyCompletionTimestamp(Task task, TaskStatus nextStatus) {
+        if (nextStatus == TaskStatus.DONE) {
+            if (task.getCompletedAt() == null) {
+                task.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            task.setCompletedAt(null);
+        }
+    }
+
+    private void recordReviewDecision(
+            Task task,
+            Long reviewerId,
+            TaskReviewDecisionType decision,
+            TaskStatus fromStatus,
+            TaskStatus toStatus,
+            String reason) {
+        UserAccount reviewer = userAccountRepository.findById(reviewerId)
+                .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
+        taskReviewDecisionRepository.save(TaskReviewDecision.builder()
+                .task(task)
+                .reviewer(reviewer)
+                .decision(decision)
+                .fromStatus(fromStatus.name())
+                .toStatus(toStatus.name())
+                .reason(trimToNull(reason))
+                .build());
+    }
+
     private String requiredText(String value, String message) {
         if (value == null || value.trim().isEmpty()) {
             throw new BadRequestException(message);
         }
+        return value.trim();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
         return value.trim();
     }
 
@@ -719,6 +867,49 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+    private TaskReviewDecisionResponse toReviewDecisionResponse(TaskReviewDecision decision) {
+        return TaskReviewDecisionResponse.builder()
+                .id(decision.getId())
+                .decision(decision.getDecision() != null ? decision.getDecision().name() : null)
+                .fromStatus(decision.getFromStatus())
+                .toStatus(decision.getToStatus())
+                .reason(decision.getReason())
+                .createdAt(decision.getCreatedAt())
+                .task(toTaskSummary(decision.getTask()))
+                .reviewer(toReviewUserSummary(decision.getReviewer()))
+                .build();
+    }
+
+    private TaskReviewDecisionResponse toSyntheticReviewQueueItem(Task task) {
+        return TaskReviewDecisionResponse.builder()
+                .decision("REQUEST_REVIEW")
+                .fromStatus(task.getStatus() != null ? task.getStatus().name() : "IN_REVIEW")
+                .toStatus("IN_REVIEW")
+                .task(toTaskSummary(task))
+                .build();
+    }
+
+    private TaskReviewDecisionResponse.TaskSummary toTaskSummary(Task task) {
+        return TaskReviewDecisionResponse.TaskSummary.builder()
+                .id(task.getId())
+                .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                .title(task.getTitle())
+                .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .requirementCode(resolveRequirementCode(task.getRequirementId()))
+                .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
+                .build();
+    }
+
+    private TaskReviewDecisionResponse.UserSummary toReviewUserSummary(UserAccount user) {
+        if (user == null) return null;
+        return TaskReviewDecisionResponse.UserSummary.builder()
+                .id(user.getId())
+                .name(displayName(user))
+                .email(user.getEmail())
+                .build();
+    }
+
     private String resolveRequirementCode(Long requirementId) {
         if (requirementId == null) return null;
         return requirementRepository.findById(requirementId)
@@ -735,14 +926,17 @@ public class TaskServiceImpl implements TaskService {
 
     private TaskResponse.UserSummary toUserSummary(UserAccount user) {
         if (user == null) return null;
-        String name = user.getProfile() != null && user.getProfile().getFullName() != null
-                ? user.getProfile().getFullName()
-                : user.getUsername();
         return TaskResponse.UserSummary.builder()
                 .id(user.getId())
-                .name(name)
+                .name(displayName(user))
                 .email(user.getEmail())
                 .build();
+    }
+
+    private String displayName(UserAccount user) {
+        return user.getProfile() != null && user.getProfile().getFullName() != null
+                ? user.getProfile().getFullName()
+                : user.getUsername();
     }
 
     private TaskResponse.ChecklistItem toChecklistResponse(TaskChecklist item) {
