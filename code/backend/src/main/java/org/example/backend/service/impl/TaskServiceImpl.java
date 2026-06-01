@@ -6,6 +6,7 @@ import org.example.backend.entity.*;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.ProjectMemberRepository;
+import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
@@ -45,6 +46,7 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
+    private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
 
     @Override
     @Transactional
@@ -767,6 +769,9 @@ public class TaskServiceImpl implements TaskService {
         if (nextStatus != TaskStatus.DONE) {
             return;
         }
+        if (!isReviewGateEnabled(task.getProject().getId())) {
+            return;
+        }
         if (!isProjectLeader(task.getProject().getId(), userId)) {
             throw new BadRequestException("Task must be reviewed by project leader before Done");
         }
@@ -774,6 +779,12 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Move task to In Review before approving it as Done");
         }
         throw new BadRequestException("Use the review approval action to mark this task as Done");
+    }
+
+    private boolean isReviewGateEnabled(Long projectId) {
+        return codeInsightSettingsRepository.findByProjectId(projectId)
+                .map(ProjectCodeInsightSettings::isReviewGateEnabled)
+                .orElse(true);
     }
 
     private void applyCompletionTimestamp(Task task, TaskStatus nextStatus) {
