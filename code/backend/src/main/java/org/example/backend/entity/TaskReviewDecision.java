@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class TaskReviewDecision {
+    // Append-only audit record for request/approve/reject actions in the task review gate.
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

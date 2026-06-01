@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ProjectCodeInsightSettings {
+    // Project-level switches that control how strict Code Insight should be.
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,6 +27,7 @@ public class ProjectCodeInsightSettings {
     @Builder.Default
     private boolean reviewGateEnabled = true;
 
+    // These flags are saved now and enforced by later GitHub evidence/scoring phases.
     @Column(name = "require_pr_for_done", nullable = false)
     @Builder.Default
     private boolean requirePrForDone = false;

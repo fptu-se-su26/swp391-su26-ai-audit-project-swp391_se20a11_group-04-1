@@ -8,6 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class CodeInsightConfigRequest {
+    // Payload sent by the Code Insight settings panel when a leader saves repository/rule config.
     private String repoUrl;
     private String defaultBranch;
     private String webhookSecret;

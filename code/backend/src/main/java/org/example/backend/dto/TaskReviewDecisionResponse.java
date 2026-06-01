@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class TaskReviewDecisionResponse {
+    // Review queue/history item returned to Code Insight UI.
     private Long id;
     private String decision;
     private String fromStatus;
@@ -25,6 +26,7 @@ public class TaskReviewDecisionResponse {
     @AllArgsConstructor
     @Builder
     public static class TaskSummary {
+        // Compact task data so review queue can display and link to task detail.
         private Long id;
         private Long projectId;
         private String title;
@@ -40,6 +42,7 @@ public class TaskReviewDecisionResponse {
     @AllArgsConstructor
     @Builder
     public static class UserSummary {
+        // Reviewer/requester identity shown beside the decision reason.
         private Long id;
         private String name;
         private String email;

@@ -8,5 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface ProjectCodeInsightSettingsRepository extends JpaRepository<ProjectCodeInsightSettings, Long> {
+    // Load review gate/scoring switches for the project currently being reviewed.
     Optional<ProjectCodeInsightSettings> findByProjectId(Long projectId);
 }

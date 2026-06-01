@@ -8,5 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface GithubRepositoryRepository extends JpaRepository<GithubRepository, Long> {
+    // One repository config is allowed per project.
     Optional<GithubRepository> findByProjectId(Long projectId);
 }

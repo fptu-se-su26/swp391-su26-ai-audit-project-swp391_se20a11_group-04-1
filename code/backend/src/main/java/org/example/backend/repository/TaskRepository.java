@@ -25,6 +25,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "project", "kanbanColumn"})
+    // Code Insight review queue reads live IN_REVIEW tasks with enough data for display.
     List<Task> findByProjectIdAndStatusOrderByUpdatedAtDesc(Long projectId, org.example.backend.entity.TaskStatus status);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "project"})
