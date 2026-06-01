@@ -5,6 +5,7 @@ import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
 const isLeaderRole = (role = '') => {
+  // Normalize project role labels so leader-only review actions show correctly.
   const normalized = role.toUpperCase().replace(/\s+/g, '_')
   return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
 }
@@ -60,6 +61,7 @@ const TaskDetailPage = () => {
   const completedChecklist = task.checklist.filter((item) => item.done).length
 
   const handleDeleteTask = () => {
+    // Delete through store, then return user to board because this detail page no longer has a task.
     const confirmed = window.confirm(`Delete ${task.id}? This cannot be undone in the current board state.`)
     if (confirmed) {
       deleteTask(task.id)
@@ -68,23 +70,28 @@ const TaskDetailPage = () => {
   }
 
   const handleUpdateTask = (payload) => {
+    // Save edited task fields and close the modal once store/API update starts.
     updateTask(task.id, payload)
     setIsEditOpen(false)
   }
 
   const handleCollapseToPanel = () => {
+    // Return to board while asking the board page to open this task in its side panel.
     navigate(taskBoardPath, { state: { openTaskId: task.id } })
   }
 
   const handleRequestReview = async () => {
+    // Member moves task into IN_REVIEW for leader approval.
     await requestTaskReview(task.id, 'Ready for leader review')
   }
 
   const handleApproveReview = async () => {
+    // Leader approves this task and backend marks it DONE.
     await approveTaskReview(task.id, 'Approved from task detail')
   }
 
   const handleRejectReview = async () => {
+    // Leader must provide feedback before backend returns the task to work.
     const reason = window.prompt('Why should this task be returned for changes?')
     if (!reason || !reason.trim()) return
     await rejectTaskReview(task.id, reason.trim(), 'IN_PROGRESS')

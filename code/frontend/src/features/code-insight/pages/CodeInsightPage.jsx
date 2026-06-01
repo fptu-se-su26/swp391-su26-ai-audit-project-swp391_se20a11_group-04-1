@@ -5,6 +5,7 @@ import taskService from '@features/kanban/services/taskService'
 import codeInsightService from '../services/codeInsightService'
 
 const isLeaderRole = (role = '') => {
+  // Normalize backend/project role labels so both "LEADER" and "Project Leader" work.
   const normalized = role.toUpperCase().replace(/\s+/g, '_')
   return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
 }
@@ -30,12 +31,22 @@ const CodeInsightPage = () => {
   const [configSaving, setConfigSaving] = useState(false)
   const [error, setError] = useState('')
   const [configError, setConfigError] = useState('')
+  const [configSuccess, setConfigSuccess] = useState('')
+  const [isConfigEditing, setIsConfigEditing] = useState(false)
   const [success, setSuccess] = useState('')
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
+  const ruleItems = [
+    ['active', 'Repository Active'],
+    ['reviewGateEnabled', 'Require Leader Review Gate'],
+    ['requirePrForDone', 'Require PR Before Done'],
+    ['requireCiPass', 'Require CI Pass'],
+    ['aiReviewEnabled', 'Enable AI Review Later'],
+  ]
 
   const hydrateConfigForm = (nextConfig) => {
+    // Copy API config into editable form state; keep webhookSecret blank so raw secrets are never displayed.
     const repository = nextConfig?.repository
     const settings = nextConfig?.settings
     setConfig(nextConfig)
@@ -53,6 +64,7 @@ const CodeInsightPage = () => {
   }
 
   const loadReviewQueue = async () => {
+    // Fetch live IN_REVIEW tasks for the current project Code Insight queue.
     if (!projectId) return
     setLoading(true)
     setError('')
@@ -66,9 +78,11 @@ const CodeInsightPage = () => {
   }
 
   const loadConfig = async () => {
+    // Fetch repository/rule config used by the GitHub settings panel.
     if (!projectId) return
     setConfigLoading(true)
     setConfigError('')
+    setConfigSuccess('')
     try {
       hydrateConfigForm(await codeInsightService.getConfig(projectId))
     } catch (err) {
@@ -79,31 +93,36 @@ const CodeInsightPage = () => {
   }
 
   useEffect(() => {
+    // Reload queue and config whenever the route project changes.
     loadReviewQueue()
     loadConfig()
   }, [projectId])
 
   const updateConfigForm = (field, value) => {
+    // Generic form updater keeps all settings controlled from one state object.
+    setConfigSuccess('')
     setConfigForm((current) => ({ ...current, [field]: value }))
   }
 
   const saveConfig = async (event) => {
+    // Persist repository/rule config; backend verifies leader permission and hashes webhook secret.
     event.preventDefault()
     if (!canDecide) return
     setConfigSaving(true)
     setConfigError('')
-    setSuccess('')
+    setConfigSuccess('')
     try {
       const payload = {
         ...configForm,
         minScoreWarningThreshold: Number(configForm.minScoreWarningThreshold),
       }
       if (!payload.webhookSecret?.trim()) {
+        // Blank secret means keep the existing hash on the backend.
         delete payload.webhookSecret
       }
       const nextConfig = await codeInsightService.updateConfig(projectId, payload)
       hydrateConfigForm(nextConfig)
-      setSuccess('Code Insight configuration saved.')
+      setConfigSuccess('Configuration saved successfully.')
     } catch (err) {
       setConfigError(err.response?.data?.message || err.message || 'Failed to save Code Insight configuration')
     } finally {
@@ -111,7 +130,16 @@ const CodeInsightPage = () => {
     }
   }
 
+  const cancelConfigEdit = () => {
+    // Return form fields to last saved config when the user leaves edit mode.
+    hydrateConfigForm(config)
+    setIsConfigEditing(false)
+    setConfigError('')
+    setConfigSuccess('')
+  }
+
   const approveTask = async (taskId) => {
+    // Leader approves this review item and moves the task to DONE through the review endpoint.
     setError('')
     setSuccess('')
     try {
@@ -124,6 +152,7 @@ const CodeInsightPage = () => {
   }
 
   const rejectTask = async (taskId) => {
+    // Leader sends task back to work with a required reason for the audit trail.
     const reason = window.prompt('Why should this task be returned for changes?')
     if (!reason || !reason.trim()) return
     setError('')
@@ -194,87 +223,162 @@ const CodeInsightPage = () => {
             </div>
           )}
 
-          <form onSubmit={saveConfig} className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="md:col-span-2">
-                <span className="font-label-md text-label-md uppercase text-on-surface-variant">Repository URL</span>
-                <input
-                  type="text"
-                  value={configForm.repoUrl}
-                  onChange={(event) => updateConfigForm('repoUrl', event.target.value)}
-                  disabled={!canDecide || configLoading}
-                  placeholder="https://github.com/owner/repository"
-                  className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                />
-              </label>
-              <label>
-                <span className="font-label-md text-label-md uppercase text-on-surface-variant">Default Branch</span>
-                <input
-                  type="text"
-                  value={configForm.defaultBranch}
-                  onChange={(event) => updateConfigForm('defaultBranch', event.target.value)}
-                  disabled={!canDecide || configLoading}
-                  placeholder="main"
-                  className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                />
-              </label>
-              <label>
-                <span className="font-label-md text-label-md uppercase text-on-surface-variant">Webhook Secret</span>
-                <input
-                  type="password"
-                  value={configForm.webhookSecret}
-                  onChange={(event) => updateConfigForm('webhookSecret', event.target.value)}
-                  disabled={!canDecide || configLoading}
-                  placeholder={config?.repository?.hasWebhookSecret ? 'Leave blank to keep current secret' : 'Set later for webhook'}
-                  className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                />
-              </label>
-            </div>
+          {!isConfigEditing ? (
+            <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2 rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Repository URL</span>
+                  <p className="mt-2 text-sm font-semibold text-on-surface break-all">
+                    {config?.repository?.repoUrl || 'No repository configured yet'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Default Branch</span>
+                  <p className="mt-2 text-sm font-semibold text-on-surface">{config?.repository?.defaultBranch || 'main'}</p>
+                </div>
+                <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Webhook Secret</span>
+                  <p className="mt-2 text-sm font-semibold text-on-surface">
+                    {config?.repository?.hasWebhookSecret ? 'Saved' : 'Not set'}
+                  </p>
+                </div>
+              </div>
 
-            <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
-              <h3 className="font-label-md text-label-md uppercase text-on-surface-variant mb-3">Review Rules</h3>
-              <div className="space-y-3">
-                {[
-                  ['active', 'Repository Active'],
-                  ['reviewGateEnabled', 'Require Leader Review Gate'],
-                  ['requirePrForDone', 'Require PR Before Done'],
-                  ['requireCiPass', 'Require CI Pass'],
-                  ['aiReviewEnabled', 'Enable AI Review Later'],
-                ].map(([field, label]) => (
-                  <label key={field} className="flex items-center justify-between gap-3 text-sm font-semibold text-on-surface">
-                    <span>{label}</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(configForm[field])}
-                      onChange={(event) => updateConfigForm(field, event.target.checked)}
-                      disabled={!canDecide || configLoading}
-                      className="h-4 w-4 rounded border-outline text-primary focus:ring-primary disabled:opacity-60"
-                    />
-                  </label>
-                ))}
-                <label className="block pt-2">
-                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Score Warning Threshold</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={configForm.minScoreWarningThreshold}
-                    onChange={(event) => updateConfigForm('minScoreWarningThreshold', event.target.value)}
+              <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Review Rules</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsConfigEditing(true)
+                      setConfigSuccess('')
+                    }}
                     disabled={!canDecide || configLoading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-1.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-[17px]">settings</span>
+                    Config
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {ruleItems.map(([field, label]) => (
+                    <div key={field} className="flex items-center justify-between gap-3 text-sm font-semibold text-on-surface">
+                      <span>{label}</span>
+                      <span className={`font-label-md text-label-md uppercase rounded px-2 py-1 ${
+                        configForm[field]
+                          ? 'bg-[#dcfce7] text-[#166534]'
+                          : 'bg-surface-container-high text-on-surface-variant'
+                      }`}>
+                        {configForm[field] ? 'On' : 'Off'}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-3 border-t border-outline-variant pt-3 text-sm font-semibold text-on-surface">
+                    <span>Score Warning Threshold</span>
+                    <span className="font-label-md text-label-md rounded bg-primary-fixed px-2 py-1 text-primary">
+                      {configForm.minScoreWarningThreshold}
+                    </span>
+                  </div>
+                </div>
+                {configSuccess && (
+                  <div className="mt-4 rounded-lg border border-[#16a34a]/30 bg-[#dcfce7] px-3 py-2 text-sm font-semibold text-[#166534]">
+                    {configSuccess}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={saveConfig} className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="md:col-span-2">
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Repository URL</span>
+                  <input
+                    type="text"
+                    value={configForm.repoUrl}
+                    onChange={(event) => updateConfigForm('repoUrl', event.target.value)}
+                    disabled={!canDecide || configLoading}
+                    placeholder="https://github.com/owner/repository"
+                    className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
+                  />
+                </label>
+                <label>
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Default Branch</span>
+                  <input
+                    type="text"
+                    value={configForm.defaultBranch}
+                    onChange={(event) => updateConfigForm('defaultBranch', event.target.value)}
+                    disabled={!canDecide || configLoading}
+                    placeholder="main"
+                    className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
+                  />
+                </label>
+                <label>
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Webhook Secret</span>
+                  <input
+                    type="password"
+                    value={configForm.webhookSecret}
+                    onChange={(event) => updateConfigForm('webhookSecret', event.target.value)}
+                    disabled={!canDecide || configLoading}
+                    placeholder={config?.repository?.hasWebhookSecret ? 'Leave blank to keep current secret' : 'Set later for webhook'}
                     className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
                   />
                 </label>
               </div>
-              <button
-                type="submit"
-                disabled={!canDecide || configSaving || configLoading}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span className="material-symbols-outlined text-[18px]">save</span>
-                {configSaving ? 'Saving...' : canDecide ? 'Save Configuration' : 'Leader Only'}
-              </button>
-            </div>
-          </form>
+
+              <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                <h3 className="font-label-md text-label-md uppercase text-on-surface-variant mb-3">Review Rules</h3>
+                <div className="space-y-3">
+                  {ruleItems.map(([field, label]) => (
+                    <label key={field} className="flex items-center justify-between gap-3 text-sm font-semibold text-on-surface">
+                      <span>{label}</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(configForm[field])}
+                        onChange={(event) => updateConfigForm(field, event.target.checked)}
+                        disabled={!canDecide || configLoading}
+                        className="h-4 w-4 rounded border-outline text-primary focus:ring-primary disabled:opacity-60"
+                      />
+                    </label>
+                  ))}
+                  <label className="block pt-2">
+                    <span className="font-label-md text-label-md uppercase text-on-surface-variant">Score Warning Threshold</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={configForm.minScoreWarningThreshold}
+                      onChange={(event) => updateConfigForm('minScoreWarningThreshold', event.target.value)}
+                      disabled={!canDecide || configLoading}
+                      className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelConfigEdit}
+                    disabled={configSaving}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!canDecide || configSaving || configLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">save</span>
+                    {configSaving ? 'Saving...' : canDecide ? 'Save Configuration' : 'Leader Only'}
+                  </button>
+                </div>
+                {configSuccess && (
+                  <div className="mt-3 rounded-lg border border-[#16a34a]/30 bg-[#dcfce7] px-3 py-2 text-sm font-semibold text-[#166534]">
+                    {configSuccess}
+                  </div>
+                )}
+              </div>
+            </form>
+          )}
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">

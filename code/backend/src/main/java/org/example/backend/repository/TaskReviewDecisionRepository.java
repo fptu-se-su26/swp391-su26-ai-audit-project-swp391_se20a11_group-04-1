@@ -11,8 +11,10 @@ import java.util.Optional;
 @Repository
 public interface TaskReviewDecisionRepository extends JpaRepository<TaskReviewDecision, Long> {
 
+    // Used for project-level review history screens or reports with enough data to render names.
     @EntityGraph(attributePaths = {"task", "task.primaryAssignee", "reviewer", "reviewer.profile"})
     List<TaskReviewDecision> findByTaskProjectIdOrderByCreatedAtDesc(Long projectId);
 
+    // Used by the review queue to show the latest request/reject/approve reason for a task.
     Optional<TaskReviewDecision> findTopByTaskIdOrderByCreatedAtDesc(Long taskId);
 }

@@ -28,4 +28,3 @@ CREATE TABLE IF NOT EXISTS task_review_decisions (
 
 CREATE INDEX IF NOT EXISTS idx_task_review_decisions_task_created
     ON task_review_decisions(task_id, created_at DESC);
-

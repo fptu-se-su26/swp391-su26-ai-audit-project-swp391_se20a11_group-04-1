@@ -112,19 +112,23 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId) {
+        // Status updates come from drag/drop or status dropdown, so guard DONE through Code Insight first.
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         if (request.getColumnId() != null) {
+            // Column move is translated into a status by the column's statusKey.
             KanbanColumn column = kanbanColumnRepository.findById(request.getColumnId())
                     .orElseThrow(() -> new CustomException("Column not found", HttpStatus.NOT_FOUND));
             if (column.getStatusKey() != null) {
                 TaskStatus nextStatus = parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus());
+                // This blocks normal direct-to-DONE moves while review gate is enabled.
                 ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
                 task.setStatus(nextStatus);
                 applyCompletionTimestamp(task, nextStatus);
             }
             setColumn(task, request.getColumnId(), task.getProject().getId());
         } else if (request.getStatus() != null) {
+            // Direct status PATCH follows the same guard as column-based drag/drop.
             TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
             ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
             task.setStatus(nextStatus);
@@ -148,6 +152,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse requestTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Member starts the Code Insight gate: task is moved to IN_REVIEW and no longer counts as completed.
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         if (task.getStatus() == TaskStatus.DONE) {
@@ -158,10 +163,12 @@ public class TaskServiceImpl implements TaskService {
         }
 
         TaskStatus fromStatus = task.getStatus();
+        // Persist the new workflow state and move the task to the matching Kanban column.
         task.setStatus(TaskStatus.IN_REVIEW);
         task.setCompletedAt(null);
         setColumnFromStatus(task, task.getProject().getId(), TaskStatus.IN_REVIEW);
         task = taskRepository.save(task);
+        // Store an audit row so Code Insight can show who requested review and why.
         recordReviewDecision(task, userId, TaskReviewDecisionType.REQUEST_REVIEW, fromStatus, TaskStatus.IN_REVIEW,
                 request != null ? request.getReason() : null);
         return toResponse(task);
@@ -169,6 +176,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse approveTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Leader approval is the official path from IN_REVIEW to DONE.
         Task task = findTask(taskId);
         ensureProjectLeader(task.getProject().getId(), userId);
         if (task.getStatus() != TaskStatus.IN_REVIEW) {
@@ -178,10 +186,12 @@ public class TaskServiceImpl implements TaskService {
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
         if (task.getCompletedAt() == null) {
+            // completedAt is written only when review approval actually completes the task.
             task.setCompletedAt(LocalDateTime.now());
         }
         setColumnFromStatus(task, task.getProject().getId(), TaskStatus.DONE);
         task = taskRepository.save(task);
+        // Store leader decision for later report/audit and future Code Insight evidence snapshots.
         recordReviewDecision(task, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
                 request != null ? request.getReason() : null);
         return toResponse(task);
@@ -189,6 +199,7 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Leader rejection returns the task to work, keeping the reason as review feedback.
         Task task = findTask(taskId);
         ensureProjectLeader(task.getProject().getId(), userId);
         if (task.getStatus() != TaskStatus.IN_REVIEW) {
@@ -197,6 +208,7 @@ public class TaskServiceImpl implements TaskService {
 
         String reason = requiredText(request != null ? request.getReason() : null, "Reject reason is required");
         TaskStatus targetStatus = parseEnum(request != null ? request.getTargetStatus() : null, TaskStatus.class, TaskStatus.IN_PROGRESS);
+        // Rejected reviews must go back to an actionable state, not TODO/DONE/IN_REVIEW.
         if (targetStatus != TaskStatus.IN_PROGRESS && targetStatus != TaskStatus.BLOCKED) {
             throw new BadRequestException("Rejected task must return to IN_PROGRESS or BLOCKED");
         }
@@ -205,10 +217,12 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus(targetStatus);
         task.setCompletedAt(null);
         if (targetStatus == TaskStatus.BLOCKED) {
+            // When leader rejects as BLOCKED, reuse the reject reason as the blocked explanation.
             task.setBlockedReason(reason);
         }
         setColumnFromStatus(task, task.getProject().getId(), targetStatus);
         task = taskRepository.save(task);
+        // Persist rejection decision so the review queue/history can explain what happened.
         recordReviewDecision(task, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
         return toResponse(task);
     }
@@ -216,6 +230,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(readOnly = true)
     public List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId) {
+        // Queue is built from live IN_REVIEW tasks, then decorated with the latest review decision if available.
         ensureProjectMember(projectId, userId);
         return taskRepository.findByProjectIdAndStatusOrderByUpdatedAtDesc(projectId, TaskStatus.IN_REVIEW).stream()
                 .map(task -> taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId())
@@ -748,6 +763,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void ensureProjectLeader(Long projectId, Long userId) {
+        // Fetch membership and role from DB because review decisions are project-role protected.
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
         String roleName = member.getRole() != null ? member.getRole().getName() : "";
@@ -757,6 +773,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private boolean isProjectLeader(Long projectId, Long userId) {
+        // Lightweight boolean role check used by status guards before allowing DONE.
         return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .map(member -> {
                     String roleName = member.getRole() != null ? member.getRole().getName() : "";
@@ -766,9 +783,11 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void ensureRegularStatusUpdateAllowed(Task task, TaskStatus nextStatus, Long userId) {
+        // Only DONE is protected; all other status moves continue through the normal Task Board flow.
         if (nextStatus != TaskStatus.DONE) {
             return;
         }
+        // Project-level setting lets the leader disable the review gate and restore the old DONE flow.
         if (!isReviewGateEnabled(task.getProject().getId())) {
             return;
         }
@@ -782,12 +801,14 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private boolean isReviewGateEnabled(Long projectId) {
+        // Missing config defaults to enabled so new projects are safe by default.
         return codeInsightSettingsRepository.findByProjectId(projectId)
                 .map(ProjectCodeInsightSettings::isReviewGateEnabled)
                 .orElse(true);
     }
 
     private void applyCompletionTimestamp(Task task, TaskStatus nextStatus) {
+        // completedAt is used by daily/weekly reporting, so clear it whenever task leaves DONE.
         if (nextStatus == TaskStatus.DONE) {
             if (task.getCompletedAt() == null) {
                 task.setCompletedAt(LocalDateTime.now());
@@ -804,8 +825,10 @@ public class TaskServiceImpl implements TaskService {
             TaskStatus fromStatus,
             TaskStatus toStatus,
             String reason) {
+        // Load reviewer entity so the audit row keeps a real FK to the user who made the decision.
         UserAccount reviewer = userAccountRepository.findById(reviewerId)
                 .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
+        // Append-only review history; this is the audit trail for Code Insight decisions.
         taskReviewDecisionRepository.save(TaskReviewDecision.builder()
                 .task(task)
                 .reviewer(reviewer)
@@ -879,6 +902,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskReviewDecisionResponse toReviewDecisionResponse(TaskReviewDecision decision) {
+        // Convert a persisted decision row into queue/history data for the frontend.
         return TaskReviewDecisionResponse.builder()
                 .id(decision.getId())
                 .decision(decision.getDecision() != null ? decision.getDecision().name() : null)
@@ -892,6 +916,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskReviewDecisionResponse toSyntheticReviewQueueItem(Task task) {
+        // Fallback for older IN_REVIEW tasks that do not have a saved decision row yet.
         return TaskReviewDecisionResponse.builder()
                 .decision("REQUEST_REVIEW")
                 .fromStatus(task.getStatus() != null ? task.getStatus().name() : "IN_REVIEW")
@@ -901,6 +926,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskReviewDecisionResponse.TaskSummary toTaskSummary(Task task) {
+        // Keep review queue payload compact: only the fields needed to identify and open the task.
         return TaskReviewDecisionResponse.TaskSummary.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
@@ -913,6 +939,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskReviewDecisionResponse.UserSummary toReviewUserSummary(UserAccount user) {
+        // Review queue displays who requested/decided the review when that user is available.
         if (user == null) return null;
         return TaskReviewDecisionResponse.UserSummary.builder()
                 .id(user.getId())

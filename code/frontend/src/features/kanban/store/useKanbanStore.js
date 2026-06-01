@@ -217,6 +217,7 @@ export const useKanbanStore = create((set, get) => ({
   },
 
   updateTaskStatus: async (taskId, status, columnId = null) => {
+    // Optimistically update the board first; rollback if backend rejects the move.
     const previousTasks = get().tasks
     const targetColumn = columnId ? get().columns.find((column) => column.id === String(columnId)) : null
     const nextStatus = targetColumn?.statusKey || status
@@ -231,6 +232,7 @@ export const useKanbanStore = create((set, get) => ({
     }))
 
     try {
+      // Persist status/column change; DONE may be blocked by Code Insight review gate.
       const task = mapTaskFromApi(await taskService.updateTaskStatus(
         taskId,
         targetColumn ? targetColumn.statusKey : nextStatus,
@@ -244,6 +246,7 @@ export const useKanbanStore = create((set, get) => ({
   },
 
   requestTaskReview: async (taskId, reason = '') => {
+    // Replace local task with backend response after it enters IN_REVIEW.
     set({ loading: true, error: null })
     try {
       const task = mapTaskFromApi(await taskService.requestTaskReview(taskId, reason))
@@ -256,6 +259,7 @@ export const useKanbanStore = create((set, get) => ({
   },
 
   approveTaskReview: async (taskId, reason = '') => {
+    // Replace local task with backend response after leader approval moves it to DONE.
     set({ loading: true, error: null })
     try {
       const task = mapTaskFromApi(await taskService.approveTaskReview(taskId, reason))
@@ -268,6 +272,7 @@ export const useKanbanStore = create((set, get) => ({
   },
 
   rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+    // Replace local task with backend response after leader rejection returns it to work.
     set({ loading: true, error: null })
     try {
       const task = mapTaskFromApi(await taskService.rejectTaskReview(taskId, reason, targetStatus))

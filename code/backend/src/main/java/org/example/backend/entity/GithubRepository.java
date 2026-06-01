@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class GithubRepository {
+    // Stores the GitHub repository configured for one DevTrack project.
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,6 +26,7 @@ public class GithubRepository {
     @Column(name = "repo_url", nullable = false, length = 500)
     private String repoUrl;
 
+    // Split owner/repo fields make future webhook matching faster and safer than parsing URL every time.
     @Column(nullable = false, length = 100)
     private String owner;
 

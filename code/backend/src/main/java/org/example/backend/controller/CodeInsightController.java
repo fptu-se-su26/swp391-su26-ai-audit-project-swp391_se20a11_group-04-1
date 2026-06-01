@@ -23,37 +23,44 @@ public class CodeInsightController {
     private final TaskService taskService;
     private final CodeInsightService codeInsightService;
 
+    // Read the current GitHub repository and Code Insight rule settings for this project.
     @GetMapping("/config")
     public ResponseEntity<ApiResponse<CodeInsightConfigResponse>> getConfig(
             @PathVariable Long projectId,
             HttpSession session) {
+        // Pull userId from HTTP session because project authorization is session based in this app.
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
                 codeInsightService.getConfig(projectId, userId),
                 "Code Insight configuration retrieved"));
     }
 
+    // Update repository config and review rules; service layer restricts this to project leaders.
     @PutMapping("/config")
     public ResponseEntity<ApiResponse<CodeInsightConfigResponse>> updateConfig(
             @PathVariable Long projectId,
             @RequestBody CodeInsightConfigRequest request,
             HttpSession session) {
+        // The request body is passed to the service so URL parsing and secret hashing stay out of the controller.
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
                 codeInsightService.updateConfig(projectId, request, userId),
                 "Code Insight configuration updated"));
     }
 
+    // Load tasks currently waiting for leader review in the Code Insight queue.
     @GetMapping("/review-queue")
     public ResponseEntity<ApiResponse<List<TaskReviewDecisionResponse>>> getReviewQueue(
             @PathVariable Long projectId,
             HttpSession session) {
+        // The service returns review decisions plus compact task metadata for the queue UI.
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
                 taskService.getProjectReviewQueue(projectId, userId),
                 "Code Insight review queue retrieved"));
     }
 
+    // Common session guard for all Code Insight endpoints.
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

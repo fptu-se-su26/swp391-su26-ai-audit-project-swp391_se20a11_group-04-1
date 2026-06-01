@@ -47,16 +47,20 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     @Override
     @Transactional(readOnly = true)
     public CodeInsightConfigResponse getConfig(Long projectId, Long userId) {
+        // Read-only endpoint: member access is enough because no secret value is returned.
         requireProjectMember(projectId, userId);
         return toResponse(
                 projectId,
+                // Repository can be null when the project has not configured GitHub yet.
                 githubRepositoryRepository.findByProjectId(projectId).orElse(null),
+                // If settings do not exist yet, return safe defaults without writing a row.
                 settingsRepository.findByProjectId(projectId).orElse(defaultSettings(null)));
     }
 
     @Override
     @Transactional
     public CodeInsightConfigResponse updateConfig(Long projectId, CodeInsightConfigRequest request, Long userId) {
+        // Updates are leader-only because repo config controls future trusted GitHub evidence.
         ProjectMember member = requireProjectMember(projectId, userId);
         requireProjectLeader(member);
 
@@ -64,18 +68,22 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             throw new CustomException("Code Insight configuration is required", HttpStatus.BAD_REQUEST);
         }
 
+        // Load the project entity to attach new config rows through a real FK relationship.
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
 
+        // Upsert project-level Code Insight settings first; these rules can exist even before a repo is configured.
         ProjectCodeInsightSettings settings = settingsRepository.findByProjectId(projectId)
                 .orElseGet(() -> defaultSettings(project));
         applySettings(settings, request);
         settings = settingsRepository.save(settings);
 
+        // Upsert repository config only when a URL is provided, otherwise allow partial setting updates.
         GithubRepository repository = githubRepositoryRepository.findByProjectId(projectId).orElse(null);
         if (hasText(request.getRepoUrl())) {
             ParsedGithubRepository parsed = parseGithubRepository(request.getRepoUrl());
             repository = repository != null ? repository : GithubRepository.builder().project(project).build();
+            // Store normalized repository identity so later webhook events can be matched to this project.
             repository.setRepoUrl(parsed.normalizedUrl());
             repository.setOwner(parsed.owner());
             repository.setRepoName(parsed.repoName());
@@ -83,10 +91,12 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             repository.setActive(request.getActive() == null || request.getActive());
             repository.setUpdatedAt(LocalDateTime.now());
             if (hasText(request.getWebhookSecret())) {
+                // Never persist the raw webhook secret; later signature checks compare against this hash.
                 repository.setWebhookSecretHash(sha256(request.getWebhookSecret().trim()));
             }
             repository = githubRepositoryRepository.save(repository);
         } else if (repository != null) {
+            // No URL means keep current repository identity and only update editable fields.
             if (hasText(request.getDefaultBranch())) {
                 repository.setDefaultBranch(request.getDefaultBranch().trim());
             }
@@ -103,11 +113,13 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         return toResponse(projectId, repository, settings);
     }
 
+    // Verify that the current session user belongs to the project before reading or writing config.
     private ProjectMember requireProjectMember(Long projectId, Long userId) {
         return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You do not have access to this project", HttpStatus.FORBIDDEN));
     }
 
+    // Only project leaders can change the repository and enforcement settings.
     private void requireProjectLeader(ProjectMember member) {
         String roleName = Optional.ofNullable(member.getRole())
                 .map(role -> role.getName())
@@ -118,6 +130,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         }
     }
 
+    // Build safe default settings used before the project explicitly saves a Code Insight config row.
     private ProjectCodeInsightSettings defaultSettings(Project project) {
         return ProjectCodeInsightSettings.builder()
                 .project(project)
@@ -129,6 +142,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
+    // Apply nullable request fields so the frontend can update only part of the settings.
     private void applySettings(ProjectCodeInsightSettings settings, CodeInsightConfigRequest request) {
         if (request.getReviewGateEnabled() != null) {
             settings.setReviewGateEnabled(request.getReviewGateEnabled());
@@ -144,6 +158,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         }
         if (request.getMinScoreWarningThreshold() != null) {
             int threshold = request.getMinScoreWarningThreshold();
+            // Clamp at validation level so scoring UI always works with a predictable 0-100 range.
             if (threshold < 0 || threshold > 100) {
                 throw new CustomException("Minimum score warning threshold must be between 0 and 100", HttpStatus.BAD_REQUEST);
             }
@@ -151,9 +166,11 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         }
     }
 
+    // Parse accepted GitHub URL formats into owner/repo plus a normalized HTTPS URL.
     private ParsedGithubRepository parseGithubRepository(String rawUrl) {
         String value = rawUrl.trim();
         Matcher matcher = HTTPS_GITHUB_URL.matcher(value);
+        // Try HTTPS first, then SSH, then short owner/repo for easier manual setup.
         if (!matcher.matches()) {
             matcher = SSH_GITHUB_URL.matcher(value);
         }
@@ -169,6 +186,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         return new ParsedGithubRepository(owner, repoName, "https://github.com/" + owner + "/" + repoName);
     }
 
+    // Prefer user input, then existing DB value, then main as the fallback branch.
     private String defaultBranch(String requested, String current) {
         if (hasText(requested)) {
             return requested.trim();
@@ -179,6 +197,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         return "main";
     }
 
+    // Hash webhook secret before storage; raw secret should only exist in memory during this request.
     private String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -193,6 +212,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         }
     }
 
+    // Merge repository config and settings into one response object for the frontend settings panel.
     private CodeInsightConfigResponse toResponse(
             Long projectId,
             GithubRepository repository,
@@ -204,6 +224,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
+    // Expose repository metadata while hiding the raw webhook secret/hash value from API consumers.
     private CodeInsightConfigResponse.GithubRepositoryConfig toRepositoryResponse(GithubRepository repository) {
         return CodeInsightConfigResponse.GithubRepositoryConfig.builder()
                 .id(repository.getId())
@@ -218,6 +239,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
+    // Convert persisted settings to the frontend-friendly settings block.
     private CodeInsightConfigResponse.CodeInsightSettings toSettingsResponse(ProjectCodeInsightSettings settings) {
         return CodeInsightConfigResponse.CodeInsightSettings.builder()
                 .id(settings.getId())
@@ -230,6 +252,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
+    // Small local helper to avoid repeating null/blank checks around optional config fields.
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
