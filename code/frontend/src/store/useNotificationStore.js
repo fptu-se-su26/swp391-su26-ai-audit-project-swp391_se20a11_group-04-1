@@ -227,6 +227,10 @@ export const useNotificationStore = create((set, get) => ({
               }
             )
           }
+
+          if (payload.type === 'REFRESH_BUGS') {
+            window.dispatchEvent(new CustomEvent('refresh-bugs', { detail: payload }))
+          }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
         }

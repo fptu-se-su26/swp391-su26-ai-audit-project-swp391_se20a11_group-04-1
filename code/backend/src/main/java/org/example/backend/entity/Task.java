@@ -118,10 +118,24 @@ public class Task {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "github_issue_number")
+    private Integer githubIssueNumber;
+
+    @Column(name = "github_issue_url", length = 500)
+    private String githubIssueUrl;
+
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orderIndex ASC, id ASC")
     @Builder.Default
     private List<TaskChecklist> checklist = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Task parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Task> subTasks = new ArrayList<>();
 
     @PreUpdate
     protected void onUpdate() {

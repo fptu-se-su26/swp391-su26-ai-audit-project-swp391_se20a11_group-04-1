@@ -24,12 +24,6 @@ const ProjectLayout = () => {
       }
     }
 
-    // Cleanup: clear project context when leaving the project layout scope
-    return () => {
-      // Only clear if we are genuinely leaving the project routes
-      // This happens automatically if this Layout unmounts
-      clearActiveProject();
-    };
   }, [projectId]); // Added projectId dependency
 
   if (!projectId) {
