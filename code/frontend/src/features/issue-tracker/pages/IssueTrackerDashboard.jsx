@@ -52,9 +52,9 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setExpandedIssues(prev => ({ ...prev, [id]: !prev[id] }))
   }
-  const loadBugs = useCallback(async () => {
+  const loadBugs = useCallback(async (silent = false) => {
     if (!projectId) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const bugsResponse = await bugService.getProjectBugs(projectId) || []
       const tasksResponse = await taskService.getProjectTasks(projectId) || []
@@ -214,7 +214,7 @@ export function IssueTrackerDashboard() {
     try {
       await bugService.approveBug(bugId)
       toast.success('Bug approved! Synced to GitHub & Task Board.')
-      loadBugs()
+      loadBugs(true)
     } catch (err) {
       console.error('Error approving bug:', err)
       toast.error(err.response?.data?.message || 'Failed to approve bug report')
@@ -395,6 +395,41 @@ export function IssueTrackerDashboard() {
     }
   }
 
+  const isMentor = activeProject?.role === 'Mentor'
+  
+  const reviewBugs = useMemo(() => {
+    const parentTasksInReview = filteredBugs.filter(b => b.displayStatus === 'IN_REVIEW');
+    const subtasksInReview = [];
+    filteredBugs.forEach(b => {
+      const taskEntity = b.isBug ? b.fixTask : b;
+      if (taskEntity && taskEntity.subTasks) {
+        taskEntity.subTasks.forEach(sub => {
+          if (sub.status === 'IN_REVIEW') {
+            subtasksInReview.push({
+              ...sub,
+              id: sub.id,
+              isBug: false,
+              isSubTask: true,
+              displayTitle: sub.displayTitle || sub.title,
+              displayType: sub.displayType || 'Sub-task',
+              displaySeverity: sub.displaySeverity || sub.priority || 'MEDIUM',
+              displayEnv: 'N/A',
+              displayStatus: sub.status,
+              parentTitle: b.displayTitle,
+              originalSub: sub
+            });
+          }
+        });
+      }
+    });
+    return [...parentTasksInReview, ...subtasksInReview];
+  }, [filteredBugs]);
+
+  const openBugs = filteredBugs.filter(b => b.displayStatus !== 'CLOSED' && b.displayStatus !== 'FIXED' && b.displayStatus !== 'DONE' && b.displayStatus !== 'IN_REVIEW');
+  const closedBugs = filteredBugs.filter(b => b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE');
+  
+  const displayList = activeListTab === 'open' ? openBugs : activeListTab === 'review' ? reviewBugs : closedBugs;
+
   const handleRequestReview = async (e, taskEntity) => {
     e.stopPropagation()
     const taskData = taskEntity.isBug ? taskEntity.fixTask : taskEntity
@@ -408,7 +443,7 @@ export function IssueTrackerDashboard() {
     try {
       await taskService.updateTaskStatus(taskData.id, 'IN_REVIEW')
       toast.success('Đã gửi yêu cầu review!')
-      loadBugs()
+      loadBugs(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Yêu cầu review thất bại')
     } finally {
@@ -422,7 +457,7 @@ export function IssueTrackerDashboard() {
     try {
       await taskService.updateTaskStatus(taskId, 'DONE')
       toast.success('Đã Approve task thành công!')
-      loadBugs()
+      loadBugs(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Duyệt task thất bại')
     } finally {
@@ -430,47 +465,46 @@ export function IssueTrackerDashboard() {
     }
   }
 
+  const handleRejectTask = async (e, taskId) => {
+    e.stopPropagation()
+    setApprovingId(taskId)
+    try {
+      await taskService.updateTaskStatus(taskId, 'IN_PROGRESS')
+      toast.success('Đã từ chối review task!')
+      loadBugs(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Từ chối task thất bại')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
   const handleLeaderAssign = async (e, taskEntity, newAssigneeId) => {
     e.stopPropagation()
-    if (!newAssigneeId) return // Unassign handled differently if needed, but lets allow empty to unassign?
 
     // In backend, we don't have a clear unassign route, but let's assume we just update task
     const taskData = taskEntity.isBug ? taskEntity.fixTask : taskEntity
     if (!taskData) return
 
-    setAssigningTaskId(null)
+    setAssigningTaskId(taskData.id)
     try {
-      // Create payload to update assignee
-      const payload = {
-        title: taskData.title,
-        description: taskData.description,
-        type: taskData.type,
-        priority: taskData.priority,
-        status: taskData.status,
-        primaryAssigneeId: newAssigneeId ? Number(newAssigneeId) : null,
-        sprintId: taskData.sprintId || null,
-        checklist: taskData.checklist?.map(c => ({ content: c.content, done: c.done })) || []
-      }
+      await axiosInstance.patch(`/v1/tasks/${taskData.id}/assignee`, {
+        assigneeId: newAssigneeId ? Number(newAssigneeId) : null
+      })
 
-      await axiosInstance.put(`/v1/tasks/${taskData.id}`, payload)
-
-      // Cascade to unassigned sub-tasks
+      // Cascade to ALL sub-tasks when assigning a new person
       const subTasks = taskData.subTasks || []
       let count = 0
-      for (const sub of subTasks) {
-        if (!sub.primaryAssigneeId && !sub.primaryAssignee) {
-          const subPayload = {
-            title: sub.title,
-            description: sub.description,
-            type: sub.type,
-            priority: sub.priority,
-            status: sub.status,
-            primaryAssigneeId: newAssigneeId ? Number(newAssigneeId) : null,
-            sprintId: sub.sprintId || null,
-            checklist: sub.checklist?.map(c => ({ content: c.content, done: c.done })) || []
-          }
-          await axiosInstance.put(`/v1/tasks/${sub.id}`, subPayload)
-          count++
+      
+      if (newAssigneeId) {
+        const subTasksToUpdate = subTasks
+        if (subTasksToUpdate.length > 0) {
+          await Promise.all(subTasksToUpdate.map(sub => {
+            return axiosInstance.patch(`/v1/tasks/${sub.id}/assignee`, {
+              assigneeId: Number(newAssigneeId)
+            })
+          }))
+          count = subTasksToUpdate.length
         }
       }
 
@@ -480,9 +514,11 @@ export function IssueTrackerDashboard() {
       } else {
         toast.success(newAssigneeId ? `Đã gán cho ${memberName}!` : 'Đã bỏ gán!')
       }
-      loadBugs()
+      await loadBugs(true)
     } catch (err) {
       toast.error('Gán task thất bại')
+    } finally {
+      setAssigningTaskId(null)
     }
   }
 
@@ -528,11 +564,40 @@ export function IssueTrackerDashboard() {
         return <span className="text-[10px] font-black tracking-wider uppercase bg-green-500/10 text-green-600 border border-green-500/25 px-2 py-0.5 rounded">CLOSED</span>
       case 'IN_PROGRESS':
         return <span className="text-[10px] font-black tracking-wider uppercase bg-blue-500/10 text-blue-600 border border-blue-500/25 px-2 py-0.5 rounded">IN PROGRESS</span>
+      case 'IN_REVIEW':
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-600 border border-amber-500/25 px-2 py-0.5 rounded">IN REVIEW</span>
       case 'OPEN':
       case 'TODO':
       default:
         return <span className="text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/25 px-2 py-0.5 rounded">ACTIVE</span>
     }
+  }
+
+  const getDeadlineBadge = (deadline) => {
+    if (!deadline) return null
+    const dlDate = new Date(deadline)
+    dlDate.setHours(23, 59, 59, 999)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const diffTime = dlDate - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    let colorClass = 'bg-gray-500/10 text-gray-600 border-gray-500/25'
+    if (diffDays < 0) {
+      colorClass = 'bg-red-500/10 text-red-600 border-red-500/20'
+    } else if (diffDays <= 3) {
+      colorClass = 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+    }
+
+    const formattedDate = dlDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    
+    return (
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border hidden sm:flex items-center gap-1 ${colorClass}`}>
+        <span className="material-symbols-outlined text-[10px]">schedule</span>
+        {formattedDate}
+      </span>
+    )
   }
 
   // Parse GitHub issue number from metadata if present
@@ -713,7 +778,7 @@ export function IssueTrackerDashboard() {
             <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Scanning repository for logged issues...</p>
           </section>
-        ) : filteredBugs.length === 0 ? (
+        ) : displayList.length === 0 ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm space-y-4">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant">check_circle</span>
             <h3 className="font-extrabold text-lg text-on-surface">No Bug Reports Found</h3>
@@ -723,36 +788,54 @@ export function IssueTrackerDashboard() {
           </section>
         ) : (
           <section className="flex flex-col gap-2">
-            {filteredBugs.length === 0 ? (
+            {displayList.length === 0 ? (
               <div className="text-center py-8 text-on-surface-variant font-medium text-sm">No issues found matching the criteria.</div>
-            ) : filteredBugs.map((bug) => {
-              const rowId = bug.isBug ? `bug-${bug.id}` : `task-${bug.id}`
+            ) : displayList.map((bug) => {
+              const rowId = bug.isSubTask ? `subtask-${bug.id}` : (bug.isBug ? `bug-${bug.id}` : `task-${bug.id}`)
               const isExpanded = !!expandedIssues[rowId]
               const gitHubNumber = bug.isBug ? getGitHubIssueNumber(bug.stepsToReproduce) : bug.githubIssueNumber;
+              const taskEntity = bug.isSubTask ? bug : (bug.isBug ? bug.fixTask : bug);
+
+              // Checklist & subtask calculations for parent task
+              const parentChecklist = taskEntity?.checklist || []
+              const isChecklistPassed = !parentChecklist || parentChecklist.length === 0 || parentChecklist.every(item => item.done)
+              const subTasksList = taskEntity?.subTasks || []
+              const hasSubtasks = subTasksList.length > 0
+              const areAllSubtasksDone = hasSubtasks && subTasksList.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
+              const isReviewActionEnabled = hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed
 
               return (
                 <div key={rowId} className="flex flex-col bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-sm overflow-hidden hover:border-primary/45 transition-colors">
                   {/* Row Header */}
                   <div
-                    onClick={(e) => toggleExpand(e, rowId)}
+                    onClick={(e) => {
+                      if (bug.isSubTask) return;
+                      toggleExpand(e, rowId);
+                    }}
                     className="flex flex-wrap md:flex-nowrap items-center gap-3 p-3 cursor-pointer group"
                   >
                     {/* Left Expand Chevron */}
                     <div className="flex-shrink-0 w-6 flex justify-center text-on-surface-variant group-hover:text-primary transition-colors">
-                      <span className={`material-symbols-outlined transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                        expand_more
-                      </span>
+                      {!bug.isSubTask ? (
+                        <span className={`material-symbols-outlined transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                          expand_more
+                        </span>
+                      ) : (
+                        <span className="material-symbols-outlined text-[16px] text-amber-600">subdirectory_arrow_right</span>
+                      )}
                     </div>
 
                     <div className="flex-shrink-0 flex justify-center">
-                      <span className={`material-symbols-outlined text-lg ${bug.isBug ? 'text-red-500' : 'text-blue-500'}`}>
-                        {bug.isBug ? 'bug_report' : 'task'}
+                      <span className={`material-symbols-outlined text-lg ${bug.isSubTask ? 'text-amber-500 font-bold' : (bug.isBug ? 'text-red-500' : 'text-blue-500')}`}>
+                        {bug.isSubTask ? 'rate_review' : (bug.isBug ? 'bug_report' : 'task')}
                       </span>
                     </div>
 
                     <div className="flex-1 min-w-[200px] flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{bug.displayType}</span>
+                        <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                          {bug.isSubTask ? `Sub-task của: ${bug.parentTitle}` : bug.displayType}
+                        </span>
                         {gitHubNumber && (
                           <span className="text-[9px] font-bold bg-secondary-fixed text-on-secondary-fixed px-1.5 py-0.25 rounded flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[9px] font-bold">settings_ethernet</span>
@@ -766,13 +849,160 @@ export function IssueTrackerDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-[9px] font-bold uppercase bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded hidden sm:inline-block">
-                        Env: {bug.displayEnv}
-                      </span>
+                      {!bug.isSubTask && (
+                        <span className="text-[9px] font-bold uppercase bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded hidden sm:inline-block">
+                          Env: {bug.displayEnv}
+                        </span>
+                      )}
+                      {getDeadlineBadge(bug.deadline)}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden md:inline-block ${getSeverityColor(bug.displaySeverity)}`}>
                         {bug.displaySeverity}
                       </span>
                       {getStatusBadge(bug)}
+
+                      {bug.isSubTask && (() => {
+                        const currentAssigneeId = bug.primaryAssigneeId || bug.primaryAssignee?.id;
+                        const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
+                        return (
+                          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant/50 hidden lg:inline-block truncate max-w-[120px]">
+                            {assignee?.fullName || assignee?.username || 'Chưa phân công'}
+                          </span>
+                        );
+                      })()}
+
+                      {!bug.isSubTask && isLeader && (!bug.isBug || (bug.isBug && bug.fixTask)) && (() => {
+                        const currentAssigneeId = bug.isBug ? (bug.fixTask?.primaryAssigneeId || bug.fixTask?.primaryAssignee?.id) : (bug.primaryAssigneeId || bug.primaryAssignee?.id);
+                        
+                        const taskWithSubtasks = bug.isBug ? bug.fixTask : bug;
+                        const subTasksListSelect = taskWithSubtasks?.subTasks || [];
+                        const uniqueAssigneeIds = new Set();
+                        subTasksListSelect.forEach(sub => {
+                            const subAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                            if (subAssigneeId) uniqueAssigneeIds.add(String(subAssigneeId));
+                        });
+                        const hasMultipleAssignees = uniqueAssigneeIds.size > 1;
+                        const isSelectDisabled = assigningTaskId === (bug.isBug ? bug.fixTask?.id : bug.id) || hasMultipleAssignees;
+
+                        let firstName = "";
+                        if (hasMultipleAssignees) {
+                           const firstId = Array.from(uniqueAssigneeIds)[0];
+                           const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
+                           firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
+                        }
+                        
+                        const displayValue = currentAssigneeId || '';
+
+                        return (
+                          <div onClick={e => e.stopPropagation()} className="relative flex items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
+                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
+                            {hasMultipleAssignees ? (
+                              <div 
+                                className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border max-w-[180px] bg-blue-500/10 text-blue-600 border-blue-500/30 opacity-50 cursor-not-allowed"
+                                title="Bị khoá do các sub-task đang được giao cho nhiều người khác nhau"
+                              >
+                                <span className="truncate leading-tight">{firstName}</span>
+                                <span className="text-[9px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
+                              </div>
+                            ) : (
+                              <select
+                                value={displayValue}
+                                onChange={(e) => handleLeaderAssign(e, bug, e.target.value)}
+                                disabled={isSelectDisabled}
+                                className={`text-xs font-bold px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px] truncate transition-all cursor-pointer ${
+                                  assigningTaskId === (bug.isBug ? bug.fixTask?.id : bug.id) ? 'opacity-50 cursor-wait' : ''
+                                } ${
+                                  displayValue
+                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                    : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                                }`}
+                                title="Assign to member"
+                              >
+                                <option value="" className="bg-surface text-on-surface font-semibold">-- Chưa phân công --</option>
+                                {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
+                                  <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      
+                      {!bug.isSubTask && !isLeader && (!bug.isBug || (bug.isBug && bug.fixTask)) && (() => {
+                        const currentAssigneeId = bug.isBug ? (bug.fixTask?.primaryAssigneeId || bug.fixTask?.primaryAssignee?.id) : (bug.primaryAssigneeId || bug.primaryAssignee?.id);
+                        
+                        const taskWithSubtasks = bug.isBug ? bug.fixTask : bug;
+                        const subTasksListSelect = taskWithSubtasks?.subTasks || [];
+                        const uniqueAssigneeIds = new Set();
+                        subTasksListSelect.forEach(sub => {
+                            const subAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                            if (subAssigneeId) uniqueAssigneeIds.add(String(subAssigneeId));
+                        });
+                        const hasMultipleAssignees = uniqueAssigneeIds.size > 1;
+
+                        if (hasMultipleAssignees) {
+                           const firstId = Array.from(uniqueAssigneeIds)[0];
+                           const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
+                           const firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
+                           return (
+                             <div className="flex flex-col justify-center text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/30 hidden lg:inline-flex max-w-[140px] truncate">
+                               <span className="truncate leading-tight">{firstName}</span>
+                               <span className="text-[8px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
+                             </div>
+                           );
+                        }
+
+                        if (!currentAssigneeId) return null;
+                        const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
+                        return (
+                          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant/50 hidden lg:inline-block truncate max-w-[120px]">
+                            {assignee?.fullName || assignee?.username || 'Assigned'}
+                          </span>
+                        );
+                      })()}
+
+                      {taskEntity && taskEntity.status !== 'IN_REVIEW' && taskEntity.status !== 'DONE' && taskEntity.status !== 'FIXED' && taskEntity.status !== 'CLOSED' && (
+                        <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
+                          <button
+                            onClick={(e) => handleRequestReview(e, bug)}
+                            disabled={!isReviewActionEnabled || approvingId === taskEntity.id}
+                            className={`py-1 px-3 rounded-lg text-[10px] font-bold transition-all shadow flex items-center gap-1 ${
+                              isReviewActionEnabled
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
+                                : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[10px]">rate_review</span>
+                            Yêu cầu review
+                          </button>
+                          {!isReviewActionEnabled && (
+                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50">
+                              {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
+                              {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {isLeader && taskEntity && taskEntity.status === 'IN_REVIEW' && (
+                        <div onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
+                          <button
+                            onClick={(e) => handleApproveTask(e, taskEntity.id)}
+                            disabled={approvingId === taskEntity.id}
+                            className="py-1 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">task_alt</span>
+                            Approve
+                          </button>
+                          <button
+                            onClick={(e) => handleRejectTask(e, taskEntity.id)}
+                            disabled={approvingId === taskEntity.id}
+                            className="py-1 px-3 bg-error hover:bg-error/90 text-on-error text-[10px] font-bold rounded-lg transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">cancel</span>
+                            Từ chối
+                          </button>
+                        </div>
+                      )}
 
                       {isLeader && bug.isBug && bug.relatedTaskId === null && (
                         <button
@@ -792,26 +1022,12 @@ export function IssueTrackerDashboard() {
                         </button>
                       )}
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (bug.isBug) {
-                            navigate(`/projects/${projectId}/issues/${bug.id}`)
-                          } else {
-                            toast('This is a Feature/Task. Please view it in Kanban Board for full details.')
-                            navigate(`/projects/${projectId}/kanban`)
-                          }
-                        }}
-                        className="py-1.5 px-3 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-bold rounded-lg transition-colors border border-outline-variant flex items-center gap-1"
-                      >
-                        Details
-                        <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                      </button>
+
                     </div>
                   </div>
 
                   {/* Expanded Content (Tree View) */}
-                  {isExpanded && (() => {
+                  {isExpanded && !bug.isSubTask && (() => {
                     const parentChecklist = bug.isBug ? (bug.fixTask?.checklist || []) : (bug.checklist || [])
                     const canHaveChecklist = (!bug.isBug) || (bug.isBug && bug.relatedTaskId)
 
@@ -969,6 +1185,50 @@ export function IssueTrackerDashboard() {
                                             {sub.displaySeverity}
                                           </span>
                                           {getStatusBadge(sub)}
+
+                                          {sub.status !== 'IN_REVIEW' && sub.status !== 'DONE' && sub.status !== 'FIXED' && sub.status !== 'CLOSED' && (() => {
+                                            const subChecklistPassed = !sub.checklist || sub.checklist.length === 0 || sub.checklist.every(item => item.done)
+                                            return (
+                                              <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
+                                                <button
+                                                  onClick={(e) => handleRequestReview(e, sub)}
+                                                  disabled={!subChecklistPassed || approvingId === sub.id}
+                                                  className={`py-0.5 px-2 rounded text-[9px] font-bold transition-all shadow flex items-center gap-0.5 ${
+                                                    subChecklistPassed
+                                                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                      : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
+                                                  }`}
+                                                >
+                                                  <span className="material-symbols-outlined text-[9px]">rate_review</span>
+                                                  Yêu cầu review
+                                                </button>
+                                                {!subChecklistPassed && (
+                                                  <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2 py-1 shadow-lg border border-outline-variant whitespace-nowrap z-50">
+                                                    ⚠️ Cần hoàn thành tất cả checklist
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )
+                                          })()}
+
+                                          {isLeader && sub.status === 'IN_REVIEW' && (
+                                            <div onClick={e => e.stopPropagation()} className="flex items-center gap-1 ml-1 border-l border-outline-variant/50 pl-2">
+                                              <button
+                                                onClick={(e) => handleApproveTask(e, sub.id)}
+                                                disabled={approvingId === sub.id}
+                                                className="py-0.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                              >
+                                                Approve
+                                              </button>
+                                              <button
+                                                onClick={(e) => handleRejectTask(e, sub.id)}
+                                                disabled={approvingId === sub.id}
+                                                className="py-0.5 px-2 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                              >
+                                                Từ chối
+                                              </button>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1065,6 +1325,77 @@ export function IssueTrackerDashboard() {
                                         {sub.displaySeverity}
                                       </span>
                                       {getStatusBadge(sub)}
+
+                                      {sub.status !== 'IN_REVIEW' && sub.status !== 'DONE' && sub.status !== 'FIXED' && sub.status !== 'CLOSED' && (() => {
+                                        const subChecklistPassed = !sub.checklist || sub.checklist.length === 0 || sub.checklist.every(item => item.done)
+                                        return (
+                                          <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
+                                            <button
+                                              onClick={(e) => handleRequestReview(e, sub)}
+                                              disabled={!subChecklistPassed || approvingId === sub.id}
+                                              className={`py-0.5 px-2 rounded text-[9px] font-bold transition-all shadow flex items-center gap-0.5 ${
+                                                subChecklistPassed
+                                                  ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
+                                                  : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
+                                              }`}
+                                            >
+                                              <span className="material-symbols-outlined text-[9px]">rate_review</span>
+                                              Yêu cầu review
+                                            </button>
+                                            {!subChecklistPassed && (
+                                              <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2 py-1 shadow-lg border border-outline-variant whitespace-nowrap z-50">
+                                                ⚠️ Cần hoàn thành tất cả checklist
+                                              </div>
+                                            )}
+                                          </div>
+                                        )
+                                      })()}
+
+                                      {isLeader && sub.status === 'IN_REVIEW' && (
+                                        <div onClick={e => e.stopPropagation()} className="flex items-center gap-1 ml-1 border-l border-outline-variant/50 pl-2">
+                                          <button
+                                            onClick={(e) => handleApproveTask(e, sub.id)}
+                                            disabled={approvingId === sub.id}
+                                            className="py-0.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            onClick={(e) => handleRejectTask(e, sub.id)}
+                                            disabled={approvingId === sub.id}
+                                            className="py-0.5 px-2 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                          >
+                                            Từ chối
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {isLeader && (() => {
+                                        const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                                        return (
+                                          <div onClick={e => e.stopPropagation()} className="relative flex items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
+                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                            <select
+                                              value={currentAssigneeId || ''}
+                                              onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
+                                              disabled={assigningTaskId === sub.id}
+                                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
+                                                assigningTaskId === sub.id ? 'opacity-50 cursor-wait' : ''
+                                              } ${
+                                                currentAssigneeId
+                                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                                  : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                                              }`}
+                                              title="Assign to member"
+                                            >
+                                              <option value="" className="bg-surface text-on-surface font-semibold">-- Trống --</option>
+                                              {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
+                                                <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
