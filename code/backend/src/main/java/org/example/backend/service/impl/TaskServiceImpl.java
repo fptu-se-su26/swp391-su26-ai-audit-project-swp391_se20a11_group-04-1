@@ -18,6 +18,7 @@ import org.example.backend.repository.BugReportRepository;
 import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
+import org.example.backend.repository.NotificationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +51,7 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
+    private final NotificationRepository notificationRepository;
 
     @Override
     @Transactional
@@ -98,7 +100,7 @@ public class TaskServiceImpl implements TaskService {
                 .checklist(new ArrayList<>())
                 .build();
 
-        applyRequest(task, request, projectId);
+        applyRequest(task, request, projectId, userId);
         if (task.getKanbanColumn() == null) {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
@@ -120,9 +122,12 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
-        applyRequest(task, request, task.getProject().getId());
+        applyRequest(task, request, task.getProject().getId(), userId);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            checkAndCompleteParentTask(savedTask.getParent());
+        }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
         if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
             try {
@@ -137,26 +142,39 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId) {
         Task task = findTask(taskId);
-        ensureProjectMember(task.getProject().getId(), userId);
+        Long projectId = task.getProject().getId();
+        ensureProjectMember(projectId, userId);
         if (request.getColumnId() != null) {
-            setColumn(task, request.getColumnId(), task.getProject().getId());
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() == null) {
+                    KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                            .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+                    if (!"TODO".equalsIgnoreCase(targetColumn.getStatusKey())) {
+                        throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
+                    }
+                }
+                if (!isProjectLeader(projectId, userId)) {
+                    throw new BadRequestException("Chỉ có Project Leader mới được phép kéo thả task liên kết với GitHub issue trên Kanban board.");
+                }
+            }
+            setColumn(task, request.getColumnId(), projectId, userId);
         } else if (request.getStatus() != null) {
             TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            task.setStatus(nextStatus);
-            setColumnFromStatus(task, task.getProject().getId(), nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() == null && nextStatus != TaskStatus.TODO) {
+                    throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
                 }
-            } else {
-                task.setCompletedAt(null);
             }
+            changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            checkAndCompleteParentTask(savedTask.getParent());
+        }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
         if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
             try {
@@ -173,7 +191,7 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
-        setAssignee(task, request.getAssigneeId(), projectId);
+        setAssignee(task, request.getAssigneeId(), projectId, userId);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         return toResponse(savedTask);
@@ -628,7 +646,7 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
     }
 
-    private void applyRequest(Task task, TaskRequest request, Long projectId) {
+    private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
         if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
         if (request.getRequirementId() == null) {
@@ -661,22 +679,42 @@ public class TaskServiceImpl implements TaskService {
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
         if (request.getColumnId() != null) {
-            setColumn(task, request.getColumnId(), projectId);
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() == null) {
+                    KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                            .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+                    if (!"TODO".equalsIgnoreCase(targetColumn.getStatusKey())) {
+                        throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
+                    }
+                }
+                if (!isProjectLeader(projectId, userId)) {
+                    throw new BadRequestException("Chỉ có Project Leader mới được phép thay đổi cột của task liên kết với GitHub issue.");
+                }
+            }
+            setColumn(task, request.getColumnId(), projectId, userId);
         } else if (request.getStatus() != null) {
             TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            task.setStatus(nextStatus);
-            setColumnFromStatus(task, projectId, nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() == null && nextStatus != TaskStatus.TODO) {
+                    throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
                 }
-            } else {
-                task.setCompletedAt(null);
             }
+            changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
-        if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId);
-        if (request.getChecklist() != null) replaceChecklist(task, request.getChecklist());
+        if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId, userId);
+        if (request.getChecklist() != null) {
+            boolean isLeader = isProjectLeader(projectId, userId);
+            Long assigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+            if (assigneeId == null && task.getParent() != null && task.getParent().getPrimaryAssignee() != null) {
+                assigneeId = task.getParent().getPrimaryAssignee().getId();
+            }
+            boolean isAssignee = assigneeId != null && userId.equals(assigneeId);
+            if (!isLeader && !isAssignee) {
+                throw new BadRequestException("Chỉ có Project Leader hoặc người được gán của task này mới được phép cập nhật checklist.");
+            }
+            replaceChecklist(task, request.getChecklist());
+        }
         if (request.getParentId() != null) {
             Task parentTask = taskRepository.findById(request.getParentId())
                     .orElseThrow(() -> new CustomException("Parent task not found", HttpStatus.NOT_FOUND));
@@ -684,13 +722,14 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
-    private void setColumn(Task task, Long columnId, Long projectId) {
+    private void setColumn(Task task, Long columnId, Long projectId, Long userId) {
         KanbanColumn column = kanbanColumnRepository.findById(columnId)
                 .filter(item -> item.getProject() != null && projectId.equals(item.getProject().getId()) && !item.isArchived())
                 .orElseThrow(() -> new BadRequestException("Kanban column does not exist in this project"));
         task.setKanbanColumn(column);
         if (column.getStatusKey() != null) {
-            task.setStatus(parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus()));
+            TaskStatus nextStatus = parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus());
+            changeTaskStatus(task, nextStatus, userId);
         }
     }
 
@@ -701,32 +740,235 @@ public class TaskServiceImpl implements TaskService {
                 .ifPresent(task::setKanbanColumn);
     }
 
-    private void setAssignee(Task task, Long assigneeId, Long projectId) {
+    private void setAssignee(Task task, Long assigneeId, Long projectId, Long assignerId) {
+        UserAccount oldAssignee = task.getPrimaryAssignee();
+
         if (assigneeId == null) {
             task.setPrimaryAssignee(null);
             task.getAssignees().clear();
+            if (task.getStatus() == TaskStatus.IN_PROGRESS) {
+                task.setStatus(TaskStatus.TODO);
+                setColumnFromStatus(task, projectId, TaskStatus.TODO);
+            }
             return;
         }
 
         ensureProjectMember(projectId, assigneeId);
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, assigneeId)
+                .orElseThrow(() -> new CustomException("Thành viên không thuộc dự án này.", HttpStatus.FORBIDDEN));
+        if (member.getRole() != null && "MENTOR".equalsIgnoreCase(member.getRole().getName())) {
+            throw new BadRequestException("Không thể gán task cho Mentor.");
+        }
+
         UserAccount assignee = userAccountRepository.findById(assigneeId)
                 .orElseThrow(() -> new CustomException("Assignee not found", HttpStatus.NOT_FOUND));
         task.setPrimaryAssignee(assignee);
         task.getAssignees().clear();
         task.getAssignees().add(assignee);
+
+        if (task.getStatus() == TaskStatus.TODO) {
+            task.setStatus(TaskStatus.IN_PROGRESS);
+            setColumnFromStatus(task, projectId, TaskStatus.IN_PROGRESS);
+        }
+
+        // Gửi thông báo real-time khi gán task
+        if (assignerId != null && !assigneeId.equals(assignerId)) {
+            if (oldAssignee == null || !oldAssignee.getId().equals(assigneeId)) {
+                UserAccount assigner = userAccountRepository.findById(assignerId).orElse(null);
+                String assignerName = assigner != null 
+                        ? (assigner.getProfile() != null && assigner.getProfile().getFullName() != null ? assigner.getProfile().getFullName() : assigner.getUsername())
+                        : "Một thành viên";
+                boolean isAssignerLeader = isProjectLeader(projectId, assignerId);
+                String title = "Bạn được giao task mới";
+                String msg = (isAssignerLeader ? "Project Leader " : "") + assignerName + " đã giao task \"" + task.getTitle() + "\" cho bạn.";
+                sendNotification(assignee, title, msg, task);
+            }
+        }
+    }
+
+    private void changeTaskStatus(Task task, TaskStatus nextStatus, Long userId) {
+        TaskStatus oldStatus = task.getStatus();
+        if (oldStatus == nextStatus) {
+            return;
+        }
+
+        if (nextStatus == TaskStatus.DONE) {
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() != null && task.getPrimaryAssignee().getId().equals(userId)) {
+                    throw new BadRequestException("Bạn không thể tự phê duyệt task liên kết với GitHub issue của chính mình.");
+                }
+            }
+        }
+
+        task.setStatus(nextStatus);
+        setColumnFromStatus(task, task.getProject().getId(), nextStatus);
+
+        if (nextStatus == TaskStatus.DONE) {
+            if (task.getCompletedAt() == null) {
+                task.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            task.setCompletedAt(null);
+        }
+
+        // Gửi thông báo real-time & DB
+        if (nextStatus == TaskStatus.IN_REVIEW) {
+            UserAccount requester = userAccountRepository.findById(userId).orElse(null);
+            String requesterName = requester != null 
+                    ? (requester.getProfile() != null && requester.getProfile().getFullName() != null ? requester.getProfile().getFullName() : requester.getUsername())
+                    : "Một thành viên";
+
+            List<ProjectMember> leaders = new ArrayList<>();
+            leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER"));
+            leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "PROJECT_LEADER"));
+
+            List<UserAccount> leaderUsers = leaders.stream()
+                    .map(ProjectMember::getUser)
+                    .distinct()
+                    .toList();
+
+            String title = "Yêu cầu review task";
+            String msg = requesterName + " đã yêu cầu review task: " + task.getTitle();
+            for (UserAccount leaderUser : leaderUsers) {
+                sendNotification(leaderUser, title, msg, task);
+            }
+        } else if (nextStatus == TaskStatus.DONE && oldStatus == TaskStatus.IN_REVIEW) {
+            if (task.getPrimaryAssignee() != null) {
+                String title = "Task được phê duyệt";
+                String msg = "Task \"" + task.getTitle() + "\" đã được phê duyệt hoàn thành bởi Leader.";
+                sendNotification(task.getPrimaryAssignee(), title, msg, task);
+            }
+        } else if (nextStatus == TaskStatus.IN_PROGRESS && oldStatus == TaskStatus.IN_REVIEW) {
+            if (task.getPrimaryAssignee() != null) {
+                String title = "Review task thất bại";
+                String msg = "Task \"" + task.getTitle() + "\" đã bị từ chối phê duyệt. Vui lòng kiểm tra checklist để cập nhật thêm các yêu cầu về task.";
+                sendNotification(task.getPrimaryAssignee(), title, msg, task);
+            }
+        }
+    }
+
+    private void sendNotification(UserAccount recipient, String title, String message, Task task) {
+        if (recipient == null) return;
+
+        Notification notification = Notification.builder()
+                .recipient(recipient)
+                .project(task.getProject())
+                .entityType(org.example.backend.entity.NotificationEntityType.TASK)
+                .title(title)
+                .message(message)
+                .type(org.example.backend.entity.NotificationType.SYSTEM)
+                .relatedId(task.getId())
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Notification saved = notificationRepository.save(notification);
+
+        String jsonPayload = String.format(
+            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"TASK\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+            saved.getId(),
+            saved.getTitle().replace("\"", "\\\""),
+            saved.getMessage().replace("\"", "\\\""),
+            saved.getRelatedId(),
+            task.getProject().getId(),
+            saved.getCreatedAt().toString()
+        );
+
+        try {
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
+        }
     }
 
     private void replaceChecklist(Task task, List<TaskRequest.ChecklistItemRequest> items) {
-        task.getChecklist().clear();
+        if (items == null) return;
+
+        // Map existing checklist items by ID for quick lookup
+        Map<Long, TaskChecklist> existingMap = task.getChecklist().stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.toMap(TaskChecklist::getId, item -> item));
+
+        List<TaskChecklist> updatedList = new ArrayList<>();
+
         for (int i = 0; i < items.size(); i++) {
-            TaskRequest.ChecklistItemRequest item = items.get(i);
-            if (item.getContent() == null || item.getContent().trim().isEmpty()) continue;
-            task.getChecklist().add(TaskChecklist.builder()
-                    .task(task)
-                    .content(item.getContent().trim())
-                    .done(Boolean.TRUE.equals(item.getDone()))
-                    .orderIndex(item.getOrderIndex() != null ? item.getOrderIndex() : i)
-                    .build());
+            TaskRequest.ChecklistItemRequest itemRequest = items.get(i);
+            if (itemRequest.getContent() == null || itemRequest.getContent().trim().isEmpty()) {
+                continue;
+            }
+
+            String content = itemRequest.getContent().trim();
+            boolean done = Boolean.TRUE.equals(itemRequest.getDone());
+            int orderIndex = itemRequest.getOrderIndex() != null ? itemRequest.getOrderIndex() : i;
+
+            if (itemRequest.getId() != null && existingMap.containsKey(itemRequest.getId())) {
+                // Reuse existing managed entity to preserve ID and prevent stale state deletions
+                TaskChecklist existingItem = existingMap.get(itemRequest.getId());
+                existingItem.setContent(content);
+                existingItem.setDone(done);
+                existingItem.setOrderIndex(orderIndex);
+                updatedList.add(existingItem);
+            } else {
+                // Build a new entity for new items
+                updatedList.add(TaskChecklist.builder()
+                        .task(task)
+                        .content(content)
+                        .done(done)
+                        .orderIndex(orderIndex)
+                        .build());
+            }
+        }
+
+        // Apply clean list mutations preserving orphanRemoval cascade binding
+        task.getChecklist().clear();
+        task.getChecklist().addAll(updatedList);
+    }
+
+    private boolean isProjectLeader(Long projectId, Long userId) {
+        if (projectId == null || userId == null) return false;
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(m -> m.getRole() != null && 
+                        m.getRole().getName() != null && 
+                        m.getRole().getName().toLowerCase().contains("leader"))
+                .orElse(false);
+    }
+
+    private boolean isTightlyBoundToIssue(Task task) {
+        if (task == null) return false;
+        if (task.getGithubIssueNumber() != null) return true;
+        if (task.getType() == TaskType.BUG_FIX) return true;
+        return bugReportRepository.findByRelatedTaskId(task.getId()).isPresent();
+    }
+
+    private void checkAndCompleteParentTask(Task parent) {
+        if (parent == null) return;
+        List<Task> children = taskRepository.findByParentId(parent.getId());
+        if (children.isEmpty()) return;
+
+        boolean allDone = children.stream()
+                .allMatch(child -> child.getStatus() == TaskStatus.DONE);
+
+        if (allDone) {
+            parent.setStatus(TaskStatus.DONE);
+            if (parent.getCompletedAt() == null) {
+                parent.setCompletedAt(LocalDateTime.now());
+            }
+            setColumnFromStatus(parent, parent.getProject().getId(), TaskStatus.DONE);
+            Task savedParent = taskRepository.save(parent);
+
+            // Sync parent task GitHub issue state (non-blocking)
+            if (savedParent.getType() != TaskType.BUG_FIX || savedParent.getParent() != null) {
+                try {
+                    gitHubApiService.updateGitHubIssueStatusForTask(savedParent, savedParent.getCreatedBy().getId());
+                } catch (Exception e) {
+                    log.warn("Non-blocking GitHub status sync failed for Parent Task ID: {}: {}", savedParent.getId(), e.getMessage());
+                }
+            }
+
+            // Recursive completion for higher parents
+            if (savedParent.getParent() != null) {
+                checkAndCompleteParentTask(savedParent.getParent());
+            }
         }
     }
 
@@ -792,6 +1034,7 @@ public class TaskServiceImpl implements TaskService {
                         .collect(Collectors.toList()))
                 .parentId(task.getParent() != null ? task.getParent().getId() : null)
                 .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
+                .githubIssueUrl(task.getGithubIssueUrl())
                 .build();
     }
 
@@ -828,5 +1071,54 @@ public class TaskServiceImpl implements TaskService {
                 .done(item.isDone())
                 .orderIndex(item.getOrderIndex())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void autoApproveTasksExceedingReviewPeriod() {
+        log.info("Starting background auto-approval check for IN_REVIEW tasks of Project Leaders exceeding 3 days...");
+        List<Task> reviewTasks = taskRepository.findByStatus(TaskStatus.IN_REVIEW);
+        LocalDateTime threshold = LocalDateTime.now().minusDays(3);
+        int approvedCount = 0;
+
+        for (Task task : reviewTasks) {
+            // Only auto-approve if the assignee is a Project Leader
+            if (task.getPrimaryAssignee() == null) continue;
+            boolean isAssigneeLeader = isProjectLeader(task.getProject().getId(), task.getPrimaryAssignee().getId());
+            if (!isAssigneeLeader) continue;
+
+            LocalDateTime timestamp = task.getUpdatedAt() != null ? task.getUpdatedAt() : task.getCreatedAt();
+            if (timestamp != null && timestamp.isBefore(threshold)) {
+                log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}", 
+                        task.getId(), task.getTitle(), timestamp);
+                try {
+                    changeTaskStatus(task, TaskStatus.DONE, null);
+                    taskRepository.save(task);
+                    
+                    Long systemUserId = task.getCreatedBy() != null ? task.getCreatedBy().getId() : null;
+                    syncWithBugReport(task, systemUserId);
+                    
+                    // Recursive parent completion if this task is a sub-task
+                    if (task.getParent() != null) {
+                        checkAndCompleteParentTask(task.getParent());
+                    }
+                    
+                    // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+                    if (task.getType() != TaskType.BUG_FIX || task.getParent() != null) {
+                        try {
+                            gitHubApiService.updateGitHubIssueStatusForTask(task, systemUserId);
+                        } catch (Exception e) {
+                            log.warn("Non-blocking GitHub status sync failed in auto-approval for Task ID: {}: {}", task.getId(), e.getMessage());
+                        }
+                    }
+                    approvedCount++;
+                } catch (Exception e) {
+                    log.error("Failed to auto-approve Task ID: {}", task.getId(), e);
+                }
+            }
+        }
+        if (approvedCount > 0) {
+            log.info("Completed background auto-approval. Total tasks approved: {}", approvedCount);
+        }
     }
 }
