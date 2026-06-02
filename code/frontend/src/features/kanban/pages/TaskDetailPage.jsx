@@ -39,6 +39,19 @@ const TaskDetailPage = () => {
 
   const completedChecklist = task.checklist.filter((item) => item.done).length
 
+  const subtasks = tasks.filter(t => t.parentId === String(task.id))
+  const hasSubtasks = subtasks.length > 0
+  const isChildTask = !!task.parentId
+
+  // Checklist completion
+  const isChecklistPassed = !task.checklist || task.checklist.length === 0 || task.checklist.every((item) => item.done)
+
+  // Subtasks completion
+  const areAllSubtasksDone = hasSubtasks && subtasks.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
+
+  // Determine if the action is enabled
+  const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
+
   const handleDeleteTask = () => {
     const confirmed = window.confirm(`Delete ${task.id}? This cannot be undone in the current board state.`)
     if (confirmed) {
@@ -99,6 +112,32 @@ const TaskDetailPage = () => {
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 Delete
               </button>
+              {task.status !== 'IN_REVIEW' && task.status !== 'DONE' && task.status !== 'FIXED' && task.status !== 'CLOSED' && (
+                <div className="relative group">
+                  <button
+                    type="button"
+                    disabled={!isReviewActionEnabled}
+                    onClick={() => {
+                      const reviewColumn = columns.find((col) => col.statusKey === 'IN_REVIEW')
+                      updateTaskStatus(task.id, 'IN_REVIEW', reviewColumn?.id || null)
+                    }}
+                    className={`h-[36px] px-4 flex items-center gap-2 rounded transition-colors text-body-md font-body-md shadow-sm ${
+                      isReviewActionEnabled
+                        ? 'bg-[#a855f7] text-white hover:bg-[#9333ea]'
+                        : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                    Yêu cầu review
+                  </button>
+                  {!isReviewActionEnabled && (
+                    <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[10px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50 animate-fade-in">
+                      {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
+                      {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
+                    </div>
+                  )}
+                </div>
+              )}
               <button className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm">
                 <span className="material-symbols-outlined text-[18px]">smart_toy</span>
                 AI Review
@@ -133,7 +172,16 @@ const TaskDetailPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">link</span>
-              <span className="text-primary text-body-md font-body-md">{task.requirement}</span>
+              {task.requirementId ? (
+                <Link
+                  to={`/projects/${projectId}/requirements/${task.requirementId}`}
+                  className="text-primary text-body-md font-body-md hover:underline hover:text-surface-tint"
+                >
+                  {task.requirement}
+                </Link>
+              ) : (
+                <span className="text-on-surface-variant text-body-md font-body-md">{task.requirement}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">speed</span>

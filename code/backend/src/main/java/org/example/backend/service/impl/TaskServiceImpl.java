@@ -144,27 +144,29 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
+        TaskStatus nextStatus = null;
+        if (request.getColumnId() != null) {
+            KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+            if (targetColumn.getStatusKey() != null) {
+                nextStatus = parseEnum(targetColumn.getStatusKey(), TaskStatus.class, task.getStatus());
+            }
+        } else if (request.getStatus() != null) {
+            nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+        }
+
+        if (nextStatus != null) {
+            validateStatusTransition(task, nextStatus);
+        }
+
         if (request.getColumnId() != null) {
             if (isTightlyBoundToIssue(task)) {
-                if (task.getPrimaryAssignee() == null) {
-                    KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
-                            .orElseThrow(() -> new BadRequestException("Kanban column not found"));
-                    if (!"TODO".equalsIgnoreCase(targetColumn.getStatusKey())) {
-                        throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
-                    }
-                }
                 if (!isProjectLeader(projectId, userId)) {
                     throw new BadRequestException("Chỉ có Project Leader mới được phép kéo thả task liên kết với GitHub issue trên Kanban board.");
                 }
             }
             setColumn(task, request.getColumnId(), projectId, userId);
         } else if (request.getStatus() != null) {
-            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            if (isTightlyBoundToIssue(task)) {
-                if (task.getPrimaryAssignee() == null && nextStatus != TaskStatus.TODO) {
-                    throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
-                }
-            }
             changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) {
@@ -678,27 +680,29 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
+        TaskStatus nextStatus = null;
+        if (request.getColumnId() != null) {
+            KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+            if (targetColumn.getStatusKey() != null) {
+                nextStatus = parseEnum(targetColumn.getStatusKey(), TaskStatus.class, task.getStatus());
+            }
+        } else if (request.getStatus() != null) {
+            nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+        }
+
+        if (nextStatus != null) {
+            validateStatusTransition(task, nextStatus);
+        }
+
         if (request.getColumnId() != null) {
             if (isTightlyBoundToIssue(task)) {
-                if (task.getPrimaryAssignee() == null) {
-                    KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
-                            .orElseThrow(() -> new BadRequestException("Kanban column not found"));
-                    if (!"TODO".equalsIgnoreCase(targetColumn.getStatusKey())) {
-                        throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
-                    }
-                }
                 if (!isProjectLeader(projectId, userId)) {
                     throw new BadRequestException("Chỉ có Project Leader mới được phép thay đổi cột của task liên kết với GitHub issue.");
                 }
             }
             setColumn(task, request.getColumnId(), projectId, userId);
         } else if (request.getStatus() != null) {
-            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            if (isTightlyBoundToIssue(task)) {
-                if (task.getPrimaryAssignee() == null && nextStatus != TaskStatus.TODO) {
-                    throw new BadRequestException("Task liên kết với GitHub issue chưa được gán người thực hiện.");
-                }
-            }
             changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
@@ -722,6 +726,38 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    private void validateStatusTransition(Task task, TaskStatus nextStatus) {
+        if (nextStatus == null || nextStatus == TaskStatus.TODO) return;
+
+        boolean hasSubTasks = task.getSubTasks() != null && !task.getSubTasks().isEmpty();
+        
+        // ONLY block transition for unassigned task if it's moving FROM TODO
+        if (task.getStatus() == TaskStatus.TODO && task.getPrimaryAssignee() == null && !hasSubTasks) {
+            throw new BadRequestException("Task chưa được assign, không thể chuyển sang trạng thái này!");
+        }
+
+        // Enforce flow: IN_PROGRESS -> IN_REVIEW
+        if (task.getStatus() == TaskStatus.IN_PROGRESS && nextStatus == TaskStatus.DONE) {
+            throw new BadRequestException("Phải chuyển task sang trạng thái In Review để được phê duyệt trước khi chuyển sang Done.");
+        }
+
+        if (nextStatus == TaskStatus.IN_REVIEW || nextStatus == TaskStatus.DONE) {
+            if (hasSubTasks) {
+                boolean allSubTasksDone = task.getSubTasks().stream().allMatch(sub -> sub.getStatus() == TaskStatus.DONE);
+                if (!allSubTasksDone) {
+                    throw new BadRequestException("Không thể chuyển trạng thái do các task con chưa hoàn thành.");
+                }
+            }
+
+            if (task.getChecklist() != null && !task.getChecklist().isEmpty()) {
+                boolean allChecklistDone = task.getChecklist().stream().allMatch(org.example.backend.entity.TaskChecklist::isDone);
+                if (!allChecklistDone) {
+                    throw new BadRequestException("Không thể chuyển trạng thái do các yêu cầu (checklist) chưa hoàn thành.");
+                }
+            }
+        }
+    }
+
     private void setColumn(Task task, Long columnId, Long projectId, Long userId) {
         KanbanColumn column = kanbanColumnRepository.findById(columnId)
                 .filter(item -> item.getProject() != null && projectId.equals(item.getProject().getId()) && !item.isArchived())
@@ -741,12 +777,16 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void setAssignee(Task task, Long assigneeId, Long projectId, Long assignerId) {
+        if (!isProjectLeader(projectId, assignerId)) {
+            throw new BadRequestException("Chỉ có Project Leader mới có quyền gán hoặc gỡ người thực hiện task.");
+        }
+
         UserAccount oldAssignee = task.getPrimaryAssignee();
 
         if (assigneeId == null) {
             task.setPrimaryAssignee(null);
             task.getAssignees().clear();
-            if (task.getStatus() == TaskStatus.IN_PROGRESS) {
+            if (task.getStatus() != TaskStatus.TODO) {
                 task.setStatus(TaskStatus.TODO);
                 setColumnFromStatus(task, projectId, TaskStatus.TODO);
             }
