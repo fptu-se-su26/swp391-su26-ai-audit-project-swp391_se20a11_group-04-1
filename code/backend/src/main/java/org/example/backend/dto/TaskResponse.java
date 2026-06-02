@@ -41,6 +41,7 @@ public class TaskResponse {
     private List<ChecklistItem> checklist;
     private Long parentId;
     private String parentTitle;
+    private String githubIssueUrl;
 
     @Getter
     @Setter

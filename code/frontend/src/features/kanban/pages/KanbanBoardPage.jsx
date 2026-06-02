@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import KanbanColumn from '../components/KanbanColumn'
 import KanbanFilters from '../components/KanbanFilters'
 import KanbanHeader from '../components/KanbanHeader'
@@ -125,8 +126,22 @@ const KanbanBoardPage = () => {
     if (draggingColumnId) return
     const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId
     if (taskId) {
+      const task = tasks.find((t) => String(t.id) === String(taskId))
       const column = columns.find((item) => item.id === status)
-      updateTaskStatus(taskId, column?.statusKey || status, column?.id || null)
+      const targetStatusKey = column?.statusKey || status
+
+      if (task) {
+        const isUnassigned = !task.primaryAssigneeId && !task.primaryAssignee
+        // If moving OUT of TODO and it's unassigned
+        if (isUnassigned && targetStatusKey !== 'TODO' && targetStatusKey !== 'OPEN') {
+          toast.error('Task chưa được assign, không thể chuyển sang trạng thái này!')
+          setDraggingTaskId(null)
+          setDragOverStatus(null)
+          return
+        }
+      }
+
+      updateTaskStatus(taskId, targetStatusKey, column?.id || null)
       setJustDraggedTaskId(taskId)
       window.setTimeout(() => setJustDraggedTaskId(null), 250)
     }

@@ -18,4 +18,6 @@ public interface TaskService {
     // ── Daily / Weekly View ───────────────────────────────────────────────────
     DailyViewResponse getDailyView(Long projectId, Long userId, LocalDate date);
     WeeklyViewResponse getWeeklyView(Long projectId, Long userId, LocalDate weekStart);
+
+    void autoApproveTasksExceedingReviewPeriod();
 }

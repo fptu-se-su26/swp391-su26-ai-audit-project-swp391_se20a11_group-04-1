@@ -16,6 +16,8 @@ export function IssueTrackerDashboard() {
   const [bugs, setBugs] = useState([])
   const [loading, setLoading] = useState(false)
   const [approvingId, setApprovingId] = useState(null)
+  const [assigningTaskId, setAssigningTaskId] = useState(null)
+  const [activeListTab, setActiveListTab] = useState('open')
 
   // Filter States
   const [filters, setFilters] = useState({
@@ -73,10 +75,10 @@ export function IssueTrackerDashboard() {
         isBug: false,
         displayTitle: t.title,
         displayType: t.type === 'DEVELOPMENT' ? 'Feature / Task'
-                   : t.type === 'BUG_FIX'     ? 'Fix Bug Task'
-                   : t.type === 'TESTING'     ? 'Test Task'
-                   : t.type === 'REFACTOR'    ? 'Refactor Task'
-                   : t.type,
+          : t.type === 'BUG_FIX' ? 'Fix Bug Task'
+            : t.type === 'TESTING' ? 'Test Task'
+              : t.type === 'REFACTOR' ? 'Refactor Task'
+                : t.type,
         displaySeverity: t.priority,
         displayEnv: 'N/A',
         displayStatus: t.status,
@@ -381,6 +383,110 @@ export function IssueTrackerDashboard() {
 
   const isLeader = activeProject?.role === 'Project Leader'
 
+  const canApproveReject = (assigneeId) => {
+    if (!assigneeId) return false
+    if (Number(assigneeId) === Number(currentUserId)) return false
+    const member = activeProject?.members?.find(m => Number(m.id) === Number(assigneeId))
+    const assigneeIsLeader = member?.role === 'Project Leader'
+    if (assigneeIsLeader) {
+      return true
+    } else {
+      return isLeader
+    }
+  }
+
+  const handleRequestReview = async (e, taskEntity) => {
+    e.stopPropagation()
+    const taskData = taskEntity.isBug ? taskEntity.fixTask : taskEntity
+    if (!taskData) return
+    const currentAssignee = taskData.primaryAssignee?.id || taskData.primaryAssigneeId
+    if (!currentAssignee) {
+      toast.error('Task chưa được giao cho ai. Vui lòng nhờ Leader gán task trước!')
+      return
+    }
+    setApprovingId(taskData.id)
+    try {
+      await taskService.updateTaskStatus(taskData.id, 'IN_REVIEW')
+      toast.success('Đã gửi yêu cầu review!')
+      loadBugs()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Yêu cầu review thất bại')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleApproveTask = async (e, taskId) => {
+    e.stopPropagation()
+    setApprovingId(taskId)
+    try {
+      await taskService.updateTaskStatus(taskId, 'DONE')
+      toast.success('Đã Approve task thành công!')
+      loadBugs()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Duyệt task thất bại')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleLeaderAssign = async (e, taskEntity, newAssigneeId) => {
+    e.stopPropagation()
+    if (!newAssigneeId) return // Unassign handled differently if needed, but lets allow empty to unassign?
+
+    // In backend, we don't have a clear unassign route, but let's assume we just update task
+    const taskData = taskEntity.isBug ? taskEntity.fixTask : taskEntity
+    if (!taskData) return
+
+    setAssigningTaskId(null)
+    try {
+      // Create payload to update assignee
+      const payload = {
+        title: taskData.title,
+        description: taskData.description,
+        type: taskData.type,
+        priority: taskData.priority,
+        status: taskData.status,
+        primaryAssigneeId: newAssigneeId ? Number(newAssigneeId) : null,
+        sprintId: taskData.sprintId || null,
+        checklist: taskData.checklist?.map(c => ({ content: c.content, done: c.done })) || []
+      }
+
+      await axiosInstance.put(`/v1/tasks/${taskData.id}`, payload)
+
+      // Cascade to unassigned sub-tasks
+      const subTasks = taskData.subTasks || []
+      let count = 0
+      for (const sub of subTasks) {
+        if (!sub.primaryAssigneeId && !sub.primaryAssignee) {
+          const subPayload = {
+            title: sub.title,
+            description: sub.description,
+            type: sub.type,
+            priority: sub.priority,
+            status: sub.status,
+            primaryAssigneeId: newAssigneeId ? Number(newAssigneeId) : null,
+            sprintId: sub.sprintId || null,
+            checklist: sub.checklist?.map(c => ({ content: c.content, done: c.done })) || []
+          }
+          await axiosInstance.put(`/v1/tasks/${sub.id}`, subPayload)
+          count++
+        }
+      }
+
+      const memberName = activeProject?.members?.find(m => Number(m.id) === Number(newAssigneeId))?.fullName || 'thành viên'
+      if (count > 0) {
+        toast.success(`Đã gán cho ${memberName} và ${count} sub-tasks!`)
+      } else {
+        toast.success(newAssigneeId ? `Đã gán cho ${memberName}!` : 'Đã bỏ gán!')
+      }
+      loadBugs()
+    } catch (err) {
+      toast.error('Gán task thất bại')
+    }
+  }
+
+
   const getSeverityColor = (severity) => {
     switch (severity) {
       case 'CRITICAL': return 'bg-red-500/10 text-red-600 border border-red-500/20'
@@ -563,6 +669,44 @@ export function IssueTrackerDashboard() {
           </button>
         </section>
 
+        {/* Tab Filters */}
+        <section className="flex items-center gap-2 mt-2 mb-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveListTab('open')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'open'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+              }`}
+          >
+            <span className="material-symbols-outlined text-sm">list_alt</span>
+            <span>Open Issues / Tasks ({openBugs?.length || 0})</span>
+          </button>
+
+          {(isLeader || isMentor) && (
+            <button
+              onClick={() => setActiveListTab('review')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'review'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+                }`}
+            >
+              <span className="material-symbols-outlined text-sm">rate_review</span>
+              <span>Yêu cầu review ({reviewBugs?.length || 0})</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveListTab('closed')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'closed'
+                ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
+                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+              }`}
+          >
+            <span className="material-symbols-outlined text-sm">task_alt</span>
+            <span>Closed ({closedBugs?.length || 0})</span>
+          </button>
+        </section>
+
         {/* Bug Reports Grid List */}
         {loading ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm">
@@ -585,7 +729,7 @@ export function IssueTrackerDashboard() {
               const rowId = bug.isBug ? `bug-${bug.id}` : `task-${bug.id}`
               const isExpanded = !!expandedIssues[rowId]
               const gitHubNumber = bug.isBug ? getGitHubIssueNumber(bug.stepsToReproduce) : bug.githubIssueNumber;
-              
+
               return (
                 <div key={rowId} className="flex flex-col bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-sm overflow-hidden hover:border-primary/45 transition-colors">
                   {/* Row Header */}
@@ -605,7 +749,7 @@ export function IssueTrackerDashboard() {
                         {bug.isBug ? 'bug_report' : 'task'}
                       </span>
                     </div>
-                    
+
                     <div className="flex-1 min-w-[200px] flex flex-col justify-center">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{bug.displayType}</span>
@@ -629,7 +773,7 @@ export function IssueTrackerDashboard() {
                         {bug.displaySeverity}
                       </span>
                       {getStatusBadge(bug)}
-                      
+
                       {isLeader && bug.isBug && bug.relatedTaskId === null && (
                         <button
                           onClick={(e) => {
@@ -670,12 +814,12 @@ export function IssueTrackerDashboard() {
                   {isExpanded && (() => {
                     const parentChecklist = bug.isBug ? (bug.fixTask?.checklist || []) : (bug.checklist || [])
                     const canHaveChecklist = (!bug.isBug) || (bug.isBug && bug.relatedTaskId)
-                    
+
                     return (
                       <div className="bg-surface-container-low border-t border-outline-variant/30 py-4 flex flex-col relative">
                         {/* Vertical line connecting children */}
                         <div className="absolute left-7 top-0 bottom-6 w-0.5 bg-blue-600 rounded-full hidden sm:block"></div>
-                        
+
                         {/* Parent Description */}
                         <div className="pl-14 pr-6 pb-3">
                           <strong className="text-xs text-on-surface-variant uppercase tracking-wider">Description</strong>
@@ -686,8 +830,8 @@ export function IssueTrackerDashboard() {
                         {canHaveChecklist && (
                           <div className="mt-2.5 pb-2">
                             <div className="pl-14 pr-6 pb-1.5 flex items-center gap-2">
-                               <span className="material-symbols-outlined text-sm font-bold text-primary">rule</span>
-                               <strong className="text-xs text-on-surface-variant uppercase tracking-wider">Requirements Checklist (Các bước thực hiện)</strong>
+                              <span className="material-symbols-outlined text-sm font-bold text-primary">rule</span>
+                              <strong className="text-xs text-on-surface-variant uppercase tracking-wider">Requirements Checklist (Các bước thực hiện)</strong>
                             </div>
                             {parentChecklist.length > 0 ? (
                               <ul className="flex flex-col mb-2">
@@ -715,7 +859,7 @@ export function IssueTrackerDashboard() {
                                 <p className="text-xs text-on-surface-variant italic">No checklist requirements defined for this parent task.</p>
                               </div>
                             )}
-                            
+
                             {/* Inline input to add checklist item to parent */}
                             <div className="pl-14 pr-6 py-1">
                               <div className="flex items-center gap-2 max-w-md">
@@ -1015,18 +1159,18 @@ export function IssueTrackerDashboard() {
                 /* Step 1: Template Selection */
                 <div className="space-y-3 py-2 animate-fade-in">
                   {[
-                    { type: 'BUG',     title: 'Bug Report',           desc: 'Báo cáo lỗi trong code hoặc test',                         icon: 'bug_report' },
-                    { type: 'BUG_FIX', title: 'Fix Bug Task',         desc: 'Tạo task để xử lý và sửa một bug cụ thể',                  icon: 'build_circle' },
-                    { type: 'FEATURE', title: 'Feature Request',      desc: 'Đề xuất tính năng / class / method mới cần xây dựng',      icon: 'auto_awesome' },
-                    { type: 'REFACTOR',title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi',          icon: 'build' },
-                    { type: 'TEST',    title: 'Test Task',             desc: 'Nhiệm vụ viết hoặc cải thiện unit test',                   icon: 'science' },
-                    { type: 'BLANK',   title: 'Blank issue',           desc: 'Create a new issue from scratch',                           icon: 'article' },
+                    { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
+                    { type: 'BUG_FIX', title: 'Fix Bug Task', desc: 'Tạo task để xử lý và sửa một bug cụ thể', icon: 'build_circle' },
+                    { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
+                    { type: 'REFACTOR', title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi', icon: 'build' },
+                    { type: 'TEST', title: 'Test Task', desc: 'Nhiệm vụ viết hoặc cải thiện unit test', icon: 'science' },
+                    { type: 'BLANK', title: 'Blank issue', desc: 'Create a new issue from scratch', icon: 'article' },
                   ].map((tpl) => (
-                    <div 
+                    <div
                       key={tpl.type}
                       onClick={() => {
                         let mappedTaskType = 'DEVELOPMENT';
-                        if (tpl.type === 'TEST')    mappedTaskType = 'TESTING';
+                        if (tpl.type === 'TEST') mappedTaskType = 'TESTING';
                         if (tpl.type === 'BUG_FIX') mappedTaskType = 'BUG_FIX';
                         setNewIssue(prev => ({ ...prev, uiType: tpl.type, taskType: mappedTaskType }));
                       }}
@@ -1047,7 +1191,7 @@ export function IssueTrackerDashboard() {
                 /* Step 2: Form View */
                 <form onSubmit={handleCreateIssue} className="space-y-4 animate-fade-in">
                   <div className="flex items-center gap-2 mb-4 -mt-2">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setNewIssue(prev => ({ ...prev, uiType: null }))}
                       className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
@@ -1116,7 +1260,7 @@ export function IssueTrackerDashboard() {
                           <option value="LOW">Low</option>
                         </select>
                       </div>
-                      
+
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-bold text-on-surface-variant pl-0.5">Deadline</label>
                         <input
