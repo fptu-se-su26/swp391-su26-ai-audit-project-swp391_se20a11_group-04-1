@@ -107,4 +107,32 @@ class NotificationWebSocketHandlerTest {
         assertThat(duration).isLessThan(1000L);
         verify(mockSession, times(1)).sendMessage(any(TextMessage.class));
     }
+
+    @Test
+    @DisplayName("broadcast — Nên gửi tin nhắn tới toàn bộ người dùng đang kết nối")
+    void broadcast_ShouldSendToAllConnectedUsers() throws Exception {
+        // GIVEN
+        URI uri1 = new URI("ws://localhost:8080/api/ws/notifications?userId=123");
+        WebSocketSession session1 = mock(WebSocketSession.class);
+        when(session1.getUri()).thenReturn(uri1);
+        when(session1.isOpen()).thenReturn(true);
+        handler.afterConnectionEstablished(session1);
+
+        URI uri2 = new URI("ws://localhost:8080/api/ws/notifications?userId=456");
+        WebSocketSession session2 = mock(WebSocketSession.class);
+        when(session2.getUri()).thenReturn(uri2);
+        when(session2.isOpen()).thenReturn(true);
+        handler.afterConnectionEstablished(session2);
+
+        // WHEN
+        NotificationWebSocketHandler.broadcast("{\"type\":\"REFRESH_BUGS\",\"projectId\":100}");
+
+        // THEN
+        verify(session1, times(1)).sendMessage(any(TextMessage.class));
+        verify(session2, times(1)).sendMessage(any(TextMessage.class));
+
+        // Clean up
+        handler.afterConnectionClosed(session1, CloseStatus.NORMAL);
+        handler.afterConnectionClosed(session2, CloseStatus.NORMAL);
+    }
 }

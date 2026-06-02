@@ -148,6 +148,7 @@ const Sidebar = () => {
             <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
             <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
             <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
+            <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
             <NavItem to={`/projects/${activeProject.id}/evidence`} icon="inventory_2" label="Evidence Vault" />
             <NavItem to={`/projects/${activeProject.id}/traceability-matrix`} icon="reorder" label="Traceability Matrix" />

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import KanbanColumn from '../components/KanbanColumn'
 import KanbanFilters from '../components/KanbanFilters'
 import KanbanHeader from '../components/KanbanHeader'
@@ -125,8 +126,47 @@ const KanbanBoardPage = () => {
     if (draggingColumnId) return
     const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId
     if (taskId) {
+      const task = tasks.find((t) => String(t.id) === String(taskId))
       const column = columns.find((item) => item.id === status)
-      updateTaskStatus(taskId, column?.statusKey || status, column?.id || null)
+      const targetStatusKey = column?.statusKey || status
+
+      if (task) {
+        const isUnassigned = !task.assignee?.id
+        // If moving OUT of TODO and it's unassigned
+        if (isUnassigned && targetStatusKey !== 'TODO' && targetStatusKey !== 'OPEN') {
+          toast.error('Task chưa được assign, không thể chuyển sang trạng thái này!')
+          setDraggingTaskId(null)
+          setDragOverStatus(null)
+          return
+        }
+
+        if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
+          // Check checklist for all tasks
+          const hasIncompleteChecklist = task.checklist && task.checklist.length > 0 && task.checklist.some(item => !item.done)
+          if (hasIncompleteChecklist) {
+            toast.error('Không thể chuyển trạng thái: Vui lòng hoàn thành tất cả checklist!')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+
+          // Check subtasks if it's a parent task
+          if (!task.parentId) {
+            const subtasks = tasks.filter(t => t.parentId === String(task.id))
+            if (subtasks.length > 0) {
+              const hasIncompleteSubtasks = subtasks.some(t => t.status !== 'DONE' && t.status !== 'FIXED' && t.status !== 'CLOSED')
+              if (hasIncompleteSubtasks) {
+                toast.error('Không thể chuyển trạng thái: Các task con chưa hoàn thành!')
+                setDraggingTaskId(null)
+                setDragOverStatus(null)
+                return
+              }
+            }
+          }
+        }
+      }
+
+      updateTaskStatus(taskId, targetStatusKey, column?.id || null)
       setJustDraggedTaskId(taskId)
       window.setTimeout(() => setJustDraggedTaskId(null), 250)
     }
