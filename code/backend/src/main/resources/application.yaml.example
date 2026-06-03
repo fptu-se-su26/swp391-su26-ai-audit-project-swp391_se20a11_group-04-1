@@ -73,3 +73,7 @@ app:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: local
     outbox-publish-delay-ms: 30000
+
+code-insight:
+  # Used to encrypt GitHub webhook secrets in DB. Use a stable private value per environment.
+  webhook-secret-encryption-key: "CHANGE_ME_TO_A_LONG_RANDOM_LOCAL_SECRET"

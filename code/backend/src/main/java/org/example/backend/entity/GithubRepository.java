@@ -40,6 +40,9 @@ public class GithubRepository {
     @Column(name = "webhook_secret_hash")
     private String webhookSecretHash;
 
+    @Column(name = "webhook_secret_encrypted", columnDefinition = "TEXT")
+    private String webhookSecretEncrypted;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
