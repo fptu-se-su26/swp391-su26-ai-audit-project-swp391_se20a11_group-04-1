@@ -13,6 +13,7 @@ import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.service.CodeInsightService;
+import org.example.backend.util.WebhookSecretCrypto;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final ProjectMemberRepository projectMemberRepository;
     private final GithubRepositoryRepository githubRepositoryRepository;
     private final ProjectCodeInsightSettingsRepository settingsRepository;
+    private final WebhookSecretCrypto webhookSecretCrypto;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,8 +93,9 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             repository.setActive(request.getActive() == null || request.getActive());
             repository.setUpdatedAt(LocalDateTime.now());
             if (hasText(request.getWebhookSecret())) {
-                // Never persist the raw webhook secret; later signature checks compare against this hash.
+                // Keep hash for "secret exists/changed" checks and encrypted value for future HMAC verification.
                 repository.setWebhookSecretHash(sha256(request.getWebhookSecret().trim()));
+                repository.setWebhookSecretEncrypted(webhookSecretCrypto.encrypt(request.getWebhookSecret().trim()));
             }
             repository = githubRepositoryRepository.save(repository);
         } else if (repository != null) {
@@ -105,6 +108,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             }
             if (hasText(request.getWebhookSecret())) {
                 repository.setWebhookSecretHash(sha256(request.getWebhookSecret().trim()));
+                repository.setWebhookSecretEncrypted(webhookSecretCrypto.encrypt(request.getWebhookSecret().trim()));
             }
             repository.setUpdatedAt(LocalDateTime.now());
             repository = githubRepositoryRepository.save(repository);
@@ -197,7 +201,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         return "main";
     }
 
-    // Hash webhook secret before storage; raw secret should only exist in memory during this request.
+    // Hash webhook secret for metadata checks; encrypted secret is stored separately for HMAC verification.
     private String sha256(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
