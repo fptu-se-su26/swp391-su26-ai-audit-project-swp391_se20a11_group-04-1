@@ -25,6 +25,7 @@ public class TaskRequest {
     private Long columnId;
     private String blockedReason;
     private List<ChecklistItemRequest> checklist;
+    private Long parentId;
 
     @Getter
     @Setter

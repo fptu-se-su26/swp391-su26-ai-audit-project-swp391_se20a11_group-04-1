@@ -60,6 +60,19 @@ const TaskDetailPage = () => {
 
   const completedChecklist = task.checklist.filter((item) => item.done).length
 
+  const subtasks = tasks.filter(t => t.parentId === String(task.id))
+  const hasSubtasks = subtasks.length > 0
+  const isChildTask = !!task.parentId
+
+  // Checklist completion
+  const isChecklistPassed = !task.checklist || task.checklist.length === 0 || task.checklist.every((item) => item.done)
+
+  // Subtasks completion
+  const areAllSubtasksDone = hasSubtasks && subtasks.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
+
+  // Determine if the action is enabled
+  const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
+
   const handleDeleteTask = () => {
     // Delete through store, then return user to board because this detail page no longer has a task.
     const confirmed = window.confirm(`Delete ${task.id}? This cannot be undone in the current board state.`)
@@ -170,14 +183,22 @@ const TaskDetailPage = () => {
             </div>
             <div className="flex flex-wrap gap-2">
               {task.status !== 'DONE' && task.status !== 'IN_REVIEW' && (
-                <button
-                  type="button"
-                  onClick={handleRequestReview}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container"
-                >
-                  <span className="material-symbols-outlined text-[18px]">rate_review</span>
-                  Request Review
-                </button>
+                <div className="flex flex-col items-start gap-1">
+                  <button
+                    type="button"
+                    onClick={handleRequestReview}
+                    disabled={!isReviewActionEnabled}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                    Request Review
+                  </button>
+                  {!isReviewActionEnabled && (
+                    <span className="text-xs text-on-surface-variant">
+                      Complete checklist and child tasks before requesting review.
+                    </span>
+                  )}
+                </div>
               )}
               {task.status === 'IN_REVIEW' && canDecideReview && (
                 <>
@@ -229,7 +250,16 @@ const TaskDetailPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">link</span>
-              <span className="text-primary text-body-md font-body-md">{task.requirement}</span>
+              {task.requirementId ? (
+                <Link
+                  to={`/projects/${projectId}/requirements/${task.requirementId}`}
+                  className="text-primary text-body-md font-body-md hover:underline hover:text-surface-tint"
+                >
+                  {task.requirement}
+                </Link>
+              ) : (
+                <span className="text-on-surface-variant text-body-md font-body-md">{task.requirement}</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px] text-on-surface-variant">speed</span>
