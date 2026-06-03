@@ -30,6 +30,9 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 // Feature Pages - RTM
 import RtmPage from '@features/rtm/pages/RtmPage'
 
+// Feature Pages - Code Insight
+import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
+
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage } from '@features/issue-tracker'
 
@@ -60,30 +63,30 @@ export function AppRoutes() {
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
-          
+
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            
+
             <Route path="dashboard" element={<DashboardPage />} />
-            
+
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
             <Route path="requirements/:id" element={<RequirementDetailPage />} />
-            
+
             {/* Module 2: Use Case Management */}
             <Route path="use-cases" element={<UseCasePage />} />
             <Route path="use-cases/:id" element={<UseCaseDetailPage />} />
-            
+
             {/* Module 3: Test Case Management */}
             <Route path="test-cases" element={<TestCasePage />} />
             <Route path="test-cases/:id" element={<TestCaseDetailPage />} />
-            
+
             {/* Module 4: Evidence Vault */}
             <Route path="evidence" element={<EvidenceListPage />} />
             <Route path="evidence/:id" element={<EvidenceDetailPage />} />
-            
+
             {/* Module 5: Team Contribution */}
             <Route path="contribution" element={<ContributionPage />} />
 
@@ -102,7 +105,8 @@ export function AppRoutes() {
 
             {/* Module 8: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
-            
+            <Route path="code-insight" element={<CodeInsightPage />} />
+
           </Route>
         </Route>
       </Route>
