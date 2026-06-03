@@ -57,6 +57,7 @@ export const taskService = {
   },
 
   updateTaskStatus: async (taskId, status, blockedReason, columnId) => {
+    // Normal status/drag-drop update; backend may reject DONE if Code Insight review gate is enabled.
     const payload = {
       blockedReason,
       status: status || null,
@@ -68,6 +69,24 @@ export const taskService = {
 
   updateTaskAssignee: async (taskId, assigneeId) => {
     const response = await axiosInstance.patch(`/v1/tasks/${taskId}/assignee`, { assigneeId })
+    return unwrap(response)
+  },
+
+  requestTaskReview: async (taskId, reason = '') => {
+    // Move task into IN_REVIEW and create a review request audit row.
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/request-review`, { reason })
+    return unwrap(response)
+  },
+
+  approveTaskReview: async (taskId, reason = '') => {
+    // Leader approval endpoint; this is the allowed path from IN_REVIEW to DONE.
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/approve`, { reason })
+    return unwrap(response)
+  },
+
+  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+    // Leader rejection endpoint; sends task back to IN_PROGRESS or BLOCKED with a reason.
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/reject`, { reason, targetStatus })
     return unwrap(response)
   },
 }

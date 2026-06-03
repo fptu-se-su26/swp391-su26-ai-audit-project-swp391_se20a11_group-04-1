@@ -4,14 +4,35 @@ import TaskFormModal from '../components/TaskFormModal'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
+const isLeaderRole = (role = '') => {
+  // Normalize project role labels so leader-only review actions show correctly.
+  const normalized = role.toUpperCase().replace(/\s+/g, '_')
+  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
+}
+
 const TaskDetailPage = () => {
   const { projectId, id } = useParams()
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const activeProject = useProjectStore((state) => state.activeProject)
-  const { tasks, columns, loading, fetchTaskById, updateTask, deleteTask, updateTaskStatus, toggleChecklistItem } = useKanbanStore()
+  const {
+    tasks,
+    columns,
+    loading,
+    error,
+    fetchTaskById,
+    updateTask,
+    deleteTask,
+    updateTaskStatus,
+    requestTaskReview,
+    approveTaskReview,
+    rejectTaskReview,
+    toggleChecklistItem,
+  } = useKanbanStore()
   const task = tasks.find((item) => item.id === id)
   const taskBoardPath = projectId ? `/projects/${projectId}/task-board` : '/dashboard'
+  const codeInsightPath = projectId ? `/projects/${projectId}/code-insight` : '/dashboard'
+  const canDecideReview = isLeaderRole(activeProject?.role)
 
   useEffect(() => {
     if (!task) {
@@ -53,6 +74,7 @@ const TaskDetailPage = () => {
   const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
 
   const handleDeleteTask = () => {
+    // Delete through store, then return user to board because this detail page no longer has a task.
     const confirmed = window.confirm(`Delete ${task.id}? This cannot be undone in the current board state.`)
     if (confirmed) {
       deleteTask(task.id)
@@ -61,12 +83,31 @@ const TaskDetailPage = () => {
   }
 
   const handleUpdateTask = (payload) => {
+    // Save edited task fields and close the modal once store/API update starts.
     updateTask(task.id, payload)
     setIsEditOpen(false)
   }
 
   const handleCollapseToPanel = () => {
+    // Return to board while asking the board page to open this task in its side panel.
     navigate(taskBoardPath, { state: { openTaskId: task.id } })
+  }
+
+  const handleRequestReview = async () => {
+    // Member moves task into IN_REVIEW for leader approval.
+    await requestTaskReview(task.id, 'Ready for leader review')
+  }
+
+  const handleApproveReview = async () => {
+    // Leader approves this task and backend marks it DONE.
+    await approveTaskReview(task.id, 'Approved from task detail')
+  }
+
+  const handleRejectReview = async () => {
+    // Leader must provide feedback before backend returns the task to work.
+    const reason = window.prompt('Why should this task be returned for changes?')
+    if (!reason || !reason.trim()) return
+    await rejectTaskReview(task.id, reason.trim(), 'IN_PROGRESS')
   }
 
   return (
@@ -112,36 +153,73 @@ const TaskDetailPage = () => {
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 Delete
               </button>
-              {task.status !== 'IN_REVIEW' && task.status !== 'DONE' && task.status !== 'FIXED' && task.status !== 'CLOSED' && (
-                <div className="relative group">
+              <button
+                type="button"
+                onClick={() => navigate(codeInsightPath)}
+                className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                Code Insight
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-4 rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-error">
+              {error}
+            </div>
+          )}
+
+          <div className="mb-4 rounded-lg border border-outline-variant bg-surface-container-low px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-on-surface">Review Gate</h2>
+              <p className="text-sm text-on-surface-variant">
+                {task.status === 'IN_REVIEW'
+                  ? 'This task is waiting for leader approval before it can be Done.'
+                  : task.status === 'DONE'
+                    ? 'This task has been approved as Done.'
+                    : 'Request review when the implementation is ready for leader approval.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {task.status !== 'DONE' && task.status !== 'IN_REVIEW' && (
+                <div className="flex flex-col items-start gap-1">
                   <button
                     type="button"
+                    onClick={handleRequestReview}
                     disabled={!isReviewActionEnabled}
-                    onClick={() => {
-                      const reviewColumn = columns.find((col) => col.statusKey === 'IN_REVIEW')
-                      updateTaskStatus(task.id, 'IN_REVIEW', reviewColumn?.id || null)
-                    }}
-                    className={`h-[36px] px-4 flex items-center gap-2 rounded transition-colors text-body-md font-body-md shadow-sm ${
-                      isReviewActionEnabled
-                        ? 'bg-[#a855f7] text-white hover:bg-[#9333ea]'
-                        : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60'
-                    }`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="material-symbols-outlined text-[18px]">rate_review</span>
-                    Yêu cầu review
+                    Request Review
                   </button>
                   {!isReviewActionEnabled && (
-                    <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[10px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50 animate-fade-in">
-                      {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
-                      {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
-                    </div>
+                    <span className="text-xs text-on-surface-variant">
+                      Complete checklist and child tasks before requesting review.
+                    </span>
                   )}
                 </div>
               )}
-              <button className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm">
-                <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-                AI Review
-              </button>
+              {task.status === 'IN_REVIEW' && canDecideReview && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleRejectReview}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-container text-error px-3 py-2 text-sm font-semibold hover:bg-error-container/70"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApproveReview}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    Approve Done
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

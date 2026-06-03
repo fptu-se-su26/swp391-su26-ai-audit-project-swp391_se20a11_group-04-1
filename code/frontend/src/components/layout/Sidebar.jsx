@@ -165,6 +165,7 @@ const Sidebar = () => {
               label="AI Assistant" 
               defaultIconClass="text-primary-container"
             />
+            <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
             <NavItem to={`/projects/${activeProject.id}/code-insight`} icon="code" label="Code Insight" />
 
             {/* Team Section */}
