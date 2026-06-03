@@ -16,10 +16,6 @@ const CodeInsightPage = () => {
   const [reviewQueue, setReviewQueue] = useState([])
   const [config, setConfig] = useState(null)
   const [configForm, setConfigForm] = useState({
-    repoUrl: '',
-    defaultBranch: 'main',
-    webhookSecret: '',
-    active: true,
     reviewGateEnabled: true,
     requirePrForDone: false,
     requireCiPass: false,
@@ -38,7 +34,6 @@ const CodeInsightPage = () => {
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
   const ruleItems = [
-    ['active', 'Repository Active'],
     ['reviewGateEnabled', 'Require Leader Review Gate'],
     ['requirePrForDone', 'Require PR Before Done'],
     ['requireCiPass', 'Require CI Pass'],
@@ -46,15 +41,10 @@ const CodeInsightPage = () => {
   ]
 
   const hydrateConfigForm = (nextConfig) => {
-    // Copy API config into editable form state; keep webhookSecret blank so raw secrets are never displayed.
-    const repository = nextConfig?.repository
+    // Copy API settings into editable form state; GitHub repo config is managed by the shared GitHub Config page.
     const settings = nextConfig?.settings
     setConfig(nextConfig)
     setConfigForm({
-      repoUrl: repository?.repoUrl || '',
-      defaultBranch: repository?.defaultBranch || 'main',
-      webhookSecret: '',
-      active: repository?.active ?? true,
       reviewGateEnabled: settings?.reviewGateEnabled ?? true,
       requirePrForDone: settings?.requirePrForDone ?? false,
       requireCiPass: settings?.requireCiPass ?? false,
@@ -78,7 +68,7 @@ const CodeInsightPage = () => {
   }
 
   const loadConfig = async () => {
-    // Fetch repository/rule config used by the GitHub settings panel.
+    // Fetch shared GitHub repository status and Code Insight rule settings.
     if (!projectId) return
     setConfigLoading(true)
     setConfigError('')
@@ -105,7 +95,7 @@ const CodeInsightPage = () => {
   }
 
   const saveConfig = async (event) => {
-    // Persist repository/rule config; backend verifies leader permission and hashes webhook secret.
+    // Persist Code Insight rule config only; GitHub repo setup is saved in the shared GitHub Config page.
     event.preventDefault()
     if (!canDecide) return
     setConfigSaving(true)
@@ -113,12 +103,11 @@ const CodeInsightPage = () => {
     setConfigSuccess('')
     try {
       const payload = {
-        ...configForm,
+        reviewGateEnabled: configForm.reviewGateEnabled,
+        requirePrForDone: configForm.requirePrForDone,
+        requireCiPass: configForm.requireCiPass,
+        aiReviewEnabled: configForm.aiReviewEnabled,
         minScoreWarningThreshold: Number(configForm.minScoreWarningThreshold),
-      }
-      if (!payload.webhookSecret?.trim()) {
-        // Blank secret means keep the existing hash on the backend.
-        delete payload.webhookSecret
       }
       const nextConfig = await codeInsightService.updateConfig(projectId, payload)
       hydrateConfigForm(nextConfig)
@@ -192,9 +181,9 @@ const CodeInsightPage = () => {
         <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-5">
             <div>
-              <h2 className="font-headline-sm text-headline-sm text-on-surface">GitHub Repository</h2>
+              <h2 className="font-headline-sm text-headline-sm text-on-surface">GitHub Integration</h2>
               <p className="text-sm text-on-surface-variant mt-1">
-                Configure the project repository that future webhook evidence will come from.
+                Code Insight uses the shared project GitHub connection as its future evidence source.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -233,14 +222,33 @@ const CodeInsightPage = () => {
                   </p>
                 </div>
                 <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
-                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Default Branch</span>
-                  <p className="mt-2 text-sm font-semibold text-on-surface">{config?.repository?.defaultBranch || 'main'}</p>
+                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Repository</span>
+                  <p className="mt-2 text-sm font-semibold text-on-surface">
+                    {config?.repository?.owner && config?.repository?.repoName
+                      ? `${config.repository.owner}/${config.repository.repoName}`
+                      : 'Not connected'}
+                  </p>
                 </div>
                 <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
                   <span className="font-label-md text-label-md uppercase text-on-surface-variant">Webhook Secret</span>
                   <p className="mt-2 text-sm font-semibold text-on-surface">
                     {config?.repository?.hasWebhookSecret ? 'Saved' : 'Not set'}
                   </p>
+                </div>
+                <div className="md:col-span-2 rounded-lg border border-primary/20 bg-primary-fixed/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-on-surface">Configure GitHub from the shared GitHub Config page</h3>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                      Repository, OAuth token, webhook secret, and webhook setup are managed once for Issue Tracker and Code Insight.
+                    </p>
+                  </div>
+                  <Link
+                    to={`/projects/${projectId}/github-config`}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">settings</span>
+                    GitHub Config
+                  </Link>
                 </div>
               </div>
 
@@ -289,42 +297,22 @@ const CodeInsightPage = () => {
             </div>
           ) : (
             <form onSubmit={saveConfig} className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="md:col-span-2">
-                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Repository URL</span>
-                  <input
-                    type="text"
-                    value={configForm.repoUrl}
-                    onChange={(event) => updateConfigForm('repoUrl', event.target.value)}
-                    disabled={!canDecide || configLoading}
-                    placeholder="https://github.com/owner/repository"
-                    className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                  />
-                </label>
-                <label>
-                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Default Branch</span>
-                  <input
-                    type="text"
-                    value={configForm.defaultBranch}
-                    onChange={(event) => updateConfigForm('defaultBranch', event.target.value)}
-                    disabled={!canDecide || configLoading}
-                    placeholder="main"
-                    className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                  />
-                </label>
-                <label>
-                  <span className="font-label-md text-label-md uppercase text-on-surface-variant">Webhook Secret</span>
-                  <input
-                    type="password"
-                    value={configForm.webhookSecret}
-                    onChange={(event) => updateConfigForm('webhookSecret', event.target.value)}
-                    disabled={!canDecide || configLoading}
-                    placeholder={config?.repository?.hasWebhookSecret ? 'Leave blank to keep current secret' : 'Set later for webhook'}
-                    className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
-                  />
-                </label>
+              <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                <span className="font-label-md text-label-md uppercase text-on-surface-variant">Shared GitHub Source</span>
+                <p className="mt-2 text-sm font-semibold text-on-surface break-all">
+                  {config?.repository?.repoUrl || 'No repository configured yet'}
+                </p>
+                <p className="mt-2 text-sm text-on-surface-variant">
+                  Use the GitHub Config page to change repository, token, or webhook settings.
+                </p>
+                <Link
+                  to={`/projects/${projectId}/github-config`}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high"
+                >
+                  <span className="material-symbols-outlined text-[18px]">settings</span>
+                  Open GitHub Config
+                </Link>
               </div>
-
               <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
                 <h3 className="font-label-md text-label-md uppercase text-on-surface-variant mb-3">Review Rules</h3>
                 <div className="space-y-3">
