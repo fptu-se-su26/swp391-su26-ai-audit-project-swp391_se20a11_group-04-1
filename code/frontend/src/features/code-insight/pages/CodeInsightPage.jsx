@@ -52,6 +52,7 @@ const CodeInsightPage = () => {
   const [selectedEvidence, setSelectedEvidence] = useState(null)
   const [evidenceLoading, setEvidenceLoading] = useState(false)
   const [evidenceError, setEvidenceError] = useState('')
+  const [changedFilesLoading, setChangedFilesLoading] = useState(false)
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
@@ -206,6 +207,20 @@ const CodeInsightPage = () => {
     setSelectedEvidence(null)
     setEvidenceLoading(false)
     setEvidenceError('')
+    setChangedFilesLoading(false)
+  }
+
+  const fetchChangedFiles = async () => {
+    if (!selectedEvidence?.task?.id || !projectId) return
+    setChangedFilesLoading(true)
+    setEvidenceError('')
+    try {
+      setSelectedEvidence(await codeInsightService.fetchTaskChangedFiles(projectId, selectedEvidence.task.id))
+    } catch (err) {
+      setEvidenceError(err.response?.data?.message || err.message || 'Failed to fetch changed files')
+    } finally {
+      setChangedFilesLoading(false)
+    }
   }
 
   return (
@@ -722,6 +737,49 @@ const CodeInsightPage = () => {
                             <p className="mt-1 text-xs text-on-surface-variant">
                               {check.status || 'unknown'} / {check.conclusion || 'pending'} | {shortSha(check.sha)}
                             </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Changed Files</h3>
+                      <button
+                        type="button"
+                        onClick={fetchChangedFiles}
+                        disabled={changedFilesLoading || (selectedEvidence.pullRequests || []).length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-1.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">download</span>
+                        {changedFilesLoading ? 'Loading...' : 'Load Changed Files'}
+                      </button>
+                    </div>
+                    {(selectedEvidence.changedFiles || []).length === 0 ? (
+                      <p className="mt-2 text-sm text-on-surface-variant">
+                        No changed-file metadata loaded yet.
+                      </p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {selectedEvidence.changedFiles.map((file) => (
+                          <div key={file.id} className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="break-all font-semibold text-on-surface">{file.filePath}</p>
+                                <p className="mt-1 text-xs text-on-surface-variant">
+                                  {file.status || 'modified'} | +{file.additions} / -{file.deletions} | {file.changes} changes
+                                </p>
+                              </div>
+                              <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
+                                {file.patchHash ? 'Patch cached' : 'No patch'}
+                              </span>
+                            </div>
+                            {file.patchSummary && (
+                              <p className="mt-2 line-clamp-3 text-sm text-on-surface-variant">
+                                {file.patchSummary}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>

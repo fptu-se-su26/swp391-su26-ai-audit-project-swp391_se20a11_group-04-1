@@ -10,6 +10,7 @@ import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubIntegrationRepository;
+import org.example.backend.repository.GitHubPullRequestFileRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectMemberRepository;
@@ -17,6 +18,7 @@ import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightService;
+import org.example.backend.service.CodeInsightPatchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +39,10 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
+    private final GitHubPullRequestFileRepository pullRequestFileRepository;
     private final GitHubCheckRunRepository checkRunRepository;
     private final CodeInsightScoringService scoringService;
+    private final CodeInsightPatchService patchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -93,6 +97,10 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         List<GitHubCommit> commits = commitRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.COMMIT));
         List<GitHubPullRequest> pullRequests = pullRequestRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.PULL_REQUEST));
         List<GitHubCheckRun> checkRuns = checkRunRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.CHECK_RUN));
+        List<GitHubPullRequestFile> changedFiles = pullRequests.isEmpty()
+                ? List.of()
+                : pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(
+                        pullRequests.stream().map(GitHubPullRequest::getId).toList());
 
         return CodeInsightTaskEvidenceResponse.builder()
                 .projectId(projectId)
@@ -101,8 +109,17 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .commits(commits.stream().map(this::toCommitEvidence).toList())
                 .pullRequests(pullRequests.stream().map(this::toPullRequestEvidence).toList())
                 .checkRuns(checkRuns.stream().map(this::toCheckRunEvidence).toList())
+                .changedFiles(changedFiles.stream().map(this::toPullRequestFileEvidence).toList())
                 .scoreSummary(scoringService.buildReviewEvidenceSummary(task))
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public CodeInsightTaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId) {
+        requireProjectMember(projectId, userId);
+        patchService.fetchChangedFiles(projectId, taskId, userId);
+        return getTaskEvidence(projectId, taskId, userId);
     }
 
     // Verify that the current session user belongs to the project before reading or writing config.
@@ -267,6 +284,21 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .startedAt(checkRun.getStartedAt())
                 .completedAt(checkRun.getCompletedAt())
                 .url(checkRun.getUrl())
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.PullRequestFileEvidence toPullRequestFileEvidence(GitHubPullRequestFile file) {
+        return CodeInsightTaskEvidenceResponse.PullRequestFileEvidence.builder()
+                .id(file.getId())
+                .pullRequestId(file.getPullRequest() != null ? file.getPullRequest().getId() : null)
+                .filePath(file.getFilePath())
+                .status(file.getStatus())
+                .additions(file.getAdditions())
+                .deletions(file.getDeletions())
+                .changes(file.getChanges())
+                .patchHash(file.getPatchHash())
+                .patchSummary(file.getPatchSummary())
+                .fetchedAt(file.getFetchedAt())
                 .build();
     }
 
