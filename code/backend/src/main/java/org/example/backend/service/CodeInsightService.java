@@ -13,4 +13,7 @@ public interface CodeInsightService {
 
     // Read linked GitHub evidence for a task in the project.
     CodeInsightTaskEvidenceResponse getTaskEvidence(Long projectId, Long taskId, Long userId);
+
+    // Fetch and cache changed-file metadata for linked pull requests, then return refreshed evidence.
+    CodeInsightTaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId);
 }

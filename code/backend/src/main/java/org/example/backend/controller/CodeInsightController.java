@@ -73,6 +73,18 @@ public class CodeInsightController {
                 "Code Insight task evidence retrieved"));
     }
 
+    // Fetch changed files from GitHub on demand; this is a POST because it writes cache rows.
+    @PostMapping("/tasks/{taskId}/evidence/fetch-files")
+    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> fetchTaskChangedFiles(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.fetchTaskChangedFiles(projectId, taskId, userId),
+                "Code Insight changed files fetched"));
+    }
+
     // Common session guard for all Code Insight endpoints.
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");

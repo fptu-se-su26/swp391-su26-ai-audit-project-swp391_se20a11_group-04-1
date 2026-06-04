@@ -27,6 +27,12 @@ export const codeInsightService = {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence`)
     return unwrap(response)
   },
+
+  // Fetch PR changed-file metadata on demand and return refreshed task evidence.
+  fetchTaskChangedFiles: async (projectId, taskId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence/fetch-files`)
+    return unwrap(response)
+  },
 }
 
 export default codeInsightService

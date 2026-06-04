@@ -17,6 +17,7 @@ public class CodeInsightTaskEvidenceResponse {
     private List<PullRequestEvidence> pullRequests;
     private List<CommitEvidence> commits;
     private List<CheckRunEvidence> checkRuns;
+    private List<PullRequestFileEvidence> changedFiles;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
 
     @Getter
@@ -95,5 +96,23 @@ public class CodeInsightTaskEvidenceResponse {
         private LocalDateTime startedAt;
         private LocalDateTime completedAt;
         private String url;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PullRequestFileEvidence {
+        private Long id;
+        private Long pullRequestId;
+        private String filePath;
+        private String status;
+        private int additions;
+        private int deletions;
+        private int changes;
+        private String patchHash;
+        private String patchSummary;
+        private LocalDateTime fetchedAt;
     }
 }
