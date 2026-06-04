@@ -2,6 +2,7 @@ package org.example.backend.service;
 
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
+import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 
 public interface CodeInsightService {
@@ -16,4 +17,7 @@ public interface CodeInsightService {
 
     // Fetch and cache changed-file metadata for linked pull requests, then return refreshed evidence.
     CodeInsightTaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId);
+
+    // Create an AI-assisted review summary for a task.
+    CodeInsightAiReviewResponse createAiReview(Long projectId, Long taskId, Long userId);
 }

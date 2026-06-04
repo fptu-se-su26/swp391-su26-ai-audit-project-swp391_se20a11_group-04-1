@@ -3,6 +3,7 @@ package org.example.backend.controller;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
+import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
@@ -83,6 +84,18 @@ public class CodeInsightController {
         return ResponseEntity.ok(ApiResponse.success(
                 codeInsightService.fetchTaskChangedFiles(projectId, taskId, userId),
                 "Code Insight changed files fetched"));
+    }
+
+    // Create a structured AI-assisted recommendation for the leader; it never approves automatically.
+    @PostMapping("/tasks/{taskId}/ai-review")
+    public ResponseEntity<ApiResponse<CodeInsightAiReviewResponse>> createAiReview(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.createAiReview(projectId, taskId, userId),
+                "Code Insight AI review created"));
     }
 
     // Common session guard for all Code Insight endpoints.

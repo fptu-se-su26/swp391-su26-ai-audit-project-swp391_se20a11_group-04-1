@@ -3,6 +3,7 @@ package org.example.backend.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
+import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
@@ -19,6 +20,7 @@ import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightService;
 import org.example.backend.service.CodeInsightPatchService;
+import org.example.backend.service.CodeInsightAiReviewService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final GitHubCheckRunRepository checkRunRepository;
     private final CodeInsightScoringService scoringService;
     private final CodeInsightPatchService patchService;
+    private final CodeInsightAiReviewService aiReviewService;
 
     @Override
     @Transactional(readOnly = true)
@@ -110,6 +113,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .pullRequests(pullRequests.stream().map(this::toPullRequestEvidence).toList())
                 .checkRuns(checkRuns.stream().map(this::toCheckRunEvidence).toList())
                 .changedFiles(changedFiles.stream().map(this::toPullRequestFileEvidence).toList())
+                .aiReview(aiReviewService.getLatestReview(taskId))
                 .scoreSummary(scoringService.buildReviewEvidenceSummary(task))
                 .build();
     }
@@ -120,6 +124,13 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         requireProjectMember(projectId, userId);
         patchService.fetchChangedFiles(projectId, taskId, userId);
         return getTaskEvidence(projectId, taskId, userId);
+    }
+
+    @Override
+    @Transactional
+    public CodeInsightAiReviewResponse createAiReview(Long projectId, Long taskId, Long userId) {
+        requireProjectMember(projectId, userId);
+        return aiReviewService.createReview(projectId, taskId, userId);
     }
 
     // Verify that the current session user belongs to the project before reading or writing config.

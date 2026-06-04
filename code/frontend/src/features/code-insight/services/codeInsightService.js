@@ -33,6 +33,12 @@ export const codeInsightService = {
     const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence/fetch-files`)
     return unwrap(response)
   },
+
+  // Create a structured AI-assisted review summary for this task.
+  createAiReview: async (projectId, taskId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/ai-review`)
+    return unwrap(response)
+  },
 }
 
 export default codeInsightService
