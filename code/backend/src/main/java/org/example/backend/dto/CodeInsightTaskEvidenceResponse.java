@@ -18,6 +18,7 @@ public class CodeInsightTaskEvidenceResponse {
     private List<CommitEvidence> commits;
     private List<CheckRunEvidence> checkRuns;
     private List<PullRequestFileEvidence> changedFiles;
+    private CodeInsightAiReviewResponse aiReview;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
 
     @Getter

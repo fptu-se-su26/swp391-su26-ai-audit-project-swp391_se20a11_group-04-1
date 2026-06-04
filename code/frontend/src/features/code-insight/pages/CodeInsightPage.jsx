@@ -53,6 +53,7 @@ const CodeInsightPage = () => {
   const [evidenceLoading, setEvidenceLoading] = useState(false)
   const [evidenceError, setEvidenceError] = useState('')
   const [changedFilesLoading, setChangedFilesLoading] = useState(false)
+  const [aiReviewLoading, setAiReviewLoading] = useState(false)
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
@@ -208,6 +209,7 @@ const CodeInsightPage = () => {
     setEvidenceLoading(false)
     setEvidenceError('')
     setChangedFilesLoading(false)
+    setAiReviewLoading(false)
   }
 
   const fetchChangedFiles = async () => {
@@ -220,6 +222,20 @@ const CodeInsightPage = () => {
       setEvidenceError(err.response?.data?.message || err.message || 'Failed to fetch changed files')
     } finally {
       setChangedFilesLoading(false)
+    }
+  }
+
+  const runAiReview = async () => {
+    if (!selectedEvidence?.task?.id || !projectId) return
+    setAiReviewLoading(true)
+    setEvidenceError('')
+    try {
+      const aiReview = await codeInsightService.createAiReview(projectId, selectedEvidence.task.id)
+      setSelectedEvidence((current) => ({ ...current, aiReview }))
+    } catch (err) {
+      setEvidenceError(err.response?.data?.message || err.message || 'Failed to create AI review')
+    } finally {
+      setAiReviewLoading(false)
     }
   }
 
@@ -783,6 +799,59 @@ const CodeInsightPage = () => {
                           </div>
                         ))}
                       </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">AI Review</h3>
+                      <button
+                        type="button"
+                        onClick={runAiReview}
+                        disabled={aiReviewLoading}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">smart_toy</span>
+                        {aiReviewLoading ? 'Reviewing...' : 'AI Review'}
+                      </button>
+                    </div>
+                    {selectedEvidence.aiReview ? (
+                      <div className="mt-3 space-y-3">
+                        <div className="rounded-lg border border-outline-variant bg-surface p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-label-md text-label-md rounded bg-primary-fixed px-2 py-1 text-primary">
+                              {selectedEvidence.aiReview.recommendation}
+                            </span>
+                            <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
+                              Confidence {selectedEvidence.aiReview.confidence}%
+                            </span>
+                            <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
+                              Adjustment {selectedEvidence.aiReview.scoreAdjustment > 0 ? '+' : ''}{selectedEvidence.aiReview.scoreAdjustment}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm text-on-surface-variant">{selectedEvidence.aiReview.summary}</p>
+                        </div>
+                        {(selectedEvidence.aiReview.risks || []).length > 0 && (
+                          <div className="rounded-lg border border-error/20 bg-error-container/30 p-3">
+                            <p className="font-label-md text-label-md uppercase text-error">Risks</p>
+                            <ul className="mt-2 space-y-1 text-sm text-error">
+                              {selectedEvidence.aiReview.risks.map((risk) => <li key={risk}>{risk}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {(selectedEvidence.aiReview.reviewQuestions || []).length > 0 && (
+                          <div className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">Questions For Leader</p>
+                            <ul className="mt-2 space-y-1 text-sm text-on-surface-variant">
+                              {selectedEvidence.aiReview.reviewQuestions.map((question) => <li key={question}>{question}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-on-surface-variant">
+                        No AI review has been created for this task yet.
+                      </p>
                     )}
                   </section>
 
