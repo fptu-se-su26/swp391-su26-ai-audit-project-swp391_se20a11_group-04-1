@@ -21,4 +21,6 @@ public interface CodeInsightEvidenceLinkRepository extends JpaRepository<CodeIns
             Long evidenceId);
 
     List<CodeInsightEvidenceLink> findByTaskId(Long taskId);
+
+    List<CodeInsightEvidenceLink> findByProjectId(Long projectId);
 }

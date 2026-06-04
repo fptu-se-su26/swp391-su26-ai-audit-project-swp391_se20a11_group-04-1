@@ -22,6 +22,12 @@ export const codeInsightService = {
     return unwrap(response) || []
   },
 
+  // Load leader dashboard metrics for evidence coverage and review risk.
+  getDashboard: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/dashboard`)
+    return unwrap(response)
+  },
+
   // Load linked GitHub evidence for one task review item.
   getTaskEvidence: async (projectId, taskId) => {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence`)
