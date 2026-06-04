@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.SchedulerRunLog;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.service.TaskService;
 import org.example.backend.service.WeeklyReportService;
 import org.example.backend.service.digest.DailyDigestService;
 import org.example.backend.service.event.OutboxPublisherService;
@@ -23,6 +24,7 @@ public class TaskSlaScheduler {
     private final WeeklyReportService weeklyReportService;
     private final OutboxPublisherService outboxPublisherService;
     private final SchedulerRunLogService schedulerRunLogService;
+    private final TaskService taskService;
 
     @Scheduled(cron = "0 45 7 * * *", zone = "Asia/Ho_Chi_Minh")
     public void scanSlaAndApplyPenalties() {
@@ -80,6 +82,18 @@ public class TaskSlaScheduler {
             outboxPublisherService.publishPendingEvents();
         } catch (Exception ex) {
             log.error("OUTBOX_PUBLISH failed", ex);
+        }
+    }
+
+    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Ho_Chi_Minh")
+    public void autoApproveReviewTasks() {
+        SchedulerRunLog runLog = schedulerRunLogService.start("AUTO_APPROVE_REVIEW_TASKS");
+        try {
+            taskService.autoApproveTasksExceedingReviewPeriod();
+            schedulerRunLogService.finish(runLog, 0, 0, 0);
+        } catch (Exception ex) {
+            log.error("AUTO_APPROVE_REVIEW_TASKS failed", ex);
+            schedulerRunLogService.fail(runLog, ex);
         }
     }
 }

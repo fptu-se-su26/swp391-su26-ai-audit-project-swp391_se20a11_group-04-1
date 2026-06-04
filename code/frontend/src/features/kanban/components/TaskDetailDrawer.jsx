@@ -1,9 +1,23 @@
 import { Link, useParams } from 'react-router-dom'
-import { TASK_STATUSES } from '../store/useKanbanStore'
+import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
 const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChange, onToggleChecklist }) => {
   const { projectId } = useParams()
+  const tasks = useKanbanStore((state) => state.tasks)
   const taskDetailPath = task && projectId ? `/projects/${projectId}/tasks/${task.id}` : '#'
+
+  const subtasks = task ? tasks.filter(t => t.parentId === String(task.id)) : []
+  const hasSubtasks = subtasks.length > 0
+  const isChildTask = task ? !!task.parentId : false
+
+  // Checklist completion
+  const isChecklistPassed = task ? (!task.checklist || task.checklist.length === 0 || task.checklist.every((item) => item.done)) : false
+
+  // Subtasks completion
+  const areAllSubtasksDone = hasSubtasks && subtasks.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
+
+  // Determine if the action is enabled
+  const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
 
   return (
     <aside className={`absolute inset-y-0 right-0 w-full sm:w-[420px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
@@ -44,6 +58,32 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                   <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                   <span>Open full detail</span>
                 </Link>
+                {task.status !== 'IN_REVIEW' && task.status !== 'DONE' && task.status !== 'FIXED' && task.status !== 'CLOSED' && (
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      disabled={!isReviewActionEnabled}
+                      onClick={() => {
+                        const reviewColumn = columns.find((col) => col.statusKey === 'IN_REVIEW')
+                        onStatusChange(task.id, 'IN_REVIEW', reviewColumn?.id || null)
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all shadow-sm ${
+                        isReviewActionEnabled
+                          ? 'bg-[#a855f7] hover:bg-[#9333ea] text-white hover:shadow-md'
+                          : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">rate_review</span>
+                      <span>Yêu cầu review</span>
+                    </button>
+                    {!isReviewActionEnabled && (
+                      <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[10px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50 animate-fade-in">
+                        {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
+                        {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -59,10 +99,20 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               </div>
               <div>
                 <span className="text-xs font-semibold text-outline uppercase block mb-1">Requirement</span>
-                <span className="flex items-center space-x-1 text-primary font-medium">
-                  <span className="material-symbols-outlined text-[16px]">assignment</span>
-                  <span>{task.requirement}</span>
-                </span>
+                {task.requirementId ? (
+                  <Link
+                    to={`/projects/${projectId}/requirements/${task.requirementId}`}
+                    className="flex items-center space-x-1 text-primary font-medium hover:underline hover:text-surface-tint"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">assignment</span>
+                    <span>{task.requirement}</span>
+                  </Link>
+                ) : (
+                  <span className="flex items-center space-x-1 text-on-surface-variant font-medium">
+                    <span className="material-symbols-outlined text-[16px]">assignment</span>
+                    <span>{task.requirement}</span>
+                  </span>
+                )}
               </div>
               <div>
                 <span className="text-xs font-semibold text-outline uppercase block mb-1">Priority</span>

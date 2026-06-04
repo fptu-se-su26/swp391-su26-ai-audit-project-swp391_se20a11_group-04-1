@@ -217,6 +217,7 @@ export const useKanbanStore = create((set, get) => ({
   },
 
   updateTaskStatus: async (taskId, status, columnId = null) => {
+    // Optimistically update the board first; rollback if backend rejects the move.
     const previousTasks = get().tasks
     const targetColumn = columnId ? get().columns.find((column) => column.id === String(columnId)) : null
     const nextStatus = targetColumn?.statusKey || status
@@ -231,6 +232,7 @@ export const useKanbanStore = create((set, get) => ({
     }))
 
     try {
+      // Persist status/column change; DONE may be blocked by Code Insight review gate.
       const task = mapTaskFromApi(await taskService.updateTaskStatus(
         taskId,
         targetColumn ? targetColumn.statusKey : nextStatus,
@@ -240,6 +242,45 @@ export const useKanbanStore = create((set, get) => ({
       set((state) => ({ tasks: replaceTask(state.tasks, task) }))
     } catch (error) {
       set({ tasks: previousTasks, error: error.response?.data?.message || error.message || 'Failed to update task status' })
+    }
+  },
+
+  requestTaskReview: async (taskId, reason = '') => {
+    // Replace local task with backend response after it enters IN_REVIEW.
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.requestTaskReview(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to request task review', loading: false })
+      return null
+    }
+  },
+
+  approveTaskReview: async (taskId, reason = '') => {
+    // Replace local task with backend response after leader approval moves it to DONE.
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.approveTaskReview(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to approve task review', loading: false })
+      return null
+    }
+  },
+
+  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+    // Replace local task with backend response after leader rejection returns it to work.
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.rejectTaskReview(taskId, reason, targetStatus))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to reject task review', loading: false })
+      return null
     }
   },
 

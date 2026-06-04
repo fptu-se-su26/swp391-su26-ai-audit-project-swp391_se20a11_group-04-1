@@ -73,6 +73,16 @@ gemini:
     key: "YOUR_GEMINI_API_KEY_HERE" # 👈 Điền Google Gemini API Key vào đây
     url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
+# GitHub OAuth & Integration Settings
+github:
+  client-id: "YOUR_GITHUB_OAUTH_CLIENT_ID"
+  client-secret: "YOUR_GITHUB_OAUTH_CLIENT_SECRET"
+  redirect-uri: "http://localhost:5173/github/callback"
+  encryption:
+    # 👈 Mật khẩu dùng để mã hóa (AES key). PHẢI đúng 16, 24, hoặc 32 ký tự.
+    # Bạn CẦN TẠO 1 chuỗi ngẫu nhiên (ví dụ: DevTrackSecKey123456789012345678)
+    key: "YOUR_16_24_32_CHAR_SECRET_KEY_HERE"
+
 app:
   events:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics

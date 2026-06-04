@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 
@@ -27,6 +27,7 @@ export function DashboardPage() {
     projects,
     activeProject,
     selectProject,
+    clearActiveProject,
     activeTab,
     setActiveTab,
     searchQuery,
@@ -53,6 +54,15 @@ export function DashboardPage() {
       fetchProjects()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const location = useLocation()
+  const isGlobalDashboard = location.pathname === '/dashboard'
+
+  useEffect(() => {
+    if (isGlobalDashboard && activeProject) {
+      clearActiveProject()
+    }
+  }, [location.pathname, activeProject, clearActiveProject, isGlobalDashboard])
 
   // Xử lý mở modal tạo dự án mới
   const handleCreateProject = () => {
@@ -161,7 +171,7 @@ export function DashboardPage() {
   // ==========================================
   // CHẾ ĐỘ 1: GIAO DIỆN DANH MỤC DỰ ÁN PORTFOLIO (HÌNH MẪU)
   // ==========================================
-  if (!activeProject) {
+  if (isGlobalDashboard) {
     if (loading && projects.length === 0) {
       return (
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
