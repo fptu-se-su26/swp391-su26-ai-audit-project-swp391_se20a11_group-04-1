@@ -1,4 +1,5 @@
 import axiosInstance from '@/api/axiosConfig'
+import githubIntegrationService from '@features/github-integration/services/githubIntegrationService'
 
 /**
  * Bug Tracker & GitHub Integration Service
@@ -46,8 +47,7 @@ export const bugService = {
    * GET /v1/projects/{projectId}/github-integration
    */
   getGithubConfig: async (projectId) => {
-    const response = await axiosInstance.get(`/v1/projects/${projectId}/github-integration`)
-    return response.data.data
+    return githubIntegrationService.getGithubConfig(projectId)
   },
 
   /**
@@ -55,8 +55,7 @@ export const bugService = {
    * POST /v1/projects/{projectId}/github-integration
    */
   saveGithubConfig: async (projectId, data) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration`, data)
-    return response.data.data
+    return githubIntegrationService.saveGithubConfig(projectId, data)
   },
 
   /**
@@ -64,8 +63,7 @@ export const bugService = {
    * GET /v1/projects/{projectId}/github-integration/rate-limit
    */
   getGithubRateLimit: async (projectId) => {
-    const response = await axiosInstance.get(`/v1/projects/${projectId}/github-integration/rate-limit`)
-    return response.data.data
+    return githubIntegrationService.getGithubRateLimit(projectId)
   },
 
   /**
@@ -73,8 +71,7 @@ export const bugService = {
    * POST /v1/github/repos
    */
   createGithubRepo: async (data) => {
-    const response = await axiosInstance.post(`/v1/github/repos`, data)
-    return response.data.data
+    return githubIntegrationService.createGithubRepo(data)
   },
 
   /**
@@ -82,8 +79,7 @@ export const bugService = {
    * POST /v1/projects/{projectId}/github-integration/ping
    */
   pingWebhook: async (projectId) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/ping`)
-    return response.data.data
+    return githubIntegrationService.pingWebhook(projectId)
   },
 
   /**
@@ -91,8 +87,7 @@ export const bugService = {
    * POST /v1/projects/{projectId}/github-integration/auto-configure
    */
   autoConfigureWebhook: async (projectId, webhookUrl, events, webhookSecret) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/auto-configure`, { webhookUrl, events, webhookSecret })
-    return response.data.data
+    return githubIntegrationService.autoConfigureWebhook(projectId, webhookUrl, events, webhookSecret)
   },
 
   /**
@@ -100,8 +95,7 @@ export const bugService = {
    * GET /v1/projects/{projectId}/github-integration/deliveries
    */
   getWebhookDeliveries: async (projectId) => {
-    const response = await axiosInstance.get(`/v1/projects/${projectId}/github-integration/deliveries`)
-    return response.data.data
+    return githubIntegrationService.getWebhookDeliveries(projectId)
   },
 
   /**
@@ -109,8 +103,7 @@ export const bugService = {
    * POST /v1/projects/{projectId}/github-integration/deliveries/{deliveryId}/redeliver
    */
   redeliverWebhook: async (projectId, deliveryId) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/deliveries/${deliveryId}/redeliver`)
-    return response.data.data
+    return githubIntegrationService.redeliverWebhook(projectId, deliveryId)
   },
 
   /**
