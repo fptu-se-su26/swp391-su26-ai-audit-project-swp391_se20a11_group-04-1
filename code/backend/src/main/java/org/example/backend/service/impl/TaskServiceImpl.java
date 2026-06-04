@@ -21,6 +21,7 @@ import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
 import org.example.backend.repository.NotificationRepository;
+import org.example.backend.service.CodeInsightReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -57,6 +58,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final CodeInsightReviewSnapshotService codeInsightReviewSnapshotService;
     private final CodeInsightScoringService codeInsightScoringService;
 
     @Override
@@ -240,6 +242,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Only tasks in review can be approved");
         }
 
+        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
         if (task.getCompletedAt() == null) {
@@ -253,6 +256,7 @@ public class TaskServiceImpl implements TaskService {
         }
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
+                reviewSnapshotId,
                 request != null ? request.getReason() : null);
         return toResponse(savedTask);
     }
@@ -272,6 +276,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Rejected task must return to IN_PROGRESS or BLOCKED");
         }
 
+        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(targetStatus);
         task.setCompletedAt(null);
@@ -282,7 +287,7 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         syncGitHubIssueStatus(savedTask, userId);
-        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reviewSnapshotId, reason);
         return toResponse(savedTask);
     }
 
@@ -1116,6 +1121,17 @@ public class TaskServiceImpl implements TaskService {
             TaskStatus fromStatus,
             TaskStatus toStatus,
             String reason) {
+        recordReviewDecision(task, reviewerId, decision, fromStatus, toStatus, null, reason);
+    }
+
+    private void recordReviewDecision(
+            Task task,
+            Long reviewerId,
+            TaskReviewDecisionType decision,
+            TaskStatus fromStatus,
+            TaskStatus toStatus,
+            Long codeInsightReviewId,
+            String reason) {
         UserAccount reviewer = userAccountRepository.findById(reviewerId)
                 .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
         taskReviewDecisionRepository.save(TaskReviewDecision.builder()
@@ -1125,6 +1141,7 @@ public class TaskServiceImpl implements TaskService {
                 .fromStatus(fromStatus.name())
                 .toStatus(toStatus.name())
                 .reason(trimToNull(reason))
+                .codeInsightReviewId(codeInsightReviewId)
                 .build());
     }
 
