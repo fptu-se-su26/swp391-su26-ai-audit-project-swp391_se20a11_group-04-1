@@ -10,6 +10,17 @@ const isLeaderRole = (role = '') => {
   return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
 }
 
+const scoreToneClass = (riskLevel = 'READY') => {
+  if (riskLevel === 'BLOCKED') return 'bg-error-container text-error border-error/30'
+  if (riskLevel === 'WARNING') return 'bg-[#fef3c7] text-[#92400e] border-[#f59e0b]/30'
+  return 'bg-[#dcfce7] text-[#166534] border-[#16a34a]/30'
+}
+
+const evidenceModeLabel = (mode = 'MANUAL_GATE') => {
+  if (mode === 'GITHUB_ISSUE_LINKED') return 'GitHub issue linked'
+  return 'Manual gate'
+}
+
 const CodeInsightPage = () => {
   const { projectId } = useParams()
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -415,7 +426,11 @@ const CodeInsightPage = () => {
             </div>
           ) : (
             <div className="divide-y divide-outline-variant">
-              {reviewQueue.map((item) => (
+              {reviewQueue.map((item) => {
+                const evidence = item.task?.evidenceSummary || {}
+                const warnings = evidence.warnings || []
+                const positiveSignals = evidence.positiveSignals || []
+                return (
                 <article key={`${item.task?.id}-${item.id || 'pending'}`} className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -428,12 +443,57 @@ const CodeInsightPage = () => {
                       <span className="font-label-md text-label-md text-[#7e22ce] bg-[#f3e8ff] px-2 py-1 rounded">
                         IN REVIEW
                       </span>
+                      <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 font-label-md text-label-md uppercase ${scoreToneClass(evidence.riskLevel)}`}>
+                        <span className="material-symbols-outlined text-[14px]">analytics</span>
+                        {evidence.score ?? 0}/100 {evidence.riskLevel || 'READY'}
+                      </span>
                     </div>
                     <h3 className="text-lg font-bold text-on-surface truncate">{item.task?.title}</h3>
                     <p className="text-sm text-on-surface-variant mt-1">
                       Assignee: {item.task?.assigneeName || 'Unassigned'}
                       {item.reviewer?.name ? ` | Requested by: ${item.reviewer.name}` : ''}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        {evidenceModeLabel(evidence.evidenceMode)}
+                      </span>
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        Checklist {evidence.checklistDone ?? 0}/{evidence.checklistTotal ?? 0}
+                      </span>
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        Subtasks {evidence.subtaskDone ?? 0}/{evidence.subtaskTotal ?? 0}
+                      </span>
+                    </div>
+                    {(warnings.length > 0 || positiveSignals.length > 0) && (
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {warnings.length > 0 && (
+                          <div className="rounded-lg border border-error/20 bg-error-container/30 px-3 py-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-error">
+                              <span className="material-symbols-outlined text-[14px]">warning</span>
+                              Review Warnings
+                            </div>
+                            <ul className="mt-1 space-y-1 text-sm text-error">
+                              {warnings.map((warning) => (
+                                <li key={warning}>{warning}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {positiveSignals.length > 0 && (
+                          <div className="rounded-lg border border-[#16a34a]/20 bg-[#dcfce7]/40 px-3 py-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-[#166534]">
+                              <span className="material-symbols-outlined text-[14px]">verified</span>
+                              Positive Signals
+                            </div>
+                            <ul className="mt-1 space-y-1 text-sm text-[#166534]">
+                              {positiveSignals.map((signal) => (
+                                <li key={signal}>{signal}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {item.reason && (
                       <p className="text-sm text-on-surface mt-2 rounded bg-surface-container-low px-3 py-2">
                         {item.reason}
@@ -470,7 +530,8 @@ const CodeInsightPage = () => {
                     )}
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
