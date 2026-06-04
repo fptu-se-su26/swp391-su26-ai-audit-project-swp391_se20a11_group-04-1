@@ -101,14 +101,15 @@ class GitHubControllerTest {
     void handleGitHubWebhook_Success() {
         // GIVEN
         String mockSignature = "sha256=12345abcde67890f";
+        String mockDelivery = "delivery-1";
         String mockEvent = "issues";
         byte[] mockPayload = "{\"action\":\"opened\",\"issue\":{\"number\":12}}".getBytes();
 
-        doNothing().when(gitHubApiService).handleWebhook(eq(mockSignature), eq(mockEvent), eq(mockPayload));
+        doNothing().when(gitHubApiService).handleWebhook(eq(mockSignature), eq(mockDelivery), eq(mockEvent), eq(mockPayload));
 
         // WHEN
         ResponseEntity<ApiResponse<String>> response = gitHubController.handleGitHubWebhook(
-                mockSignature, mockEvent, mockPayload
+                mockSignature, mockDelivery, mockEvent, mockPayload
         );
 
         // THEN
@@ -118,6 +119,6 @@ class GitHubControllerTest {
         assertThat(response.getBody().getMessage()).isEqualTo("Event synchronized");
         assertThat(response.getBody().getData()).isEqualTo("Webhook processed successfully");
 
-        verify(gitHubApiService, times(1)).handleWebhook(eq(mockSignature), eq(mockEvent), eq(mockPayload));
+        verify(gitHubApiService, times(1)).handleWebhook(eq(mockSignature), eq(mockDelivery), eq(mockEvent), eq(mockPayload));
     }
 }

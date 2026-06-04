@@ -44,10 +44,11 @@ public interface GitHubApiService {
      * Handles incoming GitHub Webhook events (issues opened, closed, assigned, edited).
      *
      * @param signatureHeader the X-Hub-Signature-256 header for secure HMAC verification
+     * @param deliveryId      the X-GitHub-Delivery header for duplicate detection
      * @param eventType       the X-GitHub-Event header (e.g. "issues")
      * @param payloadBody     the raw JSON payload body
      */
-    void handleWebhook(String signatureHeader, String eventType, byte[] payloadBytes);
+    void handleWebhook(String signatureHeader, String deliveryId, String eventType, byte[] payloadBytes);
 
     /**
      * Decrypts an encrypted token or secret using the system's AES key.

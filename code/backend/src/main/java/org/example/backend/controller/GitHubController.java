@@ -84,13 +84,14 @@ public class GitHubController {
     @PostMapping("/webhook")
     public ResponseEntity<ApiResponse<String>> handleGitHubWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signatureHeader,
+            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestHeader(value = "X-GitHub-Event", required = false) String eventType,
             @RequestBody byte[] payloadBytes) {
         
         log.info("Received incoming GitHub Webhook event: {}", eventType);
         
         // Delegate verification and two-way sync processing to the Service layer
-        gitHubApiService.handleWebhook(signatureHeader, eventType, payloadBytes);
+        gitHubApiService.handleWebhook(signatureHeader, deliveryId, eventType, payloadBytes);
         
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", "Event synchronized"));
     }
