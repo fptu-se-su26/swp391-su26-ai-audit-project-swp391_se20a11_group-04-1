@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.example.backend.exception.BusinessException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,17 +41,18 @@ public class GeminiServiceImpl implements GeminiService {
 
     @Override
     public String extractRequirementsFromText(String documentText) {
-        String prompt = "Dưới đây là nội dung văn bản được trích xuất từ một tài liệu yêu cầu dự án. " +
-                "Nhiệm vụ của bạn là phân tích và trích xuất danh sách các Yêu cầu (Requirements) từ văn bản này. " +
-                "Phản hồi của bạn PHẢI là một mảng JSON thuần túy (không bọc trong ```json), " +
-                "mỗi object đại diện cho một Requirement với các trường sau: " +
-                "1. 'title': (String) Tiêu đề ngắn gọn của yêu cầu. " +
-                "2. 'description': (String) Mô tả chi tiết. " +
-                "3. 'priority': (String) Một trong các giá trị 'Low', 'Medium', 'High'. " +
-                "4. 'tags': (Array of Strings) Danh sách các thẻ phân loại (vd: ['Frontend', 'UI']). " +
-                "5. 'acceptanceCriteria': (Array of Strings) Tự động suy luận và tạo ra số lượng tiêu chí nghiệm thu phù hợp với từng yêu cầu (không cố định số lượng). Các tiêu chí cần rõ ràng, thực tế và có thể kiểm thử được. " +
-                "Tuyệt đối không giải thích thêm, chỉ trả về JSON.\n\n" +
-                "Nội dung văn bản:\n" + documentText;
+        String prompt = "Below is the text extracted from a project requirement document. " +
+                "Your task is to analyze and extract a list of Requirements from this text. " +
+                "Your response MUST be a pure JSON array (without ```json wrappers), " +
+                "where each object represents a Requirement with the following fields:\n" +
+                "1. 'title': (String) A concise title of the requirement.\n" +
+                "2. 'description': (String) Detailed description.\n" +
+                "3. 'priority': (String) One of the values: 'Low', 'Medium', 'High'.\n" +
+                "4. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
+                "5. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
+                "CRITICAL: The entire generated content (title, description, tags, acceptanceCriteria) MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
+                "Do not add any explanation, return ONLY the JSON array.\n\n" +
+                "--- DOCUMENT TEXT ---\n" + documentText;
         
         String response = callGeminiApi(prompt);
         // Clean up formatting if Gemini returns ```json ... ```
@@ -65,21 +67,77 @@ public class GeminiServiceImpl implements GeminiService {
         }
         return response.trim();
     }
+    @Override
+    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements) {
+        StringBuilder reqsContext = new StringBuilder();
+        for (org.example.backend.entity.Requirement r : requirements) {
+            reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
+            reqsContext.append("Title: ").append(r.getTitle()).append("\n");
+            reqsContext.append("Description: ").append(r.getDescription()).append("\n");
+            reqsContext.append("Acceptance Criteria: ").append(r.getAcceptanceCriteria()).append("\n");
+            reqsContext.append("---\n");
+        }
+
+        String prompt = "You are an expert Business Analyst. I will provide you with one or more System Requirements.\n" +
+                "Your task is to analyze these requirements and break them down into detailed Use Cases.\n" +
+                "For EACH requirement, generate one or more Use Cases that fulfill it.\n\n" +
+                "Your response MUST be a pure JSON array (without ```json wrappers). " +
+                "Each object in the array represents ONE Use Case and must have EXACTLY these fields:\n" +
+                "1. 'name': (String) A short, descriptive name (e.g., 'User Login').\n" +
+                "2. 'primaryActors': (String) Comma separated actors. USE ONLY COMMON ROLES like 'User', 'Guest', 'Admin', 'Customer', 'System User'. DO NOT use weird or overly specific terms like 'Prospective User'.\n" +
+                "3. 'precondition': (String) What must be true before this use case begins.\n" +
+                "4. 'postcondition': (String) What is the state of the system after this use case ends.\n" +
+                "5. 'mainSuccessScenario': (String) The main success flow, 1 step per line. Number the steps like '1. ...\\n2. ...'\n" +
+                "6. 'alternativeFlows': (String) Alternative or error flows. Format like 'Auto (last step):\\nIf validation fails:\\n1. ...\\n2. ...'\n" +
+                "7. 'requirementId': (Number) The EXACT ID of the Requirement this Use Case belongs to. You MUST copy the exact 'Requirement ID' number from the input. DO NOT make up a number.\n" +
+                "8. 'includes': (Array of Strings) A list of Use Case names that this Use Case INCLUDES (e.g. ['User Login']). Return empty array [] if none.\n" +
+                "9. 'extendsList': (Array of Strings) A list of Use Case names that this Use Case EXTENDS. Return empty array [] if none.\n\n" +
+                "CRITICAL INSTRUCTION: All generated text (except keys) MUST BE WRITTEN IN ENGLISH, to match the target audience.\n" +
+                "YOU MUST RETURN ONLY A DIRECT JSON ARRAY. DO NOT WRAP IT IN A JSON OBJECT.\n\n" +
+                "--- SYSTEM REQUIREMENTS ---\n" + reqsContext.toString();
+        
+        String response = callGeminiApi(prompt);
+        if (response.startsWith("```json")) {
+            response = response.substring(7);
+        }
+        if (response.startsWith("```")) {
+            response = response.substring(3);
+        }
+        if (response.endsWith("```")) {
+            response = response.substring(0, response.length() - 3);
+        }
+        
+        // Cố gắng loại bỏ các ký tự thừa nếu có
+        response = response.trim();
+        int firstBracket = response.indexOf("[");
+        int lastBracket = response.lastIndexOf("]");
+        if (firstBracket >= 0 && lastBracket >= 0 && lastBracket > firstBracket) {
+            response = response.substring(firstBracket, lastBracket + 1);
+        }
+        return response;
+    }
 
     @Override
-    public String evaluateRequirementsWithCritic(String rawRequirementsJson, String documentText) {
-        String prompt = "Bạn là một Senior QA / Business Analyst cực kỳ khắt khe (AI Critic). " +
-                "Tôi sẽ cung cấp cho bạn một danh sách các Yêu cầu (Requirements) vừa được trích xuất (dạng JSON) " +
-                "và Nội dung tài liệu gốc.\n\n" +
-                "Nhiệm vụ của bạn: Đọc từng Yêu cầu, đối chiếu với tài liệu gốc để ĐÁNH GIÁ CHẤT LƯỢNG của nó. " +
-                "Hãy trả về đúng mảng JSON đó nhưng bổ sung thêm 4 trường đánh giá cho MỖI object:\n" +
-                "1. 'quality_status': (String) Trạng thái chất lượng, chỉ được chọn 1 trong 3: 'OK', 'Warning', 'Error'.\n" +
-                "2. 'warnings': (Array of Strings) Liệt kê các điểm mơ hồ, thiếu chi tiết (nếu có, không có thì để mảng rỗng).\n" +
-                "3. 'errors': (Array of Strings) Liệt kê lỗi sai lệch nội dung, mâu thuẫn (nếu có, không có thì rỗng).\n" +
-                "4. 'source_excerpt': (String) Trích dẫn một câu nguyên bản từ tài liệu gốc chứng minh cho Yêu cầu này.\n\n" +
-                "TUYỆT ĐỐI CHỈ TRẢ VỀ MẢNG JSON, KHÔNG BÌNH LUẬN GÌ THÊM.\n\n" +
-                "--- DANH SÁCH REQUIREMENTS THÔ ---\n" + rawRequirementsJson + "\n\n" +
-                "--- TÀI LIỆU GỐC ---\n" + documentText;
+    public String evaluateRequirementsWithCritic(String rawRequirementsJson, String documentText, java.util.List<String> existingRequirements) {
+        String existingReqsText = existingRequirements != null && !existingRequirements.isEmpty() 
+                ? String.join("\n- ", existingRequirements) 
+                : "(No existing requirements in the project)";
+
+        String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
+                "I will provide you with a list of recently extracted Requirements (in JSON format), " +
+                "the original document text, and the EXISTING REQUIREMENTS LIST.\n\n" +
+                "Your task: Read each Requirement and compare it against the original document to EVALUATE ITS QUALITY. " +
+                "Also, check if it is a semantic duplicate of any existing requirements. " +
+                "Return the exact same JSON array, but append 5 evaluation fields to EACH object:\n" +
+                "1. 'quality_status': (String) Quality status, must be strictly one of: 'OK', 'Warning', 'Error'.\n" +
+                "2. 'warnings': (Array of Strings) List any ambiguities or lack of details in ENGLISH (if any; empty array if none).\n" +
+                "3. 'errors': (Array of Strings) List any factual errors or contradictions in ENGLISH (if any; empty array if none).\n" +
+                "4. 'source_excerpt': (String) Extract an EXACT text snippet (COPY WORD-FOR-WORD) from the original document as evidence for this Requirement. Do not rewrite or use the requirement's description.\n" +
+                "5. 'isDuplicate': (Boolean) Set to true if this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. Otherwise, set to false.\n\n" +
+                "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
+                "--- EXISTING REQUIREMENTS LIST ---\n- " + existingReqsText + "\n\n" +
+                "--- RAW REQUIREMENTS JSON ---\n" + rawRequirementsJson + "\n\n" +
+                "--- ORIGINAL DOCUMENT TEXT ---\n" + documentText;
 
         String response = callGeminiApi(prompt);
         if (response.startsWith("```json")) {
@@ -96,13 +154,13 @@ public class GeminiServiceImpl implements GeminiService {
 
     private String callGeminiApi(String prompt) {
         String apiKey = geminiProperties.getKey();
-        if (apiKey == null || apiKey.isEmpty() || apiKey.equals("YOUR_GEMINI_API_KEY_HERE")) {
-            throw new RuntimeException("API Key của Gemini chưa được cấu hình. Vui lòng thêm vào application.yaml.");
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new BusinessException("API Key của Gemini chưa được cấu hình. Vui lòng thêm vào application.yaml.");
         }
 
         String targetUrl = geminiProperties.getUrl();
         if (targetUrl == null || targetUrl.isEmpty()) {
-            throw new RuntimeException("Chưa cấu hình URL (gemini.api.url) trong application.yaml");
+            throw new BusinessException("Chưa cấu hình URL (gemini.api.url) trong application.yaml");
         }
         
         String requestUrl = targetUrl + "?key=" + apiKey;
@@ -136,7 +194,7 @@ public class GeminiServiceImpl implements GeminiService {
                                         .path("text");
             
             if (textNode.isMissingNode()) {
-                throw new RuntimeException("Không tìm thấy kết quả hợp lệ từ Gemini.");
+                throw new BusinessException("Không tìm thấy kết quả hợp lệ từ Gemini.");
             }
             
             return textNode.asText();
@@ -144,16 +202,102 @@ public class GeminiServiceImpl implements GeminiService {
             int statusCode = httpException.getStatusCode().value();
             log.error("Gemini API HTTP Error {}: {}", statusCode, httpException.getResponseBodyAsString());
             if (statusCode == 429) {
-                throw new RuntimeException("Gemini API Quota Exceeded (429). Please use a new API Key.");
+                throw new BusinessException("Gemini API Quota Exceeded (429). Please use a new API Key.");
             } else if (statusCode == 404) {
-                throw new RuntimeException("Gemini Model not found or API Key lacks access (404 Not Found).");
+                throw new BusinessException("Gemini Model not found or API Key lacks access (404 Not Found).");
             } else if (statusCode == 400) {
-                throw new RuntimeException("Bad Request payload sent to Gemini (400 Bad Request).");
+                throw new BusinessException("Bad Request payload sent to Gemini (400 Bad Request).");
+            } else if (statusCode == 503) {
+                log.warn("Gemini API 503 Service Unavailable. Retrying...");
+                try {
+                    Thread.sleep(5000); // Đợi 5s rồi thử lại
+                    String retryJson = restTemplate.postForObject(requestUrl, entity, String.class);
+                    JsonNode retryRootNode = objectMapper.readTree(retryJson);
+                    return retryRootNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+                } catch (Exception retryEx) {
+                    throw new BusinessException("Gemini API is currently overloaded (503 Service Unavailable). Please try again in a few minutes.");
+                }
             }
-            throw new RuntimeException("Gemini API Error (Code: " + statusCode + ")");
+            throw new BusinessException("Gemini API Error (Code: " + statusCode + ")");
         } catch (Exception e) {
             log.error("Unknown error when calling Gemini API: {}", e.getMessage(), e);
-            throw new RuntimeException("Unknown error when calling Gemini API. Please try again.");
+            throw new BusinessException("Unknown error when calling Gemini API. Please try again.");
         }
+    }
+
+    @Override
+    public String evaluateDocumentContext(java.util.List<String> existingRequirementContexts, String documentText) {
+        if (existingRequirementContexts == null || existingRequirementContexts.isEmpty()) {
+            // Bootstrap Mode: No existing requirements to compare against, so pass safely.
+            return "{\"relevanceScore\": 100, \"reason\": \"Project has no requirements. Automatically switching to Bootstrap Mode to accept the first document as the baseline context.\"}";
+        }
+
+        String contextListString = String.join("\n- ", existingRequirementContexts);
+        
+        String prompt = "You are a professional Content Auditing AI. Your task is to evaluate the relevance of an uploaded document against the project's existing Requirements.\n" +
+                "Below are some existing Requirements in the project (acting as the baseline context):\n" +
+                "- " + contextListString + "\n\n" +
+                "Please read the uploaded document text below and return a SINGLE JSON OBJECT with 2 fields:\n" +
+                "1. 'relevanceScore': (Number) A score from 0 to 100.\n" +
+                "   - 100: Perfectly matches all details.\n" +
+                "   - 80-99: Completely matches the domain and main objectives.\n" +
+                "   - 40-70: Same business domain but DIFFERENT OBJECTIVES/LANGUAGE (e.g., old project is in English, new document is in Chinese/Japanese -> MUST score 40-70).\n" +
+                "   - Under 30: COMPLETELY OFF-TOPIC (e.g., educational app but uploaded a milk tea shop document).\n" +
+                "2. 'reason': (String) Explain the reason IN ENGLISH. MANDATORY RULE: WRITE EXACTLY ONE SHORT SENTENCE (MAXIMUM 20 WORDS), getting straight to the core difference (if any).\n\n" +
+                "NOTE: Return pure JSON, without ```json wrappers.\n" +
+                "--- UPLOADED DOCUMENT TEXT ---\n" + documentText;
+        
+        String response = callGeminiApi(prompt);
+        if (response.startsWith("```json")) {
+            response = response.substring(7);
+        }
+        if (response.endsWith("```")) {
+            response = response.substring(0, response.length() - 3);
+        }
+        return response.trim();
+    }
+
+    @Override
+    public String evaluateUseCasesWithCritic(String rawUseCasesJson, java.util.List<org.example.backend.entity.Requirement> requirements) {
+        StringBuilder reqsContext = new StringBuilder();
+        if (requirements != null) {
+            for (org.example.backend.entity.Requirement r : requirements) {
+                reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
+                reqsContext.append("Title: ").append(r.getTitle()).append("\n");
+                reqsContext.append("Description: ").append(r.getDescription()).append("\n");
+                reqsContext.append("---\n");
+            }
+        }
+
+        String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
+                "I will provide you with a list of recently generated Use Cases (in JSON format), " +
+                "and their original parent Requirements.\n\n" +
+                "Your task: Read each Use Case and evaluate its quality. " +
+                "Return the EXACT SAME JSON array, but append 3 evaluation fields to EACH object:\n" +
+                "1. 'quality_status': (String) Quality status, must be strictly one of: 'OK', 'Warning', 'Error'.\n" +
+                "2. 'warnings': (Array of Strings) List any ambiguities, missing primary actors, or lack of details in ENGLISH (if any; empty array if none).\n" +
+                "3. 'errors': (Array of Strings) List any logical errors, disconnected alternative flows, or contradictions in ENGLISH (if any; empty array if none).\n\n" +
+                "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
+                "--- PARENT REQUIREMENTS ---\n" + reqsContext.toString() + "\n\n" +
+                "--- RAW USE CASES JSON ---\n" + rawUseCasesJson;
+
+        String response = callGeminiApi(prompt);
+        if (response.startsWith("```json")) {
+            response = response.substring(7);
+        }
+        if (response.startsWith("```")) {
+            response = response.substring(3);
+        }
+        if (response.endsWith("```")) {
+            response = response.substring(0, response.length() - 3);
+        }
+        
+        response = response.trim();
+        int firstBracket = response.indexOf("[");
+        int lastBracket = response.lastIndexOf("]");
+        if (firstBracket >= 0 && lastBracket >= 0 && lastBracket > firstBracket) {
+            response = response.substring(firstBracket, lastBracket + 1);
+        }
+        return response;
     }
 }

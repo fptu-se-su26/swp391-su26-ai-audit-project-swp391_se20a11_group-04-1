@@ -17,6 +17,8 @@ public class TaskResponse {
     private Long projectId;
     private Long requirementId;
     private String requirementCode;
+    private Long useCaseId;
+    private String useCaseCode;
     private Long sprintId;
     private String sprintName;
     private String title;

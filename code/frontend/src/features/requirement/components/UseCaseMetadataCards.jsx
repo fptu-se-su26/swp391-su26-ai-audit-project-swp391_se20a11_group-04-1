@@ -1,6 +1,8 @@
 import React from 'react';
+import { useParams, Link } from 'react-router-dom';
 
 const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
+  const { projectId } = useParams();
   const actorsText = useCase.actors ? useCase.actors.join(', ') : '';
 
   const handleActorsChange = (e) => {
@@ -18,9 +20,9 @@ const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
         </div>
         <div>
           <p className="font-label-md text-label-md text-secondary uppercase mb-1">Linked Requirement</p>
-          <a className="font-body-lg text-body-lg text-primary hover:underline font-semibold flex items-center gap-1" href="#">
+          <Link to={`/projects/${projectId}/requirements/${useCase.requirementId}`} className="font-body-lg text-body-lg text-primary hover:underline font-semibold flex items-center gap-1">
             {useCase.reqCode || `REQ-${useCase.requirementId}`} <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-          </a>
+          </Link>
         </div>
       </div>
       

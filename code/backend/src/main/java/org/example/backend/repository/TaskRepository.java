@@ -43,6 +43,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByRequirementId(Long requirementId);
 
+    List<Task> findByUseCaseId(Long useCaseId);
+
     // ── Daily View queries ────────────────────────────────────────────────────
 
     /** Task quá hạn: deadline < date AND status != DONE AND != BLOCKED */

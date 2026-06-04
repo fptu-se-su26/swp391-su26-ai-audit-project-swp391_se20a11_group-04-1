@@ -17,6 +17,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
+  const [errorData, setErrorData] = useState(null);
   const fileInputRef = useRef(null);
   const { activeProject } = useProjectStore();
   const isCancelledRef = useRef(false);
@@ -112,7 +113,8 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
     } catch (error) {
       if (isCancelledRef.current) return;
       console.error('Error generating AI requirements:', error);
-      toast.error(error.response?.data?.error || error.response?.data?.message || 'Có lỗi xảy ra khi xử lý file bằng AI.');
+      const errMsg = error.response?.data?.error || error.response?.data?.message || 'Có lỗi xảy ra khi xử lý file bằng AI.';
+      setErrorData(errMsg);
       setIsUploading(false);
       setCurrentStep(-1);
     }
@@ -149,7 +151,25 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
         {/* BODY */}
         <div className="px-[24px] py-[20px]">
           
-          {/* Main Area: Dropzone OR File OR Progress */}
+          {errorData ? (
+            <div className="flex flex-col items-center justify-center text-center py-4">
+              <div className="w-[56px] h-[56px] bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
+                <FiX size={28} strokeWidth={2.5} />
+              </div>
+              <h3 className="text-[15px] font-bold text-gray-900 mb-2">Document Context Mismatch!</h3>
+              <p className="text-[13px] text-gray-600 px-2 mb-6 leading-relaxed">
+                {errorData}
+              </p>
+              <button 
+                onClick={() => { setErrorData(null); setFile(null); }}
+                className="px-[16px] py-[8px] border border-[#E5E7EB] hover:bg-gray-50 text-gray-700 text-[13px] font-medium rounded-[6px] transition-colors"
+              >
+                Upload a different document
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Main Area: Dropzone OR File OR Progress */}
           {!isUploading && !file && (
             <div
               className={`border-[1.5px] border-dashed rounded-[12px] p-[28px] flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
@@ -242,26 +262,30 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             </div>
           )}
+          </>
+          )}
 
         </div>
 
         {/* FOOTER */}
-        <div className="px-[24px] py-[16px] border-t border-[#E5E7EB] flex items-center justify-between bg-gray-50/50 rounded-b-[12px]">
-          <button
-            onClick={handleCancel}
-            className="px-[16px] py-[8px] text-[13px] font-medium text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleUpload}
-            disabled={!file || isUploading}
-            className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#185FA5] rounded-[6px] flex items-center gap-[8px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#124d87] transition-colors"
-          >
-            <BsStars size={14} />
-            Start Analysis
-          </button>
-        </div>
+        {!errorData && (
+          <div className="px-[24px] py-[16px] border-t border-[#E5E7EB] flex items-center justify-between bg-gray-50/50 rounded-b-[12px]">
+            <button
+              onClick={handleCancel}
+              className="px-[16px] py-[8px] text-[13px] font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={!file || isUploading}
+              className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#185FA5] rounded-[6px] flex items-center gap-[8px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#124d87] transition-colors"
+            >
+              <BsStars size={14} />
+              Start Analysis
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

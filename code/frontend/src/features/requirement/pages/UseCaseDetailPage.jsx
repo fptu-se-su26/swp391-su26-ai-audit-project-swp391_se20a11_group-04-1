@@ -140,6 +140,7 @@ const UseCaseDetailPage = () => {
   return (
     <div className="p-6 md:p-10 z-10 h-full">
       <div className="max-w-7xl mx-auto">
+
         <UseCaseDetailHeader 
           useCase={displayData} 
           isEditing={isEditing}

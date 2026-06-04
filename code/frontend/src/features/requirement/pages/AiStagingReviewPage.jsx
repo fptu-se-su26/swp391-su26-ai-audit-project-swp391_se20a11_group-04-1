@@ -11,7 +11,9 @@ const renderHighlightedText = (text, excerpt) => {
   if (!text) return "No original document text available.";
   if (!excerpt) return text;
 
-  const normalizedExcerpt = excerpt.replace(/\s+/g, ' ').trim();
+  // Remove surrounding quotes if AI added them
+  let normalizedExcerpt = excerpt.replace(/^["']|["']$/g, '').trim();
+  normalizedExcerpt = normalizedExcerpt.replace(/\s+/g, ' ').trim();
   if (!normalizedExcerpt) return text;
 
   const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -21,8 +23,21 @@ const renderHighlightedText = (text, excerpt) => {
     const regex = new RegExp(`(${pattern})`, 'gi');
     const parts = text.split(regex);
     
+    // If exact match fails, try matching just the first 20 characters as a fallback
+    if (parts.length === 1 && normalizedExcerpt.length > 20) {
+      const shortExcerpt = normalizedExcerpt.substring(0, 20);
+      const shortPattern = escapeRegExp(shortExcerpt).replace(/\\ /g, '\\s+');
+      const shortRegex = new RegExp(`(${shortPattern})`, 'gi');
+      const shortParts = text.split(shortRegex);
+      if (shortParts.length > 1) {
+        return shortParts.map((part, i) => 
+          (i % 2 !== 0) ? <mark key={i} id="highlighted-excerpt" className="bg-[#FEF08A] text-gray-900 px-1 rounded shadow-sm transition-all duration-300">{part}</mark> : part
+        );
+      }
+    }
+
     return parts.map((part, i) => 
-      regex.test(part) ? <mark key={i} id="highlighted-excerpt" className="bg-[#FEF08A] text-gray-900 px-1 rounded shadow-sm transition-all duration-300">{part}</mark> : part
+      (i % 2 !== 0) ? <mark key={i} id="highlighted-excerpt" className="bg-[#FEF08A] text-gray-900 px-1 rounded shadow-sm transition-all duration-300">{part}</mark> : part
     );
   } catch (e) {
     return text;
@@ -76,8 +91,13 @@ const AiStagingReviewPage = () => {
           payloadData = JSON.parse(dataArray[0].payload);
         }
         setLocalPayload(payloadData);
-        const allIndices = new Set(payloadData.map((_, i) => i));
-        setSelectedIndices(allIndices);
+        const initialIndices = new Set();
+        payloadData.forEach((item, i) => {
+          if (!item.isDuplicate) {
+            initialIndices.add(i);
+          }
+        });
+        setSelectedIndices(initialIndices);
       }
     } catch (error) {
       console.error('Error fetching staging data:', error);
@@ -199,6 +219,8 @@ const AiStagingReviewPage = () => {
   const countOk = requirements.filter(r => r._status === 'OK').length;
   const countWarning = requirements.filter(r => r._status === 'Warning').length;
   const countError = requirements.filter(r => r._status === 'Error').length;
+  const countDuplicates = requirements.filter(r => r.isDuplicate).length;
+  const allDuplicates = countAll > 0 && countAll === countDuplicates;
 
   const filteredReqs = requirements.filter(r => {
     if (filter === 'ALL') return true;
@@ -216,7 +238,7 @@ const AiStagingReviewPage = () => {
   };
 
   const handleSelectAll = () => {
-    const visibleIndices = filteredReqs.map(r => r._idx);
+    const visibleIndices = filteredReqs.filter(r => !r.isDuplicate).map(r => r._idx);
     const allVisibleSelected = visibleIndices.length > 0 && visibleIndices.every(idx => selectedIndices.has(idx));
     
     const newSelection = new Set(selectedIndices);
@@ -228,7 +250,8 @@ const AiStagingReviewPage = () => {
     setSelectedIndices(newSelection);
   };
 
-  const isAllVisibleSelected = filteredReqs.length > 0 && filteredReqs.every(r => selectedIndices.has(r._idx));
+  const isAllVisibleSelected = filteredReqs.filter(r => !r.isDuplicate).length > 0 && 
+    filteredReqs.filter(r => !r.isDuplicate).every(r => selectedIndices.has(r._idx));
 
   // Compute Overall Score visually based on statuses
   const totalScore = (countOk * 100) + (countWarning * 60) + (countError * 30);
@@ -291,6 +314,29 @@ const AiStagingReviewPage = () => {
 
          {/* RIGHT PANEL: Requirements */}
          <div className="w-1/2 flex flex-col bg-[#F3F4F6] relative">
+            
+            {/* CONTEXT WARNING BANNER */}
+            {currentGen.contextWarning && (
+              <div className="mx-4 mt-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md flex items-start gap-2 shadow-sm z-10">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <h3 className="font-semibold text-[13px]">Document Context Warning!</h3>
+                  <p className="text-[12px] mt-1">{currentGen.contextWarning}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ALL DUPLICATES BANNER */}
+            {allDuplicates && (
+              <div className="mx-4 mt-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-md flex items-start gap-2 shadow-sm z-10">
+                <span className="text-xl">ℹ️</span>
+                <div>
+                  <h3 className="font-semibold text-[13px]">No New Requirements Found</h3>
+                  <p className="text-[12px] mt-1">All {countAll} extracted requirements already exist in this project. There is nothing new to save.</p>
+                </div>
+              </div>
+            )}
+
             {/* FILTER ROW */}
             <div className="p-[14px_16px] border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between z-10">
               <div className="flex items-center gap-[8px]">
@@ -385,6 +431,9 @@ const AiStagingReviewPage = () => {
                         if (!isSelected && editingIndex !== req._idx) e.currentTarget.style.borderColor = borderColor; 
                       }}
                     >
+                      {req.isDuplicate && (
+                        <div className="absolute inset-0 bg-gray-50/50 z-10 pointer-events-none rounded-[10px]"></div>
+                      )}
                       {/* Top colored strip for visual status */}
                       <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-[10px]" style={{ backgroundColor: topBarColor, opacity: 0.8 }}></div>
 
@@ -401,12 +450,13 @@ const AiStagingReviewPage = () => {
                         />
                       ) : (
                         <>
-                        <div className="flex items-start gap-[12px]">
+                        <div className={`flex items-start gap-[12px] ${req.isDuplicate ? 'opacity-70' : ''}`}>
                           <input 
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => toggleSelection(req._idx)}
-                            className="mt-[2px] w-[18px] h-[18px] text-[#185FA5] border-gray-300 rounded focus:ring-[#185FA5] accent-[#185FA5] cursor-pointer shrink-0"
+                            disabled={req.isDuplicate}
+                            onChange={() => !req.isDuplicate && toggleSelection(req._idx)}
+                            className="mt-[2px] w-[18px] h-[18px] text-[#185FA5] border-gray-300 rounded focus:ring-[#185FA5] accent-[#185FA5] cursor-pointer shrink-0 disabled:cursor-not-allowed"
                           />
                           
                           <div className="flex-1 min-w-0">
@@ -415,7 +465,10 @@ const AiStagingReviewPage = () => {
                                 <span className="bg-[#EEEDFE] text-[#6366F1] px-[6px] py-[2px] rounded-[4px] text-[11px] font-bold shrink-0">
                                   REQ-{(req._idx + 1).toString().padStart(3, '0')}
                                 </span>
-                                <h3 className="text-[14.5px] font-bold text-gray-900 truncate">
+                                {req.isDuplicate && (
+                                  <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold shrink-0 z-20">DUPLICATE</span>
+                                )}
+                                <h3 className={`text-[14.5px] font-bold truncate ${req.isDuplicate ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                                   {req.title || 'Untitled Requirement'}
                                 </h3>
                               </div>

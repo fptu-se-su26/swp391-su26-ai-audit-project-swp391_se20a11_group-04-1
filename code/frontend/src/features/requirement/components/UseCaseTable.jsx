@@ -3,10 +3,10 @@ import Badge from '../../../components/ui/Badge';
 import { Link } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
 
-const UseCaseTable = ({ useCases }) => {
+const UseCaseTable = ({ useCases, onEdit, onDelete }) => {
   const activeProject = useProjectStore((state) => state.activeProject);
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto pb-32">
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-[#f8fafc] border-b border-outline-variant font-label-md text-label-md text-secondary">
@@ -49,10 +49,12 @@ const UseCaseTable = ({ useCases }) => {
               </td>
               <td className="py-3 px-4">
                 <span className={`px-2 py-0.5 rounded-DEFAULT font-label-sm text-label-sm uppercase tracking-wider
-                  ${uc.status === 'APPROVED' ? 'bg-[#e6f4ea] text-[#137333]' : 
-                    uc.status === 'IN_REVIEW' ? 'bg-[#fef7e0] text-[#b06000]' : 
+                  ${uc.status === 'DRAFT' ? 'bg-slate-50 text-slate-600 border border-slate-200' : 
+                    uc.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
+                    uc.status === 'IN_REVIEW' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 
+                    uc.status === 'DONE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
                     'bg-surface-variant text-on-surface-variant'}`}>
-                  {uc.status || 'DRAFT'}
+                  {uc.status ? uc.status.replace('_', ' ') : 'DRAFT'}
                 </span>
               </td>
               <td className="py-3 px-4">
@@ -67,9 +69,46 @@ const UseCaseTable = ({ useCases }) => {
                 </div>
               </td>
               <td className="py-3 px-4 text-right">
-                <button className="text-outline hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="material-symbols-outlined">more_vert</span>
-                </button>
+                <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    className="text-outline hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-surface-container-low"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const current = e.currentTarget.nextElementSibling;
+                      document.querySelectorAll('.usecase-action-menu').forEach(el => {
+                        if (el !== current) el.classList.add('hidden');
+                      });
+                      current.classList.toggle('hidden');
+                    }}
+                  >
+                    <span className="material-symbols-outlined">more_vert</span>
+                  </button>
+                  <div className="usecase-action-menu hidden absolute right-0 mt-1 w-32 bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-50">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.currentTarget.parentElement.classList.add('hidden');
+                        if (onEdit) onEdit(uc);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.currentTarget.parentElement.classList.add('hidden');
+                        if (onDelete) onDelete(uc.id);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      Delete
+                    </button>
+                  </div>
+                </div>
               </td>
             </tr>
           ))}
