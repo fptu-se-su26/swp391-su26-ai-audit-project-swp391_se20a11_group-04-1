@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface GitHubCommitRepository extends JpaRepository<GitHubCommit, Long> {
     Optional<GitHubCommit> findByIntegrationIdAndSha(Long integrationId, String sha);
+
+    Optional<GitHubCommit> findByProjectIdAndSha(Long projectId, String sha);
 }

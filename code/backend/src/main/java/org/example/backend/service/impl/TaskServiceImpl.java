@@ -21,6 +21,7 @@ import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
 import org.example.backend.repository.NotificationRepository;
+import org.example.backend.service.CodeInsightScoringService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +57,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final CodeInsightScoringService codeInsightScoringService;
 
     @Override
     @Transactional
@@ -1281,87 +1283,7 @@ public class TaskServiceImpl implements TaskService {
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
                 .requirementCode(resolveRequirementCode(task.getRequirementId()))
                 .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
-                .evidenceSummary(buildReviewEvidenceSummary(task))
-                .build();
-    }
-
-    private TaskReviewDecisionResponse.ReviewEvidenceSummary buildReviewEvidenceSummary(Task task) {
-        // Score starts from 100 and loses points for missing local evidence that a leader should inspect.
-        int score = 100;
-        List<String> positiveSignals = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-
-        boolean hasGithubIssue = task.getGithubIssueNumber() != null || hasText(task.getGithubIssueUrl());
-        boolean hasRequirement = task.getRequirementId() != null;
-        List<TaskChecklist> checklist = task.getChecklist() != null ? task.getChecklist() : Collections.emptyList();
-        List<Task> subTasks = task.getId() != null ? taskRepository.findByParentId(task.getId()) : Collections.emptyList();
-
-        int checklistTotal = checklist.size();
-        int checklistDone = (int) checklist.stream().filter(TaskChecklist::isDone).count();
-        int subtaskTotal = subTasks.size();
-        int subtaskDone = (int) subTasks.stream().filter(subTask -> subTask.getStatus() == TaskStatus.DONE).count();
-
-        if (hasRequirement) {
-            positiveSignals.add("Requirement linked");
-        } else {
-            score -= 15;
-            warnings.add("No requirement linked");
-        }
-
-        if (task.getPrimaryAssignee() != null) {
-            positiveSignals.add("Assignee available");
-        } else {
-            score -= 10;
-            warnings.add("Task has no assignee");
-        }
-
-        if (hasGithubIssue) {
-            positiveSignals.add("GitHub issue linked");
-        } else {
-            score -= 20;
-            warnings.add("No GitHub issue evidence yet");
-        }
-
-        if (checklistTotal > 0 && checklistDone < checklistTotal) {
-            score -= 20;
-            warnings.add("Checklist is not fully completed");
-        } else if (checklistTotal > 0) {
-            positiveSignals.add("Checklist completed");
-        }
-
-        if (subtaskTotal > 0 && subtaskDone < subtaskTotal) {
-            score -= 25;
-            warnings.add("Subtasks are not fully completed");
-        } else if (subtaskTotal > 0) {
-            positiveSignals.add("Subtasks completed");
-        }
-
-        if (task.getStatus() == TaskStatus.BLOCKED) {
-            score -= 25;
-            warnings.add("Task is blocked");
-        }
-
-        int threshold = task.getProject() != null
-                ? codeInsightSettingsRepository.findByProjectId(task.getProject().getId())
-                        .map(ProjectCodeInsightSettings::getMinScoreWarningThreshold)
-                        .orElse(70)
-                : 70;
-        int clampedScore = Math.max(0, Math.min(100, score));
-        String riskLevel = clampedScore < 50 ? "BLOCKED" : clampedScore < threshold ? "WARNING" : "READY";
-        String evidenceMode = hasGithubIssue ? "GITHUB_ISSUE_LINKED" : "MANUAL_GATE";
-
-        return TaskReviewDecisionResponse.ReviewEvidenceSummary.builder()
-                .score(clampedScore)
-                .riskLevel(riskLevel)
-                .evidenceMode(evidenceMode)
-                .hasGithubIssue(hasGithubIssue)
-                .hasRequirement(hasRequirement)
-                .checklistTotal(checklistTotal)
-                .checklistDone(checklistDone)
-                .subtaskTotal(subtaskTotal)
-                .subtaskDone(subtaskDone)
-                .positiveSignals(positiveSignals)
-                .warnings(warnings)
+                .evidenceSummary(codeInsightScoringService.buildReviewEvidenceSummary(task))
                 .build();
     }
 

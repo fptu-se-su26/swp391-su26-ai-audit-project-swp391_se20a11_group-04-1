@@ -6,6 +6,7 @@ import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.GitHubWebhookEventRepository;
+import org.example.backend.service.CodeInsightEvidenceLinkService;
 import org.example.backend.service.github.core.GitHubEvidenceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,6 +27,7 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubCheckRunRepository checkRunRepository;
+    private final CodeInsightEvidenceLinkService evidenceLinkService;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -108,6 +110,7 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         commit.setUrl(firstText(commitPayload.get("html_url"), commitPayload.get("url")));
         commit.setUpdatedAt(LocalDateTime.now());
         commitRepository.save(commit);
+        evidenceLinkService.linkCommit(commit);
     }
 
     @Override
@@ -140,6 +143,7 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         pullRequest.setUrl(text(pullRequestPayload.get("html_url")));
         pullRequest.setUpdatedAt(LocalDateTime.now());
         pullRequestRepository.save(pullRequest);
+        evidenceLinkService.linkPullRequest(pullRequest);
     }
 
     @Override
@@ -166,6 +170,7 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         checkRun.setUrl(text(workflowRunPayload.get("html_url")));
         checkRun.setUpdatedAt(LocalDateTime.now());
         checkRunRepository.save(checkRun);
+        evidenceLinkService.linkCheckRun(checkRun);
     }
 
     @Override
@@ -193,6 +198,7 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         checkRun.setUrl(text(checkRunPayload.get("html_url")));
         checkRun.setUpdatedAt(LocalDateTime.now());
         checkRunRepository.save(checkRun);
+        evidenceLinkService.linkCheckRun(checkRun);
     }
 
     private void updateTerminalStatus(Long eventId, GitHubWebhookEventStatus status, String errorMessage) {
