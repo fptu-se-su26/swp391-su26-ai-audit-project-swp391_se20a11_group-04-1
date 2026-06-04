@@ -48,8 +48,8 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     }
 
     @Override
-    public void handleWebhook(String signatureHeader, String eventType, byte[] payloadBytes) {
-        webhookService.handleWebhook(signatureHeader, eventType, payloadBytes);
+    public void handleWebhook(String signatureHeader, String deliveryId, String eventType, byte[] payloadBytes) {
+        webhookService.handleWebhook(signatureHeader, deliveryId, eventType, payloadBytes);
     }
 
     @Override

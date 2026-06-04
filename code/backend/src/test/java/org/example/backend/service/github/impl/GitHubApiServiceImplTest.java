@@ -56,12 +56,12 @@ class GitHubApiServiceImplTest {
     void webhookMethodsDelegateToWebhookServices() {
         byte[] payload = "{}".getBytes();
 
-        gitHubApiService.handleWebhook("sha256=test", "issues", payload);
+        gitHubApiService.handleWebhook("sha256=test", "delivery-1", "issues", payload);
         gitHubApiService.pingWebhook(100L, 1L);
         gitHubApiService.autoConfigureWebhook(100L, 1L, "https://example.com/api/v1/github/webhook", List.of("issues"), "secret");
         gitHubApiService.redeliverWebhook(100L, 55L, 1L);
 
-        verify(webhookService).handleWebhook("sha256=test", "issues", payload);
+        verify(webhookService).handleWebhook("sha256=test", "delivery-1", "issues", payload);
         verify(webhookDeliveryService).pingWebhook(100L, 1L);
         verify(webhookDeliveryService).autoConfigureWebhook(100L, 1L, "https://example.com/api/v1/github/webhook", List.of("issues"), "secret");
         verify(webhookDeliveryService).redeliverWebhook(100L, 55L, 1L);

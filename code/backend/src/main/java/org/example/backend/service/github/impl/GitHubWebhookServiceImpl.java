@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.GitHubIntegration;
+import org.example.backend.entity.GitHubWebhookEvent;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.GitHubIntegrationRepository;
+import org.example.backend.service.github.core.GitHubEvidenceService;
 import org.example.backend.service.github.core.GitHubIntegrationService;
 import org.example.backend.service.github.core.GitHubWebhookDispatcher;
 import org.example.backend.service.github.core.GitHubWebhookService;
@@ -15,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -28,15 +32,11 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
     private final ObjectMapper objectMapper;
     private final GitHubIntegrationRepository gitHubIntegrationRepository;
     private final GitHubIntegrationService integrationService;
+    private final GitHubEvidenceService evidenceService;
     private final GitHubWebhookDispatcher dispatcher;
 
     @Override
-    public void handleWebhook(String signatureHeader, String eventType, byte[] payloadBytes) {
-        if (!"issues".equalsIgnoreCase(eventType) && !"ping".equalsIgnoreCase(eventType)) {
-            log.debug("Ignored unsupported GitHub webhook event: {}", eventType);
-            return;
-        }
-
+    public void handleWebhook(String signatureHeader, String deliveryId, String eventType, byte[] payloadBytes) {
         try {
             Map<String, Object> payload = objectMapper.readValue(new String(payloadBytes, StandardCharsets.UTF_8), Map.class);
             Map<String, Object> repository = (Map<String, Object>) payload.get("repository");
@@ -64,7 +64,21 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
                 throw new CustomException("Invalid webhook signature", HttpStatus.FORBIDDEN);
             }
 
-            dispatcher.dispatch(eventType, payload, matchedIntegration);
+            String payloadHash = sha256(payloadBytes);
+            String resolvedDeliveryId = hasText(deliveryId) ? deliveryId : eventType + "-" + payloadHash;
+            Optional<GitHubWebhookEvent> event = evidenceService.savePendingEvent(
+                    matchedIntegration,
+                    resolvedDeliveryId,
+                    eventType,
+                    signatureHeader,
+                    payloadHash,
+                    payload);
+            if (event.isEmpty()) {
+                log.info("Ignoring duplicate GitHub webhook delivery: {}", resolvedDeliveryId);
+                return;
+            }
+
+            dispatcher.dispatch(eventType, payload, matchedIntegration, event.get().getId());
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
@@ -100,5 +114,21 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
             log.error("Failed to verify webhook signature: ", e);
             return false;
         }
+    }
+
+    private String sha256(byte[] payload) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        byte[] hash = digest.digest(payload);
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
