@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
+import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.CodeInsightService;
@@ -58,6 +59,18 @@ public class CodeInsightController {
         return ResponseEntity.ok(ApiResponse.success(
                 taskService.getProjectReviewQueue(projectId, userId),
                 "Code Insight review queue retrieved"));
+    }
+
+    // Load linked GitHub issue/PR/commit/CI evidence for one task.
+    @GetMapping("/tasks/{taskId}/evidence")
+    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> getTaskEvidence(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.getTaskEvidence(projectId, taskId, userId),
+                "Code Insight task evidence retrieved"));
     }
 
     // Common session guard for all Code Insight endpoints.

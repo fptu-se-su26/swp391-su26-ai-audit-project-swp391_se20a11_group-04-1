@@ -21,6 +21,12 @@ export const codeInsightService = {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/review-queue`)
     return unwrap(response) || []
   },
+
+  // Load linked GitHub evidence for one task review item.
+  getTaskEvidence: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence`)
+    return unwrap(response)
+  },
 }
 
 export default codeInsightService

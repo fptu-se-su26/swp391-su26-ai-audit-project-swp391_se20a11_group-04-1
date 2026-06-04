@@ -17,8 +17,16 @@ const scoreToneClass = (riskLevel = 'READY') => {
 }
 
 const evidenceModeLabel = (mode = 'MANUAL_GATE') => {
+  if (mode === 'GITHUB_CODE_LINKED') return 'GitHub code linked'
   if (mode === 'GITHUB_ISSUE_LINKED') return 'GitHub issue linked'
   return 'Manual gate'
+}
+
+const shortSha = (sha = '') => (sha ? sha.slice(0, 7) : 'unknown')
+
+const formatDateTime = (value) => {
+  if (!value) return 'Not available'
+  return new Date(value).toLocaleString()
 }
 
 const CodeInsightPage = () => {
@@ -41,6 +49,9 @@ const CodeInsightPage = () => {
   const [configSuccess, setConfigSuccess] = useState('')
   const [isConfigEditing, setIsConfigEditing] = useState(false)
   const [success, setSuccess] = useState('')
+  const [selectedEvidence, setSelectedEvidence] = useState(null)
+  const [evidenceLoading, setEvidenceLoading] = useState(false)
+  const [evidenceError, setEvidenceError] = useState('')
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
@@ -98,6 +109,17 @@ const CodeInsightPage = () => {
     loadReviewQueue()
     loadConfig()
   }, [projectId])
+
+  useEffect(() => {
+    if (!selectedEvidence && !evidenceLoading) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeEvidenceDrawer()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedEvidence, evidenceLoading])
 
   const updateConfigForm = (field, value) => {
     // Generic form updater keeps all settings controlled from one state object.
@@ -164,6 +186,26 @@ const CodeInsightPage = () => {
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to reject task')
     }
+  }
+
+  const openEvidenceDrawer = async (taskId) => {
+    if (!taskId || !projectId) return
+    setEvidenceLoading(true)
+    setEvidenceError('')
+    setSelectedEvidence(null)
+    try {
+      setSelectedEvidence(await codeInsightService.getTaskEvidence(projectId, taskId))
+    } catch (err) {
+      setEvidenceError(err.response?.data?.message || err.message || 'Failed to load task evidence')
+    } finally {
+      setEvidenceLoading(false)
+    }
+  }
+
+  const closeEvidenceDrawer = () => {
+    setSelectedEvidence(null)
+    setEvidenceLoading(false)
+    setEvidenceError('')
   }
 
   return (
@@ -463,6 +505,15 @@ const CodeInsightPage = () => {
                       <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
                         Subtasks {evidence.subtaskDone ?? 0}/{evidence.subtaskTotal ?? 0}
                       </span>
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        PR {evidence.pullRequestCount ?? 0}
+                      </span>
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        Commits {evidence.commitCount ?? 0}
+                      </span>
+                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
+                        CI {evidence.ciStatus || 'NO_CI'}
+                      </span>
                     </div>
                     {(warnings.length > 0 || positiveSignals.length > 0) && (
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -501,6 +552,14 @@ const CodeInsightPage = () => {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEvidenceDrawer(item.task?.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">fact_check</span>
+                      View Evidence
+                    </button>
                     <Link
                       to={`/projects/${projectId}/tasks/${item.task?.id}`}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
@@ -536,6 +595,157 @@ const CodeInsightPage = () => {
           )}
         </section>
       </div>
+      {(selectedEvidence || evidenceLoading || evidenceError) && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/35"
+          onClick={closeEvidenceDrawer}
+          role="presentation"
+        >
+          <aside
+            className="h-full w-full max-w-[640px] overflow-y-auto border-l border-outline-variant bg-surface-container-lowest shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-outline-variant bg-surface-container-lowest px-6 py-5">
+              <div>
+                <p className="font-label-md text-label-md uppercase text-primary">Review Evidence</p>
+                <h2 className="mt-1 text-xl font-bold text-on-surface">
+                  {selectedEvidence?.task?.title || 'Loading evidence...'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeEvidenceDrawer}
+                className="rounded-lg border border-outline-variant bg-surface p-2 text-on-surface hover:bg-surface-container-low"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              {evidenceLoading && (
+                <div className="rounded-lg border border-outline-variant bg-surface-container-low p-5 text-on-surface-variant">
+                  Loading linked GitHub evidence...
+                </div>
+              )}
+              {evidenceError && (
+                <div className="rounded-lg border border-error/30 bg-error-container/40 p-4 text-error">
+                  {evidenceError}
+                </div>
+              )}
+              {selectedEvidence && (
+                <>
+                  <section className="grid grid-cols-2 gap-3">
+                    {[
+                      ['Score', `${selectedEvidence.scoreSummary?.score ?? 0}/100`],
+                      ['Risk', selectedEvidence.scoreSummary?.riskLevel || 'READY'],
+                      ['PRs', selectedEvidence.pullRequests?.length ?? 0],
+                      ['Commits', selectedEvidence.commits?.length ?? 0],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                        <span className="font-label-md text-label-md uppercase text-on-surface-variant">{label}</span>
+                        <div className="mt-2 text-lg font-bold text-on-surface">{value}</div>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">GitHub Issue</h3>
+                    {selectedEvidence.githubIssue ? (
+                      <a
+                        href={selectedEvidence.githubIssue.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                        Issue #{selectedEvidence.githubIssue.number || 'linked'}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm text-on-surface-variant">No linked GitHub issue.</p>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Pull Requests</h3>
+                    {(selectedEvidence.pullRequests || []).length === 0 ? (
+                      <p className="mt-2 text-sm text-on-surface-variant">No linked pull request evidence.</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {selectedEvidence.pullRequests.map((pr) => (
+                          <div key={pr.id} className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-on-surface">#{pr.prNumber} {pr.title || 'Untitled PR'}</p>
+                                <p className="mt-1 text-xs text-on-surface-variant">
+                                  {pr.state || 'unknown'} {pr.draft ? '| draft' : ''} {pr.mergedAt ? `| merged ${formatDateTime(pr.mergedAt)}` : ''}
+                                </p>
+                              </div>
+                              {pr.url && (
+                                <a href={pr.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                  Open
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Commits</h3>
+                    {(selectedEvidence.commits || []).length === 0 ? (
+                      <p className="mt-2 text-sm text-on-surface-variant">No linked commit evidence.</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {selectedEvidence.commits.map((commit) => (
+                          <div key={commit.id} className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <p className="font-semibold text-on-surface">{shortSha(commit.sha)} - {commit.message || 'No message'}</p>
+                            <p className="mt-1 text-xs text-on-surface-variant">
+                              {commit.authorName || commit.authorEmail || commit.authorLogin || 'Unknown author'} | {formatDateTime(commit.committedAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">CI / Checks</h3>
+                    {(selectedEvidence.checkRuns || []).length === 0 ? (
+                      <p className="mt-2 text-sm text-on-surface-variant">No linked CI/check evidence.</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {selectedEvidence.checkRuns.map((check) => (
+                          <div key={check.id} className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <p className="font-semibold text-on-surface">{check.name || check.eventType || 'Check run'}</p>
+                            <p className="mt-1 text-xs text-on-surface-variant">
+                              {check.status || 'unknown'} / {check.conclusion || 'pending'} | {shortSha(check.sha)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Score Breakdown</h3>
+                    {(selectedEvidence.scoreSummary?.scoreBreakdown || []).length === 0 ? (
+                      <p className="mt-2 text-sm text-on-surface-variant">No score penalties recorded.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-1 text-sm text-on-surface-variant">
+                        {selectedEvidence.scoreSummary.scoreBreakdown.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   )
 }
