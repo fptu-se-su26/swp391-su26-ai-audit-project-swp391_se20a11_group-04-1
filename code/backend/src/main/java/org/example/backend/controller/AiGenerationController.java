@@ -22,10 +22,12 @@ import lombok.extern.slf4j.Slf4j;
 public class AiGenerationController {
 
     private final AiGenerationService aiGenerationService;
+    private final org.example.backend.repository.RequirementRepository requirementRepository;
 
     @Autowired
-    public AiGenerationController(AiGenerationService aiGenerationService) {
+    public AiGenerationController(AiGenerationService aiGenerationService, org.example.backend.repository.RequirementRepository requirementRepository) {
         this.aiGenerationService = aiGenerationService;
+        this.requirementRepository = requirementRepository;
     }
 
     @PostMapping(value = "/generate-requirements/{projectId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -38,43 +40,31 @@ public class AiGenerationController {
             return ResponseEntity.badRequest().body(Map.of("error", "File không được để trống."));
         }
 
-        try {
-            Long userId = (Long) session.getAttribute("userId");
-            if (userId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-            }
-            UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Successfully analyzed file and extracted requirements.",
-                    "generationId", generationId.toString()
-            ));
-        } catch (Exception e) {
-            log.error("Error generating requirements: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "Có lỗi xảy ra trong quá trình phân tích file."));
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
+        UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Successfully analyzed file and extracted requirements.",
+                "generationId", generationId.toString()
+        ));
+    }
+
+    @GetMapping("/debug/last-payload")
+    public ResponseEntity<?> getLastPayload() {
+        return ResponseEntity.ok(aiGenerationService.getLastPayloadDebug());
     }
 
     @GetMapping("/staging/{projectId}")
     public ResponseEntity<?> getPendingGenerations(@PathVariable Long projectId) {
-        try {
-            List<AiGenerationStaging> stagings = aiGenerationService.getPendingGenerations(projectId);
-            List<Map<String, Object>> responseList = new ArrayList<>();
-            ObjectMapper mapper = new ObjectMapper();
-            for (AiGenerationStaging staging : stagings) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", staging.getId());
-                map.put("generationId", staging.getGenerationId());
-                map.put("status", staging.getStatus());
-                map.put("createdAt", staging.getCreatedAt());
-                map.put("documentText", staging.getDocumentText());
-                map.put("payload", mapper.convertValue(staging.getPayload(), List.class));
-                responseList.add(map);
-            }
-            return ResponseEntity.ok(responseList);
-        } catch (Exception e) {
-            log.error("Error fetching pending generations: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "Lỗi khi tải danh sách nháp."));
-        }
+        List<Map<String, Object>> responseList = aiGenerationService.getPendingGenerationsWithDuplicateCheck(projectId);
+        return ResponseEntity.ok(responseList);
+    }
+
+    @GetMapping("/staging/generation/{generationId}")
+    public ResponseEntity<?> getGenerationById(@PathVariable UUID generationId) {
+        return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
     }
 
     @PostMapping("/approve/{generationId}")
@@ -82,43 +72,73 @@ public class AiGenerationController {
             @PathVariable UUID generationId,
             @RequestBody Map<String, Object> requestBody,
             jakarta.servlet.http.HttpSession session) {
-        try {
-            Long userId = (Long) session.getAttribute("userId");
-            if (userId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-            }
-
-            @SuppressWarnings("unchecked")
-            List<Integer> selectedIndices = (List<Integer>) requestBody.get("selectedIndices");
-            
-            Object payloadObj = requestBody.get("modifiedPayload");
-            com.fasterxml.jackson.databind.JsonNode modifiedPayload = null;
-            if (payloadObj != null) {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
-            }
-
-            aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
-            return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
-        } catch (Exception e) {
-            log.error("Error approving generation {}: {}", generationId, e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
+
+        @SuppressWarnings("unchecked")
+        List<Integer> selectedIndices = (List<Integer>) requestBody.get("selectedIndices");
+        
+        Object payloadObj = requestBody.get("modifiedPayload");
+        com.fasterxml.jackson.databind.JsonNode modifiedPayload = null;
+        if (payloadObj != null) {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
+        }
+
+        aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
+        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
     }
 
     @PostMapping("/regenerate/{generationId}")
     public ResponseEntity<?> regenerateRequirements(
             @PathVariable UUID generationId,
             jakarta.servlet.http.HttpSession session) {
-        try {
-            Long userId = (Long) session.getAttribute("userId");
-            if (userId == null) {
-                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
-            }
-            aiGenerationService.regenerateRequirements(generationId, userId);
-            return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
+        aiGenerationService.regenerateRequirements(generationId, userId);
+        return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
+    }
+    @PostMapping("/generate-use-cases/{projectId}")
+    public ResponseEntity<?> generateUseCases(
+            @PathVariable Long projectId,
+            @RequestBody org.example.backend.dto.AiUseCaseGenerateRequest request,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Successfully started generating Use Cases.",
+                "generationId", generationId.toString()
+        ));
+    }
+
+    @PostMapping("/approve-use-cases/{generationId}")
+    public ResponseEntity<?> approveUseCaseGeneration(
+            @PathVariable UUID generationId,
+            @RequestBody Map<String, Object> requestBody,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Integer> selectedIndices = (List<Integer>) requestBody.get("selectedIndices");
+        
+        Object payloadObj = requestBody.get("modifiedPayload");
+        com.fasterxml.jackson.databind.JsonNode modifiedPayload = null;
+        if (payloadObj != null) {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
+        }
+
+        aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
+        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
     }
 }

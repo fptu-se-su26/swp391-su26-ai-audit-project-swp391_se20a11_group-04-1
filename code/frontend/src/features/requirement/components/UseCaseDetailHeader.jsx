@@ -1,12 +1,15 @@
 import React from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdit, onSave, onCancel, onFieldChange, onStatusChange }) => {
+  const { projectId } = useParams();
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'APPROVED': return 'bg-[#e6f4ea] text-[#137333]';
-      case 'IN_REVIEW': return 'bg-[#fef7e0] text-[#b06000]';
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700';
-      case 'REJECTED': return 'bg-red-100 text-red-700';
+      case 'DRAFT': return 'bg-slate-50 text-slate-600 border border-slate-200';
+      case 'IN_PROGRESS': return 'bg-amber-50 text-amber-700 border border-amber-200';
+      case 'IN_REVIEW': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+      case 'DONE': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       default: return 'bg-surface-variant text-on-surface-variant';
     }
   };
@@ -14,7 +17,12 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
   return (
     <div className="flex flex-col md:flex-row md:items-start justify-between gap-stack_lg mb-stack_lg pb-stack_md border-b border-outline-variant">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-stack_sm mb-2 flex-wrap">
+        <div className="flex items-center gap-stack_sm mb-3 flex-wrap">
+          <Link to={`/projects/${projectId}/use-cases`} className="flex items-center gap-1 text-secondary hover:text-primary transition-colors font-body-md text-body-md mr-1">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Use Cases
+          </Link>
+          <div className="w-px h-4 bg-outline-variant mr-1"></div>
           {isEditing ? (
             <>
               <select
@@ -25,8 +33,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
                 <option value="DRAFT">DRAFT</option>
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="IN_REVIEW">IN_REVIEW</option>
-                <option value="APPROVED">APPROVED</option>
-                <option value="REJECTED">REJECTED</option>
+                <option value="DONE">DONE</option>
               </select>
               <input
                 type="text"
@@ -47,8 +54,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
                 <option value="DRAFT" className="bg-white text-on-surface">DRAFT</option>
                 <option value="IN_PROGRESS" className="bg-white text-on-surface">IN_PROGRESS</option>
                 <option value="IN_REVIEW" className="bg-white text-on-surface">IN_REVIEW</option>
-                <option value="APPROVED" className="bg-white text-on-surface">APPROVED</option>
-                <option value="REJECTED" className="bg-white text-on-surface">REJECTED</option>
+                <option value="DONE" className="bg-white text-on-surface">DONE</option>
               </select>
               <span className="text-secondary font-label-md text-label-md">{useCase.version || 'v1.0'}</span>
             </>

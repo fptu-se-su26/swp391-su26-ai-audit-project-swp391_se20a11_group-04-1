@@ -61,7 +61,7 @@ public class UseCaseServiceImpl implements UseCaseService {
         Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         useCase.setProjectSubId(nextSubId);
-        useCase.setCode("P" + project.getId() + "-UC-" + nextSubId);
+        useCase.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
 
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
@@ -82,7 +82,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse updateUseCaseStatus(Long id, String status) {
+    public UseCaseResponse updateUseCaseStatus(Long id, org.example.backend.entity.UseCaseStatus status) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
@@ -125,7 +125,12 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             if (status != null && !status.trim().isEmpty()) {
-                predicates.add(cb.equal(root.get("status"), status));
+                try {
+                    org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(status.toUpperCase());
+                    predicates.add(cb.equal(root.get("status"), enumStatus));
+                } catch (IllegalArgumentException e) {
+                    // Ignore invalid status format in search
+                }
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -158,6 +163,12 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (request.getAlternativeFlow() != null) {
             try { useCase.setAlternativeFlow(objectMapper.writeValueAsString(request.getAlternativeFlow())); } catch (Exception e) { throw new BadRequestException("Invalid alternative flow data format: " + e.getMessage()); }
         }
+        if (request.getIncludes() != null) {
+            useCase.setIncludes(request.getIncludes());
+        }
+        if (request.getExtendsList() != null) {
+            useCase.setExtendsList(request.getExtendsList());
+        }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
         if (request.getCompletenessScore() != null) useCase.setCompletenessScore(request.getCompletenessScore());
@@ -176,6 +187,14 @@ public class UseCaseServiceImpl implements UseCaseService {
         UseCaseResponse res = new UseCaseResponse();
         res.setId(useCase.getId());
         res.setRequirementId(useCase.getRequirement() != null ? useCase.getRequirement().getId() : null);
+        if (useCase.getRequirement() != null) {
+            org.example.backend.dto.RequirementResponseDTO reqDto = org.example.backend.dto.RequirementResponseDTO.builder()
+                    .id(useCase.getRequirement().getId())
+                    .reqCode(useCase.getRequirement().getReqCode())
+                    .title(useCase.getRequirement().getTitle())
+                    .build();
+            res.setRequirement(reqDto);
+        }
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());
         res.setPrecondition(useCase.getPrecondition());
@@ -187,6 +206,9 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (useCase.getAlternativeFlow() != null) {
             try { res.setAlternativeFlow(objectMapper.readValue(useCase.getAlternativeFlow(), new TypeReference<Map<String, Object>>() {})); } catch (Exception e) { /* ignore */ }
         }
+        
+        res.setIncludes(useCase.getIncludes());
+        res.setExtendsList(useCase.getExtendsList());
         
         if (useCase.getActors() != null) {
             res.setActors(useCase.getActors().stream()

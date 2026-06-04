@@ -11,6 +11,7 @@ import java.util.List;
 @Setter
 public class TaskRequest {
     private Long requirementId;
+    private Long useCaseId;
     private Long sprintId;
     private String title;
     private String description;

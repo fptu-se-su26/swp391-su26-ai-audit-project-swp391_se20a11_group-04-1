@@ -101,6 +101,9 @@ public class Requirement {
     @Builder.Default
     private List<String> tags = new ArrayList<>();
 
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
+
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude

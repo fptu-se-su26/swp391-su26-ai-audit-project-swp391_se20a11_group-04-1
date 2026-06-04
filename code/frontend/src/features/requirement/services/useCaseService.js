@@ -41,5 +41,23 @@ export const useCaseService = {
   deleteUseCase: async (useCaseId, projectId) => {
     const response = await axiosInstance.delete(`/v1/use-cases/${useCaseId}`, { params: { projectId } });
     return response.data;
+  },
+
+  // AI: Generate Use Cases
+  generateUseCases: async (projectId, payload) => {
+    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000 });
+    return response.data;
+  },
+
+  // AI: Lấy dữ liệu staging theo generationId
+  getGenerationById: async (generationId) => {
+    const response = await axiosInstance.get(`/ai/staging/generation/${generationId}`);
+    return response.data;
+  },
+
+  // AI: Approve Use Cases
+  approveUseCases: async (generationId, payload) => {
+    const response = await axiosInstance.post(`/ai/approve-use-cases/${generationId}`, payload);
+    return response.data;
   }
 };

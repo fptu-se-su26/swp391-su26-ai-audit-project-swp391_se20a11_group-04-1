@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
-
 import { requirementApi } from '../services/requirementApi';
+import { useCaseService } from '../services/useCaseService';
+import toast from 'react-hot-toast';
+import AiUseCaseGenerationModal from './AiUseCaseGenerationModal';
+import AIGenerationProgressModal from './AIGenerationProgressModal';
 
 const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
   const { projectId } = useParams();
+  const [generating, setGenerating] = useState(false);
+  const [generationId, setGenerationId] = useState(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+
   if (!requirement) return null;
 
   const handleApprove = async () => {
@@ -15,6 +22,24 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
     } catch (error) {
       console.error('Lỗi khi duyệt Requirement:', error);
     }
+  };
+
+  const handleGenerateUC = async () => {
+    setGenerating(true);
+    try {
+      const response = await useCaseService.generateUseCases(projectId, { requirementIds: [requirement.id] });
+      setGenerationId(response.generationId);
+      setIsAiModalOpen(true);
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Có lỗi khi sinh Use Case bằng AI');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleAiModalSuccess = () => {
+    if (onRefresh) onRefresh();
   };
 
   return (
@@ -92,10 +117,28 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
             <span className="material-symbols-outlined text-[18px] mr-1">check_circle</span> Duyệt (Approve)
           </button>
         )}
-        <button className="px-4 py-2 bg-primary text-on-primary rounded font-body-md text-body-md font-medium hover:bg-on-primary-fixed-variant transition-colors shadow-sm flex items-center">
-          <span className="material-symbols-outlined text-[18px] mr-1">smart_toy</span> Generate Tasks
+        <button 
+          onClick={handleGenerateUC}
+          disabled={generating}
+          className="flex items-center justify-center h-[36px] px-[16px] rounded-[10px] text-[13px] font-[500] text-white transition-all duration-300 shadow-sm hover:brightness-110 hover:shadow-[0_0_12px_rgba(83,74,183,0.35)] disabled:opacity-70 disabled:cursor-not-allowed"
+          style={{ background: 'linear-gradient(135deg, #3C3489 0%, #185FA5 100%)' }}
+        >
+          {generating ? (
+            <span className="material-symbols-outlined animate-spin text-[14px] mr-1">progress_activity</span>
+          ) : (
+            <span className="material-symbols-outlined text-[14px] mr-1">auto_awesome</span>
+          )}
+          {generating ? 'Generating...' : 'Generate Usecase'}
         </button>
       </div>
+
+      <AiUseCaseGenerationModal 
+        isOpen={isAiModalOpen} 
+        onClose={() => setIsAiModalOpen(false)} 
+        generationId={generationId} 
+        onSuccess={handleAiModalSuccess}
+      />
+      <AIGenerationProgressModal isOpen={generating} requirementCount={1} onClose={() => setGenerating(false)} />
     </div>
   );
 };

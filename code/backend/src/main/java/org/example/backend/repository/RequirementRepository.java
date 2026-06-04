@@ -19,6 +19,11 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
     @Query(value = "SELECT DISTINCT unnest(tags) FROM requirements WHERE project_id = :projectId", nativeQuery = true)
     List<String> findAllDistinctTagsByProjectId(@Param("projectId") Long projectId);
 
+    @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId")
+    List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
+
+    List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
+
     boolean existsByIdAndProjectId(Long id, Long projectId);
 
     /** Đếm tổng số requirement trong project (dùng cho RTM coverage) */

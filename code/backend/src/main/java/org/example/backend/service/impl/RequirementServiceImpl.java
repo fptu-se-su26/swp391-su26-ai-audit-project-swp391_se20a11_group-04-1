@@ -113,7 +113,7 @@ public class RequirementServiceImpl implements RequirementService {
             String priority,
             String tag) {
         int currentPage = Math.max(page, 0);
-        int pageSize = Math.min(Math.max(size, 1), 10);
+        int pageSize = Math.min(Math.max(size, 1), 1000);
 
         PageRequest pageRequest = PageRequest.of(
                 currentPage,

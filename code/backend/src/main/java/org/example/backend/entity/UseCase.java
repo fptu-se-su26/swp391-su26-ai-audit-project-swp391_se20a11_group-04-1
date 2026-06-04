@@ -52,11 +52,20 @@ public class UseCase {
     @Column(name = "alternative_flow", columnDefinition = "jsonb")
     private String alternativeFlow;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "includes", columnDefinition = "jsonb")
+    private List<String> includes;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extends", columnDefinition = "jsonb")
+    private List<String> extendsList;
+
+    @Enumerated(EnumType.STRING)
     @Column(length = 50)
-    private String status = "DRAFT";
+    private UseCaseStatus status = UseCaseStatus.DRAFT;
 
     @Column(length = 20)
-    private String version = "v1.0";
+    private String version = org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION;
 
     @Column(name = "completeness_score")
     private Integer completenessScore = 0;
@@ -75,6 +84,12 @@ public class UseCase {
 
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
+
+    @Column(name = "ai_generated")
+    private boolean aiGenerated = false;
+
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
 
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();

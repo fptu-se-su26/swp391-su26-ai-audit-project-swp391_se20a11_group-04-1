@@ -47,6 +47,9 @@ public class AiGenerationStaging {
     @Column(name = "document_text", columnDefinition = "TEXT")
     private String documentText;
 
+    @Column(name = "context_warning", columnDefinition = "TEXT")
+    private String contextWarning;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
