@@ -33,6 +33,7 @@ const CodeInsightPage = () => {
   const { projectId } = useParams()
   const activeProject = useProjectStore((state) => state.activeProject)
   const [reviewQueue, setReviewQueue] = useState([])
+  const [dashboard, setDashboard] = useState(null)
   const [config, setConfig] = useState(null)
   const [configForm, setConfigForm] = useState({
     reviewGateEnabled: true,
@@ -91,6 +92,15 @@ const CodeInsightPage = () => {
     }
   }
 
+  const loadDashboard = async () => {
+    if (!projectId) return
+    try {
+      setDashboard(await codeInsightService.getDashboard(projectId))
+    } catch {
+      setDashboard(null)
+    }
+  }
+
   const loadConfig = async () => {
     // Fetch shared GitHub repository status and Code Insight rule settings.
     if (!projectId) return
@@ -110,6 +120,7 @@ const CodeInsightPage = () => {
     // Reload queue and config whenever the route project changes.
     loadReviewQueue()
     loadConfig()
+    loadDashboard()
   }, [projectId])
 
   useEffect(() => {
@@ -170,6 +181,7 @@ const CodeInsightPage = () => {
       await taskService.approveTaskReview(taskId, 'Approved from Code Insight review queue')
       setSuccess('Task approved and moved to Done.')
       await loadReviewQueue()
+      await loadDashboard()
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to approve task')
     }
@@ -185,6 +197,7 @@ const CodeInsightPage = () => {
       await taskService.rejectTaskReview(taskId, reason.trim(), 'IN_PROGRESS')
       setSuccess('Task rejected and returned to In Progress.')
       await loadReviewQueue()
+      await loadDashboard()
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to reject task')
     }
@@ -454,19 +467,56 @@ const CodeInsightPage = () => {
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
-            <span className="font-label-md text-label-md uppercase text-on-surface-variant">In Review</span>
-            <div className="text-3xl font-bold text-on-surface mt-2">{reviewQueue.length}</div>
-          </div>
-          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
-            <span className="font-label-md text-label-md uppercase text-on-surface-variant">Evidence Mode</span>
-            <div className="text-lg font-bold text-on-surface mt-2">Manual Gate</div>
-          </div>
-          <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
-            <span className="font-label-md text-label-md uppercase text-on-surface-variant">AI Review</span>
-            <div className="text-lg font-bold text-on-surface mt-2">Coming Next</div>
-          </div>
+          {[
+            ['Pending Reviews', dashboard?.pendingReviews ?? reviewQueue.length],
+            ['Done Without Evidence', dashboard?.doneWithoutEvidence ?? 0],
+            ['CI Failed', dashboard?.tasksWithCiFailed ?? 0],
+            ['Tasks Without PR', dashboard?.tasksWithoutPullRequest ?? 0],
+            ['Evidence Coverage', `${dashboard?.evidenceCoveragePercent ?? 0}%`],
+            ['Members Tracked', dashboard?.memberEvidenceQuality?.length ?? 0],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5">
+              <span className="font-label-md text-label-md uppercase text-on-surface-variant">{label}</span>
+              <div className="text-3xl font-bold text-on-surface mt-2">{value}</div>
+            </div>
+          ))}
         </section>
+
+        {dashboard?.evidenceCoveragePercent < 50 && (
+          <div className="rounded-lg border border-[#f59e0b]/30 bg-[#fef3c7] px-4 py-3 text-[#92400e]">
+            Evidence coverage is low. Some dashboard numbers may be incomplete until commits, PRs, and CI are linked.
+          </div>
+        )}
+
+        {(dashboard?.memberEvidenceQuality || []).length > 0 && (
+          <section className="rounded-lg border border-outline-variant bg-surface-container-lowest overflow-hidden">
+            <div className="border-b border-outline-variant px-5 py-4">
+              <h2 className="font-headline-sm text-headline-sm text-on-surface">Member Evidence Quality</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-surface-container-low text-on-surface-variant">
+                  <tr>
+                    <th className="px-5 py-3 font-label-md text-label-md uppercase">Member</th>
+                    <th className="px-5 py-3 font-label-md text-label-md uppercase">Tasks</th>
+                    <th className="px-5 py-3 font-label-md text-label-md uppercase">With Evidence</th>
+                    <th className="px-5 py-3 font-label-md text-label-md uppercase">Risky</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+                  {dashboard.memberEvidenceQuality.map((member) => (
+                    <tr key={member.memberId}>
+                      <td className="px-5 py-3 font-semibold text-on-surface">{member.memberName}</td>
+                      <td className="px-5 py-3 text-on-surface-variant">{member.taskCount}</td>
+                      <td className="px-5 py-3 text-on-surface-variant">{member.tasksWithCodeEvidence}</td>
+                      <td className="px-5 py-3 text-on-surface-variant">{member.riskyTasks}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {error && (
           <div className="rounded-lg border border-error/30 bg-error-container/40 px-4 py-3 text-error">

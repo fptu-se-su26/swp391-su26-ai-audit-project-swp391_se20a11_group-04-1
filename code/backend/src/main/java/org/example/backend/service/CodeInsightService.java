@@ -3,6 +3,7 @@ package org.example.backend.service;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
+import org.example.backend.dto.CodeInsightDashboardResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 
 public interface CodeInsightService {
@@ -20,4 +21,7 @@ public interface CodeInsightService {
 
     // Create an AI-assisted review summary for a task.
     CodeInsightAiReviewResponse createAiReview(Long projectId, Long taskId, Long userId);
+
+    // Read Code Insight project-level evidence and review dashboard metrics.
+    CodeInsightDashboardResponse getDashboard(Long projectId, Long userId);
 }

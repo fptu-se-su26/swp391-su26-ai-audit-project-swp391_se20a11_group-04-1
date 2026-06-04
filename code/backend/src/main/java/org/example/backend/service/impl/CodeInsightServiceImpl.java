@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
+import org.example.backend.dto.CodeInsightDashboardResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
@@ -27,7 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -131,6 +135,50 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     public CodeInsightAiReviewResponse createAiReview(Long projectId, Long taskId, Long userId) {
         requireProjectMember(projectId, userId);
         return aiReviewService.createReview(projectId, taskId, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CodeInsightDashboardResponse getDashboard(Long projectId, Long userId) {
+        requireProjectMember(projectId, userId);
+        List<Task> tasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId);
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectId(projectId);
+        Map<Long, List<CodeInsightEvidenceLink>> linksByTask = links.stream()
+                .filter(link -> link.getTask() != null)
+                .collect(Collectors.groupingBy(link -> link.getTask().getId()));
+
+        int pendingReviews = (int) tasks.stream().filter(task -> task.getStatus() == TaskStatus.IN_REVIEW).count();
+        int doneWithoutEvidence = (int) tasks.stream()
+                .filter(task -> task.getStatus() == TaskStatus.DONE)
+                .filter(task -> !hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int tasksWithCiFailed = (int) tasks.stream()
+                .filter(task -> "FAILED".equals(scoringService.buildReviewEvidenceSummary(task).getCiStatus()))
+                .count();
+        int tasksWithoutPullRequest = (int) tasks.stream()
+                .filter(task -> !hasEvidenceType(linksByTask.get(task.getId()), CodeInsightEvidenceType.PULL_REQUEST))
+                .count();
+        int tasksWithEvidence = (int) tasks.stream()
+                .filter(task -> hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int evidenceCoveragePercent = tasks.isEmpty() ? 0 : (int) Math.round(tasksWithEvidence * 100.0 / tasks.size());
+
+        List<CodeInsightDashboardResponse.MemberEvidenceQuality> memberQuality = tasks.stream()
+                .filter(task -> task.getPrimaryAssignee() != null)
+                .collect(Collectors.groupingBy(task -> task.getPrimaryAssignee().getId()))
+                .values()
+                .stream()
+                .map(memberTasks -> toMemberEvidenceQuality(memberTasks, linksByTask))
+                .toList();
+
+        return CodeInsightDashboardResponse.builder()
+                .pendingReviews(pendingReviews)
+                .doneWithoutEvidence(doneWithoutEvidence)
+                .tasksWithCiFailed(tasksWithCiFailed)
+                .tasksWithoutPullRequest(tasksWithoutPullRequest)
+                .evidenceCoveragePercent(evidenceCoveragePercent)
+                .memberEvidenceQuality(memberQuality)
+                .build();
     }
 
     // Verify that the current session user belongs to the project before reading or writing config.
@@ -319,6 +367,41 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             return user.getProfile().getFullName();
         }
         return hasText(user.getUsername()) ? user.getUsername() : user.getEmail();
+    }
+
+    private CodeInsightDashboardResponse.MemberEvidenceQuality toMemberEvidenceQuality(
+            List<Task> tasks,
+            Map<Long, List<CodeInsightEvidenceLink>> linksByTask) {
+        UserAccount member = tasks.get(0).getPrimaryAssignee();
+        int tasksWithEvidence = (int) tasks.stream()
+                .filter(task -> hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int riskyTasks = (int) tasks.stream()
+                .filter(task -> {
+                    String riskLevel = scoringService.buildReviewEvidenceSummary(task).getRiskLevel();
+                    return "WARNING".equals(riskLevel) || "BLOCKED".equals(riskLevel);
+                })
+                .count();
+        return CodeInsightDashboardResponse.MemberEvidenceQuality.builder()
+                .memberId(member.getId())
+                .memberName(displayName(member))
+                .taskCount(tasks.size())
+                .tasksWithCodeEvidence(tasksWithEvidence)
+                .riskyTasks(riskyTasks)
+                .build();
+    }
+
+    private boolean hasCodeEvidence(List<CodeInsightEvidenceLink> links) {
+        return hasEvidenceType(links, CodeInsightEvidenceType.COMMIT)
+                || hasEvidenceType(links, CodeInsightEvidenceType.PULL_REQUEST);
+    }
+
+    private boolean hasEvidenceType(List<CodeInsightEvidenceLink> links, CodeInsightEvidenceType type) {
+        if (links == null || links.isEmpty()) return false;
+        Set<CodeInsightEvidenceType> types = links.stream()
+                .map(CodeInsightEvidenceLink::getEvidenceType)
+                .collect(Collectors.toSet());
+        return types.contains(type);
     }
 
     // Small local helper to avoid repeating null/blank checks around optional config fields.
