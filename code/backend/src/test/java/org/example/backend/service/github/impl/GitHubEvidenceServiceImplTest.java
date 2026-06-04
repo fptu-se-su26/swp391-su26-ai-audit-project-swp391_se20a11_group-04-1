@@ -5,6 +5,7 @@ import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.GitHubWebhookEventRepository;
+import org.example.backend.service.CodeInsightEvidenceLinkService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,7 @@ class GitHubEvidenceServiceImplTest {
     @Mock private GitHubCommitRepository commitRepository;
     @Mock private GitHubPullRequestRepository pullRequestRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;
+    @Mock private CodeInsightEvidenceLinkService evidenceLinkService;
 
     @InjectMocks
     private GitHubEvidenceServiceImpl evidenceService;

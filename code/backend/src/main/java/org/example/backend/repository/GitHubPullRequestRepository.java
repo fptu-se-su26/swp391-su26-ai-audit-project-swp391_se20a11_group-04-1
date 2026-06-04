@@ -9,4 +9,10 @@ import java.util.Optional;
 @Repository
 public interface GitHubPullRequestRepository extends JpaRepository<GitHubPullRequest, Long> {
     Optional<GitHubPullRequest> findByIntegrationIdAndPrNumber(Long integrationId, Integer prNumber);
+
+    Optional<GitHubPullRequest> findFirstByProjectIdAndHeadShaOrProjectIdAndMergeCommitSha(
+            Long headProjectId,
+            String headSha,
+            Long mergeProjectId,
+            String mergeCommitSha);
 }

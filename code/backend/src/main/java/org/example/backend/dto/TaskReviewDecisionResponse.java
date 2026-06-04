@@ -54,6 +54,12 @@ public class TaskReviewDecisionResponse {
         private int checklistDone;
         private int subtaskTotal;
         private int subtaskDone;
+        private int commitCount;
+        private int pullRequestCount;
+        private int checkRunCount;
+        private String ciStatus;
+        private boolean hasMergedPullRequest;
+        private List<String> scoreBreakdown;
         private List<String> positiveSignals;
         private List<String> warnings;
     }
