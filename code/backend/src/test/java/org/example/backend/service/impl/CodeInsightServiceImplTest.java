@@ -5,6 +5,8 @@ import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
+import org.example.backend.service.CodeInsightAiReviewService;
+import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,8 +34,11 @@ class CodeInsightServiceImplTest {
     @Mock private CodeInsightEvidenceLinkRepository evidenceLinkRepository;
     @Mock private GitHubCommitRepository commitRepository;
     @Mock private GitHubPullRequestRepository pullRequestRepository;
+    @Mock private GitHubPullRequestFileRepository pullRequestFileRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;
     @Mock private CodeInsightScoringService scoringService;
+    @Mock private CodeInsightPatchService patchService;
+    @Mock private CodeInsightAiReviewService aiReviewService;
 
     @InjectMocks
     private CodeInsightServiceImpl codeInsightService;
@@ -75,6 +80,7 @@ class CodeInsightServiceImplTest {
                 .prNumber(7)
                 .title("TASK-12 implement login")
                 .build()));
+        when(pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(List.of(201L))).thenReturn(List.of());
         when(checkRunRepository.findAllById(List.of(301L))).thenReturn(List.of(GitHubCheckRun.builder()
                 .id(301L)
                 .name("build")
