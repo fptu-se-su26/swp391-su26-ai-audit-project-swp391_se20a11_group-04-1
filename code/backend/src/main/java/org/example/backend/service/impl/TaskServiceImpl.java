@@ -1,19 +1,26 @@
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.*;
 import org.example.backend.entity.*;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.ProjectMemberRepository;
+import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.KanbanColumnRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.TaskReviewDecisionRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.entity.enums.BugStatus;
+import org.example.backend.repository.BugReportRepository;
+import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
+import org.example.backend.repository.NotificationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +36,7 @@ import java.util.Map;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -40,9 +48,14 @@ public class TaskServiceImpl implements TaskService {
     private final UserAccountRepository userAccountRepository;
     private final RequirementRepository requirementRepository;
     private final SprintRepository sprintRepository;
+    private final BugReportRepository bugReportRepository;
+    private final GitHubApiService gitHubApiService;
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
+    private final NotificationRepository notificationRepository;
+    private final TaskReviewDecisionRepository taskReviewDecisionRepository;
+    private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
 
     @Override
     @Transactional
@@ -91,15 +104,25 @@ public class TaskServiceImpl implements TaskService {
                 .checklist(new ArrayList<>())
                 .build();
 
-        applyRequest(task, request, projectId);
+        applyRequest(task, request, projectId, userId);
         if (task.getKanbanColumn() == null) {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
-        task = taskRepository.save(task);
-        if (task.getRequirementId() != null) {
-            syncRequirementStatus(task.getRequirementId());
+        Task savedTask = taskRepository.save(task);
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
         }
-        return toResponse(task);
+
+        // Outbound sync: create GitHub Issue for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.createGitHubIssueForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
+
+        return toResponse(savedTask);
     }
 
     @Override
@@ -107,43 +130,80 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         Long oldReqId = task.getRequirementId();
-        applyRequest(task, request, task.getProject().getId());
-        task = taskRepository.save(task);
-        if (oldReqId != null && !oldReqId.equals(task.getRequirementId())) {
+        applyRequest(task, request, task.getProject().getId(), userId);
+        Task savedTask = taskRepository.save(task);
+        if (oldReqId != null && !oldReqId.equals(savedTask.getRequirementId())) {
             syncRequirementStatus(oldReqId);
         }
-        if (task.getRequirementId() != null) {
-            syncRequirementStatus(task.getRequirementId());
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
         }
-        return toResponse(task);
+        syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            checkAndCompleteParentTask(savedTask.getParent());
+        }
+        // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
+        return toResponse(savedTask);
     }
 
     @Override
     public TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId) {
         Task task = findTask(taskId);
-        ensureProjectMember(task.getProject().getId(), userId);
+        Long projectId = task.getProject().getId();
+        ensureProjectMember(projectId, userId);
+        TaskStatus nextStatus = null;
         if (request.getColumnId() != null) {
-            setColumn(task, request.getColumnId(), task.getProject().getId());
-        } else if (request.getStatus() != null) {
-            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            task.setStatus(nextStatus);
-            setColumnFromStatus(task, task.getProject().getId(), nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
-                }
-            } else {
-                task.setCompletedAt(null);
+            KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+            if (targetColumn.getStatusKey() != null) {
+                nextStatus = parseEnum(targetColumn.getStatusKey(), TaskStatus.class, task.getStatus());
             }
+        } else if (request.getStatus() != null) {
+            nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+        }
+
+        if (nextStatus != null) {
+            validateStatusTransition(task, nextStatus);
+            ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
+        }
+
+        if (request.getColumnId() != null) {
+            if (isTightlyBoundToIssue(task)) {
+                if (!isProjectLeader(projectId, userId)) {
+                    throw new BadRequestException("Chỉ có Project Leader mới được phép kéo thả task liên kết với GitHub issue trên Kanban board.");
+                }
+            }
+            setColumn(task, request.getColumnId(), projectId, userId);
+        } else if (request.getStatus() != null) {
+            changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
-        task = taskRepository.save(task);
-        if (task.getRequirementId() != null) {
-            syncRequirementStatus(task.getRequirementId());
+        Task savedTask = taskRepository.save(task);
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
         }
-        return toResponse(task);
+        syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            checkAndCompleteParentTask(savedTask.getParent());
+        }
+        // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+            try {
+                gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
+            }
+        }
+        return toResponse(savedTask);
     }
 
     @Override
@@ -151,8 +211,131 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
-        setAssignee(task, request.getAssigneeId(), projectId);
-        return toResponse(taskRepository.save(task));
+        setAssignee(task, request.getAssigneeId(), projectId, userId);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        return toResponse(savedTask);
+    }
+
+
+    @Override
+    public TaskResponse requestTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Member starts the Code Insight gate: task is moved to IN_REVIEW and no longer counts as completed.
+        Task task = findTask(taskId);
+        ensureProjectMember(task.getProject().getId(), userId);
+        if (task.getStatus() == TaskStatus.DONE) {
+            throw new BadRequestException("Done task cannot be requested for review");
+        }
+        if (task.getStatus() == TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Task is already in review");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.IN_REVIEW);
+        task.setCompletedAt(null);
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.IN_REVIEW);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        syncGitHubIssueStatus(savedTask, userId);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REQUEST_REVIEW, fromStatus, TaskStatus.IN_REVIEW,
+                request != null ? request.getReason() : null);
+        return toResponse(savedTask);
+    }
+
+    @Override
+    public TaskResponse approveTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Leader approval is the official path from IN_REVIEW to DONE.
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Only tasks in review can be approved");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.DONE);
+        if (task.getCompletedAt() == null) {
+            task.setCompletedAt(LocalDateTime.now());
+        }
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.DONE);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            checkAndCompleteParentTask(savedTask.getParent());
+        }
+        syncGitHubIssueStatus(savedTask, userId);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
+                request != null ? request.getReason() : null);
+        return toResponse(savedTask);
+    }
+
+    @Override
+    public TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        // Leader rejection returns the task to work, keeping the reason as review feedback.
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Only tasks in review can be rejected");
+        }
+
+        String reason = requiredText(request != null ? request.getReason() : null, "Reject reason is required");
+        TaskStatus targetStatus = parseEnum(request != null ? request.getTargetStatus() : null, TaskStatus.class, TaskStatus.IN_PROGRESS);
+        if (targetStatus != TaskStatus.IN_PROGRESS && targetStatus != TaskStatus.BLOCKED) {
+            throw new BadRequestException("Rejected task must return to IN_PROGRESS or BLOCKED");
+        }
+
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(targetStatus);
+        task.setCompletedAt(null);
+        if (targetStatus == TaskStatus.BLOCKED) {
+            task.setBlockedReason(reason);
+        }
+        setColumnFromStatus(task, task.getProject().getId(), targetStatus);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        syncGitHubIssueStatus(savedTask, userId);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
+        return toResponse(savedTask);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId) {
+        // Queue is built from live IN_REVIEW tasks, then decorated with the latest review decision if available.
+        ensureProjectMember(projectId, userId);
+        return taskRepository.findByProjectIdAndStatusOrderByUpdatedAtDesc(projectId, TaskStatus.IN_REVIEW).stream()
+                .map(task -> taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId())
+                        .map(this::toReviewDecisionResponse)
+                        .orElseGet(() -> toSyntheticReviewQueueItem(task)))
+                .collect(Collectors.toList());
+    }
+
+    private void syncWithBugReport(Task task, Long userId) {
+        if (task.getType() == TaskType.BUG_FIX) {
+            bugReportRepository.findByRelatedTaskId(task.getId()).ifPresent(bug -> {
+                // Synchronize Status
+                if (task.getStatus() == TaskStatus.DONE) {
+                    bug.setStatus(BugStatus.FIXED);
+                } else if (task.getStatus() == TaskStatus.IN_PROGRESS) {
+                    bug.setStatus(BugStatus.IN_PROGRESS);
+                } else if (task.getStatus() == TaskStatus.IN_REVIEW) {
+                    bug.setStatus(BugStatus.VERIFIED);
+                } else if (task.getStatus() == TaskStatus.TODO) {
+                    bug.setStatus(BugStatus.OPEN);
+                }
+
+                // Synchronize Assignee
+                bug.setAssignedTo(task.getPrimaryAssignee());
+
+                bugReportRepository.save(bug);
+
+                // Trigger outbound GitHub Issue status sync non-blocking
+                try {
+                    gitHubApiService.updateGitHubIssueStatus(bug, userId);
+                } catch (Exception e) {
+                    // Non-blocking log
+                }
+            });
+        }
     }
 
     @Override
@@ -190,8 +373,8 @@ public class TaskServiceImpl implements TaskService {
         // Gộp overdue + blocked (tránh trùng)
         List<Task> overdueAndBlocked = new ArrayList<>(overdue);
         blocked.stream()
-               .filter(b -> overdueAndBlocked.stream().noneMatch(o -> o.getId().equals(b.getId())))
-               .forEach(overdueAndBlocked::add);
+                .filter(b -> overdueAndBlocked.stream().noneMatch(o -> o.getId().equals(b.getId())))
+                .forEach(overdueAndBlocked::add);
 
         // Sort by priority (CRITICAL -> LOW)
         java.util.Comparator<Task> prioritySorter = java.util.Comparator.comparing(Task::getPriority, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()));
@@ -264,12 +447,12 @@ public class TaskServiceImpl implements TaskService {
         for (int i = 0; i < 7; i++) {
             tasksByDay.put(monday.plusDays(i).toString(), new ArrayList<>());
         }
-        
+
         LocalDate today = LocalDate.now();
         for (Task t : weekTasks) {
             LocalDate actualStart = t.getStartDate() != null ? t.getStartDate() : t.getDeadline();
             LocalDate actualEnd = t.getDeadline() != null ? t.getDeadline() : t.getStartDate();
-            
+
             if (actualStart != null && actualEnd != null) {
                 if (actualStart.isAfter(actualEnd)) {
                     LocalDate temp = actualStart;
@@ -278,18 +461,18 @@ public class TaskServiceImpl implements TaskService {
                 }
 
                 TaskCalendarItemResponse dto = toCalendarItem(t, today);
-                
+
                 LocalDate renderStart = actualStart.isBefore(monday) ? monday : actualStart;
                 LocalDate renderEnd = actualEnd.isAfter(sunday) ? sunday : actualEnd;
-                
+
                 int startIndex = (int) java.time.temporal.ChronoUnit.DAYS.between(monday, renderStart);
                 int endIndex = (int) java.time.temporal.ChronoUnit.DAYS.between(monday, renderEnd);
-                
+
                 dto.setSpanStartIndex(startIndex);
                 dto.setSpanLength(endIndex - startIndex + 1);
                 dto.setIsStartCut(actualStart.isBefore(monday));
                 dto.setIsEndCut(actualEnd.isAfter(sunday));
-                
+
                 spanTasks.add(dto);
             }
         }
@@ -580,7 +763,7 @@ public class TaskServiceImpl implements TaskService {
                 .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
     }
 
-    private void applyRequest(Task task, TaskRequest request, Long projectId) {
+    private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
         if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
         if (request.getRequirementId() == null) {
@@ -612,32 +795,93 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
+        TaskStatus nextStatus = null;
         if (request.getColumnId() != null) {
-            setColumn(task, request.getColumnId(), projectId);
-        } else if (request.getStatus() != null) {
-            TaskStatus nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
-            task.setStatus(nextStatus);
-            setColumnFromStatus(task, projectId, nextStatus);
-            if (nextStatus == TaskStatus.DONE) {
-                if (task.getCompletedAt() == null) {
-                    task.setCompletedAt(LocalDateTime.now());
-                }
-            } else {
-                task.setCompletedAt(null);
+            KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
+                    .orElseThrow(() -> new BadRequestException("Kanban column not found"));
+            if (targetColumn.getStatusKey() != null) {
+                nextStatus = parseEnum(targetColumn.getStatusKey(), TaskStatus.class, task.getStatus());
             }
+        } else if (request.getStatus() != null) {
+            nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
+        }
+
+        if (nextStatus != null) {
+            validateStatusTransition(task, nextStatus);
+            ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
+        }
+
+        if (request.getColumnId() != null) {
+            if (isTightlyBoundToIssue(task)) {
+                if (!isProjectLeader(projectId, userId)) {
+                    throw new BadRequestException("Chỉ có Project Leader mới được phép thay đổi cột của task liên kết với GitHub issue.");
+                }
+            }
+            setColumn(task, request.getColumnId(), projectId, userId);
+        } else if (request.getStatus() != null) {
+            changeTaskStatus(task, nextStatus, userId);
         }
         if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
-        if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId);
-        if (request.getChecklist() != null) replaceChecklist(task, request.getChecklist());
+        if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId, userId);
+        if (request.getChecklist() != null) {
+            boolean isLeader = isProjectLeader(projectId, userId);
+            Long assigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+            if (assigneeId == null && task.getParent() != null && task.getParent().getPrimaryAssignee() != null) {
+                assigneeId = task.getParent().getPrimaryAssignee().getId();
+            }
+            boolean isAssignee = assigneeId != null && userId.equals(assigneeId);
+            if (!isLeader && !isAssignee) {
+                throw new BadRequestException("Chỉ có Project Leader hoặc người được gán của task này mới được phép cập nhật checklist.");
+            }
+            replaceChecklist(task, request.getChecklist());
+        }
+        if (request.getParentId() != null) {
+            Task parentTask = taskRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new CustomException("Parent task not found", HttpStatus.NOT_FOUND));
+            task.setParent(parentTask);
+        }
     }
 
-    private void setColumn(Task task, Long columnId, Long projectId) {
+    private void validateStatusTransition(Task task, TaskStatus nextStatus) {
+        if (nextStatus == null || nextStatus == TaskStatus.TODO) return;
+
+        boolean hasSubTasks = task.getSubTasks() != null && !task.getSubTasks().isEmpty();
+
+        // ONLY block transition for unassigned task if it's moving FROM TODO
+        if (task.getStatus() == TaskStatus.TODO && task.getPrimaryAssignee() == null && !hasSubTasks) {
+            throw new BadRequestException("Task chưa được assign, không thể chuyển sang trạng thái này!");
+        }
+
+        // Enforce flow: IN_PROGRESS -> IN_REVIEW
+        if (task.getStatus() == TaskStatus.IN_PROGRESS && nextStatus == TaskStatus.DONE) {
+            throw new BadRequestException("Phải chuyển task sang trạng thái In Review để được phê duyệt trước khi chuyển sang Done.");
+        }
+
+        if (nextStatus == TaskStatus.IN_REVIEW || nextStatus == TaskStatus.DONE) {
+            if (hasSubTasks) {
+                boolean allSubTasksDone = task.getSubTasks().stream().allMatch(sub -> sub.getStatus() == TaskStatus.DONE);
+                if (!allSubTasksDone) {
+                    throw new BadRequestException("Không thể chuyển trạng thái do các task con chưa hoàn thành.");
+                }
+            }
+
+            if (task.getChecklist() != null && !task.getChecklist().isEmpty()) {
+                boolean allChecklistDone = task.getChecklist().stream().allMatch(org.example.backend.entity.TaskChecklist::isDone);
+                if (!allChecklistDone) {
+                    throw new BadRequestException("Không thể chuyển trạng thái do các yêu cầu (checklist) chưa hoàn thành.");
+                }
+            }
+        }
+    }
+
+    private void setColumn(Task task, Long columnId, Long projectId, Long userId) {
         KanbanColumn column = kanbanColumnRepository.findById(columnId)
                 .filter(item -> item.getProject() != null && projectId.equals(item.getProject().getId()) && !item.isArchived())
                 .orElseThrow(() -> new BadRequestException("Kanban column does not exist in this project"));
         task.setKanbanColumn(column);
         if (column.getStatusKey() != null) {
-            task.setStatus(parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus()));
+            TaskStatus nextStatus = parseEnum(column.getStatusKey(), TaskStatus.class, task.getStatus());
+            changeTaskStatus(task, nextStatus, userId);
         }
     }
 
@@ -648,32 +892,303 @@ public class TaskServiceImpl implements TaskService {
                 .ifPresent(task::setKanbanColumn);
     }
 
-    private void setAssignee(Task task, Long assigneeId, Long projectId) {
+    private void setAssignee(Task task, Long assigneeId, Long projectId, Long assignerId) {
+        if (!isProjectLeader(projectId, assignerId)) {
+            throw new BadRequestException("Chỉ có Project Leader mới có quyền gán hoặc gỡ người thực hiện task.");
+        }
+
+        UserAccount oldAssignee = task.getPrimaryAssignee();
+
         if (assigneeId == null) {
             task.setPrimaryAssignee(null);
             task.getAssignees().clear();
+            if (task.getStatus() != TaskStatus.TODO) {
+                task.setStatus(TaskStatus.TODO);
+                setColumnFromStatus(task, projectId, TaskStatus.TODO);
+            }
             return;
         }
 
         ensureProjectMember(projectId, assigneeId);
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, assigneeId)
+                .orElseThrow(() -> new CustomException("Thành viên không thuộc dự án này.", HttpStatus.FORBIDDEN));
+        if (member.getRole() != null && "MENTOR".equalsIgnoreCase(member.getRole().getName())) {
+            throw new BadRequestException("Không thể gán task cho Mentor.");
+        }
+
         UserAccount assignee = userAccountRepository.findById(assigneeId)
                 .orElseThrow(() -> new CustomException("Assignee not found", HttpStatus.NOT_FOUND));
         task.setPrimaryAssignee(assignee);
         task.getAssignees().clear();
         task.getAssignees().add(assignee);
+
+        if (task.getStatus() == TaskStatus.TODO) {
+            task.setStatus(TaskStatus.IN_PROGRESS);
+            setColumnFromStatus(task, projectId, TaskStatus.IN_PROGRESS);
+        }
+
+        // Gửi thông báo real-time khi gán task
+        if (assignerId != null && !assigneeId.equals(assignerId)) {
+            if (oldAssignee == null || !oldAssignee.getId().equals(assigneeId)) {
+                UserAccount assigner = userAccountRepository.findById(assignerId).orElse(null);
+                String assignerName = assigner != null
+                        ? (assigner.getProfile() != null && assigner.getProfile().getFullName() != null ? assigner.getProfile().getFullName() : assigner.getUsername())
+                        : "Một thành viên";
+                boolean isAssignerLeader = isProjectLeader(projectId, assignerId);
+                String title = "Bạn được giao task mới";
+                String msg = (isAssignerLeader ? "Project Leader " : "") + assignerName + " đã giao task \"" + task.getTitle() + "\" cho bạn.";
+                sendNotification(assignee, title, msg, task);
+            }
+        }
+    }
+
+    private void changeTaskStatus(Task task, TaskStatus nextStatus, Long userId) {
+        TaskStatus oldStatus = task.getStatus();
+        if (oldStatus == nextStatus) {
+            return;
+        }
+
+        if (nextStatus == TaskStatus.DONE) {
+            if (isTightlyBoundToIssue(task)) {
+                if (task.getPrimaryAssignee() != null && task.getPrimaryAssignee().getId().equals(userId)) {
+                    throw new BadRequestException("Bạn không thể tự phê duyệt task liên kết với GitHub issue của chính mình.");
+                }
+            }
+        }
+
+        task.setStatus(nextStatus);
+        setColumnFromStatus(task, task.getProject().getId(), nextStatus);
+
+        if (nextStatus == TaskStatus.DONE) {
+            if (task.getCompletedAt() == null) {
+                task.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            task.setCompletedAt(null);
+        }
+
+        // Gửi thông báo real-time & DB
+        if (nextStatus == TaskStatus.IN_REVIEW) {
+            UserAccount requester = userAccountRepository.findById(userId).orElse(null);
+            String requesterName = requester != null
+                    ? (requester.getProfile() != null && requester.getProfile().getFullName() != null ? requester.getProfile().getFullName() : requester.getUsername())
+                    : "Một thành viên";
+
+            List<ProjectMember> leaders = new ArrayList<>();
+            leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER"));
+            leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "PROJECT_LEADER"));
+
+            List<UserAccount> leaderUsers = leaders.stream()
+                    .map(ProjectMember::getUser)
+                    .distinct()
+                    .toList();
+
+            String title = "Yêu cầu review task";
+            String msg = requesterName + " đã yêu cầu review task: " + task.getTitle();
+            for (UserAccount leaderUser : leaderUsers) {
+                sendNotification(leaderUser, title, msg, task);
+            }
+        } else if (nextStatus == TaskStatus.DONE && oldStatus == TaskStatus.IN_REVIEW) {
+            if (task.getPrimaryAssignee() != null) {
+                String title = "Task được phê duyệt";
+                String msg = "Task \"" + task.getTitle() + "\" đã được phê duyệt hoàn thành bởi Leader.";
+                sendNotification(task.getPrimaryAssignee(), title, msg, task);
+            }
+        } else if (nextStatus == TaskStatus.IN_PROGRESS && oldStatus == TaskStatus.IN_REVIEW) {
+            if (task.getPrimaryAssignee() != null) {
+                String title = "Review task thất bại";
+                String msg = "Task \"" + task.getTitle() + "\" đã bị từ chối phê duyệt. Vui lòng kiểm tra checklist để cập nhật thêm các yêu cầu về task.";
+                sendNotification(task.getPrimaryAssignee(), title, msg, task);
+            }
+        }
+    }
+
+    private void sendNotification(UserAccount recipient, String title, String message, Task task) {
+        if (recipient == null) return;
+
+        Notification notification = Notification.builder()
+                .recipient(recipient)
+                .project(task.getProject())
+                .entityType(org.example.backend.entity.NotificationEntityType.TASK)
+                .title(title)
+                .message(message)
+                .type(org.example.backend.entity.NotificationType.SYSTEM)
+                .relatedId(task.getId())
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Notification saved = notificationRepository.save(notification);
+
+        String jsonPayload = String.format(
+            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"TASK\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+            saved.getId(),
+            saved.getTitle().replace("\"", "\\\""),
+            saved.getMessage().replace("\"", "\\\""),
+            saved.getRelatedId(),
+            task.getProject().getId(),
+            saved.getCreatedAt().toString()
+        );
+
+        try {
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
+        }
     }
 
     private void replaceChecklist(Task task, List<TaskRequest.ChecklistItemRequest> items) {
-        task.getChecklist().clear();
+        if (items == null) return;
+
+        // Map existing checklist items by ID for quick lookup
+        Map<Long, TaskChecklist> existingMap = task.getChecklist().stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.toMap(TaskChecklist::getId, item -> item));
+
+        List<TaskChecklist> updatedList = new ArrayList<>();
+
         for (int i = 0; i < items.size(); i++) {
-            TaskRequest.ChecklistItemRequest item = items.get(i);
-            if (item.getContent() == null || item.getContent().trim().isEmpty()) continue;
-            task.getChecklist().add(TaskChecklist.builder()
-                    .task(task)
-                    .content(item.getContent().trim())
-                    .done(Boolean.TRUE.equals(item.getDone()))
-                    .orderIndex(item.getOrderIndex() != null ? item.getOrderIndex() : i)
-                    .build());
+            TaskRequest.ChecklistItemRequest itemRequest = items.get(i);
+            if (itemRequest.getContent() == null || itemRequest.getContent().trim().isEmpty()) {
+                continue;
+            }
+
+            String content = itemRequest.getContent().trim();
+            boolean done = Boolean.TRUE.equals(itemRequest.getDone());
+            int orderIndex = itemRequest.getOrderIndex() != null ? itemRequest.getOrderIndex() : i;
+
+            if (itemRequest.getId() != null && existingMap.containsKey(itemRequest.getId())) {
+                // Reuse existing managed entity to preserve ID and prevent stale state deletions
+                TaskChecklist existingItem = existingMap.get(itemRequest.getId());
+                existingItem.setContent(content);
+                existingItem.setDone(done);
+                existingItem.setOrderIndex(orderIndex);
+                updatedList.add(existingItem);
+            } else {
+                // Build a new entity for new items
+                updatedList.add(TaskChecklist.builder()
+                        .task(task)
+                        .content(content)
+                        .done(done)
+                        .orderIndex(orderIndex)
+                        .build());
+            }
+        }
+
+        // Apply clean list mutations preserving orphanRemoval cascade binding
+        task.getChecklist().clear();
+        task.getChecklist().addAll(updatedList);
+    }
+
+
+    private void ensureProjectLeader(Long projectId, Long userId) {
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+        String roleName = member.getRole() != null ? member.getRole().getName() : "";
+        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName)) {
+            throw new CustomException("Only project leader can approve or reject task reviews", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private void ensureRegularStatusUpdateAllowed(Task task, TaskStatus nextStatus, Long userId) {
+        // Only DONE is protected; all other status moves continue through the normal Task Board flow.
+        if (nextStatus != TaskStatus.DONE) {
+            return;
+        }
+        if (!isReviewGateEnabled(task.getProject().getId())) {
+            return;
+        }
+        if (!isProjectLeader(task.getProject().getId(), userId)) {
+            throw new BadRequestException("Task must be reviewed by project leader before Done");
+        }
+        if (task.getStatus() != TaskStatus.IN_REVIEW) {
+            throw new BadRequestException("Move task to In Review before approving it as Done");
+        }
+        throw new BadRequestException("Use the review approval action to mark this task as Done");
+    }
+
+    private boolean isReviewGateEnabled(Long projectId) {
+        // Missing config defaults to enabled so new projects are safe by default.
+        return codeInsightSettingsRepository.findByProjectId(projectId)
+                .map(ProjectCodeInsightSettings::isReviewGateEnabled)
+                .orElse(true);
+    }
+
+    private void syncGitHubIssueStatus(Task task, Long userId) {
+        // Code Insight decisions still keep Issue Tracker/GitHub state in sync without blocking the review flow.
+        if (task.getType() != TaskType.BUG_FIX || task.getParent() != null) {
+            try {
+                gitHubApiService.updateGitHubIssueStatusForTask(task, userId);
+            } catch (Exception e) {
+                log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", task.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private void recordReviewDecision(
+            Task task,
+            Long reviewerId,
+            TaskReviewDecisionType decision,
+            TaskStatus fromStatus,
+            TaskStatus toStatus,
+            String reason) {
+        UserAccount reviewer = userAccountRepository.findById(reviewerId)
+                .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
+        taskReviewDecisionRepository.save(TaskReviewDecision.builder()
+                .task(task)
+                .reviewer(reviewer)
+                .decision(decision)
+                .fromStatus(fromStatus.name())
+                .toStatus(toStatus.name())
+                .reason(trimToNull(reason))
+                .build());
+    }
+
+    private boolean isProjectLeader(Long projectId, Long userId) {
+        if (projectId == null || userId == null) return false;
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(m -> m.getRole() != null &&
+                        m.getRole().getName() != null &&
+                        m.getRole().getName().toLowerCase().contains("leader"))
+                .orElse(false);
+    }
+
+    private boolean isTightlyBoundToIssue(Task task) {
+        if (task == null) return false;
+        if (task.getGithubIssueNumber() != null) return true;
+        if (task.getType() == TaskType.BUG_FIX) return true;
+        return bugReportRepository.findByRelatedTaskId(task.getId()).isPresent();
+    }
+
+    private void checkAndCompleteParentTask(Task parent) {
+        if (parent == null) return;
+        List<Task> children = taskRepository.findByParentId(parent.getId());
+        if (children.isEmpty()) return;
+
+        boolean allDone = children.stream()
+                .allMatch(child -> child.getStatus() == TaskStatus.DONE);
+
+        if (allDone) {
+            parent.setStatus(TaskStatus.DONE);
+            if (parent.getCompletedAt() == null) {
+                parent.setCompletedAt(LocalDateTime.now());
+            }
+            setColumnFromStatus(parent, parent.getProject().getId(), TaskStatus.DONE);
+            Task savedParent = taskRepository.save(parent);
+
+            // Sync parent task GitHub issue state (non-blocking)
+            if (savedParent.getType() != TaskType.BUG_FIX || savedParent.getParent() != null) {
+                try {
+                    gitHubApiService.updateGitHubIssueStatusForTask(savedParent, savedParent.getCreatedBy().getId());
+                } catch (Exception e) {
+                    log.warn("Non-blocking GitHub status sync failed for Parent Task ID: {}: {}", savedParent.getId(), e.getMessage());
+                }
+            }
+
+            // Recursive completion for higher parents
+            if (savedParent.getParent() != null) {
+                checkAndCompleteParentTask(savedParent.getParent());
+            }
         }
     }
 
@@ -687,6 +1202,11 @@ public class TaskServiceImpl implements TaskService {
         if (value == null || value.trim().isEmpty()) {
             throw new BadRequestException(message);
         }
+        return value.trim();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
         return value.trim();
     }
 
@@ -737,6 +1257,53 @@ public class TaskServiceImpl implements TaskService {
                         .sorted(Comparator.comparingInt(TaskChecklist::getOrderIndex))
                         .map(this::toChecklistResponse)
                         .collect(Collectors.toList()))
+                .parentId(task.getParent() != null ? task.getParent().getId() : null)
+                .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
+                .githubIssueUrl(task.getGithubIssueUrl())
+                .build();
+    }
+
+
+    private TaskReviewDecisionResponse toReviewDecisionResponse(TaskReviewDecision decision) {
+        return TaskReviewDecisionResponse.builder()
+                .id(decision.getId())
+                .decision(decision.getDecision() != null ? decision.getDecision().name() : null)
+                .fromStatus(decision.getFromStatus())
+                .toStatus(decision.getToStatus())
+                .reason(decision.getReason())
+                .createdAt(decision.getCreatedAt())
+                .task(toTaskSummary(decision.getTask()))
+                .reviewer(toReviewUserSummary(decision.getReviewer()))
+                .build();
+    }
+
+    private TaskReviewDecisionResponse toSyntheticReviewQueueItem(Task task) {
+        return TaskReviewDecisionResponse.builder()
+                .decision("REQUEST_REVIEW")
+                .fromStatus(task.getStatus() != null ? task.getStatus().name() : "IN_REVIEW")
+                .toStatus("IN_REVIEW")
+                .task(toTaskSummary(task))
+                .build();
+    }
+
+    private TaskReviewDecisionResponse.TaskSummary toTaskSummary(Task task) {
+        return TaskReviewDecisionResponse.TaskSummary.builder()
+                .id(task.getId())
+                .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                .title(task.getTitle())
+                .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .requirementCode(resolveRequirementCode(task.getRequirementId()))
+                .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
+                .build();
+    }
+
+    private TaskReviewDecisionResponse.UserSummary toReviewUserSummary(UserAccount user) {
+        if (user == null) return null;
+        return TaskReviewDecisionResponse.UserSummary.builder()
+                .id(user.getId())
+                .name(displayName(user))
+                .email(user.getEmail())
                 .build();
     }
 
@@ -766,6 +1333,12 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+    private String displayName(UserAccount user) {
+        return user.getProfile() != null && user.getProfile().getFullName() != null
+                ? user.getProfile().getFullName()
+                : user.getUsername();
+    }
+
     private TaskResponse.ChecklistItem toChecklistResponse(TaskChecklist item) {
         return TaskResponse.ChecklistItem.builder()
                 .id(item.getId())
@@ -775,6 +1348,7 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+<<<<<<< HEAD
     private void syncRequirementStatus(Long requirementId) {
         if (requirementId == null) return;
         Requirement req = requirementRepository.findById(requirementId).orElse(null);
@@ -808,3 +1382,54 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 }
+=======
+    @Override
+    @Transactional
+    public void autoApproveTasksExceedingReviewPeriod() {
+        log.info("Starting background auto-approval check for IN_REVIEW tasks of Project Leaders exceeding 3 days...");
+        List<Task> reviewTasks = taskRepository.findByStatus(TaskStatus.IN_REVIEW);
+        LocalDateTime threshold = LocalDateTime.now().minusDays(3);
+        int approvedCount = 0;
+
+        for (Task task : reviewTasks) {
+            // Only auto-approve if the assignee is a Project Leader
+            if (task.getPrimaryAssignee() == null) continue;
+            boolean isAssigneeLeader = isProjectLeader(task.getProject().getId(), task.getPrimaryAssignee().getId());
+            if (!isAssigneeLeader) continue;
+
+            LocalDateTime timestamp = task.getUpdatedAt() != null ? task.getUpdatedAt() : task.getCreatedAt();
+            if (timestamp != null && timestamp.isBefore(threshold)) {
+                log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}",
+                        task.getId(), task.getTitle(), timestamp);
+                try {
+                    changeTaskStatus(task, TaskStatus.DONE, null);
+                    taskRepository.save(task);
+
+                    Long systemUserId = task.getCreatedBy() != null ? task.getCreatedBy().getId() : null;
+                    syncWithBugReport(task, systemUserId);
+
+                    // Recursive parent completion if this task is a sub-task
+                    if (task.getParent() != null) {
+                        checkAndCompleteParentTask(task.getParent());
+                    }
+
+                    // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
+                    if (task.getType() != TaskType.BUG_FIX || task.getParent() != null) {
+                        try {
+                            gitHubApiService.updateGitHubIssueStatusForTask(task, systemUserId);
+                        } catch (Exception e) {
+                            log.warn("Non-blocking GitHub status sync failed in auto-approval for Task ID: {}: {}", task.getId(), e.getMessage());
+                        }
+                    }
+                    approvedCount++;
+                } catch (Exception e) {
+                    log.error("Failed to auto-approve Task ID: {}", task.getId(), e);
+                }
+            }
+        }
+        if (approvedCount > 0) {
+            log.info("Completed background auto-approval. Total tasks approved: {}", approvedCount);
+        }
+    }
+}
+>>>>>>> 94cff7a4d4f62dec1c2c0f70d011b57693ec6db4

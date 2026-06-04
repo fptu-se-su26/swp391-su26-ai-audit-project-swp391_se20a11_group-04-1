@@ -259,9 +259,8 @@ public class ProjectServiceImpl implements ProjectService {
         project = projectRepository.save(project);
         log.info("📁 Saved new Project entity with ID: {}", project.getId());
 
-        // 5. Tìm vai trò PROJECT_LEADER
-        ProjectRole leaderRole = projectRoleRepository.findByName("PROJECT_LEADER")
-                .orElseThrow(() -> new ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại trong hệ thống."));
+        // 5. Tìm vai trò PROJECT_LEADER (hỗ trợ cả 'LEADER' và 'PROJECT_LEADER')
+        ProjectRole leaderRole = findLeaderRole();
 
         // 6. Gán người tạo làm Leader của dự án
         ProjectMember leaderMember = ProjectMember.builder()
@@ -536,7 +535,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Bạn không thuộc dự án này."));
 
         // Chỉ cho phép PROJECT_LEADER xoá
-        if (!"PROJECT_LEADER".equalsIgnoreCase(callingMember.getRole().getName())) {
+        if (!isLeaderRole(callingMember.getRole().getName())) {
             throw new CustomException("Chỉ Trưởng dự án mới có quyền xóa thành viên.", HttpStatus.FORBIDDEN);
         }
 
@@ -546,7 +545,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         // Không xóa ai đang là PROJECT_LEADER
-        if ("PROJECT_LEADER".equalsIgnoreCase(targetMember.getRole().getName())) {
+        if (isLeaderRole(targetMember.getRole().getName())) {
             throw new BadRequestException("Không thể xóa người đang giữ vai trò Trưởng dự án.");
         }
 
@@ -569,7 +568,7 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentLeaderUserId)
                 .orElseThrow(() -> new CustomException("Bạn không phải là thành viên của dự án này.", HttpStatus.FORBIDDEN));
 
-        if (!"PROJECT_LEADER".equalsIgnoreCase(currentMember.getRole().getName())) {
+        if (!isLeaderRole(currentMember.getRole().getName())) {
             throw new CustomException("Bạn không có quyền thay đổi Leader của dự án này.", HttpStatus.FORBIDDEN);
         }
 
@@ -584,8 +583,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         // 3. Tìm 2 vai trò tương ứng từ DB
-        ProjectRole leaderRole = projectRoleRepository.findByName("PROJECT_LEADER")
-                .orElseThrow(() -> new ResourceNotFoundException("Vai trò PROJECT_LEADER không tồn tại."));
+        ProjectRole leaderRole = findLeaderRole();
         ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
                 .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại."));
 
@@ -613,7 +611,7 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectMember callerMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
                 .orElseThrow(() -> new CustomException("Bạn không phải là thành viên của dự án này.", HttpStatus.FORBIDDEN));
 
-        if (!"PROJECT_LEADER".equalsIgnoreCase(callerMember.getRole().getName())) {
+        if (!isLeaderRole(callerMember.getRole().getName())) {
             throw new CustomException("Chỉ Trưởng dự án mới có quyền phân quyền thành viên.", HttpStatus.FORBIDDEN);
         }
 
@@ -631,6 +629,29 @@ public class ProjectServiceImpl implements ProjectService {
 
         log.info("✨ Successfully changed member ID: {} in project ID: {} to role: {}",
                 memberUserId, projectId, newRoleName);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PRIVATE HELPERS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * Returns true if the role name represents a project leader.
+     * Accepts both 'LEADER' (value stored in DB seed) and 'PROJECT_LEADER' (used in code constants)
+     * so the system works correctly without requiring a DB migration.
+     */
+    private boolean isLeaderRole(String roleName) {
+        return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
+    }
+
+    /**
+     * Finds the leader ProjectRole entity by trying 'PROJECT_LEADER' first,
+     * then falling back to 'LEADER' (the value in the DB seed migration).
+     */
+    private ProjectRole findLeaderRole() {
+        return projectRoleRepository.findByName("PROJECT_LEADER")
+                .or(() -> projectRoleRepository.findByName("LEADER"))
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò Leader không tồn tại trong hệ thống."));
     }
 
     private String buildCacheKey(Long userId, int page, int size, String status, String search, String sortBy) {
@@ -670,7 +691,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
-                if ("PROJECT_LEADER".equalsIgnoreCase(member.getRole().getName())) {
+                if (isLeaderRole(member.getRole().getName())) {
                     hasLeader = true;
                 }
                 if (creatorId != null && member.getUser().getId().equals(creatorId)) {
@@ -694,7 +715,7 @@ public class ProjectServiceImpl implements ProjectService {
                 }
 
                 if (member.getUser().getId().equals(userId)) {
-                    if ("PROJECT_LEADER".equalsIgnoreCase(roleName)) {
+                    if (isLeaderRole(roleName)) {
                         localRole = "Project Leader";
                     } else if ("MENTOR".equalsIgnoreCase(roleName)) {
                         localRole = "Mentor";
