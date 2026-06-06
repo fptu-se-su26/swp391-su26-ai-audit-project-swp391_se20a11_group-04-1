@@ -1,9 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
+import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
 const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChange, onToggleChecklist }) => {
   const { projectId } = useParams()
   const tasks = useKanbanStore((state) => state.tasks)
+  const activeProject = useProjectStore((state) => state.activeProject)
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role)
   const taskDetailPath = task && projectId ? `/projects/${projectId}/tasks/${task.id}` : '#'
 
   const subtasks = task ? tasks.filter(t => t.parentId === String(task.id)) : []
@@ -74,7 +77,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                       }`}
                     >
                       <span className="material-symbols-outlined text-[16px]">rate_review</span>
-                      <span>Yêu cầu review</span>
+                      <span>{isLeader ? 'Yêu cầu peer review' : 'Yêu cầu review'}</span>
                     </button>
                     {!isReviewActionEnabled && (
                       <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[10px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50 animate-fade-in">

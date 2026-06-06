@@ -33,6 +33,7 @@ const TaskDetailPage = () => {
   const taskBoardPath = projectId ? `/projects/${projectId}/task-board` : '/dashboard'
   const codeInsightPath = projectId ? `/projects/${projectId}/code-insight` : '/dashboard'
   const canDecideReview = isLeaderRole(activeProject?.role)
+  const isLeader = isLeaderRole(activeProject?.role)
 
   useEffect(() => {
     if (!task) {
@@ -137,6 +138,16 @@ const TaskDetailPage = () => {
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">{task.title}</h1>
             </div>
             <div className="flex gap-2">
+              {task.type !== 'BUG_FIX' && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/projects/${projectId}/features/${task.id}/discuss`)}
+                  className="h-[36px] px-4 flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0284c7] text-white rounded transition-colors text-body-md font-body-md shadow-sm cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">forum</span>
+                  Thảo luận
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsEditOpen(true)}
@@ -191,7 +202,7 @@ const TaskDetailPage = () => {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="material-symbols-outlined text-[18px]">rate_review</span>
-                    Request Review
+                    {isLeader ? 'Request Peer Review' : 'Request Review'}
                   </button>
                   {!isReviewActionEnabled && (
                     <span className="text-xs text-on-surface-variant">

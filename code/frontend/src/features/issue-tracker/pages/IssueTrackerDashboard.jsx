@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
@@ -18,6 +18,174 @@ export function IssueTrackerDashboard() {
   const [approvingId, setApprovingId] = useState(null)
   const [assigningTaskId, setAssigningTaskId] = useState(null)
   const [activeListTab, setActiveListTab] = useState('open')
+
+  // Toggle states for stats and filters (inline, corresponding to image 2 buttons)
+  const [showStats, setShowStats] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [assistiveOpen, setAssistiveOpen] = useState(false)
+
+  // Dragging states & helpers for AssistiveTouch floating bubble
+  const [position, setPosition] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startX: 0, startY: 0, posX: 0, posY: 0, hasMoved: false })
+
+  const getPositionStyle = (isPanel = false) => {
+    if (!position) return {}
+    if (isPanel) {
+      const buttonWidth = 56
+      const buttonHeight = 56
+      const panelWidth = 256
+      const panelHeight = 256
+      
+      let panelX = position.x + buttonWidth / 2 - panelWidth / 2
+      let panelY = position.y + buttonHeight / 2 - panelHeight / 2
+      
+      const margin = 10
+      panelX = Math.max(margin, Math.min(panelX, window.innerWidth - panelWidth - margin))
+      panelY = Math.max(margin, Math.min(panelY, window.innerHeight - panelHeight - margin))
+      
+      return {
+        left: `${panelX}px`,
+        top: `${panelY}px`,
+      }
+    }
+    return {
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+    }
+  }
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return
+    const element = e.currentTarget
+    const rect = element.getBoundingClientRect()
+    
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX: rect.left,
+      posY: rect.top,
+      hasMoved: false
+    }
+    
+    setIsDragging(true)
+    
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - dragRef.current.startX
+      const deltaY = moveEvent.clientY - dragRef.current.startY
+      
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        dragRef.current.hasMoved = true
+      }
+      
+      let newX = dragRef.current.posX + deltaX
+      let newY = dragRef.current.posY + deltaY
+      
+      const margin = 10
+      const maxW = window.innerWidth - rect.width - margin
+      const maxH = window.innerHeight - rect.height - margin
+      
+      newX = Math.max(margin, Math.min(newX, maxW))
+      newY = Math.max(margin, Math.min(newY, maxH))
+      
+      setPosition({ x: newX, y: newY })
+    }
+    
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+    
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0]
+    const element = e.currentTarget
+    const rect = element.getBoundingClientRect()
+    
+    dragRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      posX: rect.left,
+      posY: rect.top,
+      hasMoved: false
+    }
+    
+    setIsDragging(true)
+    
+    const handleTouchMove = (moveEvent) => {
+      const moveTouch = moveEvent.touches[0]
+      const deltaX = moveTouch.clientX - dragRef.current.startX
+      const deltaY = moveTouch.clientY - dragRef.current.startY
+      
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        dragRef.current.hasMoved = true
+      }
+      
+      let newX = dragRef.current.posX + deltaX
+      let newY = dragRef.current.posY + deltaY
+      
+      const margin = 10
+      const maxW = window.innerWidth - rect.width - margin
+      const maxH = window.innerHeight - rect.height - margin
+      
+      newX = Math.max(margin, Math.min(newX, maxW))
+      newY = Math.max(margin, Math.min(newY, maxH))
+      
+      setPosition({ x: newX, y: newY })
+    }
+    
+    const handleTouchEnd = () => {
+      setIsDragging(false)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+    
+    document.addEventListener('touchmove', handleTouchMove)
+    document.addEventListener('touchend', handleTouchEnd)
+  }
+
+  // Quick Feature Proposal state and handler
+  const [quickProposalText, setQuickProposalText] = useState('')
+  const [quickProposalLoading, setQuickProposalLoading] = useState(false)
+
+  const handleQuickProposalSubmit = async (e) => {
+    e.preventDefault()
+    if (!quickProposalText.trim()) return
+
+    setQuickProposalLoading(true)
+    try {
+      const payload = {
+        title: quickProposalText.trim(),
+        description: 'Đề xuất tính năng nhanh được tạo từ Dashboard.',
+        type: 'DEVELOPMENT',
+        priority: 'MEDIUM',
+        deadline: null,
+        parentId: null,
+        primaryAssigneeId: null
+      }
+      await taskService.createTask(projectId, payload)
+      toast.success('Đã gửi đề xuất tính năng mới thành công!')
+      setQuickProposalText('')
+      await loadBugs()
+    } catch (err) {
+      console.error(err)
+      toast.error('Gửi đề xuất thất bại!')
+    } finally {
+      setQuickProposalLoading(false)
+    }
+  }
+
+  // Discussion Feature States
+  const [discussSearchQuery, setDiscussSearchQuery] = useState('')
+  const [activeDiscussTaskId, setActiveDiscussTaskId] = useState(null)
+  const [activeProposals, setActiveProposals] = useState([])
+  const [newProposalText, setNewProposalText] = useState('')
+  const [proposalCommentsInputs, setProposalCommentsInputs] = useState({})
+  const [expandedProposalComments, setExpandedProposalComments] = useState({})
 
   // Filter States
   const [filters, setFilters] = useState({
@@ -395,6 +563,330 @@ export function IssueTrackerDashboard() {
     }
   }
 
+  const formatSafeDate = (dateString) => {
+    if (!dateString) return 'Vừa xong'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Vừa xong'
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatSafeTime = (dateString) => {
+    if (!dateString) return 'Vừa xong'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Vừa xong'
+    return date.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const discussBugs = useMemo(() => {
+    return bugs.filter(b => !b.isBug)
+  }, [bugs])
+
+  const discussBugsStats = useMemo(() => {
+    const statsMap = {}
+    discussBugs.forEach(b => {
+      const storedProposals = localStorage.getItem(`proposed-checklist-task-${b.id}`)
+      if (storedProposals) {
+        try {
+          const props = JSON.parse(storedProposals).filter(Boolean)
+          let totalVotes = 0
+          let totalDownvotes = 0
+          let totalComments = 0
+          let approvedCount = 0
+          
+          props.forEach(p => {
+            totalVotes += p.votes?.length || 0
+            totalDownvotes += p.downvotes?.length || 0
+            totalComments += p.comments?.length || 0
+            if (p.status === 'APPROVED') {
+              approvedCount++
+            }
+          })
+          
+          const isAllApproved = props.length > 0 && approvedCount === props.length
+          
+          statsMap[b.id] = {
+            totalVotes,
+            totalDownvotes,
+            totalComments,
+            isAllApproved,
+            hasDiscussion: props.length > 0,
+            proposals: props
+          }
+        } catch (e) {
+          statsMap[b.id] = {
+            totalVotes: 0,
+            totalDownvotes: 0,
+            totalComments: 0,
+            isAllApproved: false,
+            hasDiscussion: false,
+            proposals: []
+          }
+        }
+      } else {
+        statsMap[b.id] = {
+          totalVotes: 0,
+          totalDownvotes: 0,
+          totalComments: 0,
+          isAllApproved: false,
+          hasDiscussion: false,
+          proposals: []
+        }
+      }
+    })
+    return statsMap
+  }, [discussBugs])
+
+  const filteredDiscussBugs = useMemo(() => {
+    return discussBugs.filter(b => {
+      if (!discussSearchQuery.trim()) return true
+      const query = discussSearchQuery.toLowerCase()
+      const titleMatches = (b.displayTitle || b.title || '').toLowerCase().includes(query)
+      const descMatches = (b.description || '').toLowerCase().includes(query)
+      return titleMatches || descMatches
+    })
+  }, [discussBugs, discussSearchQuery])
+
+  // Sync active task proposals
+  useEffect(() => {
+    if (activeDiscussTaskId) {
+      const stored = localStorage.getItem(`proposed-checklist-task-${activeDiscussTaskId}`)
+      if (stored) {
+        try {
+          setActiveProposals(JSON.parse(stored).filter(Boolean))
+        } catch (e) {
+          setActiveProposals([])
+        }
+      } else {
+        // Seed default proposals for collaborative workspace
+        const defaultProposals = [
+          {
+            id: 'prop-1',
+            text: 'Thiết kế giao diện UI với tone màu Ocean Blue và hiệu ứng Glassmorphism tinh tế',
+            proposedBy: 'Designer Phương',
+            createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+            status: 'PENDING',
+            votes: [],
+            downvotes: [],
+            comments: []
+          },
+          {
+            id: 'prop-2',
+            text: 'Tối ưu hóa các truy vấn database của backend để tốc độ phản hồi API dưới 200ms',
+            proposedBy: 'Dev Minh',
+            createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+            status: 'PENDING',
+            votes: [],
+            downvotes: [],
+            comments: []
+          }
+        ]
+        setActiveProposals(defaultProposals)
+        localStorage.setItem(`proposed-checklist-task-${activeDiscussTaskId}`, JSON.stringify(defaultProposals))
+      }
+    } else {
+      setActiveProposals([])
+    }
+  }, [activeDiscussTaskId])
+
+  const saveActiveProposals = (updated) => {
+    setActiveProposals(updated)
+    localStorage.setItem(`proposed-checklist-task-${activeDiscussTaskId}`, JSON.stringify(updated))
+  }
+
+  const handleAddProposal = (e) => {
+    e.preventDefault()
+    if (!newProposalText.trim() || !activeDiscussTaskId) return
+
+    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
+    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
+
+    const newProp = {
+      id: 'prop-' + Date.now(),
+      text: newProposalText.trim(),
+      proposedBy: userName,
+      createdAt: new Date().toISOString(),
+      status: 'PENDING',
+      votes: [],
+      downvotes: [],
+      comments: []
+    }
+
+    const updated = [...activeProposals, newProp]
+    saveActiveProposals(updated)
+    setNewProposalText('')
+    toast.success('Đã gửi đề xuất checklist mới!')
+  }
+
+  const handleVoteProposal = (propId) => {
+    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
+    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
+
+    const updated = activeProposals.map((prop) => {
+      if (prop.id === propId) {
+        const hasVoted = prop.votes?.includes(userName) || false
+        const newVotes = hasVoted
+          ? prop.votes.filter((v) => v !== userName)
+          : [...(prop.votes || []), userName]
+        const newDownvotes = (prop.downvotes || []).filter((v) => v !== userName)
+        return { ...prop, votes: newVotes, downvotes: newDownvotes }
+      }
+      return prop
+    })
+    saveActiveProposals(updated)
+  }
+
+  const handleDownvoteProposal = (propId) => {
+    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
+    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
+
+    const updated = activeProposals.map((prop) => {
+      if (prop.id === propId) {
+        const hasDownvoted = prop.downvotes?.includes(userName) || false
+        const newDownvotes = hasDownvoted
+          ? prop.downvotes.filter((v) => v !== userName)
+          : [...(prop.downvotes || []), userName]
+        const newVotes = (prop.votes || []).filter((v) => v !== userName)
+        return { ...prop, votes: newVotes, downvotes: newDownvotes }
+      }
+      return prop
+    })
+    saveActiveProposals(updated)
+  }
+
+  const handleAddProposalComment = (e, propId) => {
+    e.preventDefault()
+    const text = proposalCommentsInputs[propId] || ''
+    if (!text.trim()) return
+
+    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
+    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
+
+    const updated = activeProposals.map((prop) => {
+      if (prop.id === propId) {
+        const newCommentObj = {
+          id: Date.now(),
+          author: userName,
+          content: text.trim(),
+          createdAt: new Date().toISOString()
+        }
+        return { ...prop, comments: [...(prop.comments || []), newCommentObj] }
+      }
+      return prop
+    })
+
+    saveActiveProposals(updated)
+    setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
+    toast.success('Đã gửi ý kiến góp ý!')
+  }
+
+  const handleApproveProposal = async (prop) => {
+    const currentDiscussTask = discussBugs.find(b => b.id === activeDiscussTaskId)
+    if (!currentDiscussTask) return
+
+    const currentChecklist = currentDiscussTask.checklist || []
+    const alreadyExists = currentChecklist.some((item) => item.content === prop.text)
+    let updatedChecklist = [...currentChecklist]
+
+    if (!alreadyExists) {
+      updatedChecklist.push({
+        id: 'temp-' + Date.now(),
+        content: prop.text,
+        done: false
+      })
+    }
+
+    const updatedProposals = activeProposals.map((p) =>
+      p.id === prop.id ? { ...p, status: 'APPROVED' } : p
+    )
+
+    try {
+      const payload = {
+        title: currentDiscussTask.title,
+        description: currentDiscussTask.description,
+        type: currentDiscussTask.type,
+        priority: currentDiscussTask.priority,
+        status: currentDiscussTask.status,
+        primaryAssigneeId: currentDiscussTask.primaryAssignee?.id || currentDiscussTask.primaryAssigneeId || null,
+        sprintId: currentDiscussTask.sprintId || null,
+        checklist: updatedChecklist
+      }
+      await axiosInstance.put(`/v1/tasks/${currentDiscussTask.id}`, payload)
+      saveActiveProposals(updatedProposals)
+      toast.success('Đã duyệt và ban hành mục checklist này!')
+      loadBugs(true)
+    } catch (err) {
+      console.error(err)
+      toast.error('Duyệt đề xuất thất bại!')
+    }
+  }
+
+  const handleRejectProposal = (propId) => {
+    const updatedProposals = activeProposals.map((p) =>
+      p.id === propId ? { ...p, status: 'REJECTED' } : p
+    )
+    saveActiveProposals(updatedProposals)
+    toast.success('Đã từ chối đề xuất này!')
+  }
+
+  const handleBulkApprove = async (e, bug) => {
+    e.stopPropagation()
+    if (!isLeader) {
+      toast.error('Chỉ Project Leader mới có quyền phê duyệt đề xuất!')
+      return
+    }
+
+    const storedProposals = localStorage.getItem(`proposed-checklist-task-${bug.id}`)
+    let props = []
+    if (storedProposals) {
+      try {
+        props = JSON.parse(storedProposals).filter(Boolean)
+      } catch (err) {
+        props = []
+      }
+    }
+
+    if (props.length === 0) {
+      toast.error('Chưa có đề xuất checklist nào để phê duyệt!')
+      return
+    }
+
+    const updatedProps = props.map(p => ({ ...p, status: 'APPROVED' }))
+    const officialChecklist = updatedProps.map(p => ({
+      id: p.id.startsWith('prop-') ? 'temp-' + p.id.split('-')[1] : p.id,
+      content: p.text,
+      done: false
+    }))
+
+    try {
+      const payload = {
+        title: bug.title,
+        description: bug.description,
+        type: bug.type,
+        priority: bug.priority,
+        status: bug.status,
+        primaryAssigneeId: bug.primaryAssignee?.id || null,
+        sprintId: bug.sprintId || null,
+        checklist: officialChecklist
+      }
+      await axiosInstance.put(`/v1/tasks/${bug.id}`, payload)
+      localStorage.setItem(`proposed-checklist-task-${bug.id}`, JSON.stringify(updatedProps))
+      toast.success('Đã phê duyệt tất cả các đề xuất checklist cho feature này!')
+      loadBugs(true)
+    } catch (err) {
+      console.error(err)
+      toast.error('Phê duyệt hàng loạt thất bại!')
+    }
+  }
+
   const isMentor = activeProject?.role === 'Mentor'
   
   const reviewBugs = useMemo(() => {
@@ -425,10 +917,23 @@ export function IssueTrackerDashboard() {
     return [...parentTasksInReview, ...subtasksInReview];
   }, [filteredBugs]);
 
-  const openBugs = filteredBugs.filter(b => b.displayStatus !== 'CLOSED' && b.displayStatus !== 'FIXED' && b.displayStatus !== 'DONE' && b.displayStatus !== 'IN_REVIEW');
+  const openBugs = useMemo(() => {
+    return filteredBugs.filter(b => {
+      const isClosed = b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE' || b.displayStatus === 'IN_REVIEW';
+      if (isClosed) return false;
+      
+      // Feature tasks must be approved to show in Open list
+      if (!b.isBug) {
+        const stats = discussBugsStats[b.id]
+        return stats?.isAllApproved === true
+      }
+      return true;
+    })
+  }, [filteredBugs, discussBugsStats])
+
   const closedBugs = filteredBugs.filter(b => b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE');
   
-  const displayList = activeListTab === 'open' ? openBugs : activeListTab === 'review' ? reviewBugs : closedBugs;
+  const displayList = activeListTab === 'open' ? openBugs : activeListTab === 'review' ? reviewBugs : activeListTab === 'closed' ? closedBugs : [];
 
   const handleRequestReview = async (e, taskEntity) => {
     e.stopPropagation()
@@ -636,106 +1141,130 @@ export function IssueTrackerDashboard() {
               Log code errors, manage quality workflows, and synchronize directly with active GitHub repository issues.
             </p>
           </div>
+        </section>
 
-          <div className="flex gap-2 self-stretch sm:self-auto">
-            {isLeader && (
-              <button
-                onClick={() => navigate(`/projects/${projectId}/github-config`)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2 px-4 border border-outline-variant hover:bg-surface-container-high text-on-surface text-sm font-bold rounded-xl transition-all shadow-sm"
-              >
-                <span className="material-symbols-outlined text-sm font-bold">settings_ethernet</span>
-                <span>GitHub Config</span>
-              </button>
-            )}
+
+        {/* Quick Feature Proposal Bar */}
+        <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 shadow-sm hover:border-sky-500/50 transition-all">
+          <form onSubmit={handleQuickProposalSubmit} className="flex gap-3 items-center">
+            <span className="material-symbols-outlined text-sky-500 text-2xl font-bold select-none">lightbulb</span>
+            <input
+              type="text"
+              value={quickProposalText}
+              onChange={(e) => setQuickProposalText(e.target.value)}
+              placeholder="Nhập đề xuất tính năng hoặc nhiệm vụ mới cho dự án..."
+              className="flex-1 text-sm bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
+              disabled={quickProposalLoading}
+              required
+            />
+            <button
+              type="submit"
+              disabled={quickProposalLoading || !quickProposalText.trim()}
+              className="py-2 px-5 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 disabled:from-slate-400 disabled:to-slate-300 text-white text-xs font-black rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-sm shadow-sky-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {quickProposalLoading ? (
+                <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-sm font-bold">send</span>
+              )}
+              <span>Đề xuất</span>
+            </button>
+          </form>
+        </section>
+
+        {/* Mini stats counters (conditional showStats) */}
+        {showStats && (
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-on-surface">{stats.total}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Total Bugs Logged</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-rose-600">{stats.open}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Active Fixing Issues</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-amber-600">{stats.drafts}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Draft Reports (Unapproved)</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-emerald-700">{stats.fixed}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Resolved Bugs (Closed)</p>
+            </div>
+          </section>
+        )}
+
+        {/* Toolbar Filters (conditional showFilters) */}
+        {showFilters && (
+          <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 animate-fade-in">
+            <div className="flex flex-col sm:flex-row gap-3.5 flex-1">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="OPEN">Active (Open/Todo)</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="CLOSED">Closed / Resolved</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Severity</label>
+                <select
+                  value={filters.severity}
+                  onChange={(e) => handleFilterChange('severity', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Severities</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Environment</label>
+                <select
+                  value={filters.environment}
+                  onChange={(e) => handleFilterChange('environment', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Environments</option>
+                  <option value="DEV">Development</option>
+                  <option value="STAGING">Staging</option>
+                  <option value="PRODUCTION">Production</option>
+                </select>
+              </div>
+            </div>
 
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2 px-5 bg-primary text-on-primary hover:bg-primary/95 text-sm font-bold rounded-xl transition-all shadow-md"
+              onClick={loadBugs}
+              className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-primary shrink-0 self-start md:self-auto"
             >
-              <span className="material-symbols-outlined text-sm font-bold">add</span>
-              <span>File New Issue</span>
+              <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              <span>Refresh list</span>
             </button>
-          </div>
-        </section>
-
-        {/* Mini stats counters */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-on-surface">{stats.total}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Total Bugs Logged</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-rose-600">{stats.open}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Active Fixing Issues</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-amber-600">{stats.drafts}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Draft Reports (Unapproved)</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-emerald-700">{stats.fixed}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Resolved Bugs (Closed)</p>
-          </div>
-        </section>
-
-        {/* Toolbar Filters */}
-        <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-          <div className="flex flex-col sm:flex-row gap-3.5 flex-1">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="OPEN">Active (Open/Todo)</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="CLOSED">Closed / Resolved</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Severity</label>
-              <select
-                value={filters.severity}
-                onChange={(e) => handleFilterChange('severity', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Severities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Environment</label>
-              <select
-                value={filters.environment}
-                onChange={(e) => handleFilterChange('environment', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Environments</option>
-                <option value="DEV">Development</option>
-                <option value="STAGING">Staging</option>
-                <option value="PRODUCTION">Production</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={loadBugs}
-            className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-primary shrink-0 self-start md:self-auto"
-          >
-            <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
-            <span>Refresh list</span>
-          </button>
-        </section>
+          </section>
+        )}
 
         {/* Tab Filters */}
         <section className="flex items-center gap-2 mt-2 mb-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveListTab('discuss')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'discuss'
+                ? 'bg-sky-500 text-white border-sky-500 shadow-md'
+                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+              }`}
+          >
+            <span className="material-symbols-outlined text-sm">forum</span>
+            <span>Thảo luận ({discussBugs?.length || 0})</span>
+          </button>
+
           <button
             onClick={() => setActiveListTab('open')}
             className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'open'
@@ -778,6 +1307,144 @@ export function IssueTrackerDashboard() {
             <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Scanning repository for logged issues...</p>
           </section>
+        ) : activeListTab === 'discuss' ? (
+          <div className="space-y-4">
+            {/* Search Input for Discussion */}
+            <div className="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 shadow-sm">
+              <span className="material-symbols-outlined text-on-surface-variant">search</span>
+              <input
+                type="text"
+                value={discussSearchQuery}
+                onChange={(e) => setDiscussSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm feature hoặc nhiệm vụ cần thảo luận..."
+                className="flex-1 text-sm bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
+              />
+              {discussSearchQuery && (
+                <button type="button" onClick={() => setDiscussSearchQuery('')} className="text-on-surface-variant hover:text-on-surface">
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              )}
+            </div>
+
+            {/* Discussion Feed list */}
+            {filteredDiscussBugs.length === 0 ? (
+              <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm">
+                <span className="material-symbols-outlined text-5xl text-on-surface-variant">forum</span>
+                <p className="mt-4 text-sm font-bold text-on-surface-variant">Không tìm thấy chủ đề thảo luận nào khớp với từ khóa.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {filteredDiscussBugs.map((bug) => {
+                  const stats = discussBugsStats[bug.id] || { totalVotes: 0, totalDownvotes: 0, totalComments: 0, isAllApproved: false }
+                  const assigneeName = bug.primaryAssignee?.fullName || bug.primaryAssignee?.username || 'Thành viên'
+                  const avatarLetter = (bug.displayTitle || bug.title || 'F').charAt(0).toUpperCase()
+                  const formattedDate = bug.createdAt 
+                    ? new Date(bug.createdAt).toLocaleString('vi-VN', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true 
+                      }) 
+                    : 'N/A'
+                  
+                  return (
+                    <div
+                      key={bug.id}
+                      onClick={() => setActiveDiscussTaskId(bug.id)}
+                      className="group bg-surface-container-lowest border border-outline-variant/60 hover:border-sky-500/50 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden w-full"
+                    >
+                      {/* Left accent line on hover */}
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-transparent group-hover:bg-sky-500 transition-colors"></div>
+                      
+                      {/* Header row */}
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm shadow-sky-500/20">
+                            {avatarLetter}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-sm text-on-surface">
+                                {assigneeName}
+                              </span>
+                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-semibold border border-slate-200">
+                                Đề xuất
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-on-surface-variant/80 mt-0.5 block font-semibold">
+                              {formattedDate}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div>
+                          {stats.isAllApproved ? (
+                            <span className="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-250 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[11px] font-bold">done</span>
+                              ĐÃ DUYỆT & BAN HÀNH
+                            </span>
+                          ) : (
+                            <span className="text-[9px] bg-amber-50 text-amber-600 border border-amber-250 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[11px] animate-pulse">pending</span>
+                              NHÁP / ĐANG THẢO LUẬN
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main Title & Description */}
+                      <div className="pl-1">
+                        <h3 className="text-sm font-extrabold text-on-surface group-hover:text-sky-500 transition-colors leading-snug">
+                          {bug.displayTitle || bug.title}
+                        </h3>
+                        {bug.description && (
+                          <p className="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                            {bug.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Thin Divider */}
+                      <div className="border-t border-outline-variant/30 w-full"></div>
+
+                      {/* Footer Toolbar */}
+                      <div className="flex items-center justify-between pl-1">
+                        <div className="flex items-center gap-4 text-xs font-bold text-on-surface-variant/80">
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-sky-500">thumb_up</span>
+                            Đồng ý ({stats.totalVotes})
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-rose-500">thumb_down</span>
+                            Không đồng ý ({stats.totalDownvotes})
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-slate-400">chat_bubble</span>
+                            Góp ý ({stats.totalComments})
+                          </span>
+                        </div>
+
+                        {isLeader && !stats.isAllApproved && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleBulkApprove(e, bug)}
+                            className="py-1 px-3 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 text-white text-[10px] font-black rounded-lg transition-all shadow-sm flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-xs">verified</span>
+                            <span>Phê duyệt</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         ) : displayList.length === 0 ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm space-y-4">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant">check_circle</span>
@@ -1691,6 +2358,458 @@ export function IssueTrackerDashboard() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Feature Discussion details (Facebook Post Style Overlay) */}
+        {activeDiscussTaskId && (() => {
+          const currentDiscussTask = discussBugs.find(b => b.id === activeDiscussTaskId)
+          if (!currentDiscussTask) return null
+          
+          const stats = discussBugsStats[currentDiscussTask.id] || { isAllApproved: false }
+          const assigneeName = currentDiscussTask.primaryAssignee?.fullName || currentDiscussTask.primaryAssignee?.username || 'Chưa phân công'
+          const authorAvatarLetter = (currentDiscussTask.displayTitle || currentDiscussTask.title || 'F').charAt(0).toUpperCase()
+          
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
+              onClick={() => setActiveDiscussTaskId(null)}
+            >
+              <div
+                className="bg-surface-container-lowest rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-outline-variant flex flex-col relative animate-scale-up font-sans"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setActiveDiscussTaskId(null)}
+                  className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors p-1 bg-surface-container-high rounded-full flex items-center justify-center shadow"
+                >
+                  <span className="material-symbols-outlined text-xl">close</span>
+                </button>
+
+                {/* Facebook Post Detail Header */}
+                <div className="p-6 pb-4 border-b border-outline-variant/40 flex items-start gap-3.5 pr-14">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-sm shrink-0 shadow shadow-sky-500/20">
+                    {authorAvatarLetter}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Tiêu đề Feature hiển thị đậm nét ở tên bài đăng */}
+                      <span className="text-sm font-black text-on-surface leading-tight">
+                        {currentDiscussTask.displayTitle || currentDiscussTask.title}
+                      </span>
+                      {/* Tên assignee hiển thị nhỏ bên cạnh */}
+                      <span className="text-[10px] bg-sky-50 text-sky-600 px-2 py-0.5 rounded-md font-bold flex items-center gap-0.5 border border-sky-100">
+                        <span className="material-symbols-outlined text-[11px]">person</span>
+                        Giao cho: {assigneeName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-on-surface-variant/80 font-semibold">
+                      <span>ID: #{currentDiscussTask.id}</span>
+                      <span>•</span>
+                      <span>{formatSafeDate(currentDiscussTask.createdAt)}</span>
+                      <span>•</span>
+                      {stats.isAllApproved ? (
+                        <span className="text-emerald-600 font-bold">Đã phê duyệt</span>
+                      ) : (
+                        <span className="text-amber-600 font-bold">Đang thảo luận</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Facebook Post Detail Body */}
+                <div className="p-6 py-4 space-y-4">
+                  {/* Chỉ hiển thị mô tả chi tiết của feature (không hiển thị h2 tiêu đề trùng lặp) */}
+                  <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-line font-medium pl-1 bg-surface-container-low/20 p-4 rounded-2xl border border-outline-variant/20">
+                    {currentDiscussTask.description || 'Không có mô tả chi tiết cho tính năng này.'}
+                  </p>
+
+                  {/* Reaction Toolbar */}
+                  <div className="flex items-center gap-4 text-xs font-bold text-on-surface-variant border-y border-outline-variant/30 py-3 mt-2 px-1">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-sky-500">thumb_up</span>
+                      {activeProposals.reduce((acc, p) => acc + (p.votes?.length || 0), 0)} Tán thành
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-rose-500">thumb_down</span>
+                      {activeProposals.reduce((acc, p) => acc + (p.downvotes?.length || 0), 0)} Không tán thành
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-slate-400">chat_bubble</span>
+                      {activeProposals.reduce((acc, p) => acc + (p.comments?.length || 0), 0)} Góp ý
+                    </span>
+                  </div>
+                </div>
+
+                {/* Facebook Comments style section */}
+                <div className="p-6 pt-2 pb-6 flex-1 overflow-y-auto space-y-6">
+                  <div className="space-y-4">
+                    <h4 className="text-[11px] font-black text-on-surface-variant uppercase tracking-wider pl-1">
+                      Đề xuất Checklist ({activeProposals.length})
+                    </h4>
+
+                    {activeProposals.length === 0 ? (
+                      <div className="text-center italic text-xs text-on-surface-variant/80 py-8 bg-surface-container-low/30 rounded-2xl border border-dashed border-outline-variant/60">
+                        Chưa có đề xuất checklist nào. Hãy để lại đề xuất đầu tiên của bạn bên dưới!
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {activeProposals.map((prop) => {
+                          const hasVoted = prop.votes?.includes(activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))?.fullName || '') || false
+                          const hasDownvoted = prop.downvotes?.includes(activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))?.fullName || '') || false
+                          const isPending = prop.status === 'PENDING'
+                          const isApproved = prop.status === 'APPROVED'
+                          const isRejected = prop.status === 'REJECTED'
+                          const isExpanded = !!expandedProposalComments[prop.id]
+                          
+                          return (
+                            <div
+                              key={prop.id}
+                              className={`rounded-2xl p-4.5 border transition-all shadow-sm flex flex-col gap-3.5 ${
+                                isApproved
+                                  ? 'border-emerald-300 bg-emerald-500/5'
+                                  : isRejected
+                                  ? 'border-outline-variant/40 bg-surface-container-low/20 opacity-60'
+                                  : 'border-outline-variant bg-surface-container-low/10 hover:border-sky-500/20'
+                              }`}
+                            >
+                              {/* Proposal Header */}
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-xs shrink-0">
+                                    {prop.proposedBy ? prop.proposedBy.charAt(0).toUpperCase() : 'U'}
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-black text-on-surface flex items-center gap-1.5">
+                                      <span>{prop.proposedBy}</span>
+                                      <span className="text-[8px] bg-sky-50 text-sky-600 px-1.5 py-0.25 rounded-md border border-sky-100 uppercase tracking-wider font-bold">
+                                        Đề xuất
+                                      </span>
+                                    </div>
+                                    <span className="text-[9px] text-on-surface-variant block mt-0.5 font-medium">
+                                      {formatSafeDate(prop.createdAt)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  {isPending && (
+                                    <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.75 bg-sky-50 text-sky-600 border border-sky-100 rounded-md uppercase tracking-wider">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
+                                      Thảo luận
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span className="inline-flex items-center gap-0.5 text-[8px] font-black px-2 py-0.75 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md uppercase tracking-wider">
+                                      <span className="material-symbols-outlined text-[10px] font-bold">done</span>
+                                      Đã chốt
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span className="inline-flex items-center gap-0.5 text-[8px] font-black px-2 py-0.75 bg-surface-container-high text-on-surface-variant border border-outline-variant/60 rounded-md uppercase tracking-wider">
+                                      <span className="material-symbols-outlined text-[10px] font-bold">close</span>
+                                      Từ chối
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Proposal text content */}
+                              <p className="text-xs font-bold text-on-surface leading-relaxed pl-1.5">
+                                {prop.text}
+                              </p>
+
+                              {/* Proposal actions & Reaction bar */}
+                              <div className="flex flex-wrap items-center justify-between gap-4 pt-2.5 border-t border-outline-variant/30 mt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                  {/* Vote action */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleVoteProposal(prop.id)}
+                                    disabled={!isPending}
+                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
+                                      hasVoted
+                                        ? 'bg-sky-500/10 border-sky-500/20 text-sky-600'
+                                        : isPending
+                                        ? 'bg-surface-container-low border-outline-variant/80 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                                        : 'border-transparent text-on-surface-variant/40'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-xs shrink-0" style={hasVoted ? { fontVariationSettings: "'FILL' 1" } : {}}>thumb_up</span>
+                                    <span>Tán thành ({prop.votes?.length || 0})</span>
+                                  </button>
+
+                                  {/* Downvote action */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownvoteProposal(prop.id)}
+                                    disabled={!isPending}
+                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
+                                      hasDownvoted
+                                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-600'
+                                        : isPending
+                                        ? 'bg-surface-container-low border-outline-variant/80 text-on-surface-variant hover:text-rose-600 hover:bg-rose-500/5 hover:border-rose-300'
+                                        : 'border-transparent text-on-surface-variant/40'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-xs shrink-0" style={hasDownvoted ? { fontVariationSettings: "'FILL' 1" } : {}}>thumb_down</span>
+                                    <span>Không tán thành ({prop.downvotes?.length || 0})</span>
+                                  </button>
+
+                                  {/* Comment / Reply action */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedProposalComments(prev => ({ ...prev, [prop.id]: !isExpanded }))}
+                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
+                                      isExpanded
+                                        ? 'bg-sky-500/10 border-sky-500/20 text-sky-600'
+                                        : 'bg-transparent border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-xs shrink-0">chat_bubble</span>
+                                    <span>Góp ý ({prop.comments?.length || 0})</span>
+                                  </button>
+                                </div>
+
+                                {isPending && (
+                                  <div className="flex items-center gap-1.5">
+                                    {isLeader ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApproveProposal(prop)}
+                                          className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-0.5 cursor-pointer"
+                                        >
+                                          <span className="material-symbols-outlined text-xs">done</span>
+                                          Duyệt & Chốt
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRejectProposal(prop.id)}
+                                          className="py-1 px-2.5 bg-surface-container-high hover:bg-rose-50 hover:text-rose-600 border border-outline-variant/80 hover:border-rose-200 text-on-surface-variant text-[10px] font-bold rounded-lg transition-all flex items-center gap-0.5 cursor-pointer"
+                                        >
+                                          <span className="material-symbols-outlined text-xs">close</span>
+                                          Từ chối
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-[9px] text-on-surface-variant/80 italic font-semibold">Chờ Leader duyệt</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Indented Replies Section */}
+                              {isExpanded && (
+                                <div className="mt-3.5 pl-3 border-l-2 border-outline-variant/60 space-y-3 pt-1">
+                                  {prop.comments && prop.comments.length > 0 && (
+                                    <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
+                                      {prop.comments.map((pc) => (
+                                        <div key={pc.id} className="flex gap-2 p-2 bg-surface-container-low rounded-xl border border-outline-variant/30">
+                                          <div className="w-5.5 h-5.5 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center font-black text-[9px] shrink-0">
+                                            {pc.author ? pc.author.charAt(0).toUpperCase() : 'U'}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex justify-between items-center">
+                                              <span className="text-[10px] font-bold text-on-surface">{pc.author}</span>
+                                              <span className="text-[8px] text-on-surface-variant/80 font-semibold">{formatSafeTime(pc.createdAt)}</span>
+                                            </div>
+                                            <p className="text-[11px] text-on-surface-variant mt-0.5 font-medium leading-relaxed">{pc.content}</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Quick Reply Form */}
+                                  <form
+                                    onSubmit={(e) => handleAddProposalComment(e, prop.id)}
+                                    className="flex gap-1.5 pt-2 border-t border-outline-variant/20"
+                                  >
+                                    <input
+                                      type="text"
+                                      value={proposalCommentsInputs[prop.id] || ''}
+                                      onChange={(e) =>
+                                        setProposalCommentsInputs((prev) => ({
+                                          ...prev,
+                                          [prop.id]: e.target.value
+                                        }))
+                                      }
+                                      placeholder="Viết góp ý hoặc phản hồi cho đề xuất..."
+                                      className="flex-1 px-3 py-1.5 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-sky-500 text-on-surface font-semibold"
+                                      required
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-[10px] font-black rounded-lg cursor-pointer transition-all"
+                                    >
+                                      Gửi
+                                    </button>
+                                  </form>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Add Proposal Sticky Input Form */}
+                <div className="p-6 pt-3 border-t border-outline-variant/40 bg-surface-container-lowest/95 sticky bottom-0 rounded-b-3xl">
+                  <form onSubmit={handleAddProposal} className="space-y-2.5">
+                    <h4 className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider pl-0.5">
+                      Thêm đề xuất checklist mới
+                    </h4>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newProposalText}
+                        onChange={(e) => setNewProposalText(e.target.value)}
+                        placeholder="Viết nội dung đề xuất cho checklist..."
+                        className="flex-1 px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:border-sky-500 text-on-surface font-semibold"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        className="py-2 px-4.5 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 text-white text-xs font-black rounded-xl flex items-center gap-1 cursor-pointer transition-all shrink-0 shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm font-bold">send</span>
+                        <span>Đề xuất</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* AssistiveTouch Backdrop to collapse menu when clicking outside */}
+      {assistiveOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => setAssistiveOpen(false)}
+        />
+      )}
+
+      {/* AssistiveTouch Floating Button / Widget */}
+      <div
+        style={position ? getPositionStyle(assistiveOpen) : {}}
+        className={`fixed z-50 flex items-center justify-center select-none ${!position ? 'bottom-8 right-8' : ''}`}
+      >
+        {!assistiveOpen ? (
+          /* Collapsed button - handles drag and click */
+          <button
+            type="button"
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onClick={(e) => {
+              if (dragRef.current.hasMoved) {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
+              setAssistiveOpen(true)
+            }}
+            className={`w-14 h-14 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/60 shadow-2xl rounded-2xl flex items-center justify-center transition-all duration-300 cursor-grab active:cursor-grabbing ${
+              isDragging ? 'scale-105 opacity-100 border-sky-500' : 'opacity-40 hover:opacity-100 hover:scale-105'
+            }`}
+            title="Mở menu nhanh (Kéo để di chuyển)"
+          >
+            <div className="w-9 h-9 rounded-full border border-slate-500/30 flex items-center justify-center">
+              <div className="w-5.5 h-5.5 rounded-full bg-slate-100 border border-slate-300 shadow-md"></div>
+            </div>
+          </button>
+        ) : (
+          /* Expanded menu panel */
+          <div
+            className="bg-[#181f2a]/95 backdrop-blur-lg border border-slate-700/50 shadow-2xl rounded-[32px] w-64 h-64 p-5 relative transition-all duration-300 scale-100 ease-out text-white"
+          >
+            {/* 2x2 grid container */}
+            <div className="grid grid-cols-2 grid-rows-2 h-full w-full">
+              {/* Top-Left: File Issue */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistiveOpen(false);
+                    setIsModalOpen(true);
+                  }}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
+                    <span className="material-symbols-outlined text-2xl font-bold">add</span>
+                  </div>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">File Issue</span>
+                </button>
+              </div>
+
+              {/* Top-Right: GitHub */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistiveOpen(false);
+                    if (isLeader) {
+                      navigate(`/projects/${projectId}/github-config`);
+                    } else {
+                      toast.error("Chỉ Leader mới có quyền cấu hình GitHub!");
+                    }
+                  }}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
+                    <span className="text-base font-black tracking-tighter select-none font-sans">&lt;···&gt;</span>
+                  </div>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">GitHub</span>
+                </button>
+              </div>
+
+              {/* Bottom-Left: Thống kê */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowStats(prev => !prev)}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showStats ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
+                    <span className="material-symbols-outlined text-2xl">bar_chart</span>
+                  </div>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Thống kê</span>
+                </button>
+              </div>
+
+              {/* Bottom-Right: Bộ lọc */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(prev => !prev)}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showFilters ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
+                    <span className="material-symbols-outlined text-2xl">filter_alt</span>
+                  </div>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Bộ lọc</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Center Home Button for collapsing */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-[#141a24] rounded-2xl border border-slate-800 shadow-md flex items-center justify-center pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setAssistiveOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-400 hover:bg-slate-300 border border-slate-500/50 cursor-pointer shadow-inner transition-colors flex items-center justify-center outline-none"
+                title="Đóng menu"
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-[#141a24]"></div>
+              </button>
             </div>
           </div>
         )}
