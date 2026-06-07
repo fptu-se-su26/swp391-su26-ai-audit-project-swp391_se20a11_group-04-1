@@ -77,6 +77,7 @@ export const mapTaskFromApi = (task) => ({
     done: item.done,
   })),
   parentId: task.parentId ? String(task.parentId) : null,
+  createdByName: task.createdByName || null,
 })
 
 const parseRequirementId = (value) => {

@@ -36,6 +36,7 @@ public class TaskResponse {
     private boolean overduePenaltyApplied;
     private LocalDateTime overduePenaltyAppliedAt;
     private Long createdById;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ChecklistItem> checklist;

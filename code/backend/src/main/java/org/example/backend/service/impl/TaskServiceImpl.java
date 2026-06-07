@@ -21,6 +21,10 @@ import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.TaskService;
 import org.example.backend.repository.NotificationRepository;
+import org.example.backend.repository.TaskCommentRepository;
+import org.example.backend.repository.TaskProposalRepository;
+import org.example.backend.entity.TaskComment;
+import org.example.backend.entity.TaskProposal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +60,8 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final TaskCommentRepository taskCommentRepository;
+    private final TaskProposalRepository taskProposalRepository;
 
     @Override
     @Transactional
@@ -63,6 +69,54 @@ public class TaskServiceImpl implements TaskService {
         ensureProjectMember(projectId, userId);
         kanbanColumnService.ensureDefaultColumns(projectId);
         return taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getHotTasks(Long projectId, Long userId, int limit) {
+        ensureProjectMember(projectId, userId);
+
+        List<Task> tasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId);
+        if (tasks.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> taskIds = tasks.stream().map(Task::getId).collect(Collectors.toList());
+        List<TaskComment> comments = taskCommentRepository.findByTaskIdIn(taskIds);
+        List<TaskProposal> proposals = taskProposalRepository.findByTaskIdIn(taskIds);
+
+        Map<Long, List<TaskComment>> commentsByTaskId = comments.stream()
+                .collect(Collectors.groupingBy(TaskComment::getTaskId));
+
+        Map<Long, List<TaskProposal>> proposalsByTaskId = proposals.stream()
+                .collect(Collectors.groupingBy(TaskProposal::getTaskId));
+
+        Map<Task, Integer> scores = new LinkedHashMap<>();
+        for (Task task : tasks) {
+            int score = 0;
+
+            List<TaskComment> taskComments = commentsByTaskId.getOrDefault(task.getId(), Collections.emptyList());
+            for (TaskComment c : taskComments) {
+                score += 3;
+                score += (c.getVotes() != null ? c.getVotes().size() : 0) * 1;
+            }
+
+            List<TaskProposal> taskProposals = proposalsByTaskId.getOrDefault(task.getId(), Collections.emptyList());
+            for (TaskProposal p : taskProposals) {
+                score += 5;
+                score += (p.getVotes() != null ? p.getVotes().size() : 0) * 2;
+                score += (p.getComments() != null ? p.getComments().size() : 0) * 4;
+            }
+
+            scores.put(task, score);
+        }
+
+        return scores.entrySet().stream()
+                .sorted((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()))
+                .limit(limit)
+                .map(Map.Entry::getKey)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -1233,6 +1287,11 @@ public class TaskServiceImpl implements TaskService {
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
+                .createdByName(task.getCreatedBy() != null ? 
+                        (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
+                                ? task.getCreatedBy().getProfile().getFullName() 
+                                : task.getCreatedBy().getUsername()) 
+                        : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .checklist(task.getChecklist().stream()
