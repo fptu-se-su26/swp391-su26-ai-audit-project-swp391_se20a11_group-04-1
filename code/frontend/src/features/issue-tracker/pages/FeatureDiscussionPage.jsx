@@ -413,9 +413,19 @@ export default function FeatureDiscussionPage() {
                       {formatSafeDate(task.createdAt || task.startDate)}
                     </span>
                     <span>·</span>
-                    <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                    <span className={`flex items-center gap-1 font-bold border px-2.5 py-0.5 rounded-full ${
+                      isSynced
+                        ? 'text-indigo-600 bg-indigo-50 border-indigo-100'
+                        : task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW'
+                          ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                          : 'text-amber-600 bg-amber-50 border-amber-100'
+                    }`}>
                       <CheckCircle2 size={11} />
-                      {task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW' ? 'Đã phê duyệt' : 'Chờ phê duyệt'}
+                      {isSynced
+                        ? 'Đã phê duyệt & Đồng bộ'
+                        : (task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW')
+                          ? 'Đã phê duyệt'
+                          : 'Chờ phê duyệt'}
                     </span>
                   </div>
                 </div>

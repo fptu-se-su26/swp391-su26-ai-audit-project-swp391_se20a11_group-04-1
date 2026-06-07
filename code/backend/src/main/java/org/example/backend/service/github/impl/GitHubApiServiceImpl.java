@@ -168,6 +168,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             }
         }
 
+        body.append("\n\n<!-- devtrack-task-id: ").append(task.getId()).append(" -->\n");
         return body.toString();
     }
 
@@ -417,6 +418,48 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                         .orElse(null);
 
                 if ("opened".equalsIgnoreCase(action)) {
+                    // Check if it is a sync issue from our system via HTML comment tags
+                    Long syncBugId = null;
+                    Long syncTaskId = null;
+                    if (bodyText != null) {
+                        java.util.regex.Matcher bugMatcher = java.util.regex.Pattern.compile("<!-- devtrack-bug-id: (\\d+) -->").matcher(bodyText);
+                        if (bugMatcher.find()) {
+                            syncBugId = Long.parseLong(bugMatcher.group(1));
+                        }
+                        java.util.regex.Matcher taskMatcher = java.util.regex.Pattern.compile("<!-- devtrack-task-id: (\\d+) -->").matcher(bodyText);
+                        if (taskMatcher.find()) {
+                            syncTaskId = Long.parseLong(taskMatcher.group(1));
+                        }
+                    }
+
+                    if (syncBugId != null) {
+                        log.info("Webhook issues.opened recognized synced Bug Report ID: {} for Issue #{}", syncBugId, issueNumber);
+                        Optional<BugReport> optBug = bugReportRepository.findById(syncBugId);
+                        if (optBug.isPresent()) {
+                            BugReport b = optBug.get();
+                            saveGitHubMetadata(b, issueNumber, issueUrl);
+                            if (b.getRelatedTask() != null) {
+                                Task t = b.getRelatedTask();
+                                t.setGithubIssueNumber(issueNumber);
+                                t.setGithubIssueUrl(issueUrl);
+                                taskRepository.save(t);
+                            }
+                            return;
+                        }
+                    }
+
+                    if (syncTaskId != null) {
+                        log.info("Webhook issues.opened recognized synced Task ID: {} for Issue #{}", syncTaskId, issueNumber);
+                        Optional<Task> optTask = taskRepository.findById(syncTaskId);
+                        if (optTask.isPresent()) {
+                            Task t = optTask.get();
+                            t.setGithubIssueNumber(issueNumber);
+                            t.setGithubIssueUrl(issueUrl);
+                            taskRepository.save(t);
+                            return;
+                        }
+                    }
+
                     if (bug != null || existingTask != null) {
                         log.info("Issue #{} already exists as Bug Report or Task, ignoring webhook duplicate creation.", issueNumber);
                         return; // Ignore duplicates
@@ -662,6 +705,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             sb.append("\n");
         }
 
+        sb.append("\n<!-- devtrack-bug-id: ").append(bug.getId()).append(" -->\n");
         sb.append("> *Sync generated automatically by DevTrack AI module.*");
         return sb.toString();
     }

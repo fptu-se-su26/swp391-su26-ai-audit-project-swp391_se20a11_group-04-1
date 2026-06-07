@@ -9,6 +9,17 @@ import axiosInstance from '@/api/axiosConfig'
 import proposalService from '../services/proposalService'
 import FeatureDiscussionModal from '../components/FeatureDiscussionModal'
 
+// Parse GitHub issue number from metadata if present
+const getGitHubIssueNumber = (stepsToReproduce) => {
+  if (!stepsToReproduce) return null
+  try {
+    const meta = JSON.parse(stepsToReproduce)
+    return meta.github_issue_number || null
+  } catch {
+    return null
+  }
+}
+
 export function IssueTrackerDashboard() {
   const { projectId } = useParams()
   const navigate = useNavigate()
@@ -628,7 +639,48 @@ export function IssueTrackerDashboard() {
   }
 
   const discussBugs = useMemo(() => {
-    return bugs.filter(b => !b.isBug)
+    const featureTasks = bugs.filter(b => !b.isBug);
+    const approvedBugs = bugs.filter(b => b.isBug && b.relatedTaskId != null).map(b => ({
+      ...b,
+      id: b.relatedTaskId, // Use task ID for discussion stats and action
+      bugReportId: b.id,
+      displayTitle: `[BUG] ${b.title}`,
+      displayType: 'Bug Fix Task',
+    }));
+    const combined = [...featureTasks, ...approvedBugs];
+
+    // Sort order:
+    // 1. CRITICAL severity/priority absolute top
+    // 2. Unapproved (DRAFT status) first, Approved (non-DRAFT status) last
+    // 3. Bug Fix Tasks first, Feature / Tasks last
+    // 4. Newest first (createdAt descending)
+    combined.sort((a, b) => {
+      const aCritical = a.severity === 'CRITICAL' || a.priority === 'CRITICAL' || a.displaySeverity === 'CRITICAL';
+      const bCritical = b.severity === 'CRITICAL' || b.priority === 'CRITICAL' || b.displaySeverity === 'CRITICAL';
+      if (aCritical !== bCritical) {
+        return aCritical ? -1 : 1;
+      }
+
+      const aHasGitHub = a.isBug ? (getGitHubIssueNumber(a.stepsToReproduce) != null) : (a.githubIssueNumber != null);
+      const aApproved = aHasGitHub || (a.status !== 'DRAFT' && a.displayStatus !== 'DRAFT');
+      const bHasGitHub = b.isBug ? (getGitHubIssueNumber(b.stepsToReproduce) != null) : (b.githubIssueNumber != null);
+      const bApproved = bHasGitHub || (b.status !== 'DRAFT' && b.displayStatus !== 'DRAFT');
+      if (aApproved !== bApproved) {
+        return aApproved ? 1 : -1;
+      }
+
+      const aIsBug = a.isBug || a.displayType === 'Bug Fix Task' || a.type === 'BUG_FIX';
+      const bIsBug = b.isBug || b.displayType === 'Bug Fix Task' || b.type === 'BUG_FIX';
+      if (aIsBug !== bIsBug) {
+        return aIsBug ? -1 : 1;
+      }
+
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return combined;
   }, [bugs])
 
   // Real-time stats state for the discussion cards
@@ -809,46 +861,13 @@ export function IssueTrackerDashboard() {
       return
     }
 
-    const storedProposals = localStorage.getItem(`proposed-checklist-task-${bug.id}`)
-    let props = []
-    if (storedProposals) {
-      try {
-        props = JSON.parse(storedProposals).filter(Boolean)
-      } catch (err) {
-        props = []
-      }
-    }
-
-    if (props.length === 0) {
-      toast.error('Chưa có đề xuất checklist nào để phê duyệt!')
-      return
-    }
-
-    const updatedProps = props.map(p => ({ ...p, status: 'APPROVED' }))
-    const officialChecklist = updatedProps.map(p => ({
-      id: p.id.startsWith('prop-') ? 'temp-' + p.id.split('-')[1] : p.id,
-      content: p.text,
-      done: false
-    }))
-
+    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
     try {
-      const payload = {
-        title: bug.title,
-        description: bug.description,
-        type: bug.type,
-        priority: bug.priority,
-        status: bug.status,
-        primaryAssigneeId: bug.primaryAssignee?.id || null,
-        sprintId: bug.sprintId || null,
-        checklist: officialChecklist
-      }
-      await axiosInstance.put(`/v1/tasks/${bug.id}`, payload)
-      localStorage.setItem(`proposed-checklist-task-${bug.id}`, JSON.stringify(updatedProps))
-      toast.success('Đã phê duyệt tất cả các đề xuất checklist cho feature này!')
+      await proposalService.approveAndSyncTask(bug.id)
+      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
       loadBugs(true)
     } catch (err) {
-      console.error(err)
-      toast.error('Phê duyệt hàng loạt thất bại!')
+      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
     }
   }
 
@@ -884,10 +903,14 @@ export function IssueTrackerDashboard() {
 
   const openBugs = useMemo(() => {
     return filteredBugs.filter(b => {
-      // Exclude closed/done/review/DRAFT items from the active open list
+      // Exclude closed/done/review items from the active open list
       const isClosed = b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE' || b.displayStatus === 'IN_REVIEW';
-      const isDraft = b.isBug && b.displayStatus === 'DRAFT'; // DRAFT bugs wait in pending queue
-      if (isClosed || isDraft) return false;
+      if (isClosed) return false;
+
+      // Bug reports in DRAFT status belong in Discussion, not Open list
+      if (b.isBug && b.displayStatus === 'DRAFT') {
+        return false;
+      }
 
       // Feature tasks must have a GitHub Issue number (meaning they are approved & synced) to show in Open list
       if (!b.isBug) {
@@ -1072,16 +1095,7 @@ export function IssueTrackerDashboard() {
     )
   }
 
-  // Parse GitHub issue number from metadata if present
-  const getGitHubIssueNumber = (stepsToReproduce) => {
-    if (!stepsToReproduce) return null
-    try {
-      const meta = JSON.parse(stepsToReproduce)
-      return meta.github_issue_number || null
-    } catch {
-      return null
-    }
-  }
+
 
   return (
     <main className="flex-1 p-4 md:p-6 overflow-y-auto relative bg-background select-none">
@@ -1316,6 +1330,11 @@ export function IssueTrackerDashboard() {
                   const avatarLetter = (bug.displayTitle || bug.title || 'F').charAt(0).toUpperCase()
                   const formattedDate = formatSafeDateDiscuss(bug.createdAt)
                   
+                  const hasGitHubNumber = bug.isBug 
+                    ? (getGitHubIssueNumber(bug.stepsToReproduce) != null) 
+                    : (bug.githubIssueNumber != null);
+                  const isDiscussApproved = hasGitHubNumber || stats.isAllApproved || (bug.status !== 'DRAFT' && bug.displayStatus !== 'DRAFT');
+
                   return (
                     <div
                       key={bug.id}
@@ -1333,9 +1352,15 @@ export function IssueTrackerDashboard() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-extrabold text-sm text-slate-900 truncate">{bug.displayTitle || bug.title}</span>
-                            <span className="text-[10px] font-black tracking-wider uppercase bg-[#0ea5e9]/10 text-[#0284c7] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full shrink-0">
-                              ĐỀ XUẤT
-                            </span>
+                            {bug.isBug || bug.displayType === 'Bug Fix Task' || bug.type === 'BUG_FIX' ? (
+                              <span className="text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-full shrink-0">
+                                BUG REPORT
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black tracking-wider uppercase bg-[#0ea5e9]/10 text-[#0284c7] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full shrink-0">
+                                ĐỀ XUẤT
+                              </span>
+                            )}
                             {assigneeName && (
                               <span className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
                                 <span className="material-symbols-outlined text-[11px]">person</span>
@@ -1348,7 +1373,7 @@ export function IssueTrackerDashboard() {
                             <span className="text-slate-300">•</span>
                             <span className="text-[10px] text-slate-400 font-semibold">{formattedDate}</span>
                             <span className="text-slate-300">•</span>
-                            {stats.isAllApproved ? (
+                            {isDiscussApproved ? (
                               <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                                 <span className="material-symbols-outlined text-[10px]">check_circle</span>
                                 Đã phê duyệt
@@ -1387,7 +1412,7 @@ export function IssueTrackerDashboard() {
                           </span>
                         </div>
 
-                        {isLeader && !stats.isAllApproved && (
+                        {isLeader && !isDiscussApproved && (
                           <button
                             type="button"
                             onClick={(e) => handleBulkApprove(e, bug)}
@@ -1585,6 +1610,21 @@ export function IssueTrackerDashboard() {
                           </span>
                         );
                       })()}
+
+                      {taskEntity && (
+                        <div onClick={e => e.stopPropagation()} className="flex items-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveDiscussTaskId(taskEntity.id);
+                            }}
+                            className="py-1 px-2.5 rounded-lg text-[10px] font-bold bg-sky-500/10 text-sky-600 border border-sky-500/20 hover:bg-sky-500/20 transition-all shadow-sm flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">chat_bubble</span>
+                            Thảo luận
+                          </button>
+                        </div>
+                      )}
 
                       {taskEntity && taskEntity.status !== 'IN_REVIEW' && taskEntity.status !== 'DONE' && taskEntity.status !== 'FIXED' && taskEntity.status !== 'CLOSED' && (
                         <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
@@ -2123,7 +2163,6 @@ export function IssueTrackerDashboard() {
                 <div className="space-y-3 py-1 animate-fade-in">
                   {[
                     { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
-                    { type: 'BUG_FIX', title: 'Fix Bug Task', desc: 'Tạo task để xử lý và sửa một bug cụ thể', icon: 'build_circle' },
                     { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
                     { type: 'REFACTOR', title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi', icon: 'build' },
                   ].map((tpl) => (
@@ -2292,6 +2331,7 @@ export function IssueTrackerDashboard() {
           <FeatureDiscussionModal
             taskId={activeDiscussTaskId}
             projectId={projectId}
+            discussBug={discussBugs.find(b => b.id === activeDiscussTaskId)}
             onClose={() => {
               setActiveDiscussTaskId(null)
               fetchDiscussStats()

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, Crown, Plus, Trash2, ListChecks } from 'lucide-react'
 
 const parseChecklist = (content) => {
@@ -50,6 +50,19 @@ export function ProposalTab({
   const safeProposals = Array.isArray(proposals) ? proposals : []
   const safeCommentsInputs = proposalCommentsInputs || {}
   const safeExpandedComments = expandedProposalComments || {}
+
+  const sortedProposals = useMemo(() => {
+    return [...safeProposals].sort((a, b) => {
+      const aChot = a.status === 'APPROVED' || a.status === 'REJECTED';
+      const bChot = b.status === 'APPROVED' || b.status === 'REJECTED';
+      if (aChot !== bChot) {
+        return aChot ? 1 : -1;
+      }
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [safeProposals])
 
   const [proposalDesc, setProposalDesc] = useState('')
   const [inputTexts, setInputTexts] = useState({})
@@ -162,7 +175,7 @@ export function ProposalTab({
           </div>
         )}
 
-        {safeProposals.map((p) => {
+        {sortedProposals.map((p) => {
           const hasVoted = p.myVote === 'UP'
           const hasDownvoted = p.myVote === 'DOWN'
           const isPending = p.status === 'PENDING'
@@ -230,7 +243,7 @@ export function ProposalTab({
                         </span>
                       )}
                       {isPending && (
-                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 font-bold text-[11px]">
+                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-600 font-bold text-[11px]">
                           <CheckCircle2 size={12} /> Chờ phê duyệt
                         </span>
                       )}

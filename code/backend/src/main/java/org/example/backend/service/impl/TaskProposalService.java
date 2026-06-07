@@ -3,6 +3,7 @@ package org.example.backend.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.TaskProposalResponse;
 import org.example.backend.entity.*;
+import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class TaskProposalService {
     private final ProjectMemberRepository projectMemberRepository;
     private final GitHubApiService gitHubApiService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final BugReportRepository bugReportRepo;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskProposalService.class);
 
@@ -285,15 +287,37 @@ public class TaskProposalService {
                     org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
-        // 2. Sync parent task to GitHub (if not already synced)
-        if (task.getGithubIssueNumber() == null) {
-            try {
-                gitHubApiService.createGitHubIssueForTask(task, currentUserId);
-            } catch (Exception e) {
-                log.error("Failed to create GitHub Issue for parent task ID: {}", task.getId(), e);
-                throw new org.example.backend.exception.CustomException(
-                        "Đồng bộ Task cha lên GitHub thất bại: " + e.getMessage(),
-                        org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+        // 2. Sync to GitHub & update status
+        if ("BUG_FIX".equals(task.getType())) {
+            // BUG_FIX Task is associated with a BugReport. Promote BugReport from DRAFT -> OPEN.
+            BugReport bug = bugReportRepo.findByRelatedTaskId(taskId).orElse(null);
+            if (bug != null) {
+                if (bug.getStatus() == BugStatus.DRAFT) {
+                    bug.setStatus(BugStatus.OPEN);
+                    bugReportRepo.save(bug);
+                }
+                
+                // Sync the BugReport to GitHub (saves issue number to bug's stepsToReproduce JSON metadata)
+                try {
+                    gitHubApiService.createGitHubIssue(bug, currentUserId);
+                } catch (Exception e) {
+                    log.error("Failed to sync approved Bug Report to GitHub ID: {}", bug.getId(), e);
+                    throw new org.example.backend.exception.CustomException(
+                            "Đồng bộ Bug Report lên GitHub thất bại: " + e.getMessage(),
+                            org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+        } else {
+            // Regular Feature / Task
+            if (task.getGithubIssueNumber() == null) {
+                try {
+                    gitHubApiService.createGitHubIssueForTask(task, currentUserId);
+                } catch (Exception e) {
+                    log.error("Failed to create GitHub Issue for parent task ID: {}", task.getId(), e);
+                    throw new org.example.backend.exception.CustomException(
+                            "Đồng bộ Task cha lên GitHub thất bại: " + e.getMessage(),
+                            org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+                }
             }
         }
 
