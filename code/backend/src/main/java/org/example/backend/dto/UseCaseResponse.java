@@ -25,4 +25,5 @@ public class UseCaseResponse {
     private Long createdById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean isOutdated;
 }

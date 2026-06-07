@@ -9,7 +9,7 @@ import RequirementDetailAIActions from '../components/RequirementDetailAIActions
 import { requirementApi } from '../services/requirementApi';
 
 const RequirementDetailPage = () => {
-  const { id } = useParams();
+  const { projectId, id } = useParams();
 
   const [requirement, setRequirement] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,21 @@ const RequirementDetailPage = () => {
       setLoading(true);
       const numericId = id.replace('REQ-', '');
       const data = await requirementApi.getRequirementById(numericId);
+      
+      try {
+        const { useCaseService } = await import('../services/useCaseService');
+        if (projectId) {
+          const ucs = await useCaseService.getAllUseCases(projectId);
+          const reqUcs = ucs.filter(uc => uc.requirementId === data.id);
+          data.useCases = reqUcs;
+        } else {
+          data.useCases = [];
+        }
+      } catch (e) {
+        console.error("Lỗi lấy Use Cases", e);
+        data.useCases = [];
+      }
+      
       setRequirement(data);
     } catch (error) {
       console.error("Lỗi khi tải Requirement:", error);

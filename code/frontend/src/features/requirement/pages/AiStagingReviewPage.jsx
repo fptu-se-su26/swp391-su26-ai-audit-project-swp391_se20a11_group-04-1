@@ -56,8 +56,16 @@ const AiStagingReviewPage = () => {
   const [progressMessage, setProgressMessage] = useState('');
   const [previousPayload, setPreviousPayload] = useState(null);
   const [localPayload, setLocalPayload] = useState([]);
+  const [projectActors, setProjectActors] = useState([]);
+  const [selectedActor, setSelectedActor] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [hoveredExcerpt, setHoveredExcerpt] = useState('');
+  
+  // Drag to resize panel states
+  const [leftWidth, setLeftWidth] = useState(45);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = React.useRef(null);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,6 +99,15 @@ const AiStagingReviewPage = () => {
           payloadData = JSON.parse(dataArray[0].payload);
         }
         setLocalPayload(payloadData);
+        
+        let actorsData = [];
+        if (Array.isArray(dataArray[0].project_actors)) {
+          actorsData = dataArray[0].project_actors;
+        } else if (typeof dataArray[0].project_actors === 'string') {
+          actorsData = JSON.parse(dataArray[0].project_actors);
+        }
+        setProjectActors(actorsData);
+        
         const initialIndices = new Set();
         payloadData.forEach((item, i) => {
           if (!item.isDuplicate) {
@@ -259,6 +276,37 @@ const AiStagingReviewPage = () => {
 
   return (
     <div className="h-[calc(100vh-64px)] bg-[#F8FAFC] font-sans flex flex-col overflow-hidden">
+      
+      {/* ACTOR MODAL */}
+      {selectedActor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedActor(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-blue-50/30">
+              <h3 className="font-bold text-[16px] text-[#185FA5] flex items-center gap-2">
+                <span>👤</span> Actor: {selectedActor.name}
+              </h3>
+              <button onClick={() => setSelectedActor(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <FiX size={20} />
+              </button>
+            </div>
+            <div className="p-5">
+              <h4 className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 mb-2">Description / Role</h4>
+              <p className="text-[14px] text-gray-700 leading-relaxed font-serif">
+                {selectedActor.description}
+              </p>
+            </div>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button 
+                onClick={() => setSelectedActor(null)}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-[13px] font-medium hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HEADER (Full Width) */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-[#E5E7EB] bg-white flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
@@ -297,9 +345,22 @@ const AiStagingReviewPage = () => {
       </div>
 
       {/* SPLIT VIEW */}
-      <div className="flex-1 flex overflow-hidden">
+      <div 
+        className={`flex-1 flex overflow-hidden ${isDragging ? 'cursor-col-resize select-none pointer-events-auto' : ''}`}
+        ref={containerRef}
+        onMouseMove={(e) => {
+          if (!isDragging || !containerRef.current) return;
+          const containerRect = containerRef.current.getBoundingClientRect();
+          let newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+          if (newWidth < 20) newWidth = 20;
+          if (newWidth > 80) newWidth = 80;
+          setLeftWidth(newWidth);
+        }}
+        onMouseUp={() => { if (isDragging) setIsDragging(false); }}
+        onMouseLeave={() => { if (isDragging) setIsDragging(false); }}
+      >
          {/* LEFT PANEL: Original Text */}
-         <div className="w-1/2 border-r border-[#E5E7EB] bg-white flex flex-col z-10 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
+         <div style={{ width: `${leftWidth}%` }} className="border-r border-[#E5E7EB] bg-white flex flex-col z-10 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
             <div className="p-[14px_16px] border-b border-[#E5E7EB] bg-[#F8FAFC] flex items-center justify-between">
                <div className="flex items-center gap-2">
                  <FiFileText className="text-[#6B7280]" /> 
@@ -307,13 +368,19 @@ const AiStagingReviewPage = () => {
                </div>
                <span className="text-[12px] text-gray-500 italic">Hover over requirement to highlight source</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 text-[14.5px] leading-[1.8] text-gray-800 whitespace-pre-wrap font-serif">
+            <div className={`flex-1 overflow-y-auto p-6 text-[14.5px] leading-[1.8] text-gray-800 whitespace-pre-wrap font-serif ${isDragging ? 'pointer-events-none' : ''}`}>
                {renderHighlightedText(currentGen.documentText, hoveredExcerpt)}
             </div>
          </div>
 
+         {/* RESIZER DRAG HANDLE */}
+         <div 
+           className={`w-1 cursor-col-resize flex-shrink-0 transition-colors z-20 hover:bg-[#185FA5] ${isDragging ? 'bg-[#185FA5]' : 'bg-[#E5E7EB]'}`}
+           onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
+         />
+
          {/* RIGHT PANEL: Requirements */}
-         <div className="w-1/2 flex flex-col bg-[#F3F4F6] relative">
+         <div style={{ width: `calc(${100 - leftWidth}% - 4px)` }} className={`flex flex-col bg-[#F3F4F6] relative ${isDragging ? 'pointer-events-none' : ''}`}>
             
             {/* CONTEXT WARNING BANNER */}
             {currentGen.contextWarning && (
@@ -333,6 +400,32 @@ const AiStagingReviewPage = () => {
                 <div>
                   <h3 className="font-semibold text-[13px]">No New Requirements Found</h3>
                   <p className="text-[12px] mt-1">All {countAll} extracted requirements already exist in this project. There is nothing new to save.</p>
+                </div>
+              </div>
+            )}
+
+            {/* PROJECT ACTORS PANEL */}
+            {projectActors && projectActors.length > 0 && (
+              <div className="p-[10px_16px] border-b border-[#E5E7EB] bg-blue-50/50 flex flex-col gap-2 flex-shrink-0">
+                <div className="flex items-center justify-between text-blue-800 font-semibold text-[13px]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">👥</span> AI Detected Roles (Actors)
+                  </div>
+                  <div className="text-[10px] text-blue-600 font-normal opacity-80">
+                    * Saved automatically upon approval
+                  </div>
+                </div>
+                <div className="flex flex-nowrap overflow-x-auto gap-2 pb-1 horizontal-scroll-thin">
+                  {projectActors.map((actor, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => setSelectedActor(actor)}
+                      className="bg-white border border-blue-200 hover:border-[#185FA5] px-3 py-1.5 rounded-lg shadow-sm text-[12px] flex flex-col min-w-[180px] max-w-[220px] flex-shrink-0 cursor-pointer transition-colors"
+                    >
+                      <span className="font-bold text-gray-800">{actor.name}</span>
+                      <span className="text-gray-500 text-[11px] truncate" title={actor.description}>{actor.description}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

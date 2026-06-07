@@ -22,6 +22,8 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
     @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId")
     List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
 
+    List<Requirement> findByProjectId(Long projectId);
+
     List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
 
     boolean existsByIdAndProjectId(Long id, Long projectId);

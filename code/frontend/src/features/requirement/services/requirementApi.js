@@ -57,6 +57,11 @@ export const requirementApi = {
     return response.data;
   },
 
+  deletePendingGenerations: async (projectId, stage) => {
+    const response = await axiosInstance.delete(`/ai/staging/pending/${projectId}`, { params: { stage } });
+    return response.data;
+  },
+
   approveStagingRequirements: async (generationId, selectedIndices, modifiedPayload = null) => {
     const data = { selectedIndices };
     if (modifiedPayload) {

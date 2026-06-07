@@ -40,6 +40,7 @@ public class AiGenerationService {
     private final RequirementRepository requirementRepository;
     private final org.example.backend.repository.UseCaseRepository useCaseRepository;
     private final UserAccountRepository userRepository;
+    private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -50,6 +51,7 @@ public class AiGenerationService {
                                RequirementRepository requirementRepository,
                                org.example.backend.repository.UseCaseRepository useCaseRepository,
                                UserAccountRepository userRepository,
+                               org.example.backend.repository.ProjectActorRepository projectActorRepository,
                                ObjectMapper objectMapper) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
@@ -58,6 +60,7 @@ public class AiGenerationService {
         this.requirementRepository = requirementRepository;
         this.useCaseRepository = useCaseRepository;
         this.userRepository = userRepository;
+        this.projectActorRepository = projectActorRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -125,20 +128,41 @@ public class AiGenerationService {
 
             sendProgress(userId, 2, "AI is analyzing and extracting requirements...");
             // 2. Call Gemini API to extract requirements JSON
+            // 2. Call Gemini API to extract requirements JSON
             String rawJsonResponse = geminiService.extractRequirementsFromText(documentText);
+            
+            JsonNode reqsArray;
+            JsonNode actorsArray;
+            try {
+                JsonNode rawNode = objectMapper.readTree(rawJsonResponse);
+                reqsArray = rawNode.has("requirements") ? rawNode.get("requirements") : rawNode;
+                actorsArray = rawNode.has("project_actors") ? rawNode.get("project_actors") : objectMapper.createArrayNode();
+            } catch (Exception e) {
+                log.error("Error parsing raw JSON: {}", e.getMessage());
+                throw new RuntimeException("Lỗi khi đọc kết quả thô từ AI.");
+            }
 
             sendProgress(userId, 3, "AI Critic is reviewing requirement quality and checking semantics duplicates...");
             // 3. Call AI Critic to evaluate
-            String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(rawJsonResponse, documentText, contextStrings);
+            String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
 
             sendProgress(userId, 4, "Finalizing results and saving to database...");
             // 4. Parse JSON response to ensure it's valid
             try {
-                payload = objectMapper.readTree(criticizedJsonResponse);
-                if (!payload.isArray()) {
+                JsonNode criticizedNode = objectMapper.readTree(criticizedJsonResponse);
+                if (criticizedNode.isObject() && criticizedNode.has("requirements")) {
+                    criticizedNode = criticizedNode.get("requirements");
+                }
+                
+                if (!criticizedNode.isArray()) {
                     log.error("Gemini did not return a valid JSON array. Response: {}", criticizedJsonResponse);
                     throw new RuntimeException("Gemini không trả về danh sách (Array) JSON hợp lệ.");
                 }
+                
+                com.fasterxml.jackson.databind.node.ObjectNode finalPayload = objectMapper.createObjectNode();
+                finalPayload.set("project_actors", actorsArray);
+                finalPayload.set("requirements", criticizedNode);
+                payload = finalPayload;
             } catch (Exception e) {
                 log.error("Error parsing Gemini JSON: {}", e.getMessage(), e);
                 throw new RuntimeException("Lỗi khi đọc JSON từ Gemini. Vui lòng thử lại.");
@@ -179,8 +203,17 @@ public class AiGenerationService {
             throw new RuntimeException("Không tìm thấy Requirement nào hợp lệ.");
         }
 
-        sendProgress(userId, 1, "AI is analyzing requirements and generating Use Cases...");
-        String rawJsonResponse = geminiService.generateUseCasesFromRequirements(reqs);
+        sendProgress(userId, 1, "Fetching ecosystem context (Actors and Existing Use Cases)...");
+        List<org.example.backend.entity.ProjectActor> dbActors = projectActorRepository.findByProjectId(projectId);
+        List<String> projectActors = dbActors.stream().map(org.example.backend.entity.ProjectActor::getName).toList();
+        
+        List<org.example.backend.entity.UseCase> dbUseCases = useCaseRepository.findByProjectId(projectId);
+        List<String> existingUseCases = dbUseCases.stream()
+                .map(uc -> uc.getCode() != null ? uc.getCode() + ": " + uc.getName() : uc.getName())
+                .toList();
+
+        sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
+        String rawJsonResponse = geminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
 
         sendProgress(userId, 2, "Parsing AI results...");
         JsonNode payload;
@@ -234,7 +267,7 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 3, "AI Critic is reviewing the Use Cases...");
-        String evaluatedJson = geminiService.evaluateUseCasesWithCritic(payload.toString(), reqs);
+        String evaluatedJson = geminiService.evaluateUseCasesWithCritic(payload.toString(), reqs, existingUseCases, projectActors);
         
         sendProgress(userId, 4, "Saving draft Use Cases to staging...");
         JsonNode finalPayload;
@@ -329,18 +362,37 @@ public class AiGenerationService {
 
         // Call Gemini API again (bypassing cache)
         String rawJsonResponse = geminiService.extractRequirementsFromText(documentText);
+        
+        JsonNode reqsArray;
+        JsonNode actorsArray;
+        try {
+            JsonNode rawNode = objectMapper.readTree(rawJsonResponse);
+            reqsArray = rawNode.has("requirements") ? rawNode.get("requirements") : rawNode;
+            actorsArray = rawNode.has("project_actors") ? rawNode.get("project_actors") : objectMapper.createArrayNode();
+        } catch (Exception e) {
+            log.error("Error parsing raw JSON: {}", e.getMessage());
+            throw new RuntimeException("Lỗi khi đọc kết quả thô từ AI.");
+        }
 
         sendProgress(userId, 2, "AI Critic is reviewing requirement quality and checking semantics duplicates...");
-        String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(rawJsonResponse, documentText, contextStrings);
+        String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
 
         sendProgress(userId, 3, "Finalizing results and updating database...");
         JsonNode newPayload;
         try {
-            newPayload = objectMapper.readTree(criticizedJsonResponse);
-            if (!newPayload.isArray()) {
+            JsonNode criticizedNode = objectMapper.readTree(criticizedJsonResponse);
+            if (criticizedNode.isObject() && criticizedNode.has("requirements")) {
+                criticizedNode = criticizedNode.get("requirements");
+            }
+            if (!criticizedNode.isArray()) {
                 log.error("Gemini did not return a valid JSON array during regeneration. Response: {}", criticizedJsonResponse);
                 throw new RuntimeException("Gemini không trả về danh sách JSON hợp lệ.");
             }
+            
+            com.fasterxml.jackson.databind.node.ObjectNode finalPayload = objectMapper.createObjectNode();
+            finalPayload.set("project_actors", actorsArray);
+            finalPayload.set("requirements", criticizedNode);
+            newPayload = finalPayload;
         } catch (Exception e) {
             log.error("Error parsing regenerated JSON: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi khi đọc kết quả phân tích lại. Vui lòng thử lại.");
@@ -360,6 +412,12 @@ public class AiGenerationService {
         } catch (Exception e) {
             // Ignore websocket errors to not break the flow
         }
+    }
+
+    @Transactional
+    public void deletePendingGenerations(Long projectId, AiStage stage) {
+        List<AiGenerationStaging> pending = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
+        stagingRepository.deleteAll(pending);
     }
 
     public List<AiGenerationStaging> getPendingGenerations(Long projectId) {
@@ -390,7 +448,9 @@ public class AiGenerationService {
             map.put("documentText", staging.getDocumentText());
             map.put("contextWarning", staging.getContextWarning());
             
-            List<Map<String, Object>> payloadList = objectMapper.convertValue(staging.getPayload(), new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+            JsonNode stagingPayload = staging.getPayload();
+            JsonNode reqsPayload = stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload;
+            List<Map<String, Object>> payloadList = objectMapper.convertValue(reqsPayload, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
             if (payloadList != null) {
                 for (Map<String, Object> item : payloadList) {
                     String title = (String) item.get("title");
@@ -400,6 +460,10 @@ public class AiGenerationService {
                 }
             }
             map.put("payload", payloadList);
+            if (stagingPayload != null && stagingPayload.has("project_actors")) {
+                List<Map<String, Object>> actorsList = objectMapper.convertValue(stagingPayload.get("project_actors"), new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                map.put("project_actors", actorsList);
+            }
             responseList.add(map);
         }
         return responseList;
@@ -420,10 +484,33 @@ public class AiGenerationService {
         Project project = staging.getProject();
         UserAccount user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
-        JsonNode payload = modifiedPayload != null ? modifiedPayload : staging.getPayload();
+        JsonNode stagingPayload = staging.getPayload();
+        JsonNode payload = modifiedPayload != null ? modifiedPayload : (stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload);
         
         Integer maxSubId = requirementRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        
+        // Save actors if present in staging payload
+        if (stagingPayload != null && stagingPayload.has("project_actors")) {
+            JsonNode actorsNode = stagingPayload.get("project_actors");
+            if (actorsNode.isArray()) {
+                List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
+                for (JsonNode actorNode : actorsNode) {
+                    String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
+                    String desc = actorNode.has("description") ? actorNode.get("description").asText() : "";
+                    if (!name.isEmpty()) {
+                        actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
+                                .project(project)
+                                .name(name)
+                                .description(desc)
+                                .build());
+                    }
+                }
+                if (!actorsToSave.isEmpty()) {
+                    projectActorRepository.saveAll(actorsToSave);
+                }
+            }
+        }
         
         List<Requirement> requirementsToSave = new ArrayList<>();
         
@@ -570,6 +657,12 @@ public class AiGenerationService {
                 uc.setAiGenerated(true);
                 uc.setSourceGenerationId(generationId);
                 
+                if (req != null) {
+                    String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                    String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    uc.setReqVersionHash(reqHash);
+                }
+                
                 // Add actors if primaryActors is provided
                 if (primaryActors != null && !primaryActors.trim().isEmpty()) {
                     String[] actorsArr = primaryActors.split(",");
@@ -595,5 +688,386 @@ public class AiGenerationService {
             staging.setPayload(modifiedPayload);
         }
         stagingRepository.save(staging);
+    }
+
+    private String formatFlowForPrompt(String flowJson) {
+        if (flowJson == null || flowJson.trim().isEmpty()) return "None";
+        try {
+            JsonNode root = objectMapper.readTree(flowJson);
+            StringBuilder sb = new StringBuilder();
+            if (root.has("steps") && root.get("steps").isArray()) {
+                for (JsonNode step : root.get("steps")) {
+                    sb.append(step.asText()).append("\n");
+                }
+                return sb.toString().trim();
+            } else if (root.has("flows") && root.get("flows").isArray()) {
+                for (JsonNode flow : root.get("flows")) {
+                    sb.append(flow.has("name") ? flow.get("name").asText() + ":\n" : "");
+                    if (flow.has("steps") && flow.get("steps").isArray()) {
+                        for (JsonNode step : flow.get("steps")) {
+                            sb.append("  ").append(step.asText()).append("\n");
+                        }
+                    }
+                    sb.append("\n");
+                }
+                return sb.toString().trim();
+            }
+        } catch (Exception e) {
+            // Ignore, return raw string below
+        }
+        return flowJson;
+    }
+
+    @Transactional(readOnly = true)
+    public JsonNode syncUseCasePreview(Long useCaseId) {
+        org.example.backend.entity.UseCase uc = useCaseRepository.findById(useCaseId)
+            .orElseThrow(() -> new RuntimeException("Use Case not found: " + useCaseId));
+            
+        Requirement req = uc.getRequirement();
+        if (req == null) {
+            throw new RuntimeException("This Use Case is not linked to any Requirement.");
+        }
+        
+        Long projectId = req.getProject().getId();
+        List<String> projectActors = projectActorRepository.findByProjectId(projectId).stream()
+                .map(org.example.backend.entity.ProjectActor::getName)
+                .toList();
+        List<String> projectExistingUcs = useCaseRepository.findByProjectId(projectId).stream()
+                .map(u -> u.getCode() != null ? u.getCode() + ": " + u.getName() : u.getName())
+                .toList();
+
+        String reqContext = "Title: " + req.getTitle() + 
+            "\nDescription: " + req.getDescription() + 
+            "\nAcceptance Criteria: " + req.getAcceptanceCriteria();
+        
+        // Fetch actors
+        String oldActors = "";
+        if (uc.getActors() != null) {
+            List<String> actorNames = new ArrayList<>();
+            for (org.example.backend.entity.UseCaseActor actor : uc.getActors()) {
+                actorNames.add(actor.getActorName());
+            }
+            oldActors = String.join(", ", actorNames);
+        }
+
+        String oldUcContext = "Name: " + uc.getName() + 
+            "\nActors: " + oldActors +
+            "\nPrecondition: " + uc.getPrecondition() + 
+            "\nPostcondition: " + uc.getPostcondition() + 
+            "\nMain Flow: " + formatFlowForPrompt(uc.getMainFlow()) + 
+            "\nAlternative Flow: " + formatFlowForPrompt(uc.getAlternativeFlow());
+        
+        String prompt = "You are an expert Business Analyst. Below is an existing Use Case and its updated parent Requirement.\n" +
+            "Your task is to analyze the changes in the Requirement and intelligently update the Use Case to match the new Requirement.\n" +
+            "CRITICAL RULES:\n" +
+            "1. Preserve any existing logical flows, edge cases, and manual customizations in the Old Use Case unless they explicitly contradict the new Requirement.\n" +
+            "2. You MUST ADD missing flows or steps if the NEW REQUIREMENT mentions new features, rules, or criteria that are absent in the OLD USE CASE.\n" +
+            "3. Your response MUST be a pure JSON object (without ```json wrappers) representing the updated Use Case, with exactly these fields:\n" +
+            "   - 'name': (String) The use case name\n" +
+            "   - 'precondition': (String) Preconditions\n" +
+            "   - 'postcondition': (String) Postconditions\n" +
+            "   - 'primaryActors': (String) Comma separated list of actors\n" +
+            "   - 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
+            "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
+            "--- OLD USE CASE ---\n" + oldUcContext;
+            
+        String response = geminiService.generateText(prompt);
+        response = response.replaceAll("(?s)^.*?```(?:json)?(.*?)```.*$", "$1").trim();
+        
+        try {
+            JsonNode root = objectMapper.readTree(response.trim());
+            com.fasterxml.jackson.databind.node.ArrayNode arr = objectMapper.createArrayNode();
+            arr.add(root);
+            String evalStr = geminiService.evaluateUseCasesWithCritic(arr.toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+            JsonNode evalArrNode = objectMapper.readTree(evalStr);
+            return evalArrNode.get(0);
+        } catch (Exception e) {
+            log.error("Failed to parse AI response for sync preview: {}", response, e);
+            throw new RuntimeException("Failed to generate Use Case preview from AI.");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public JsonNode syncAllUseCasesPreview(Long reqId) {
+        Requirement req = requirementRepository.findById(reqId)
+            .orElseThrow(() -> new RuntimeException("Requirement not found: " + reqId));
+
+        List<org.example.backend.entity.UseCase> existingUseCases = useCaseRepository.findByRequirementId(reqId);
+        
+        Long projectId = req.getProject().getId();
+        List<String> projectActors = projectActorRepository.findByProjectId(projectId).stream()
+                .map(org.example.backend.entity.ProjectActor::getName)
+                .toList();
+        List<String> projectExistingUcs = useCaseRepository.findByProjectId(projectId).stream()
+                .map(u -> u.getCode() != null ? u.getCode() + ": " + u.getName() : u.getName())
+                .toList();
+
+        String reqContext = "Title: " + req.getTitle() + 
+            "\nDescription: " + req.getDescription() + 
+            "\nAcceptance Criteria: " + req.getAcceptanceCriteria();
+        
+        StringBuilder existingUcsContext = new StringBuilder();
+        if (existingUseCases.isEmpty()) {
+            existingUcsContext.append("None.");
+        } else {
+            for (org.example.backend.entity.UseCase uc : existingUseCases) {
+                String oldActors = "";
+                if (uc.getActors() != null) {
+                    List<String> actorNames = new ArrayList<>();
+                    for (org.example.backend.entity.UseCaseActor actor : uc.getActors()) {
+                        actorNames.add(actor.getActorName());
+                    }
+                    oldActors = String.join(", ", actorNames);
+                }
+
+                existingUcsContext.append("--- USE CASE ID: ").append(uc.getId()).append(" ---\n")
+                    .append("Name: ").append(uc.getName()).append("\n")
+                    .append("Actors: ").append(oldActors).append("\n")
+                    .append("Precondition: ").append(uc.getPrecondition()).append("\n")
+                    .append("Postcondition: ").append(uc.getPostcondition()).append("\n")
+                    .append("Main Flow: ").append(formatFlowForPrompt(uc.getMainFlow())).append("\n")
+                    .append("Alternative Flow: ").append(formatFlowForPrompt(uc.getAlternativeFlow())).append("\n\n");
+            }
+        }
+        
+        String prompt = "You are an expert Business Analyst. Below is an updated Requirement and its existing Use Cases.\n" +
+            "Your task is to analyze the new Requirement and update the existing Use Cases to match it, AND generate new Use Cases if the Requirement has added new flows not covered by the existing ones.\n" +
+            "CRITICAL RULES:\n" +
+            "1. Preserve any existing logical flows, edge cases, and manual customizations in the Old Use Cases unless they explicitly contradict the new Requirement.\n" +
+            "2. You MUST ADD missing flows or steps if the NEW REQUIREMENT mentions new features, rules, or criteria that are absent in the OLD USE CASE.\n" +
+            "3. Your response MUST be a pure JSON object (without ```json wrappers) with EXACTLY two fields: 'updatedUseCases' and 'newUseCases'.\n" +
+            "3. 'updatedUseCases' must be an array of objects representing updates to the existing use cases. Each object MUST include 'id' (the integer ID of the use case being updated), 'name', 'precondition', 'postcondition', 'primaryActors', 'mainFlows', 'alternativeFlows'.\n" +
+            "4. 'newUseCases' must be an array of objects representing entirely new use cases (do NOT include 'id' field). Format is the same as above.\n" +
+            "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
+            "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
+            "--- EXISTING USE CASES ---\n" + existingUcsContext.toString();
+            
+        String response = geminiService.generateText(prompt);
+        if (response.startsWith("```json")) {
+            response = response.substring(7);
+        }
+        if (response.endsWith("```")) {
+            response = response.substring(0, response.length() - 3);
+        }
+        
+        try {
+            JsonNode root = objectMapper.readTree(response.trim());
+            com.fasterxml.jackson.databind.node.ObjectNode evaluatedRoot = objectMapper.createObjectNode();
+            
+            if (root.has("updatedUseCases") && root.get("updatedUseCases").isArray() && root.get("updatedUseCases").size() > 0) {
+                String evalStr = geminiService.evaluateUseCasesWithCritic(root.get("updatedUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+                evaluatedRoot.set("updatedUseCases", objectMapper.readTree(evalStr));
+            } else {
+                evaluatedRoot.set("updatedUseCases", objectMapper.createArrayNode());
+            }
+            
+            if (root.has("newUseCases") && root.get("newUseCases").isArray() && root.get("newUseCases").size() > 0) {
+                String evalStr = geminiService.evaluateUseCasesWithCritic(root.get("newUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+                evaluatedRoot.set("newUseCases", objectMapper.readTree(evalStr));
+            } else {
+                evaluatedRoot.set("newUseCases", objectMapper.createArrayNode());
+            }
+            
+            return evaluatedRoot;
+        } catch (Exception e) {
+            log.error("Failed to parse AI response for sync all preview: {}", response, e);
+            throw new RuntimeException("Failed to generate Use Cases preview from AI.");
+        }
+    }
+
+    @Transactional
+    public void applyRequirementSync(Long reqId, JsonNode payload, Long userId) {
+        Requirement req = requirementRepository.findById(reqId)
+            .orElseThrow(() -> new RuntimeException("Requirement not found"));
+        UserAccount user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+            
+        Project project = req.getProject();
+        
+        // 1. Update existing Use Cases
+        if (payload.has("updatedUseCases") && payload.get("updatedUseCases").isArray()) {
+            for (JsonNode updatedNode : payload.get("updatedUseCases")) {
+                if (updatedNode.has("id")) {
+                    Long ucId = updatedNode.get("id").asLong();
+                    org.example.backend.entity.UseCase uc = useCaseRepository.findById(ucId).orElse(null);
+                    if (uc != null) {
+                        if (updatedNode.has("name")) uc.setName(updatedNode.get("name").asText());
+                        if (updatedNode.has("precondition")) uc.setPrecondition(updatedNode.get("precondition").asText());
+                        if (updatedNode.has("postcondition")) uc.setPostcondition(updatedNode.get("postcondition").asText());
+                        
+                        if (updatedNode.has("mainFlows")) {
+                            String flows = updatedNode.get("mainFlows").asText();
+                            try {
+                                // Test if it's already a valid JSON object/array string
+                                JsonNode flowNode = objectMapper.readTree(flows);
+                                if (flowNode.isObject() || flowNode.isArray()) {
+                                    uc.setMainFlow(flows); // Save raw JSON string
+                                } else {
+                                    throw new RuntimeException("Not an object/array");
+                                }
+                            } catch (Exception e) {
+                                // Fallback to plain text splitting with cleanup
+                                java.util.List<String> steps = new ArrayList<>();
+                                for (String line : flows.split("\n")) {
+                                    String trimmed = line.trim();
+                                    if (trimmed.isEmpty()) continue;
+                                    if (trimmed.startsWith("*") || trimmed.startsWith("-") || trimmed.matches("^[a-z]\\).*")) {
+                                        if (!steps.isEmpty()) {
+                                            steps.set(steps.size() - 1, steps.get(steps.size() - 1) + "\n  " + trimmed);
+                                        } else {
+                                            steps.add(trimmed.replaceFirst("^[-*]\\s*", ""));
+                                        }
+                                    } else {
+                                        String cleaned = trimmed.replaceFirst("^(?i)(?:Step\\s*\\d+:?|\\d+[\\.)])\\s*", "");
+                                        steps.add(cleaned);
+                                    }
+                                }
+                                Map<String, Object> map = new HashMap<>();
+                                map.put("steps", steps);
+                                try { uc.setMainFlow(objectMapper.writeValueAsString(map)); } catch (Exception ignored) {}
+                            }
+                        }
+                        
+                        if (updatedNode.has("alternativeFlows")) {
+                            String flows = updatedNode.get("alternativeFlows").asText();
+                            try {
+                                JsonNode flowNode = objectMapper.readTree(flows);
+                                if (flowNode.isObject() || flowNode.isArray()) {
+                                    uc.setAlternativeFlow(flows);
+                                } else {
+                                    throw new RuntimeException("Not an object/array");
+                                }
+                            } catch (Exception e) {
+                                java.util.List<String> steps = new ArrayList<>();
+                                for (String line : flows.split("\n")) {
+                                    String trimmed = line.trim();
+                                    if (trimmed.isEmpty()) continue;
+                                    if (trimmed.startsWith("*") || trimmed.startsWith("-") || trimmed.matches("^[a-z]\\).*")) {
+                                        if (!steps.isEmpty()) {
+                                            steps.set(steps.size() - 1, steps.get(steps.size() - 1) + "\n  " + trimmed);
+                                        } else {
+                                            steps.add(trimmed.replaceFirst("^[-*]\\s*", ""));
+                                        }
+                                    } else {
+                                        String cleaned = trimmed.replaceFirst("^(?i)(?:Step\\s*\\d+:?|\\d+[\\.)])\\s*", "");
+                                        steps.add(cleaned);
+                                    }
+                                }
+                                Map<String, Object> singleAltFlow = new HashMap<>();
+                                singleAltFlow.put("name", "Alternative Flow");
+                                singleAltFlow.put("steps", steps);
+                                Map<String, Object> altMap = new HashMap<>();
+                                altMap.put("flows", List.of(singleAltFlow));
+                                try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception ignored) {}
+                            }
+                        }
+                        
+                        // Clear outdated flags
+                        String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                        String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        uc.setReqVersionHash(reqHash);
+                        
+                        useCaseRepository.save(uc);
+                    }
+                }
+            }
+        }
+        
+        // 2. Insert new Use Cases
+        if (payload.has("newUseCases") && payload.get("newUseCases").isArray()) {
+            Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
+            int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+            
+            List<org.example.backend.entity.UseCase> newUcs = new ArrayList<>();
+            for (JsonNode newNode : payload.get("newUseCases")) {
+                org.example.backend.entity.UseCase uc = new org.example.backend.entity.UseCase();
+                uc.setProjectId(project.getId());
+                uc.setRequirement(req);
+                uc.setName(newNode.has("name") ? newNode.get("name").asText() : "New AI Use Case");
+                uc.setPrecondition(newNode.has("precondition") ? newNode.get("precondition").asText() : "");
+                uc.setPostcondition(newNode.has("postcondition") ? newNode.get("postcondition").asText() : "");
+                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
+                uc.setProjectSubId(nextSubId);
+                uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
+                uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);
+                uc.setCreatedBy(user);
+                uc.setAiGenerated(true);
+                
+                String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                uc.setReqVersionHash(reqHash);
+                
+                if (newNode.has("mainFlows")) {
+                    String flows = newNode.get("mainFlows").asText();
+                    try {
+                        JsonNode flowNode = objectMapper.readTree(flows);
+                        if (flowNode.isObject() || flowNode.isArray()) {
+                            uc.setMainFlow(flows);
+                        } else {
+                            throw new RuntimeException("Not an object/array");
+                        }
+                    } catch (Exception e) {
+                        java.util.List<String> steps = new ArrayList<>();
+                        for (String line : flows.split("\n")) {
+                            String trimmed = line.trim();
+                            if (trimmed.isEmpty()) continue;
+                            if (trimmed.startsWith("*") || trimmed.startsWith("-") || trimmed.matches("^[a-z]\\).*")) {
+                                if (!steps.isEmpty()) {
+                                    steps.set(steps.size() - 1, steps.get(steps.size() - 1) + "\n  " + trimmed);
+                                } else {
+                                    steps.add(trimmed.replaceFirst("^[-*]\\s*", ""));
+                                }
+                            } else {
+                                String cleaned = trimmed.replaceFirst("^(?i)(?:Step\\s*\\d+:?|\\d+[\\.)])\\s*", "");
+                                steps.add(cleaned);
+                            }
+                        }
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("steps", steps);
+                        try { uc.setMainFlow(objectMapper.writeValueAsString(map)); } catch (Exception ignored) {}
+                    }
+                }
+                
+                if (newNode.has("alternativeFlows")) {
+                    String flows = newNode.get("alternativeFlows").asText();
+                    try {
+                        JsonNode flowNode = objectMapper.readTree(flows);
+                        if (flowNode.isObject() || flowNode.isArray()) {
+                            uc.setAlternativeFlow(flows);
+                        } else {
+                            throw new RuntimeException("Not an object/array");
+                        }
+                    } catch (Exception e) {
+                        java.util.List<String> steps = new ArrayList<>();
+                        for (String line : flows.split("\n")) {
+                            String trimmed = line.trim();
+                            if (trimmed.isEmpty()) continue;
+                            if (trimmed.startsWith("*") || trimmed.startsWith("-") || trimmed.matches("^[a-z]\\).*")) {
+                                if (!steps.isEmpty()) {
+                                    steps.set(steps.size() - 1, steps.get(steps.size() - 1) + "\n  " + trimmed);
+                                } else {
+                                    steps.add(trimmed.replaceFirst("^[-*]\\s*", ""));
+                                }
+                            } else {
+                                String cleaned = trimmed.replaceFirst("^(?i)(?:Step\\s*\\d+:?|\\d+[\\.)])\\s*", "");
+                                steps.add(cleaned);
+                            }
+                        }
+                        Map<String, Object> singleAltFlow = new HashMap<>();
+                        singleAltFlow.put("name", "Alternative Flow");
+                        singleAltFlow.put("steps", steps);
+                        Map<String, Object> altMap = new HashMap<>();
+                        altMap.put("flows", List.of(singleAltFlow));
+                        try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception ignored) {}
+                    }
+                }
+                
+                newUcs.add(uc);
+                nextSubId++;
+            }
+            useCaseRepository.saveAll(newUcs);
+        }
     }
 }

@@ -149,6 +149,22 @@ a:hover { color: var(--color-primary); }
     scrollbar-color: #c3c6d5 transparent;
 }
 
+/* Thin Horizontal Scrollbar */
+.horizontal-scroll-thin::-webkit-scrollbar {
+    height: 5px;
+}
+.horizontal-scroll-thin::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 4px;
+}
+.horizontal-scroll-thin::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+.horizontal-scroll-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
 /* =====================================================
    Weekly View - Custom Classes
    ===================================================== */

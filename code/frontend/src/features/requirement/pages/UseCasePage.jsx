@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import UseCaseStats from '../components/UseCaseStats';
 import UseCaseToolbar from '../components/UseCaseToolbar';
 import UseCaseTable from '../components/UseCaseTable';
@@ -9,15 +9,18 @@ import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
 import GlobalUMLMap from '../components/GlobalUMLMap';
+import UCDiagramEditorPage from './UCDiagramEditorPage';
 import UseCaseSidePanel from '../components/UseCaseSidePanel';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { useCaseService } from '../services/useCaseService';
+import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
 import toast from 'react-hot-toast';
 
 const UseCasePage = () => {
   const activeProject = useProjectStore((state) => state.activeProject);
   const [useCases, setUseCases] = useState([]);
+  const [allUseCases, setAllUseCases] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -67,6 +70,25 @@ const UseCasePage = () => {
     }
   };
 
+  const fetchAllUseCases = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const data = await useCaseService.searchUseCases({
+        projectId: activeProject.id,
+        page: 0,
+        size: 1000
+      });
+      setAllUseCases(data.content || []);
+    } catch (error) {
+      console.error('Failed to fetch all use cases for stats', error);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchUseCases();
+    fetchAllUseCases();
+  };
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchUseCases();
@@ -80,6 +102,7 @@ const UseCasePage = () => {
     setSearchTerm('');
     setStatusFilter('');
     setUseCases([]);
+    fetchAllUseCases();
   }, [activeProject?.id]);
 
   const handleSearchChange = (val) => {
@@ -92,20 +115,47 @@ const UseCasePage = () => {
     setCurrentPage(0);
   };
 
+  const abortControllerRef = useRef(null);
+
   const handleGenerateAI = async (selectedIds) => {
     setIsSelectionModalOpen(false);
     setGeneratingCount(selectedIds.length);
     setGenerating(true);
+    
+    abortControllerRef.current = new AbortController();
+    
     try {
-      const response = await useCaseService.generateUseCases(activeProject.id, { requirementIds: selectedIds });
+      const response = await useCaseService.generateUseCases(
+        activeProject.id, 
+        { requirementIds: selectedIds },
+        { signal: abortControllerRef.current.signal }
+      );
       setGenerationId(response.generationId);
       setIsAiModalOpen(true);
     } catch (error) {
+      if (error.name === 'CanceledError' || error.message === 'canceled') {
+        console.log('Generation request canceled by user');
+        return;
+      }
       console.error(error);
       toast.error(error.response?.data?.message || 'Có lỗi khi sinh Use Case bằng AI');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleCancelGenerate = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (activeProject?.id && generating) {
+      try {
+        await requirementApi.deletePendingGenerations(activeProject.id, 'USE_CASE');
+      } catch (err) {
+        console.error('Failed to clear pending use case generation:', err);
+      }
+    }
+    setGenerating(false);
   };
 
   const handleDeleteUseCase = (id) => {
@@ -118,7 +168,7 @@ const UseCasePage = () => {
       await useCaseService.deleteUseCase(deleteConfirmId, activeProject.id);
       toast.success('Use Case deleted successfully');
       setDeleteConfirmId(null);
-      fetchUseCases();
+      handleRefresh();
     } catch (error) {
       console.error(error);
       toast.error('Failed to delete Use Case');
@@ -132,7 +182,7 @@ const UseCasePage = () => {
 
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 z-10 h-full relative">
-      <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={() => setGenerating(false)} />
+      <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
           <div>
@@ -185,12 +235,17 @@ const UseCasePage = () => {
           </div>
         </div>
 
-        <UseCaseStats useCases={useCases} />
+        <UseCaseStats useCases={allUseCases} />
 
-        {viewMode === 'map' ? (
+        {viewMode === 'editor' ? (
+          <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <UCDiagramEditorPage projectId={activeProject?.id} onClose={() => setViewMode('map')} />
+          </div>
+        ) : viewMode === 'map' ? (
           <GlobalUMLMap 
             projectId={activeProject?.id} 
             onNodeClick={(id) => setSelectedMapNodeId(id)} 
+            onEditDiagram={() => setViewMode('editor')}
           />
         ) : (
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col min-h-[400px]">
@@ -230,7 +285,7 @@ const UseCasePage = () => {
       <UseCaseFormModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onSuccess={fetchUseCases} 
+        onSuccess={handleRefresh} 
       />
       
       <RequirementSelectionModal
@@ -243,7 +298,7 @@ const UseCasePage = () => {
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         generationId={generationId}
-        onSuccess={fetchUseCases}
+        onSuccess={handleRefresh}
       />
       
       <ConfirmModal

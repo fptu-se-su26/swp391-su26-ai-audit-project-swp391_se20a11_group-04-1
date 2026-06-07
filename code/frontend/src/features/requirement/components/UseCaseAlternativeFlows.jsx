@@ -34,6 +34,12 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
   const flows = alternativeFlow?.flows || [];
   const totalMainSteps = mainFlow?.steps?.length || 0;
 
+  // Helper to remove markdown bold and leading bullet asterisks
+  const stripMarkdown = (text) => {
+    if (typeof text !== 'string') return text;
+    return text.replace(/\*\*/g, '').replace(/^\s*\*\s*/, '').trim();
+  };
+
   const flowLabels = useMemo(
     () => computeFlowLabels(flows, totalMainSteps),
     [flows, totalMainSteps]
@@ -144,7 +150,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                         <span className="text-on-surface-variant text-sm mt-1 shrink-0">•</span>
                         <input
                           type="text"
-                          value={step}
+                          value={stripMarkdown(step)}
                           onChange={(e) => handleStepChange(index, stepIndex, e.target.value)}
                           placeholder="Step description"
                           className="flex-1 px-3 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-sm transition-all"
@@ -174,7 +180,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   </h3>
                   <ul className="list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface ml-2">
                     {flow.steps?.map((step, idx) => (
-                      <li key={idx} className="whitespace-pre-wrap">{step}</li>
+                      <li key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</li>
                     ))}
                   </ul>
                 </>

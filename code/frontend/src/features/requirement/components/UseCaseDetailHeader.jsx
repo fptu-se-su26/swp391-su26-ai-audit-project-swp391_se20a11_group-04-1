@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdit, onSave, onCancel, onFieldChange, onStatusChange }) => {
+const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
   const { projectId } = useParams();
 
   const getStatusColor = (status) => {
@@ -111,8 +111,15 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
             >
               <span className="material-symbols-outlined text-[18px]">edit</span> Edit
             </button>
-            <button className="h-11 px-5 bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm">
-              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span> Suggest Test Cases
+            <button 
+              onClick={onAiSync}
+              className={`h-11 px-5 transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm ${
+                useCase.outdated 
+                ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30' 
+                : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'
+              }`}
+            >
+              🪄 AI Update Usecase
             </button>
           </>
         )}

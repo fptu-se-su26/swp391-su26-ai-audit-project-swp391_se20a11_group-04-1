@@ -97,6 +97,15 @@ public class UseCaseServiceImpl implements UseCaseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
         mapRequestToEntity(request, useCase);
+        
+        // Clear 'Outdated Req' flag by syncing the hash
+        if (useCase.getRequirement() != null) {
+            org.example.backend.entity.Requirement req = useCase.getRequirement();
+            String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+            String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            useCase.setReqVersionHash(currentHash);
+        }
+
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
@@ -188,12 +197,21 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setId(useCase.getId());
         res.setRequirementId(useCase.getRequirement() != null ? useCase.getRequirement().getId() : null);
         if (useCase.getRequirement() != null) {
+            org.example.backend.entity.Requirement req = useCase.getRequirement();
             org.example.backend.dto.RequirementResponseDTO reqDto = org.example.backend.dto.RequirementResponseDTO.builder()
-                    .id(useCase.getRequirement().getId())
-                    .reqCode(useCase.getRequirement().getReqCode())
-                    .title(useCase.getRequirement().getTitle())
+                    .id(req.getId())
+                    .reqCode(req.getReqCode())
+                    .title(req.getTitle())
                     .build();
             res.setRequirement(reqDto);
+            
+            if (useCase.getReqVersionHash() != null) {
+                String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                res.setOutdated(!useCase.getReqVersionHash().equals(currentHash));
+            } else {
+                res.setOutdated(false);
+            }
         }
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());

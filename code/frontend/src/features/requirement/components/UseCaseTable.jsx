@@ -1,10 +1,11 @@
 import React from 'react';
 import Badge from '../../../components/ui/Badge';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
 
 const UseCaseTable = ({ useCases, onEdit, onDelete }) => {
   const activeProject = useProjectStore((state) => state.activeProject);
+  const navigate = useNavigate();
   return (
     <div className="overflow-x-auto pb-32">
       <table className="w-full text-left border-collapse">
@@ -23,7 +24,11 @@ const UseCaseTable = ({ useCases, onEdit, onDelete }) => {
         </thead>
         <tbody className="font-body-md text-body-md text-on-surface divide-y divide-outline-variant">
           {useCases.map((uc) => (
-            <tr key={uc.id} className="hover:bg-[#f0f4fb] transition-colors group">
+            <tr 
+              key={uc.id} 
+              className="hover:bg-[#f0f4fb] transition-colors group cursor-pointer"
+              onClick={() => navigate(`/projects/${activeProject?.id}/use-cases/${uc.id}`)}
+            >
               <td className="py-3 px-4 text-center">
                 <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary" />
               </td>
@@ -34,9 +39,23 @@ const UseCaseTable = ({ useCases, onEdit, onDelete }) => {
                 </div>
               </td>
               <td className="py-3 px-4">
-                <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-outline" style={{ fontSize: '16px' }}>description</span>
-                  <a href="#" className="text-primary hover:underline">{uc.requirement?.reqCode || `REQ-${uc.requirementId || 'X'}`}</a>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-outline" style={{ fontSize: '16px' }}>description</span>
+                    <Link 
+                      to={`/projects/${activeProject?.id}/requirements/${uc.requirementId}`}
+                      onClick={(e) => e.stopPropagation()} 
+                      className="text-primary hover:underline"
+                    >
+                      {uc.requirement?.reqCode || `REQ-${uc.requirementId || 'X'}`}
+                    </Link>
+                  </div>
+                  {uc.outdated && (
+                    <div className="flex items-center gap-1 text-[#E24B4A] text-[11px] font-medium bg-[#FECACA]/30 w-fit px-1.5 py-0.5 rounded">
+                      <span className="material-symbols-outlined text-[12px]">warning</span>
+                      Outdated Req
+                    </div>
+                  )}
                 </div>
               </td>
               <td className="py-3 px-4">

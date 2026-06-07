@@ -94,6 +94,9 @@ public class UseCase {
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();
     
+    @Column(name = "req_version_hash", length = 255)
+    private String reqVersionHash;
+    
     // Helper method để thêm actor đồng bộ 2 chiều
     public void addActor(UseCaseActor actor) {
         actors.add(actor);

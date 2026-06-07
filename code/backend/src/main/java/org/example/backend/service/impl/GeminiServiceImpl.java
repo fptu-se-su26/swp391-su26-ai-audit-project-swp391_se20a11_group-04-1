@@ -16,6 +16,7 @@ import org.example.backend.exception.BusinessException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.example.backend.config.GeminiProperties;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +27,7 @@ public class GeminiServiceImpl implements GeminiService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final GeminiProperties geminiProperties;
+    private final AtomicInteger currentKeyIndex = new AtomicInteger(0);
 
     @Autowired
     public GeminiServiceImpl(RestTemplate restTemplate, ObjectMapper objectMapper, GeminiProperties geminiProperties) {
@@ -42,16 +44,17 @@ public class GeminiServiceImpl implements GeminiService {
     @Override
     public String extractRequirementsFromText(String documentText) {
         String prompt = "Below is the text extracted from a project requirement document. " +
-                "Your task is to analyze and extract a list of Requirements from this text. " +
-                "Your response MUST be a pure JSON array (without ```json wrappers), " +
-                "where each object represents a Requirement with the following fields:\n" +
-                "1. 'title': (String) A concise title of the requirement.\n" +
-                "2. 'description': (String) Detailed description.\n" +
-                "3. 'priority': (String) One of the values: 'Low', 'Medium', 'High'.\n" +
-                "4. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
-                "5. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
-                "CRITICAL: The entire generated content (title, description, tags, acceptanceCriteria) MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
-                "Do not add any explanation, return ONLY the JSON array.\n\n" +
+                "Your task is to analyze and extract a list of Actors (Roles) and Requirements from this text. " +
+                "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
+                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have 'name' (String) and 'description' (String).\n" +
+                "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
+                "   a. 'title': (String) A concise title of the requirement.\n" +
+                "   b. 'description': (String) Detailed description.\n" +
+                "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High'.\n" +
+                "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
+                "   e. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
+                "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
+                "Do not add any explanation, return ONLY the JSON object.\n\n" +
                 "--- DOCUMENT TEXT ---\n" + documentText;
         
         String response = callGeminiApi(prompt);
@@ -68,7 +71,7 @@ public class GeminiServiceImpl implements GeminiService {
         return response.trim();
     }
     @Override
-    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements) {
+    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> projectActors, java.util.List<String> existingUseCases) {
         StringBuilder reqsContext = new StringBuilder();
         for (org.example.backend.entity.Requirement r : requirements) {
             reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
@@ -78,22 +81,32 @@ public class GeminiServiceImpl implements GeminiService {
             reqsContext.append("---\n");
         }
 
+        String actorsContext = projectActors != null && !projectActors.isEmpty() 
+                ? String.join(", ", projectActors) 
+                : "(No pre-defined actors. Use standard generic actors)";
+        
+        String existingUcContext = existingUseCases != null && !existingUseCases.isEmpty()
+                ? String.join("\n- ", existingUseCases)
+                : "(No existing use cases)";
+
         String prompt = "You are an expert Business Analyst. I will provide you with one or more System Requirements.\n" +
                 "Your task is to analyze these requirements and break them down into detailed Use Cases.\n" +
                 "For EACH requirement, generate one or more Use Cases that fulfill it.\n\n" +
                 "Your response MUST be a pure JSON array (without ```json wrappers). " +
                 "Each object in the array represents ONE Use Case and must have EXACTLY these fields:\n" +
                 "1. 'name': (String) A short, descriptive name (e.g., 'User Login').\n" +
-                "2. 'primaryActors': (String) Comma separated actors. USE ONLY COMMON ROLES like 'User', 'Guest', 'Admin', 'Customer', 'System User'. DO NOT use weird or overly specific terms like 'Prospective User'.\n" +
+                "2. 'primaryActors': (String) Comma separated actors. YOU MUST CHOOSE ONLY FROM THESE ALLOWED ACTORS: [" + actorsContext + "]. DO NOT invent new actors.\n" +
                 "3. 'precondition': (String) What must be true before this use case begins.\n" +
                 "4. 'postcondition': (String) What is the state of the system after this use case ends.\n" +
                 "5. 'mainSuccessScenario': (String) The main success flow, 1 step per line. Number the steps like '1. ...\\n2. ...'\n" +
-                "6. 'alternativeFlows': (String) Alternative or error flows. Format like 'Auto (last step):\\nIf validation fails:\\n1. ...\\n2. ...'\n" +
+                "6. 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
                 "7. 'requirementId': (Number) The EXACT ID of the Requirement this Use Case belongs to. You MUST copy the exact 'Requirement ID' number from the input. DO NOT make up a number.\n" +
-                "8. 'includes': (Array of Strings) A list of Use Case names that this Use Case INCLUDES (e.g. ['User Login']). Return empty array [] if none.\n" +
-                "9. 'extendsList': (Array of Strings) A list of Use Case names that this Use Case EXTENDS. Return empty array [] if none.\n\n" +
+                "8. 'includes': (Array of Strings) A list of Use Case names that this Use Case INCLUDES. IF the flow involves an action already defined in the EXISTING USE CASES list, reuse it here. Return [] if none.\n" +
+                "9. 'extendsList': (Array of Strings) A list of Use Case names that this Use Case EXTENDS. IF the flow extends an action in the EXISTING USE CASES list, reuse it here. Return [] if none.\n\n" +
                 "CRITICAL INSTRUCTION: All generated text (except keys) MUST BE WRITTEN IN ENGLISH, to match the target audience.\n" +
                 "YOU MUST RETURN ONLY A DIRECT JSON ARRAY. DO NOT WRAP IT IN A JSON OBJECT.\n\n" +
+                "--- ALLOWED ACTORS ---\n" + actorsContext + "\n\n" +
+                "--- EXISTING USE CASES ---\n" + existingUcContext + "\n\n" +
                 "--- SYSTEM REQUIREMENTS ---\n" + reqsContext.toString();
         
         String response = callGeminiApi(prompt);
@@ -153,19 +166,16 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     private String callGeminiApi(String prompt) {
-        String apiKey = geminiProperties.getKey();
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new BusinessException("API Key của Gemini chưa được cấu hình. Vui lòng thêm vào application.yaml.");
-        }
-
         String targetUrl = geminiProperties.getUrl();
         if (targetUrl == null || targetUrl.isEmpty()) {
             throw new BusinessException("Chưa cấu hình URL (gemini.api.url) trong application.yaml");
         }
-        
-        String requestUrl = targetUrl + "?key=" + apiKey;
 
-        // Build the request body for Gemini API
+        List<String> keys = geminiProperties.getKeys();
+        if (keys == null || keys.isEmpty()) {
+            throw new BusinessException("API Keys của Gemini chưa được cấu hình. Vui lòng thêm vào application.yaml.");
+        }
+
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> parts = new HashMap<>();
         parts.put("text", prompt);
@@ -180,49 +190,67 @@ public class GeminiServiceImpl implements GeminiService {
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-        try {
-            // Send POST request
-            String jsonResponse = restTemplate.postForObject(requestUrl, entity, String.class);
-            
-            // Parse the JSON response
-            JsonNode rootNode = objectMapper.readTree(jsonResponse);
-            JsonNode textNode = rootNode.path("candidates")
-                                        .get(0)
-                                        .path("content")
-                                        .path("parts")
-                                        .get(0)
-                                        .path("text");
-            
-            if (textNode.isMissingNode()) {
-                throw new BusinessException("Không tìm thấy kết quả hợp lệ từ Gemini.");
-            }
-            
-            return textNode.asText();
-        } catch (HttpStatusCodeException httpException) {
-            int statusCode = httpException.getStatusCode().value();
-            log.error("Gemini API HTTP Error {}: {}", statusCode, httpException.getResponseBodyAsString());
-            if (statusCode == 429) {
-                throw new BusinessException("Gemini API Quota Exceeded (429). Please use a new API Key.");
-            } else if (statusCode == 404) {
-                throw new BusinessException("Gemini Model not found or API Key lacks access (404 Not Found).");
-            } else if (statusCode == 400) {
-                throw new BusinessException("Bad Request payload sent to Gemini (400 Bad Request).");
-            } else if (statusCode == 503) {
-                log.warn("Gemini API 503 Service Unavailable. Retrying...");
-                try {
-                    Thread.sleep(5000); // Đợi 5s rồi thử lại
-                    String retryJson = restTemplate.postForObject(requestUrl, entity, String.class);
-                    JsonNode retryRootNode = objectMapper.readTree(retryJson);
-                    return retryRootNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
-                } catch (Exception retryEx) {
-                    throw new BusinessException("Gemini API is currently overloaded (503 Service Unavailable). Please try again in a few minutes.");
+        int maxRetries = keys.size();
+        for (int i = 0; i < maxRetries; i++) {
+            int index = currentKeyIndex.getAndUpdate(idx -> (idx + 1) % keys.size());
+            String apiKey = keys.get(index);
+            String requestUrl = targetUrl + "?key=" + apiKey;
+
+            try {
+                // Send POST request
+                String jsonResponse = restTemplate.postForObject(requestUrl, entity, String.class);
+                
+                // Parse the JSON response
+                JsonNode rootNode = objectMapper.readTree(jsonResponse);
+                JsonNode textNode = rootNode.path("candidates")
+                                            .get(0)
+                                            .path("content")
+                                            .path("parts")
+                                            .get(0)
+                                            .path("text");
+                
+                if (textNode.isMissingNode()) {
+                    throw new BusinessException("Không tìm thấy kết quả hợp lệ từ Gemini.");
                 }
+                
+                return textNode.asText();
+            } catch (HttpStatusCodeException httpException) {
+                int statusCode = httpException.getStatusCode().value();
+                log.error("Gemini API HTTP Error {}: {}", statusCode, httpException.getResponseBodyAsString());
+                
+                if (statusCode == 429) {
+                    log.warn("Gemini API Quota Exceeded (429) for key ending in {}. Switching to next key...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
+                    if (i == maxRetries - 1) {
+                        throw new BusinessException("Gemini API Quota Exceeded (429) trên tất cả các API keys. Vui lòng đợi một lát rồi thử lại.");
+                    }
+                    // Loop will continue and try the next key
+                } else if (statusCode == 404) {
+                    throw new BusinessException("Gemini Model not found or API Key lacks access (404 Not Found).");
+                } else if (statusCode == 400) {
+                    throw new BusinessException("Bad Request payload sent to Gemini (400 Bad Request).");
+                } else if (statusCode == 503) {
+                    log.warn("Gemini API 503 Service Unavailable. Retrying after 5 seconds...");
+                    try {
+                        Thread.sleep(5000); // Đợi 5s rồi thử lại
+                        String retryJson = restTemplate.postForObject(requestUrl, entity, String.class);
+                        JsonNode retryRootNode = objectMapper.readTree(retryJson);
+                        return retryRootNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+                    } catch (Exception retryEx) {
+                        throw new BusinessException("Gemini API is currently overloaded (503 Service Unavailable). Please try again in a few minutes.");
+                    }
+                } else {
+                    throw new BusinessException("Lỗi kết nối Gemini API: " + statusCode);
+                }
+            } catch (Exception ex) {
+                if (ex instanceof BusinessException) {
+                    throw (BusinessException) ex;
+                }
+                log.error("Gemini API Exception: ", ex);
+                throw new BusinessException("Lỗi xử lý kết quả từ Gemini API: " + ex.getMessage());
             }
-            throw new BusinessException("Gemini API Error (Code: " + statusCode + ")");
-        } catch (Exception e) {
-            log.error("Unknown error when calling Gemini API: {}", e.getMessage(), e);
-            throw new BusinessException("Unknown error when calling Gemini API. Please try again.");
         }
+        
+        throw new BusinessException("Không thể gọi Gemini API với các keys hiện có.");
     }
 
     @Override
@@ -258,7 +286,7 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     @Override
-    public String evaluateUseCasesWithCritic(String rawUseCasesJson, java.util.List<org.example.backend.entity.Requirement> requirements) {
+    public String evaluateUseCasesWithCritic(String rawUseCasesJson, java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> existingUseCases, java.util.List<String> allowedActors) {
         StringBuilder reqsContext = new StringBuilder();
         if (requirements != null) {
             for (org.example.backend.entity.Requirement r : requirements) {
@@ -269,15 +297,26 @@ public class GeminiServiceImpl implements GeminiService {
             }
         }
 
+        String existingUcsContext = existingUseCases != null && !existingUseCases.isEmpty()
+                ? String.join("\n- ", existingUseCases)
+                : "(No existing use cases)";
+
+        String actorsContext = allowedActors != null && !allowedActors.isEmpty()
+                ? String.join(", ", allowedActors)
+                : "(No pre-defined actors. Allow any.)";
+
         String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
                 "I will provide you with a list of recently generated Use Cases (in JSON format), " +
-                "and their original parent Requirements.\n\n" +
+                "their original parent Requirements, the list of EXISTING USE CASES in the project, and ALLOWED ACTORS.\n\n" +
                 "Your task: Read each Use Case and evaluate its quality. " +
-                "Return the EXACT SAME JSON array, but append 3 evaluation fields to EACH object:\n" +
+                "Return the EXACT SAME JSON array, but append 4 evaluation fields to EACH object:\n" +
                 "1. 'quality_status': (String) Quality status, must be strictly one of: 'OK', 'Warning', 'Error'.\n" +
-                "2. 'warnings': (Array of Strings) List any ambiguities, missing primary actors, or lack of details in ENGLISH (if any; empty array if none).\n" +
-                "3. 'errors': (Array of Strings) List any logical errors, disconnected alternative flows, or contradictions in ENGLISH (if any; empty array if none).\n\n" +
+                "2. 'warnings': (Array of Strings) List in ENGLISH any ambiguities, lack of details, or ACTOR VIOLATIONS (if they use an actor NOT in the ALLOWED ACTORS list, you MUST flag a warning).\n" +
+                "3. 'errors': (Array of Strings) List in ENGLISH any logical errors, disconnected alternative flows, contradictions, or SCOPE CREEP / COMPLETENESS ISSUES (e.g., Use Case has actions totally unrelated to the Parent Requirement, or postcondition fails to achieve the goal).\n" +
+                "4. 'isDuplicate': (Boolean) Set to true IF AND ONLY IF this newly generated Use Case is a SEMANTIC DUPLICATE or functionally identical to any Use Case in the EXISTING USE CASES list. Otherwise, false.\n\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
+                "--- ALLOWED ACTORS ---\n" + actorsContext + "\n\n" +
+                "--- EXISTING USE CASES ---\n" + existingUcsContext + "\n\n" +
                 "--- PARENT REQUIREMENTS ---\n" + reqsContext.toString() + "\n\n" +
                 "--- RAW USE CASES JSON ---\n" + rawUseCasesJson;
 
