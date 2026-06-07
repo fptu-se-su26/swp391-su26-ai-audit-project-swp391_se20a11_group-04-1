@@ -67,6 +67,13 @@ public class AiGenerationController {
         return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
     }
 
+    @DeleteMapping("/staging/pending/{projectId}")
+    public ResponseEntity<?> deletePendingGenerations(@PathVariable Long projectId, @RequestParam String stage) {
+        org.example.backend.entity.AiStage aiStage = org.example.backend.entity.AiStage.valueOf(stage.toUpperCase());
+        aiGenerationService.deletePendingGenerations(projectId, aiStage);
+        return ResponseEntity.ok(Map.of("message", "Deleted pending generations"));
+    }
+
     @PostMapping("/approve/{generationId}")
     public ResponseEntity<?> approveGeneration(
             @PathVariable UUID generationId,
@@ -140,5 +147,63 @@ public class AiGenerationController {
 
         aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
         return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
+    }
+
+    @PostMapping("/use-cases/{useCaseId}/sync-preview")
+    public ResponseEntity<?> syncUseCasePreview(
+            @PathVariable Long useCaseId,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.JsonNode preview = aiGenerationService.syncUseCasePreview(useCaseId);
+            return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(preview.toString());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/requirements/{reqId}/sync-use-cases-preview")
+    public ResponseEntity<?> syncAllUseCasesPreview(
+            @PathVariable Long reqId,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.JsonNode preview = aiGenerationService.syncAllUseCasesPreview(reqId);
+            return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(preview.toString());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/requirements/{reqId}/apply-use-case-sync")
+    public ResponseEntity<?> applyRequirementSync(
+            @PathVariable Long reqId,
+            @RequestBody Map<String, Object> payloadObj,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode payload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
+            aiGenerationService.applyRequirementSync(reqId, payload, userId);
+            return ResponseEntity.ok(Map.of("message", "Use Cases synchronized successfully."));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 }

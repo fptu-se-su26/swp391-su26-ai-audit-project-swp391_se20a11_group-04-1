@@ -120,8 +120,15 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     isCancelledRef.current = true;
+    if (activeProject?.id && isUploading) {
+      try {
+        await requirementApi.deletePendingGenerations(activeProject.id, 'REQUIREMENT');
+      } catch (err) {
+        console.error('Failed to clear pending requirement generation:', err);
+      }
+    }
     onClose();
   };
 

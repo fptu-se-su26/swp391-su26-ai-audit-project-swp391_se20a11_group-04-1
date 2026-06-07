@@ -47,10 +47,11 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === requirements.length) {
+    const reqsWithoutUcs = requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id));
+    if (selectedIds.size === reqsWithoutUcs.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(requirements.map(r => r.id)));
+      setSelectedIds(new Set(reqsWithoutUcs.map(r => r.id)));
     }
   };
 
@@ -99,17 +100,18 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="checkbox" 
-                checked={selectedIds.size > 0 && selectedIds.size === requirements.length}
+                checked={selectedIds.size > 0 && selectedIds.size === requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length}
                 ref={input => {
                   if (input) {
-                    input.indeterminate = selectedIds.size > 0 && selectedIds.size < requirements.length;
+                    const max = requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length;
+                    input.indeterminate = selectedIds.size > 0 && selectedIds.size < max;
                   }
                 }}
                 onChange={toggleSelectAll}
                 className="w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] cursor-pointer"
               />
               <span className="text-[13px] font-medium text-[#111827]">
-                Select All ({selectedIds.size} / {requirements.length})
+                Select All ({selectedIds.size} / {requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length} valid)
               </span>
             </label>
             <span className="text-[11px] text-[#9CA3AF] italic">
@@ -138,14 +140,22 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
                 return (
                   <label 
                     key={req.id} 
-                    className={`flex items-center justify-between py-[10px] px-[14px] border-b border-[#F3F4F6] hover:bg-[#F8FAFC] cursor-pointer transition-colors gap-[12px] ${!isSelected ? 'opacity-65' : ''}`}
+                    className={`flex items-center justify-between py-[10px] px-[14px] border-b border-[#F3F4F6] gap-[12px] 
+                      ${hasUcs ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-[#F8FAFC]'} 
+                      ${!isSelected && !hasUcs ? 'opacity-75' : ''}`}
+                    onClick={(e) => {
+                      if (hasUcs) e.preventDefault();
+                    }}
                   >
                     <div className="flex items-center gap-[12px] flex-1 min-w-0">
                       <input 
                         type="checkbox" 
                         checked={isSelected}
-                        onChange={() => toggleSelect(req.id)}
-                        className="w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] cursor-pointer shrink-0"
+                        disabled={hasUcs}
+                        onChange={() => {
+                          if (!hasUcs) toggleSelect(req.id);
+                        }}
+                        className={`w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] shrink-0 ${hasUcs ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                       />
                       <span className="bg-[#185FA5] text-white text-[11px] rounded-[6px] px-[8px] py-[2px] font-mono shrink-0">
                         {req.reqCode || `REQ-${req.id}`}

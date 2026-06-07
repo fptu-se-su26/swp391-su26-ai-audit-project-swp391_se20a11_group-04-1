@@ -44,8 +44,8 @@ export const useCaseService = {
   },
 
   // AI: Generate Use Cases
-  generateUseCases: async (projectId, payload) => {
-    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000 });
+  generateUseCases: async (projectId, payload, config = {}) => {
+    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000, ...config });
     return response.data;
   },
 

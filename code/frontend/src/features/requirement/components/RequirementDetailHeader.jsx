@@ -2,16 +2,12 @@ import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
 import { requirementApi } from '../services/requirementApi';
-import { useCaseService } from '../services/useCaseService';
 import toast from 'react-hot-toast';
-import AiUseCaseGenerationModal from './AiUseCaseGenerationModal';
-import AIGenerationProgressModal from './AIGenerationProgressModal';
+import AiSmartSyncAllModal from './AiSmartSyncAllModal';
 
 const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
   const { projectId } = useParams();
-  const [generating, setGenerating] = useState(false);
-  const [generationId, setGenerationId] = useState(null);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isSmartSyncModalOpen, setIsSmartSyncModalOpen] = useState(false);
 
   if (!requirement) return null;
 
@@ -24,23 +20,23 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
     }
   };
 
-  const handleGenerateUC = async () => {
-    setGenerating(true);
-    try {
-      const response = await useCaseService.generateUseCases(projectId, { requirementIds: [requirement.id] });
-      setGenerationId(response.generationId);
-      setIsAiModalOpen(true);
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || 'Có lỗi khi sinh Use Case bằng AI');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   const handleAiModalSuccess = () => {
     if (onRefresh) onRefresh();
   };
+
+  const hasExistingUseCases = requirement.useCases && requirement.useCases.length > 0;
+  const hasOutdatedUseCases = requirement.useCases?.some(uc => uc.outdated);
+
+  // Determine button styles and text based on context
+  let btnClass = 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant';
+  let btnText = '🪄 Generate Use Cases';
+  
+  if (hasExistingUseCases) {
+    btnText = '🪄 AI Update Usecase';
+    if (hasOutdatedUseCases) {
+      btnClass = 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30';
+    }
+  }
 
   return (
     <div className="flex flex-col md:flex-row md:items-start justify-between mb-gutter gap-stack_md pb-4 border-b border-outline-variant/50">
@@ -117,28 +113,23 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
             <span className="material-symbols-outlined text-[18px] mr-1">check_circle</span> Duyệt (Approve)
           </button>
         )}
+        
         <button 
-          onClick={handleGenerateUC}
-          disabled={generating}
-          className="flex items-center justify-center h-[36px] px-[16px] rounded-[10px] text-[13px] font-[500] text-white transition-all duration-300 shadow-sm hover:brightness-110 hover:shadow-[0_0_12px_rgba(83,74,183,0.35)] disabled:opacity-70 disabled:cursor-not-allowed"
-          style={{ background: 'linear-gradient(135deg, #3C3489 0%, #185FA5 100%)' }}
+          onClick={() => setIsSmartSyncModalOpen(true)}
+          className={`flex items-center justify-center h-[36px] px-[16px] rounded-[10px] text-[13px] font-[500] transition-all duration-300 shadow-sm ${btnClass}`}
         >
-          {generating ? (
-            <span className="material-symbols-outlined animate-spin text-[14px] mr-1">progress_activity</span>
-          ) : (
-            <span className="material-symbols-outlined text-[14px] mr-1">auto_awesome</span>
-          )}
-          {generating ? 'Generating...' : 'Generate Usecase'}
+          <span className="material-symbols-outlined text-[14px] mr-1">auto_awesome</span>
+          {btnText}
         </button>
       </div>
 
-      <AiUseCaseGenerationModal 
-        isOpen={isAiModalOpen} 
-        onClose={() => setIsAiModalOpen(false)} 
-        generationId={generationId} 
+      <AiSmartSyncAllModal 
+        requirementId={requirement.id}
+        existingUseCases={requirement.useCases}
+        isOpen={isSmartSyncModalOpen}
+        onClose={() => setIsSmartSyncModalOpen(false)}
         onSuccess={handleAiModalSuccess}
       />
-      <AIGenerationProgressModal isOpen={generating} requirementCount={1} onClose={() => setGenerating(false)} />
     </div>
   );
 };

@@ -1380,7 +1380,7 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
-<<<<<<< HEAD
+
     private void syncRequirementStatus(Long requirementId) {
         if (requirementId == null) return;
         Requirement req = requirementRepository.findById(requirementId).orElse(null);
@@ -1468,8 +1468,7 @@ public class TaskServiceImpl implements TaskService {
             useCaseRepository.save(uc);
         }
     }
-}
-=======
+
     @Override
     @Transactional
     public void autoApproveTasksExceedingReviewPeriod() {
@@ -1519,4 +1518,3 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 }
->>>>>>> 94cff7a4d4f62dec1c2c0f70d011b57693ec6db4

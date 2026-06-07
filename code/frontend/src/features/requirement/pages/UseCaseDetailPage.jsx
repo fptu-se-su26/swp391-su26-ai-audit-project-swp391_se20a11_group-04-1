@@ -7,6 +7,7 @@ import UseCaseMainFlow from '../components/UseCaseMainFlow';
 import UseCaseAlternativeFlows from '../components/UseCaseAlternativeFlows';
 import UseCaseConditions from '../components/UseCaseConditions';
 import UseCaseAIAnalysis from '../components/UseCaseAIAnalysis';
+import AiSyncUseCaseModal from '../components/AiSyncUseCaseModal';
 import toast from 'react-hot-toast';
 
 const UseCaseDetailPage = () => {
@@ -19,6 +20,9 @@ const UseCaseDetailPage = () => {
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // AI Sync Modal
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const fetchUseCase = useCallback(async () => {
     try {
@@ -139,6 +143,18 @@ const UseCaseDetailPage = () => {
 
   return (
     <div className="p-6 md:p-10 z-10 h-full">
+      {showSyncModal && (
+        <AiSyncUseCaseModal
+          useCase={displayData}
+          useCaseId={id}
+          projectId={projectId}
+          onClose={() => setShowSyncModal(false)}
+          onApprove={() => {
+            setShowSyncModal(false);
+            fetchUseCase();
+          }}
+        />
+      )}
       <div className="max-w-7xl mx-auto">
 
         <UseCaseDetailHeader 
@@ -151,6 +167,7 @@ const UseCaseDetailPage = () => {
           onCancel={handleCancel}
           onFieldChange={handleFieldChange}
           onStatusChange={handleStatusChange}
+          onAiSync={() => setShowSyncModal(true)}
         />
         <UseCaseMetadataCards 
           useCase={displayData}

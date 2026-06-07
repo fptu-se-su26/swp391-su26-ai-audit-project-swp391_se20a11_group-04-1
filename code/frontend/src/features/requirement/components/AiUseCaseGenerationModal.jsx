@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { normalizeFlowToText } from '../../../utils/flowFormatter';
 import { useCaseService } from '../services/useCaseService';
 import Button from '../../../components/ui/Button';
 
@@ -20,8 +21,19 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           if (typeof payloadData === 'string') {
             try { payloadData = JSON.parse(payloadData); } catch(e) {}
           }
+          if (Array.isArray(payloadData)) {
+            payloadData = payloadData.map(uc => ({
+              ...uc,
+              mainSuccessScenario: normalizeFlowToText(uc.mainSuccessScenario || uc.mainFlow || uc.mainFlows),
+              alternativeFlows: normalizeFlowToText(uc.alternativeFlows || uc.alternativeFlow)
+            }));
+          }
           setUseCases(Array.isArray(payloadData) ? payloadData : []);
-          setSelectedIndices(new Set((Array.isArray(payloadData) ? payloadData : []).map((_, i) => i)));
+          const validIndices = (Array.isArray(payloadData) ? payloadData : [])
+            .map((uc, i) => ({uc, i}))
+            .filter(({uc}) => !uc.isDuplicate)
+            .map(({i}) => i);
+          setSelectedIndices(new Set(validIndices));
         })
         .catch(err => {
           console.error("Failed to load AI generation data", err);
@@ -36,10 +48,11 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   if (!isOpen) return null;
 
   const toggleSelectAll = () => {
-    if (selectedIndices.size === useCases.length) {
+    const validIndices = useCases.map((uc, i) => ({uc, i})).filter(({uc}) => !uc.isDuplicate).map(({i}) => i);
+    if (selectedIndices.size === validIndices.length) {
       setSelectedIndices(new Set());
     } else {
-      setSelectedIndices(new Set(useCases.map((_, i) => i)));
+      setSelectedIndices(new Set(validIndices));
     }
   };
 
@@ -116,31 +129,56 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 
                     type="checkbox" 
-                    checked={selectedIndices.size > 0 && selectedIndices.size === useCases.length}
+                    checked={selectedIndices.size > 0 && selectedIndices.size === useCases.filter(uc => !uc.isDuplicate).length}
                     ref={input => {
-                      if (input) input.indeterminate = selectedIndices.size > 0 && selectedIndices.size < useCases.length;
+                      if (input) input.indeterminate = selectedIndices.size > 0 && selectedIndices.size < useCases.filter(uc => !uc.isDuplicate).length;
                     }}
                     onChange={toggleSelectAll}
                     className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
                   />
                   <span className="font-label-lg text-label-lg text-on-surface font-semibold">
-                    Select All ({selectedIndices.size} of {useCases.length} selected)
+                    Select All ({selectedIndices.size} of {useCases.filter(uc => !uc.isDuplicate).length} valid use cases selected)
                   </span>
                 </label>
               </div>
 
               <div className="grid grid-cols-1 gap-6">
-                {useCases.map((uc, index) => (
-                  <div key={index} className={`bg-surface-container-lowest border rounded-xl overflow-hidden shadow-sm transition-all ${selectedIndices.has(index) ? 'border-primary ring-1 ring-primary/20' : 'border-outline-variant opacity-80'}`}>
+                {useCases.map((uc, index) => {
+                  const status = uc.quality_status || 'Unassessed';
+                  const isDuplicate = uc.isDuplicate === true;
+                  let isOk = status === 'OK' || status === 'ok';
+                  let isWarning = status === 'Warning' || status === 'warning';
+                  let isError = status === 'Error' || status === 'error';
+                  const isUnassessed = status === 'Unassessed';
+                  
+                  if (isDuplicate) {
+                    isError = true;
+                    isOk = false;
+                    isWarning = false;
+                  }
+                  
+                  let statusColorClass = 'border-l-4 border-l-gray-400';
+                  if (isOk) statusColorClass = 'border-l-4 border-l-emerald-500';
+                  if (isWarning) statusColorClass = 'border-l-4 border-l-yellow-500';
+                  if (isError) statusColorClass = 'border-l-4 border-l-red-500';
+
+                  return (
+                  <div key={index} className={`bg-surface-container-lowest border rounded-xl overflow-hidden shadow-sm transition-all ${isDuplicate ? 'opacity-50 grayscale-[50%] pointer-events-none' : ''} ${selectedIndices.has(index) ? 'border-r-primary border-t-primary border-b-primary ring-1 ring-primary/20' : 'border-outline-variant opacity-80'} ${statusColorClass}`}>
                     <div className="flex items-center justify-between p-4 border-b border-outline-variant bg-surface-50">
-                      <label className="flex items-center gap-3 cursor-pointer flex-1">
+                      <label className="flex items-center gap-3 flex-1 cursor-pointer">
                         <input 
                           type="checkbox" 
                           checked={selectedIndices.has(index)}
-                          onChange={() => toggleSelect(index)}
-                          className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer mt-1 self-start"
+                          onChange={() => !isDuplicate && toggleSelect(index)}
+                          disabled={isDuplicate}
+                          className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer mt-1 self-start disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <div className="flex-1">
+                          {isDuplicate && (
+                            <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-1 border border-red-200">
+                              <span className="material-symbols-outlined text-[12px]">content_copy</span> Duplicate
+                            </span>
+                          )}
                           <input 
                             type="text" 
                             value={uc.name || ''} 
@@ -166,8 +204,30 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                       </label>
                     </div>
                     
-                    {uc.quality_status && uc.quality_status !== 'OK' && (
-                      <div className={`p-4 border-b-2 border-t-2 ${uc.quality_status === 'Error' ? 'bg-red-50 border-red-500' : 'bg-yellow-50 border-yellow-500'}`}>
+                    {status && (
+                      <div className={`p-4 border-b-2 border-t-2 ${isError ? 'bg-red-50 border-red-500' : isWarning ? 'bg-yellow-50 border-yellow-500' : isOk ? 'bg-emerald-50 border-emerald-500' : 'bg-gray-50 border-gray-300'}`}>
+                        {isOk && (
+                          <div>
+                            <h4 className="text-[13px] font-bold text-emerald-700 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[16px]">check_circle</span> AI Critic: Good Quality
+                            </h4>
+                          </div>
+                        )}
+                        {isUnassessed && (
+                          <div className="mb-2">
+                            <h4 className="text-[13px] font-bold text-gray-600 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[16px]">pending</span> AI Critic: Unassessed / Evaluation Failed
+                            </h4>
+                          </div>
+                        )}
+                        {isDuplicate && (
+                          <div className="mb-2">
+                            <h4 className="text-[13px] font-bold text-red-700 flex items-center gap-1 mb-1">
+                              <span className="material-symbols-outlined text-[16px]">content_copy</span> Duplicate Detected
+                            </h4>
+                            <p className="text-[13px] text-red-900 pl-5">This Use Case is functionally identical to an existing Use Case in the project.</p>
+                          </div>
+                        )}
                         {uc.errors?.length > 0 && (
                           <div className="mb-2">
                             <h4 className="text-[13px] font-bold text-red-700 flex items-center gap-1 mb-1">
@@ -243,7 +303,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
