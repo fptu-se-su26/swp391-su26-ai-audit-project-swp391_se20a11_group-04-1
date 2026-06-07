@@ -151,7 +151,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       setTaskVoteStats(data)
       toast.success('Đã ghi nhận biểu quyết ý tưởng!')
     } catch (err) {
-      toast.error('Ghi nhận biểu quyết thất bại!')
+      toast.error(err.response?.data?.message || 'Ghi nhận biểu quyết thất bại!')
     }
   }
 
@@ -161,7 +161,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.voteTaskComment(commentId, true)
       loadComments()
     } catch (err) {
-      toast.error('Vote bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
     }
   }
 
@@ -170,7 +170,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.voteTaskComment(commentId, false)
       loadComments()
     } catch (err) {
-      toast.error('Vote bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
     }
   }
 
@@ -180,7 +180,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.vote(propId, true)
       loadProposals()
     } catch (err) {
-      toast.error('Vote đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
     }
   }
 
@@ -189,7 +189,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.vote(propId, false)
       loadProposals()
     } catch (err) {
-      toast.error('Vote đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
     }
   }
 
@@ -203,7 +203,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       toast.success('Đã đăng phản biện về đề xuất này!')
       loadProposals()
     } catch (err) {
-      toast.error('Gửi phản biện thất bại!')
+      toast.error(err.response?.data?.message || 'Gửi phản biện thất bại!')
     }
   }
 
@@ -220,7 +220,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       }
       setActiveTab('tasks')
     } catch (err) {
-      toast.error('Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
     }
   }
 
@@ -230,7 +230,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       toast.success('Đã từ chối đề xuất này.')
       loadProposals()
     } catch (err) {
-      toast.error('Từ chối đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Từ chối đề xuất thất bại!')
     }
   }
 
@@ -266,7 +266,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       })
       toast.success('Đã cập nhật trạng thái checklist!')
     } catch (err) {
-      toast.error('Cập nhật trạng thái checklist thất bại!')
+      toast.error(err.response?.data?.message || 'Cập nhật trạng thái checklist thất bại!')
     }
   }
 
@@ -285,7 +285,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       })
       toast.success('Đã xóa checklist item!')
     } catch (err) {
-      toast.error('Xóa checklist item thất bại!')
+      toast.error(err.response?.data?.message || 'Xóa checklist item thất bại!')
     }
   }
 
@@ -315,7 +315,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
         fetchTaskById(taskId)
       }
     } catch (err) {
-      toast.error('Thêm checklist item thất bại!')
+      toast.error(err.response?.data?.message || 'Thêm checklist item thất bại!')
     }
   }
 
@@ -325,7 +325,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.addTaskComment(taskId, text.trim())
       loadComments()
     } catch (err) {
-      toast.error('Gửi bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
     }
   }
 
@@ -336,7 +336,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       toast.success('Đã gửi phản hồi!')
       loadComments()
     } catch (err) {
-      toast.error('Gửi phản hồi thất bại!')
+      toast.error(err.response?.data?.message || 'Gửi phản hồi thất bại!')
     }
   }
 
@@ -347,7 +347,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       toast.success('Đã gửi đề xuất checklist mới!')
       loadProposals()
     } catch (err) {
-      toast.error('Gửi đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
     }
   }
 
@@ -587,6 +587,15 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 onToggleCommentsVisibility={toggleProposalCommentVisibility}
                 onSetFeedbackText={handleSetFeedbackText}
                 isLeader={isLeader}
+                onUpdateProposal={async (proposalId, text) => {
+                  try {
+                    await proposalService.updateProposal(proposalId, text)
+                    toast.success('Đã cập nhật đề xuất!')
+                    loadProposals()
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || 'Cập nhật đề xuất thất bại!')
+                  }
+                }}
               />
             )}
 

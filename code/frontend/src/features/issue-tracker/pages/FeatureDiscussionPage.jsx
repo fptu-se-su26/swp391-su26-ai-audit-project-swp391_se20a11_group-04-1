@@ -175,7 +175,7 @@ export default function FeatureDiscussionPage() {
       }
       setActiveTab('tasks')
     } catch (err) {
-      toast.error('Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
     }
   }
 
@@ -493,6 +493,15 @@ export default function FeatureDiscussionPage() {
                 onToggleCommentsVisibility={toggleProposalCommentVisibility}
                 onSetFeedbackText={setFeedbackText}
                 isLeader={isLeader}
+                onUpdateProposal={async (proposalId, text) => {
+                  try {
+                    await proposalService.updateProposal(proposalId, text)
+                    toast.success('Đã cập nhật đề xuất!')
+                    loadProposals()
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || 'Cập nhật đề xuất thất bại!')
+                  }
+                }}
               />
             )}
 

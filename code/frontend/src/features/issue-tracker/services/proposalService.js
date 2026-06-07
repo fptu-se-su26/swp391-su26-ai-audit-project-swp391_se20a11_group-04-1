@@ -65,6 +65,15 @@ export const proposalService = {
   },
 
   /**
+   * Update a proposal content (description & checklist).
+   * PUT /v1/proposals/{proposalId}
+   */
+  updateProposal: async (proposalId, content) => {
+    const res = await axiosInstance.put(`/v1/proposals/${proposalId}`, { content })
+    return res.data.data
+  },
+
+  /**
    * Fetch all direct general comments for a task.
    */
   getTaskComments: async (taskId) => {
