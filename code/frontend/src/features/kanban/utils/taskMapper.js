@@ -78,6 +78,8 @@ export const mapTaskFromApi = (task) => ({
   })),
   parentId: task.parentId ? String(task.parentId) : null,
   createdByName: task.createdByName || null,
+  githubIssueNumber: task.githubIssueNumber || null,
+  githubIssueUrl: task.githubIssueUrl || null,
 })
 
 const parseRequirementId = (value) => {

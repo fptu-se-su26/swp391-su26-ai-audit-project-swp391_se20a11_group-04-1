@@ -86,7 +86,18 @@ public class TaskCommentService {
                     .build();
             taskVoteRepo.save(newVote);
         }
-        return getTaskVoteStats(taskId, currentUserId);
+        TaskVoteStatsResponse statsResponse = getTaskVoteStats(taskId, currentUserId);
+        try {
+            java.util.Map<String, Object> payload = java.util.Map.of(
+                "type", "TASK_VOTE_UPDATE",
+                "taskId", taskId
+            );
+            String json = objectMapper.writeValueAsString(payload);
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(json);
+        } catch (Exception e) {
+            log.error("Failed to broadcast task vote event via WebSocket", e);
+        }
+        return statsResponse;
     }
 
     // ─── GET Comments ────────────────────────────────────────────────────────

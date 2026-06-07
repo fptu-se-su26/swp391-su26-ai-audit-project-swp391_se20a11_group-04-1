@@ -119,6 +119,14 @@ export const proposalService = {
   voteTask: async (taskId, isUpvote) => {
     const res = await axiosInstance.post(`/v1/tasks/${taskId}/vote`, { upvote: isUpvote })
     return res.data.data
+  },
+  /**
+   * Leader approves all proposals for a task, converts them to sub-tasks and syncs with GitHub.
+   * POST /v1/tasks/{taskId}/approve-and-sync
+   */
+  approveAndSyncTask: async (taskId) => {
+    const res = await axiosInstance.post(`/v1/tasks/${taskId}/approve-and-sync`)
+    return res.data
   }
 }
 

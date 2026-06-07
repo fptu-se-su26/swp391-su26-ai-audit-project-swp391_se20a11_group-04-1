@@ -777,6 +777,11 @@ export function IssueTrackerDashboard() {
   }
 
   const handleApproveProposal = async (prop) => {
+    const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
+    if (!hasChecklist) {
+      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      return;
+    }
     try {
       await proposalService.approve(prop.id)
       toast.success('Đã duyệt và ban hành mục checklist này!')
@@ -884,10 +889,9 @@ export function IssueTrackerDashboard() {
       const isDraft = b.isBug && b.displayStatus === 'DRAFT'; // DRAFT bugs wait in pending queue
       if (isClosed || isDraft) return false;
 
-      // Feature tasks must be approved to show in Open list
+      // Feature tasks must have a GitHub Issue number (meaning they are approved & synced) to show in Open list
       if (!b.isBug) {
-        const stats = discussBugsStats[b.id]
-        return stats?.isAllApproved === true
+        return b.githubIssueNumber != null
       }
       return true;
     })
@@ -1316,78 +1320,70 @@ export function IssueTrackerDashboard() {
                     <div
                       key={bug.id}
                       onClick={() => setActiveDiscussTaskId(bug.id)}
-                      className={`group bg-surface-container-lowest border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-3.5 relative overflow-hidden w-full ${
-                        index === 0
-                          ? 'border-sky-500/80 border-l-[4px] border-l-sky-500'
-                          : 'border-outline-variant/60 hover:border-sky-500/50'
-                      }`}
+                      className="group bg-white border border-slate-200/80 rounded-2xl shadow-sm hover:shadow-md hover:border-sky-400/60 transition-all cursor-pointer overflow-hidden w-full"
                     >
-                      {/* Header row */}
-                      <div className="flex justify-between items-start gap-4 select-none">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm shadow-sky-500/20">
-                            {avatarLetter}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-extrabold text-sm text-on-surface">
+                      {/* Top header — giống ProposalTab */}
+                      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                        {/* Avatar */}
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+                          {avatarLetter}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-sm text-slate-900 truncate">{bug.displayTitle || bug.title}</span>
+                            <span className="text-[10px] font-black tracking-wider uppercase bg-[#0ea5e9]/10 text-[#0284c7] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full shrink-0">
+                              ĐỀ XUẤT
+                            </span>
+                            {assigneeName && (
+                              <span className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                                <span className="material-symbols-outlined text-[11px]">person</span>
                                 {assigneeName}
                               </span>
-                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-semibold border border-slate-200/60">
-                                Đề xuất
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-[10px] text-slate-400 font-semibold">ID: #{String(bug.id).slice(0,7).toUpperCase()}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[10px] text-slate-400 font-semibold">{formattedDate}</span>
+                            <span className="text-slate-300">•</span>
+                            {stats.isAllApproved ? (
+                              <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <span className="material-symbols-outlined text-[10px]">check_circle</span>
+                                Đã phê duyệt
                               </span>
-                            </div>
-                            <span className="text-[9px] text-on-surface-variant/80 mt-0.5 block font-semibold">
-                              {formattedDate}
-                            </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                <span className="material-symbols-outlined text-[10px]">schedule</span>
+                                Chờ phê duyệt
+                              </span>
+                            )}
                           </div>
                         </div>
-
-                        {/* Status Badge */}
-                        <div>
-                          {stats.isAllApproved ? (
-                            <span className="text-[10px] bg-emerald-50/50 text-emerald-600 border border-emerald-500/80 px-3 py-1 rounded-full font-bold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs font-bold">check_circle</span>
-                              ĐÃ DUYỆT & BAN HÀNH
-                            </span>
-                          ) : (
-                            <span className="text-[10px] bg-amber-50/50 text-amber-600 border border-amber-500/80 px-3 py-1 rounded-full font-bold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs font-bold">schedule</span>
-                              NHẬP / ĐANG THẢO LUẬN
-                            </span>
-                          )}
-                        </div>
                       </div>
 
-                      {/* Main Title & Description */}
-                      <div className="pl-1">
-                        <h3 className="text-sm font-bold text-slate-800 group-hover:text-sky-500 transition-colors leading-snug">
-                          {bug.displayTitle || bug.title}
-                        </h3>
-                        {bug.description && (
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed font-normal">
-                            {bug.description}
-                          </p>
-                        )}
-                      </div>
+                      {/* Description */}
+                      {bug.description && (
+                        <p className="px-4 pb-3 text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                          {bug.description}
+                        </p>
+                      )}
 
-                      {/* Thin Divider */}
-                      <div className="border-t border-outline-variant/30 w-full"></div>
-
-                      {/* Footer Toolbar */}
-                      <div className="flex items-center justify-between pl-1">
-                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 select-none">
+                      {/* Divider + Footer */}
+                      <div className="border-t border-slate-100 px-4 py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 select-none">
                           <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
-                            <span className="material-symbols-outlined text-[16px] text-slate-400">thumb_up</span>
-                            <span>Đồng ý ({stats.totalVotes})</span>
+                            <span className="material-symbols-outlined text-[14px]">thumb_up</span>
+                            Tán thành ({stats.totalVotes})
                           </span>
                           <span className="flex items-center gap-1 hover:text-rose-500 transition-colors">
-                            <span className="material-symbols-outlined text-[16px] text-slate-400">thumb_down</span>
-                            <span>Không đồng ý ({stats.totalDownvotes})</span>
+                            <span className="material-symbols-outlined text-[14px]">thumb_down</span>
+                            Không ({stats.totalDownvotes})
                           </span>
                           <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
-                            <span className="material-symbols-outlined text-[16px] text-slate-400">chat_bubble</span>
-                            <span>Góp ý ({stats.totalComments})</span>
+                            <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                            Góp ý ({stats.totalComments})
                           </span>
                         </div>
 
@@ -1395,10 +1391,10 @@ export function IssueTrackerDashboard() {
                           <button
                             type="button"
                             onClick={(e) => handleBulkApprove(e, bug)}
-                            className="py-1.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                            className="py-1 px-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer shrink-0"
                           >
                             <span className="material-symbols-outlined text-sm">check_circle</span>
-                            <span>Phê duyệt</span>
+                            Phê duyệt
                           </button>
                         )}
                       </div>
