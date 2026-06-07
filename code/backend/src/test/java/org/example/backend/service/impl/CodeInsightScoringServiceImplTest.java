@@ -126,6 +126,90 @@ class CodeInsightScoringServiceImplTest {
         assertThat(summary.getRiskLevel()).isEqualTo("BLOCKED");
     }
 
+    @Test
+    void failedCiBlocksReadyRiskEvenWhenScoreIsAboveThreshold() {
+        Task task = task();
+        task.setGithubIssueNumber(34);
+        List<CodeInsightEvidenceLink> links = List.of(
+                link(task, CodeInsightEvidenceType.COMMIT, 101L),
+                link(task, CodeInsightEvidenceType.PULL_REQUEST, 201L),
+                link(task, CodeInsightEvidenceType.CHECK_RUN, 301L));
+
+        when(taskRepository.findByParentId(12L)).thenReturn(List.of());
+        when(evidenceLinkRepository.findByTaskId(12L)).thenReturn(links);
+        when(commitRepository.findAllById(List.of(101L))).thenReturn(List.of(GitHubCommit.builder()
+                .id(101L)
+                .authorEmail("hieu@example.com")
+                .build()));
+        when(pullRequestRepository.findAllById(List.of(201L))).thenReturn(List.of(GitHubPullRequest.builder()
+                .id(201L)
+                .mergedAt(LocalDateTime.now())
+                .authorLogin("hieu")
+                .build()));
+        when(checkRunRepository.findAllById(List.of(301L))).thenReturn(List.of(GitHubCheckRun.builder()
+                .id(301L)
+                .conclusion("failure")
+                .build()));
+        when(codeInsightSettingsRepository.findByProjectId(10L))
+                .thenReturn(Optional.of(ProjectCodeInsightSettings.builder().minScoreWarningThreshold(70).build()));
+
+        TaskReviewDecisionResponse.ReviewEvidenceSummary summary = scoringService.buildReviewEvidenceSummary(task);
+
+        assertThat(summary.getScore()).isGreaterThanOrEqualTo(70);
+        assertThat(summary.getWarnings()).contains("Linked CI/check failed");
+        assertThat(summary.getRiskLevel()).isEqualTo("BLOCKED");
+    }
+
+    @Test
+    void newerPullRequestHeadPassingCiOverridesOlderFailedCheck() {
+        Task task = task();
+        task.setGithubIssueNumber(34);
+        List<CodeInsightEvidenceLink> links = List.of(
+                link(task, CodeInsightEvidenceType.COMMIT, 101L),
+                link(task, CodeInsightEvidenceType.COMMIT, 102L),
+                link(task, CodeInsightEvidenceType.PULL_REQUEST, 201L),
+                link(task, CodeInsightEvidenceType.CHECK_RUN, 301L),
+                link(task, CodeInsightEvidenceType.CHECK_RUN, 302L));
+
+        when(taskRepository.findByParentId(12L)).thenReturn(List.of());
+        when(evidenceLinkRepository.findByTaskId(12L)).thenReturn(links);
+        when(commitRepository.findAllById(List.of(101L, 102L))).thenReturn(List.of(
+                GitHubCommit.builder()
+                        .id(101L)
+                        .sha("oldsha")
+                        .authorEmail("hieu@example.com")
+                        .build(),
+                GitHubCommit.builder()
+                        .id(102L)
+                        .sha("newsha")
+                        .authorEmail("hieu@example.com")
+                        .build()));
+        when(pullRequestRepository.findAllById(List.of(201L))).thenReturn(List.of(GitHubPullRequest.builder()
+                .id(201L)
+                .headSha("newsha")
+                .authorLogin("hieu")
+                .build()));
+        when(checkRunRepository.findAllById(List.of(301L, 302L))).thenReturn(List.of(
+                GitHubCheckRun.builder()
+                        .id(301L)
+                        .sha("oldsha")
+                        .conclusion("failure")
+                        .build(),
+                GitHubCheckRun.builder()
+                        .id(302L)
+                        .sha("newsha")
+                        .conclusion("success")
+                        .build()));
+        when(codeInsightSettingsRepository.findByProjectId(10L))
+                .thenReturn(Optional.of(ProjectCodeInsightSettings.builder().minScoreWarningThreshold(70).build()));
+
+        TaskReviewDecisionResponse.ReviewEvidenceSummary summary = scoringService.buildReviewEvidenceSummary(task);
+
+        assertThat(summary.getCiStatus()).isEqualTo("PASSED");
+        assertThat(summary.getWarnings()).doesNotContain("Linked CI/check failed");
+        assertThat(summary.getRiskLevel()).isEqualTo("READY");
+    }
+
     private Task task() {
         UserAccount assignee = UserAccount.builder()
                 .id(5L)

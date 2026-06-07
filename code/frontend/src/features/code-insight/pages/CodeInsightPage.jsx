@@ -627,9 +627,12 @@ const CodeInsightPage = () => {
                       </div>
                     )}
                     {item.reason && (
-                      <p className="text-sm text-on-surface mt-2 rounded bg-surface-container-low px-3 py-2">
-                        {item.reason}
-                      </p>
+                      <div className="mt-2 rounded border border-outline-variant bg-surface-container-low px-3 py-2">
+                        <div className="text-xs font-bold uppercase text-on-surface-variant">
+                          Previous rejection reason
+                        </div>
+                        <p className="mt-1 text-sm text-on-surface">{item.reason}</p>
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
