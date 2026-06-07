@@ -113,6 +113,16 @@ public class TaskProposalController {
         return ResponseEntity.ok(ApiResponse.success(result, "Proposal updated"));
     }
 
+    // ─── POST approve and sync to GitHub ─────────────────────────────────────
+    @PostMapping("/tasks/{taskId}/approve-and-sync")
+    public ResponseEntity<ApiResponse<Void>> approveAndSync(
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        proposalService.approveAndSyncTask(taskId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Task approved and synced to GitHub"));
+    }
+
     // ─── Helper ──────────────────────────────────────────────────────────────
     private Long requireUser(HttpSession session) {
         Object uid = session.getAttribute("userId");

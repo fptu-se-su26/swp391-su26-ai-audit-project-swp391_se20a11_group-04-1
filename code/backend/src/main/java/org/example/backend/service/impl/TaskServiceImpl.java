@@ -165,7 +165,9 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
 
         // Outbound sync: create GitHub Issue for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        // Except for DEVELOPMENT parent tasks, which wait for leader approval & sync
+        boolean isDevParent = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null;
+        if (!isDevParent && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.createGitHubIssueForTask(savedTask, userId);
             } catch (Exception e) {
@@ -1301,6 +1303,7 @@ public class TaskServiceImpl implements TaskService {
                 .parentId(task.getParent() != null ? task.getParent().getId() : null)
                 .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
                 .githubIssueUrl(task.getGithubIssueUrl())
+                .githubIssueNumber(task.getGithubIssueNumber())
                 .build();
     }
 

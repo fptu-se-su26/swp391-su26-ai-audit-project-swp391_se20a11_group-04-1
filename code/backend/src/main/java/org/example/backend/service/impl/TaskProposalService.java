@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
  * Business logic for the Task Proposal & Comment discussion system.
  * Integrates with MongoDB and syncs approved checklists to PostgreSQL.
  */
+import org.example.backend.service.github.GitHubApiService;
+
 @Service
 @RequiredArgsConstructor
 public class TaskProposalService {
@@ -25,6 +27,52 @@ public class TaskProposalService {
     private final UserAccountRepository userRepo;
     private final TaskChecklistRepository checklistRepo;
     private final ProjectMemberRepository projectMemberRepository;
+    private final GitHubApiService gitHubApiService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskProposalService.class);
+
+    private static class ParseResult {
+        String plainText;
+        List<String> checklist = new java.util.ArrayList<>();
+    }
+
+    private ParseResult parseProposalContent(String content) {
+        ParseResult result = new ParseResult();
+        if (content == null || content.isBlank()) {
+            result.plainText = "";
+            return result;
+        }
+        String[] lines = content.split("\\r?\\n");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
+                String itemText = trimmed.substring(5).trim();
+                if (!itemText.isEmpty()) {
+                    result.checklist.add(itemText);
+                }
+            } else {
+                sb.append(line).append("\n");
+            }
+        }
+        result.plainText = sb.toString().trim();
+        return result;
+    }
+
+    private void broadcastProposalUpdate(Long taskId) {
+        try {
+            java.util.Map<String, Object> payload = java.util.Map.of(
+                "type", "TASK_PROPOSAL_UPDATE",
+                "taskId", taskId
+            );
+            String json = objectMapper.writeValueAsString(payload);
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(json);
+            log.info("📢 Broadcasted TASK_PROPOSAL_UPDATE for Task ID: {}", taskId);
+        } catch (Exception e) {
+            log.error("Failed to broadcast TASK_PROPOSAL_UPDATE via WebSocket: {}", e.getMessage(), e);
+        }
+    }
 
     // ─── Read ────────────────────────────────────────────────────────────────
 
@@ -55,6 +103,7 @@ public class TaskProposalService {
                 .build();
 
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(taskId);
         return toResponse(proposal, currentUserId);
     }
 
@@ -89,6 +138,7 @@ public class TaskProposalService {
         }
 
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(proposal.getTaskId());
         return toResponse(proposal, currentUserId);
     }
 
@@ -113,6 +163,7 @@ public class TaskProposalService {
 
         proposal.getComments().add(comment);
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(proposal.getTaskId());
         return toResponse(proposal, currentUserId);
     }
 
@@ -143,8 +194,6 @@ public class TaskProposalService {
                     org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
-        proposal.setStatus(ProposalStatus.APPROVED);
-
         List<String> itemsToAdd = new java.util.ArrayList<>();
         String[] lines = proposal.getContent().split("\\n");
         for (String line : lines) {
@@ -157,9 +206,13 @@ public class TaskProposalService {
             }
         }
 
-        if (itemsToAdd.isEmpty() && !proposal.getContent().trim().isEmpty()) {
-            itemsToAdd.add(proposal.getContent().trim());
+        if (itemsToAdd.isEmpty()) {
+            throw new org.example.backend.exception.CustomException(
+                    "Đề xuất bắt buộc phải có mô tả checklist (bắt đầu bằng '- [ ]' hoặc '- [x]').",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
         }
+
+        proposal.setStatus(ProposalStatus.APPROVED);
 
         for (String content : itemsToAdd) {
             boolean alreadyInChecklist = task.getChecklist()
@@ -180,6 +233,7 @@ public class TaskProposalService {
         taskRepo.save(task);
 
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(proposal.getTaskId());
         return toResponse(proposal, currentUserId);
     }
 
@@ -189,6 +243,7 @@ public class TaskProposalService {
 
         proposal.setStatus(ProposalStatus.REJECTED);
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(proposal.getTaskId());
         return toResponse(proposal, currentUserId);
     }
 
@@ -207,7 +262,117 @@ public class TaskProposalService {
         proposal.setContent(content.trim());
         proposal.setUpdatedAt(java.time.LocalDateTime.now());
         proposalRepo.save(proposal);
+        broadcastProposalUpdate(proposal.getTaskId());
         return toResponse(proposal, currentUserId);
+    }
+
+    @Transactional
+    public void approveAndSyncTask(Long taskId, Long currentUserId) {
+        Task task = taskRepo.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        UserAccount currentUser = userRepo.findById(currentUserId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
+
+        // 1. Only sync proposals that have already been individually APPROVED.
+        //    Do NOT auto-approve PENDING proposals — each proposal must be approved separately first.
+        List<TaskProposal> approvedProposals = proposalRepo.findByTaskIdOrderByCreatedAtAsc(taskId).stream()
+                .filter(p -> p.getStatus() == ProposalStatus.APPROVED)
+                .collect(Collectors.toList());
+
+        if (approvedProposals.isEmpty()) {
+            throw new org.example.backend.exception.CustomException(
+                    "Chưa có đề xuất nào được phê duyệt. Hãy phê duyệt ít nhất một đề xuất trước khi đồng bộ lên GitHub.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+
+        // 2. Sync parent task to GitHub (if not already synced)
+        if (task.getGithubIssueNumber() == null) {
+            try {
+                gitHubApiService.createGitHubIssueForTask(task, currentUserId);
+            } catch (Exception e) {
+                log.error("Failed to create GitHub Issue for parent task ID: {}", task.getId(), e);
+                throw new org.example.backend.exception.CustomException(
+                        "Đồng bộ Task cha lên GitHub thất bại: " + e.getMessage(),
+                        org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        // Update parent task status to TODO (so it appears on the Kanban Board and Open columns)
+        task.setStatus(TaskStatus.TODO);
+        taskRepo.save(task);
+
+
+        // 3. For each APPROVED proposal, convert to a sub-task
+        for (TaskProposal p : approvedProposals) {
+            ParseResult parseResult = parseProposalContent(p.getContent());
+            String plainTitle = parseResult.plainText;
+            if (plainTitle == null || plainTitle.isBlank()) {
+                plainTitle = "Đề xuất checklist";
+            }
+            final String finalTitle = plainTitle;
+            boolean subTaskExists = taskRepo.findByParentId(taskId).stream()
+                    .anyMatch(sub -> sub.getTitle().equals(finalTitle) || sub.getTitle().equals("[Sub-task] " + finalTitle));
+
+            if (!subTaskExists) {
+                // Create Sub-task
+                Task subTask = Task.builder()
+                        .project(task.getProject())
+                        .createdBy(currentUser)
+                        .parent(task)
+                        .title(finalTitle)
+                        .type(TaskType.DEVELOPMENT)
+                        .priority(Priority.MEDIUM)
+                        .startDate(java.time.LocalDate.now())
+                        .weight(java.math.BigDecimal.ONE)
+                        .status(TaskStatus.TODO)
+                        .checklist(new java.util.ArrayList<>())
+                        .build();
+
+                int order = 0;
+                for (String content : parseResult.checklist) {
+                    TaskChecklist newItem = TaskChecklist.builder()
+                            .task(subTask)
+                            .content(content)
+                            .done(false)
+                            .orderIndex(order++)
+                            .build();
+                    subTask.getChecklist().add(newItem);
+                }
+
+                Task savedSub = taskRepo.save(subTask);
+
+                // Sync sub-task to GitHub
+                try {
+                    gitHubApiService.createGitHubIssueForTask(savedSub, currentUserId);
+                } catch (Exception e) {
+                    log.error("Failed to sync sub-task to GitHub ID: {}", savedSub.getId(), e);
+                    throw new org.example.backend.exception.CustomException(
+                            "Đồng bộ sub-task '" + finalTitle + "' lên GitHub thất bại: " + e.getMessage(),
+                            org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+        }
+
+        // 4. Update parent task GitHub Issue body (to show sub-tasks list)
+        try {
+            gitHubApiService.updateGitHubIssueStatusForTask(task, currentUserId);
+        } catch (Exception e) {
+            log.error("Failed to update parent task body on GitHub ID: {}", task.getId(), e);
+            throw new org.example.backend.exception.CustomException(
+                    "Cập nhật nội dung Task cha trên GitHub thất bại: " + e.getMessage(),
+                    org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        // Broadcast WebSockets
+        broadcastProposalUpdate(taskId);
+        
+        try {
+            String wsMessage = String.format("{\"type\":\"REFRESH_BUGS\",\"projectId\":%d}", task.getProject().getId());
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(wsMessage);
+            log.info("📢 Broadcasted REFRESH_BUGS via WS for task conversion. Project ID: {}", task.getProject().getId());
+        } catch (Exception e) {
+            log.error("Failed to broadcast REFRESH_BUGS event for Project ID: {}", task.getProject().getId(), e);
+        }
     }
 
     // ─── Mapper ──────────────────────────────────────────────────────────────

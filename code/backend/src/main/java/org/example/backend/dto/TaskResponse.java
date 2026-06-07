@@ -43,6 +43,8 @@ public class TaskResponse {
     private Long parentId;
     private String parentTitle;
     private String githubIssueUrl;
+    private Integer githubIssueNumber;
+
 
     @Getter
     @Setter

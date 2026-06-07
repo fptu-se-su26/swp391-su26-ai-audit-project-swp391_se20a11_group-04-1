@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { 
@@ -34,9 +34,42 @@ export default function FeatureDiscussionPage() {
     return s !== 'DRAFT'
   }, [task])
 
-  // UI state
+  const isSynced = useMemo(() => {
+    return task?.githubIssueNumber != null
+  }, [task])
+
+  // UI state (activeTab and descExpanded still need React state)
   const [activeTab, setActiveTab] = useState('comments')
   const [descExpanded, setDescExpanded] = useState(false)
+
+  // Use ref instead of state for scroll-driven collapse to avoid re-renders causing scroll snap-back
+  const descRef = useRef(null)
+  const lastScrollTop = useRef(0)
+  const isDescCollapsedRef = useRef(false)
+
+  const handleContentScroll = useCallback((e) => {
+    const targetId = e.target?.id || e.currentTarget?.id || ''
+    if (targetId !== 'proposal-list-container' && targetId !== 'comment-list-container' && targetId !== 'approved-task-list-container') {
+      return
+    }
+    const scrollTop = e.target?.scrollTop ?? e.currentTarget?.scrollTop ?? 0
+    const shouldCollapse = scrollTop > 10
+
+    // Only toggle DOM class when state actually changes — NO React setState!
+    if (shouldCollapse !== isDescCollapsedRef.current) {
+      isDescCollapsedRef.current = shouldCollapse
+      if (descRef.current) {
+        if (shouldCollapse) {
+          descRef.current.classList.add('desc-collapsed')
+          descRef.current.classList.remove('desc-expanded')
+        } else {
+          descRef.current.classList.remove('desc-collapsed')
+          descRef.current.classList.add('desc-expanded')
+        }
+      }
+    }
+    lastScrollTop.current = scrollTop
+  }, [])
 
 
   // Comments (Tab 1) state - loaded from API
@@ -131,6 +164,18 @@ export default function FeatureDiscussionPage() {
     }
   }
 
+  const handleAddCommentReply = async (commentId, text) => {
+    if (!commentId || !text.trim()) return
+    if (isSynced) return
+    try {
+      await proposalService.addCommentReply(commentId, text.trim())
+      toast.success('Đã gửi phản hồi!')
+      loadComments()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gửi phản hồi thất bại!')
+    }
+  }
+
   // Handle Checklist Proposals (Tab 2)
 
   const handleVoteProposal = async (propId) => {
@@ -166,6 +211,11 @@ export default function FeatureDiscussionPage() {
   }
 
   const handleApproveProposal = async (prop) => {
+    const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
+    if (!hasChecklist) {
+      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      return;
+    }
     try {
       await proposalService.approve(prop.id)
       toast.success('Đã duyệt và chính thức ban hành đề xuất này thành Task!')
@@ -253,14 +303,32 @@ export default function FeatureDiscussionPage() {
         ...task,
         assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
         checklist: updated.map(item => ({
-          id: String(item.id || '').startsWith('temp-') ? undefined : item.id,
+          id: String(item.id || '').startsWith('temp-') ? null : item.id,
           content: item.content,
           done: item.done
         }))
       })
       toast.success('Đã thêm checklist item mới!')
+      if (id) {
+        fetchTaskById(id)
+      }
     } catch (err) {
       toast.error('Thêm checklist item thất bại!')
+    }
+  }
+
+  const handleApproveAndSync = async () => {
+    if (!id) return
+    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    try {
+      await proposalService.approveAndSyncTask(id)
+      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      loadProposals()
+      if (id) {
+        fetchTaskById(id)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
     }
   }
 
@@ -305,134 +373,142 @@ export default function FeatureDiscussionPage() {
   }
 
   return (
-    <main className="flex-1 p-6 md:p-10 pb-40 md:pb-60 overflow-y-auto relative bg-[#F1F4F9] text-slate-700 select-none font-sans">
+    <main className="flex-1 p-6 md:p-10 pb-6 overflow-hidden relative bg-[#F1F4F9] text-slate-700 select-none font-sans flex flex-col">
       {/* Visual background lights */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-[#0ea5e9]/5 opacity-40 blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-[#38bdf8]/5 opacity-30 blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-3xl mx-auto animate-in fade-in duration-300">
+      <div className="relative z-10 max-w-3xl mx-auto animate-in fade-in duration-300 w-full flex-1 flex flex-col">
         {/* Panel Main Card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden flex flex-col flex-1">
           
-          {/* Main Card Header */}
-          <div className="p-6 border-b border-slate-100 relative">
-            <div className="flex items-start gap-4">
-              {/* Task Avatar */}
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] flex items-center justify-center text-white shrink-0 font-bold text-xl shadow-sm">
-                {task.title ? task.title.charAt(0).toUpperCase() : 'F'}
-              </div>
-
-              {/* Task info */}
-              <div className="flex-1 min-w-0 pr-8">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xl font-extrabold text-slate-900 tracking-tight">{task.title}</span>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-3 py-1 font-semibold cursor-pointer">
-                    <User size={12} className="text-slate-400" />
-                    {task.assignee?.fullName || task.primaryAssignee?.fullName
-                      ? `Giao cho: ${task.assignee?.fullName || task.primaryAssignee?.fullName}`
-                      : 'Giao cho: Chưa phân công'}
+          {/* Sticky Header Wrapper */}
+          <div className="top-0 z-30 bg-white border-b border-slate-100 shadow-sm shrink-0">
+            {/* Main Card Header */}
+            <div className="relative p-6 pb-3">
+              <div className="flex items-start gap-4">
+                {/* Task Avatar */}
+                <div className="rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] flex items-center justify-center text-white shrink-0 font-bold shadow-sm w-12 h-12 text-xl">
+                  {task.title ? task.title.charAt(0).toUpperCase() : 'F'}
+                </div>
+    
+                {/* Task info */}
+                <div className="flex-1 min-w-0 pr-8">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-extrabold text-slate-900 tracking-tight text-xl">{task.title}</span>
+                    <div className="flex items-center gap-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-3 py-1 font-semibold cursor-pointer text-xs">
+                      <User size={12} className="text-slate-400" />
+                      {task.assignee?.fullName || task.primaryAssignee?.fullName
+                        ? `Giao cho: ${task.assignee?.fullName || task.primaryAssignee?.fullName}`
+                        : 'Giao cho: Chưa phân công'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400 flex-wrap font-medium mt-1 text-xs">
+                    <span>ID: #{task.id}</span>
+                    <span>·</span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} />
+                      {formatSafeDate(task.createdAt || task.startDate)}
+                    </span>
+                    <span>·</span>
+                    <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 size={11} />
+                      {task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW' ? 'Đã phê duyệt' : 'Chờ phê duyệt'}
+                    </span>
                   </div>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 flex-wrap font-medium">
-                  <span>ID: #{task.id}</span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={11} />
-                    {formatSafeDate(task.createdAt || task.startDate)}
-                  </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 size={11} />
-                    {task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW' ? 'Đã phê duyệt' : 'Chờ phê duyệt'}
-                  </span>
-                </div>
+    
+                {/* Close Button X */}
+                <button 
+                  onClick={() => navigate(-1)} 
+                  className="absolute rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center shrink-0 cursor-pointer top-5 right-5 w-8 h-8"
+                >
+                  <X size={16} />
+                </button>
               </div>
-
-              {/* Close Button X */}
-              <button 
-                onClick={() => navigate(-1)} 
-                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
-              >
-                <X size={16} />
-              </button>
+            </div>
+    
+            {/* Description Container */}
+            <div
+              ref={descRef}
+              className="desc-expanded transition-all duration-300 ease-in-out px-6 max-h-40 opacity-100 pb-4"
+            >
+              <div className="bg-[#f8fafc] rounded-2xl p-5 border border-slate-100/80">
+                <div
+                  className={`text-sm text-slate-600 leading-relaxed ${
+                    !descExpanded ? "line-clamp-2" : ""
+                  }`}
+                >
+                  {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
+                </div>
+                <button
+                  onClick={() => setDescExpanded(!descExpanded)}
+                  className="mt-2.5 flex items-center gap-1 text-xs text-[#0ea5e9] hover:text-[#0284c7] transition-colors font-bold cursor-pointer"
+                >
+                  {descExpanded ? 'Thu gọn' : 'Xem thêm'}
+                  <ChevronDown size={12} className={`transition-transform ${descExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
             </div>
 
-            {/* Description Container */}
-            <div className="mt-4 bg-[#f8fafc] rounded-2xl p-5 border border-slate-100/80">
-              <div
-                className={`text-sm text-slate-600 leading-relaxed ${
-                  !descExpanded ? "line-clamp-2" : ""
+            {/* Navigation Tabs */}
+            <div className="flex px-6 pt-2 gap-2 bg-white">
+              <button
+                onClick={() => setActiveTab('comments')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                  activeTab === 'comments'
+                    ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
-              </div>
+                <MessageSquare size={15} />
+                <span>Comment chung</span>
+                {activeTab === 'comments' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
+                )}
+              </button>
+  
               <button
-                onClick={() => setDescExpanded(!descExpanded)}
-                className="mt-2.5 flex items-center gap-1 text-xs text-[#0ea5e9] hover:text-[#0284c7] transition-colors font-bold cursor-pointer"
+                onClick={() => setActiveTab('proposals')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                  activeTab === 'proposals'
+                    ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
               >
-                {descExpanded ? 'Thu gọn' : 'Xem thêm'}
-                <ChevronDown size={12} className={`transition-transform ${descExpanded ? 'rotate-180' : ''}`} />
+                <Lightbulb size={15} />
+                <span>Đề xuất</span>
+                {activeTab === 'proposals' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
+                )}
+              </button>
+  
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                  activeTab === 'tasks'
+                    ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <ListChecks size={15} />
+                <span>Task được thông qua</span>
+                {task?.checklist?.length > 0 && (
+                  <span className="text-xs min-w-5 h-5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
+                    {task.checklist.length}
+                  </span>
+                )}
+                {activeTab === 'tasks' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
+                )}
               </button>
             </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-200/80 px-6 pt-2 gap-2 bg-slate-50/20">
-            <button
-              onClick={() => setActiveTab('comments')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
-                activeTab === 'comments'
-                  ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <MessageSquare size={15} />
-              <span>Comment chung</span>
-              {activeTab === 'comments' && (
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('proposals')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
-                activeTab === 'proposals'
-                  ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <Lightbulb size={15} />
-              <span>Đề xuất</span>
-              {activeTab === 'proposals' && (
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('tasks')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm rounded-t-xl transition-all relative cursor-pointer font-bold ${
-                activeTab === 'tasks'
-                  ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <ListChecks size={15} />
-              <span>Task được thông qua</span>
-              {task?.checklist?.length > 0 && (
-                <span className="text-xs min-w-5 h-5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
-                  {task.checklist.length}
-                </span>
-              )}
-              {activeTab === 'tasks' && (
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
-              )}
-            </button>
           </div>
 
           {/* Tab Content Panels */}
-          <div className="px-6 py-6 max-h-[60vh] overflow-y-auto bg-white">
+          <div className="px-6 py-4 flex-1 flex flex-col bg-white overflow-hidden">
             
             {/* TAB 1: COMMENT CHUNG */}
             {activeTab === 'comments' && (
@@ -440,6 +516,7 @@ export default function FeatureDiscussionPage() {
                 comments={comments}
                 loading={commentsLoading}
                 approved={ideaApproved}
+                readOnly={isSynced}
                 onApprove={async () => {
                   try {
                     // Update task status to APPROVED
@@ -465,7 +542,10 @@ export default function FeatureDiscussionPage() {
                     toast.error('Gửi bình luận thất bại!')
                   }
                 }}
+                onAddReply={handleAddCommentReply}
                 isLeader={isLeader}
+                projectMembers={activeProject?.members || []}
+                onContentScroll={handleContentScroll}
               />
             )}
 
@@ -475,6 +555,7 @@ export default function FeatureDiscussionPage() {
                 proposals={proposals}
                 loading={proposalsLoading}
                 ideaApproved={ideaApproved}
+                readOnly={isSynced}
                 onApprove={handleApproveProposal}
                 onVote={handleVoteProposal}
                 onDownvote={handleDownvoteProposal}
@@ -502,16 +583,22 @@ export default function FeatureDiscussionPage() {
                     toast.error(err.response?.data?.message || 'Cập nhật đề xuất thất bại!')
                   }
                 }}
+                onContentScroll={handleContentScroll}
+                isCollapsed={isVoteCollapsed}
               />
             )}
 
             {/* TAB 3: TASK ĐƯỢC THÔNG QUA */}
             {activeTab === 'tasks' && (
               <ApprovedTaskTab
+                task={task}
+                proposals={proposals}
                 checklist={task?.checklist || []}
                 onToggleCheck={handleToggleCheck}
                 onRemoveItem={handleRemoveApprovedTaskItem}
                 onAddItem={handleAddApprovedTaskItem}
+                onApproveAndSync={handleApproveAndSync}
+                onContentScroll={handleContentScroll}
               />
             )}
           </div>

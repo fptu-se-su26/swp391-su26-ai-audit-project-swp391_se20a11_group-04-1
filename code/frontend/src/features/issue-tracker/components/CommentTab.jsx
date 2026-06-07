@@ -5,6 +5,7 @@ export function CommentTab({
   comments = [],
   loading = false,
   approved = false,
+  readOnly = false,
   onApprove,
   onToggleLike,
   onToggleDislike,
@@ -12,7 +13,8 @@ export function CommentTab({
   onAddReply,
   currentUserInitials = 'U',
   isLeader = false,
-  projectMembers = []
+  projectMembers = [],
+  onContentScroll
 }) {
   const [newComment, setNewComment] = useState('')
   const [replyInputs, setReplyInputs] = useState({})
@@ -146,9 +148,8 @@ export function CommentTab({
 
     if (nextState) {
       const currentInput = replyInputs[comment.id] || ''
-      const tag = `@${comment.createdByName} `
       if (!currentInput.trim()) {
-        setReplyInputs(prev => ({ ...prev, [comment.id]: tag }))
+        setReplyInputs(prev => ({ ...prev, [comment.id]: '' }))
       }
       setTimeout(() => {
         const textarea = document.querySelector(`textarea[placeholder="Trả lời ${comment.createdByName}..."]`)
@@ -256,7 +257,7 @@ export function CommentTab({
   }
 
   return (
-    <div className="flex flex-col gap-5 relative">
+    <div className="flex flex-col h-full overflow-hidden relative">
       {/* Mention Dropdown Autocomplete Menu */}
       {mentionState.show && mentionState.filteredMembers.length > 0 && (
         <div
@@ -280,7 +281,12 @@ export function CommentTab({
       )}
 
       {/* Comments list */}
-      <div className="flex flex-col gap-4">
+      <div 
+        id="comment-list-container"
+        onScroll={onContentScroll}
+        style={{ overflowAnchor: 'none' }}
+        className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+      >
         {loading && (
           <div className="text-center text-sm text-slate-400 py-8">Đang tải bình luận...</div>
         )}
@@ -307,7 +313,7 @@ export function CommentTab({
               {/* Parent Comment Header & Body: Sticky at top of its container when replies are expanded */}
               <div 
                 className={`p-4 transition-colors rounded-t-2xl ${
-                  isRepliesExpanded ? 'sticky top-[150px] z-10 bg-white border-b border-slate-100/80 shadow-[0_2px_8px_rgba(0,0,0,0.02)]' : ''
+                  isRepliesExpanded ? 'sticky top-0 z-10 bg-white border-b border-slate-100/80 shadow-[0_2px_8px_rgba(0,0,0,0.02)]' : ''
                 } ${c.isLeader ? 'bg-sky-50/10' : 'bg-white'}`}
               >
                 {/* Header: Avatar, Name, Time */}
@@ -339,11 +345,13 @@ export function CommentTab({
                     {/* Action Bar: Vote, Reply, Toggle Replies */}
                     <div className="mt-4 flex items-center gap-4 flex-wrap select-none text-slate-500">
                       <button
-                        onClick={() => onToggleLike(c.id)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold py-1 px-2 rounded-lg transition-all cursor-pointer ${
-                          hasLiked
-                            ? "text-emerald-600 font-bold bg-emerald-50"
-                            : "hover:bg-slate-50 hover:text-slate-800"
+                        onClick={() => !readOnly && onToggleLike(c.id)}
+                        className={`flex items-center gap-1.5 text-xs font-semibold py-1 px-2 rounded-lg transition-all ${
+                          readOnly
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:bg-slate-50 hover:text-slate-800"
+                        } ${
+                          hasLiked ? "text-emerald-600 font-bold bg-emerald-50" : ""
                         }`}
                       >
                         <ThumbsUp size={14} className={hasLiked ? "fill-emerald-600" : ""} />
@@ -351,11 +359,13 @@ export function CommentTab({
                       </button>
 
                       <button
-                        onClick={() => onToggleDislike(c.id)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold py-1 px-2 rounded-lg transition-all cursor-pointer ${
-                          hasDisliked
-                            ? "text-rose-600 font-bold bg-rose-50"
-                            : "hover:bg-slate-50 hover:text-slate-800"
+                        onClick={() => !readOnly && onToggleDislike(c.id)}
+                        className={`flex items-center gap-1.5 text-xs font-semibold py-1 px-2 rounded-lg transition-all ${
+                          readOnly
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:bg-slate-50 hover:text-slate-800"
+                        } ${
+                          hasDisliked ? "text-rose-600 font-bold bg-rose-50" : ""
                         }`}
                       >
                         <ThumbsDown size={14} className={hasDisliked ? "fill-rose-500" : ""} />
@@ -433,7 +443,14 @@ export function CommentTab({
                         placeholder={`Trả lời ${c.createdByName}...`}
                         value={replyInputs[c.id] || ''}
                         onChange={(e) => handleInputChange(e.target.value, e.target.selectionStart, 'reply', c.id)}
-                        onKeyDown={handleKeyDown}
+                        onKeyDown={(e) => {
+                          handleKeyDown(e)
+                          if (e.key === 'Enter' && !e.shiftKey && !mentionState.show) {
+                            e.preventDefault()
+                            handleSendReply(c.id)
+                            e.target.style.height = 'auto'
+                          }
+                        }}
                         rows={1}
                         style={{ minHeight: '24px', maxHeight: '100px' }}
                         className="flex-1 text-sm text-slate-800 resize-none outline-none placeholder:text-slate-400 font-medium bg-transparent overflow-y-auto py-0.5"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, Crown, Plus, Trash2, ListChecks } from 'lucide-react'
 
 const parseChecklist = (content) => {
@@ -33,6 +33,7 @@ export function ProposalTab({
   proposals = [],
   loading = false,
   ideaApproved = false,
+  readOnly = false,
   onApprove,
   onVote,
   onDownvote,
@@ -43,12 +44,29 @@ export function ProposalTab({
   onToggleCommentsVisibility,
   onSetFeedbackText,
   isLeader = false,
-  onUpdateProposal
+  onUpdateProposal,
+  onContentScroll
 }) {
+  const safeProposals = Array.isArray(proposals) ? proposals : []
+  const safeCommentsInputs = proposalCommentsInputs || {}
+  const safeExpandedComments = expandedProposalComments || {}
+
   const [proposalDesc, setProposalDesc] = useState('')
   const [inputTexts, setInputTexts] = useState({})
   const [savingIds, setSavingIds] = useState({})
   const [expandedChecklists, setExpandedChecklists] = useState({})
+  const [isLabelCollapsed, setIsLabelCollapsed] = useState(false)
+  const listRef = useRef(null)
+
+  useEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    const handleScroll = () => {
+      setIsLabelCollapsed(el.scrollTop > 40)
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const toggleChecklistVisibility = (propId) => {
     setExpandedChecklists(prev => ({
@@ -110,35 +128,47 @@ export function ProposalTab({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col h-full overflow-hidden relative">
       {!ideaApproved && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shrink-0">
           <Clock size={15} />
           <span>Idea chưa được thông qua. Vẫn có thể bổ sung đề xuất để làm rõ yêu cầu.</span>
         </div>
       )}
 
-      <div className="text-xs text-slate-500 font-bold px-1 uppercase tracking-wider">
-        Đề xuất ({proposals.length})
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${isLabelCollapsed ? 'max-h-0 opacity-0 mb-0' : 'max-h-8 opacity-100 mb-2'}`}>
+        <div className="text-xs text-slate-500 font-bold px-1 uppercase tracking-wider">
+          Đề xuất ({safeProposals.length})
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3">
+
+      <div 
+        ref={listRef}
+        id="proposal-list-container"
+        onScroll={(e) => {
+          setIsLabelCollapsed(e.currentTarget.scrollTop > 40)
+          if (onContentScroll) onContentScroll(e)
+        }}
+        style={{ overflowAnchor: 'none' }}
+        className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+      >
         {loading && (
           <div className="text-center text-sm text-slate-400 py-8">Đang tải đề xuất...</div>
         )}
-        {!loading && proposals.length === 0 && (
+        {!loading && safeProposals.length === 0 && (
           <div className="text-center text-sm text-slate-400 py-10 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 font-medium">
             Chưa có đề xuất checklist nào. Hãy để lại đề xuất đầu tiên của bạn bên dưới!
           </div>
         )}
 
-        {proposals.map((p) => {
+        {safeProposals.map((p) => {
           const hasVoted = p.myVote === 'UP'
           const hasDownvoted = p.myVote === 'DOWN'
           const isPending = p.status === 'PENDING'
           const isApproved = p.status === 'APPROVED'
           const isRejected = p.status === 'REJECTED'
-          const isExpanded = expandedProposalComments[p.id]
+          const isExpanded = safeExpandedComments[p.id]
           const isChecklistExpanded = expandedChecklists[p.id] !== false
           const { plainText, checklist } = parseChecklist(p.content)
           const total = checklist.length
@@ -157,8 +187,8 @@ export function ProposalTab({
                   : "border-slate-200 bg-white hover:border-slate-300"
               }`}
             >
-              {/* 1. STICKY HEADER PART */}
-              <div className={`p-4 sticky top-[160px] z-10 rounded-t-xl border-b border-slate-100/50 shadow-sm ${
+              {/* 1. HEADER PART */}
+              <div className={`p-4 rounded-t-xl border-b border-slate-100/50 shadow-sm ${
                 isApproved ? "bg-[#f0fdf4]" : isRejected ? "bg-[#f8fafc]" : "bg-white"
               }`}>
                 <div className="flex items-start gap-3">
@@ -209,18 +239,22 @@ export function ProposalTab({
                     {/* Buttons Row */}
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
                       <button
-                        onClick={() => onVote(p.id)}
-                        disabled={!isPending}
-                        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                        onClick={() => !readOnly && onVote(p.id)}
+                        disabled={!isPending || readOnly}
+                        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors ${
+                          readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        } ${
                           hasVoted ? "bg-emerald-100 text-emerald-700 font-bold" : "text-slate-500 hover:bg-slate-100"
                         }`}
                       >
                         <ThumbsUp size={12} className={hasVoted ? "fill-emerald-600" : ""} /> Tán thành ({p.upvotes || 0})
                       </button>
                       <button
-                        onClick={() => onDownvote(p.id)}
-                        disabled={!isPending}
-                        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                        onClick={() => !readOnly && onDownvote(p.id)}
+                        disabled={!isPending || readOnly}
+                        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors ${
+                          readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        } ${
                           hasDownvoted ? "bg-red-100 text-red-600 font-bold" : "text-slate-500 hover:bg-slate-100"
                         }`}
                       >
@@ -243,7 +277,7 @@ export function ProposalTab({
                         {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                       </button>
 
-                      {isPending && isLeader && onApprove && (
+                      {isPending && isLeader && onApprove && !readOnly && (
                         <button
                           onClick={() => onApprove(p)}
                           className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer transition-colors shadow-sm"
@@ -262,13 +296,13 @@ export function ProposalTab({
                   {total > 0 && (
                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                       {/* Checklist items */}
-                      <div className="flex flex-col gap-2.5">
+                      <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
                         {checklist.map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3">
                             {/* Custom Checkbox */}
                             <div
                               onClick={async () => {
-                                if (!isPending) return
+                                if (!isPending || readOnly) return
                                 const updatedChecklist = checklist.map((c, i) => i === idx ? { ...c, done: !c.done } : c)
                                 const markdown = [
                                   plainText,
@@ -277,7 +311,7 @@ export function ProposalTab({
                                 await onUpdateProposal(p.id, markdown)
                               }}
                               className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                                isPending ? "cursor-pointer" : ""
+                                isPending && !readOnly ? "cursor-pointer" : "cursor-default"
                               } ${
                                 item.done
                                   ? "bg-[#0ea5e9] border-[#0ea5e9] text-white"
@@ -313,7 +347,7 @@ export function ProposalTab({
                                 )}
                               </div>
 
-                              {isPending && (
+                              {isPending && !readOnly && (
                                 <button
                                   onClick={async () => {
                                     const updatedChecklist = checklist.filter((_, i) => i !== idx)
@@ -336,7 +370,7 @@ export function ProposalTab({
                   )}
 
                   {/* Inline Checklist Builder (No Save/Cancel) */}
-                  {isPending && (
+                  {isPending && !readOnly && (
                     <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 transition-all">
                       <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <Plus size={12} className="text-[#0ea5e9]" />
@@ -399,30 +433,36 @@ export function ProposalTab({
                       ))}
                     </div>
                   )}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      const val = proposalCommentsInputs[p.id] || ''
-                      if (!val.trim()) return
-                      onAddComment(e, p.id)
-                    }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={proposalCommentsInputs[p.id] || ''}
-                      onChange={(e) => onSetFeedbackText(p.id, e.target.value)}
-                      placeholder="Góp ý phản biện..."
-                      className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all font-medium"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!(proposalCommentsInputs[p.id] || '').trim()}
-                      className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-40"
+                  {!readOnly ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        const val = safeCommentsInputs[p.id] || ''
+                        if (!val.trim()) return
+                        onAddComment(e, p.id)
+                      }}
+                      className="flex gap-2"
                     >
-                      <Send size={12} />
-                    </button>
-                  </form>
+                      <input
+                        type="text"
+                        value={safeCommentsInputs[p.id] || ''}
+                        onChange={(e) => onSetFeedbackText(p.id, e.target.value)}
+                        placeholder="Góp ý phản biện..."
+                        className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all font-medium"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!(safeCommentsInputs[p.id] || '').trim()}
+                        className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        <Send size={12} />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 font-bold text-center py-1 bg-white/50 border border-slate-200/50 rounded-lg">
+                      Mục góp ý thảo luận đề xuất ở chế độ chỉ đọc.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -431,28 +471,34 @@ export function ProposalTab({
       </div>
 
       {/* Add proposal */}
-      <div className="mt-4">
-        <div className="text-xs text-slate-500 font-bold px-1 mb-2 uppercase tracking-wider">THÊM ĐỀ XUẤT MỚI</div>
-        <div className="flex gap-2 border border-slate-200 rounded-xl bg-white overflow-hidden focus-within:border-[#0ea5e9] focus-within:ring-2 focus-within:ring-[#0ea5e9]/10 transition-all shadow-sm">
-          <input
-            type="text"
-            value={proposalDesc}
-            onChange={(e) => setProposalDesc(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddProposal()
-            }}
-            placeholder="Viết nội dung đề xuất cho checklist..."
-            className="flex-1 px-4 py-3 text-sm outline-none placeholder:text-slate-400 text-slate-800 font-semibold"
-          />
-          <button
-            onClick={handleAddProposal}
-            disabled={!proposalDesc.trim()}
-            className="m-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
-          >
-            <Send size={13} /> Đề xuất
-          </button>
+      {!readOnly ? (
+        <div className="mt-4">
+          <div className="text-xs text-slate-500 font-bold px-1 mb-2 uppercase tracking-wider">THÊM ĐỀ XUẤT MỚI</div>
+          <div className="flex gap-2 border border-slate-200 rounded-xl bg-white overflow-hidden focus-within:border-[#0ea5e9] focus-within:ring-2 focus-within:ring-[#0ea5e9]/10 transition-all shadow-sm">
+            <input
+              type="text"
+              value={proposalDesc}
+              onChange={(e) => setProposalDesc(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddProposal()
+              }}
+              placeholder="Viết nội dung đề xuất cho checklist..."
+              className="flex-1 px-4 py-3 text-sm outline-none placeholder:text-slate-400 text-slate-800 font-semibold"
+            />
+            <button
+              onClick={handleAddProposal}
+              disabled={!proposalDesc.trim()}
+              className="m-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-[#0ea5e9] hover:bg-[#0284c7] text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+            >
+              <Send size={13} /> Đề xuất
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-4 text-center py-3.5 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl text-xs font-bold text-slate-400">
+          Ý tưởng đã được chuyển thành Task chính thức và đồng bộ lên GitHub.
+        </div>
+      )}
     </div>
   )
 }

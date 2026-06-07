@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { 
   X, 
   User, 
@@ -32,9 +32,32 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     return s !== 'DRAFT'
   }, [task])
 
+  // Trạng thái đã đồng bộ lên GitHub
+  const isSynced = useMemo(() => {
+    return task?.githubIssueNumber != null
+  }, [task])
+
   // UI state
   const [activeTab, setActiveTab] = useState('comments')
   const [descExpanded, setDescExpanded] = useState(false)
+  const [isDescCollapsed, setIsDescCollapsed] = useState(false)
+  const [isVoteCollapsed, setIsVoteCollapsed] = useState(false)
+  const lastScrollTop = useRef(0)
+
+  const handleContentScroll = useCallback((e) => {
+    const targetId = e.target?.id || e.currentTarget?.id || ''
+    if (targetId !== 'proposal-list-container' && targetId !== 'comment-list-container' && targetId !== 'approved-task-list-container') {
+      return
+    }
+    const scrollTop = e.target?.scrollTop ?? e.currentTarget?.scrollTop ?? 0
+
+    // Stage 1: hide description at 10px
+    setIsDescCollapsed(scrollTop > 10)
+    // Stage 2: hide vote summary + proposal label at 60px
+    setIsVoteCollapsed(scrollTop > 60)
+
+    lastScrollTop.current = scrollTop
+  }, [])
 
   // Comments (Tab 1) state - loaded from API
   const [comments, setComments] = useState([])
@@ -42,6 +65,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Checklist proposals (Tab 2) state - loaded from API
   const [proposals, setProposals] = useState([])
+
+  // Số lượng đề xuất được duyệt
+  const approvedCount = useMemo(() => {
+    if (!Array.isArray(proposals)) return 0
+    return proposals.filter(p => p.status === 'APPROVED').length
+  }, [proposals])
   const [proposalsLoading, setProposalsLoading] = useState(false)
   const [proposalCommentsInputs, setProposalCommentsInputs] = useState({}) // propId -> text
   const [expandedProposalComments, setExpandedProposalComments] = useState({}) // propId -> boolean
@@ -88,29 +117,29 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }, [fetchTaskById, taskId])
 
   // Fetch comments and proposals from APIs
-  const loadComments = useCallback(async () => {
+  const loadComments = useCallback(async (silent = false) => {
     if (!taskId) return
-    setCommentsLoading(true)
+    if (!silent) setCommentsLoading(true)
     try {
       const data = await proposalService.getTaskComments(taskId)
       setComments(data || [])
     } catch (err) {
       console.error('Failed to load comments:', err)
     } finally {
-      setCommentsLoading(false)
+      if (!silent) setCommentsLoading(false)
     }
   }, [taskId])
 
-  const loadProposals = useCallback(async () => {
+  const loadProposals = useCallback(async (silent = false) => {
     if (!taskId) return
-    setProposalsLoading(true)
+    if (!silent) setProposalsLoading(true)
     try {
       const data = await proposalService.getProposals(taskId)
       setProposals(data || [])
     } catch (err) {
       console.error('Failed to load proposals:', err)
     } finally {
-      setProposalsLoading(false)
+      if (!silent) setProposalsLoading(false)
     }
   }, [taskId])
 
@@ -143,9 +172,25 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     }
   }, [taskId])
 
+  useEffect(() => {
+    const handleProposalEvent = (event) => {
+      const { taskId: eventTaskId } = event.detail
+      if (String(eventTaskId) !== String(taskId)) return
+      loadProposals(true)
+      loadTaskVotes()
+      fetchTaskById(taskId)
+    }
+
+    window.addEventListener('task-proposal-event', handleProposalEvent)
+    return () => {
+      window.removeEventListener('task-proposal-event', handleProposalEvent)
+    }
+  }, [taskId, loadProposals, loadTaskVotes, fetchTaskById])
+
   // Handle Overall Task Voting (Big Proposal)
   const handleVoteTask = async (isUpvote) => {
     if (!taskId) return
+    if (isSynced) return
     try {
       const data = await proposalService.voteTask(taskId, isUpvote)
       setTaskVoteStats(data)
@@ -157,18 +202,20 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Handle Comments Like/Dislike (Tab 1)
   const handleToggleCommentLike = async (commentId) => {
+    if (isSynced) return
     try {
       await proposalService.voteTaskComment(commentId, true)
-      loadComments()
+      loadComments(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
     }
   }
 
   const handleToggleCommentDislike = async (commentId) => {
+    if (isSynced) return
     try {
       await proposalService.voteTaskComment(commentId, false)
-      loadComments()
+      loadComments(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
     }
@@ -176,18 +223,20 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Handle Checklist Proposals (Tab 2)
   const handleVoteProposal = async (propId) => {
+    if (isSynced) return
     try {
       await proposalService.vote(propId, true)
-      loadProposals()
+      loadProposals(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
     }
   }
 
   const handleDownvoteProposal = async (propId) => {
+    if (isSynced) return
     try {
       await proposalService.vote(propId, false)
-      loadProposals()
+      loadProposals(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
     }
@@ -195,23 +244,30 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddProposalComment = async (e, propId) => {
     e.preventDefault()
+    if (isSynced) return
     const text = proposalCommentsInputs[propId] || ''
     if (!text.trim()) return
     try {
       await proposalService.addComment(propId, text.trim())
       setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
       toast.success('Đã đăng phản biện về đề xuất này!')
-      loadProposals()
+      loadProposals(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gửi phản biện thất bại!')
     }
   }
 
   const handleApproveProposal = async (prop) => {
+    if (isSynced) return
+    const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
+    if (!hasChecklist) {
+      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      return;
+    }
     try {
       await proposalService.approve(prop.id)
-      toast.success('Đã duyệt và chính thức ban hành đề xuất này thành Task!')
-      loadProposals()
+      toast.success('Đã duyệt đề xuất và thêm vào checklist của Task chính!')
+      loadProposals(true)
       if (taskId) {
         fetchTaskById(taskId)
       }
@@ -225,10 +281,11 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }
 
   const handleRejectProposal = async (propId) => {
+    if (isSynced) return
     try {
       await proposalService.reject(propId)
       toast.success('Đã từ chối đề xuất này.')
-      loadProposals()
+      loadProposals(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Từ chối đề xuất thất bại!')
     }
@@ -319,11 +376,28 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     }
   }
 
+  const handleApproveAndSync = async () => {
+    if (!taskId) return
+    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    try {
+      await proposalService.approveAndSyncTask(taskId)
+      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      await loadProposals(true)
+      fetchTaskById(taskId)
+      if (onRefreshDashboard) {
+        onRefreshDashboard()
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
+    }
+  }
+
   const handleAddComment = async (text) => {
     if (!taskId || !text.trim()) return
+    if (isSynced) return
     try {
       await proposalService.addTaskComment(taskId, text.trim())
-      loadComments()
+      loadComments(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
     }
@@ -331,10 +405,11 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddCommentReply = async (commentId, text) => {
     if (!commentId || !text.trim()) return
+    if (isSynced) return
     try {
       await proposalService.addCommentReply(commentId, text.trim())
       toast.success('Đã gửi phản hồi!')
-      loadComments()
+      loadComments(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gửi phản hồi thất bại!')
     }
@@ -342,10 +417,11 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddProposalDirectly = async (content) => {
     if (!taskId || !content.trim()) return
+    if (isSynced) return
     try {
       await proposalService.createProposal(taskId, content.trim())
       toast.success('Đã gửi đề xuất checklist mới!')
-      loadProposals()
+      loadProposals(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
     }
@@ -370,23 +446,23 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       onClick={onClose}
     >
       <div 
-        className="relative z-10 w-full max-w-5xl h-[80vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden"
+        className="relative z-10 w-full max-w-5xl h-[80vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden font-sans antialiased"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Scrollable Container for Modal Contents */}
-        <div className="flex-1 overflow-y-auto flex flex-col [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Container for Modal Contents */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Main Card Header */}
-          <div className="py-4 px-5 border-b border-slate-100 relative pr-14 sticky top-0 z-30 bg-white shadow-sm">
+          <div className="px-5 border-b border-slate-100 relative pr-14 sticky top-0 z-30 bg-white shadow-sm py-4">
             <div className="flex items-center gap-3">
               {/* Task Avatar */}
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] flex items-center justify-center text-white shrink-0 font-bold text-lg shadow-sm">
+              <div className="rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] flex items-center justify-center text-white shrink-0 font-bold shadow-sm w-10 h-10 text-lg">
                 {task.title ? task.title.charAt(0).toUpperCase() : 'F'}
               </div>
 
               {/* Task info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="text-base font-extrabold text-slate-900 tracking-tight">{task.title}</span>
+                  <span className="font-extrabold text-slate-900 tracking-tight text-base">{task.title}</span>
                   <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
                     task.type === 'BUG' 
                       ? 'bg-rose-50 text-rose-600 border-rose-100'
@@ -396,12 +472,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   }`}>
                     {task.type === 'BUG' ? 'Bugfix' : task.type === 'DEV' ? 'Feature' : task.type || 'Feature'}
                   </span>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer">
+                  <div className="flex items-center gap-1 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer text-[11px]">
                     <User size={10} className="text-slate-400" />
                     {`${task.createdByName || 'Hệ thống'}`}
                   </div>
                 </div>
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap font-medium">
+                <div className="flex items-center gap-2 text-slate-400 flex-wrap font-medium mt-0.5 text-[11px]">
                   <span>ID: #{task.id}</span>
                   <span>·</span>
                   <span className="flex items-center gap-1">
@@ -409,9 +485,19 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     {formatSafeDate(task.createdAt || task.startDate)}
                   </span>
                   <span>·</span>
-                  <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.2 rounded-full">
+                  <span className={`flex items-center gap-1 font-bold border px-2.5 py-0.5 rounded-full ${
+                    isSynced
+                      ? 'text-indigo-600 bg-indigo-50 border-indigo-100'
+                      : task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW'
+                        ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                        : 'text-amber-600 bg-amber-50 border-amber-100'
+                  }`}>
                     <CheckCircle2 size={10} />
-                    {task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW' ? 'Đã phê duyệt' : 'Chờ phê duyệt'}
+                    {isSynced
+                      ? 'Đã phê duyệt & Đồng bộ'
+                      : (task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW')
+                        ? 'Đã phê duyệt'
+                        : 'Chờ phê duyệt'}
                   </span>
                 </div>
               </div>
@@ -420,14 +506,14 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
             {/* Close Button X */}
             <button 
               onClick={onClose} 
-              className="absolute top-3.5 right-4 w-7 h-7 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center shrink-0 cursor-pointer border border-slate-100 shadow-sm"
+              className="absolute rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all flex items-center justify-center shrink-0 cursor-pointer border border-slate-100 shadow-sm top-3.5 right-4 w-7 h-7"
             >
               <X size={14} />
             </button>
           </div>
 
           {/* Description Container */}
-          <div className="px-5 pt-3 bg-white">
+          <div className={`px-5 bg-white transition-all duration-300 ease-in-out ${isDescCollapsed ? 'max-h-0 opacity-0 pt-0 overflow-hidden' : 'max-h-24 opacity-100 pt-3'}`}>
             <div className="bg-[#f8fafc] rounded-xl p-3 border border-slate-100/80">
               <div
                 className={`text-xs text-slate-600 leading-relaxed ${
@@ -447,13 +533,15 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Sticky Container for Vote Summary and Tabs */}
-          <div className="sticky top-[73px] z-20 bg-white pb-3">
+          <div className="sticky z-20 bg-white pb-3 top-[80px]">
             {/* Vote Summary Bar */}
-            <div className="px-5 pt-2 pb-0.5">
+            <div className={`px-5 transition-all duration-300 ease-in-out ${isVoteCollapsed ? 'max-h-0 opacity-0 overflow-hidden pt-0 pb-0' : 'max-h-16 opacity-100 pt-2 pb-0.5'}`}>
               <div className="flex items-center gap-4 px-3 py-1.5 bg-[#f8fafc] rounded-xl border border-slate-200/60 select-none">
                 <button
                   onClick={() => handleVoteTask(true)}
-                  className={`flex items-center gap-1.5 font-bold text-xs transition-all cursor-pointer py-0.5 px-2 rounded-md ${
+                  className={`flex items-center gap-1.5 font-bold text-xs transition-all py-0.5 px-2 rounded-md ${
+                    isSynced ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  } ${
                     taskVoteStats.myVote === 'UP'
                       ? 'text-emerald-700 bg-emerald-100/80 font-extrabold shadow-sm'
                       : 'text-emerald-600 hover:bg-slate-100'
@@ -465,7 +553,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 <div className="w-px h-3 bg-slate-200" />
                 <button
                   onClick={() => handleVoteTask(false)}
-                  className={`flex items-center gap-1.5 font-bold text-xs transition-all cursor-pointer py-0.5 px-2 rounded-md ${
+                  className={`flex items-center gap-1.5 font-bold text-xs transition-all py-0.5 px-2 rounded-md ${
+                    isSynced ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  } ${
                     taskVoteStats.myVote === 'DOWN'
                       ? 'text-rose-700 bg-rose-100/80 font-extrabold shadow-sm'
                       : 'text-rose-500 hover:bg-slate-100'
@@ -486,7 +576,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
             <div className="flex border-b border-slate-200/80 px-5 pt-1 gap-1.5 bg-white">
               <button
                 onClick={() => setActiveTab('comments')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-xl transition-all relative cursor-pointer font-semibold ${
                   activeTab === 'comments'
                     ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
@@ -501,7 +591,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
               <button
                 onClick={() => setActiveTab('proposals')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-xl transition-all relative cursor-pointer font-semibold ${
                   activeTab === 'proposals'
                     ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
@@ -516,17 +606,17 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
               <button
                 onClick={() => setActiveTab('tasks')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs rounded-t-xl transition-all relative cursor-pointer font-bold ${
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-xl transition-all relative cursor-pointer font-semibold ${
                   activeTab === 'tasks'
                     ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
                     : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 <ListChecks size={13} />
-                <span>Task được thông qua</span>
-                {task?.checklist?.length > 0 && (
+                <span>Đề xuất được thông qua</span>
+                {approvedCount > 0 && (
                   <span className="text-[10px] min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
-                    {task.checklist.length}
+                    {approvedCount}
                   </span>
                 )}
                 {activeTab === 'tasks' && (
@@ -537,13 +627,14 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Tab Content Panels */}
-          <div className="px-5 py-3.5 bg-white flex-1">
+          <div className="px-5 py-3.5 bg-white flex-1 overflow-hidden">
             {/* TAB 1: COMMENT CHUNG */}
             {activeTab === 'comments' && (
               <CommentTab
                 comments={comments}
                 loading={commentsLoading}
                 approved={ideaApproved}
+                readOnly={isSynced}
                 onApprove={async () => {
                   try {
                     await updateTask(task.id, {
@@ -568,6 +659,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 onAddReply={handleAddCommentReply}
                 isLeader={isLeader}
                 projectMembers={activeProject?.members || []}
+                onContentScroll={handleContentScroll}
               />
             )}
 
@@ -577,6 +669,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 proposals={proposals}
                 loading={proposalsLoading}
                 ideaApproved={ideaApproved}
+                readOnly={isSynced}
                 onApprove={handleApproveProposal}
                 onVote={handleVoteProposal}
                 onDownvote={handleDownvoteProposal}
@@ -591,21 +684,26 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   try {
                     await proposalService.updateProposal(proposalId, text)
                     toast.success('Đã cập nhật đề xuất!')
-                    loadProposals()
+                    loadProposals(true)
                   } catch (err) {
                     toast.error(err.response?.data?.message || 'Cập nhật đề xuất thất bại!')
                   }
                 }}
+                onContentScroll={handleContentScroll}
+                isCollapsed={isVoteCollapsed}
               />
             )}
 
             {/* TAB 3: CHECKLIST ĐÃ ĐƯỢC DUYỆT */}
             {activeTab === 'tasks' && (
               <ApprovedTaskTab
+                task={task}
+                proposals={proposals}
                 checklist={task.checklist || []}
                 onToggleCheck={handleToggleCheck}
-                onRemoveItem={handleRemoveApprovedTaskItem}
-                onAddItem={handleAddApprovedTaskItem}
+                onApproveAndSync={handleApproveAndSync}
+                isLeader={isLeader}
+                onContentScroll={handleContentScroll}
               />
             )}
           </div>
