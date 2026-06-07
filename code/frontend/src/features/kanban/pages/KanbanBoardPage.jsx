@@ -83,10 +83,27 @@ const KanbanBoardPage = () => {
   }
 
   const filteredTasks = tasks.filter((task) => {
-    const sprintMatch = filters.sprint === 'ALL' || task.sprint === filters.sprint
-    const assigneeMatch = filters.assignee === 'ALL' || task.assignee.name === filters.assignee
-    const requirementMatch = filters.requirement === 'ALL' || task.requirement === filters.requirement
-    const priorityMatch = filters.priority === 'ALL' || task.priority === filters.priority
+    // Hide subtasks from the main Kanban board cards list
+    if (task.parentId) return false
+
+    // Fetch subtasks of this parent task for smart filtering
+    const subtasks = tasks.filter((sub) => String(sub.parentId) === String(task.id))
+
+    const sprintMatch = filters.sprint === 'ALL' || 
+                        task.sprint === filters.sprint || 
+                        subtasks.some((sub) => sub.sprint === filters.sprint)
+
+    const assigneeMatch = filters.assignee === 'ALL' || 
+                          task.assignee.name === filters.assignee || 
+                          subtasks.some((sub) => sub.assignee.name === filters.assignee)
+
+    const requirementMatch = filters.requirement === 'ALL' || 
+                             task.requirement === filters.requirement || 
+                             subtasks.some((sub) => sub.requirement === filters.requirement)
+
+    const priorityMatch = filters.priority === 'ALL' || 
+                          task.priority === filters.priority || 
+                          subtasks.some((sub) => sub.priority === filters.priority)
 
     return sprintMatch && assigneeMatch && requirementMatch && priorityMatch
   })
