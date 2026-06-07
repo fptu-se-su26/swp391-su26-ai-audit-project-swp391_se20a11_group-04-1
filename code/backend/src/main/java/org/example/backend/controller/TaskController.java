@@ -26,6 +26,16 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.getProjectTasks(projectId, userId), "Tasks retrieved"));
     }
 
+    @GetMapping("/projects/{projectId}/tasks/hot")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> getHotTasks(
+            @PathVariable Long projectId,
+            @RequestParam(defaultValue = "5") int limit,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        List<TaskResponse> result = taskService.getHotTasks(projectId, userId, limit);
+        return ResponseEntity.ok(ApiResponse.success(result, "Hot tasks retrieved"));
+    }
+
     @PostMapping("/projects/{projectId}/tasks")
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @PathVariable Long projectId,

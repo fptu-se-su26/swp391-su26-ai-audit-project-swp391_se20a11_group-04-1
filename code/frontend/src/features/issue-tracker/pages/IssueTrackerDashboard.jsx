@@ -6,6 +6,8 @@ import useAuthStore from '@store/useAuthStore'
 import bugService from '../services/bugService'
 import taskService from '../../kanban/services/taskService'
 import axiosInstance from '@/api/axiosConfig'
+import proposalService from '../services/proposalService'
+import FeatureDiscussionModal from '../components/FeatureDiscussionModal'
 
 export function IssueTrackerDashboard() {
   const { projectId } = useParams()
@@ -353,6 +355,27 @@ export function IssueTrackerDashboard() {
     })
   }
 
+  const openNewIssueModal = (initialTitle = '') => {
+    setNewIssue({
+      uiType: null,
+      title: initialTitle || '',
+      description: '',
+      severity: 'MEDIUM',
+      environment: 'DEV',
+      stepsToReproduce: '',
+      expectedResult: '',
+      actualResult: '',
+      priority: 'MEDIUM',
+      taskType: 'DEVELOPMENT',
+      deadline: '',
+      assigneeId: '',
+      parentId: null,
+      parentTitle: ''
+    })
+    setIsModalOpen(true)
+  }
+
+
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }))
   }
@@ -371,7 +394,8 @@ export function IssueTrackerDashboard() {
   const stats = useMemo(() => {
     const total = bugs.length
     const open = bugs.filter(b => b.displayStatus === 'OPEN').length
-    const drafts = bugs.filter(b => b.isBug && b.relatedTaskId === null).length
+    // DRAFT = bugs whose backend status is DRAFT (pending leader approval)
+    const drafts = bugs.filter(b => b.isBug && b.displayStatus === 'DRAFT').length
     const fixed = bugs.filter(b => b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE').length
     return { total, open, drafts, fixed }
   }, [bugs])
@@ -586,64 +610,94 @@ export function IssueTrackerDashboard() {
     })
   }
 
+  const formatSafeDateDiscuss = (dateString) => {
+    if (!dateString) return 'N/A'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'N/A'
+    const pad = (num) => String(num).padStart(2, '0')
+    const day = pad(date.getDate())
+    const month = pad(date.getMonth() + 1)
+    const year = date.getFullYear()
+    let hours = date.getHours()
+    const minutes = pad(date.getMinutes())
+    const seconds = pad(date.getSeconds())
+    const ampm = hours >= 12 ? 'CH' : 'SA'
+    hours = hours % 12
+    hours = hours ? hours : 12
+    return `${pad(hours)}:${minutes}:${seconds} ${ampm} ${day}/${month}/${year}`
+  }
+
   const discussBugs = useMemo(() => {
     return bugs.filter(b => !b.isBug)
   }, [bugs])
 
-  const discussBugsStats = useMemo(() => {
-    const statsMap = {}
-    discussBugs.forEach(b => {
-      const storedProposals = localStorage.getItem(`proposed-checklist-task-${b.id}`)
-      if (storedProposals) {
-        try {
-          const props = JSON.parse(storedProposals).filter(Boolean)
-          let totalVotes = 0
-          let totalDownvotes = 0
-          let totalComments = 0
-          let approvedCount = 0
-          
-          props.forEach(p => {
-            totalVotes += p.votes?.length || 0
-            totalDownvotes += p.downvotes?.length || 0
-            totalComments += p.comments?.length || 0
-            if (p.status === 'APPROVED') {
-              approvedCount++
+  // Real-time stats state for the discussion cards
+  const [liveStatsMap, setLiveStatsMap] = useState({})
+
+  // Fetch stats for all discussion tasks
+  const fetchDiscussStats = useCallback(async () => {
+    if (discussBugs.length === 0) return
+    const newStatsMap = {}
+    try {
+      await Promise.all(
+        discussBugs.map(async (b) => {
+          try {
+            const votesData = await proposalService.getTaskVotes(b.id)
+            const commentsData = await proposalService.getTaskComments(b.id)
+            const proposalsData = await proposalService.getProposals(b.id)
+            
+            const totalComments = (commentsData || []).reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
+            const hasDiscussion = (proposalsData || []).length > 0
+            const isAllApproved = hasDiscussion && proposalsData.every(p => p.status === 'APPROVED')
+
+            newStatsMap[b.id] = {
+              totalVotes: votesData?.upvotes || 0,
+              totalDownvotes: votesData?.downvotes || 0,
+              totalComments,
+              isAllApproved,
+              hasDiscussion,
+              proposals: proposalsData || []
             }
-          })
-          
-          const isAllApproved = props.length > 0 && approvedCount === props.length
-          
-          statsMap[b.id] = {
-            totalVotes,
-            totalDownvotes,
-            totalComments,
-            isAllApproved,
-            hasDiscussion: props.length > 0,
-            proposals: props
+          } catch (e) {
+            newStatsMap[b.id] = {
+              totalVotes: 0,
+              totalDownvotes: 0,
+              totalComments: 0,
+              isAllApproved: false,
+              hasDiscussion: false,
+              proposals: []
+            }
           }
-        } catch (e) {
-          statsMap[b.id] = {
-            totalVotes: 0,
-            totalDownvotes: 0,
-            totalComments: 0,
-            isAllApproved: false,
-            hasDiscussion: false,
-            proposals: []
-          }
-        }
-      } else {
-        statsMap[b.id] = {
-          totalVotes: 0,
-          totalDownvotes: 0,
-          totalComments: 0,
-          isAllApproved: false,
-          hasDiscussion: false,
-          proposals: []
-        }
-      }
-    })
-    return statsMap
+        })
+      )
+      setLiveStatsMap(newStatsMap)
+    } catch (err) {
+      console.error('Error fetching discussion stats:', err)
+    }
   }, [discussBugs])
+
+  useEffect(() => {
+    fetchDiscussStats()
+  }, [fetchDiscussStats])
+
+  // Real-time WebSocket listener for comment updates
+  useEffect(() => {
+    const handleCommentEvent = (event) => {
+      const { type, taskId: eventTaskId } = event.detail
+      // Re-fetch stats for this specific task
+      if (eventTaskId) {
+        // Trigger a reload of all discussion stats to be simple and accurate, or reload just that one
+        fetchDiscussStats()
+      }
+    }
+
+    window.addEventListener('task-comment-event', handleCommentEvent)
+    return () => {
+      window.removeEventListener('task-comment-event', handleCommentEvent)
+    }
+  }, [fetchDiscussStats])
+
+  const discussBugsStats = liveStatsMap
 
   const filteredDiscussBugs = useMemo(() => {
     return discussBugs.filter(b => {
@@ -655,186 +709,92 @@ export function IssueTrackerDashboard() {
     })
   }, [discussBugs, discussSearchQuery])
 
-  // Sync active task proposals
+  // Load proposals from API when user opens a feature discussion
   useEffect(() => {
     if (activeDiscussTaskId) {
-      const stored = localStorage.getItem(`proposed-checklist-task-${activeDiscussTaskId}`)
-      if (stored) {
-        try {
-          setActiveProposals(JSON.parse(stored).filter(Boolean))
-        } catch (e) {
-          setActiveProposals([])
-        }
-      } else {
-        // Seed default proposals for collaborative workspace
-        const defaultProposals = [
-          {
-            id: 'prop-1',
-            text: 'Thiết kế giao diện UI với tone màu Ocean Blue và hiệu ứng Glassmorphism tinh tế',
-            proposedBy: 'Designer Phương',
-            createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-            status: 'PENDING',
-            votes: [],
-            downvotes: [],
-            comments: []
-          },
-          {
-            id: 'prop-2',
-            text: 'Tối ưu hóa các truy vấn database của backend để tốc độ phản hồi API dưới 200ms',
-            proposedBy: 'Dev Minh',
-            createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-            status: 'PENDING',
-            votes: [],
-            downvotes: [],
-            comments: []
-          }
-        ]
-        setActiveProposals(defaultProposals)
-        localStorage.setItem(`proposed-checklist-task-${activeDiscussTaskId}`, JSON.stringify(defaultProposals))
-      }
+      proposalService.getProposals(activeDiscussTaskId)
+        .then(data => setActiveProposals(data || []))
+        .catch(() => setActiveProposals([]))
     } else {
       setActiveProposals([])
     }
   }, [activeDiscussTaskId])
 
-  const saveActiveProposals = (updated) => {
-    setActiveProposals(updated)
-    localStorage.setItem(`proposed-checklist-task-${activeDiscussTaskId}`, JSON.stringify(updated))
+  // Helper to reload proposals from API and refresh state
+  const reloadProposals = async (taskId) => {
+    try {
+      const data = await proposalService.getProposals(taskId)
+      setActiveProposals(data || [])
+      fetchDiscussStats() // refresh stats on the dashboard
+    } catch {
+      // silently ignore
+    }
   }
 
-  const handleAddProposal = (e) => {
+  const handleAddProposal = async (e) => {
     e.preventDefault()
     if (!newProposalText.trim() || !activeDiscussTaskId) return
-
-    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
-    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
-
-    const newProp = {
-      id: 'prop-' + Date.now(),
-      text: newProposalText.trim(),
-      proposedBy: userName,
-      createdAt: new Date().toISOString(),
-      status: 'PENDING',
-      votes: [],
-      downvotes: [],
-      comments: []
+    try {
+      await proposalService.createProposal(activeDiscussTaskId, newProposalText.trim())
+      setNewProposalText('')
+      toast.success('Đã gửi đề xuất checklist mới!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
     }
-
-    const updated = [...activeProposals, newProp]
-    saveActiveProposals(updated)
-    setNewProposalText('')
-    toast.success('Đã gửi đề xuất checklist mới!')
   }
 
-  const handleVoteProposal = (propId) => {
-    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
-    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
-
-    const updated = activeProposals.map((prop) => {
-      if (prop.id === propId) {
-        const hasVoted = prop.votes?.includes(userName) || false
-        const newVotes = hasVoted
-          ? prop.votes.filter((v) => v !== userName)
-          : [...(prop.votes || []), userName]
-        const newDownvotes = (prop.downvotes || []).filter((v) => v !== userName)
-        return { ...prop, votes: newVotes, downvotes: newDownvotes }
-      }
-      return prop
-    })
-    saveActiveProposals(updated)
+  const handleVoteProposal = async (propId) => {
+    try {
+      await proposalService.vote(propId, true)
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error('Vote thất bại!')
+    }
   }
 
-  const handleDownvoteProposal = (propId) => {
-    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
-    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
-
-    const updated = activeProposals.map((prop) => {
-      if (prop.id === propId) {
-        const hasDownvoted = prop.downvotes?.includes(userName) || false
-        const newDownvotes = hasDownvoted
-          ? prop.downvotes.filter((v) => v !== userName)
-          : [...(prop.downvotes || []), userName]
-        const newVotes = (prop.votes || []).filter((v) => v !== userName)
-        return { ...prop, votes: newVotes, downvotes: newDownvotes }
-      }
-      return prop
-    })
-    saveActiveProposals(updated)
+  const handleDownvoteProposal = async (propId) => {
+    try {
+      await proposalService.vote(propId, false)
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error('Vote thất bại!')
+    }
   }
 
-  const handleAddProposalComment = (e, propId) => {
+  const handleAddProposalComment = async (e, propId) => {
     e.preventDefault()
     const text = proposalCommentsInputs[propId] || ''
     if (!text.trim()) return
-
-    const currentUser = activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))
-    const userName = currentUser?.fullName || currentUser?.username || 'Thành viên'
-
-    const updated = activeProposals.map((prop) => {
-      if (prop.id === propId) {
-        const newCommentObj = {
-          id: Date.now(),
-          author: userName,
-          content: text.trim(),
-          createdAt: new Date().toISOString()
-        }
-        return { ...prop, comments: [...(prop.comments || []), newCommentObj] }
-      }
-      return prop
-    })
-
-    saveActiveProposals(updated)
-    setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
-    toast.success('Đã gửi ý kiến góp ý!')
+    try {
+      await proposalService.addComment(propId, text.trim())
+      setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
+      toast.success('Đã gửi ý kiến góp ý!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
+    }
   }
 
   const handleApproveProposal = async (prop) => {
-    const currentDiscussTask = discussBugs.find(b => b.id === activeDiscussTaskId)
-    if (!currentDiscussTask) return
-
-    const currentChecklist = currentDiscussTask.checklist || []
-    const alreadyExists = currentChecklist.some((item) => item.content === prop.text)
-    let updatedChecklist = [...currentChecklist]
-
-    if (!alreadyExists) {
-      updatedChecklist.push({
-        id: 'temp-' + Date.now(),
-        content: prop.text,
-        done: false
-      })
-    }
-
-    const updatedProposals = activeProposals.map((p) =>
-      p.id === prop.id ? { ...p, status: 'APPROVED' } : p
-    )
-
     try {
-      const payload = {
-        title: currentDiscussTask.title,
-        description: currentDiscussTask.description,
-        type: currentDiscussTask.type,
-        priority: currentDiscussTask.priority,
-        status: currentDiscussTask.status,
-        primaryAssigneeId: currentDiscussTask.primaryAssignee?.id || currentDiscussTask.primaryAssigneeId || null,
-        sprintId: currentDiscussTask.sprintId || null,
-        checklist: updatedChecklist
-      }
-      await axiosInstance.put(`/v1/tasks/${currentDiscussTask.id}`, payload)
-      saveActiveProposals(updatedProposals)
+      await proposalService.approve(prop.id)
       toast.success('Đã duyệt và ban hành mục checklist này!')
-      loadBugs(true)
+      await reloadProposals(activeDiscussTaskId)
+      loadBugs(true) // refresh checklist on the task card
     } catch (err) {
-      console.error(err)
-      toast.error('Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
     }
   }
 
-  const handleRejectProposal = (propId) => {
-    const updatedProposals = activeProposals.map((p) =>
-      p.id === propId ? { ...p, status: 'REJECTED' } : p
-    )
-    saveActiveProposals(updatedProposals)
-    toast.success('Đã từ chối đề xuất này!')
+  const handleRejectProposal = async (propId) => {
+    try {
+      await proposalService.reject(propId)
+      toast.success('Đã từ chối đề xuất này!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Từ chối thất bại!')
+    }
   }
 
   const handleBulkApprove = async (e, bug) => {
@@ -919,9 +879,11 @@ export function IssueTrackerDashboard() {
 
   const openBugs = useMemo(() => {
     return filteredBugs.filter(b => {
+      // Exclude closed/done/review/DRAFT items from the active open list
       const isClosed = b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE' || b.displayStatus === 'IN_REVIEW';
-      if (isClosed) return false;
-      
+      const isDraft = b.isBug && b.displayStatus === 'DRAFT'; // DRAFT bugs wait in pending queue
+      if (isClosed || isDraft) return false;
+
       // Feature tasks must be approved to show in Open list
       if (!b.isBug) {
         const stats = discussBugsStats[b.id]
@@ -1059,8 +1021,9 @@ export function IssueTrackerDashboard() {
   }
 
   const getStatusBadge = (bug) => {
-    if (bug.isBug && bug.relatedTaskId === null) {
-      return <span className="text-[10px] font-black tracking-wider uppercase bg-gray-500/10 text-gray-500 border border-gray-500/25 px-2 py-0.5 rounded">DRAFT</span>
+    // Check DRAFT status directly from backend-provided displayStatus
+    if (bug.isBug && bug.displayStatus === 'DRAFT') {
+      return <span className="text-[10px] font-black tracking-wider uppercase bg-slate-500/10 text-slate-500 border border-slate-500/25 px-2 py-0.5 rounded">DRAFT</span>
     }
     switch (bug.displayStatus) {
       case 'CLOSED':
@@ -1117,60 +1080,32 @@ export function IssueTrackerDashboard() {
   }
 
   return (
-    <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
+    <main className="flex-1 p-4 md:p-6 overflow-y-auto relative bg-background select-none">
       {/* Blurred background visuals */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-primary-fixed opacity-[0.08] blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <div className="relative z-10 max-w-7xl mx-auto space-y-3.5 animate-fade-in">
         {/* Header toolbar */}
         <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-3xl text-primary font-bold">bug_report</span>
+                <span>Issue Tracker</span>
+              </h1>
+              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed shrink-0">
                 {activeProject?.title || 'DevTrack AI'}
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-3">
-              <span className="material-symbols-outlined text-3xl text-primary font-bold">bug_report</span>
-              Issue Tracker
-            </h1>
             <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
               Log code errors, manage quality workflows, and synchronize directly with active GitHub repository issues.
             </p>
           </div>
         </section>
 
-
-        {/* Quick Feature Proposal Bar */}
-        <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 shadow-sm hover:border-sky-500/50 transition-all">
-          <form onSubmit={handleQuickProposalSubmit} className="flex gap-3 items-center">
-            <span className="material-symbols-outlined text-sky-500 text-2xl font-bold select-none">lightbulb</span>
-            <input
-              type="text"
-              value={quickProposalText}
-              onChange={(e) => setQuickProposalText(e.target.value)}
-              placeholder="Nhập đề xuất tính năng hoặc nhiệm vụ mới cho dự án..."
-              className="flex-1 text-sm bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
-              disabled={quickProposalLoading}
-              required
-            />
-            <button
-              type="submit"
-              disabled={quickProposalLoading || !quickProposalText.trim()}
-              className="py-2 px-5 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 disabled:from-slate-400 disabled:to-slate-300 text-white text-xs font-black rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shrink-0 shadow-sm shadow-sky-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {quickProposalLoading ? (
-                <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-              ) : (
-                <span className="material-symbols-outlined text-sm font-bold">send</span>
-              )}
-              <span>Đề xuất</span>
-            </button>
-          </form>
-        </section>
 
         {/* Mini stats counters (conditional showStats) */}
         {showStats && (
@@ -1252,53 +1187,107 @@ export function IssueTrackerDashboard() {
           </section>
         )}
 
+        {/* Search Input for Discussion (Moved to top of tabs) */}
+        {activeListTab === 'discuss' && (
+          <div className="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl py-2 px-4 shadow-sm select-none">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">search</span>
+            <input
+              type="text"
+              value={discussSearchQuery}
+              onChange={(e) => setDiscussSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm feature hoặc nhiệm vụ cần thảo luận..."
+              className="flex-1 text-xs bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
+            />
+            {discussSearchQuery && (
+              <button type="button" onClick={() => setDiscussSearchQuery('')} className="text-on-surface-variant hover:text-on-surface">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Tab Filters */}
-        <section className="flex items-center gap-2 mt-2 mb-2 overflow-x-auto pb-1">
+        <section className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
           <button
             onClick={() => setActiveListTab('discuss')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'discuss'
-                ? 'bg-sky-500 text-white border-sky-500 shadow-md'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'discuss'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
-            <span className="material-symbols-outlined text-sm">forum</span>
+            <span className="material-symbols-outlined text-sm">chat_bubble</span>
             <span>Thảo luận ({discussBugs?.length || 0})</span>
           </button>
 
           <button
             onClick={() => setActiveListTab('open')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'open'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'open'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
-            <span className="material-symbols-outlined text-sm">list_alt</span>
+            <span className="material-symbols-outlined text-sm">assignment</span>
             <span>Open Issues / Tasks ({openBugs?.length || 0})</span>
           </button>
 
           {(isLeader || isMentor) && (
             <button
               onClick={() => setActiveListTab('review')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'review'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-md'
-                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+              className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'review'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
             >
-              <span className="material-symbols-outlined text-sm">rate_review</span>
+              <span className="material-symbols-outlined text-sm">merge</span>
               <span>Yêu cầu review ({reviewBugs?.length || 0})</span>
             </button>
           )}
 
           <button
             onClick={() => setActiveListTab('closed')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'closed'
-                ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'closed'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
-            <span className="material-symbols-outlined text-sm">task_alt</span>
+            <span className="material-symbols-outlined text-sm">history</span>
             <span>Closed ({closedBugs?.length || 0})</span>
           </button>
+        </section>
+
+        {/* Quick Feature Proposal Bar (Moved here) */}
+        <section 
+          onClick={() => openNewIssueModal(quickProposalText)}
+          className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl py-2 px-4 shadow-sm hover:border-sky-500/50 hover:bg-slate-50/20 cursor-pointer transition-all select-none"
+        >
+          <div className="flex gap-3 items-center">
+            <span className="material-symbols-outlined text-sky-500 text-xl font-bold select-none">lightbulb</span>
+            <input
+              type="text"
+              value={quickProposalText}
+              onChange={(e) => {
+                e.stopPropagation();
+                setQuickProposalText(e.target.value);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openNewIssueModal(quickProposalText);
+              }}
+              placeholder="Nhập đề xuất tính năng hoặc nhiệm vụ mới cho dự án..."
+              className="flex-1 text-xs bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold cursor-pointer"
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openNewIssueModal(quickProposalText);
+              }}
+              className="py-1 px-3.5 text-[11px] font-bold rounded-lg flex items-center gap-1 bg-sky-500 hover:bg-sky-600 text-white border border-transparent shadow-sm transition-all shrink-0 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-xs">add</span>
+              <span>Đề xuất</span>
+            </button>
+          </div>
         </section>
 
         {/* Bug Reports Grid List */}
@@ -1308,59 +1297,33 @@ export function IssueTrackerDashboard() {
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Scanning repository for logged issues...</p>
           </section>
         ) : activeListTab === 'discuss' ? (
-          <div className="space-y-4">
-            {/* Search Input for Discussion */}
-            <div className="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 shadow-sm">
-              <span className="material-symbols-outlined text-on-surface-variant">search</span>
-              <input
-                type="text"
-                value={discussSearchQuery}
-                onChange={(e) => setDiscussSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm feature hoặc nhiệm vụ cần thảo luận..."
-                className="flex-1 text-sm bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
-              />
-              {discussSearchQuery && (
-                <button type="button" onClick={() => setDiscussSearchQuery('')} className="text-on-surface-variant hover:text-on-surface">
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-              )}
-            </div>
-
+          <div className="space-y-3">
             {/* Discussion Feed list */}
             {filteredDiscussBugs.length === 0 ? (
-              <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm">
-                <span className="material-symbols-outlined text-5xl text-on-surface-variant">forum</span>
-                <p className="mt-4 text-sm font-bold text-on-surface-variant">Không tìm thấy chủ đề thảo luận nào khớp với từ khóa.</p>
+              <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant">forum</span>
+                <p className="mt-3 text-xs font-bold text-on-surface-variant">Không tìm thấy chủ đề thảo luận nào khớp với từ khóa.</p>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {filteredDiscussBugs.map((bug) => {
+              <div className="flex flex-col gap-3">
+                {filteredDiscussBugs.map((bug, index) => {
                   const stats = discussBugsStats[bug.id] || { totalVotes: 0, totalDownvotes: 0, totalComments: 0, isAllApproved: false }
                   const assigneeName = bug.primaryAssignee?.fullName || bug.primaryAssignee?.username || 'Thành viên'
                   const avatarLetter = (bug.displayTitle || bug.title || 'F').charAt(0).toUpperCase()
-                  const formattedDate = bug.createdAt 
-                    ? new Date(bug.createdAt).toLocaleString('vi-VN', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true 
-                      }) 
-                    : 'N/A'
+                  const formattedDate = formatSafeDateDiscuss(bug.createdAt)
                   
                   return (
                     <div
                       key={bug.id}
                       onClick={() => setActiveDiscussTaskId(bug.id)}
-                      className="group bg-surface-container-lowest border border-outline-variant/60 hover:border-sky-500/50 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-4 relative overflow-hidden w-full"
+                      className={`group bg-surface-container-lowest border rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-3.5 relative overflow-hidden w-full ${
+                        index === 0
+                          ? 'border-sky-500/80 border-l-[4px] border-l-sky-500'
+                          : 'border-outline-variant/60 hover:border-sky-500/50'
+                      }`}
                     >
-                      {/* Left accent line on hover */}
-                      <div className="absolute top-0 left-0 w-1.5 h-full bg-transparent group-hover:bg-sky-500 transition-colors"></div>
-                      
                       {/* Header row */}
-                      <div className="flex justify-between items-start gap-4">
+                      <div className="flex justify-between items-start gap-4 select-none">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm shadow-sky-500/20">
                             {avatarLetter}
@@ -1370,7 +1333,7 @@ export function IssueTrackerDashboard() {
                               <span className="font-extrabold text-sm text-on-surface">
                                 {assigneeName}
                               </span>
-                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-semibold border border-slate-200">
+                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-semibold border border-slate-200/60">
                                 Đề xuất
                               </span>
                             </div>
@@ -1383,14 +1346,14 @@ export function IssueTrackerDashboard() {
                         {/* Status Badge */}
                         <div>
                           {stats.isAllApproved ? (
-                            <span className="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-250 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[11px] font-bold">done</span>
+                            <span className="text-[10px] bg-emerald-50/50 text-emerald-600 border border-emerald-500/80 px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs font-bold">check_circle</span>
                               ĐÃ DUYỆT & BAN HÀNH
                             </span>
                           ) : (
-                            <span className="text-[9px] bg-amber-50 text-amber-600 border border-amber-250 px-2.5 py-1 rounded-md font-extrabold flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[11px] animate-pulse">pending</span>
-                              NHÁP / ĐANG THẢO LUẬN
+                            <span className="text-[10px] bg-amber-50/50 text-amber-600 border border-amber-500/80 px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs font-bold">schedule</span>
+                              NHẬP / ĐANG THẢO LUẬN
                             </span>
                           )}
                         </div>
@@ -1398,11 +1361,11 @@ export function IssueTrackerDashboard() {
 
                       {/* Main Title & Description */}
                       <div className="pl-1">
-                        <h3 className="text-sm font-extrabold text-on-surface group-hover:text-sky-500 transition-colors leading-snug">
+                        <h3 className="text-sm font-bold text-slate-800 group-hover:text-sky-500 transition-colors leading-snug">
                           {bug.displayTitle || bug.title}
                         </h3>
                         {bug.description && (
-                          <p className="text-xs text-on-surface-variant mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed font-normal">
                             {bug.description}
                           </p>
                         )}
@@ -1413,18 +1376,18 @@ export function IssueTrackerDashboard() {
 
                       {/* Footer Toolbar */}
                       <div className="flex items-center justify-between pl-1">
-                        <div className="flex items-center gap-4 text-xs font-bold text-on-surface-variant/80">
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm text-sky-500">thumb_up</span>
-                            Đồng ý ({stats.totalVotes})
+                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 select-none">
+                          <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
+                            <span className="material-symbols-outlined text-[16px] text-slate-400">thumb_up</span>
+                            <span>Đồng ý ({stats.totalVotes})</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm text-rose-500">thumb_down</span>
-                            Không đồng ý ({stats.totalDownvotes})
+                          <span className="flex items-center gap-1 hover:text-rose-500 transition-colors">
+                            <span className="material-symbols-outlined text-[16px] text-slate-400">thumb_down</span>
+                            <span>Không đồng ý ({stats.totalDownvotes})</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm text-slate-400">chat_bubble</span>
-                            Góp ý ({stats.totalComments})
+                          <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
+                            <span className="material-symbols-outlined text-[16px] text-slate-400">chat_bubble</span>
+                            <span>Góp ý ({stats.totalComments})</span>
                           </span>
                         </div>
 
@@ -1432,9 +1395,9 @@ export function IssueTrackerDashboard() {
                           <button
                             type="button"
                             onClick={(e) => handleBulkApprove(e, bug)}
-                            className="py-1 px-3 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 text-white text-[10px] font-black rounded-lg transition-all shadow-sm flex items-center gap-0.5 cursor-pointer"
+                            className="py-1.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer"
                           >
-                            <span className="material-symbols-outlined text-xs">verified</span>
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
                             <span>Phê duyệt</span>
                           </button>
                         )}
@@ -1671,7 +1634,8 @@ export function IssueTrackerDashboard() {
                         </div>
                       )}
 
-                      {isLeader && bug.isBug && bug.relatedTaskId === null && (
+                      {/* Approve button: only visible to leaders when the bug is in DRAFT state */}
+                      {isLeader && bug.isBug && bug.displayStatus === 'DRAFT' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1685,7 +1649,7 @@ export function IssueTrackerDashboard() {
                           ) : (
                             <span className="material-symbols-outlined text-[10px]">task_alt</span>
                           )}
-                          Approve
+                          Approve & Push to GitHub
                         </button>
                       )}
 
@@ -2137,32 +2101,35 @@ export function IssueTrackerDashboard() {
 
         {/* Modal: Log New Bug Draft */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-4 relative animate-scale-up">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-5 relative animate-scale-up font-sans">
               <button
                 onClick={closeModal}
-                className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors"
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer border border-slate-100"
               >
-                <span className="material-symbols-outlined text-xl">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
 
-              <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/60">
-                <span className="material-symbols-outlined text-primary text-2xl font-bold">add_task</span>
-                <h2 className="text-lg font-black text-on-surface">
-                  {newIssue.parentId ? `Create Sub-task under "${newIssue.parentTitle}"` : 'File New Issue'}
-                </h2>
+              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-2xl font-bold">assignment_add</span>
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-800">
+                    {newIssue.parentId ? `Create Sub-task under "${newIssue.parentTitle}"` : 'File New Issue'}
+                  </h2>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">Chọn loại task hoặc báo cáo sự cố để bắt đầu</p>
+                </div>
               </div>
 
               {newIssue.uiType === null ? (
                 /* Step 1: Template Selection */
-                <div className="space-y-3 py-2 animate-fade-in">
+                <div className="space-y-3 py-1 animate-fade-in">
                   {[
                     { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
                     { type: 'BUG_FIX', title: 'Fix Bug Task', desc: 'Tạo task để xử lý và sửa một bug cụ thể', icon: 'build_circle' },
                     { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
                     { type: 'REFACTOR', title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi', icon: 'build' },
-                    { type: 'TEST', title: 'Test Task', desc: 'Nhiệm vụ viết hoặc cải thiện unit test', icon: 'science' },
-                    { type: 'BLANK', title: 'Blank issue', desc: 'Create a new issue from scratch', icon: 'article' },
                   ].map((tpl) => (
                     <div
                       key={tpl.type}
@@ -2172,19 +2139,22 @@ export function IssueTrackerDashboard() {
                         if (tpl.type === 'BUG_FIX') mappedTaskType = 'BUG_FIX';
                         setNewIssue(prev => ({ ...prev, uiType: tpl.type, taskType: mappedTaskType }));
                       }}
-                      className="group flex items-center justify-between p-4 border border-outline-variant/50 hover:border-primary/50 hover:bg-surface-container-high rounded-xl cursor-pointer transition-all"
+                      className="group flex items-center justify-between p-4 bg-white border border-slate-100 hover:bg-sky-500/5 hover:border-sky-500/30 rounded-2xl cursor-pointer transition-all duration-200 select-none shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-center gap-4">
-                        <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">{tpl.icon}</span>
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 group-hover:bg-sky-500/10 text-slate-500 group-hover:text-sky-500 flex items-center justify-center transition-all duration-200 shrink-0">
+                          <span className="material-symbols-outlined text-xl">{tpl.icon}</span>
+                        </div>
                         <div>
-                          <h4 className="font-bold text-sm text-on-surface">{tpl.title}</h4>
-                          <p className="text-xs text-on-surface-variant mt-0.5">{tpl.desc}</p>
+                          <h4 className="font-extrabold text-sm text-slate-700 group-hover:text-slate-800 transition-colors">{tpl.title}</h4>
+                          <p className="text-xs text-slate-500/90 mt-0.5 font-medium">{tpl.desc}</p>
                         </div>
                       </div>
-                      <span className="material-symbols-outlined text-on-surface-variant opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all">arrow_forward</span>
+                      <span className="material-symbols-outlined text-slate-400 group-hover:text-sky-500 group-hover:translate-x-1 transition-all text-lg font-bold">arrow_forward</span>
                     </div>
                   ))}
                 </div>
+
               ) : (
                 /* Step 2: Form View */
                 <form onSubmit={handleCreateIssue} className="space-y-4 animate-fade-in">
@@ -2242,34 +2212,7 @@ export function IssueTrackerDashboard() {
                     </div>
                   )}
 
-                  {/* DYNAMIC FIELDS: NOT BUG (TASKS) */}
-                  {newIssue.uiType !== 'BUG' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-on-surface-variant pl-0.5">Priority</label>
-                        <select
-                          value={newIssue.priority}
-                          onChange={(e) => setNewIssue(prev => ({ ...prev, priority: e.target.value }))}
-                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none text-on-surface"
-                        >
-                          <option value="CRITICAL">Critical</option>
-                          <option value="HIGH">High</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="LOW">Low</option>
-                        </select>
-                      </div>
 
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-on-surface-variant pl-0.5">Deadline</label>
-                        <input
-                          type="date"
-                          value={newIssue.deadline}
-                          onChange={(e) => setNewIssue(prev => ({ ...prev, deadline: e.target.value }))}
-                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-on-surface-variant pl-0.5">Description</label>
@@ -2282,21 +2225,7 @@ export function IssueTrackerDashboard() {
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-on-surface-variant pl-0.5">Assignee</label>
-                    <select
-                      value={newIssue.assigneeId}
-                      onChange={(e) => setNewIssue(prev => ({ ...prev, assigneeId: e.target.value }))}
-                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none text-on-surface font-semibold"
-                    >
-                      <option value="">Unassigned (No one)</option>
-                      {(activeProject?.members || []).map(member => (
-                        <option key={member.id} value={member.id}>
-                          {member.fullName || member.username} ({member.role || 'Member'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+
 
                   {/* MORE DYNAMIC FIELDS: BUG */}
                   {newIssue.uiType === 'BUG' && (
@@ -2362,332 +2291,21 @@ export function IssueTrackerDashboard() {
           </div>
         )}
 
-        {/* Modal: Feature Discussion details (Facebook Post Style Overlay) */}
-        {activeDiscussTaskId && (() => {
-          const currentDiscussTask = discussBugs.find(b => b.id === activeDiscussTaskId)
-          if (!currentDiscussTask) return null
-          
-          const stats = discussBugsStats[currentDiscussTask.id] || { isAllApproved: false }
-          const assigneeName = currentDiscussTask.primaryAssignee?.fullName || currentDiscussTask.primaryAssignee?.username || 'Chưa phân công'
-          const authorAvatarLetter = (currentDiscussTask.displayTitle || currentDiscussTask.title || 'F').charAt(0).toUpperCase()
-          
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto"
-              onClick={() => setActiveDiscussTaskId(null)}
-            >
-              <div
-                className="bg-surface-container-lowest rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-outline-variant flex flex-col relative animate-scale-up font-sans"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Close Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveDiscussTaskId(null)}
-                  className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors p-1 bg-surface-container-high rounded-full flex items-center justify-center shadow"
-                >
-                  <span className="material-symbols-outlined text-xl">close</span>
-                </button>
-
-                {/* Facebook Post Detail Header */}
-                <div className="p-6 pb-4 border-b border-outline-variant/40 flex items-start gap-3.5 pr-14">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-sm shrink-0 shadow shadow-sky-500/20">
-                    {authorAvatarLetter}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Tiêu đề Feature hiển thị đậm nét ở tên bài đăng */}
-                      <span className="text-sm font-black text-on-surface leading-tight">
-                        {currentDiscussTask.displayTitle || currentDiscussTask.title}
-                      </span>
-                      {/* Tên assignee hiển thị nhỏ bên cạnh */}
-                      <span className="text-[10px] bg-sky-50 text-sky-600 px-2 py-0.5 rounded-md font-bold flex items-center gap-0.5 border border-sky-100">
-                        <span className="material-symbols-outlined text-[11px]">person</span>
-                        Giao cho: {assigneeName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1 text-[10px] text-on-surface-variant/80 font-semibold">
-                      <span>ID: #{currentDiscussTask.id}</span>
-                      <span>•</span>
-                      <span>{formatSafeDate(currentDiscussTask.createdAt)}</span>
-                      <span>•</span>
-                      {stats.isAllApproved ? (
-                        <span className="text-emerald-600 font-bold">Đã phê duyệt</span>
-                      ) : (
-                        <span className="text-amber-600 font-bold">Đang thảo luận</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Facebook Post Detail Body */}
-                <div className="p-6 py-4 space-y-4">
-                  {/* Chỉ hiển thị mô tả chi tiết của feature (không hiển thị h2 tiêu đề trùng lặp) */}
-                  <p className="text-xs text-on-surface-variant leading-relaxed whitespace-pre-line font-medium pl-1 bg-surface-container-low/20 p-4 rounded-2xl border border-outline-variant/20">
-                    {currentDiscussTask.description || 'Không có mô tả chi tiết cho tính năng này.'}
-                  </p>
-
-                  {/* Reaction Toolbar */}
-                  <div className="flex items-center gap-4 text-xs font-bold text-on-surface-variant border-y border-outline-variant/30 py-3 mt-2 px-1">
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-sky-500">thumb_up</span>
-                      {activeProposals.reduce((acc, p) => acc + (p.votes?.length || 0), 0)} Tán thành
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-rose-500">thumb_down</span>
-                      {activeProposals.reduce((acc, p) => acc + (p.downvotes?.length || 0), 0)} Không tán thành
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-slate-400">chat_bubble</span>
-                      {activeProposals.reduce((acc, p) => acc + (p.comments?.length || 0), 0)} Góp ý
-                    </span>
-                  </div>
-                </div>
-
-                {/* Facebook Comments style section */}
-                <div className="p-6 pt-2 pb-6 flex-1 overflow-y-auto space-y-6">
-                  <div className="space-y-4">
-                    <h4 className="text-[11px] font-black text-on-surface-variant uppercase tracking-wider pl-1">
-                      Đề xuất Checklist ({activeProposals.length})
-                    </h4>
-
-                    {activeProposals.length === 0 ? (
-                      <div className="text-center italic text-xs text-on-surface-variant/80 py-8 bg-surface-container-low/30 rounded-2xl border border-dashed border-outline-variant/60">
-                        Chưa có đề xuất checklist nào. Hãy để lại đề xuất đầu tiên của bạn bên dưới!
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {activeProposals.map((prop) => {
-                          const hasVoted = prop.votes?.includes(activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))?.fullName || '') || false
-                          const hasDownvoted = prop.downvotes?.includes(activeProject?.members?.find(m => Number(m.id) === Number(currentUserId))?.fullName || '') || false
-                          const isPending = prop.status === 'PENDING'
-                          const isApproved = prop.status === 'APPROVED'
-                          const isRejected = prop.status === 'REJECTED'
-                          const isExpanded = !!expandedProposalComments[prop.id]
-                          
-                          return (
-                            <div
-                              key={prop.id}
-                              className={`rounded-2xl p-4.5 border transition-all shadow-sm flex flex-col gap-3.5 ${
-                                isApproved
-                                  ? 'border-emerald-300 bg-emerald-500/5'
-                                  : isRejected
-                                  ? 'border-outline-variant/40 bg-surface-container-low/20 opacity-60'
-                                  : 'border-outline-variant bg-surface-container-low/10 hover:border-sky-500/20'
-                              }`}
-                            >
-                              {/* Proposal Header */}
-                              <div className="flex justify-between items-start gap-4">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-500 to-sky-400 text-white flex items-center justify-center font-black text-xs shrink-0">
-                                    {prop.proposedBy ? prop.proposedBy.charAt(0).toUpperCase() : 'U'}
-                                  </div>
-                                  <div>
-                                    <div className="text-xs font-black text-on-surface flex items-center gap-1.5">
-                                      <span>{prop.proposedBy}</span>
-                                      <span className="text-[8px] bg-sky-50 text-sky-600 px-1.5 py-0.25 rounded-md border border-sky-100 uppercase tracking-wider font-bold">
-                                        Đề xuất
-                                      </span>
-                                    </div>
-                                    <span className="text-[9px] text-on-surface-variant block mt-0.5 font-medium">
-                                      {formatSafeDate(prop.createdAt)}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  {isPending && (
-                                    <span className="inline-flex items-center gap-1 text-[8px] font-black px-2 py-0.75 bg-sky-50 text-sky-600 border border-sky-100 rounded-md uppercase tracking-wider">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>
-                                      Thảo luận
-                                    </span>
-                                  )}
-                                  {isApproved && (
-                                    <span className="inline-flex items-center gap-0.5 text-[8px] font-black px-2 py-0.75 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-md uppercase tracking-wider">
-                                      <span className="material-symbols-outlined text-[10px] font-bold">done</span>
-                                      Đã chốt
-                                    </span>
-                                  )}
-                                  {isRejected && (
-                                    <span className="inline-flex items-center gap-0.5 text-[8px] font-black px-2 py-0.75 bg-surface-container-high text-on-surface-variant border border-outline-variant/60 rounded-md uppercase tracking-wider">
-                                      <span className="material-symbols-outlined text-[10px] font-bold">close</span>
-                                      Từ chối
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Proposal text content */}
-                              <p className="text-xs font-bold text-on-surface leading-relaxed pl-1.5">
-                                {prop.text}
-                              </p>
-
-                              {/* Proposal actions & Reaction bar */}
-                              <div className="flex flex-wrap items-center justify-between gap-4 pt-2.5 border-t border-outline-variant/30 mt-0.5">
-                                <div className="flex items-center gap-1.5">
-                                  {/* Vote action */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleVoteProposal(prop.id)}
-                                    disabled={!isPending}
-                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
-                                      hasVoted
-                                        ? 'bg-sky-500/10 border-sky-500/20 text-sky-600'
-                                        : isPending
-                                        ? 'bg-surface-container-low border-outline-variant/80 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-                                        : 'border-transparent text-on-surface-variant/40'
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-xs shrink-0" style={hasVoted ? { fontVariationSettings: "'FILL' 1" } : {}}>thumb_up</span>
-                                    <span>Tán thành ({prop.votes?.length || 0})</span>
-                                  </button>
-
-                                  {/* Downvote action */}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownvoteProposal(prop.id)}
-                                    disabled={!isPending}
-                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
-                                      hasDownvoted
-                                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-600'
-                                        : isPending
-                                        ? 'bg-surface-container-low border-outline-variant/80 text-on-surface-variant hover:text-rose-600 hover:bg-rose-500/5 hover:border-rose-300'
-                                        : 'border-transparent text-on-surface-variant/40'
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-xs shrink-0" style={hasDownvoted ? { fontVariationSettings: "'FILL' 1" } : {}}>thumb_down</span>
-                                    <span>Không tán thành ({prop.downvotes?.length || 0})</span>
-                                  </button>
-
-                                  {/* Comment / Reply action */}
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedProposalComments(prev => ({ ...prev, [prop.id]: !isExpanded }))}
-                                    className={`flex items-center gap-1 py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
-                                      isExpanded
-                                        ? 'bg-sky-500/10 border-sky-500/20 text-sky-600'
-                                        : 'bg-transparent border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-xs shrink-0">chat_bubble</span>
-                                    <span>Góp ý ({prop.comments?.length || 0})</span>
-                                  </button>
-                                </div>
-
-                                {isPending && (
-                                  <div className="flex items-center gap-1.5">
-                                    {isLeader ? (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleApproveProposal(prop)}
-                                          className="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-0.5 cursor-pointer"
-                                        >
-                                          <span className="material-symbols-outlined text-xs">done</span>
-                                          Duyệt & Chốt
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRejectProposal(prop.id)}
-                                          className="py-1 px-2.5 bg-surface-container-high hover:bg-rose-50 hover:text-rose-600 border border-outline-variant/80 hover:border-rose-200 text-on-surface-variant text-[10px] font-bold rounded-lg transition-all flex items-center gap-0.5 cursor-pointer"
-                                        >
-                                          <span className="material-symbols-outlined text-xs">close</span>
-                                          Từ chối
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <span className="text-[9px] text-on-surface-variant/80 italic font-semibold">Chờ Leader duyệt</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Indented Replies Section */}
-                              {isExpanded && (
-                                <div className="mt-3.5 pl-3 border-l-2 border-outline-variant/60 space-y-3 pt-1">
-                                  {prop.comments && prop.comments.length > 0 && (
-                                    <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
-                                      {prop.comments.map((pc) => (
-                                        <div key={pc.id} className="flex gap-2 p-2 bg-surface-container-low rounded-xl border border-outline-variant/30">
-                                          <div className="w-5.5 h-5.5 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center font-black text-[9px] shrink-0">
-                                            {pc.author ? pc.author.charAt(0).toUpperCase() : 'U'}
-                                          </div>
-                                          <div className="min-w-0 flex-1">
-                                            <div className="flex justify-between items-center">
-                                              <span className="text-[10px] font-bold text-on-surface">{pc.author}</span>
-                                              <span className="text-[8px] text-on-surface-variant/80 font-semibold">{formatSafeTime(pc.createdAt)}</span>
-                                            </div>
-                                            <p className="text-[11px] text-on-surface-variant mt-0.5 font-medium leading-relaxed">{pc.content}</p>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Quick Reply Form */}
-                                  <form
-                                    onSubmit={(e) => handleAddProposalComment(e, prop.id)}
-                                    className="flex gap-1.5 pt-2 border-t border-outline-variant/20"
-                                  >
-                                    <input
-                                      type="text"
-                                      value={proposalCommentsInputs[prop.id] || ''}
-                                      onChange={(e) =>
-                                        setProposalCommentsInputs((prev) => ({
-                                          ...prev,
-                                          [prop.id]: e.target.value
-                                        }))
-                                      }
-                                      placeholder="Viết góp ý hoặc phản hồi cho đề xuất..."
-                                      className="flex-1 px-3 py-1.5 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-sky-500 text-on-surface font-semibold"
-                                      required
-                                    />
-                                    <button
-                                      type="submit"
-                                      className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-[10px] font-black rounded-lg cursor-pointer transition-all"
-                                    >
-                                      Gửi
-                                    </button>
-                                  </form>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Add Proposal Sticky Input Form */}
-                <div className="p-6 pt-3 border-t border-outline-variant/40 bg-surface-container-lowest/95 sticky bottom-0 rounded-b-3xl">
-                  <form onSubmit={handleAddProposal} className="space-y-2.5">
-                    <h4 className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider pl-0.5">
-                      Thêm đề xuất checklist mới
-                    </h4>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newProposalText}
-                        onChange={(e) => setNewProposalText(e.target.value)}
-                        placeholder="Viết nội dung đề xuất cho checklist..."
-                        className="flex-1 px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-xl focus:outline-none focus:border-sky-500 text-on-surface font-semibold"
-                        required
-                      />
-                      <button
-                        type="submit"
-                        className="py-2 px-4.5 bg-gradient-to-r from-sky-500 to-sky-400 hover:from-sky-600 hover:to-sky-500 text-white text-xs font-black rounded-xl flex items-center gap-1 cursor-pointer transition-all shrink-0 shadow-sm"
-                      >
-                        <span className="material-symbols-outlined text-sm font-bold">send</span>
-                        <span>Đề xuất</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          )
-        })()}
+        {/* Modal: Feature Discussion details (Ocean Blue Premium Popup Overlay) */}
+        {activeDiscussTaskId && (
+          <FeatureDiscussionModal
+            taskId={activeDiscussTaskId}
+            projectId={projectId}
+            onClose={() => {
+              setActiveDiscussTaskId(null)
+              fetchDiscussStats()
+            }}
+            onRefreshDashboard={() => {
+              loadBugs(true)
+              fetchDiscussStats()
+            }}
+          />
+        )}
       </div>
 
       {/* AssistiveTouch Backdrop to collapse menu when clicking outside */}

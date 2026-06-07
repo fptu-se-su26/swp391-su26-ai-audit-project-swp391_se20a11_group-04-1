@@ -344,6 +344,11 @@ public class SprintServiceImpl implements SprintService {
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
+                .createdByName(task.getCreatedBy() != null ? 
+                        (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
+                                ? task.getCreatedBy().getProfile().getFullName() 
+                                : task.getCreatedBy().getUsername()) 
+                        : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .checklist(task.getChecklist().stream()
