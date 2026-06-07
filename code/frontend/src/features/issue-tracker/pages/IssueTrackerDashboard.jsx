@@ -935,7 +935,7 @@ export function IssueTrackerDashboard() {
     }
     setApprovingId(taskData.id)
     try {
-      await taskService.updateTaskStatus(taskData.id, 'IN_REVIEW')
+      await taskService.requestTaskReview(taskData.id, 'Yêu cầu review từ Issue Tracker')
       toast.success('Đã gửi yêu cầu review!')
       loadBugs(true)
     } catch (err) {
@@ -949,7 +949,7 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.updateTaskStatus(taskId, 'DONE')
+      await taskService.approveTaskReview(taskId, 'Đã Approve qua Issue Tracker')
       toast.success('Đã Approve task thành công!')
       loadBugs(true)
     } catch (err) {
@@ -963,7 +963,7 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.updateTaskStatus(taskId, 'IN_PROGRESS')
+      await taskService.rejectTaskReview(taskId, 'Từ chối duyệt qua Issue Tracker', 'IN_PROGRESS')
       toast.success('Đã từ chối review task!')
       loadBugs(true)
     } catch (err) {

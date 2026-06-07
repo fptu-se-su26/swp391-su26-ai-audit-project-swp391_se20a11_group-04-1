@@ -29,9 +29,15 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
       {task && (
         <>
           <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 bg-surface p-1">
+              {task.githubIssueNumber && (
+                <span className="font-label-md text-label-md text-purple-700 bg-purple-50 px-2 py-1 rounded border border-purple-200 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">terminal</span>
+                  #{task.githubIssueNumber}
+                </span>
+              )}
               <span className="font-label-md text-label-md text-primary bg-primary-fixed px-2 py-1 rounded">
-                {task.id}
+                ID: {task.id}
               </span>
               <span className="bg-primary text-white font-label-md text-[10px] px-1.5 py-0.5 rounded">
                 {(task.columnName || task.status).replaceAll('_', ' ')}
@@ -48,6 +54,21 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6 kanban-scroll">
+            {isChildTask && (() => {
+              const parentTask = tasks.find(t => String(t.id) === String(task.parentId))
+              return parentTask ? (
+                <div className="mb-2">
+                  <button
+                    type="button"
+                    onClick={() => useKanbanStore.getState().openTask(parentTask.id)}
+                    className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                    <span>Quay lại task cha: {parentTask.title}</span>
+                  </button>
+                </div>
+              ) : null
+            })()}
             <div>
               <h2 className="text-xl font-bold text-on-background mb-2">{task.title}</h2>
               <p className="text-sm text-on-surface-variant leading-relaxed">
@@ -226,6 +247,44 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               </ul>
             </div>
 
+            {hasSubtasks && (
+              <div>
+                <h3 className="text-sm font-bold text-on-background border-b border-outline-variant pb-2 mb-3 flex justify-between items-center">
+                  Sub-tasks
+                  <span className="text-xs font-normal text-on-surface-variant">
+                    {subtasks.filter(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED').length}/{subtasks.length}
+                  </span>
+                </h3>
+                <div className="space-y-2">
+                  {subtasks.map((sub) => {
+                    const isSubDone = sub.status === 'DONE' || sub.status === 'FIXED' || sub.status === 'CLOSED'
+                    return (
+                      <div
+                        key={sub.id}
+                        onClick={() => useKanbanStore.getState().openTask(sub.id)}
+                        className="flex items-center justify-between p-2 rounded bg-surface-container-lowest border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <span className="material-symbols-outlined text-[16px] text-primary">subdirectory_arrow_right</span>
+                          <span className={`text-xs font-semibold truncate ${isSubDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
+                            {sub.title}
+                          </span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 uppercase border ${
+                          sub.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                          sub.status === 'IN_REVIEW' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                          sub.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                          'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}>
+                          {sub.status.replaceAll('_', ' ')}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="bg-secondary-container rounded-lg p-3">
               <span className="text-xs font-semibold text-secondary block mb-1">Git Commit Prefix</span>
               <div className="flex items-center space-x-2 bg-surface-container-lowest p-2 rounded border border-outline-variant">
@@ -237,6 +296,21 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 </button>
               </div>
             </div>
+
+            {task.githubIssueUrl && (
+              <div className="bg-[#f0fdf4] rounded-lg p-3 border border-[#bbf7d0]">
+                <span className="text-xs font-semibold text-[#16a34a] block mb-1">GitHub Connection</span>
+                <a
+                  href={task.githubIssueUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-2 bg-surface-container-lowest p-2 rounded border border-[#bbf7d0] hover:bg-emerald-50 transition-all text-xs font-medium text-emerald-700"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-emerald-600">link</span>
+                  <span>Mở Issue #{task.githubIssueNumber} trên GitHub</span>
+                </a>
+              </div>
+            )}
           </div>
         </>
       )}

@@ -94,6 +94,15 @@ public class GitHubApiServiceImpl implements GitHubApiService {
 
                 // Store issue metadata in the steps_to_reproduce JSONB column of BugReport
                 saveGitHubMetadata(bugReport, issueNumber, issueUrl);
+
+                // Sync metadata to the associated Task entity
+                if (bugReport.getRelatedTask() != null) {
+                    Task t = bugReport.getRelatedTask();
+                    t.setGithubIssueNumber(issueNumber);
+                    t.setGithubIssueUrl(issueUrl);
+                    taskRepository.save(t);
+                    log.info("Saved GitHub Issue #{} metadata to related Task ID: {}", issueNumber, t.getId());
+                }
             } else {
                 throw new CustomException("Failed to create GitHub issue: Unexpected response status", HttpStatus.INTERNAL_SERVER_ERROR);
             }
@@ -432,9 +441,34 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                         }
                     }
 
+                    // Check if the issue has "sub-task" label or starts with "[Sub-task]" in the title
+                    List<Map<String, Object>> labelsList = (List<Map<String, Object>>) issue.get("labels");
+                    boolean isSubTask = false;
+                    if (labelsList != null) {
+                        for (Map<String, Object> labelMap : labelsList) {
+                            String labelName = (String) labelMap.get("name");
+                            if ("sub-task".equalsIgnoreCase(labelName)) {
+                                isSubTask = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (title != null && title.startsWith("[Sub-task]")) {
+                        isSubTask = true;
+                    }
+
+                    boolean isSyncedIssue = syncBugId != null || syncTaskId != null || isSubTask;
+
                     if (syncBugId != null) {
                         log.info("Webhook issues.opened recognized synced Bug Report ID: {} for Issue #{}", syncBugId, issueNumber);
-                        Optional<BugReport> optBug = bugReportRepository.findById(syncBugId);
+                        // Retry mechanism to handle database transaction isolation delays from the main thread
+                        Optional<BugReport> optBug = Optional.empty();
+                        for (int i = 0; i < 3; i++) {
+                            optBug = bugReportRepository.findById(syncBugId);
+                            if (optBug.isPresent()) break;
+                            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        }
+
                         if (optBug.isPresent()) {
                             BugReport b = optBug.get();
                             saveGitHubMetadata(b, issueNumber, issueUrl);
@@ -444,20 +478,36 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                                 t.setGithubIssueUrl(issueUrl);
                                 taskRepository.save(t);
                             }
-                            return;
+                        } else {
+                            log.warn("Synced Bug Report ID {} not found in database after retries. Ignoring webhook.", syncBugId);
                         }
+                        return;
                     }
 
                     if (syncTaskId != null) {
                         log.info("Webhook issues.opened recognized synced Task ID: {} for Issue #{}", syncTaskId, issueNumber);
-                        Optional<Task> optTask = taskRepository.findById(syncTaskId);
+                        // Retry mechanism to handle database transaction isolation delays from the main thread
+                        Optional<Task> optTask = Optional.empty();
+                        for (int i = 0; i < 3; i++) {
+                            optTask = taskRepository.findById(syncTaskId);
+                            if (optTask.isPresent()) break;
+                            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        }
+
                         if (optTask.isPresent()) {
                             Task t = optTask.get();
                             t.setGithubIssueNumber(issueNumber);
                             t.setGithubIssueUrl(issueUrl);
                             taskRepository.save(t);
-                            return;
+                        } else {
+                            log.warn("Synced Task ID {} not found in database after retries. Ignoring webhook.", syncTaskId);
                         }
+                        return;
+                    }
+
+                    if (isSyncedIssue) {
+                        log.info("Ignoring webhook issues.opened for synced task or subtask #{} to prevent duplicate creation.", issueNumber);
+                        return;
                     }
 
                     if (bug != null || existingTask != null) {

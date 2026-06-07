@@ -288,7 +288,7 @@ public class TaskProposalService {
         }
 
         // 2. Sync to GitHub & update status
-        if ("BUG_FIX".equals(task.getType())) {
+        if (task.getType() == TaskType.BUG_FIX) {
             // BUG_FIX Task is associated with a BugReport. Promote BugReport from DRAFT -> OPEN.
             BugReport bug = bugReportRepo.findByRelatedTaskId(taskId).orElse(null);
             if (bug != null) {
@@ -297,14 +297,35 @@ public class TaskProposalService {
                     bugReportRepo.save(bug);
                 }
                 
-                // Sync the BugReport to GitHub (saves issue number to bug's stepsToReproduce JSON metadata)
-                try {
-                    gitHubApiService.createGitHubIssue(bug, currentUserId);
-                } catch (Exception e) {
-                    log.error("Failed to sync approved Bug Report to GitHub ID: {}", bug.getId(), e);
-                    throw new org.example.backend.exception.CustomException(
-                            "Đồng bộ Bug Report lên GitHub thất bại: " + e.getMessage(),
-                            org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+                // Retrieve issue number from task, or try to restore it from bug report metadata
+                Integer existingIssueNum = task.getGithubIssueNumber();
+                if (existingIssueNum == null && bug.getStepsToReproduce() != null) {
+                    try {
+                        java.util.Map<?, ?> meta = objectMapper.readValue(bug.getStepsToReproduce(), java.util.Map.class);
+                        Object num = meta.get("github_issue_number");
+                        if (num instanceof Number) {
+                            existingIssueNum = ((Number) num).intValue();
+                            task.setGithubIssueNumber(existingIssueNum);
+                            Object urlObj = meta.get("github_issue_url");
+                            if (urlObj != null) {
+                                task.setGithubIssueUrl(urlObj.toString());
+                            }
+                            taskRepo.save(task);
+                            log.info("Restored GitHub Issue #{} metadata to Task ID: {} from associated BugReport", existingIssueNum, task.getId());
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // Sync the BugReport to GitHub if it does not have an issue yet
+                if (existingIssueNum == null) {
+                    try {
+                        gitHubApiService.createGitHubIssue(bug, currentUserId);
+                    } catch (Exception e) {
+                        log.error("Failed to sync approved Bug Report to GitHub ID: {}", bug.getId(), e);
+                        throw new org.example.backend.exception.CustomException(
+                                "Đồng bộ Bug Report lên GitHub thất bại: " + e.getMessage(),
+                                org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+                    }
                 }
             }
         } else {
