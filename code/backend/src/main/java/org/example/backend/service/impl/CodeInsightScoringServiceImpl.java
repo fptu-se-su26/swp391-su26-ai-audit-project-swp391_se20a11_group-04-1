@@ -60,7 +60,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
                         .orElse(70)
                 : 70;
         int clampedScore = Math.max(0, Math.min(100, score));
-        String riskLevel = clampedScore < 50 ? "BLOCKED" : clampedScore < threshold ? "WARNING" : "READY";
+        String riskLevel = resolveRiskLevel(clampedScore, threshold, evidenceStats);
         String evidenceMode = evidenceStats.hasCodeEvidence()
                 ? "GITHUB_CODE_LINKED"
                 : hasGithubIssue ? "GITHUB_ISSUE_LINKED" : "MANUAL_GATE";
@@ -213,7 +213,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
 
         boolean hasMergedPullRequest = pullRequests.stream().anyMatch(pr -> pr.getMergedAt() != null);
         boolean hasDraftPullRequest = pullRequests.stream().anyMatch(GitHubPullRequest::isDraft);
-        String ciStatus = resolveCiStatus(checkRuns);
+        String ciStatus = resolveCiStatus(checkRuns, pullRequests, commits);
 
         Set<String> authorEmails = commits.stream()
                 .map(GitHubCommit::getAuthorEmail)
@@ -246,11 +246,64 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
                 .toList();
     }
 
-    private String resolveCiStatus(List<GitHubCheckRun> checkRuns) {
+    private String resolveCiStatus(
+            List<GitHubCheckRun> checkRuns,
+            List<GitHubPullRequest> pullRequests,
+            List<GitHubCommit> commits) {
         if (checkRuns.isEmpty()) return "NO_CI";
-        if (checkRuns.stream().anyMatch(this::isFailedCheck)) return "FAILED";
-        if (checkRuns.stream().anyMatch(this::isPassedCheck)) return "PASSED";
+        List<GitHubCheckRun> currentCheckRuns = currentShaCheckRuns(checkRuns, pullRequests, commits);
+        if (currentCheckRuns.stream().anyMatch(this::isFailedCheck)) return "FAILED";
+        if (currentCheckRuns.stream().anyMatch(this::isPassedCheck)) return "PASSED";
         return "PENDING";
+    }
+
+    private List<GitHubCheckRun> currentShaCheckRuns(
+            List<GitHubCheckRun> checkRuns,
+            List<GitHubPullRequest> pullRequests,
+            List<GitHubCommit> commits) {
+        Set<String> currentShas = pullRequests.stream()
+                .map(GitHubPullRequest::getHeadSha)
+                .filter(this::hasText)
+                .map(this::normalizeSha)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (currentShas.isEmpty()) {
+            latestCommitSha(commits).ifPresent(currentShas::add);
+        }
+
+        if (currentShas.isEmpty()) {
+            return checkRuns;
+        }
+
+        List<GitHubCheckRun> scopedRuns = checkRuns.stream()
+                .filter(checkRun -> currentShas.contains(normalizeSha(checkRun.getSha())))
+                .toList();
+        return scopedRuns.isEmpty() ? checkRuns : scopedRuns;
+    }
+
+    private Optional<String> latestCommitSha(List<GitHubCommit> commits) {
+        return commits.stream()
+                .filter(commit -> hasText(commit.getSha()))
+                .max(Comparator
+                        .comparing(GitHubCommit::getCommittedAt, Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(GitHubCommit::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(GitHubCommit::getId, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .map(GitHubCommit::getSha)
+                .map(this::normalizeSha);
+    }
+
+    private String resolveRiskLevel(int clampedScore, int threshold, EvidenceStats evidenceStats) {
+        // Failed CI is a hard review gate; it must not appear READY even when other evidence is strong.
+        if ("FAILED".equals(evidenceStats.ciStatus())) {
+            return "BLOCKED";
+        }
+        if (clampedScore < 50) {
+            return "BLOCKED";
+        }
+        if (clampedScore < threshold) {
+            return "WARNING";
+        }
+        return "READY";
     }
 
     private boolean isPassedCheck(GitHubCheckRun checkRun) {
@@ -268,6 +321,10 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String normalizeSha(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private record EvidenceStats(
