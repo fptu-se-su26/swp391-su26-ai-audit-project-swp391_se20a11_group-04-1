@@ -108,7 +108,7 @@ public class BugReportServiceImpl implements BugReportService {
             }
         }
 
-        // New issues start as DRAFT; they require leader approval before becoming OPEN or syncing to GitHub.
+        // New issues start as DRAFT
         BugReport bug = BugReport.builder()
                 .project(project)
                 .title(title)
@@ -124,7 +124,26 @@ public class BugReportServiceImpl implements BugReportService {
                 .actualResult((String) request.get("actualResult"))
                 .build();
 
-        return bugReportRepository.save(bug);
+        bug = bugReportRepository.save(bug);
+
+        // Auto-create associated Task (BUG_FIX)
+        TaskRequest taskReq = new TaskRequest();
+        taskReq.setTitle("[BUG] " + title);
+        taskReq.setDescription(description);
+        taskReq.setType("BUG_FIX");
+        taskReq.setPriority(mapSeverityToPriority(severity));
+        taskReq.setStatus("TODO");
+        taskReq.setPrimaryAssigneeId(assignee != null ? assignee.getId() : null);
+        taskReq.setChecklist(new ArrayList<>());
+
+        TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
+        Task createdTask = taskRepository.findById(taskResponse.getId())
+                .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
+
+        bug.setRelatedTask(createdTask);
+        bug = bugReportRepository.save(bug);
+
+        return bug;
     }
 
     @Override

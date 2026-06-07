@@ -20,7 +20,7 @@ import ApprovedTaskTab from '../components/ApprovedTaskTab'
 import CommentTab from '../components/CommentTab'
 import ProposalTab from '../components/ProposalTab'
 
-export default function FeatureDiscussionModal({ taskId, onClose, projectId, onRefreshDashboard }) {
+export default function FeatureDiscussionModal({ taskId, onClose, projectId, onRefreshDashboard, discussBug }) {
   const activeProject = useProjectStore((state) => state.activeProject)
   const { tasks, fetchTaskById, updateTask } = useKanbanStore()
   const task = tasks.find((item) => String(item.id) === String(taskId))
@@ -42,6 +42,25 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   const [descExpanded, setDescExpanded] = useState(false)
   const [isDescCollapsed, setIsDescCollapsed] = useState(false)
   const [isVoteCollapsed, setIsVoteCollapsed] = useState(false)
+
+  const isBugType = useMemo(() => {
+    return task?.type === 'BUG_FIX' || task?.type === 'BUG' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
+  }, [task, discussBug])
+
+  const stepsContent = useMemo(() => {
+    const rawSteps = discussBug?.stepsToReproduce || task?.stepsToReproduce
+    if (!rawSteps) return ''
+    try {
+      const meta = JSON.parse(rawSteps)
+      return meta.steps || rawSteps
+    } catch {
+      return rawSteps
+    }
+  }, [discussBug?.stepsToReproduce, task?.stepsToReproduce])
+
+  const expectedResult = discussBug?.expectedResult || task?.expectedResult
+  const actualResult = discussBug?.actualResult || task?.actualResult
+  const bugDescription = discussBug?.description || task?.description
   const lastScrollTop = useRef(0)
 
   const handleContentScroll = useCallback((e) => {
@@ -464,13 +483,13 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="font-extrabold text-slate-900 tracking-tight text-base">{task.title}</span>
                   <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
-                    task.type === 'BUG' 
+                    task.type === 'BUG' || task.type === 'BUG_FIX'
                       ? 'bg-rose-50 text-rose-600 border-rose-100'
                       : task.type === 'UI/UX'
                         ? 'bg-amber-50 text-amber-600 border-amber-100'
                         : 'bg-sky-50 text-sky-600 border-sky-100'
                   }`}>
-                    {task.type === 'BUG' ? 'Bugfix' : task.type === 'DEV' ? 'Feature' : task.type || 'Feature'}
+                    {task.type === 'BUG' || task.type === 'BUG_FIX' ? 'Bugfix / Sửa lỗi' : task.type === 'DEVELOPMENT' || task.type === 'DEV' ? 'Tính năng' : task.type || 'Nhiệm vụ'}
                   </span>
                   <div className="flex items-center gap-1 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer text-[11px]">
                     <User size={10} className="text-slate-400" />
@@ -513,20 +532,75 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Description Container */}
-          <div className={`px-5 bg-white transition-all duration-300 ease-in-out ${isDescCollapsed ? 'max-h-0 opacity-0 pt-0 overflow-hidden' : 'max-h-24 opacity-100 pt-3'}`}>
-            <div className="bg-[#f8fafc] rounded-xl p-3 border border-slate-100/80">
-              <div
-                className={`text-xs text-slate-600 leading-relaxed ${
-                  !descExpanded ? "line-clamp-1" : ""
-                }`}
-              >
-                {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
-              </div>
+          <div className={`px-5 bg-white transition-all duration-300 ease-in-out ${isDescCollapsed ? 'max-h-0 opacity-0 pt-0 overflow-hidden' : descExpanded ? 'max-h-[400px] overflow-y-auto opacity-100 pt-3' : 'max-h-24 opacity-100 pt-3'}`}>
+            <div className="bg-[#f8fafc] rounded-xl p-3.5 border border-slate-200/60 shadow-sm space-y-3">
+              {isBugType ? (
+                // Bug Report Details
+                <div className="space-y-2.5 text-xs">
+                  <div>
+                    <span className="font-extrabold text-slate-700 block mb-0.5">📝 Mô tả lỗi:</span>
+                    <p className={`text-slate-600 leading-relaxed ${!descExpanded ? "line-clamp-1" : ""}`}>
+                      {bugDescription || 'Chưa có mô tả chi tiết.'}
+                    </p>
+                  </div>
+                  
+                  {descExpanded && (
+                    <div className="pt-2 border-t border-slate-200/50 space-y-2.5 animate-fade-in">
+                      {stepsContent && (
+                        <div>
+                          <span className="font-extrabold text-slate-700 block mb-0.5">🚶 Các bước tái dựng / Cách chạy:</span>
+                          <p className="text-slate-600 bg-white border border-slate-100 rounded-lg p-2 font-mono whitespace-pre-wrap text-[11px] leading-relaxed shadow-sm">
+                            {stepsContent}
+                          </p>
+                        </div>
+                      )}
+                      {expectedResult && (
+                        <div>
+                          <span className="font-extrabold text-emerald-700 block mb-0.5">🎯 Kết quả mong muốn:</span>
+                          <p className="text-emerald-600 bg-emerald-50/50 border border-emerald-100/50 rounded-lg p-2 leading-relaxed font-medium">
+                            {expectedResult}
+                          </p>
+                        </div>
+                      )}
+                      {actualResult && (
+                        <div>
+                          <span className="font-extrabold text-rose-700 block mb-0.5">❌ Kết quả thực tế / Giá trị thật:</span>
+                          <p className="text-rose-600 bg-rose-50/50 border border-rose-100/50 rounded-lg p-2 leading-relaxed font-medium">
+                            {actualResult}
+                          </p>
+                        </div>
+                      )}
+                      <div className="flex gap-4 pt-1">
+                        {discussBug?.environment && (
+                          <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/30">
+                            Môi trường: <span className="font-black text-slate-700">{discussBug.environment}</span>
+                          </div>
+                        )}
+                        {discussBug?.severity && (
+                          <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/30">
+                            Mức độ: <span className="font-black text-slate-700">{discussBug.severity}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Regular Feature/Task Description
+                <div
+                  className={`text-xs text-slate-600 leading-relaxed ${
+                    !descExpanded ? "line-clamp-1" : ""
+                  }`}
+                >
+                  {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
+                </div>
+              )}
+              
               <button
                 onClick={() => setDescExpanded(!descExpanded)}
                 className="mt-1 flex items-center gap-1 text-[10px] text-[#0ea5e9] hover:text-[#0284c7] transition-colors font-bold cursor-pointer"
               >
-                {descExpanded ? 'Thu gọn' : 'Xem thêm'}
+                {descExpanded ? 'Thu gọn chi tiết' : isBugType ? 'Xem thêm chi tiết lỗi' : 'Xem thêm'}
                 <ChevronDown size={11} className={`transition-transform ${descExpanded ? 'rotate-180' : ''}`} />
               </button>
             </div>
