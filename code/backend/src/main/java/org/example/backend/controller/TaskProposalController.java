@@ -97,6 +97,22 @@ public class TaskProposalController {
         return ResponseEntity.ok(ApiResponse.success(result, "Proposal rejected"));
     }
 
+    // ─── PUT update proposal ────────────────────────────────────────────────
+    @PutMapping("/proposals/{proposalId}")
+    public ResponseEntity<ApiResponse<TaskProposalResponse>> updateProposal(
+            @PathVariable String proposalId,
+            @RequestBody Map<String, String> body,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        String content = body.getOrDefault("content", "").trim();
+        if (content.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Proposal content must not be empty"));
+        }
+        TaskProposalResponse result = proposalService.updateProposal(proposalId, content, userId);
+        return ResponseEntity.ok(ApiResponse.success(result, "Proposal updated"));
+    }
+
     // ─── Helper ──────────────────────────────────────────────────────────────
     private Long requireUser(HttpSession session) {
         Object uid = session.getAttribute("userId");

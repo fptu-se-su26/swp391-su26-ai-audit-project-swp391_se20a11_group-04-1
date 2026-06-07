@@ -24,6 +24,7 @@ public class TaskProposalService {
     private final TaskRepository taskRepo;
     private final UserAccountRepository userRepo;
     private final TaskChecklistRepository checklistRepo;
+    private final ProjectMemberRepository projectMemberRepository;
 
     // ─── Read ────────────────────────────────────────────────────────────────
 
@@ -122,27 +123,61 @@ public class TaskProposalService {
         TaskProposal proposal = proposalRepo.findById(proposalId)
                 .orElseThrow(() -> new IllegalArgumentException("Proposal not found: " + proposalId));
 
-        proposal.setStatus(ProposalStatus.APPROVED);
+        long upvotes = proposal.getVotes().stream().filter(TaskProposal.ProposalVote::isUpvote).count();
+        long downvotes = proposal.getVotes().stream().filter(v -> !v.isUpvote()).count();
+        if (upvotes <= downvotes) {
+            throw new org.example.backend.exception.CustomException(
+                    "Đề xuất chỉ được duyệt khi số lượt tán thành nhiều hơn không tán thành.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
 
         // Fetch task from Postgres to append approved proposal to checklist
         Task task = taskRepo.findById(proposal.getTaskId())
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + proposal.getTaskId()));
 
-        boolean alreadyInChecklist = task.getChecklist()
-                .stream()
-                .anyMatch(c -> c.getContent().equals(proposal.getContent()));
-
-        if (!alreadyInChecklist) {
-            int nextIndex = task.getChecklist().size();
-            TaskChecklist newItem = TaskChecklist.builder()
-                    .task(task)
-                    .content(proposal.getContent())
-                    .done(false)
-                    .orderIndex(nextIndex)
-                    .build();
-            task.getChecklist().add(newItem);
-            taskRepo.save(task);
+        long totalMembers = projectMemberRepository.findByProjectId(task.getProject().getId()).size();
+        long totalVotes = proposal.getVotes().size();
+        if (3 * totalVotes <= 2 * totalMembers) {
+            throw new org.example.backend.exception.CustomException(
+                    "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
         }
+
+        proposal.setStatus(ProposalStatus.APPROVED);
+
+        List<String> itemsToAdd = new java.util.ArrayList<>();
+        String[] lines = proposal.getContent().split("\\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
+                String itemText = trimmed.substring(5).trim();
+                if (!itemText.isEmpty()) {
+                    itemsToAdd.add(itemText);
+                }
+            }
+        }
+
+        if (itemsToAdd.isEmpty() && !proposal.getContent().trim().isEmpty()) {
+            itemsToAdd.add(proposal.getContent().trim());
+        }
+
+        for (String content : itemsToAdd) {
+            boolean alreadyInChecklist = task.getChecklist()
+                    .stream()
+                    .anyMatch(c -> c.getContent().equals(content));
+
+            if (!alreadyInChecklist) {
+                int nextIndex = task.getChecklist().size();
+                TaskChecklist newItem = TaskChecklist.builder()
+                        .task(task)
+                        .content(content)
+                        .done(false)
+                        .orderIndex(nextIndex)
+                        .build();
+                task.getChecklist().add(newItem);
+            }
+        }
+        taskRepo.save(task);
 
         proposalRepo.save(proposal);
         return toResponse(proposal, currentUserId);
@@ -153,6 +188,24 @@ public class TaskProposalService {
                 .orElseThrow(() -> new IllegalArgumentException("Proposal not found: " + proposalId));
 
         proposal.setStatus(ProposalStatus.REJECTED);
+        proposalRepo.save(proposal);
+        return toResponse(proposal, currentUserId);
+    }
+
+    public TaskProposalResponse updateProposal(String proposalId, String content, Long currentUserId) {
+        TaskProposal proposal = proposalRepo.findById(proposalId)
+                .orElseThrow(() -> new IllegalArgumentException("Proposal not found: " + proposalId));
+
+        if (proposal.getCreatedById() == null) {
+            proposal.setCreatedById(currentUserId);
+        } else if (!proposal.getCreatedById().equals(currentUserId)) {
+            throw new org.example.backend.exception.CustomException(
+                    "Bạn không có quyền chỉnh sửa đề xuất này.",
+                    org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        proposal.setContent(content.trim());
+        proposal.setUpdatedAt(java.time.LocalDateTime.now());
         proposalRepo.save(proposal);
         return toResponse(proposal, currentUserId);
     }
