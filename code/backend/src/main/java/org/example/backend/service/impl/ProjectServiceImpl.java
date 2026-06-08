@@ -685,21 +685,6 @@ public class ProjectServiceImpl implements ProjectService {
         String localRole = "Member";
         List<ProjectResponse.MemberDto> memberDtos = new ArrayList<>();
 
-        Long creatorId = project.getCreatedBy() != null ? project.getCreatedBy().getId() : null;
-        boolean hasLeader = false;
-        boolean creatorFound = false;
-
-        if (project.getMembers() != null) {
-            for (ProjectMember member : project.getMembers()) {
-                if (isLeaderRole(member.getRole().getName())) {
-                    hasLeader = true;
-                }
-                if (creatorId != null && member.getUser().getId().equals(creatorId)) {
-                    creatorFound = true;
-                }
-            }
-        }
-
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
                 String name = member.getUser().getUsername();
@@ -708,11 +693,6 @@ public class ProjectServiceImpl implements ProjectService {
                 }
 
                 String roleName = member.getRole().getName();
-                boolean isCreator = creatorId != null && member.getUser().getId().equals(creatorId);
-
-                if (!hasLeader && isCreator) {
-                    roleName = "PROJECT_LEADER";
-                }
 
                 if (member.getUser().getId().equals(userId)) {
                     if (isLeaderRole(roleName)) {
@@ -728,24 +708,6 @@ public class ProjectServiceImpl implements ProjectService {
                         .role(roleName)
                         .build());
             }
-        }
-
-        if (!hasLeader && !creatorFound && project.getCreatedBy() != null) {
-            UserAccount creator = project.getCreatedBy();
-            String name = creator.getUsername();
-            if (creator.getProfile() != null && creator.getProfile().getFullName() != null) {
-                name = creator.getProfile().getFullName();
-            }
-
-            if (creator.getId().equals(userId)) {
-                localRole = "Project Leader";
-            }
-
-            memberDtos.add(ProjectResponse.MemberDto.builder()
-                    .id(creator.getId())
-                    .name(name)
-                    .role("PROJECT_LEADER")
-                    .build());
         }
 
         return ProjectResponse.builder()
