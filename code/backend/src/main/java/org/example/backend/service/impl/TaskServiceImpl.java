@@ -19,8 +19,9 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.BugReportRepository;
 import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
+import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
-import org.example.backend.repository.NotificationRepository;
+import org.example.backend.service.sla.TaskSlaRuleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,9 +54,10 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
-    private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final TaskSlaRuleService taskSlaRuleService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -986,37 +988,15 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void sendNotification(UserAccount recipient, String title, String message, Task task) {
-        if (recipient == null) return;
-
-        Notification notification = Notification.builder()
-                .recipient(recipient)
-                .project(task.getProject())
-                .entityType(org.example.backend.entity.NotificationEntityType.TASK)
-                .title(title)
-                .message(message)
-                .type(org.example.backend.entity.NotificationType.SYSTEM)
-                .relatedId(task.getId())
-                .isRead(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        Notification saved = notificationRepository.save(notification);
-
-        String jsonPayload = String.format(
-            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"TASK\",\"isRead\":false,\"createdAt\":\"%s\"}}",
-            saved.getId(),
-            saved.getTitle().replace("\"", "\\\""),
-            saved.getMessage().replace("\"", "\\\""),
-            saved.getRelatedId(),
-            task.getProject().getId(),
-            saved.getCreatedAt().toString()
+        notificationService.createAndPush(
+                recipient,
+                task.getProject(),
+                org.example.backend.entity.NotificationEntityType.TASK,
+                task.getId(),
+                org.example.backend.entity.NotificationType.SYSTEM,
+                title,
+                message
         );
-
-        try {
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
-        } catch (Exception e) {
-            log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
-        }
     }
 
     private void replaceChecklist(Task task, List<TaskRequest.ChecklistItemRequest> items) {
@@ -1209,6 +1189,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskResponse toResponse(Task task) {
+        var sla = taskSlaRuleService.evaluate(task);
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
@@ -1232,6 +1213,9 @@ public class TaskServiceImpl implements TaskService {
                 .blockedReason(task.getBlockedReason())
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
+                .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
+                .overdueDays(sla.overdueDays())
+                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())

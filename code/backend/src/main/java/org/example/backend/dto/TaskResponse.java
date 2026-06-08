@@ -35,6 +35,9 @@ public class TaskResponse {
     private String blockedReason;
     private boolean overduePenaltyApplied;
     private LocalDateTime overduePenaltyAppliedAt;
+    private List<String> slaCategories;
+    private long overdueDays;
+    private boolean hasAcceptedEvidence;
     private Long createdById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

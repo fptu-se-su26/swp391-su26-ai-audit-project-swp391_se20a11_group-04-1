@@ -15,6 +15,8 @@ public class WeeklyReportResponse {
     private Long id;
     private Long projectId;
     private String projectName;
+    private Long sprintId;
+    private String sprintName;
     private LocalDate reportWeekStart;
     private LocalDate reportWeekEnd;
     private String status;
