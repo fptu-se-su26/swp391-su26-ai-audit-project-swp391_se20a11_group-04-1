@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+  import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { 
   X, 
   User, 
@@ -19,29 +19,59 @@ import proposalService from '../services/proposalService'
 import ApprovedTaskTab from '../components/ApprovedTaskTab'
 import CommentTab from '../components/CommentTab'
 import ProposalTab from '../components/ProposalTab'
+import { requirementApi } from '../../requirement/services/requirementApi'
+import CreateRequirementModal from '../../requirement/components/CreateRequirementModal'
+
+const cleanDescription = (desc) => {
+  if (!desc) return '';
+  return desc
+    .replace(/<!--\s*sync-source:\s*github-blank(?:-draft|-approved)?\s*-->/g, '')
+    .replace(/<!--\s*discussion-unlocked\s*-->/g, '')
+    .trim();
+}
 
 export default function FeatureDiscussionModal({ taskId, onClose, projectId, onRefreshDashboard, discussBug }) {
   const activeProject = useProjectStore((state) => state.activeProject)
   const { tasks, fetchTaskById, updateTask } = useKanbanStore()
   const task = tasks.find((item) => String(item.id) === String(taskId))
 
+  const isBlankGit = useMemo(() => {
+    const desc = task?.description || discussBug?.description;
+    return desc && desc.includes('<!-- sync-source: github-blank');
+  }, [task?.description, discussBug?.description]);
+
+  const isBlankDraft = useMemo(() => {
+    const desc = task?.description || discussBug?.description;
+    return desc && desc.includes('github-blank-draft');
+  }, [task?.description, discussBug?.description]);
+
   // Lấy trạng thái duyệt của Task. Nếu status không phải DRAFT thì coi như idea đã được thông qua.
   const ideaApproved = useMemo(() => {
     if (!task) return false
+    if (isBlankGit) {
+      return !isBlankDraft;
+    }
     const s = task.status ? task.status.toUpperCase() : ''
     return s !== 'DRAFT'
-  }, [task])
+  }, [task, isBlankGit, isBlankDraft])
 
-  // Trạng thái đã đồng bộ lên GitHub
+  // Trạng thái đã đồng bộ lên GitHub - githubIssueNumber ưu tiên cao nhất
   const isSynced = useMemo(() => {
-    return task?.githubIssueNumber != null
-  }, [task])
+    if (task?.githubIssueNumber != null) return true;
+    if (isBlankGit) return !isBlankDraft;
+    return false;
+  }, [task, isBlankGit, isBlankDraft])
 
   // UI state
   const [activeTab, setActiveTab] = useState('comments')
   const [descExpanded, setDescExpanded] = useState(false)
   const [isDescCollapsed, setIsDescCollapsed] = useState(false)
   const [isVoteCollapsed, setIsVoteCollapsed] = useState(false)
+
+  // Thảo luận được mở dựa trên việc có tag comment ẩn trong description của Task hay không
+  const isDiscussionUnlocked = useMemo(() => {
+    return task?.description?.includes('<!-- discussion-unlocked -->') || false;
+  }, [task?.description])
 
   const isBugType = useMemo(() => {
     return task?.type === 'BUG_FIX' || task?.type === 'BUG' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
@@ -77,6 +107,74 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
     lastScrollTop.current = scrollTop
   }, [])
+
+  // Requirement states & functions
+  const [requirements, setRequirements] = useState([])
+  const [loadingReqs, setLoadingReqs] = useState(false)
+  const [selectedReqId, setSelectedReqId] = useState('')
+  const [savingReq, setSavingReq] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isCreateReqModalOpen, setIsCreateReqModalOpen] = useState(false)
+  const lastTaskIdRef = useRef(null)
+
+  const loadRequirements = useCallback(async () => {
+    if (!projectId) return
+    setLoadingReqs(true)
+    try {
+      const res = await requirementApi.getAllRequirements({ projectId })
+      const list = Array.isArray(res) 
+        ? res 
+        : (res && Array.isArray(res.items) ? res.items : [])
+      setRequirements(list)
+    } catch (err) {
+      console.error('Failed to load requirements:', err)
+      setRequirements([])
+    } finally {
+      setLoadingReqs(false)
+    }
+  }, [projectId])
+
+  useEffect(() => {
+    loadRequirements()
+  }, [loadRequirements])
+
+  useEffect(() => {
+    if (task && task.id !== lastTaskIdRef.current) {
+      lastTaskIdRef.current = task.id
+      setSelectedReqId(task.requirementId || '')
+      setIsEditing(!task.requirementId)
+    }
+  }, [task])
+
+  const handleSaveRequirement = async () => {
+    if (!task) return
+    setSavingReq(true)
+    try {
+      const updated = {
+        ...task,
+        requirementId: selectedReqId ? Number(selectedReqId) : null,
+        assigneeId: task.assignee?.id || task.primaryAssignee?.id || null
+      }
+      await updateTask(task.id, updated)
+      setIsEditing(false)
+      toast.success('Đã liên kết Requirement thành công!')
+      if (onRefreshDashboard) {
+        onRefreshDashboard()
+      }
+    } catch (err) {
+      toast.error('Lưu liên kết Requirement thất bại!')
+    } finally {
+      setSavingReq(false)
+    }
+  }
+
+  const handleModalSuccess = (newReq) => {
+    loadRequirements()
+    if (newReq?.id) {
+      setSelectedReqId(newReq.id)
+    }
+    toast.success('Đã tạo Requirement mới!')
+  }
 
   // Comments (Tab 1) state - loaded from API
   const [comments, setComments] = useState([])
@@ -209,7 +307,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   // Handle Overall Task Voting (Big Proposal)
   const handleVoteTask = async (isUpvote) => {
     if (!taskId) return
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       const data = await proposalService.voteTask(taskId, isUpvote)
       setTaskVoteStats(data)
@@ -221,7 +319,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Handle Comments Like/Dislike (Tab 1)
   const handleToggleCommentLike = async (commentId) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.voteTaskComment(commentId, true)
       loadComments(true)
@@ -231,7 +329,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }
 
   const handleToggleCommentDislike = async (commentId) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.voteTaskComment(commentId, false)
       loadComments(true)
@@ -242,7 +340,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Handle Checklist Proposals (Tab 2)
   const handleVoteProposal = async (propId) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.vote(propId, true)
       loadProposals(true)
@@ -252,7 +350,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }
 
   const handleDownvoteProposal = async (propId) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.vote(propId, false)
       loadProposals(true)
@@ -263,7 +361,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddProposalComment = async (e, propId) => {
     e.preventDefault()
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     const text = proposalCommentsInputs[propId] || ''
     if (!text.trim()) return
     try {
@@ -277,7 +375,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }
 
   const handleApproveProposal = async (prop) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
     if (!hasChecklist) {
       toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
@@ -300,7 +398,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }
 
   const handleRejectProposal = async (propId) => {
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.reject(propId)
       toast.success('Đã từ chối đề xuất này.')
@@ -399,6 +497,15 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (!taskId) return
     const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
     try {
+      // Trước khi sync, nếu có tag discussion-unlocked trong description, ta nên gỡ ra để khóa lại thảo luận
+      if (task?.description?.includes('<!-- discussion-unlocked -->')) {
+        const cleanDesc = task.description.replace('<!-- discussion-unlocked -->', '').trim()
+        await updateTask(task.id, {
+          ...task,
+          assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
+          description: cleanDesc
+        })
+      }
       await proposalService.approveAndSyncTask(taskId)
       toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
       await loadProposals(true)
@@ -413,7 +520,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddComment = async (text) => {
     if (!taskId || !text.trim()) return
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.addTaskComment(taskId, text.trim())
       loadComments(true)
@@ -424,7 +531,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddCommentReply = async (commentId, text) => {
     if (!commentId || !text.trim()) return
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.addCommentReply(commentId, text.trim())
       toast.success('Đã gửi phản hồi!')
@@ -436,7 +543,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   const handleAddProposalDirectly = async (content) => {
     if (!taskId || !content.trim()) return
-    if (isSynced) return
+    if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.createProposal(taskId, content.trim())
       toast.success('Đã gửi đề xuất checklist mới!')
@@ -482,15 +589,21 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="font-extrabold text-slate-900 tracking-tight text-base">{task.title}</span>
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
-                    task.type === 'BUG' || task.type === 'BUG_FIX'
-                      ? 'bg-rose-50 text-rose-600 border-rose-100'
-                      : task.type === 'UI/UX'
-                        ? 'bg-amber-50 text-amber-600 border-amber-100'
-                        : 'bg-sky-50 text-sky-600 border-sky-100'
-                  }`}>
-                    {task.type === 'BUG' || task.type === 'BUG_FIX' ? 'Bugfix / Sửa lỗi' : task.type === 'DEVELOPMENT' || task.type === 'DEV' ? 'Tính năng' : task.type || 'Nhiệm vụ'}
-                  </span>
+                  {isBlankGit ? (
+                    <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border bg-slate-50 text-slate-600 border-slate-200">
+                      BLANK ISSUE
+                    </span>
+                  ) : (
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
+                      task.type === 'BUG' || task.type === 'BUG_FIX'
+                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                        : task.type === 'UI/UX'
+                          ? 'bg-amber-50 text-amber-600 border-amber-100'
+                          : 'bg-sky-50 text-sky-600 border-sky-100'
+                    }`}>
+                      {task.type === 'BUG' || task.type === 'BUG_FIX' ? 'Bugfix / Sửa lỗi' : task.type === 'DEVELOPMENT' || task.type === 'DEV' ? 'Tính năng' : task.type || 'Nhiệm vụ'}
+                    </span>
+                  )}
                   <div className="flex items-center gap-1 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer text-[11px]">
                     <User size={10} className="text-slate-400" />
                     {`${task.createdByName || 'Hệ thống'}`}
@@ -592,7 +705,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     !descExpanded ? "line-clamp-1" : ""
                   }`}
                 >
-                  {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
+                  {cleanDescription(task.description) || 'Chưa có mô tả chi tiết cho tính năng này.'}
                 </div>
               )}
               
@@ -697,6 +810,41 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
                 )}
               </button>
+
+              {/* Nút mở thảo luận cho leader đối với blank issue đã đồng bộ */}
+              {isLeader && isBlankGit && isSynced && (
+                <button
+                  onClick={async () => {
+                    if (!task) return
+                    const loadToast = toast.loading('Đang cập nhật trạng thái thảo luận...')
+                    try {
+                      let newDesc = task.description || ''
+                      if (isDiscussionUnlocked) {
+                        newDesc = newDesc.replace('<!-- discussion-unlocked -->', '').trim()
+                      } else {
+                        newDesc = newDesc + '\n<!-- discussion-unlocked -->'
+                      }
+                      await updateTask(task.id, {
+                        ...task,
+                        assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
+                        description: newDesc
+                      })
+                      toast.success(!isDiscussionUnlocked ? 'Đã mở chế độ thảo luận và thêm đề xuất!' : 'Đã đóng chế độ thảo luận.', { id: loadToast })
+                      fetchTaskById(taskId)
+                    } catch (err) {
+                      toast.error('Cập nhật trạng thái thất bại!', { id: loadToast })
+                    }
+                  }}
+                  className={`ml-auto flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                    isDiscussionUnlocked 
+                      ? 'border-[#0ea5e9] bg-[#0ea5e9]/10 text-[#0284c7] shadow-sm'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Lightbulb size={13} />
+                  <span>{isDiscussionUnlocked ? 'Đóng thảo luận' : 'Mở thảo luận'}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -708,7 +856,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 comments={comments}
                 loading={commentsLoading}
                 approved={ideaApproved}
-                readOnly={isSynced}
+                readOnly={isSynced && !isDiscussionUnlocked}
                 onApprove={async () => {
                   try {
                     await updateTask(task.id, {
@@ -743,7 +891,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 proposals={proposals}
                 loading={proposalsLoading}
                 ideaApproved={ideaApproved}
-                readOnly={isSynced}
+                readOnly={isSynced && !isDiscussionUnlocked}
                 onApprove={handleApproveProposal}
                 onVote={handleVoteProposal}
                 onDownvote={handleDownvoteProposal}
@@ -765,6 +913,16 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 }}
                 onContentScroll={handleContentScroll}
                 isCollapsed={isVoteCollapsed}
+                requirements={requirements}
+                loadingReqs={loadingReqs}
+                selectedReqId={selectedReqId}
+                setSelectedReqId={setSelectedReqId}
+                savingReq={savingReq}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+                setIsCreateReqModalOpen={setIsCreateReqModalOpen}
+                handleSaveRequirement={handleSaveRequirement}
+                task={task}
               />
             )}
 
@@ -785,6 +943,13 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
         {/* Sticky Bottom Input for Comments Tab - MOVED INSIDE CommentTab.jsx for better state integration (mentions dropdown) */}
       </div>
+
+      <CreateRequirementModal
+        isOpen={isCreateReqModalOpen}
+        onClose={() => setIsCreateReqModalOpen(false)}
+        onSuccess={handleModalSuccess}
+        projectId={projectId}
+      />
     </div>
   )
 }

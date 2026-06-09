@@ -41,6 +41,7 @@ export default function FeatureDiscussionPage() {
   // UI state (activeTab and descExpanded still need React state)
   const [activeTab, setActiveTab] = useState('comments')
   const [descExpanded, setDescExpanded] = useState(false)
+  const [isVoteCollapsed, setIsVoteCollapsed] = useState(false)
 
   // Use ref instead of state for scroll-driven collapse to avoid re-renders causing scroll snap-back
   const descRef = useRef(null)
@@ -68,8 +69,9 @@ export default function FeatureDiscussionPage() {
         }
       }
     }
+    setIsVoteCollapsed(scrollTop > 60)
     lastScrollTop.current = scrollTop
-  }, [])
+  }, [setIsVoteCollapsed])
 
 
   // Comments (Tab 1) state - loaded from API

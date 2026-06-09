@@ -281,7 +281,9 @@ public class TaskProposalService {
                 .filter(p -> p.getStatus() == ProposalStatus.APPROVED)
                 .collect(Collectors.toList());
 
-        if (approvedProposals.isEmpty()) {
+        boolean isBlankIssue = task.getDescription() != null && task.getDescription().contains("<!-- sync-source: github-blank");
+
+        if (approvedProposals.isEmpty() && !isBlankIssue) {
             throw new org.example.backend.exception.CustomException(
                     "Chưa có đề xuất nào được phê duyệt. Hãy phê duyệt ít nhất một đề xuất trước khi đồng bộ lên GitHub.",
                     org.springframework.http.HttpStatus.BAD_REQUEST);
@@ -344,6 +346,9 @@ public class TaskProposalService {
 
         // Update parent task status to TODO (so it appears on the Kanban Board and Open columns)
         task.setStatus(TaskStatus.TODO);
+        if (task.getDescription() != null && task.getDescription().contains("<!-- sync-source: github-blank-draft -->")) {
+            task.setDescription(task.getDescription().replace("<!-- sync-source: github-blank-draft -->", "<!-- sync-source: github-blank-approved -->"));
+        }
         taskRepo.save(task);
 
 

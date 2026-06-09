@@ -10,6 +10,6 @@ import java.util.Optional;
 @Repository
 public interface TaskVoteRepository extends MongoRepository<TaskVote, String> {
     List<TaskVote> findByTaskId(Long taskId);
-    Optional<TaskVote> findByTaskIdAndUserId(Long taskId, Long userId);
+    List<TaskVote> findByTaskIdAndUserId(Long taskId, Long userId);
     long countByTaskIdAndIsUpvote(Long taskId, boolean isUpvote);
 }

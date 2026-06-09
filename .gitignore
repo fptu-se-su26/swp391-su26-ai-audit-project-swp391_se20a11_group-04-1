@@ -88,3 +88,6 @@ AIRequirement.md
 # --- AGENT CONFIGS ---
 .agent/
 GEMINI.md
+diff_dashboard.txt
+ERRORS.md
+

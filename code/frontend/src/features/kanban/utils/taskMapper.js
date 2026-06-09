@@ -77,6 +77,7 @@ export const mapTaskFromApi = (task) => ({
     done: item.done,
   })),
   parentId: task.parentId ? String(task.parentId) : null,
+  createdById: task.createdById ? String(task.createdById) : null,
   createdByName: task.createdByName || null,
   githubIssueNumber: task.githubIssueNumber || null,
   githubIssueUrl: task.githubIssueUrl || null,

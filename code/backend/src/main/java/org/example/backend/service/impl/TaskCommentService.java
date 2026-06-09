@@ -50,9 +50,17 @@ public class TaskCommentService {
         long downvotes = taskVoteRepo.countByTaskIdAndIsUpvote(taskId, false);
         String myVote = null;
         if (currentUserId != null) {
-            Optional<TaskVote> existing = taskVoteRepo.findByTaskIdAndUserId(taskId, currentUserId);
-            if (existing.isPresent()) {
-                myVote = existing.get().isUpvote() ? "UP" : "DOWN";
+            List<TaskVote> votes = taskVoteRepo.findByTaskIdAndUserId(taskId, currentUserId);
+            if (!votes.isEmpty()) {
+                TaskVote vote = votes.get(0);
+                myVote = vote.isUpvote() ? "UP" : "DOWN";
+                // Self-healing: delete duplicate votes
+                if (votes.size() > 1) {
+                    log.warn("Found duplicate task votes for taskId {} and userId {}. Cleaning up...", taskId, currentUserId);
+                    for (int i = 1; i < votes.size(); i++) {
+                        taskVoteRepo.delete(votes.get(i));
+                    }
+                }
             }
         }
         return TaskVoteStatsResponse.builder()
@@ -69,14 +77,21 @@ public class TaskCommentService {
         userRepo.findById(currentUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
 
-        Optional<TaskVote> existing = taskVoteRepo.findByTaskIdAndUserId(taskId, currentUserId);
-        if (existing.isPresent()) {
-            TaskVote vote = existing.get();
+        List<TaskVote> votes = taskVoteRepo.findByTaskIdAndUserId(taskId, currentUserId);
+        if (!votes.isEmpty()) {
+            TaskVote vote = votes.get(0);
             if (vote.isUpvote() == isUpvote) {
                 taskVoteRepo.delete(vote);
             } else {
                 vote.setUpvote(isUpvote);
                 taskVoteRepo.save(vote);
+            }
+            // Self-healing: delete duplicate votes
+            if (votes.size() > 1) {
+                log.warn("Found duplicate task votes during vote action for taskId {} and userId {}. Cleaning up...", taskId, currentUserId);
+                for (int i = 1; i < votes.size(); i++) {
+                    taskVoteRepo.delete(votes.get(i));
+                }
             }
         } else {
             TaskVote newVote = TaskVote.builder()

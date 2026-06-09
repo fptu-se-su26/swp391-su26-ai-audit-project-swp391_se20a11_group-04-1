@@ -1,5 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2, ChevronDown, ChevronUp, Clock, ListChecks } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { requirementApi } from '../../requirement/services/requirementApi'
+import useKanbanStore from '../../kanban/store/useKanbanStore'
+import toast from 'react-hot-toast'
+import CreateRequirementModal from '../../requirement/components/CreateRequirementModal'
 
 const parseChecklist = (content) => {
   if (!content) return { plainText: '', checklist: [] }
@@ -38,6 +43,7 @@ export function ApprovedTaskTab({
   onContentScroll
 }) {
   const [expandedChecklists, setExpandedChecklists] = useState({})
+  const navigate = useNavigate()
 
   const toggleChecklistVisibility = (propId) => {
     setExpandedChecklists(prev => ({
@@ -73,50 +79,78 @@ export function ApprovedTaskTab({
     )
   }
   return (
-    <div className="flex flex-col h-full overflow-hidden gap-4">
-      {/* Ghi chú và Nút đồng bộ lên hệ thống & GitHub */}
-      {task?.githubIssueNumber != null ? (
-        <div className="rounded-xl border border-emerald-200 bg-[#f0fdf4]/50 p-4 shadow-sm shrink-0">
-          <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-            <span>
-              Hệ thống đã ghi nhận chuyển đổi và đồng bộ vào lúc {formatSafeDate(task.updatedAt)}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 shadow-sm shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold tracking-wide uppercase">
-                Xác nhận & Đồng bộ
-              </span>
-              <p className="text-xs text-slate-600 leading-relaxed font-semibold">
-                Nếu bạn xác nhận các đề xuất này đã giải quyết được issue của bạn, hãy bấm vào nút bên cạnh để chuyển chúng thành các task chính thức, đồng bộ lên hệ thống và đẩy lên GitHub.
-              </p>
-            </div>
-            {onApproveAndSync && (
-              <button
-                onClick={onApproveAndSync}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100"
-              >
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                Chuyển đề xuất thành task & Đồng bộ
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Render Approved Proposals as Cards */}
       <div 
         id="approved-task-list-container"
         onScroll={onContentScroll}
         style={{ overflowAnchor: 'none' }}
-        className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+        className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#0ea5e9]"
       >
+        {/* Ghi chú và Nút đồng bộ lên hệ thống & GitHub */}
+        {task?.githubIssueNumber != null ? (
+          <div className="rounded-xl border border-emerald-200 bg-[#f0fdf4]/50 p-4 shadow-sm shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                <span>
+                  Hệ thống đã ghi nhận chuyển đổi và đồng bộ vào lúc {formatSafeDate(task.updatedAt)}
+                </span>
+              </div>
+              {onApproveAndSync && isLeader && task?.description?.includes('<!-- discussion-unlocked -->') && (
+                <div className="flex flex-col items-end shrink-0">
+                  <button
+                    onClick={onApproveAndSync}
+                    disabled={!task?.requirementId}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-emerald-100 shrink-0 disabled:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Đồng bộ đề xuất mới lên GitHub
+                  </button>
+                  {!task?.requirementId && (
+                    <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                      ⚠️ Cần liên kết & lưu Requirement để đồng bộ
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 shadow-sm shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold tracking-wide uppercase">
+                  Xác nhận & Đồng bộ
+                </span>
+                <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                  Nếu bạn xác nhận các đề xuất này đã giải quyết được issue của bạn, hãy bấm vào nút bên cạnh để chuyển chúng thành các task chính thức, đồng bộ lên hệ thống và đẩy lên GitHub.
+                </p>
+              </div>
+              {onApproveAndSync && (
+                <div className="flex flex-col items-end shrink-0">
+                  <button
+                    onClick={onApproveAndSync}
+                    disabled={!task?.requirementId}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100 disabled:shadow-none"
+                  >
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    Chuyển đề xuất thành task & Đồng bộ
+                  </button>
+                  {!task?.requirementId && (
+                    <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                      ⚠️ Cần liên kết & lưu Requirement để đồng bộ
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {approvedProposals.map((p) => {
           const isChecklistExpanded = expandedChecklists[p.id] !== false
           const { plainText, checklist: propChecklist } = parseChecklist(p.content)
@@ -144,7 +178,7 @@ export function ApprovedTaskTab({
                         ĐÃ PHÊ DUYỆT
                       </span>
                       <span className="flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 font-bold">
-                        <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         Đề xuất bởi: {p.createdByName}
@@ -171,22 +205,19 @@ export function ApprovedTaskTab({
                 </div>
               </div>
 
-              {/* Checklist Items (Only Toggle checkbox allowed, no add/delete/feedback) */}
+              {/* Checklist Items */}
               {isChecklistExpanded && propChecklist.length > 0 && (
                 <div className="p-4 pt-3 flex flex-col gap-3">
                   <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
                     <div className="flex flex-col gap-2.5">
                       {propChecklist.map((item, idx) => {
-                        // Find matching item in Postgres task.checklist to get the live "done" status & id
                         const matchedItem = checklist.find(
                           (c) => String(c.content || c.text || '').trim() === String(item.text).trim()
                         )
                         const isDone = matchedItem ? matchedItem.done : item.done
-                        const itemId = matchedItem ? matchedItem.id : null
 
                         return (
                           <div key={idx} className="flex items-center gap-3">
-                            {/* Custom Checkbox */}
                             <div
                               className={`w-4 h-4 rounded flex items-center justify-center border transition-all shrink-0 ${
                                 isDone
@@ -200,28 +231,16 @@ export function ApprovedTaskTab({
                                 </svg>
                               )}
                             </div>
-
-                            {/* Text & Icon */}
                             <div className="flex items-center justify-between flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span
-                                  className={`text-sm font-semibold select-none truncate ${
-                                    isDone
-                                      ? "line-through text-slate-400 font-medium"
-                                      : "text-slate-700"
-                                  }`}
-                                >
-                                  {item.text}
-                                </span>
-                                {isDone && (
-                                  <span className="flex items-center text-emerald-500 shrink-0">
-                                    <svg className="w-4.5 h-4.5 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.5">
-                                      <circle cx="12" cy="12" r="10" />
-                                      <path d="m9 12 2 2 4-4" />
-                                    </svg>
-                                  </span>
-                                )}
-                              </div>
+                              <span
+                                className={`text-sm font-semibold select-none truncate ${
+                                  isDone
+                                    ? "line-through text-slate-400 font-medium"
+                                    : "text-slate-700"
+                                }`}
+                              >
+                                {item.text}
+                              </span>
                             </div>
                           </div>
                         )
