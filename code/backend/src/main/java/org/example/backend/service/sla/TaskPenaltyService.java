@@ -20,6 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class TaskPenaltyService {
+    private static final String SLA_OVERDUE_TITLE = "SLA task quá hạn";
 
     private final TaskRepository taskRepository;
     private final TaskPenaltyLogRepository taskPenaltyLogRepository;
@@ -75,7 +76,13 @@ public class TaskPenaltyService {
         leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "MENTOR"));
         for (ProjectMember leader : leaders) {
             Long leaderId = leader.getUser().getId();
-            if (notificationRepository.existsByRecipientIdAndRelatedIdAndType(leaderId, task.getId(), NotificationType.SYSTEM)) {
+            if (notificationRepository.existsByRecipientIdAndRelatedIdAndTypeAndEntityTypeAndTitle(
+                    leaderId,
+                    task.getId(),
+                    NotificationType.SYSTEM,
+                    NotificationEntityType.TASK,
+                    SLA_OVERDUE_TITLE
+            )) {
                 continue;
             }
             notificationService.createAndPush(
@@ -84,7 +91,7 @@ public class TaskPenaltyService {
                     NotificationEntityType.TASK,
                     task.getId(),
                     NotificationType.SYSTEM,
-                    "SLA task quá hạn",
+                    SLA_OVERDUE_TITLE,
                     "Task '" + task.getTitle() + "' đã quá hạn " + evaluation.overdueDays()
                             + " ngày và cần Leader/Mentor xử lý."
             );

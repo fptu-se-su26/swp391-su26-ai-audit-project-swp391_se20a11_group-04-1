@@ -36,8 +36,17 @@ public class TaskSlaRuleService {
 
         if (task.getDeadline() != null && task.getStatus() != TaskStatus.DONE) {
             long daysUntilDeadline = ChronoUnit.DAYS.between(today, task.getDeadline());
-            if (daysUntilDeadline >= 0 && daysUntilDeadline <= 1) {
-                categories.add(TaskSlaCategory.DUE_SOON);
+            if (daysUntilDeadline >= 0 && daysUntilDeadline <= 3) {
+                categories.add(TaskSlaCategory.DUE_SOON); // Backward compatibility
+                if (daysUntilDeadline == 0) {
+                    categories.add(TaskSlaCategory.DUE_TODAY);
+                } else if (daysUntilDeadline == 1) {
+                    categories.add(TaskSlaCategory.DUE_TOMORROW);
+                } else if (daysUntilDeadline == 2) {
+                    categories.add(TaskSlaCategory.DUE_IN_2_DAYS);
+                } else if (daysUntilDeadline == 3) {
+                    categories.add(TaskSlaCategory.DUE_IN_3_DAYS);
+                }
             }
             if (overdueDays >= 1 && overdueDays <= 2) {
                 categories.add(TaskSlaCategory.OVERDUE_SHORT);
