@@ -56,7 +56,7 @@ export const testCaseService = {
    * Get Test Run Status (Polling)
    */
   getTestRunStatus: async (runId) => {
-    const response = await axiosInstance.get(`/v1/test-runs/${runId}/status`)
+    const response = await axiosInstance.get(`/v1/test-runs/${runId}`)
     return response.data.data
   },
 }

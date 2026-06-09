@@ -70,6 +70,9 @@ function generateFromTemplate(testCase, runId) {
             const stepDesc = (step.description || step.action).replace(/"/g, '\\"');
             return `  // Step ${stepNum}
   await test.step("${stepDesc}", async () => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'step_started', stepIndex: ${index} })); } catch(e){}
+    }
     ${code}${autoScreenshot}
   });`;
         })
@@ -84,7 +87,7 @@ test("${title}", async ({ page }) => {
   // Generated at: ${new Date().toISOString()}
 
   // Setup CDP Screencast WebSocket Stream
-  const ws = new WebSocket("ws://localhost:4000/?runId=${runId}&role=provider");
+  const ws = new WebSocket("ws://localhost:4001/?runId=${runId}&role=provider");
   
   // Wait for WebSocket to be fully connected before starting CDP screencast
   // This prevents early frames from being silently dropped

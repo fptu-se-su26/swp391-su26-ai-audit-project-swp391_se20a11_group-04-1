@@ -19,6 +19,9 @@ public class KafkaEventPublisher implements EventPublisher {
     }
 
     private String resolveTopic(OutboxEvent event) {
+        if ("TEST_RUN_JOB".equals(event.getEventType())) {
+            return "test-run-jobs";
+        }
         if (event.getEventType().startsWith("TASK_")) {
             return "devtrack.task.events";
         }

@@ -33,7 +33,7 @@ app.post('/run', async (req, res) => {
     console.log("Received testCase payload:", JSON.stringify(testCase, null, 2));
     if (!testCase) return res.status(400).json({ error: 'Thiếu testCase trong body' });
 
-    const runId = `run_${Date.now()}_${uuidv4().slice(0, 8)}`;
+    const runId = testCase.runId || `run_${Date.now()}_${uuidv4().slice(0, 8)}`;
     runResults.set(runId, { status: 'RUNNING', startedAt: new Date() });
     runningCount++;
 
@@ -161,7 +161,7 @@ app.get('/status/:runId', (req, res) => {
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 const server = app.listen(PORT, () => console.log(`Playwright Service running on :${PORT}`));
 
 // ==========================================
@@ -203,14 +203,17 @@ wss.on('connection', (ws, req) => {
             });
         } else if (role === 'provider') {
             providers.set(runId, ws);
-            ws.on('message', (message) => {
+            ws.on('message', (message, isBinary) => {
+                const msgStr = message.toString();
                 // Buffer the latest frame so late-connecting clients can catch up
-                frameBuffer.set(runId, message);
+                if (msgStr.includes('"type":"frame"')) {
+                    frameBuffer.set(runId, msgStr);
+                }
 
                 const clientSet = clients.get(runId);
                 if (clientSet) {
                     for (const clientWs of clientSet) {
-                        if (clientWs.readyState === 1) clientWs.send(message);
+                        if (clientWs.readyState === 1) clientWs.send(msgStr);
                     }
                 }
             });

@@ -134,10 +134,23 @@ const RunTestCase = ({ testCase }) => {
     pollIntervalRef.current = setInterval(async () => {
       try {
         const data = await testCaseService.getTestRunStatus(id);
+        
+        // Map executions to steps and calculate duration
+        if (data.executions && data.executions.length > 0) {
+            data.steps = data.executions.map(ex => ({
+                ...ex,
+                order: ex.orderIndex !== undefined ? ex.orderIndex : ex.order
+            }));
+            data.durationMs = data.executions.reduce((acc, curr) => acc + (curr.durationMs || 0), 0);
+        }
+
         setRunData(data);
         
-        if (['PASS', 'FAIL', 'ERROR'].includes(data.status)) {
-          setRunStatus(data.status);
+        if (['COMPLETED', 'CANCELLED', 'SYSTEM_ERROR', 'TIMED_OUT'].includes(data.status)) {
+          const uiStatus = data.status === 'COMPLETED' 
+              ? (data.failedCount > 0 ? 'FAIL' : 'PASS') 
+              : 'ERROR';
+          setRunStatus(uiStatus);
           clearInterval(pollIntervalRef.current);
         }
       } catch (err) {
@@ -162,8 +175,8 @@ const RunTestCase = ({ testCase }) => {
       setRunData({ status: 'RUNNING', steps: [] });
       
       const data = await testCaseService.triggerTestRun(testCase.id);
-      setRunId(data.runId);
-      startPolling(data.runId);
+      setRunId(data.testRunId);
+      startPolling(data.testRunId);
     } catch (err) {
       setRunStatus('ERROR');
       setRunData({ status: 'ERROR', error: err.response?.data?.message || err.message, steps: [] });
@@ -201,15 +214,24 @@ const RunTestCase = ({ testCase }) => {
              </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-md shadow-sm">
-              {testCase.stepsStructured?.map((step) => {
-                const stepResult = runData?.steps?.find(s => s.order === step.order);
-                // In fail state, steps after the failed one are skipped (no result)
+              {testCase.stepsStructured?.map((step, idx) => {
+                const execution = runData?.executions?.[0];
+                const executionResult = execution && (!isRunning || execution.status !== 'RUNNING') ? {
+                    status: execution.status === 'PASSED' ? 'PASS' 
+                          : execution.status === 'FAILED' ? 'FAIL' 
+                          : null,
+                    error: idx === testCase.stepsStructured.length - 1 ? execution.notes : null,
+                    durationMs: idx === testCase.stepsStructured.length - 1 ? execution.durationMs : null
+                } : null;
+
+                const isExecutionRunning = isRunning || (execution?.status === 'RUNNING');
+
                 return (
                   <StepRow 
                     key={step.order} 
                     step={step} 
-                    stepResult={stepResult} 
-                    isRunning={isRunning && !stepResult} 
+                    stepResult={executionResult} 
+                    isRunning={isRunning && (!executionResult || executionResult.status === null)} 
                   />
                 );
               })}

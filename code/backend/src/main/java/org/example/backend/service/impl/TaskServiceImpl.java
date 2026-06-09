@@ -56,6 +56,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Override
     @Transactional
@@ -1013,7 +1014,7 @@ public class TaskServiceImpl implements TaskService {
         );
 
         try {
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
+            notificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
         } catch (Exception e) {
             log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
         }
@@ -1355,7 +1356,7 @@ public class TaskServiceImpl implements TaskService {
                     Long systemUserId = task.getCreatedBy() != null ? task.getCreatedBy().getId() : null;
                     syncWithBugReport(task, systemUserId);
 
-                    // Recursive parent completion if this task is a sub-task
+                    // Recursive completion if this task is a sub-task
                     if (task.getParent() != null) {
                         checkAndCompleteParentTask(task.getParent());
                     }

@@ -43,6 +43,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     private final UserGithubTokenRepository userGithubTokenRepository;
     private final ObjectMapper objectMapper;
     private final EncryptionService encryptionService;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
     private final RestTemplate restTemplate = new RestTemplate(new org.springframework.http.client.JdkClientHttpRequestFactory());
 
     @Value("${github.client-id}")
@@ -610,7 +611,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                 // Broadcast WebSocket event to refresh frontend issue list in real-time
                 try {
                     String wsMessage = String.format("{\"type\":\"REFRESH_BUGS\",\"projectId\":%d}", matchedIntegration.getProject().getId());
-                    org.example.backend.config.NotificationWebSocketHandler.broadcast(wsMessage);
+                    notificationWebSocketHandler.broadcast(wsMessage);
                     log.info("📢 Broadcasted REFRESH_BUGS WebSocket event for Project ID: {}", matchedIntegration.getProject().getId());
                 } catch (Exception e) {
                     log.error("Failed to broadcast REFRESH_BUGS event for Project ID: {}", matchedIntegration.getProject().getId(), e);

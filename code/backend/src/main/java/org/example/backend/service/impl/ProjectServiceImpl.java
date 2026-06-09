@@ -56,6 +56,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     private static final String CACHE_PREFIX = "projects:user:";
     private static final long CACHE_TTL_MINUTES = 10;
@@ -355,7 +356,7 @@ public class ProjectServiceImpl implements ProjectService {
             project.getId(),
             savedNotification.getCreatedAt().toString()
         );
-        org.example.backend.config.NotificationWebSocketHandler.sendToUser(invitedUser.getId(), jsonPayload);
+        notificationWebSocketHandler.sendToUser(invitedUser.getId(), jsonPayload);
 
         // 7. Gửi Email
         String acceptLink = "http://localhost:5173/invite/accept?token=" + token;
@@ -473,14 +474,14 @@ public class ProjectServiceImpl implements ProjectService {
                 new org.springframework.transaction.support.TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
-                        org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, notifPayload);
+                        notificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
+                        notificationWebSocketHandler.sendToUser(inviterId, notifPayload);
                     }
                 }
             );
         } else {
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(inviterId, notifPayload);
+            notificationWebSocketHandler.sendToUser(inviterId, refreshPayload);
+            notificationWebSocketHandler.sendToUser(inviterId, notifPayload);
         }
     }
 

@@ -113,12 +113,15 @@ function parseOutput(stdout, screenshotDir) {
         : [];
 
     const rawError = testResult.results?.[0]?.error;
+    const failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
+    
     const error = passed
         ? null
         : {
             message: (rawError?.message || 'Test thất bại').replace(/\x1b\[[0-9;]*m/g, ''),
             stack: (rawError?.stack || '').replace(/\x1b\[[0-9;]*m/g, ''),
             failedStep: steps.find(s => s.status === 'FAIL')?.title || null,
+            failedStepIndex: failedStepIndex >= 0 ? failedStepIndex : null
         };
 
     return { status: passed ? 'PASS' : 'FAIL', steps, screenshots, error };

@@ -301,16 +301,38 @@ notification_type_enum : TASK_ASSIGNED | TASK_COMMENTED | DEADLINE_NEAR | TEST_F
 | description | TEXT | mô tả bước |
 | UNIQUE | (test_case_id, step_number) | |
 
+### test_runs
+| Cột | Kiểu | Ghi chú |
+|-----|------|---------|
+| id | BIGINT PK | |
+| project_id | BIGINT FK → projects.id (CASCADE DELETE) | |
+| name | VARCHAR(200) | tên phiên chạy |
+| status | test_run_status_enum DEFAULT 'PENDING' | PENDING/RUNNING/COMPLETED/SYSTEM_ERROR/CANCELLED/TIMED_OUT |
+| started_at | TIMESTAMP (nullable) | |
+| completed_at | TIMESTAMP (nullable) | |
+| correlation_id | VARCHAR(36) | dùng map log Kafka |
+| total_test_cases | INT DEFAULT 0 | tổng số lượng case |
+| completed_count | INT DEFAULT 0 | số case đã chạy xong |
+| created_by | BIGINT FK → user_accounts.id | |
+| created_at / updated_at | TIMESTAMP | |
+
 ### test_executions
 | Cột | Kiểu | Ghi chú |
 |-----|------|---------|
 | id | BIGINT PK | |
-| test_case_id | BIGINT FK → test_cases.id (CASCADE DELETE) | |
+| test_run_id | BIGINT FK → test_runs.id (CASCADE DELETE) | phiên chạy tổng thể |
+| test_case_id | BIGINT FK → test_cases.id (CASCADE DELETE) | kịch bản đang chạy |
 | executed_by | BIGINT FK → user_accounts.id | |
 | executed_at | TIMESTAMP | |
-| status | test_execution_status_enum | PASS/FAIL/BLOCKED |
+| started_at | TIMESTAMP | |
+| duration_ms | BIGINT | thời gian chạy |
+| status | test_execution_status_enum | PASS/FAIL/BLOCKED/RUNNING/PENDING |
 | actual_result | TEXT (nullable) | kết quả thực tế |
+| notes | TEXT (nullable) | lý do lỗi chi tiết |
 | environment | environment_enum | DEV hoặc STAGING |
+| screenshot_url | VARCHAR(500) (nullable) | ảnh chụp màn hình bị lỗi |
+| idempotency_key | VARCHAR(64) | chống trùng lặp từ Kafka |
+| order_index | INT DEFAULT 0 | thứ tự chạy |
 
 ### bug_reports
 | Cột | Kiểu | Ghi chú |
@@ -334,7 +356,9 @@ notification_type_enum : TASK_ASSIGNED | TASK_COMMENTED | DEADLINE_NEAR | TEST_F
 
 **Quan hệ:**
 - `requirements` →(1-N)→ `test_cases`
+- `projects` →(1-N)→ `test_runs`
 - `test_cases` →(1-N)→ `test_steps`
+- `test_runs` →(1-N)→ `test_executions`
 - `test_cases` →(1-N)→ `test_executions`
 - `test_executions` →(1-N)→ `bug_reports` (nullable)
 - `bug_reports` →(N-1)→ `tasks` (nullable)
@@ -544,6 +568,10 @@ test_cases.created_by                  → user_accounts.id
 
 test_steps.test_case_id                → test_cases.id             (CASCADE)
 
+test_runs.project_id                   → projects.id               (CASCADE)
+test_runs.created_by                   → user_accounts.id
+
+test_executions.test_run_id            → test_runs.id              (CASCADE)
 test_executions.test_case_id           → test_cases.id             (CASCADE)
 test_executions.executed_by            → user_accounts.id
 
@@ -604,8 +632,10 @@ user_accounts
         │     │     └── task_dependencies
         │     └── test_cases
         │           ├── test_steps
-        │           └── test_executions
-        │                 └── bug_reports
+        │           ├── test_runs
+        │           │     └── test_executions
+        │           │           └── bug_reports
+        │           └── test_executions (mapped to test_cases)
         ├── evidence
         │     └── evidence_links → (requirement|task|test_case|bug_report|sprint)
         ├── weekly_reports

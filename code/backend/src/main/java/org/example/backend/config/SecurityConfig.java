@@ -36,8 +36,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/github/webhook").permitAll()
                         .requestMatchers("/api/v1/evidence/test-evidence").permitAll()
-                        .requestMatchers("/api/v1/test-cases/**", "/api/v1/test-runs/**").permitAll()
+                        .requestMatchers("/internal/test-runs/**").permitAll()
                         .requestMatchers("/api/ws/**").permitAll()
+                        .requestMatchers("/api/v1/test-cases/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

@@ -1,85 +1,80 @@
 package org.example.backend.controller;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
-import org.example.backend.dto.response.TestRunStatusResponse;
+import org.example.backend.dto.testing.CreateTestRunRequest;
+import org.example.backend.dto.testing.TestRunResponse;
+import org.example.backend.dto.testing.TestRunStatusResponse;
 import org.example.backend.entity.TestRun;
-import org.example.backend.exception.CustomException;
+import org.example.backend.exception.UnauthorizedException;
 import org.example.backend.repository.TestRunRepository;
 import org.example.backend.service.TestRunService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/test-cases")
+@RequestMapping("/api/v1/test-runs")
 @RequiredArgsConstructor
 public class TestRunController {
 
     private final TestRunService testRunService;
     private final TestRunRepository testRunRepository;
 
-    /**
-     * POST /api/v1/test-cases/{id}/run
-     * Bắt đầu run → trả về runId ngay
-     */
-    @PostMapping("/{id}/run")
-    public ResponseEntity<ApiResponse<Map<String, String>>> startRun(
-            @PathVariable Long id,
-            HttpSession session) {
-
+    private Long validateSession(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
-            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện thao tác này.");
         }
+        return userId;
+    }
 
-        String runId = testRunService.startTestRun(id, userId);
-
+    @PostMapping
+    public ResponseEntity<ApiResponse<TestRunResponse>> createTestRun(
+            @Valid @RequestBody CreateTestRunRequest request,
+            HttpSession session) {
+        Long userId = validateSession(session);
+        TestRunResponse response = testRunService.createTestRun(request, userId);
         return ResponseEntity.accepted()
-            .body(ApiResponse.success(Map.of(
-                "runId", runId,
-                "pollUrl", "/api/v1/test-cases/runs/" + runId + "/status"
-            ), "Bắt đầu chạy auto test."));
+            .body(ApiResponse.success(response, "Test run accepted"));
     }
 
-    /**
-     * GET /api/v1/test-cases/runs/{runId}/status
-     * Frontend polling mỗi 1 giây
-     */
-    @GetMapping("/runs/{runId}/status")
-    public ResponseEntity<ApiResponse<TestRunStatusResponse>> getStatus(
-            @PathVariable String runId,
+    @GetMapping("/{testRunId}")
+    public ResponseEntity<ApiResponse<TestRunStatusResponse>> getTestRunStatus(
+            @PathVariable Long testRunId,
             HttpSession session) {
-
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
-        }
-
-        TestRunStatusResponse result = testRunService.getStatus(runId, null);
-        return ResponseEntity.ok(ApiResponse.success(result, "Lấy trạng thái thành công."));
+        validateSession(session);
+        TestRunStatusResponse response = testRunService.getTestRunStatus(testRunId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Success"));
     }
 
-    /**
-     * GET /api/v1/test-cases/{id}/runs
-     * Lịch sử các lần run
-     */
-    @GetMapping("/{id}/runs")
+    @DeleteMapping("/{testRunId}")
+    public ResponseEntity<ApiResponse<Void>> cancelTestRun(
+            @PathVariable Long testRunId,
+            HttpSession session) {
+        Long userId = validateSession(session);
+        testRunService.cancelTestRun(testRunId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Test run cancelled successfully"));
+    }
+
+    @PostMapping("/{testRunId}/save")
+    public ResponseEntity<ApiResponse<Void>> saveTestRun(
+            @PathVariable Long testRunId,
+            HttpSession session) {
+        validateSession(session);
+        testRunService.saveTestRun(testRunId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Test run saved successfully"));
+    }
+
+    @GetMapping("/test-cases/{testCaseId}")
     public ResponseEntity<ApiResponse<List<TestRun>>> getHistory(
-            @PathVariable Long id,
+            @PathVariable Long testCaseId,
             HttpSession session) {
-
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
-        }
-
-        List<TestRun> runs = testRunRepository
-            .findByTestCaseIdOrderByStartedAtDesc(id);
+        validateSession(session);
+        List<TestRun> runs = testRunRepository.findByTestCaseIdAndIsSavedTrueOrderByStartedAtDesc(testCaseId);
         return ResponseEntity.ok(ApiResponse.success(runs, "Lấy lịch sử run thành công."));
     }
 }

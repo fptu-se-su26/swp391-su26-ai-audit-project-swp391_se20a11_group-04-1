@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.backend.entity.enums.TestRunStatus;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -20,68 +21,63 @@ import java.util.List;
 public class TestRun {
     
     @Id
-    @Column(length = 100)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "test_runs_seq")
+    @SequenceGenerator(name = "test_runs_seq", sequenceName = "test_runs_id_seq", allocationSize = 1)
+    private Long id;
 
-    @Column(name = "test_case_id", nullable = false)
-    private Long testCaseId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
-    @Column(name = "project_id", nullable = false)
-    private Long projectId;
+    @Column(name = "name", length = 200)
+    private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     @Builder.Default
-    @Column(nullable = false, length = 10)
-    private String status = "RUNNING";
+    private TestRunStatus status = TestRunStatus.PENDING;
 
-    @Column(name = "script_source", length = 20)
-    private String scriptSource;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "steps_result", columnDefinition = "jsonb")
-    private List<StepResult> stepsResult;
-
-    @Column(name = "duration_ms")
-    private Integer durationMs;
-
-    @Column(name = "error_message", columnDefinition = "TEXT")
-    private String errorMessage;
-
-    @Column(name = "failed_step", columnDefinition = "TEXT")
-    private String failedStep;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "evidence_ids", columnDefinition = "jsonb")
-    private List<Long> evidenceIds;
-
-    @Column(name = "bug_report_id")
-    private Long bugReportId;
-
-    @Column(name = "triggered_by", nullable = false)
-    private Long triggeredBy;
-
-    @Column(name = "started_at", nullable = false)
+    @Column(name = "started_at")
     private LocalDateTime startedAt;
 
-    @Column(name = "finished_at")
-    private LocalDateTime finishedAt;
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "correlation_id", length = 36)
+    private String correlationId;
+
+    @Column(name = "is_saved")
+    @Builder.Default
+    private Boolean isSaved = false;
+
+    @Column(name = "total_test_cases", nullable = false)
+    @Builder.Default
+    private int totalTestCases = 0;
+
+    @Column(name = "completed_count", nullable = false)
+    @Builder.Default
+    private int completedCount = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private UserAccount createdBy;
+
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
         if (createdAt == null) createdAt = now;
-        if (startedAt == null) startedAt = now;
+        if (updatedAt == null) updatedAt = now;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class StepResult {
-        private String title;
-        private Integer duration;
-        private String status;
-        private String error;
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
+
 }

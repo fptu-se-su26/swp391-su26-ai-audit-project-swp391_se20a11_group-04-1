@@ -110,7 +110,7 @@ export const useNotificationStore = create((set, get) => ({
   initWebSocket: (userId) => {
     const existingSocket = get().socket
     if (existingSocket) {
-      if (existingSocket.readyState === WebSocket.OPEN) {
+      if (existingSocket.readyState === WebSocket.OPEN || existingSocket.readyState === WebSocket.CONNECTING) {
         return
       }
       existingSocket.close()
@@ -230,6 +230,42 @@ export const useNotificationStore = create((set, get) => ({
 
           if (payload.type === 'REFRESH_BUGS') {
             window.dispatchEvent(new CustomEvent('refresh-bugs', { detail: payload }))
+          }
+
+          if (payload.type === 'TEST_RUN_STARTED') {
+            import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
+                const { activeTestRun } = useTestRunStore.getState();
+                if (activeTestRun?.testRunId === payload.testRunId) {
+                    useTestRunStore.setState(state => ({
+                        activeTestRun: { ...state.activeTestRun, status: 'RUNNING' },
+                        isRunning: true
+                    }));
+                }
+            });
+          }
+          if (payload.type === 'TEST_EXECUTION_STARTED') {
+            import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
+                const { activeTestRun } = useTestRunStore.getState();
+                if (activeTestRun?.testRunId === payload.testRunId) {
+                    useTestRunStore.getState().onExecutionStarted(payload);
+                }
+            });
+          }
+          if (payload.type === 'TEST_EXECUTION_COMPLETED') {
+            import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
+                const { activeTestRun } = useTestRunStore.getState();
+                if (activeTestRun?.testRunId === payload.testRunId) {
+                    useTestRunStore.getState().onExecutionCompleted(payload);
+                }
+            });
+          }
+          if (payload.type === 'TEST_RUN_COMPLETED') {
+            import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
+                const { activeTestRun } = useTestRunStore.getState();
+                if (activeTestRun?.testRunId === payload.testRunId) {
+                    useTestRunStore.getState().onRunCompleted(payload);
+                }
+            });
           }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
