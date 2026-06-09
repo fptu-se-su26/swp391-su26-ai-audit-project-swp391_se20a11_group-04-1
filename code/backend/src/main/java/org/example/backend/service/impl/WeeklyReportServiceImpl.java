@@ -25,10 +25,15 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.example.backend.dto.WeeklyReportResponse.DecisionPack;
+import org.example.backend.dto.WeeklyReportResponse.MemberDecision;
+import org.example.backend.dto.WeeklyReportResponse.RiskTaskDecision;
 
 @Service
 @Transactional
@@ -457,7 +462,203 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         WeeklyReportResponse response = toSummaryResponse(report);
         List<WeeklyReportMember> liveMembers = liveMemberRisks(report);
         response.setMembers((liveMembers != null ? liveMembers : report.getMembers()).stream().map(this::toMemberRisk).toList());
+        response.setDecisionPack(buildDecisionPack(report));
         return response;
+    }
+
+    private DecisionPack buildDecisionPack(WeeklyReport report) {
+        if (report.getProject() == null || report.getSprint() == null) {
+            return null;
+        }
+
+        List<Task> sprintTasks = taskRepository.findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(
+                report.getProject().getId(),
+                report.getSprint().getId()
+        );
+
+        int countPenalty = 0;
+        int countBlocked = 0;
+        int countMissingEvidence = 0;
+        int countOverdueShort = 0;
+        int countDueSoon = 0;
+
+        List<RiskTaskDecision> riskTasks = new ArrayList<>();
+
+        for (Task task : sprintTasks) {
+            TaskSlaEvaluation eval = taskSlaRuleService.evaluate(task);
+            boolean isRisk = false;
+            
+            String riskLevel = "NORMAL";
+            List<String> reasons = new ArrayList<>();
+            String recommendedAction = "";
+            boolean isPenalty = eval.categories().contains(TaskSlaCategory.OVERDUE_PENALTY) || task.isOverduePenaltyApplied();
+
+            if (isPenalty) {
+                countPenalty++;
+                isRisk = true;
+                riskLevel = "CRITICAL";
+                reasons.add("Task is overdue by " + eval.overdueDays() + " day(s) and qualifies for penalty.");
+                recommendedAction = "Escalate this task and request recovery action.";
+            } else if (eval.categories().contains(TaskSlaCategory.BLOCKED)) {
+                countBlocked++;
+                isRisk = true;
+                if (riskLevel.equals("NORMAL")) { riskLevel = "HIGH"; }
+                reasons.add("Task is blocked.");
+                if (recommendedAction.isEmpty()) recommendedAction = "Ask assignee to clarify blocker and unblock with leader support.";
+            } else if (eval.categories().contains(TaskSlaCategory.MISSING_EVIDENCE)) {
+                countMissingEvidence++;
+                isRisk = true;
+                if (riskLevel.equals("NORMAL")) { riskLevel = "HIGH"; }
+                reasons.add("Task is done or late but has no accepted evidence.");
+                if (recommendedAction.isEmpty()) recommendedAction = "Request accepted evidence from assignee.";
+            } else if (eval.categories().contains(TaskSlaCategory.OVERDUE_SHORT)) {
+                countOverdueShort++;
+                isRisk = true;
+                if (riskLevel.equals("NORMAL")) { riskLevel = "MEDIUM"; }
+                reasons.add("Task is overdue by " + eval.overdueDays() + " day(s).");
+                if (recommendedAction.isEmpty()) recommendedAction = "Follow up before this task becomes penalized.";
+            } else if (eval.categories().contains(TaskSlaCategory.DUE_SOON)) {
+                countDueSoon++;
+                isRisk = true;
+                if (riskLevel.equals("NORMAL")) { riskLevel = "LOW"; }
+                reasons.add("Task deadline is approaching soon.");
+                if (recommendedAction.isEmpty()) recommendedAction = "Remind assignee to finish or update progress.";
+            }
+
+            if (isRisk) {
+                UserAccount assignee = task.getPrimaryAssignee();
+                String assigneeName = "Unassigned";
+                if (assignee != null) {
+                    assigneeName = (assignee.getProfile() != null && assignee.getProfile().getFullName() != null) 
+                            ? assignee.getProfile().getFullName() 
+                            : assignee.getUsername();
+                }
+
+                riskTasks.add(RiskTaskDecision.builder()
+                        .taskId(task.getId())
+                        .title(task.getTitle())
+                        .assigneeId(assignee != null ? assignee.getId() : null)
+                        .assigneeName(assigneeName)
+                        .status(task.getStatus() != null ? task.getStatus().name() : null)
+                        .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                        .deadline(task.getDeadline())
+                        .requirementId(task.getRequirementId())
+                        .requirementCode(null)
+                        .slaCategories(eval.categories().stream().map(Enum::name).toList())
+                        .overdueDays(eval.overdueDays())
+                        .hasAcceptedEvidence(eval.hasAcceptedEvidence())
+                        .overduePenaltyApplied(isPenalty)
+                        .riskLevel(riskLevel)
+                        .reasons(reasons)
+                        .recommendedAction(recommendedAction)
+                        .build());
+            }
+        }
+
+        int riskScore = 100 - (countPenalty * 15) - (countBlocked * 10) - (countMissingEvidence * 8) - (countOverdueShort * 6) - (countDueSoon * 3);
+        if (riskScore < 0) riskScore = 0;
+        if (riskScore > 100) riskScore = 100;
+
+        String overallRiskLevel;
+        if (countPenalty > 0 || riskScore < 40) {
+            overallRiskLevel = "CRITICAL";
+        } else if (riskScore < 65) {
+            overallRiskLevel = "HIGH";
+        } else if (riskScore < 85) {
+            overallRiskLevel = "MEDIUM";
+        } else if (!riskTasks.isEmpty() && riskScore >= 85) {
+            overallRiskLevel = "LOW";
+        } else {
+            overallRiskLevel = "NORMAL";
+        }
+
+        List<String> mainReasons = new ArrayList<>();
+        if (countPenalty > 0) mainReasons.add(countPenalty + " task(s) have overdue penalty");
+        if (countBlocked > 0) mainReasons.add(countBlocked + " task(s) are blocked");
+        if (countMissingEvidence > 0) mainReasons.add(countMissingEvidence + " task(s) are missing accepted evidence");
+        if (countOverdueShort > 0) mainReasons.add(countOverdueShort + " task(s) are recently overdue");
+        if (countDueSoon > 0) mainReasons.add(countDueSoon + " task(s) are due soon");
+
+        List<String> recommendedActions = new ArrayList<>();
+        if (countPenalty > 0) recommendedActions.add("Review penalized tasks first and decide whether to reassign or escalate.");
+        if (countMissingEvidence > 0) recommendedActions.add("Ask assignees to upload accepted evidence before closing the sprint.");
+        if (countBlocked > 0) recommendedActions.add("Resolve blocked tasks in the next leader check-in.");
+        if (countOverdueShort > 0) recommendedActions.add("Follow up recently overdue tasks before they become penalties.");
+        if (countDueSoon > 0) recommendedActions.add("Remind assignees about tasks due within 24 hours.");
+
+        Map<Long, List<RiskTaskDecision>> memberTaskMap = new HashMap<>();
+        Map<Long, UserAccount> userMap = new HashMap<>();
+        for (Task task : sprintTasks) {
+            UserAccount assignee = task.getPrimaryAssignee();
+            if (assignee != null) {
+                userMap.put(assignee.getId(), assignee);
+            }
+        }
+        for (RiskTaskDecision rt : riskTasks) {
+            if (rt.getAssigneeId() != null) {
+                memberTaskMap.computeIfAbsent(rt.getAssigneeId(), k -> new ArrayList<>()).add(rt);
+            }
+        }
+
+        List<MemberDecision> memberDecisions = new ArrayList<>();
+        for (Map.Entry<Long, List<RiskTaskDecision>> entry : memberTaskMap.entrySet()) {
+            Long userId = entry.getKey();
+            List<RiskTaskDecision> mTasks = entry.getValue();
+            UserAccount user = userMap.get(userId);
+            
+            int penalizedTaskCount = (int) mTasks.stream().filter(t -> t.getOverduePenaltyApplied() != null && t.getOverduePenaltyApplied()).count();
+            int overdueTaskCount = (int) mTasks.stream().filter(t -> t.getOverdueDays() != null && t.getOverdueDays() > 0).count();
+            
+            String mRiskLevel = "NORMAL";
+            String mRecommendedAction = "";
+            List<String> mReasons = new ArrayList<>();
+            
+            if (mTasks.stream().anyMatch(t -> "CRITICAL".equals(t.getRiskLevel()))) {
+                mRiskLevel = "CRITICAL";
+                mRecommendedAction = "Escalate with this member directly regarding penalized tasks.";
+                mReasons.add("Member has penalized task(s).");
+            } else if (mTasks.stream().anyMatch(t -> "HIGH".equals(t.getRiskLevel()))) {
+                mRiskLevel = "HIGH";
+                mRecommendedAction = "Help this member resolve blocked tasks or missing evidence.";
+                mReasons.add("Member has blocked task(s) or missing evidence.");
+            } else if (mTasks.stream().anyMatch(t -> "MEDIUM".equals(t.getRiskLevel()))) {
+                mRiskLevel = "MEDIUM";
+                mRecommendedAction = "Monitor this member's progress closely to avoid penalty.";
+                mReasons.add("Member has recently overdue task(s).");
+            } else if (mTasks.stream().anyMatch(t -> "LOW".equals(t.getRiskLevel()))) {
+                mRiskLevel = "LOW";
+                mRecommendedAction = "Remind member of upcoming deadlines.";
+                mReasons.add("Member has task(s) due soon.");
+            }
+            
+            String name = "";
+            String email = "";
+            if (user != null) {
+                name = (user.getProfile() != null && user.getProfile().getFullName() != null) ? user.getProfile().getFullName() : user.getUsername();
+                email = user.getEmail();
+            }
+            
+            memberDecisions.add(MemberDecision.builder()
+                    .userId(userId)
+                    .name(name)
+                    .email(email)
+                    .riskLevel(mRiskLevel)
+                    .riskTaskCount(mTasks.size())
+                    .overdueTaskCount(overdueTaskCount)
+                    .penalizedTaskCount(penalizedTaskCount)
+                    .reasons(mReasons)
+                    .recommendedAction(mRecommendedAction)
+                    .build());
+        }
+
+        return DecisionPack.builder()
+                .overallRiskLevel(overallRiskLevel)
+                .riskScore(riskScore)
+                .mainReasons(mainReasons)
+                .recommendedActions(recommendedActions)
+                .riskTasks(riskTasks)
+                .memberDecisions(memberDecisions)
+                .build();
     }
 
     private List<WeeklyReportMember> liveMemberRisks(WeeklyReport report) {

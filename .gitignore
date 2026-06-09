@@ -84,3 +84,4 @@ AIRequirement.md
 /code/KANBAN_UPGRADE_PLAN.md
 /code/.gitignore
 /Tin/
+/code/backend/src/main/java/org/example/backend/config/KafkaProducerConfig.java
