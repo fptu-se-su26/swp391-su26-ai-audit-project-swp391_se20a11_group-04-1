@@ -186,6 +186,7 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
+            syncParentAssignee(savedTask, userId);
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
@@ -257,6 +258,9 @@ public class TaskServiceImpl implements TaskService {
         setAssignee(task, request.getAssigneeId(), projectId, userId);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            syncParentAssignee(savedTask, userId);
+        }
         return toResponse(savedTask);
     }
 
@@ -378,6 +382,48 @@ public class TaskServiceImpl implements TaskService {
                     // Non-blocking log
                 }
             });
+        }
+    }
+
+    private void syncParentAssignee(Task savedTask, Long userId) {
+        if (savedTask == null || savedTask.getParent() == null) return;
+
+        Task parent = savedTask.getParent();
+        List<Task> subTasks = taskRepository.findByParentId(parent.getId());
+
+        boolean allSameOrOnlyOne = false;
+        if (subTasks.size() <= 1) {
+            allSameOrOnlyOne = true;
+        } else {
+            Long firstAssigneeId = subTasks.get(0).getPrimaryAssignee() != null ? subTasks.get(0).getPrimaryAssignee().getId() : null;
+            boolean match = true;
+            for (Task sub : subTasks) {
+                Long subAssigneeId = sub.getPrimaryAssignee() != null ? sub.getPrimaryAssignee().getId() : null;
+                if (subAssigneeId == null || !subAssigneeId.equals(firstAssigneeId)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                allSameOrOnlyOne = true;
+            }
+        }
+
+        if (allSameOrOnlyOne) {
+            parent.setPrimaryAssignee(savedTask.getPrimaryAssignee());
+            if (savedTask.getPrimaryAssignee() != null) {
+                if (parent.getAssignees() == null) {
+                    parent.setAssignees(new java.util.HashSet<>());
+                }
+                parent.getAssignees().clear();
+                parent.getAssignees().add(savedTask.getPrimaryAssignee());
+            } else {
+                if (parent.getAssignees() != null) {
+                    parent.getAssignees().clear();
+                }
+            }
+            taskRepository.save(parent);
+            syncWithBugReport(parent, userId);
         }
     }
 
@@ -803,7 +849,19 @@ public class TaskServiceImpl implements TaskService {
 
     private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
-        if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
+        if (request.getDescription() != null) {
+            String newDesc = request.getDescription().trim();
+            if (task.getDescription() != null) {
+                java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(<!-- sync-source: github-blank(?:-draft|-approved)? -->)").matcher(task.getDescription());
+                if (matcher.find()) {
+                    String tag = matcher.group(1);
+                    if (!newDesc.contains(tag)) {
+                        newDesc = newDesc + "\n\n" + tag;
+                    }
+                }
+            }
+            task.setDescription(newDesc);
+        }
         if (request.getRequirementId() == null) {
             task.setRequirementId(null);
         } else {

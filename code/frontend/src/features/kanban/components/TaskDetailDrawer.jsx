@@ -1,6 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
+
+const cleanDescription = (desc) => {
+  if (!desc) return '';
+  return desc.replace(/<!--\s*sync-source:\s*github-blank(?:-draft|-approved)?\s*-->/g, '').trim();
+}
 
 const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChange, onToggleChecklist }) => {
   const { projectId } = useParams()
@@ -178,6 +184,19 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 value={task.columnId || columns.find((column) => column.statusKey === task.status)?.id || ''}
                 onChange={(event) => {
                   const column = columns.find((item) => item.id === event.target.value)
+                  const targetStatusKey = column?.statusKey || task.status
+
+                  if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
+                    const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
+                    const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
+                    const isIssueTaskOrSubtask = isFromIssue(task) || isFromIssue(parentTask)
+
+                    if (isIssueTaskOrSubtask) {
+                      toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')
+                      return
+                    }
+                  }
+
                   onStatusChange(task.id, column?.statusKey || task.status, column?.id || null)
                 }}
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-background focus:outline-none focus:ring-1 focus:ring-primary"

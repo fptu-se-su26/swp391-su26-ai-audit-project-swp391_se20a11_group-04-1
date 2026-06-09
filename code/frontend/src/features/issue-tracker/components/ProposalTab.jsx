@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, Crown, Plus, Trash2, ListChecks } from 'lucide-react'
+import useAuthStore from '@store/useAuthStore'
 
 const parseChecklist = (content) => {
   if (!content) return { plainText: '', checklist: [] }
@@ -45,11 +46,30 @@ export function ProposalTab({
   onSetFeedbackText,
   isLeader = false,
   onUpdateProposal,
-  onContentScroll
+  onContentScroll,
+  requirements = [],
+  loadingReqs = false,
+  selectedReqId = '',
+  setSelectedReqId,
+  savingReq = false,
+  isEditing = false,
+  setIsEditing,
+  setIsCreateReqModalOpen,
+  handleSaveRequirement,
+  task = null
 }) {
   const safeProposals = Array.isArray(proposals) ? proposals : []
   const safeCommentsInputs = proposalCommentsInputs || {}
   const safeExpandedComments = expandedProposalComments || {}
+  const safeRequirements = Array.isArray(requirements) ? requirements : []
+
+  const currentUserId = useAuthStore((state) => state.userId)
+
+  const canViewRequirementLink = useMemo(() => {
+    if (isLeader) return true;
+    if (!task || !task.createdById) return false;
+    return String(currentUserId) === String(task.createdById);
+  }, [isLeader, task, currentUserId]);
 
   const sortedProposals = useMemo(() => {
     return [...safeProposals].sort((a, b) => {
@@ -142,20 +162,6 @@ export function ProposalTab({
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
-      {!ideaApproved && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold shrink-0">
-          <Clock size={15} />
-          <span>Idea chưa được thông qua. Vẫn có thể bổ sung đề xuất để làm rõ yêu cầu.</span>
-        </div>
-      )}
-
-      <div className={`transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${isLabelCollapsed ? 'max-h-0 opacity-0 mb-0' : 'max-h-8 opacity-100 mb-2'}`}>
-        <div className="text-xs text-slate-500 font-bold px-1 uppercase tracking-wider">
-          Đề xuất ({safeProposals.length})
-        </div>
-      </div>
-
-
       <div 
         ref={listRef}
         id="proposal-list-container"
@@ -164,8 +170,81 @@ export function ProposalTab({
           if (onContentScroll) onContentScroll(e)
         }}
         style={{ overflowAnchor: 'none' }}
-        className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+        className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#0ea5e9]"
       >
+
+        {/* Section gắn Requirement */}
+        {canViewRequirementLink && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50/10 p-4 shadow-sm shrink-0 space-y-3 mb-2">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-blue-900 font-bold text-xs uppercase tracking-wider">
+                <span className="material-symbols-outlined text-[16px] text-blue-600">link</span>
+                <span>Requirement tương ứng</span>
+              </div>
+              <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                Để phục vụ cho truy vết và đánh giá. Vui lòng chọn requirement tương ứng với chủ đề thảo luận của bạn.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2.5">
+              {/* Ô chọn Requirement */}
+              <select
+                value={selectedReqId || ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === 'CREATE_NEW') {
+                    setIsCreateReqModalOpen(true)
+                  } else {
+                    setSelectedReqId(val)
+                  }
+                }}
+                disabled={loadingReqs || savingReq || !isEditing}
+                className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <option value="">-- Chưa gắn Requirement --</option>
+                {safeRequirements.map((req) => (
+                  <option key={req.id} value={req.id}>
+                    [{req.reqCode || `REQ-${req.id}`}] {req.title}
+                  </option>
+                ))}
+                <option value="CREATE_NEW" className="text-blue-600 font-bold bg-blue-50">
+                  + Tạo mới Requirement...
+                </option>
+              </select>
+              
+              {/* Nút Chỉnh sửa / Lưu */}
+              {isEditing ? (
+                <button
+                  onClick={handleSaveRequirement}
+                  disabled={savingReq || String(selectedReqId) === String(task?.requirementId || '')}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                >
+                  {savingReq ? (
+                    <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-xs">save</span>
+                  )}
+                  Lưu liên kết
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  disabled={loadingReqs || savingReq}
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-xs">edit</span>
+                  Chỉnh sửa
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className={`transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${isLabelCollapsed ? 'max-h-0 opacity-0 mb-0' : 'max-h-8 opacity-100 mb-2'}`}>
+          <div className="text-xs text-slate-500 font-bold px-1 uppercase tracking-wider">
+            Đề xuất ({safeProposals.length})
+          </div>
+        </div>
         {loading && (
           <div className="text-center text-sm text-slate-400 py-8">Đang tải đề xuất...</div>
         )}
@@ -182,9 +261,9 @@ export function ProposalTab({
           const isApproved = p.status === 'APPROVED'
           const isRejected = p.status === 'REJECTED'
           const isExpanded = safeExpandedComments[p.id]
-          const isChecklistExpanded = expandedChecklists[p.id] !== false
           const { plainText, checklist } = parseChecklist(p.content)
           const total = checklist.length
+          const isChecklistExpanded = total === 0 ? true : (expandedChecklists[p.id] !== false)
           const done = checklist.filter(item => item.done).length
           const percent = total > 0 ? (done / total) * 100 : 0
           const avatarChar = p.createdByName ? p.createdByName.charAt(0).toUpperCase() : 'U'
@@ -228,7 +307,7 @@ export function ProposalTab({
 
                     {/* ID, Date, Status Badge Row */}
                     <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400 font-semibold flex-wrap">
-                      <span>ID: #{p.id ? p.id.slice(-6).toUpperCase() : 'N/A'}</span>
+                      <span>ID: #{p.id ? String(p.id).slice(-6).toUpperCase() : 'N/A'}</span>
                       <span>•</span>
                       <span>{formatSafeDate(p.createdAt)}</span>
                       <span>•</span>
@@ -274,12 +353,12 @@ export function ProposalTab({
                         <ThumbsDown size={12} className={hasDownvoted ? "fill-red-600" : ""} /> Không tán thành ({p.downvotes || 0})
                       </button>
                       <button
-                        onClick={() => toggleChecklistVisibility(p.id)}
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                        onClick={() => total > 0 && toggleChecklistVisibility(p.id)}
+                        className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg text-slate-500 transition-colors ${total > 0 ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'}`}
                       >
                         <ListChecks size={12} />
-                        Checklist ({total})
-                        {isChecklistExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                        <span>Checklist ({total})</span>
+                        {total > 0 && (isChecklistExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
                       </button>
                       <button
                         onClick={() => onToggleCommentsVisibility(p.id)}
@@ -293,7 +372,7 @@ export function ProposalTab({
                       {isPending && isLeader && onApprove && !readOnly && (
                         <button
                           onClick={() => onApprove(p)}
-                          className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer transition-colors shadow-sm"
+                          className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-sm cursor-pointer"
                         >
                           <Crown size={11} /> Thông qua
                         </button>
@@ -309,7 +388,7 @@ export function ProposalTab({
                   {total > 0 && (
                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                       {/* Checklist items */}
-                      <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full">
+                      <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#0ea5e9]">
                         {checklist.map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3">
                             {/* Custom Checkbox */}

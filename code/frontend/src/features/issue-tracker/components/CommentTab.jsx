@@ -285,7 +285,7 @@ export function CommentTab({
         id="comment-list-container"
         onScroll={onContentScroll}
         style={{ overflowAnchor: 'none' }}
-        className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full"
+        className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#0ea5e9]"
       >
         {loading && (
           <div className="text-center text-sm text-slate-400 py-8">Đang tải bình luận...</div>
