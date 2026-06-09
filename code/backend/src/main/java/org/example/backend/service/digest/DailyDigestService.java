@@ -123,13 +123,10 @@ public class DailyDigestService {
 
     private void addDigestItems(DailyDigest digest, Task task) {
         TaskSlaEvaluation evaluation = taskSlaRuleService.evaluate(task);
-        if (evaluation.has(TaskSlaCategory.OVERDUE_FROZEN)) {
-            return;
-        }
         boolean penalized = evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) || task.isOverduePenaltyApplied();
         if (penalized || evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
             digest.addItem(item(task, "OVERDUE", penalized ? "OVERDUE_PENALTY" : null,
-                    penalized ? "Contribution score may be frozen or deducted." : "Task is recently overdue."));
+                    penalized ? "Task is overdue by 3+ days or missing valid evidence after deadline." : "Task is recently overdue."));
         }
         if (evaluation.has(TaskSlaCategory.DUE_SOON)) {
             digest.addItem(item(task, "URGENT", null,

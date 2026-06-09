@@ -11,6 +11,13 @@ import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 
 const unique = (items) => [...new Set(items.filter(Boolean))]
 
+const hasTextSelection = () => {
+  const selection = window.getSelection?.()
+  return Boolean(selection && selection.toString().trim())
+}
+
+const getKanbanDragType = (event) => event.dataTransfer.getData('application/x-kanban-drag-type')
+
 const KanbanBoardPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -130,6 +137,11 @@ const KanbanBoardPage = () => {
   }, {})
 
   const handleDragStart = (event, taskId) => {
+    if (hasTextSelection()) {
+      event.preventDefault()
+      return
+    }
+
     setDraggingTaskId(taskId)
     setDraggingColumnId(null)
     event.dataTransfer.effectAllowed = 'move'
@@ -139,6 +151,7 @@ const KanbanBoardPage = () => {
 
   const handleDragOver = (event, status) => {
     if (draggingColumnId) return
+    if (!draggingTaskId && !Array.from(event.dataTransfer.types || []).includes('application/x-kanban-drag-type')) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDragOverStatus(status)
@@ -154,6 +167,11 @@ const KanbanBoardPage = () => {
   const handleDrop = (event, status) => {
     event.preventDefault()
     if (draggingColumnId) return
+    if (getKanbanDragType(event) !== 'task' && !draggingTaskId) {
+      setDragOverStatus(null)
+      return
+    }
+
     const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId
     if (taskId) {
       const task = tasks.find((t) => String(t.id) === String(taskId))
@@ -223,6 +241,11 @@ const KanbanBoardPage = () => {
   }
 
   const handleColumnDragStart = (event, columnId) => {
+    if (hasTextSelection()) {
+      event.preventDefault()
+      return
+    }
+
     setDraggingColumnId(columnId)
     setDragOverColumnId(columnId)
     setDraggingTaskId(null)
@@ -240,6 +263,11 @@ const KanbanBoardPage = () => {
 
   const handleColumnDrop = (event, targetColumnId) => {
     event.preventDefault()
+    if (getKanbanDragType(event) !== 'column') {
+      setDraggingColumnId(null)
+      setDragOverColumnId(null)
+      return
+    }
     if (!draggingColumnId || draggingColumnId === targetColumnId) return
 
     const reorderedColumns = [...columns]
@@ -263,6 +291,7 @@ const KanbanBoardPage = () => {
 
   const handleBoardPanStart = (event) => {
     if (event.button !== 0) return
+    if (hasTextSelection()) return
     if (event.target.closest('button, a, input, select, textarea, [data-kanban-no-pan]')) return
 
     setIsBoardPanning(true)
