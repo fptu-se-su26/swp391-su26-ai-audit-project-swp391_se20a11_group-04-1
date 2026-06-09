@@ -1,5 +1,6 @@
 package org.example.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,6 +12,8 @@ import java.util.List;
 @Setter
 public class TaskRequest {
     private Long requirementId;
+    @JsonIgnore
+    private boolean requirementIdPresent;
     private Long sprintId;
     private String title;
     private String description;
@@ -26,6 +29,11 @@ public class TaskRequest {
     private String blockedReason;
     private List<ChecklistItemRequest> checklist;
     private Long parentId;
+
+    public void setRequirementId(Long requirementId) {
+        this.requirementId = requirementId;
+        this.requirementIdPresent = true;
+    }
 
     @Getter
     @Setter

@@ -755,13 +755,15 @@ public class TaskServiceImpl implements TaskService {
     private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
         if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
-        if (request.getRequirementId() == null) {
-            task.setRequirementId(null);
-        } else {
-            if (!requirementRepository.existsByIdAndProjectId(request.getRequirementId(), projectId)) {
-                throw new BadRequestException("Requirement does not exist in this project");
+        if (request.isRequirementIdPresent()) {
+            if (request.getRequirementId() == null) {
+                task.setRequirementId(null);
+            } else {
+                if (!requirementRepository.existsByIdAndProjectId(request.getRequirementId(), projectId)) {
+                    throw new BadRequestException("Requirement does not exist in this project");
+                }
+                task.setRequirementId(request.getRequirementId());
             }
-            task.setRequirementId(request.getRequirementId());
         }
         if (request.getSprintId() == null) {
             task.setSprintId(null);
