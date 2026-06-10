@@ -13,6 +13,8 @@ import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.EvidenceService;
 import org.example.backend.service.FileStorageService;
+import org.example.backend.service.event.OutboxEventService;
+import java.util.HashMap;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -35,17 +37,20 @@ public class EvidenceServiceImpl implements EvidenceService {
     private final UserAccountRepository userAccountRepository;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
+    private final OutboxEventService outboxEventService;
 
     public EvidenceServiceImpl(EvidenceRepository evidenceRepository,
                                EvidenceLinkRepository evidenceLinkRepository,
                                UserAccountRepository userAccountRepository,
                                FileStorageService fileStorageService,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               OutboxEventService outboxEventService) {
         this.evidenceRepository = evidenceRepository;
         this.evidenceLinkRepository = evidenceLinkRepository;
         this.userAccountRepository = userAccountRepository;
         this.fileStorageService = fileStorageService;
         this.objectMapper = objectMapper;
+        this.outboxEventService = outboxEventService;
     }
 
     // Mock getCurrentUser for MVP since Security is not fully confirmed
@@ -181,13 +186,32 @@ public class EvidenceServiceImpl implements EvidenceService {
         Evidence evidence = evidenceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Evidence not found with id: " + id));
 
+        EvidenceStatus oldStatus = evidence.getStatus();
         evidence.setStatus(EvidenceStatus.valueOf(request.getStatus()));
         evidence.setReviewedBy(getCurrentUser());
         evidence.setReviewedAt(LocalDateTime.now());
         
-        // In real app, we might save the comment in metadata or a separate table
+        Evidence savedEvidence = evidenceRepository.save(evidence);
+
+        if (oldStatus != savedEvidence.getStatus()) {
+            for (EvidenceLink link : savedEvidence.getEvidenceLinks()) {
+                if (link.getEntityType() == EvidenceEntityType.TASK) {
+                    HashMap<String, Object> payload = new HashMap<>();
+                    payload.put("evidenceId", savedEvidence.getId());
+                    payload.put("projectId", savedEvidence.getProjectId());
+                    payload.put("entityType", "TASK");
+                    payload.put("entityId", link.getEntityId());
+                    payload.put("taskId", link.getEntityId());
+                    payload.put("oldStatus", oldStatus.name());
+                    payload.put("newStatus", savedEvidence.getStatus().name());
+                    payload.put("occurredAt", LocalDateTime.now().toString());
+
+                    outboxEventService.createEvent("EVIDENCE_STATUS_CHANGED", "Evidence", savedEvidence.getId(), payload);
+                }
+            }
+        }
         
-        return mapToResponse(evidenceRepository.save(evidence));
+        return mapToResponse(savedEvidence);
     }
 
     @Override
@@ -221,7 +245,21 @@ public class EvidenceServiceImpl implements EvidenceService {
         link.setEntityId(request.getEntityId());
         
         evidence.addLink(link);
-        return mapToResponse(evidenceRepository.save(evidence));
+        Evidence savedEvidence = evidenceRepository.save(evidence);
+
+        if ("TASK".equalsIgnoreCase(request.getEntityType())) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("evidenceId", savedEvidence.getId());
+            payload.put("projectId", savedEvidence.getProjectId());
+            payload.put("taskId", request.getEntityId());
+            payload.put("entityType", "TASK");
+            payload.put("entityId", request.getEntityId());
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("EVIDENCE_LINKED_TO_TASK", "Evidence", savedEvidence.getId(), payload);
+        }
+
+        return mapToResponse(savedEvidence);
     }
 
     @Override

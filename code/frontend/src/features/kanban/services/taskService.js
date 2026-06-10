@@ -89,6 +89,11 @@ export const taskService = {
     const response = await axiosInstance.post(`/v1/tasks/${taskId}/reject`, { reason, targetStatus })
     return unwrap(response)
   },
+
+  getSlaDecisionPack: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/tasks/${taskId}/sla-decision-pack`)
+    return unwrap(response)
+  },
 }
 
 export default taskService

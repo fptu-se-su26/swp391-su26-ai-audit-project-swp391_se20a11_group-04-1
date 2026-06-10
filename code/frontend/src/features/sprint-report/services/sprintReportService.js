@@ -16,8 +16,8 @@ export const sprintReportService = {
       params: sprintId ? { sprintId } : undefined,
     }).then(unwrap),
 
-  triggerDailyDigest: () =>
-    axiosInstance.post('/v1/digests/test-trigger').then(res => res.data),
+  triggerDailyDigest: (projectId) =>
+    axiosInstance.post(`/v1/projects/${projectId}/digests/test-trigger`).then(res => res.data),
 }
 
 export default sprintReportService
