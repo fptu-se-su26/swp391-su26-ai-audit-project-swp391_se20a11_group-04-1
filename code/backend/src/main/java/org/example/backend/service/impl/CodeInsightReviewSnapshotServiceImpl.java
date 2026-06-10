@@ -80,6 +80,10 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
         snapshot.put("evidence", evidence);
         snapshot.put("aiReviewId", aiReview != null ? aiReview.getId() : null);
         snapshot.put("aiRecommendation", aiReview != null ? aiReview.getRecommendation() : null);
+        snapshot.put("aiConfidence", aiReview != null ? aiReview.getConfidence() / 100.0 : null);
+        snapshot.put("aiScoreAdjustment", aiReview != null ? aiReview.getScoreAdjustment() : null);
+        snapshot.put("aiRiskCount", aiReview != null ? countJsonArray(aiReview.getRiskDetailsJson()) : 0);
+        snapshot.put("aiQuestionCount", aiReview != null ? countJsonArray(aiReview.getQuestionsForLeaderJson()) : 0);
         return writeJson(snapshot);
     }
 
@@ -88,6 +92,14 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
             return objectMapper.writeValueAsString(value);
         } catch (Exception ex) {
             return "{}";
+        }
+    }
+
+    private int countJsonArray(String json) {
+        try {
+            return json != null ? objectMapper.readTree(json).size() : 0;
+        } catch (Exception ex) {
+            return 0;
         }
     }
 
