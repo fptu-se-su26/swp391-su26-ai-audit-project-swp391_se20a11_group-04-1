@@ -81,6 +81,32 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
             GitHubIntegration integration,
             BugReport bug,
             Task existingTask) {
+        Long syncBugId = extractSyncId(bodyText, "devtrack-bug-id");
+        Long syncTaskId = extractSyncId(bodyText, "devtrack-task-id");
+        List<Map<String, Object>> labels = (List<Map<String, Object>>) payload.getOrDefault("labels", null);
+        Map<String, Object> issue = (Map<String, Object>) payload.get("issue");
+        if (issue != null) {
+            labels = (List<Map<String, Object>>) issue.get("labels");
+        }
+
+        boolean hasBugLabel = hasLabel(labels, "bug");
+        boolean isSubTask = hasLabel(labels, "sub-task") || (title != null && title.startsWith("[Sub-task]"));
+
+        if (syncBugId != null) {
+            linkSyncedBug(syncBugId, issueNumber, issueUrl);
+            return;
+        }
+
+        if (syncTaskId != null) {
+            linkSyncedTask(syncTaskId, issueNumber, issueUrl);
+            return;
+        }
+
+        if (isSubTask) {
+            log.info("Ignoring webhook issues.opened for synced sub-task #{} to prevent duplicate creation.", issueNumber);
+            return;
+        }
+
         if (bug != null || existingTask != null) {
             log.info("Issue #{} already exists as Bug Report or Task, ignoring webhook duplicate creation.", issueNumber);
             return;
@@ -90,35 +116,92 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
         String senderUsername = sender != null ? (String) sender.get("login") : null;
         UserAccount creator = findUserByGitHubUsername(senderUsername, integration.getConnectedBy());
 
-        BugReport newBug = BugReport.builder()
-                .project(integration.getProject())
-                .title(title != null ? title.replace("[BUG] ", "") : "GitHub Issue")
-                .description(bodyText)
-                .severity(BugSeverity.MEDIUM)
-                .environment(Environment.DEV)
-                .createdBy(creator)
-                .status(BugStatus.OPEN)
-                .build();
-        newBug = bugReportRepository.save(newBug);
+        if (hasBugLabel) {
+            BugReport newBug = BugReport.builder()
+                    .project(integration.getProject())
+                    .title(title != null ? title.replace("[BUG] ", "") : "GitHub Issue")
+                    .description(bodyText)
+                    .severity(BugSeverity.MEDIUM)
+                    .environment(Environment.DEV)
+                    .createdBy(creator)
+                    .status(BugStatus.OPEN)
+                    .build();
+            newBug = bugReportRepository.save(newBug);
 
+            Task task = Task.builder()
+                    .project(integration.getProject())
+                    .title("[BUG] " + newBug.getTitle())
+                    .description(newBug.getDescription())
+                    .type(TaskType.BUG_FIX)
+                    .priority(Priority.MEDIUM)
+                    .status(TaskStatus.TODO)
+                    .checklist(new ArrayList<>())
+                    .createdBy(creator)
+                    .githubIssueNumber(issueNumber)
+                    .githubIssueUrl(issueUrl)
+                    .build();
+            applyChecklistFromMarkdown(task, bodyText);
+            task = taskRepository.save(task);
+
+            newBug.setRelatedTask(task);
+            newBug = bugReportRepository.save(newBug);
+            saveGitHubMetadata(newBug, issueNumber, issueUrl);
+
+            log.info("Bug Report ID: {} and Task ID: {} successfully auto-created from GitHub Webhook", newBug.getId(), task.getId());
+            return;
+        }
+
+        String finalDescription = bodyText != null
+                ? bodyText + "\n\n<!-- sync-source: github-blank-draft -->"
+                : "<!-- sync-source: github-blank-draft -->";
         Task task = Task.builder()
                 .project(integration.getProject())
-                .title("[BUG] " + newBug.getTitle())
-                .description(newBug.getDescription())
-                .type(TaskType.BUG_FIX)
+                .title(title != null ? title : "GitHub Issue")
+                .description(finalDescription)
+                .type(resolveTaskTypeFromLabels(labels))
                 .priority(Priority.MEDIUM)
                 .status(TaskStatus.TODO)
                 .checklist(new ArrayList<>())
                 .createdBy(creator)
+                .githubIssueNumber(issueNumber)
+                .githubIssueUrl(issueUrl)
                 .build();
         applyChecklistFromMarkdown(task, bodyText);
         task = taskRepository.save(task);
 
-        newBug.setRelatedTask(task);
-        newBug = bugReportRepository.save(newBug);
-        saveGitHubMetadata(newBug, issueNumber, issueUrl);
+        log.info("Task ID: {} successfully auto-created from GitHub Webhook as Blank Issue", task.getId());
+    }
 
-        log.info("Bug Report ID: {} and Task ID: {} successfully auto-created from GitHub Webhook", newBug.getId(), task.getId());
+    private void linkSyncedBug(Long bugId, Integer issueNumber, String issueUrl) {
+        log.info("Webhook issues.opened recognized synced Bug Report ID: {} for Issue #{}", bugId, issueNumber);
+        java.util.Optional<BugReport> optBug = retryFindBug(bugId);
+        if (optBug.isEmpty()) {
+            log.warn("Synced Bug Report ID {} not found in database after retries. Ignoring webhook.", bugId);
+            return;
+        }
+
+        BugReport bug = optBug.get();
+        saveGitHubMetadata(bug, issueNumber, issueUrl);
+        if (bug.getRelatedTask() != null) {
+            Task task = bug.getRelatedTask();
+            task.setGithubIssueNumber(issueNumber);
+            task.setGithubIssueUrl(issueUrl);
+            taskRepository.save(task);
+        }
+    }
+
+    private void linkSyncedTask(Long taskId, Integer issueNumber, String issueUrl) {
+        log.info("Webhook issues.opened recognized synced Task ID: {} for Issue #{}", taskId, issueNumber);
+        java.util.Optional<Task> optTask = retryFindTask(taskId);
+        if (optTask.isEmpty()) {
+            log.warn("Synced Task ID {} not found in database after retries. Ignoring webhook.", taskId);
+            return;
+        }
+
+        Task task = optTask.get();
+        task.setGithubIssueNumber(issueNumber);
+        task.setGithubIssueUrl(issueUrl);
+        taskRepository.save(task);
     }
 
     private void handleClosed(BugReport bug, Task existingTask) {
@@ -228,6 +311,71 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
                         .build();
                 task.getChecklist().add(item);
             }
+        }
+    }
+
+    private TaskType resolveTaskTypeFromLabels(List<Map<String, Object>> labels) {
+        if (hasLabel(labels, "documentation")) {
+            return TaskType.DOCUMENTATION;
+        }
+        if (hasLabel(labels, "testing")) {
+            return TaskType.TESTING;
+        }
+        return TaskType.DEVELOPMENT;
+    }
+
+    private boolean hasLabel(List<Map<String, Object>> labels, String expected) {
+        if (labels == null || expected == null) {
+            return false;
+        }
+        for (Map<String, Object> label : labels) {
+            Object name = label.get("name");
+            if (name != null && expected.equalsIgnoreCase(name.toString())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Long extractSyncId(String bodyText, String marker) {
+        if (bodyText == null || marker == null) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("<!--\\s*" + java.util.regex.Pattern.quote(marker) + ":\\s*(\\d+)\\s*-->")
+                .matcher(bodyText);
+        return matcher.find() ? Long.parseLong(matcher.group(1)) : null;
+    }
+
+    private java.util.Optional<BugReport> retryFindBug(Long bugId) {
+        java.util.Optional<BugReport> result = java.util.Optional.empty();
+        for (int i = 0; i < 3; i++) {
+            result = bugReportRepository.findById(bugId);
+            if (result.isPresent()) {
+                break;
+            }
+            sleepQuietly();
+        }
+        return result;
+    }
+
+    private java.util.Optional<Task> retryFindTask(Long taskId) {
+        java.util.Optional<Task> result = java.util.Optional.empty();
+        for (int i = 0; i < 3; i++) {
+            result = taskRepository.findById(taskId);
+            if (result.isPresent()) {
+                break;
+            }
+            sleepQuietly();
+        }
+        return result;
+    }
+
+    private void sleepQuietly() {
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
     }
 

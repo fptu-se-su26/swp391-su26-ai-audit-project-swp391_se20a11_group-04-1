@@ -19,10 +19,15 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.BugReportRepository;
 import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
+import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
-import org.example.backend.repository.NotificationRepository;
 import org.example.backend.service.CodeInsightReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
+import org.example.backend.repository.TaskCommentRepository;
+import org.example.backend.repository.TaskProposalRepository;
+import org.example.backend.entity.TaskComment;
+import org.example.backend.entity.TaskProposal;
+import org.example.backend.service.sla.TaskSlaRuleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,11 +60,14 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
-    private final NotificationRepository notificationRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     private final CodeInsightReviewSnapshotService codeInsightReviewSnapshotService;
     private final CodeInsightScoringService codeInsightScoringService;
+    private final TaskCommentRepository taskCommentRepository;
+    private final TaskProposalRepository taskProposalRepository;
+    private final TaskSlaRuleService taskSlaRuleService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -67,6 +75,54 @@ public class TaskServiceImpl implements TaskService {
         ensureProjectMember(projectId, userId);
         kanbanColumnService.ensureDefaultColumns(projectId);
         return taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getHotTasks(Long projectId, Long userId, int limit) {
+        ensureProjectMember(projectId, userId);
+
+        List<Task> tasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId);
+        if (tasks.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> taskIds = tasks.stream().map(Task::getId).collect(Collectors.toList());
+        List<TaskComment> comments = taskCommentRepository.findByTaskIdIn(taskIds);
+        List<TaskProposal> proposals = taskProposalRepository.findByTaskIdIn(taskIds);
+
+        Map<Long, List<TaskComment>> commentsByTaskId = comments.stream()
+                .collect(Collectors.groupingBy(TaskComment::getTaskId));
+
+        Map<Long, List<TaskProposal>> proposalsByTaskId = proposals.stream()
+                .collect(Collectors.groupingBy(TaskProposal::getTaskId));
+
+        Map<Task, Integer> scores = new LinkedHashMap<>();
+        for (Task task : tasks) {
+            int score = 0;
+
+            List<TaskComment> taskComments = commentsByTaskId.getOrDefault(task.getId(), Collections.emptyList());
+            for (TaskComment c : taskComments) {
+                score += 3;
+                score += (c.getVotes() != null ? c.getVotes().size() : 0) * 1;
+            }
+
+            List<TaskProposal> taskProposals = proposalsByTaskId.getOrDefault(task.getId(), Collections.emptyList());
+            for (TaskProposal p : taskProposals) {
+                score += 5;
+                score += (p.getVotes() != null ? p.getVotes().size() : 0) * 2;
+                score += (p.getComments() != null ? p.getComments().size() : 0) * 4;
+            }
+
+            scores.put(task, score);
+        }
+
+        return scores.entrySet().stream()
+                .sorted((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()))
+                .limit(limit)
+                .map(Map.Entry::getKey)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -115,7 +171,9 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
 
         // Outbound sync: create GitHub Issue for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        // Except for DEVELOPMENT parent tasks, which wait for leader approval & sync
+        boolean isDevParent = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null;
+        if (!isDevParent && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.createGitHubIssueForTask(savedTask, userId);
             } catch (Exception e) {
@@ -134,6 +192,7 @@ public class TaskServiceImpl implements TaskService {
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
+            syncParentAssignee(savedTask, userId);
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
@@ -205,6 +264,9 @@ public class TaskServiceImpl implements TaskService {
         setAssignee(task, request.getAssigneeId(), projectId, userId);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
+        if (savedTask.getParent() != null) {
+            syncParentAssignee(savedTask, userId);
+        }
         return toResponse(savedTask);
     }
 
@@ -329,6 +391,48 @@ public class TaskServiceImpl implements TaskService {
                     // Non-blocking log
                 }
             });
+        }
+    }
+
+    private void syncParentAssignee(Task savedTask, Long userId) {
+        if (savedTask == null || savedTask.getParent() == null) return;
+
+        Task parent = savedTask.getParent();
+        List<Task> subTasks = taskRepository.findByParentId(parent.getId());
+
+        boolean allSameOrOnlyOne = false;
+        if (subTasks.size() <= 1) {
+            allSameOrOnlyOne = true;
+        } else {
+            Long firstAssigneeId = subTasks.get(0).getPrimaryAssignee() != null ? subTasks.get(0).getPrimaryAssignee().getId() : null;
+            boolean match = true;
+            for (Task sub : subTasks) {
+                Long subAssigneeId = sub.getPrimaryAssignee() != null ? sub.getPrimaryAssignee().getId() : null;
+                if (subAssigneeId == null || !subAssigneeId.equals(firstAssigneeId)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                allSameOrOnlyOne = true;
+            }
+        }
+
+        if (allSameOrOnlyOne) {
+            parent.setPrimaryAssignee(savedTask.getPrimaryAssignee());
+            if (savedTask.getPrimaryAssignee() != null) {
+                if (parent.getAssignees() == null) {
+                    parent.setAssignees(new java.util.HashSet<>());
+                }
+                parent.getAssignees().clear();
+                parent.getAssignees().add(savedTask.getPrimaryAssignee());
+            } else {
+                if (parent.getAssignees() != null) {
+                    parent.getAssignees().clear();
+                }
+            }
+            taskRepository.save(parent);
+            syncWithBugReport(parent, userId);
         }
     }
 
@@ -754,7 +858,19 @@ public class TaskServiceImpl implements TaskService {
 
     private void applyRequest(Task task, TaskRequest request, Long projectId, Long userId) {
         if (request.getTitle() != null) task.setTitle(requiredText(request.getTitle(), "Task title is required"));
-        if (request.getDescription() != null) task.setDescription(request.getDescription().trim());
+        if (request.getDescription() != null) {
+            String newDesc = request.getDescription().trim();
+            if (task.getDescription() != null) {
+                java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(<!-- sync-source: github-blank(?:-draft|-approved)? -->)").matcher(task.getDescription());
+                if (matcher.find()) {
+                    String tag = matcher.group(1);
+                    if (!newDesc.contains(tag)) {
+                        newDesc = newDesc + "\n\n" + tag;
+                    }
+                }
+            }
+            task.setDescription(newDesc);
+        }
         if (request.isRequirementIdPresent()) {
             if (request.getRequirementId() == null) {
                 task.setRequirementId(null);
@@ -995,37 +1111,15 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void sendNotification(UserAccount recipient, String title, String message, Task task) {
-        if (recipient == null) return;
-
-        Notification notification = Notification.builder()
-                .recipient(recipient)
-                .project(task.getProject())
-                .entityType(org.example.backend.entity.NotificationEntityType.TASK)
-                .title(title)
-                .message(message)
-                .type(org.example.backend.entity.NotificationType.SYSTEM)
-                .relatedId(task.getId())
-                .isRead(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        Notification saved = notificationRepository.save(notification);
-
-        String jsonPayload = String.format(
-            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"TASK\",\"isRead\":false,\"createdAt\":\"%s\"}}",
-            saved.getId(),
-            saved.getTitle().replace("\"", "\\\""),
-            saved.getMessage().replace("\"", "\\\""),
-            saved.getRelatedId(),
-            task.getProject().getId(),
-            saved.getCreatedAt().toString()
+        notificationService.createAndPush(
+                recipient,
+                task.getProject(),
+                org.example.backend.entity.NotificationEntityType.TASK,
+                task.getId(),
+                org.example.backend.entity.NotificationType.SYSTEM,
+                title,
+                message
         );
-
-        try {
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
-        } catch (Exception e) {
-            log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
-        }
     }
 
     private void replaceChecklist(Task task, List<TaskRequest.ChecklistItemRequest> items) {
@@ -1234,6 +1328,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskResponse toResponse(Task task) {
+        var sla = taskSlaRuleService.evaluate(task);
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
@@ -1257,7 +1352,15 @@ public class TaskServiceImpl implements TaskService {
                 .blockedReason(task.getBlockedReason())
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
+                .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
+                .overdueDays(sla.overdueDays())
+                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
+                .createdByName(task.getCreatedBy() != null ?
+                        (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
+                                ? task.getCreatedBy().getProfile().getFullName()
+                                : task.getCreatedBy().getUsername())
+                        : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .checklist(task.getChecklist().stream()
@@ -1267,6 +1370,7 @@ public class TaskServiceImpl implements TaskService {
                 .parentId(task.getParent() != null ? task.getParent().getId() : null)
                 .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
                 .githubIssueUrl(task.getGithubIssueUrl())
+                .githubIssueNumber(task.getGithubIssueNumber())
                 .build();
     }
 

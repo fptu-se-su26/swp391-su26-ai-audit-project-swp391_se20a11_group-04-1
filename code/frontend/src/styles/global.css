@@ -17,36 +17,36 @@
 
 :root {
   /* Color Palette */
-  --color-primary:       #6366f1;
-  --color-primary-dark:  #4f46e5;
-  --color-primary-light: #818cf8;
-  --color-secondary:     #06b6d4;
+  --color-primary:       #0ea5e9;
+  --color-primary-dark:  #0284c7;
+  --color-primary-light: #38bdf8;
+  --color-secondary:     #0ea5e9;
   --color-success:       #10b981;
   --color-warning:       #f59e0b;
   --color-danger:        #ef4444;
 
   /* Backgrounds */
-  --bg-base:     #0f0f1a;
-  --bg-surface:  #1a1a2e;
-  --bg-elevated: #16213e;
-  --bg-overlay:  rgba(255,255,255,0.05);
+  --bg-base:     #f8fafc;
+  --bg-surface:  #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-overlay:  rgba(0, 0, 0, 0.02);
 
   /* Text */
-  --text-primary:   #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
 
   /* Border */
-  --border-color: rgba(255,255,255,0.08);
+  --border-color: #e2e8f0;
   --border-radius: 12px;
   --border-radius-sm: 8px;
   --border-radius-lg: 20px;
 
   /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
-  --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
-  --shadow-glow: 0 0 20px rgba(99,102,241,0.3);
-
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.12);
+  
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -172,5 +172,23 @@ a:hover { color: var(--color-primary); }
 
 /* Material Symbols fill variant */
 .icon-fill {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 1, 'wght'400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* =====================================================
+   FeatureDiscussionPage - Description collapse (DOM-driven, no React re-render)
+   ===================================================== */
+.desc-expanded {
+  max-height: 160px;
+  opacity: 1;
+  padding-bottom: 1rem;
+  overflow: visible;
+}
+
+.desc-collapsed {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none;
 }
