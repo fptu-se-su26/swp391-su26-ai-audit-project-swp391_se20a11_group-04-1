@@ -29,6 +29,41 @@ const formatDateTime = (value) => {
   return new Date(value).toLocaleString()
 }
 
+const formatAiConfidence = (confidence) => {
+  if (confidence === null || confidence === undefined) return '0%'
+  const normalized = confidence > 1 ? confidence : confidence * 100
+  return `${Math.round(normalized)}%`
+}
+
+const severityToneClass = (severity = 'INFO') => {
+  if (severity === 'CRITICAL') return 'border-error/30 bg-error-container/50 text-error'
+  if (severity === 'HIGH') return 'border-error/20 bg-error-container/30 text-error'
+  if (severity === 'MEDIUM') return 'border-[#f59e0b]/30 bg-[#fef3c7] text-[#92400e]'
+  if (severity === 'LOW') return 'border-[#2563eb]/20 bg-[#eff6ff] text-[#1e40af]'
+  return 'border-outline-variant bg-surface text-on-surface-variant'
+}
+
+const severityOrder = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']
+
+const groupedRiskDetails = (risks = []) => severityOrder
+  .map((severity) => [severity, risks.filter((risk) => (risk.severity || 'INFO') === severity)])
+  .filter(([, items]) => items.length > 0)
+
+const aiReviewButtonLabel = (loading, review, error) => {
+  if (loading) return 'Reviewing...'
+  if (error) return 'Retry AI Review'
+  return review ? 'Rerun AI Review' : 'AI Review'
+}
+
+const evidenceAssessmentItems = (assessment = {}) => [
+  ['Requirement linked', assessment.requirementLinked],
+  ['GitHub issue linked', assessment.githubIssueLinked],
+  ['Commit evidence', assessment.hasCommitEvidence],
+  ['Pull request evidence', assessment.hasPullRequestEvidence],
+  ['CI passed', assessment.ciPassed],
+  ['Author matches assignee', assessment.authorMatchesAssignee],
+]
+
 const CodeInsightPage = () => {
   const { projectId } = useParams()
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -55,6 +90,7 @@ const CodeInsightPage = () => {
   const [evidenceError, setEvidenceError] = useState('')
   const [changedFilesLoading, setChangedFilesLoading] = useState(false)
   const [aiReviewLoading, setAiReviewLoading] = useState(false)
+  const [aiReviewError, setAiReviewError] = useState(null)
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
@@ -207,6 +243,7 @@ const CodeInsightPage = () => {
     if (!taskId || !projectId) return
     setEvidenceLoading(true)
     setEvidenceError('')
+    setAiReviewError(null)
     setSelectedEvidence(null)
     try {
       setSelectedEvidence(await codeInsightService.getTaskEvidence(projectId, taskId))
@@ -221,6 +258,7 @@ const CodeInsightPage = () => {
     setSelectedEvidence(null)
     setEvidenceLoading(false)
     setEvidenceError('')
+    setAiReviewError(null)
     setChangedFilesLoading(false)
     setAiReviewLoading(false)
   }
@@ -242,11 +280,15 @@ const CodeInsightPage = () => {
     if (!selectedEvidence?.task?.id || !projectId) return
     setAiReviewLoading(true)
     setEvidenceError('')
+    setAiReviewError(null)
     try {
       const aiReview = await codeInsightService.createAiReview(projectId, selectedEvidence.task.id)
       setSelectedEvidence((current) => ({ ...current, aiReview }))
     } catch (err) {
-      setEvidenceError(err.response?.data?.message || err.message || 'Failed to create AI review')
+      setAiReviewError({
+        message: err.response?.data?.message || err.message || 'Failed to create AI review',
+        details: err.response?.data?.errors || null,
+      })
     } finally {
       setAiReviewLoading(false)
     }
@@ -856,8 +898,13 @@ const CodeInsightPage = () => {
                   </section>
 
                   <section className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">AI Review</h3>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">AI Review</h3>
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          AI suggestion only. Leader makes the final decision.
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={runAiReview}
@@ -865,9 +912,32 @@ const CodeInsightPage = () => {
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <span className="material-symbols-outlined text-[17px]">smart_toy</span>
-                        {aiReviewLoading ? 'Reviewing...' : 'AI Review'}
+                        {aiReviewButtonLabel(aiReviewLoading, selectedEvidence.aiReview, aiReviewError)}
                       </button>
                     </div>
+                    {aiReviewError && (
+                      <div className="mt-3 rounded-lg border border-error/20 bg-error-container/30 p-3 text-error">
+                        <p className="font-label-md text-label-md uppercase">AI Provider Error</p>
+                        <p className="mt-2 text-sm font-semibold">{aiReviewError.message}</p>
+                        {aiReviewError.details && (
+                          <div className="mt-2 space-y-1 text-sm">
+                            {aiReviewError.details.provider && (
+                              <p>Provider: {aiReviewError.details.provider}{aiReviewError.details.model ? ` / ${aiReviewError.details.model}` : ''}</p>
+                            )}
+                            {aiReviewError.details.errorType && <p>Error type: {aiReviewError.details.errorType}</p>}
+                            {aiReviewError.details.providerStatus && <p>Status: {aiReviewError.details.providerStatus}</p>}
+                            {aiReviewError.details.retryable !== undefined && (
+                              <p>Retryable: {aiReviewError.details.retryable ? 'Yes' : 'No'}</p>
+                            )}
+                            {aiReviewError.details.retryAfterSeconds && <p>Retry after: {aiReviewError.details.retryAfterSeconds}s</p>}
+                            {aiReviewError.details.detail && <p className="mt-2">{aiReviewError.details.detail}</p>}
+                          </div>
+                        )}
+                        <div className="mt-3 rounded border border-error/20 bg-surface/60 px-3 py-2 text-xs text-error">
+                          No AI review was created. Continue with the rule score, evidence list, and leader judgment, then retry after the provider issue is fixed.
+                        </div>
+                      </div>
+                    )}
                     {selectedEvidence.aiReview ? (
                       <div className="mt-3 space-y-3">
                         <div className="rounded-lg border border-outline-variant bg-surface p-3">
@@ -876,28 +946,101 @@ const CodeInsightPage = () => {
                               {selectedEvidence.aiReview.recommendation}
                             </span>
                             <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
-                              Confidence {selectedEvidence.aiReview.confidence}%
+                              Confidence {formatAiConfidence(selectedEvidence.aiReview.confidence)}
                             </span>
                             <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
                               Adjustment {selectedEvidence.aiReview.scoreAdjustment > 0 ? '+' : ''}{selectedEvidence.aiReview.scoreAdjustment}
                             </span>
+                            {selectedEvidence.aiReview.provider && (
+                              <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
+                                {selectedEvidence.aiReview.provider}{selectedEvidence.aiReview.model ? ` / ${selectedEvidence.aiReview.model}` : ''}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-3 text-sm text-on-surface-variant">{selectedEvidence.aiReview.summary}</p>
+                          {selectedEvidence.aiReview.legacy && (
+                            <p className="mt-2 text-xs text-on-surface-variant">Legacy AI review migrated with limited structured metadata.</p>
+                          )}
                         </div>
-                        {(selectedEvidence.aiReview.risks || []).length > 0 && (
-                          <div className="rounded-lg border border-error/20 bg-error-container/30 p-3">
-                            <p className="font-label-md text-label-md uppercase text-error">Risks</p>
-                            <ul className="mt-2 space-y-1 text-sm text-error">
-                              {selectedEvidence.aiReview.risks.map((risk) => <li key={risk}>{risk}</li>)}
+                        {selectedEvidence.aiReview.providerError && (
+                          <div className="rounded-lg border border-error/20 bg-error-container/30 p-3 text-error">
+                            <p className="font-label-md text-label-md uppercase">Provider Error</p>
+                            <p className="mt-2 text-sm">{selectedEvidence.aiReview.providerError.message || 'AI provider returned an error.'}</p>
+                          </div>
+                        )}
+                        {(selectedEvidence.aiReview.riskDetails || []).length > 0 && (
+                          <div className="space-y-3">
+                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">Risk Details</p>
+                            {groupedRiskDetails(selectedEvidence.aiReview.riskDetails).map(([severity, risks]) => (
+                              <div key={severity} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-label-md text-label-md rounded border px-2 py-1 ${severityToneClass(severity)}`}>
+                                    {severity}
+                                  </span>
+                                  <span className="text-xs text-on-surface-variant">{risks.length} item{risks.length > 1 ? 's' : ''}</span>
+                                </div>
+                                {risks.map((risk, index) => (
+                                  <div key={`${severity}-${risk.title}-${index}`} className={`rounded-lg border p-3 ${severityToneClass(risk.severity)}`}>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-label-md text-label-md rounded bg-surface/70 px-2 py-1">{risk.category || 'QUALITY'}</span>
+                                    </div>
+                                    <p className="mt-2 font-semibold">{risk.title}</p>
+                                    {risk.detail && <p className="mt-1 text-sm">{risk.detail}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {(selectedEvidence.aiReview.questionsForLeader || []).length > 0 && (
+                          <div className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">Questions For Leader</p>
+                            <ul className="mt-2 space-y-2 text-sm text-on-surface-variant">
+                              {selectedEvidence.aiReview.questionsForLeader.map((question) => (
+                                <li key={question} className="flex gap-2">
+                                  <span className="material-symbols-outlined mt-0.5 text-[16px] text-primary">help</span>
+                                  <span>{question}</span>
+                                </li>
+                              ))}
                             </ul>
                           </div>
                         )}
-                        {(selectedEvidence.aiReview.reviewQuestions || []).length > 0 && (
+                        {selectedEvidence.aiReview.evidenceAssessment && (
                           <div className="rounded-lg border border-outline-variant bg-surface p-3">
-                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">Questions For Leader</p>
-                            <ul className="mt-2 space-y-1 text-sm text-on-surface-variant">
-                              {selectedEvidence.aiReview.reviewQuestions.map((question) => <li key={question}>{question}</li>)}
-                            </ul>
+                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">Evidence Assessment</p>
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              {evidenceAssessmentItems(selectedEvidence.aiReview.evidenceAssessment).map(([label, enabled]) => (
+                                <div key={label} className="flex items-center gap-2 text-sm text-on-surface-variant">
+                                  <span className={`material-symbols-outlined text-[17px] ${enabled ? 'text-[#166534]' : 'text-error'}`}>
+                                    {enabled ? 'check_circle' : 'cancel'}
+                                  </span>
+                                  {label}
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-3 text-xs text-on-surface-variant">
+                              Files reviewed: {selectedEvidence.aiReview.evidenceAssessment.changedFilesReviewed || 0}
+                              {' | '}Binary skipped: {selectedEvidence.aiReview.evidenceAssessment.binaryFilesSkipped || 0}
+                              {' | '}Truncated: {selectedEvidence.aiReview.evidenceAssessment.truncatedFiles || 0}
+                            </p>
+                          </div>
+                        )}
+                        {(selectedEvidence.aiReview.reviewNotes || []).length > 0 && (
+                          <div className="rounded-lg border border-outline-variant bg-surface p-3">
+                            <p className="font-label-md text-label-md uppercase text-on-surface-variant">File Review Notes</p>
+                            <div className="mt-2 space-y-2">
+                              {selectedEvidence.aiReview.reviewNotes.map((note, index) => (
+                                <div key={`${note.file}-${index}`} className="rounded border border-outline-variant bg-surface-container-low p-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="break-all text-sm font-semibold text-on-surface">{note.file || 'Unknown file'}</span>
+                                    <span className="font-label-md text-label-md rounded bg-surface-container-high px-2 py-1 text-on-surface-variant">
+                                      {note.severity || 'INFO'}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm text-on-surface-variant">{note.message}</p>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
