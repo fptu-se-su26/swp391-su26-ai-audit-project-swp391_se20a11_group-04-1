@@ -74,6 +74,13 @@ public class GitHubIssueSyncServiceImpl implements GitHubIssueSyncService {
                 String issueUrl = (String) response.getBody().get("html_url");
                 log.info("GitHub Issue #{} created successfully: {}", issueNumber, issueUrl);
                 saveGitHubMetadata(bugReport, issueNumber, issueUrl);
+                if (bugReport.getRelatedTask() != null) {
+                    Task task = bugReport.getRelatedTask();
+                    task.setGithubIssueNumber(issueNumber);
+                    task.setGithubIssueUrl(issueUrl);
+                    taskRepository.save(task);
+                    log.info("Saved GitHub Issue #{} metadata to related Task ID: {}", issueNumber, task.getId());
+                }
                 return;
             }
             throw new CustomException("Failed to create GitHub issue: Unexpected response status", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -261,6 +268,7 @@ public class GitHubIssueSyncServiceImpl implements GitHubIssueSyncService {
             }
         }
 
+        body.append("\n\n<!-- devtrack-task-id: ").append(task.getId()).append(" -->\n");
         return body.toString();
     }
 
@@ -312,6 +320,7 @@ public class GitHubIssueSyncServiceImpl implements GitHubIssueSyncService {
             sb.append("\n");
         }
 
+        sb.append("\n<!-- devtrack-bug-id: ").append(bug.getId()).append(" -->\n");
         sb.append("> *Sync generated automatically by DevTrack AI module.*");
         return sb.toString();
     }

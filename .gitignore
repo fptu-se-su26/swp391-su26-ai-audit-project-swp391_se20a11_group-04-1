@@ -84,3 +84,10 @@ AIRequirement.md
 /code/KANBAN_UPGRADE_PLAN.md
 /code/.gitignore
 /Tin/
+
+# --- AGENT CONFIGS ---
+.agent/
+GEMINI.md
+diff_dashboard.txt
+ERRORS.md
+

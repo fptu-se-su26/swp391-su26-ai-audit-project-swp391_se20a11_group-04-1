@@ -62,7 +62,9 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             for (WebSocketSession session : sessions) {
                 if (session.isOpen()) {
                     try {
-                        session.sendMessage(new TextMessage(jsonPayload));
+                        synchronized (session) {
+                            session.sendMessage(new TextMessage(jsonPayload));
+                        }
                     } catch (IOException e) {
                         log.error("❌ Failed to broadcast WebSocket message to User ID {}", userId, e);
                     }
@@ -84,7 +86,9 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    session.sendMessage(new TextMessage(jsonPayload));
+                    synchronized (session) {
+                        session.sendMessage(new TextMessage(jsonPayload));
+                    }
                 } catch (IOException e) {
                     log.error("❌ Failed to send WebSocket message to User ID {}", userId, e);
                 }

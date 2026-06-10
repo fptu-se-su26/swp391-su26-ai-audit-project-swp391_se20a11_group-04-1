@@ -36,6 +36,8 @@ spring:
     redis:
       host: localhost
       port: 6379 # Port mặc định của Redis
+    mongodb:
+      uri: mongodb://localhost:27017/dev_track_ai
 
   session:
     store-type: redis

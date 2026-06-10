@@ -11,6 +11,7 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.SprintService;
+import org.example.backend.service.sla.TaskSlaRuleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class SprintServiceImpl implements SprintService {
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
     private final RequirementRepository requirementRepository;
+    private final TaskSlaRuleService taskSlaRuleService;
 
     @Override
     @Transactional(readOnly = true)
@@ -320,6 +322,7 @@ public class SprintServiceImpl implements SprintService {
     }
 
     private TaskResponse toTaskResponse(Task task) {
+        var sla = taskSlaRuleService.evaluate(task);
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
@@ -343,7 +346,15 @@ public class SprintServiceImpl implements SprintService {
                 .blockedReason(task.getBlockedReason())
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
+                .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
+                .overdueDays(sla.overdueDays())
+                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
+                .createdByName(task.getCreatedBy() != null ? 
+                        (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
+                                ? task.getCreatedBy().getProfile().getFullName() 
+                                : task.getCreatedBy().getUsername()) 
+                        : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .checklist(task.getChecklist().stream()

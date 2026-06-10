@@ -33,12 +33,15 @@ const TaskDetailPage = () => {
   const taskBoardPath = projectId ? `/projects/${projectId}/task-board` : '/dashboard'
   const codeInsightPath = projectId ? `/projects/${projectId}/code-insight` : '/dashboard'
   const canDecideReview = isLeaderRole(activeProject?.role)
+  const isLeader = isLeaderRole(activeProject?.role)
 
   useEffect(() => {
     if (!task) {
       fetchTaskById(id)
+    } else if (task.parentId && !tasks.some(t => String(t.id) === String(task.parentId))) {
+      fetchTaskById(task.parentId)
     }
-  }, [fetchTaskById, id, task])
+  }, [fetchTaskById, id, task, tasks])
 
   if (!task) {
     return (
@@ -113,10 +116,24 @@ const TaskDetailPage = () => {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-surface-bright">
       <div className="max-w-[1200px] w-full mx-auto px-6 py-6 md:py-8">
-        <div className="flex items-center text-label-md font-label-md text-on-surface-variant mb-6">
-          <Link className="hover:text-primary transition-colors" to={taskBoardPath}>Task Board</Link>
-          <span className="material-symbols-outlined text-[16px] mx-1">chevron_right</span>
-          <span className="text-on-surface">{task.id}</span>
+        <div className="flex flex-col gap-2 mb-6">
+          <div className="flex items-center text-label-md font-label-md text-on-surface-variant">
+            <Link className="hover:text-primary transition-colors" to={taskBoardPath}>Task Board</Link>
+            <span className="material-symbols-outlined text-[16px] mx-1">chevron_right</span>
+            <span className="text-on-surface">{task.id}</span>
+          </div>
+          {isChildTask && (() => {
+            const parentTask = tasks.find(t => String(t.id) === String(task.parentId))
+            return parentTask ? (
+              <Link
+                to={`/projects/${projectId}/tasks/${parentTask.id}`}
+                className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
+              >
+                <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                <span>Quay lại task cha: #{parentTask.id} - {parentTask.title}</span>
+              </Link>
+            ) : null
+          })()}
         </div>
 
         <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 mb-6 shadow-sm">
@@ -137,6 +154,16 @@ const TaskDetailPage = () => {
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">{task.title}</h1>
             </div>
             <div className="flex gap-2">
+              {task.type !== 'BUG_FIX' && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/projects/${projectId}/features/${task.id}/discuss`)}
+                  className="h-[36px] px-4 flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0284c7] text-white rounded transition-colors text-body-md font-body-md shadow-sm cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">forum</span>
+                  Thảo luận
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsEditOpen(true)}
@@ -191,7 +218,7 @@ const TaskDetailPage = () => {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="material-symbols-outlined text-[18px]">rate_review</span>
-                    Request Review
+                    {isLeader ? 'Request Peer Review' : 'Request Review'}
                   </button>
                   {!isReviewActionEnabled && (
                     <span className="text-xs text-on-surface-variant">
@@ -330,6 +357,44 @@ const TaskDetailPage = () => {
                 )}
               </div>
             </div>
+
+            {hasSubtasks && (
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
+                <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant flex justify-between">
+                  <span>Sub-tasks</span>
+                  <span className="text-sm text-on-surface-variant">
+                    {subtasks.filter(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED').length}/{subtasks.length}
+                  </span>
+                </h3>
+                <div className="space-y-2">
+                  {subtasks.map((sub) => {
+                    const isSubDone = sub.status === 'DONE' || sub.status === 'FIXED' || sub.status === 'CLOSED'
+                    return (
+                      <Link
+                        key={sub.id}
+                        to={`/projects/${projectId}/tasks/${sub.id}`}
+                        className="flex items-center justify-between p-2.5 rounded border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-all group"
+                      >
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <span className="material-symbols-outlined text-[16px] text-primary">subdirectory_arrow_right</span>
+                          <span className={`text-sm font-semibold truncate ${isSubDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
+                            {sub.title}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 uppercase border ${
+                          sub.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                          sub.status === 'IN_REVIEW' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                          sub.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                          'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}>
+                          {sub.status.replaceAll('_', ' ')}
+                        </span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-4 pb-2 border-b border-outline-variant">Comments</h3>
