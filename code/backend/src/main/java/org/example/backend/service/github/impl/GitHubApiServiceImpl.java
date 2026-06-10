@@ -94,6 +94,15 @@ public class GitHubApiServiceImpl implements GitHubApiService {
 
                 // Store issue metadata in the steps_to_reproduce JSONB column of BugReport
                 saveGitHubMetadata(bugReport, issueNumber, issueUrl);
+
+                // Sync metadata to the associated Task entity
+                if (bugReport.getRelatedTask() != null) {
+                    Task t = bugReport.getRelatedTask();
+                    t.setGithubIssueNumber(issueNumber);
+                    t.setGithubIssueUrl(issueUrl);
+                    taskRepository.save(t);
+                    log.info("Saved GitHub Issue #{} metadata to related Task ID: {}", issueNumber, t.getId());
+                }
             } else {
                 throw new CustomException("Failed to create GitHub issue: Unexpected response status", HttpStatus.INTERNAL_SERVER_ERROR);
             }
@@ -168,6 +177,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             }
         }
 
+        body.append("\n\n<!-- devtrack-task-id: ").append(task.getId()).append(" -->\n");
         return body.toString();
     }
 
@@ -417,6 +427,92 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                         .orElse(null);
 
                 if ("opened".equalsIgnoreCase(action)) {
+                    // Check if it is a sync issue from our system via HTML comment tags
+                    Long syncBugId = null;
+                    Long syncTaskId = null;
+                    if (bodyText != null) {
+                        java.util.regex.Matcher bugMatcher = java.util.regex.Pattern.compile("<!-- devtrack-bug-id: (\\d+) -->").matcher(bodyText);
+                        if (bugMatcher.find()) {
+                            syncBugId = Long.parseLong(bugMatcher.group(1));
+                        }
+                        java.util.regex.Matcher taskMatcher = java.util.regex.Pattern.compile("<!-- devtrack-task-id: (\\d+) -->").matcher(bodyText);
+                        if (taskMatcher.find()) {
+                            syncTaskId = Long.parseLong(taskMatcher.group(1));
+                        }
+                    }
+
+                    // Check if the issue has "sub-task" or "bug" labels or starts with "[Sub-task]" in the title
+                    List<Map<String, Object>> labelsList = (List<Map<String, Object>>) issue.get("labels");
+                    boolean isSubTask = false;
+                    boolean hasBugLabel = false;
+                    if (labelsList != null) {
+                        for (Map<String, Object> labelMap : labelsList) {
+                            String labelName = (String) labelMap.get("name");
+                            if ("bug".equalsIgnoreCase(labelName)) {
+                                hasBugLabel = true;
+                            }
+                            if ("sub-task".equalsIgnoreCase(labelName)) {
+                                isSubTask = true;
+                            }
+                        }
+                    }
+                    if (title != null && title.startsWith("[Sub-task]")) {
+                        isSubTask = true;
+                    }
+
+                    boolean isSyncedIssue = syncBugId != null || syncTaskId != null || isSubTask;
+
+                    if (syncBugId != null) {
+                        log.info("Webhook issues.opened recognized synced Bug Report ID: {} for Issue #{}", syncBugId, issueNumber);
+                        // Retry mechanism to handle database transaction isolation delays from the main thread
+                        Optional<BugReport> optBug = Optional.empty();
+                        for (int i = 0; i < 3; i++) {
+                            optBug = bugReportRepository.findById(syncBugId);
+                            if (optBug.isPresent()) break;
+                            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        }
+
+                        if (optBug.isPresent()) {
+                            BugReport b = optBug.get();
+                            saveGitHubMetadata(b, issueNumber, issueUrl);
+                            if (b.getRelatedTask() != null) {
+                                Task t = b.getRelatedTask();
+                                t.setGithubIssueNumber(issueNumber);
+                                t.setGithubIssueUrl(issueUrl);
+                                taskRepository.save(t);
+                            }
+                        } else {
+                            log.warn("Synced Bug Report ID {} not found in database after retries. Ignoring webhook.", syncBugId);
+                        }
+                        return;
+                    }
+
+                    if (syncTaskId != null) {
+                        log.info("Webhook issues.opened recognized synced Task ID: {} for Issue #{}", syncTaskId, issueNumber);
+                        // Retry mechanism to handle database transaction isolation delays from the main thread
+                        Optional<Task> optTask = Optional.empty();
+                        for (int i = 0; i < 3; i++) {
+                            optTask = taskRepository.findById(syncTaskId);
+                            if (optTask.isPresent()) break;
+                            try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                        }
+
+                        if (optTask.isPresent()) {
+                            Task t = optTask.get();
+                            t.setGithubIssueNumber(issueNumber);
+                            t.setGithubIssueUrl(issueUrl);
+                            taskRepository.save(t);
+                        } else {
+                            log.warn("Synced Task ID {} not found in database after retries. Ignoring webhook.", syncTaskId);
+                        }
+                        return;
+                    }
+
+                    if (isSyncedIssue) {
+                        log.info("Ignoring webhook issues.opened for synced task or subtask #{} to prevent duplicate creation.", issueNumber);
+                        return;
+                    }
+
                     if (bug != null || existingTask != null) {
                         log.info("Issue #{} already exists as Bug Report or Task, ignoring webhook duplicate creation.", issueNumber);
                         return; // Ignore duplicates
@@ -427,61 +523,118 @@ public class GitHubApiServiceImpl implements GitHubApiService {
                     String senderUsername = sender != null ? (String) sender.get("login") : null;
                     UserAccount creator = findUserByGitHubUsername(senderUsername, matchedIntegration.getConnectedBy());
 
-                    // Create new BugReport
-                    bug = BugReport.builder()
-                            .project(matchedIntegration.getProject())
-                            .title(title != null ? title.replace("[BUG] ", "") : "GitHub Issue")
-                            .description(bodyText)
-                            .severity(BugSeverity.MEDIUM)
-                            .environment(Environment.DEV)
-                            .createdBy(creator)
-                            .status(BugStatus.OPEN)
-                            .build();
-                    bug = bugReportRepository.save(bug);
+                    if (hasBugLabel) {
+                        // Create new BugReport (original logic)
+                        bug = BugReport.builder()
+                                .project(matchedIntegration.getProject())
+                                .title(title != null ? title.replace("[BUG] ", "") : "GitHub Issue")
+                                .description(bodyText)
+                                .severity(BugSeverity.MEDIUM)
+                                .environment(Environment.DEV)
+                                .createdBy(creator)
+                                .status(BugStatus.OPEN)
+                                .build();
+                        bug = bugReportRepository.save(bug);
 
-                    // Create associated task using Task entity directly (tái sử dụng cấu trúc DB cũ)
-                    Task task = Task.builder()
-                            .project(matchedIntegration.getProject())
-                            .title("[BUG] " + bug.getTitle())
-                            .description(bug.getDescription())
-                            .type(TaskType.BUG_FIX)
-                            .priority(Priority.MEDIUM)
-                            .status(TaskStatus.TODO)
-                            .checklist(new ArrayList<>())
-                            .createdBy(creator)
-                            .build();
+                        // Create associated task using Task entity directly (tái sử dụng cấu trúc DB cũ)
+                        Task task = Task.builder()
+                                .project(matchedIntegration.getProject())
+                                .title("[BUG] " + bug.getTitle())
+                                .description(bug.getDescription())
+                                .type(TaskType.BUG_FIX)
+                                .priority(Priority.MEDIUM)
+                                .status(TaskStatus.TODO)
+                                .checklist(new ArrayList<>())
+                                .createdBy(creator)
+                                .build();
 
-                    // Parse checklist from Markdown
-                    if (bodyText != null) {
-                        String[] lines = bodyText.split("\\r?\\n");
-                        int order = 0;
-                        for (String line : lines) {
-                            String trimmed = line.trim();
-                            if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
-                                if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
-                                    continue;
+                        // Parse checklist from Markdown
+                        if (bodyText != null) {
+                            String[] lines = bodyText.split("\\r?\\n");
+                            int order = 0;
+                            for (String line : lines) {
+                                String trimmed = line.trim();
+                                if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
+                                    if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
+                                        continue;
+                                    }
+                                    boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
+                                    String content = trimmed.substring(6).trim();
+                                    TaskChecklist item = TaskChecklist.builder()
+                                            .task(task)
+                                            .content(content)
+                                            .done(isDone)
+                                            .orderIndex(order++)
+                                            .build();
+                                    task.getChecklist().add(item);
                                 }
-                                boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
-                                String content = trimmed.substring(6).trim();
-                                TaskChecklist item = TaskChecklist.builder()
-                                        .task(task)
-                                        .content(content)
-                                        .done(isDone)
-                                        .orderIndex(order++)
-                                        .build();
-                                task.getChecklist().add(item);
                             }
                         }
+
+                        task = taskRepository.save(task);
+
+                        // Link task and save metadata
+                        bug.setRelatedTask(task);
+                        bug = bugReportRepository.save(bug);
+                        saveGitHubMetadata(bug, issueNumber, issueUrl);
+
+                        log.info("Bug Report ID: {} and Task ID: {} successfully auto-created from GitHub Webhook", bug.getId(), task.getId());
+                    } else {
+                        // Create only Task directly (No BugReport created for general GitHub issues/blank issues)
+                        String finalDescription = bodyText != null ? bodyText + "\n\n<!-- sync-source: github-blank-draft -->" : "<!-- sync-source: github-blank-draft -->";
+                        
+                        TaskType taskType = TaskType.DEVELOPMENT;
+                        if (labelsList != null) {
+                            for (Map<String, Object> labelMap : labelsList) {
+                                String labelName = (String) labelMap.get("name");
+                                if ("documentation".equalsIgnoreCase(labelName)) {
+                                    taskType = TaskType.DOCUMENTATION;
+                                } else if ("testing".equalsIgnoreCase(labelName)) {
+                                    taskType = TaskType.TESTING;
+                                }
+                            }
+                        }
+
+                        Task task = Task.builder()
+                                .project(matchedIntegration.getProject())
+                                .title(title != null ? title : "GitHub Issue")
+                                .description(finalDescription)
+                                .type(taskType)
+                                .priority(Priority.MEDIUM)
+                                .status(TaskStatus.TODO)
+                                .checklist(new ArrayList<>())
+                                .createdBy(creator)
+                                .githubIssueNumber(issueNumber)
+                                .githubIssueUrl(issueUrl)
+                                .build();
+
+                        // Parse checklist from Markdown
+                        if (bodyText != null) {
+                            String[] lines = bodyText.split("\\r?\\n");
+                            int order = 0;
+                            for (String line : lines) {
+                                String trimmed = line.trim();
+                                if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("- [x] ") || trimmed.startsWith("- [X] ")) {
+                                    if (trimmed.startsWith("- [ ] #") || trimmed.startsWith("- [x] #") || trimmed.startsWith("- [X] #") || trimmed.contains("(Pending Sync)")) {
+                                        continue;
+                                    }
+                                    boolean isDone = trimmed.substring(3, 4).equalsIgnoreCase("x");
+                                    String content = trimmed.substring(6).trim();
+                                    TaskChecklist item = TaskChecklist.builder()
+                                            .task(task)
+                                            .content(content)
+                                            .done(isDone)
+                                            .orderIndex(order++)
+                                            .build();
+                                    task.getChecklist().add(item);
+                                }
+                            }
+                        }
+
+                        task = taskRepository.save(task);
+
+                        log.info("Task ID: {} successfully auto-created from GitHub Webhook as Blank Issue", task.getId());
                     }
-
-                    task = taskRepository.save(task);
-
-                    // Link task and save metadata
-                    bug.setRelatedTask(task);
-                    bug = bugReportRepository.save(bug);
-                    saveGitHubMetadata(bug, issueNumber, issueUrl);
-
-                    log.info("Bug Report ID: {} and Task ID: {} successfully auto-created from GitHub Webhook", bug.getId(), task.getId());
 
                 } else if ("closed".equalsIgnoreCase(action)) {
                     if (bug != null) {
@@ -662,6 +815,7 @@ public class GitHubApiServiceImpl implements GitHubApiService {
             sb.append("\n");
         }
 
+        sb.append("\n<!-- devtrack-bug-id: ").append(bug.getId()).append(" -->\n");
         sb.append("> *Sync generated automatically by DevTrack AI module.*");
         return sb.toString();
     }

@@ -147,7 +147,7 @@ class GitHubApiServiceImplTest {
         String payload = "{"
                 + "\"action\":\"opened\","
                 + "\"repository\":{\"name\":\"mock-repo\",\"owner\":{\"login\":\"mock-owner\"}},"
-                + "\"issue\":{\"number\":15,\"html_url\":\"https://github.com/mock-owner/mock-repo/issues/15\",\"title\":\"[BUG] Null pointer exception\",\"body\":\"Occurs on login\"},"
+                + "\"issue\":{\"number\":15,\"html_url\":\"https://github.com/mock-owner/mock-repo/issues/15\",\"title\":\"[BUG] Null pointer exception\",\"body\":\"Occurs on login\",\"labels\":[{\"name\":\"bug\"}]},"
                 + "\"sender\":{\"login\":\"datnt\"}"
                 + "}";
 

@@ -37,7 +37,7 @@ import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
 
 // Feature Pages - Issue Tracker
-import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage } from '@features/issue-tracker'
+import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
 
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
@@ -104,6 +104,7 @@ export function AppRoutes() {
             <Route path="issues/:bugId" element={<IssueDetailView />} />
             <Route path="bugs" element={<NotFoundPage />} />
             <Route path="bugs/:bugId" element={<IssueDetailView />} />
+            <Route path="features/:id/discuss" element={<FeatureDiscussionPage />} />
             <Route path="github-config" element={<ProjectGithubConfig />} />
 
             {/* Module 8: Traceability Matrix */}
