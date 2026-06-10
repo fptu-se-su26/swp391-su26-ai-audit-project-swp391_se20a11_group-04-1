@@ -85,3 +85,9 @@ AIRequirement.md
 /code/.gitignore
 /Tin/
 /code/backend/src/main/java/org/example/backend/config/KafkaProducerConfig.java
+
+# --- AGENT CONFIGS ---
+.agent/
+GEMINI.md
+diff_dashboard.txt
+ERRORS.md

@@ -79,9 +79,20 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
       } ${isDragging ? 'opacity-50 scale-[0.98]' : ''}`}
     >
       <div className={`flex justify-between items-start gap-2 ${isCompact ? 'mb-1' : 'mb-2'}`}>
-        <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
-          {task.id}
-        </span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
+            ID: {task.id}
+          </span>
+          {task.githubIssueNumber && (
+            <span className={`text-[9px] font-bold px-1 py-0.2 rounded shrink-0 border flex items-center gap-0.5 ${
+              isDone 
+                ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]' 
+                : 'bg-purple-50 text-purple-600 border-purple-200'
+            }`}>
+              #{task.githubIssueNumber}
+            </span>
+          )}
+        </div>
         <div className="flex items-start justify-end gap-1">
           <div className="flex flex-wrap justify-end gap-1">
             {!isCompact && (

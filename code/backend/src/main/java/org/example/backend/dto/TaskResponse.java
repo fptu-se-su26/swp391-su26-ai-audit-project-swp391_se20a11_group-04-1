@@ -39,12 +39,15 @@ public class TaskResponse {
     private long overdueDays;
     private boolean hasAcceptedEvidence;
     private Long createdById;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ChecklistItem> checklist;
     private Long parentId;
     private String parentTitle;
     private String githubIssueUrl;
+    private Integer githubIssueNumber;
+
 
     @Getter
     @Setter

@@ -11,6 +11,7 @@ import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.entity.GitHubIntegration;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Transactional
 public class BugReportController {
 
     private final BugReportService bugReportService;

@@ -5,6 +5,7 @@ import useProjectStore from '@store/useProjectStore'
 import useAuthStore from '@store/useAuthStore'
 import bugService from '../services/bugService'
 import axiosInstance from '@/api/axiosConfig'
+import proposalService from '../services/proposalService'
 
 export function IssueDetailView() {
   const { projectId, bugId } = useParams()
@@ -23,6 +24,18 @@ export function IssueDetailView() {
   const [newComment, setNewComment] = useState('')
   const [commentsLoading, setCommentsLoading] = useState(false)
 
+  const loadComments = useCallback(async (taskId) => {
+    setCommentsLoading(true)
+    try {
+      const data = await proposalService.getTaskComments(taskId)
+      setComments(data || [])
+    } catch (err) {
+      console.error('Error fetching comments:', err)
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [])
+
   const loadBugAndTaskDetails = useCallback(async () => {
     if (!bugId) return
     setLoading(true)
@@ -35,6 +48,7 @@ export function IssueDetailView() {
         try {
           const taskData = await bugService.getTaskDetails(bugData.relatedTaskId)
           setTask(taskData)
+          loadComments(bugData.relatedTaskId)
         } catch (taskErr) {
           console.error('Error fetching linked task details:', taskErr)
         }
@@ -45,7 +59,7 @@ export function IssueDetailView() {
     } finally {
       setLoading(false)
     }
-  }, [bugId])
+  }, [bugId, loadComments])
 
   useEffect(() => {
     loadBugAndTaskDetails()
@@ -112,21 +126,19 @@ export function IssueDetailView() {
   }
 
   // Handle Comment submissions
-  const handleAddComment = (e) => {
+  const handleAddComment = async (e) => {
     e.preventDefault()
-    if (!newComment.trim()) return
+    if (!newComment.trim() || !task) return
 
-    const commentObj = {
-      id: Date.now(),
-      author: isLeader ? 'Project Leader' : 'Developer',
-      content: newComment.trim(),
-      createdAt: new Date().toISOString(),
-      isLocal: true
+    try {
+      await proposalService.addTaskComment(task.id, newComment.trim())
+      setNewComment('')
+      toast.success('Comment posted! Synced with GitHub comments thread.')
+      loadComments(task.id)
+    } catch (err) {
+      console.error('Failed to post comment:', err)
+      toast.error(err.response?.data?.message || 'Failed to post comment')
     }
-
-    setComments(prev => [...prev, commentObj])
-    setNewComment('')
-    toast.success('Comment posted! Synced with GitHub comments thread.')
   }
 
   if (loading && !bug) {
@@ -379,11 +391,11 @@ export function IssueDetailView() {
                     comments.map(c => (
                       <div key={c.id} className="flex gap-3 p-3 rounded-xl bg-surface-container-low border border-outline-variant/40">
                         <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shrink-0 shadow-inner">
-                          {c.author.charAt(0)}
+                          {(c.createdByName || c.author || 'Anonymous').charAt(0)}
                         </div>
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex justify-between items-center gap-2">
-                            <span className="text-xs font-bold text-on-surface">{c.author}</span>
+                            <span className="text-xs font-bold text-on-surface">{c.createdByName || c.author || 'Anonymous'}</span>
                             <span className="text-[9px] text-on-surface-variant">
                               {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>

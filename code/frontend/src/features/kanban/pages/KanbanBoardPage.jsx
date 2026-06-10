@@ -90,10 +90,40 @@ const KanbanBoardPage = () => {
   }
 
   const filteredTasks = tasks.filter((task) => {
-    const sprintMatch = filters.sprint === 'ALL' || task.sprint === filters.sprint
-    const assigneeMatch = filters.assignee === 'ALL' || task.assignee.name === filters.assignee
-    const requirementMatch = filters.requirement === 'ALL' || task.requirement === filters.requirement
-    const priorityMatch = filters.priority === 'ALL' || task.priority === filters.priority
+    // Helper to identify if a task is created/synced with a GitHub issue or is a BUG_FIX type
+    const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
+
+    if (task.parentId) {
+      // It is a subtask. Only show it on the board if its parent task was created from an issue.
+      const parentTask = tasks.find((t) => String(t.id) === String(task.parentId))
+      if (!isFromIssue(parentTask)) {
+        return false
+      }
+    } else {
+      // It is a parent task. Hide it if it was created from an issue.
+      if (isFromIssue(task)) {
+        return false
+      }
+    }
+
+    // Fetch subtasks of this parent task for smart filtering (only applicable for parent tasks shown on the board)
+    const subtasks = task.parentId ? [] : tasks.filter((sub) => String(sub.parentId) === String(task.id))
+
+    const sprintMatch = filters.sprint === 'ALL' || 
+                        task.sprint === filters.sprint || 
+                        subtasks.some((sub) => sub.sprint === filters.sprint)
+
+    const assigneeMatch = filters.assignee === 'ALL' || 
+                          task.assignee.name === filters.assignee || 
+                          subtasks.some((sub) => sub.assignee.name === filters.assignee)
+
+    const requirementMatch = filters.requirement === 'ALL' || 
+                             task.requirement === filters.requirement || 
+                             subtasks.some((sub) => sub.requirement === filters.requirement)
+
+    const priorityMatch = filters.priority === 'ALL' || 
+                          task.priority === filters.priority || 
+                          subtasks.some((sub) => sub.priority === filters.priority)
 
     return sprintMatch && assigneeMatch && requirementMatch && priorityMatch
   })
@@ -149,6 +179,19 @@ const KanbanBoardPage = () => {
       const targetStatusKey = column?.statusKey || status
 
       if (task) {
+        const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
+        const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
+        const isIssueTaskOrSubtask = isFromIssue(task) || isFromIssue(parentTask)
+
+        if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
+          if (isIssueTaskOrSubtask) {
+            toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+        }
+
         const isUnassigned = !task.assignee?.id
         // If moving OUT of TODO and it's unassigned
         if (isUnassigned && targetStatusKey !== 'TODO' && targetStatusKey !== 'OPEN') {
