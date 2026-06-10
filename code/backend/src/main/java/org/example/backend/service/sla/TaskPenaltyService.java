@@ -31,20 +31,32 @@ public class TaskPenaltyService {
     private final NotificationService notificationService;
 
     @Transactional
+    public void applyPenaltyIfNeeded(Task task, TaskSlaEvaluation evaluation) {
+        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) && !task.isOverduePenaltyApplied()) {
+            applyPenalty(task, evaluation);
+        }
+    }
+
+    @Transactional
+    public void escalateToLeadersIfNeeded(Task task, TaskSlaEvaluation evaluation) {
+        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
+            escalateToLeaders(task, evaluation);
+        }
+    }
+
+    @Transactional
     public int applyOverduePenalties() {
         List<Task> tasks = taskRepository.findAllSlaCandidates();
         int changed = 0;
         for (Task task : tasks) {
             TaskSlaEvaluation evaluation = taskSlaRuleService.evaluate(task);
             if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) && !task.isOverduePenaltyApplied()) {
-                applyPenalty(task, evaluation);
+                applyPenaltyIfNeeded(task, evaluation);
                 changed++;
             }
-            if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
-                escalateToLeaders(task, evaluation);
-            }
+            escalateToLeadersIfNeeded(task, evaluation);
         }
-        log.info("Applied {} overdue penalties", changed);
+        log.info("Applied {} overdue penalties via safety net", changed);
         return changed;
     }
 
@@ -63,6 +75,7 @@ public class TaskPenaltyService {
 
         outboxEventService.createEvent("TASK_PENALTY_APPLIED", "Task", task.getId(), Map.of(
                 "taskId", task.getId(),
+                "projectId", task.getProject().getId(),
                 "assigneeId", task.getPrimaryAssignee().getId(),
                 "overdueDays", evaluation.overdueDays(),
                 "penaltyLabel", "OVERDUE_PENALTY"

@@ -13,8 +13,15 @@ import java.util.Optional;
 public interface DailyDigestRepository extends JpaRepository<DailyDigest, Long> {
     boolean existsByUserIdAndDigestDateAndDigestType(Long userId, LocalDate digestDate, String digestType);
 
+    boolean existsByUserIdAndProjectIdAndDigestDateAndDigestType(Long userId, Long projectId, LocalDate digestDate, String digestType);
+
     Optional<DailyDigest> findByUserIdAndDigestDateAndDigestType(Long userId, LocalDate digestDate, String digestType);
+
+    Optional<DailyDigest> findByUserIdAndProjectIdAndDigestDateAndDigestType(Long userId, Long projectId, LocalDate digestDate, String digestType);
 
     @EntityGraph(attributePaths = {"user", "items"})
     List<DailyDigest> findByStatusOrderByCreatedAtAsc(String status);
+
+    @EntityGraph(attributePaths = {"user", "items"})
+    List<DailyDigest> findByProjectIdAndStatusOrderByCreatedAtAsc(Long projectId, String status);
 }

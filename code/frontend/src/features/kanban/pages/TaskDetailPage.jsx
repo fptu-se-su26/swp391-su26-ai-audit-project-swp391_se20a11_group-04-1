@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import TaskFormModal from '../components/TaskFormModal'
+import SlaDecisionPackPanel from '../components/SlaDecisionPackPanel'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 
@@ -415,6 +416,8 @@ const TaskDetailPage = () => {
           </div>
 
           <div className="space-y-6">
+            <SlaDecisionPackPanel projectId={projectId} taskId={task.id} />
+
             <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant">Git Workflow</h3>
               <span className="text-label-md text-on-surface-variant uppercase mb-1 block">Commit Prefix</span>

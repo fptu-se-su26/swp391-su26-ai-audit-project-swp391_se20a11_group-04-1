@@ -26,10 +26,14 @@ import org.example.backend.repository.TaskCommentRepository;
 import org.example.backend.repository.TaskProposalRepository;
 import org.example.backend.entity.TaskComment;
 import org.example.backend.entity.TaskProposal;
+import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.sla.TaskSlaRuleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.Objects;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -65,6 +69,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskProposalRepository taskProposalRepository;
     private final TaskSlaRuleService taskSlaRuleService;
     private final NotificationService notificationService;
+    private final OutboxEventService outboxEventService;
 
     @Override
     @Transactional
@@ -167,6 +172,16 @@ public class TaskServiceImpl implements TaskService {
         }
         Task savedTask = taskRepository.save(task);
 
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("taskId", savedTask.getId());
+        payload.put("projectId", savedTask.getProject().getId());
+        payload.put("sprintId", savedTask.getSprintId());
+        payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+        payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+        payload.put("occurredAt", LocalDateTime.now().toString());
+
+        outboxEventService.createEvent("TASK_CREATED", "Task", savedTask.getId(), payload);
+
         // Outbound sync: create GitHub Issue for non-BUG_FIX tasks (non-blocking)
         // Except for DEVELOPMENT parent tasks, which wait for leader approval & sync
         boolean isDevParent = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null;
@@ -185,8 +200,57 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
+
+        LocalDate oldDeadline = task.getDeadline();
+        Long oldSprintId = task.getSprintId();
+        Long oldAssigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+        TaskStatus oldStatus = task.getStatus();
+
         applyRequest(task, request, task.getProject().getId(), userId);
         Task savedTask = taskRepository.save(task);
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("taskId", savedTask.getId());
+        payload.put("projectId", savedTask.getProject().getId());
+        payload.put("sprintId", savedTask.getSprintId());
+        payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+        payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+        payload.put("occurredAt", LocalDateTime.now().toString());
+
+        outboxEventService.createEvent("TASK_UPDATED", "Task", savedTask.getId(), payload);
+
+        TaskStatus newStatus = savedTask.getStatus();
+        if (!Objects.equals(oldStatus, newStatus)) {
+            HashMap<String, Object> statusPayload = new HashMap<>(payload);
+            statusPayload.put("oldStatus", oldStatus != null ? oldStatus.name() : null);
+            statusPayload.put("newStatus", newStatus != null ? newStatus.name() : null);
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), statusPayload);
+        }
+
+        LocalDate newDeadline = savedTask.getDeadline();
+        Long newSprintId = savedTask.getSprintId();
+        Long newAssigneeId = savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null;
+
+        if (!Objects.equals(oldDeadline, newDeadline)) {
+            HashMap<String, Object> deadlinePayload = new HashMap<>(payload);
+            deadlinePayload.put("oldDeadline", oldDeadline != null ? oldDeadline.toString() : null);
+            deadlinePayload.put("newDeadline", newDeadline != null ? newDeadline.toString() : null);
+            outboxEventService.createEvent("TASK_DEADLINE_UPDATED", "Task", savedTask.getId(), deadlinePayload);
+        }
+
+        if (!Objects.equals(oldSprintId, newSprintId)) {
+            HashMap<String, Object> sprintPayload = new HashMap<>(payload);
+            sprintPayload.put("oldSprintId", oldSprintId);
+            sprintPayload.put("newSprintId", newSprintId);
+            outboxEventService.createEvent("TASK_SPRINT_CHANGED", "Task", savedTask.getId(), sprintPayload);
+        }
+
+        if (!Objects.equals(oldAssigneeId, newAssigneeId)) {
+            HashMap<String, Object> assigneePayload = new HashMap<>(payload);
+            assigneePayload.put("oldAssigneeId", oldAssigneeId);
+            assigneePayload.put("newAssigneeId", newAssigneeId);
+            outboxEventService.createEvent("TASK_ASSIGNEE_CHANGED", "Task", savedTask.getId(), assigneePayload);
+        }
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
             syncParentAssignee(savedTask, userId);
@@ -208,6 +272,7 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
+        TaskStatus oldStatus = task.getStatus();
         TaskStatus nextStatus = null;
         if (request.getColumnId() != null) {
             KanbanColumn targetColumn = kanbanColumnRepository.findById(request.getColumnId())
@@ -238,6 +303,21 @@ public class TaskServiceImpl implements TaskService {
             task.setBlockedReason(request.getBlockedReason().trim());
         }
         Task savedTask = taskRepository.save(task);
+
+        if (!Objects.equals(oldStatus, savedTask.getStatus())) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("taskId", savedTask.getId());
+            payload.put("projectId", savedTask.getProject().getId());
+            payload.put("sprintId", savedTask.getSprintId());
+            payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+            payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            payload.put("oldStatus", oldStatus != null ? oldStatus.name() : null);
+            payload.put("newStatus", savedTask.getStatus() != null ? savedTask.getStatus().name() : null);
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
+        }
+
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
             checkAndCompleteParentTask(savedTask.getParent());
@@ -258,8 +338,41 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
+        Long oldAssigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+        TaskStatus oldStatus = task.getStatus();
         setAssignee(task, request.getAssigneeId(), projectId, userId);
         Task savedTask = taskRepository.save(task);
+
+        Long newAssigneeId = savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null;
+        if (!Objects.equals(oldAssigneeId, newAssigneeId)) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("taskId", savedTask.getId());
+            payload.put("projectId", savedTask.getProject().getId());
+            payload.put("sprintId", savedTask.getSprintId());
+            payload.put("assigneeId", newAssigneeId);
+            payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            payload.put("oldAssigneeId", oldAssigneeId);
+            payload.put("newAssigneeId", newAssigneeId);
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_ASSIGNEE_CHANGED", "Task", savedTask.getId(), payload);
+        }
+
+        TaskStatus newStatus = savedTask.getStatus();
+        if (!Objects.equals(oldStatus, newStatus)) {
+            HashMap<String, Object> statusPayload = new HashMap<>();
+            statusPayload.put("taskId", savedTask.getId());
+            statusPayload.put("projectId", savedTask.getProject().getId());
+            statusPayload.put("sprintId", savedTask.getSprintId());
+            statusPayload.put("assigneeId", newAssigneeId);
+            statusPayload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            statusPayload.put("oldStatus", oldStatus != null ? oldStatus.name() : null);
+            statusPayload.put("newStatus", newStatus != null ? newStatus.name() : null);
+            statusPayload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), statusPayload);
+        }
+
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
             syncParentAssignee(savedTask, userId);
@@ -289,6 +402,21 @@ public class TaskServiceImpl implements TaskService {
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REQUEST_REVIEW, fromStatus, TaskStatus.IN_REVIEW,
                 request != null ? request.getReason() : null);
+
+        if (!Objects.equals(fromStatus, TaskStatus.IN_REVIEW)) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("taskId", savedTask.getId());
+            payload.put("projectId", savedTask.getProject().getId());
+            payload.put("sprintId", savedTask.getSprintId());
+            payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+            payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            payload.put("oldStatus", fromStatus != null ? fromStatus.name() : null);
+            payload.put("newStatus", TaskStatus.IN_REVIEW.name());
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
+        }
+
         return toResponse(savedTask);
     }
 
@@ -315,6 +443,21 @@ public class TaskServiceImpl implements TaskService {
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
                 request != null ? request.getReason() : null);
+
+        if (!Objects.equals(fromStatus, TaskStatus.DONE)) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("taskId", savedTask.getId());
+            payload.put("projectId", savedTask.getProject().getId());
+            payload.put("sprintId", savedTask.getSprintId());
+            payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+            payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            payload.put("oldStatus", fromStatus != null ? fromStatus.name() : null);
+            payload.put("newStatus", TaskStatus.DONE.name());
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
+        }
+
         return toResponse(savedTask);
     }
 
@@ -344,6 +487,21 @@ public class TaskServiceImpl implements TaskService {
         syncWithBugReport(savedTask, userId);
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
+
+        if (!Objects.equals(fromStatus, targetStatus)) {
+            HashMap<String, Object> payload = new HashMap<>();
+            payload.put("taskId", savedTask.getId());
+            payload.put("projectId", savedTask.getProject().getId());
+            payload.put("sprintId", savedTask.getSprintId());
+            payload.put("assigneeId", savedTask.getPrimaryAssignee() != null ? savedTask.getPrimaryAssignee().getId() : null);
+            payload.put("deadline", savedTask.getDeadline() != null ? savedTask.getDeadline().toString() : null);
+            payload.put("oldStatus", fromStatus != null ? fromStatus.name() : null);
+            payload.put("newStatus", targetStatus.name());
+            payload.put("occurredAt", LocalDateTime.now().toString());
+
+            outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
+        }
+
         return toResponse(savedTask);
     }
 

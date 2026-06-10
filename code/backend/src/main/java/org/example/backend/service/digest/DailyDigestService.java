@@ -5,12 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.*;
 import org.example.backend.repository.DailyDigestRepository;
 import org.example.backend.repository.EmailLogRepository;
+import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.sla.TaskSlaCategory;
 import org.example.backend.service.sla.TaskSlaEvaluation;
 import org.example.backend.service.sla.TaskSlaRuleService;
+import org.example.backend.exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ public class DailyDigestService {
     private final TaskSlaRuleService taskSlaRuleService;
     private final EmailService emailService;
     private final OutboxEventService outboxEventService;
+    private final ProjectRepository projectRepository;
     private final Clock clock;
 
     @Value("${app.frontend.base-url:http://localhost:5173}")
@@ -43,20 +46,36 @@ public class DailyDigestService {
 
     @Transactional
     public int buildDailyDigests() {
+        List<Project> activeProjects = projectRepository.findAll().stream()
+                .filter(p -> p.getStatus() == ProjectStatus.ACTIVE)
+                .collect(Collectors.toList());
+        int total = 0;
+        for (Project project : activeProjects) {
+            total += buildDailyDigestsForProject(project.getId());
+        }
+        return total;
+    }
+
+    @Transactional
+    public int buildDailyDigestsForProject(Long projectId) {
         LocalDate today = LocalDate.now(clock);
-        Map<UserAccount, List<Task>> tasksByUser = taskRepository.findAllSlaCandidates().stream()
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
+
+        Map<UserAccount, List<Task>> tasksByUser = taskRepository.findSlaCandidatesByProjectId(projectId).stream()
                 .filter(task -> task.getPrimaryAssignee() != null)
                 .collect(Collectors.groupingBy(Task::getPrimaryAssignee));
 
         int created = 0;
         for (Map.Entry<UserAccount, List<Task>> entry : tasksByUser.entrySet()) {
             UserAccount user = entry.getKey();
-            if (dailyDigestRepository.existsByUserIdAndDigestDateAndDigestType(user.getId(), today, DIGEST_TYPE)) {
+            if (dailyDigestRepository.existsByUserIdAndProjectIdAndDigestDateAndDigestType(user.getId(), projectId, today, DIGEST_TYPE)) {
                 continue;
             }
 
             DailyDigest digest = DailyDigest.builder()
                     .user(user)
+                    .project(project)
                     .digestDate(today)
                     .digestType(DIGEST_TYPE)
                     .build();
@@ -73,13 +92,57 @@ public class DailyDigestService {
             outboxEventService.createEvent("DAILY_DIGEST_BUILT", "DailyDigest", saved.getId(), Map.of(
                     "digestId", saved.getId(),
                     "userId", user.getId(),
+                    "projectId", projectId,
                     "digestDate", today.toString(),
                     "itemCount", saved.getItemCount()
             ));
             created++;
         }
-        log.info("Built {} daily digests", created);
+        log.info("Built {} daily digests for project {}", created, projectId);
         return created;
+    }
+
+    @Transactional
+    public int sendPendingDailyDigestsForProject(Long projectId) {
+        int sent = 0;
+        for (DailyDigest digest : dailyDigestRepository.findByProjectIdAndStatusOrderByCreatedAtAsc(projectId, "PENDING")) {
+            try {
+                String subject = "DevTrack Daily Work Reminder - " + digest.getDigestDate();
+                String body = buildEmailBody(digest);
+                emailService.sendEmail(digest.getUser().getEmail(), subject, body);
+                digest.setStatus("SENT");
+                digest.setSentAt(LocalDateTime.now());
+                emailLogRepository.save(EmailLog.builder()
+                        .recipient(digest.getUser())
+                        .recipientEmail(digest.getUser().getEmail())
+                        .emailType(DIGEST_TYPE)
+                        .subject(subject)
+                        .status("SENT")
+                        .relatedId(digest.getId())
+                        .sentAt(LocalDateTime.now())
+                        .build());
+                outboxEventService.createEvent("EMAIL_DAILY_DIGEST_SENT", "DailyDigest", digest.getId(), Map.of(
+                        "digestId", digest.getId(),
+                        "userId", digest.getUser().getId(),
+                        "email", digest.getUser().getEmail()
+                ));
+                sent++;
+            } catch (Exception ex) {
+                log.error("Failed to send digest {}", digest.getId(), ex);
+                digest.setStatus("FAILED");
+                digest.setLastError(ex.getMessage());
+                emailLogRepository.save(EmailLog.builder()
+                        .recipient(digest.getUser())
+                        .recipientEmail(digest.getUser().getEmail())
+                        .emailType(DIGEST_TYPE)
+                        .subject("DevTrack Daily Work Reminder - " + digest.getDigestDate())
+                        .status("FAILED")
+                        .relatedId(digest.getId())
+                        .errorMessage(ex.getMessage())
+                        .build());
+            }
+        }
+        return sent;
     }
 
     @Transactional
@@ -209,13 +272,13 @@ public class DailyDigestService {
 
         html.append("<div class='email-container'>");
         html.append("<div class='email-header'>");
-        html.append("<h1>DevTrack AI</h1>");
+        html.append("<h1>DevTrack AI - ").append(escape(digest.getProject().getName())).append("</h1>");
         html.append("<p>Daily Work Reminder - ").append(digest.getDigestDate()).append("</p>");
         html.append("</div>");
 
         html.append("<div class='email-body'>");
         html.append("<p>Hello <strong>").append(escape(digest.getUser().getUsername())).append("</strong>,</p>");
-        html.append("<p>Here is your daily digest of actionable tasks. Please review the items below and prioritize your work accordingly.</p>");
+        html.append("<p>Here is your daily digest of actionable tasks for project <strong>").append(escape(digest.getProject().getName())).append("</strong>. Please review the items below and prioritize your work accordingly.</p>");
 
         appendSection(html, digest, "PENALTY", "Penalty / Critical", "#ef4444", "#fef2f2");
         appendSection(html, digest, "OVERDUE_WARNING", "Overdue Warning", "#f97316", "#fff7ed");

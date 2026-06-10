@@ -207,10 +207,14 @@ export default function SprintReportPage() {
   }
 
   const handleTestDigest = async () => {
+    if (!activeProject?.id) {
+      toast.error('Không tìm thấy project ID')
+      return
+    }
     setIsTestingDigest(true)
     const toastId = toast.loading('Đang kích hoạt hệ thống nhắc nhở...')
     try {
-      await sprintReportService.triggerDailyDigest()
+      await sprintReportService.triggerDailyDigest(activeProject.id)
       toast.success('Đã chạy thử hệ thống gửi mail thành công', { id: toastId })
     } catch (error) {
       console.error(error)
