@@ -19,6 +19,7 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.BugReportRepository;
 import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
+import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
 import org.example.backend.repository.NotificationRepository;
@@ -43,6 +44,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
@@ -63,6 +65,7 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
+    private final EvidenceLinkRepository evidenceLinkRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     private final TaskCommentRepository taskCommentRepository;
@@ -76,9 +79,7 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskResponse> getProjectTasks(Long projectId, Long userId) {
         ensureProjectMember(projectId, userId);
         kanbanColumnService.ensureDefaultColumns(projectId);
-        return taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        return toResponses(taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId));
     }
 
     @Override
@@ -125,8 +126,7 @@ public class TaskServiceImpl implements TaskService {
                 .sorted((entry1, entry2) -> entry2.getValue().compareTo(entry1.getValue()))
                 .limit(limit)
                 .map(Map.Entry::getKey)
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+                .collect(Collectors.collectingAndThen(Collectors.toList(), this::toResponses));
     }
 
     @Override
@@ -134,8 +134,7 @@ public class TaskServiceImpl implements TaskService {
     public List<TaskResponse> getMyTasks(Long userId) {
         return taskRepository.findByPrimaryAssigneeIdOrderByUpdatedAtDesc(userId).stream()
                 .filter(task -> projectMemberRepository.findByProjectIdAndUserId(task.getProject().getId(), userId).isPresent())
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+                .collect(Collectors.collectingAndThen(Collectors.toList(), this::toResponses));
     }
 
     @Override
@@ -1461,15 +1460,71 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    private List<TaskResponse> toResponses(List<Task> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return Collections.emptyList();
+        }
+        TaskResponseContext context = buildTaskResponseContext(tasks);
+        return tasks.stream()
+                .map(task -> toResponse(task, context))
+                .collect(Collectors.toList());
+    }
+
+    private TaskResponseContext buildTaskResponseContext(List<Task> tasks) {
+        Set<Long> taskIds = tasks.stream()
+                .map(Task::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Long> requirementIds = tasks.stream()
+                .map(Task::getRequirementId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Long> sprintIds = tasks.stream()
+                .map(Task::getSprintId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> requirementCodes = requirementRepository.findAllById(requirementIds).stream()
+                .collect(Collectors.toMap(
+                        Requirement::getId,
+                        requirement -> requirement.getReqCode() != null ? requirement.getReqCode() : "REQ-" + requirement.getId()
+                ));
+
+        Map<Long, String> sprintNames = sprintRepository.findAllById(sprintIds).stream()
+                .collect(Collectors.toMap(
+                        Sprint::getId,
+                        sprint -> sprint.getName() != null ? sprint.getName() : "Sprint " + sprint.getId()
+                ));
+
+        List<Long> taskIdList = new ArrayList<>(taskIds);
+        Set<Long> acceptedEvidenceTaskIds = taskIdList.isEmpty()
+                ? Collections.emptySet()
+                : evidenceLinkRepository.findEntityIdsWithAcceptedEvidence(
+                                EvidenceEntityType.TASK,
+                                taskIdList,
+                                EvidenceStatus.ACCEPTED
+                        ).stream().collect(Collectors.toSet());
+
+        return new TaskResponseContext(requirementCodes, sprintNames, acceptedEvidenceTaskIds);
+    }
+
     private TaskResponse toResponse(Task task) {
-        var sla = taskSlaRuleService.evaluate(task);
+        return toResponse(task, null);
+    }
+
+    private TaskResponse toResponse(Task task, TaskResponseContext context) {
+        var sla = context != null
+                ? taskSlaRuleService.evaluate(task, context.hasAcceptedEvidence(task.getId()))
+                : taskSlaRuleService.evaluate(task);
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
                 .requirementId(task.getRequirementId())
-                .requirementCode(resolveRequirementCode(task.getRequirementId()))
+                .requirementCode(context != null ? context.requirementCode(task.getRequirementId()) : resolveRequirementCode(task.getRequirementId()))
                 .sprintId(task.getSprintId())
-                .sprintName(resolveSprintName(task.getSprintId()))
+                .sprintName(context != null ? context.sprintName(task.getSprintId()) : resolveSprintName(task.getSprintId()))
                 .title(task.getTitle())
                 .description(task.getDescription())
                 .type(task.getType() != null ? task.getType().name() : null)
@@ -1506,6 +1561,24 @@ public class TaskServiceImpl implements TaskService {
                 .githubIssueUrl(task.getGithubIssueUrl())
                 .githubIssueNumber(task.getGithubIssueNumber())
                 .build();
+    }
+
+    private record TaskResponseContext(
+            Map<Long, String> requirementCodes,
+            Map<Long, String> sprintNames,
+            Set<Long> acceptedEvidenceTaskIds
+    ) {
+        String requirementCode(Long requirementId) {
+            return requirementId == null ? null : requirementCodes.get(requirementId);
+        }
+
+        String sprintName(Long sprintId) {
+            return sprintId == null ? null : sprintNames.get(sprintId);
+        }
+
+        boolean hasAcceptedEvidence(Long taskId) {
+            return taskId != null && acceptedEvidenceTaskIds.contains(taskId);
+        }
     }
 
 

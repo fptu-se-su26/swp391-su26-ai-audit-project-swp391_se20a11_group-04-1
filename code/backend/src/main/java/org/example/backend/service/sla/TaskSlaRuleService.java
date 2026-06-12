@@ -21,9 +21,12 @@ public class TaskSlaRuleService {
     private final Clock clock;
 
     public TaskSlaEvaluation evaluate(Task task) {
+        return evaluate(task, hasAcceptedEvidence(task));
+    }
+
+    public TaskSlaEvaluation evaluate(Task task, boolean hasAcceptedEvidence) {
         EnumSet<TaskSlaCategory> categories = EnumSet.noneOf(TaskSlaCategory.class);
         LocalDate today = LocalDate.now(clock);
-        boolean hasAcceptedEvidence = hasAcceptedEvidence(task);
         long overdueDays = calculateOverdueDays(task, today);
 
         if (task.getStatus() == TaskStatus.BLOCKED) {

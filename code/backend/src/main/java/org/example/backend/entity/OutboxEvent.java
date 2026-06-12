@@ -50,4 +50,7 @@ public class OutboxEvent {
 
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
+
+    @Column(name = "next_retry_at")
+    private LocalDateTime nextRetryAt;
 }
