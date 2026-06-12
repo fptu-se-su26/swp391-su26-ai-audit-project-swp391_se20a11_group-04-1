@@ -57,18 +57,18 @@ const ActorNode = ({ data, id, isConnectable, selected }) => {
           </button>
       </NodeToolbar>
 
-      {/* Handles: Đồng nhất 1 màu, ẩn/hiện khi hover */}
+      {/* Handles: Đã ẩn hoàn toàn nhưng vẫn hoạt động nhờ ConnectionMode.Loose */}
       {/* Target handles */}
-      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '40%' }} />
-      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '40%' }} />
-      <Handle type="target" position={Position.Top} id="top-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '40%' }} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '40%' }} />
+      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ left: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ right: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Top} id="top-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ top: -4, left: '40%' }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ bottom: -4, left: '40%' }} />
 
       {/* Source handles */}
-      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '60%' }} />
-      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '60%' }} />
-      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '60%' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '60%' }} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ right: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ left: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ top: -4, left: '60%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ bottom: -4, left: '60%' }} />
       
       <div className="flex flex-col items-center">
         {/* SVG Stickman */}

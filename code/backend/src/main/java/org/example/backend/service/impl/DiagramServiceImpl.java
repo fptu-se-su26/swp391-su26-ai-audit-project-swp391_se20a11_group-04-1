@@ -65,6 +65,7 @@ public class DiagramServiceImpl implements DiagramService {
             ucDto.setId(uc.getId().toString());
             ucDto.setName(uc.getName());
             ucDto.setShowInDiagram(uc.isShowInDiagram());
+            ucDto.setAddedFromDiagram(uc.isAddedFromDiagram());
             
             // Map Actors & Actor-UC relations
             for (UseCaseActor uca : uc.getActors()) {
@@ -181,12 +182,17 @@ public class DiagramServiceImpl implements DiagramService {
             }
         }
         
-        // 2. SOFT HIDE Use Cases missing from payload (instead of deleting)
+        // 2. SOFT HIDE or PERMANENTLY DELETE Use Cases missing from payload
         for (UseCase existing : existingUcs) {
             if (!incomingIds.contains(existing.getId().toString()) && !existing.isAiGenerated()) {
-                // Hide from diagram
-                existing.setShowInDiagram(false);
-                useCaseRepository.save(existing);
+                if (existing.isAddedFromDiagram()) {
+                    // Smart Deletion: If it's a draft created in the diagram, permanently delete it
+                    useCaseRepository.delete(existing);
+                } else {
+                    // Soft Hide: If it's a formal UC, just hide it from diagram
+                    existing.setShowInDiagram(false);
+                    useCaseRepository.save(existing);
+                }
             } else if (incomingIds.contains(existing.getId().toString()) && !existing.isShowInDiagram()) {
                 // Restore if it was hidden
                 existing.setShowInDiagram(true);
@@ -213,6 +219,12 @@ public class DiagramServiceImpl implements DiagramService {
                 if ("actor-uc".equals(rel.getType())) {
                     if (uc.getId().toString().equals(rel.getTargetId())) {
                         String actorName = actorIdToNameMap.get(rel.getSourceId());
+                        if (actorName == null && rel.getSourceId() != null) {
+                            actorName = actorIdToNameMap.get("actor_" + rel.getSourceId());
+                        }
+                        if (actorName == null && rel.getSourceId() != null && rel.getSourceId().startsWith("actor_")) {
+                            actorName = actorIdToNameMap.get(rel.getSourceId().substring(6));
+                        }
                         if (actorName != null) {
                             UseCaseActor uca = new UseCaseActor();
                             uca.setActorName(actorName);

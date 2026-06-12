@@ -7,13 +7,15 @@ import {
   applyEdgeChanges,
   useReactFlow,
   ReactFlowProvider,
-  addEdge
+  addEdge,
+  ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng } from 'html-to-image';
 import ActorNode from './nodes/ActorNode';
 import UseCaseNode from './nodes/UseCaseNode';
 import SystemBoundaryNode from './nodes/SystemBoundaryNode';
+import CustomEdge from './edges/CustomEdge';
 import { ucLayoutEngine } from '../utils/ucLayoutEngine';
 import { diagramService } from '../services/diagramService';
 import useDiagramStore from '../../../store/useDiagramStore';
@@ -25,7 +27,11 @@ const nodeTypes = {
   systemBoundary: SystemBoundaryNode
 };
 
-const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave }) => {
+const edgeTypes = {
+  custom: CustomEdge
+};
+
+const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges }) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,13 +47,19 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
   const [edgePopupPos, setEdgePopupPos] = useState({ x: 0, y: 0 });
 
   const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
+    (changes) => {
+        setNodes((nds) => applyNodeChanges(changes, nds));
+        if (onUnsavedChanges) onUnsavedChanges();
+    },
+    [onUnsavedChanges]
   );
   
   const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
+    (changes) => {
+        setEdges((eds) => applyEdgeChanges(changes, eds));
+        if (onUnsavedChanges) onUnsavedChanges();
+    },
+    [onUnsavedChanges]
   );
 
   const saveHistory = useCallback(() => {
@@ -67,6 +79,10 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
         setNodes(prevState.nodes);
         setEdges(prevState.edges);
         setHistory((prev) => prev.slice(0, -1));
+        
+        setTimeout(() => {
+            fitView({ padding: 0.2, duration: 800 });
+        }, 50);
         
         // Cập nhật lại store (optional, tùy thuộc vào độ phức tạp, tạm thời chỉ undo vị trí trên canvas)
     }
@@ -94,6 +110,44 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
       }
       setNodes((nds) => nds.map(n => n.id === id ? { ...n, data: { ...n.data, label: newName } } : n));
   };
+
+  const handleEdgeAction = useCallback((edgeId, action, payload) => {
+      if (mode === 'view') return;
+      saveHistory();
+      const rawRelId = edgeId.replace('edge_', '');
+      
+      if (action === 'delete') {
+          removeRelation(rawRelId);
+          setEdges(eds => eds.filter(e => e.id !== edgeId));
+      } else if (action === 'changeType') {
+          const newType = payload;
+          const existingRel = relations.find(r => r.id.toString() === rawRelId);
+          if (existingRel && existingRel.type !== newType) {
+              removeRelation(rawRelId);
+              addRelation({ ...existingRel, type: newType });
+          }
+          setEdges(eds => eds.map(edge => edge.id === edgeId ? { ...edge, data: { ...edge.data, relType: newType }, label: `<<${newType}>>` } : edge));
+      } else if (action === 'reverse') {
+          const existingRel = relations.find(r => r.id.toString() === rawRelId);
+          if (existingRel) {
+              removeRelation(rawRelId);
+              addRelation({
+                  ...existingRel,
+                  sourceId: existingRel.targetId,
+                  targetId: existingRel.sourceId
+              });
+          }
+          
+          setEdges(eds => eds.map(e => {
+              if (e.id === edgeId) {
+                  let sourceHandle = e.targetHandle;
+                  let targetHandle = e.sourceHandle;
+                  return { ...e, source: e.target, target: e.source, sourceHandle, targetHandle, markerEnd: { type: 'arrowclosed' } };
+              }
+              return e;
+          }));
+      }
+  }, [mode, relations, addRelation, removeRelation, saveHistory]);
 
   const initLayout = useCallback(async (forceReset = false) => {
     setIsLoading(true);
@@ -157,7 +211,11 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
           id: `edge_${rel.id}`,
           source,
           target,
-          type: rel.type,
+          type: 'custom',
+          data: { 
+              relType: rel.type,
+              onEdgeAction: handleEdgeAction
+          },
           label: rel.type === 'include' ? '<<include>>' : rel.type === 'extend' ? '<<extend>>' : '',
         });
       });
@@ -187,6 +245,7 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
       toast.error("Failed to load layout");
     } finally {
       setIsLoading(false);
+      setIsInitialized(true);
     }
   }, [projectId, actors, useCases, relations, systemName, fitView]);
 
@@ -195,11 +254,58 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
   useEffect(() => {
     if ((actors.length > 0 || useCases.length > 0) && !isInitialized) {
       initLayout();
-      setIsInitialized(true);
     } else if (actors.length === 0 && useCases.length === 0) {
-      setIsLoading(false);
+      setIsInitialized(false);
     }
-  }, [initLayout, actors.length, useCases.length, isInitialized]);
+  }, [actors.length, useCases.length, initLayout, isInitialized]);
+
+  // Task 1: Sync new actors and useCases to the canvas dynamically
+  useEffect(() => {
+      if (!isInitialized) return;
+      setNodes((nds) => {
+          let updated = false;
+          const newNodes = [...nds];
+          
+          actors.forEach(a => {
+              const actorId = a.id.toString().startsWith('actor_') ? a.id.toString() : `actor_${a.id}`;
+              if (!newNodes.find(n => n.id === actorId)) {
+                  newNodes.push({
+                      id: actorId,
+                      type: 'actor',
+                      position: { x: Math.random() * 50 + 50, y: Math.random() * 50 + 50 },
+                      data: {
+                          label: a.name || 'Actor',
+                          side: a.side,
+                          onDelete: handleNodeDelete,
+                          onNameUpdate: handleNameUpdate
+                      }
+                  });
+                  updated = true;
+              }
+          });
+          
+          useCases.forEach(uc => {
+              if (uc.showInDiagram === false) return;
+              const ucId = `uc_${uc.id}`;
+              if (!newNodes.find(n => n.id === ucId)) {
+                  newNodes.push({
+                      id: ucId,
+                      type: 'useCase',
+                      position: { x: Math.random() * 50 + 200, y: Math.random() * 50 + 50 },
+                      data: {
+                          label: uc.name || 'Untitled',
+                          group: uc.group,
+                          onDelete: handleNodeDelete,
+                          onNameUpdate: handleNameUpdate
+                      }
+                  });
+                  updated = true;
+              }
+          });
+          
+          return updated ? newNodes : nds;
+      });
+  }, [actors, useCases, isInitialized, handleNodeDelete, setNodes]);
 
   // Unified Debounced Auto-save
   const autoSaveTimeout = useRef(null);
@@ -251,7 +357,14 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
           };
 
           const isolated = !isConnectedToActor(node.id);
-          if (node.data.isIsolated !== isolated) {
+          const rawId = node.id.replace('uc_', '');
+          const ucInStore = useDiagramStore.getState().useCases.find(u => u.id.toString() === rawId);
+          const needsStoreSync = ucInStore && ucInStore.isIsolated !== isolated;
+
+          if (node.data.isIsolated !== isolated || needsStoreSync) {
+              setTimeout(() => {
+                  useDiagramStore.getState().updateUseCase(rawId, { isIsolated: isolated });
+              }, 0);
               return { ...node, data: { ...node.data, isIsolated: isolated } };
           }
       }
@@ -344,7 +457,11 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
               target,
               sourceHandle,
               targetHandle,
-              type: 'default',
+              type: 'custom',
+              data: {
+                  relType: 'include',
+                  onEdgeAction: handleEdgeAction
+              },
               label: '<<include>>',
               markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
           };
@@ -374,12 +491,16 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
               target,
               sourceHandle,
               targetHandle,
-              type: 'default',
+              type: 'custom',
+              data: {
+                  relType: 'actor-uc',
+                  onEdgeAction: handleEdgeAction
+              },
               markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
           };
           setEdges(eds => addEdge(newEdge, eds));
       }
-  }, [edges, nodes, addRelation, saveHistory]);
+  }, [edges, nodes, addRelation, saveHistory, handleEdgeAction]);
 
   const onEdgesDelete = useCallback((edgesToDelete) => {
       saveHistory();
@@ -405,71 +526,10 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
   }, [updateUseCase, removeActor, saveHistory]);
 
   const onEdgeClick = (event, edge) => {
-      if (mode === 'view') return;
-      
-      setSelectedEdge(edge);
-      setEdgePopupPos({ x: event.clientX, y: event.clientY });
+      // Do nothing here, we handle actions inside CustomEdge
   };
 
-  const handleEdgeAction = (action) => {
-      if (!selectedEdge) return;
-      saveHistory();
-      const rawRelId = selectedEdge.id.replace('edge_', '');
-      const existingRel = relations.find(r => r.id.toString() === rawRelId);
-      
-      if (action === 'delete') {
-          removeRelation(rawRelId);
-          setEdges(eds => eds.filter(e => e.id !== selectedEdge.id));
-      } else if (action === 'toggleType' && existingRel) {
-          const newType = existingRel.type === 'include' ? 'extend' : 'include';
-          removeRelation(rawRelId);
-          addRelation({ ...existingRel, type: newType });
-          setEdges(eds => eds.map(e => e.id === selectedEdge.id ? { ...e, type: 'default', label: `<<${newType}>>` } : e));
-      } else if (action === 'reverse' && existingRel) {
-          removeRelation(rawRelId);
-          addRelation({
-              ...existingRel,
-              sourceId: existingRel.targetId,
-              targetId: existingRel.sourceId
-          });
-          setEdges(eds => eds.map(e => {
-              if (e.id === selectedEdge.id) {
-                  const sourceNode = nodes.find(n => n.id === selectedEdge.target);
-                  const targetNode = nodes.find(n => n.id === selectedEdge.source);
-                  
-                  let sourceHandle = e.targetHandle;
-                  let targetHandle = e.sourceHandle;
-                  
-                  if (sourceNode && targetNode) {
-                      const sx = sourceNode.position.x;
-                      const sy = sourceNode.position.y;
-                      const tx = targetNode.position.x;
-                      const ty = targetNode.position.y;
-                      
-                      if (sx + 50 < tx) {
-                          sourceHandle = 'right-source';
-                          targetHandle = 'left-target';
-                      } else if (sx > tx + 50) {
-                          sourceHandle = 'left-source';
-                          targetHandle = 'right-target';
-                      } else {
-                          if (sy < ty) {
-                              sourceHandle = 'bottom-source';
-                              targetHandle = 'top-target';
-                          } else {
-                              sourceHandle = 'top-source';
-                              targetHandle = 'bottom-target';
-                          }
-                      }
-                  }
-                  
-                  return { ...e, source: selectedEdge.target, target: selectedEdge.source, sourceHandle, targetHandle };
-              }
-              return e;
-          }));
-      }
-      setSelectedEdge(null);
-  };
+
 
   const handleResetLayout = () => {
       saveHistory();
@@ -492,18 +552,6 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
     <div className={`w-full h-full min-h-[600px] flex-1 bg-gray-50 relative ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : ''}`} ref={reactFlowWrapper}>
       {mode === 'edit' && (
          <div className="absolute top-4 right-4 z-10 flex gap-3">
-             <button 
-                onClick={() => {
-                   saveHistory();
-                   initLayout(true);
-                   toast.success("Đã chạy Sắp xếp thông minh!");
-                }}
-                className="bg-white border border-gray-300 text-blue-600 px-3 py-2 rounded-md shadow-sm hover:bg-blue-50 flex items-center text-sm font-medium transition-colors"
-                title="Sắp xếp thông minh (Auto Layout)"
-            >
-                <span className="material-symbols-outlined text-[18px] mr-1">auto_awesome</span>
-                Tự động xếp
-            </button>
             <button 
                 onClick={() => {
                    if (!document.fullscreenElement) {
@@ -533,29 +581,7 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
          </div>
       )}
 
-      {selectedEdge && (
-          <div 
-             className="fixed bg-white border border-gray-200 shadow-xl rounded-lg p-1.5 flex gap-1 z-50 animate-fade-in"
-             style={{ top: edgePopupPos.y + 10, left: edgePopupPos.x + 10 }}
-             onMouseLeave={() => setSelectedEdge(null)}
-          >
-             {(selectedEdge.label === '<<include>>' || selectedEdge.label === '<<extend>>') && (
-                 <>
-                     <button onClick={() => handleEdgeAction('toggleType')} className="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded flex items-center justify-center font-bold font-mono text-[11px]" title="Đổi loại (Include/Extend)">
-                        {selectedEdge.label}
-                     </button>
-                     <div className="w-[1px] bg-gray-200 mx-1"></div>
-                     <button onClick={() => handleEdgeAction('reverse')} className="p-1.5 text-gray-700 hover:bg-gray-100 rounded flex items-center justify-center" title="Đảo chiều">
-                        <span className="material-symbols-outlined text-[16px]">swap_horiz</span>
-                     </button>
-                     <div className="w-[1px] bg-gray-200 mx-1"></div>
-                 </>
-             )}
-             <button onClick={() => handleEdgeAction('delete')} className="p-1.5 text-red-600 hover:bg-red-50 rounded flex items-center justify-center" title="Xóa dây nối">
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-             </button>
-          </div>
-      )}
+      {/* Floating edge popup was removed and moved to CustomEdge component */}
 
       <ReactFlow
         nodes={nodes}
@@ -568,6 +594,7 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
         onEdgeClick={onEdgeClick}
         onNodeDragStart={onNodeDragStart}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         minZoom={0.1}
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}

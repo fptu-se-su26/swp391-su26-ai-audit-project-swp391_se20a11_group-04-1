@@ -17,14 +17,14 @@ const useDiagramStore = create((set) => ({
 
   updateActor: (id, updatedData) => set((state) => ({
     actors: state.actors.map((actor) => 
-      actor.id === id ? { ...actor, ...updatedData } : actor
+      actor.id.toString() === id.toString() ? { ...actor, ...updatedData } : actor
     )
   })),
 
   removeActor: (id) => set((state) => ({
-    actors: state.actors.filter((actor) => actor.id !== id),
+    actors: state.actors.filter((actor) => actor.id.toString() !== id.toString()),
     relations: state.relations.filter(
-      (rel) => rel.sourceId !== id && rel.targetId !== id
+      (rel) => rel.sourceId.toString() !== id.toString() && rel.targetId.toString() !== id.toString()
     )
   })),
 
@@ -34,14 +34,14 @@ const useDiagramStore = create((set) => ({
 
   updateUseCase: (id, updatedData) => set((state) => ({
     useCases: state.useCases.map((uc) => 
-      uc.id === id ? { ...uc, ...updatedData } : uc
+      uc.id.toString() === id.toString() ? { ...uc, ...updatedData } : uc
     )
   })),
 
   removeUseCase: (id) => set((state) => ({
-    useCases: state.useCases.filter((uc) => uc.id !== id),
+    useCases: state.useCases.filter((uc) => uc.id.toString() !== id.toString()),
     relations: state.relations.filter(
-      (rel) => rel.sourceId !== id && rel.targetId !== id
+      (rel) => rel.sourceId.toString() !== id.toString() && rel.targetId.toString() !== id.toString()
     )
   })),
 
@@ -50,7 +50,7 @@ const useDiagramStore = create((set) => ({
   })),
 
   removeRelation: (id) => set((state) => ({
-    relations: state.relations.filter((rel) => rel.id !== id)
+    relations: state.relations.filter((rel) => rel.id.toString() !== id.toString())
   }))
 }));
 

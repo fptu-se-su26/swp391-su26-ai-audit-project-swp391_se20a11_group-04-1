@@ -11,9 +11,10 @@ const RelationTab = () => {
 
   // Helper to resolve name from id
   const getEntityName = (id) => {
-    const actor = actors.find(a => a.id === id);
+    if (!id) return 'Unknown';
+    const actor = actors.find(a => a.id?.toString() === id.toString() || a.id?.toString() === `actor_${id}` || id.toString() === `actor_${a.id}`);
     if (actor) return actor.name;
-    const uc = useCases.find(u => u.id === id);
+    const uc = useCases.find(u => u.id?.toString() === id.toString() || u.id?.toString() === `uc_${id}` || id.toString() === `uc_${u.id}`);
     if (uc) return uc.name;
     return 'Unknown';
   };
@@ -36,17 +37,17 @@ const RelationTab = () => {
 
   const getFilteredTargets = () => {
     if (!sourceId) return [];
-    const isSourceActor = actors.some(a => a.id === sourceId);
+    const isSourceActor = actors.some(a => a.id?.toString() === sourceId.toString());
     
     if (isSourceActor) {
       // Actor can only point to Use Case (association) or other Actor (generalization)
       if (type === 'association') return useCases;
-      if (type === 'generalization') return actors.filter(a => a.id !== sourceId);
+      if (type === 'generalization') return actors.filter(a => a.id?.toString() !== sourceId.toString());
       return [];
     } else {
       // Use case can point to Use Case (include, extend, generalization) or Actor (association)
       if (type === 'association') return actors;
-      return useCases.filter(u => u.id !== sourceId);
+      return useCases.filter(u => u.id?.toString() !== sourceId.toString());
     }
   };
 
@@ -121,7 +122,12 @@ const RelationTab = () => {
         {relations.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-4">No relations added yet.</p>
         ) : (
-          relations.map(rel => (
+          [...relations].sort((a, b) => {
+             const sourceA = getEntityName(a.sourceId);
+             const sourceB = getEntityName(b.sourceId);
+             if (sourceA !== sourceB) return sourceA.localeCompare(sourceB);
+             return getEntityName(a.targetId).localeCompare(getEntityName(b.targetId));
+          }).map(rel => (
             <div key={rel.id} className="flex items-center justify-between p-2.5 border rounded bg-white shadow-sm hover:shadow-md transition-shadow">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 text-sm">

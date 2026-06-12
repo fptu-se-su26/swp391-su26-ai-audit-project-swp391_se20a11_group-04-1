@@ -43,6 +43,7 @@ const UseCasePage = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [isDraftView, setIsDraftView] = useState(false);
 
   const fetchUseCases = async () => {
     if (!activeProject?.id) return;
@@ -54,7 +55,8 @@ const UseCasePage = () => {
         size: pageSize,
       };
       if (searchTerm) params.keyword = searchTerm;
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter && !isDraftView) params.status = statusFilter;
+      if (isDraftView) params.isDraft = true;
 
       const data = await useCaseService.searchUseCases(params);
       
@@ -90,12 +92,15 @@ const UseCasePage = () => {
   };
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchUseCases();
-    }, 500);
+    if (viewMode === 'list') {
+      const delayDebounceFn = setTimeout(() => {
+        fetchUseCases();
+        fetchAllUseCases();
+      }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id]);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id, viewMode]);
 
   useEffect(() => {
     setCurrentPage(0);
@@ -180,6 +185,17 @@ const UseCasePage = () => {
     navigate(`/projects/${activeProject.id}/use-cases/${useCase.id}`);
   };
 
+  const handleApproveUseCase = async (id) => {
+    try {
+      await useCaseService.approveUseCase(id, activeProject.id);
+      toast.success('Use Case approved successfully');
+      handleRefresh();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to approve Use Case');
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 z-10 h-full relative">
       <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
@@ -248,6 +264,8 @@ const UseCasePage = () => {
               onSearchChange={handleSearchChange}
               statusFilter={statusFilter}
               onStatusFilterChange={handleStatusFilterChange}
+              isDraftView={isDraftView}
+              setIsDraftView={setIsDraftView}
             />
           {loading ? (
             <div className="flex items-center justify-center flex-1 p-10">
@@ -263,6 +281,8 @@ const UseCasePage = () => {
               useCases={useCases} 
               onEdit={handleEditUseCase} 
               onDelete={handleDeleteUseCase} 
+              onApprove={handleApproveUseCase}
+              isDraftView={isDraftView}
             />
           )}
             <UseCasePagination 

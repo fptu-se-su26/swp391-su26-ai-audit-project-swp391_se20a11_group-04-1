@@ -9,7 +9,7 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
   const { actors, useCases, relations, loadData } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving', 'error'
   
   useEffect(() => {
     if (!projectId) return;
@@ -38,13 +38,14 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
 
   const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
-    setSaving(true);
+    setSaveStatus('saving');
     try {
       // 1. Sync semantic data
+      const currentState = useDiagramStore.getState();
       await diagramService.syncDiagramData(projectId, {
-        actors,
-        useCases,
-        relations
+        actors: currentState.actors,
+        useCases: currentState.useCases,
+        relations: currentState.relations
       });
       
       // 2. Save layout data
@@ -53,12 +54,16 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
           payload.imageBase64 = base64Png;
       }
       await diagramService.saveDiagramLayout(projectId, payload);
+      setSaveStatus('saved');
     } catch (error) {
       console.error("Failed to auto-save diagram", error);
-    } finally {
-      setSaving(false);
+      setSaveStatus('error');
     }
-  }, [projectId, actors, useCases, relations]);
+  }, [projectId]);
+
+  const handleUnsavedChanges = useCallback(() => {
+      setSaveStatus('unsaved');
+  }, []);
 
   if (loading) {
     return (
@@ -88,7 +93,7 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
               title="Back to Map"
-              disabled={saving}
+              disabled={saveStatus === 'saving'}
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
@@ -98,16 +103,34 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-4 h-9 rounded-md bg-green-50 text-green-700 font-medium text-sm border border-green-200">
-              {saving ? (
+            <div className={`flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border 
+                ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
+                ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
+                ${saveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
+                ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+            `}>
+              {saveStatus === 'saving' && (
                 <>
-                  <span className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></span>
+                  <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
                   Saving...
                 </>
-              ) : (
+              )}
+              {saveStatus === 'saved' && (
                 <>
                   <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  Auto-saved
+                  Saved
+                </>
+              )}
+              {saveStatus === 'unsaved' && (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">pending</span>
+                  Unsaved changes
+                </>
+              )}
+              {saveStatus === 'error' && (
+                <>
+                  <span className="material-symbols-outlined text-[18px]">error</span>
+                  Save Error
                 </>
               )}
             </div>
@@ -124,6 +147,7 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
             systemName={systemName}
             mode="edit"
             onSave={handleDiagramSave}
+            onUnsavedChanges={handleUnsavedChanges}
           />
         </div>
       </div>

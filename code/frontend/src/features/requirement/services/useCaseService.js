@@ -43,6 +43,12 @@ export const useCaseService = {
     return response.data;
   },
 
+  // Approve Use Case từ Diagram
+  approveUseCase: async (useCaseId, projectId) => {
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params: { projectId } });
+    return response.data.data;
+  },
+
   // AI: Generate Use Cases
   generateUseCases: async (projectId, payload, config = {}) => {
     const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000, ...config });
