@@ -3,8 +3,11 @@ package org.example.backend.controller;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
+import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
+import org.example.backend.dto.CodeInsightDashboardResponse;
+import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.CodeInsightService;
@@ -58,6 +61,53 @@ public class CodeInsightController {
         return ResponseEntity.ok(ApiResponse.success(
                 taskService.getProjectReviewQueue(projectId, userId),
                 "Code Insight review queue retrieved"));
+    }
+
+    // Read leader/mentor dashboard counts derived from current task and evidence state.
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<CodeInsightDashboardResponse>> getDashboard(
+            @PathVariable Long projectId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.getDashboard(projectId, userId),
+                "Code Insight dashboard retrieved"));
+    }
+
+    // Load linked GitHub issue/PR/commit/CI evidence for one task.
+    @GetMapping("/tasks/{taskId}/evidence")
+    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> getTaskEvidence(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.getTaskEvidence(projectId, taskId, userId),
+                "Code Insight task evidence retrieved"));
+    }
+
+    // Fetch changed files from GitHub on demand; this is a POST because it writes cache rows.
+    @PostMapping("/tasks/{taskId}/evidence/fetch-files")
+    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> fetchTaskChangedFiles(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.fetchTaskChangedFiles(projectId, taskId, userId),
+                "Code Insight changed files fetched"));
+    }
+
+    // Create a structured AI-assisted recommendation for the leader; it never approves automatically.
+    @PostMapping("/tasks/{taskId}/ai-review")
+    public ResponseEntity<ApiResponse<CodeInsightAiReviewResponse>> createAiReview(
+            @PathVariable Long projectId,
+            @PathVariable Long taskId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(
+                codeInsightService.createAiReview(projectId, taskId, userId),
+                "Code Insight AI review created"));
     }
 
     // Common session guard for all Code Insight endpoints.

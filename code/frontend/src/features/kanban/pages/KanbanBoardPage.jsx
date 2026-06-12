@@ -11,6 +11,13 @@ import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 
 const unique = (items) => [...new Set(items.filter(Boolean))]
 
+const hasTextSelection = () => {
+  const selection = window.getSelection?.()
+  return Boolean(selection && selection.toString().trim())
+}
+
+const getKanbanDragType = (event) => event.dataTransfer.getData('application/x-kanban-drag-type')
+
 const KanbanBoardPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -83,10 +90,40 @@ const KanbanBoardPage = () => {
   }
 
   const filteredTasks = tasks.filter((task) => {
-    const sprintMatch = filters.sprint === 'ALL' || task.sprint === filters.sprint
-    const assigneeMatch = filters.assignee === 'ALL' || task.assignee.name === filters.assignee
-    const requirementMatch = filters.requirement === 'ALL' || task.requirement === filters.requirement
-    const priorityMatch = filters.priority === 'ALL' || task.priority === filters.priority
+    // Helper to identify if a task is created/synced with a GitHub issue or is a BUG_FIX type
+    const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
+
+    if (task.parentId) {
+      // It is a subtask. Only show it on the board if its parent task was created from an issue.
+      const parentTask = tasks.find((t) => String(t.id) === String(task.parentId))
+      if (!isFromIssue(parentTask)) {
+        return false
+      }
+    } else {
+      // It is a parent task. Hide it if it was created from an issue.
+      if (isFromIssue(task)) {
+        return false
+      }
+    }
+
+    // Fetch subtasks of this parent task for smart filtering (only applicable for parent tasks shown on the board)
+    const subtasks = task.parentId ? [] : tasks.filter((sub) => String(sub.parentId) === String(task.id))
+
+    const sprintMatch = filters.sprint === 'ALL' || 
+                        task.sprint === filters.sprint || 
+                        subtasks.some((sub) => sub.sprint === filters.sprint)
+
+    const assigneeMatch = filters.assignee === 'ALL' || 
+                          task.assignee.name === filters.assignee || 
+                          subtasks.some((sub) => sub.assignee.name === filters.assignee)
+
+    const requirementMatch = filters.requirement === 'ALL' || 
+                             task.requirement === filters.requirement || 
+                             subtasks.some((sub) => sub.requirement === filters.requirement)
+
+    const priorityMatch = filters.priority === 'ALL' || 
+                          task.priority === filters.priority || 
+                          subtasks.some((sub) => sub.priority === filters.priority)
 
     return sprintMatch && assigneeMatch && requirementMatch && priorityMatch
   })
@@ -100,6 +137,11 @@ const KanbanBoardPage = () => {
   }, {})
 
   const handleDragStart = (event, taskId) => {
+    if (hasTextSelection()) {
+      event.preventDefault()
+      return
+    }
+
     setDraggingTaskId(taskId)
     setDraggingColumnId(null)
     event.dataTransfer.effectAllowed = 'move'
@@ -109,6 +151,7 @@ const KanbanBoardPage = () => {
 
   const handleDragOver = (event, status) => {
     if (draggingColumnId) return
+    if (!draggingTaskId && !Array.from(event.dataTransfer.types || []).includes('application/x-kanban-drag-type')) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDragOverStatus(status)
@@ -124,6 +167,11 @@ const KanbanBoardPage = () => {
   const handleDrop = (event, status) => {
     event.preventDefault()
     if (draggingColumnId) return
+    if (getKanbanDragType(event) !== 'task' && !draggingTaskId) {
+      setDragOverStatus(null)
+      return
+    }
+
     const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId
     if (taskId) {
       const task = tasks.find((t) => String(t.id) === String(taskId))
@@ -131,6 +179,19 @@ const KanbanBoardPage = () => {
       const targetStatusKey = column?.statusKey || status
 
       if (task) {
+        const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
+        const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
+        const isIssueTaskOrSubtask = isFromIssue(task) || isFromIssue(parentTask)
+
+        if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
+          if (isIssueTaskOrSubtask) {
+            toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+        }
+
         const isUnassigned = !task.assignee?.id
         // If moving OUT of TODO and it's unassigned
         if (isUnassigned && targetStatusKey !== 'TODO' && targetStatusKey !== 'OPEN') {
@@ -180,6 +241,11 @@ const KanbanBoardPage = () => {
   }
 
   const handleColumnDragStart = (event, columnId) => {
+    if (hasTextSelection()) {
+      event.preventDefault()
+      return
+    }
+
     setDraggingColumnId(columnId)
     setDragOverColumnId(columnId)
     setDraggingTaskId(null)
@@ -197,6 +263,11 @@ const KanbanBoardPage = () => {
 
   const handleColumnDrop = (event, targetColumnId) => {
     event.preventDefault()
+    if (getKanbanDragType(event) !== 'column') {
+      setDraggingColumnId(null)
+      setDragOverColumnId(null)
+      return
+    }
     if (!draggingColumnId || draggingColumnId === targetColumnId) return
 
     const reorderedColumns = [...columns]
@@ -220,6 +291,7 @@ const KanbanBoardPage = () => {
 
   const handleBoardPanStart = (event) => {
     if (event.button !== 0) return
+    if (hasTextSelection()) return
     if (event.target.closest('button, a, input, select, textarea, [data-kanban-no-pan]')) return
 
     setIsBoardPanning(true)

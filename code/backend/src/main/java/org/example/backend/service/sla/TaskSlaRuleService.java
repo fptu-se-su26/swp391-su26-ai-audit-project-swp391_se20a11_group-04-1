@@ -39,16 +39,13 @@ public class TaskSlaRuleService {
             if (daysUntilDeadline >= 0 && daysUntilDeadline <= 1) {
                 categories.add(TaskSlaCategory.DUE_SOON);
             }
-            if (overdueDays > 0 && overdueDays < 3) {
+            if (overdueDays >= 1 && overdueDays <= 2) {
                 categories.add(TaskSlaCategory.OVERDUE_SHORT);
-            }
-            if (overdueDays >= 3) {
-                categories.add(TaskSlaCategory.OVERDUE_FROZEN);
             }
         }
 
         boolean penaltyDeadlineBreached = task.getDeadline() != null
-                && today.isAfter(task.getDeadline().plusDays(1));
+                && overdueDays >= 3;
         boolean incompleteOrMissingEvidence = task.getStatus() != TaskStatus.DONE || !hasAcceptedEvidence;
         if (penaltyDeadlineBreached && incompleteOrMissingEvidence) {
             categories.add(TaskSlaCategory.OVERDUE_PENALTY);

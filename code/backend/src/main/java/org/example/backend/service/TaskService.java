@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface TaskService {
     List<TaskResponse> getProjectTasks(Long projectId, Long userId);
+    List<TaskResponse> getHotTasks(Long projectId, Long userId, int limit);
     List<TaskResponse> getMyTasks(Long userId);
     TaskResponse getTask(Long taskId, Long userId);
     TaskResponse createTask(Long projectId, TaskRequest request, Long userId);

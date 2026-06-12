@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
@@ -6,6 +6,32 @@ import useAuthStore from '@store/useAuthStore'
 import bugService from '../services/bugService'
 import taskService from '../../kanban/services/taskService'
 import axiosInstance from '@/api/axiosConfig'
+import proposalService from '../services/proposalService'
+import FeatureDiscussionModal from '../components/FeatureDiscussionModal'
+
+// Parse GitHub issue number from metadata if present
+const getGitHubIssueNumber = (stepsToReproduce) => {
+  if (!stepsToReproduce) return null
+  try {
+    const meta = JSON.parse(stepsToReproduce)
+    return meta.github_issue_number || null
+  } catch {
+    return null
+  }
+}
+
+const isBlankGitHubIssue = (item) => {
+  return item?.description && item.description.includes('<!-- sync-source: github-blank');
+}
+
+const isBlankDraft = (item) => {
+  return item?.description && item.description.includes('github-blank-draft');
+}
+
+const cleanDescription = (desc) => {
+  if (!desc) return '';
+  return desc.replace(/<!--\s*sync-source:\s*github-blank(?:-draft|-approved)?\s*-->/g, '').trim();
+}
 
 export function IssueTrackerDashboard() {
   const { projectId } = useParams()
@@ -18,6 +44,174 @@ export function IssueTrackerDashboard() {
   const [approvingId, setApprovingId] = useState(null)
   const [assigningTaskId, setAssigningTaskId] = useState(null)
   const [activeListTab, setActiveListTab] = useState('open')
+
+  // Toggle states for stats and filters (inline, corresponding to image 2 buttons)
+  const [showStats, setShowStats] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [assistiveOpen, setAssistiveOpen] = useState(false)
+
+  // Dragging states & helpers for AssistiveTouch floating bubble
+  const [position, setPosition] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef({ startX: 0, startY: 0, posX: 0, posY: 0, hasMoved: false })
+
+  const getPositionStyle = (isPanel = false) => {
+    if (!position) return {}
+    if (isPanel) {
+      const buttonWidth = 56
+      const buttonHeight = 56
+      const panelWidth = 256
+      const panelHeight = 256
+      
+      let panelX = position.x + buttonWidth / 2 - panelWidth / 2
+      let panelY = position.y + buttonHeight / 2 - panelHeight / 2
+      
+      const margin = 10
+      panelX = Math.max(margin, Math.min(panelX, window.innerWidth - panelWidth - margin))
+      panelY = Math.max(margin, Math.min(panelY, window.innerHeight - panelHeight - margin))
+      
+      return {
+        left: `${panelX}px`,
+        top: `${panelY}px`,
+      }
+    }
+    return {
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+    }
+  }
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return
+    const element = e.currentTarget
+    const rect = element.getBoundingClientRect()
+    
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX: rect.left,
+      posY: rect.top,
+      hasMoved: false
+    }
+    
+    setIsDragging(true)
+    
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - dragRef.current.startX
+      const deltaY = moveEvent.clientY - dragRef.current.startY
+      
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        dragRef.current.hasMoved = true
+      }
+      
+      let newX = dragRef.current.posX + deltaX
+      let newY = dragRef.current.posY + deltaY
+      
+      const margin = 10
+      const maxW = window.innerWidth - rect.width - margin
+      const maxH = window.innerHeight - rect.height - margin
+      
+      newX = Math.max(margin, Math.min(newX, maxW))
+      newY = Math.max(margin, Math.min(newY, maxH))
+      
+      setPosition({ x: newX, y: newY })
+    }
+    
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+    
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0]
+    const element = e.currentTarget
+    const rect = element.getBoundingClientRect()
+    
+    dragRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      posX: rect.left,
+      posY: rect.top,
+      hasMoved: false
+    }
+    
+    setIsDragging(true)
+    
+    const handleTouchMove = (moveEvent) => {
+      const moveTouch = moveEvent.touches[0]
+      const deltaX = moveTouch.clientX - dragRef.current.startX
+      const deltaY = moveTouch.clientY - dragRef.current.startY
+      
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        dragRef.current.hasMoved = true
+      }
+      
+      let newX = dragRef.current.posX + deltaX
+      let newY = dragRef.current.posY + deltaY
+      
+      const margin = 10
+      const maxW = window.innerWidth - rect.width - margin
+      const maxH = window.innerHeight - rect.height - margin
+      
+      newX = Math.max(margin, Math.min(newX, maxW))
+      newY = Math.max(margin, Math.min(newY, maxH))
+      
+      setPosition({ x: newX, y: newY })
+    }
+    
+    const handleTouchEnd = () => {
+      setIsDragging(false)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+    
+    document.addEventListener('touchmove', handleTouchMove)
+    document.addEventListener('touchend', handleTouchEnd)
+  }
+
+  // Quick Feature Proposal state and handler
+  const [quickProposalText, setQuickProposalText] = useState('')
+  const [quickProposalLoading, setQuickProposalLoading] = useState(false)
+
+  const handleQuickProposalSubmit = async (e) => {
+    e.preventDefault()
+    if (!quickProposalText.trim()) return
+
+    setQuickProposalLoading(true)
+    try {
+      const payload = {
+        title: quickProposalText.trim(),
+        description: 'Đề xuất tính năng nhanh được tạo từ Dashboard.',
+        type: 'DEVELOPMENT',
+        priority: 'MEDIUM',
+        deadline: null,
+        parentId: null,
+        primaryAssigneeId: null
+      }
+      await taskService.createTask(projectId, payload)
+      toast.success('Đã gửi đề xuất tính năng mới thành công!')
+      setQuickProposalText('')
+      await loadBugs()
+    } catch (err) {
+      console.error(err)
+      toast.error('Gửi đề xuất thất bại!')
+    } finally {
+      setQuickProposalLoading(false)
+    }
+  }
+
+  // Discussion Feature States
+  const [discussSearchQuery, setDiscussSearchQuery] = useState('')
+  const [activeDiscussTaskId, setActiveDiscussTaskId] = useState(null)
+  const [activeProposals, setActiveProposals] = useState([])
+  const [newProposalText, setNewProposalText] = useState('')
+  const [proposalCommentsInputs, setProposalCommentsInputs] = useState({})
+  const [expandedProposalComments, setExpandedProposalComments] = useState({})
 
   // Filter States
   const [filters, setFilters] = useState({
@@ -90,6 +284,18 @@ export function IssueTrackerDashboard() {
           subTasksByParentId[sub.parentId] = []
         }
         subTasksByParentId[sub.parentId].push(sub)
+      })
+
+      // Sort sub-tasks: active/open tasks first, closed/done tasks last
+      Object.keys(subTasksByParentId).forEach(parentId => {
+        subTasksByParentId[parentId].sort((a, b) => {
+          const aClosed = a.status === 'CLOSED' || a.status === 'DONE' || a.status === 'FIXED';
+          const bClosed = b.status === 'CLOSED' || b.status === 'DONE' || b.status === 'FIXED';
+          if (aClosed !== bClosed) {
+            return aClosed ? 1 : -1;
+          }
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
       })
 
       // Map relatedTaskId -> fixBugTask for quick lookup
@@ -185,6 +391,27 @@ export function IssueTrackerDashboard() {
     })
   }
 
+  const openNewIssueModal = (initialTitle = '') => {
+    setNewIssue({
+      uiType: null,
+      title: initialTitle || '',
+      description: '',
+      severity: 'MEDIUM',
+      environment: 'DEV',
+      stepsToReproduce: '',
+      expectedResult: '',
+      actualResult: '',
+      priority: 'MEDIUM',
+      taskType: 'DEVELOPMENT',
+      deadline: '',
+      assigneeId: '',
+      parentId: null,
+      parentTitle: ''
+    })
+    setIsModalOpen(true)
+  }
+
+
   const handleFilterChange = (name, value) => {
     setFilters((prev) => ({ ...prev, [name]: value }))
   }
@@ -203,7 +430,8 @@ export function IssueTrackerDashboard() {
   const stats = useMemo(() => {
     const total = bugs.length
     const open = bugs.filter(b => b.displayStatus === 'OPEN').length
-    const drafts = bugs.filter(b => b.isBug && b.relatedTaskId === null).length
+    // DRAFT = bugs whose backend status is DRAFT (pending leader approval)
+    const drafts = bugs.filter(b => b.isBug && b.displayStatus === 'DRAFT').length
     const fixed = bugs.filter(b => b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE').length
     return { total, open, drafts, fixed }
   }, [bugs])
@@ -395,40 +623,354 @@ export function IssueTrackerDashboard() {
     }
   }
 
+  const formatSafeDate = (dateString) => {
+    if (!dateString) return 'Vừa xong'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Vừa xong'
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatSafeTime = (dateString) => {
+    if (!dateString) return 'Vừa xong'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'Vừa xong'
+    return date.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const formatSafeDateDiscuss = (dateString) => {
+    if (!dateString) return 'N/A'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return 'N/A'
+    const pad = (num) => String(num).padStart(2, '0')
+    const day = pad(date.getDate())
+    const month = pad(date.getMonth() + 1)
+    const year = date.getFullYear()
+    let hours = date.getHours()
+    const minutes = pad(date.getMinutes())
+    const seconds = pad(date.getSeconds())
+    const ampm = hours >= 12 ? 'CH' : 'SA'
+    hours = hours % 12
+    hours = hours ? hours : 12
+    return `${pad(hours)}:${minutes}:${seconds} ${ampm} ${day}/${month}/${year}`
+  }
+
+  const discussBugs = useMemo(() => {
+    const featureTasks = bugs.filter(b => !b.isBug);
+    const approvedBugs = bugs.filter(b => b.isBug && b.relatedTaskId != null).map(b => ({
+      ...b,
+      id: b.relatedTaskId, // Use task ID for discussion stats and action
+      bugReportId: b.id,
+      displayTitle: `[BUG] ${b.title}`,
+      displayType: 'Bug Fix Task',
+    }));
+    const combined = [...featureTasks, ...approvedBugs];
+
+    // Sort order:
+    // 1. Unapproved (DRAFT status) first, Approved (non-DRAFT status) last
+    // 2. If same approval status, Bug first, Feature/Task last
+    // 3. If both are bugs, higher severity first
+    // 4. Default to newest first (createdAt descending)
+    combined.sort((a, b) => {
+      const isApproved = (item) => {
+        if (isBlankGitHubIssue(item)) {
+          return !isBlankDraft(item);
+        }
+        if (item.isBug) {
+          return item.relatedTaskId != null && item.displayStatus !== 'DRAFT' && item.status !== 'DRAFT';
+        }
+        return item.status !== 'DRAFT' && item.displayStatus !== 'DRAFT';
+      }
+      
+      const aApproved = isApproved(a);
+      const bApproved = isApproved(b);
+      
+      if (aApproved !== bApproved) {
+        return aApproved ? 1 : -1;
+      }
+
+      const aIsBug = a.isBug || a.type === 'BUG_FIX' || a.displayType === 'Bug Fix Task';
+      const bIsBug = b.isBug || b.type === 'BUG_FIX' || b.displayType === 'Bug Fix Task';
+      
+      if (aIsBug !== bIsBug) {
+        return aIsBug ? -1 : 1;
+      }
+
+      if (aIsBug) {
+        const getSeverityValue = (item) => {
+          const sev = item.severity || item.displaySeverity || item.priority || 'LOW';
+          switch (sev) {
+            case 'CRITICAL': return 4;
+            case 'HIGH': return 3;
+            case 'MEDIUM': return 2;
+            case 'LOW':
+            default:
+              return 1;
+          }
+        }
+        const aSev = getSeverityValue(a);
+        const bSev = getSeverityValue(b);
+        if (aSev !== bSev) {
+          return bSev - aSev;
+        }
+      }
+
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    return combined;
+  }, [bugs])
+
+  // Real-time stats state for the discussion cards
+  const [liveStatsMap, setLiveStatsMap] = useState({})
+
+  // Fetch stats for all discussion tasks
+  const fetchDiscussStats = useCallback(async () => {
+    if (discussBugs.length === 0) return
+    const newStatsMap = {}
+    try {
+      await Promise.all(
+        discussBugs.map(async (b) => {
+          try {
+            const votesData = await proposalService.getTaskVotes(b.id)
+            const commentsData = await proposalService.getTaskComments(b.id)
+            const proposalsData = await proposalService.getProposals(b.id)
+            
+            const totalComments = (commentsData || []).reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)
+            const hasDiscussion = (proposalsData || []).length > 0
+            const isAllApproved = hasDiscussion && proposalsData.every(p => p.status === 'APPROVED')
+
+            newStatsMap[b.id] = {
+              totalVotes: votesData?.upvotes || 0,
+              totalDownvotes: votesData?.downvotes || 0,
+              totalComments,
+              isAllApproved,
+              hasDiscussion,
+              proposals: proposalsData || []
+            }
+          } catch (e) {
+            newStatsMap[b.id] = {
+              totalVotes: 0,
+              totalDownvotes: 0,
+              totalComments: 0,
+              isAllApproved: false,
+              hasDiscussion: false,
+              proposals: []
+            }
+          }
+        })
+      )
+      setLiveStatsMap(newStatsMap)
+    } catch (err) {
+      console.error('Error fetching discussion stats:', err)
+    }
+  }, [discussBugs])
+
+  useEffect(() => {
+    fetchDiscussStats()
+  }, [fetchDiscussStats])
+
+  // Real-time WebSocket listener for comment updates
+  useEffect(() => {
+    const handleCommentEvent = (event) => {
+      const { type, taskId: eventTaskId } = event.detail
+      // Re-fetch stats for this specific task
+      if (eventTaskId) {
+        // Trigger a reload of all discussion stats to be simple and accurate, or reload just that one
+        fetchDiscussStats()
+      }
+    }
+
+    window.addEventListener('task-comment-event', handleCommentEvent)
+    return () => {
+      window.removeEventListener('task-comment-event', handleCommentEvent)
+    }
+  }, [fetchDiscussStats])
+
+  const discussBugsStats = liveStatsMap
+
+  const filteredDiscussBugs = useMemo(() => {
+    return discussBugs.filter(b => {
+      if (!discussSearchQuery.trim()) return true
+      const query = discussSearchQuery.toLowerCase()
+      const titleMatches = (b.displayTitle || b.title || '').toLowerCase().includes(query)
+      const descMatches = (b.description || '').toLowerCase().includes(query)
+      return titleMatches || descMatches
+    })
+  }, [discussBugs, discussSearchQuery])
+
+  // Load proposals from API when user opens a feature discussion
+  useEffect(() => {
+    if (activeDiscussTaskId) {
+      proposalService.getProposals(activeDiscussTaskId)
+        .then(data => setActiveProposals(data || []))
+        .catch(() => setActiveProposals([]))
+    } else {
+      setActiveProposals([])
+    }
+  }, [activeDiscussTaskId])
+
+  // Helper to reload proposals from API and refresh state
+  const reloadProposals = async (taskId) => {
+    try {
+      const data = await proposalService.getProposals(taskId)
+      setActiveProposals(data || [])
+      fetchDiscussStats() // refresh stats on the dashboard
+    } catch {
+      // silently ignore
+    }
+  }
+
+  const handleAddProposal = async (e) => {
+    e.preventDefault()
+    if (!newProposalText.trim() || !activeDiscussTaskId) return
+    try {
+      await proposalService.createProposal(activeDiscussTaskId, newProposalText.trim())
+      setNewProposalText('')
+      toast.success('Đã gửi đề xuất checklist mới!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
+    }
+  }
+
+  const handleVoteProposal = async (propId) => {
+    try {
+      await proposalService.vote(propId, true)
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error('Vote thất bại!')
+    }
+  }
+
+  const handleDownvoteProposal = async (propId) => {
+    try {
+      await proposalService.vote(propId, false)
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error('Vote thất bại!')
+    }
+  }
+
+  const handleAddProposalComment = async (e, propId) => {
+    e.preventDefault()
+    const text = proposalCommentsInputs[propId] || ''
+    if (!text.trim()) return
+    try {
+      await proposalService.addComment(propId, text.trim())
+      setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
+      toast.success('Đã gửi ý kiến góp ý!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
+    }
+  }
+
+  const handleApproveProposal = async (prop) => {
+    const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
+    if (!hasChecklist) {
+      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      return;
+    }
+    try {
+      await proposalService.approve(prop.id)
+      toast.success('Đã duyệt và ban hành mục checklist này!')
+      await reloadProposals(activeDiscussTaskId)
+      loadBugs(true) // refresh checklist on the task card
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
+    }
+  }
+
+  const handleRejectProposal = async (propId) => {
+    try {
+      await proposalService.reject(propId)
+      toast.success('Đã từ chối đề xuất này!')
+      await reloadProposals(activeDiscussTaskId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Từ chối thất bại!')
+    }
+  }
+
+  const handleBulkApprove = async (e, bug) => {
+    e.stopPropagation()
+    if (!isLeader) {
+      toast.error('Chỉ Project Leader mới có quyền phê duyệt đề xuất!')
+      return
+    }
+
+    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    try {
+      await proposalService.approveAndSyncTask(bug.id)
+      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      loadBugs(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
+    }
+  }
+
   const isMentor = activeProject?.role === 'Mentor'
   
   const reviewBugs = useMemo(() => {
-    const parentTasksInReview = filteredBugs.filter(b => b.displayStatus === 'IN_REVIEW');
-    const subtasksInReview = [];
-    filteredBugs.forEach(b => {
+    return filteredBugs.filter(b => {
+      if (b.displayStatus === 'IN_REVIEW') return true;
       const taskEntity = b.isBug ? b.fixTask : b;
       if (taskEntity && taskEntity.subTasks) {
-        taskEntity.subTasks.forEach(sub => {
-          if (sub.status === 'IN_REVIEW') {
-            subtasksInReview.push({
-              ...sub,
-              id: sub.id,
-              isBug: false,
-              isSubTask: true,
-              displayTitle: sub.displayTitle || sub.title,
-              displayType: sub.displayType || 'Sub-task',
-              displaySeverity: sub.displaySeverity || sub.priority || 'MEDIUM',
-              displayEnv: 'N/A',
-              displayStatus: sub.status,
-              parentTitle: b.displayTitle,
-              originalSub: sub
-            });
-          }
-        });
+        return taskEntity.subTasks.some(sub => sub.status === 'IN_REVIEW');
       }
+      return false;
     });
-    return [...parentTasksInReview, ...subtasksInReview];
   }, [filteredBugs]);
 
-  const openBugs = filteredBugs.filter(b => b.displayStatus !== 'CLOSED' && b.displayStatus !== 'FIXED' && b.displayStatus !== 'DONE' && b.displayStatus !== 'IN_REVIEW');
-  const closedBugs = filteredBugs.filter(b => b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE');
+  const openBugs = useMemo(() => {
+    const list = [];
+    filteredBugs.forEach(b => {
+      const isClosed = b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE' || b.displayStatus === 'IN_REVIEW';
+      if (isClosed) return;
+
+      // Bug reports in DRAFT status belong in Discussion
+      if (b.isBug && b.displayStatus === 'DRAFT') {
+        return;
+      }
+
+      // Nếu là Blank Issue ở trạng thái DRAFT thì thuộc Discuss, không hiện ở Open
+      if (!b.isBug && isBlankGitHubIssue(b) && isBlankDraft(b)) {
+        return;
+      }
+
+      // Feature tasks (không phải từ GitHub)
+      if (!b.isBug && b.githubIssueNumber == null) {
+        // Nếu là Task thông thường chưa được approve (ví dụ: tạo offline chưa sync)
+        if (b.status === 'DRAFT' || b.displayStatus === 'DRAFT') return;
+      }
+
+      list.push(b);
+    });
+    return list;
+  }, [filteredBugs]);
+
+  const closedBugs = useMemo(() => {
+    const list = [];
+    filteredBugs.forEach(b => {
+      const isClosedForReal = b.displayStatus === 'CLOSED' || b.displayStatus === 'FIXED' || b.displayStatus === 'DONE';
+      if (isClosedForReal) {
+        list.push(b);
+      }
+    });
+    return list;
+  }, [filteredBugs]);
   
-  const displayList = activeListTab === 'open' ? openBugs : activeListTab === 'review' ? reviewBugs : closedBugs;
+  const displayList = activeListTab === 'open' ? openBugs : activeListTab === 'closed' ? closedBugs : [];
 
   const handleRequestReview = async (e, taskEntity) => {
     e.stopPropagation()
@@ -441,7 +983,7 @@ export function IssueTrackerDashboard() {
     }
     setApprovingId(taskData.id)
     try {
-      await taskService.updateTaskStatus(taskData.id, 'IN_REVIEW')
+      await taskService.requestTaskReview(taskData.id, 'Yêu cầu review từ Issue Tracker')
       toast.success('Đã gửi yêu cầu review!')
       loadBugs(true)
     } catch (err) {
@@ -455,7 +997,7 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.updateTaskStatus(taskId, 'DONE')
+      await taskService.approveTaskReview(taskId, 'Đã Approve qua Issue Tracker')
       toast.success('Đã Approve task thành công!')
       loadBugs(true)
     } catch (err) {
@@ -469,7 +1011,7 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.updateTaskStatus(taskId, 'IN_PROGRESS')
+      await taskService.rejectTaskReview(taskId, 'Từ chối duyệt qua Issue Tracker', 'IN_PROGRESS')
       toast.success('Đã từ chối review task!')
       loadBugs(true)
     } catch (err) {
@@ -554,22 +1096,23 @@ export function IssueTrackerDashboard() {
   }
 
   const getStatusBadge = (bug) => {
-    if (bug.isBug && bug.relatedTaskId === null) {
-      return <span className="text-[10px] font-black tracking-wider uppercase bg-gray-500/10 text-gray-500 border border-gray-500/25 px-2 py-0.5 rounded">DRAFT</span>
+    // Check DRAFT status directly from backend-provided displayStatus
+    if (bug.isBug && bug.displayStatus === 'DRAFT') {
+      return <span className="text-[10px] font-black tracking-wider uppercase bg-slate-500/10 text-slate-500 border border-slate-500/25 px-2.5 py-0.5 rounded-full">DRAFT</span>
     }
     switch (bug.displayStatus) {
       case 'CLOSED':
       case 'FIXED':
       case 'DONE':
-        return <span className="text-[10px] font-black tracking-wider uppercase bg-green-500/10 text-green-600 border border-green-500/25 px-2 py-0.5 rounded">CLOSED</span>
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-green-500/10 text-green-600 border border-green-500/25 px-2.5 py-0.5 rounded-full">CLOSED</span>
       case 'IN_PROGRESS':
-        return <span className="text-[10px] font-black tracking-wider uppercase bg-blue-500/10 text-blue-600 border border-blue-500/25 px-2 py-0.5 rounded">IN PROGRESS</span>
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-blue-500/10 text-blue-600 border border-blue-500/25 px-2.5 py-0.5 rounded-full">IN PROGRESS</span>
       case 'IN_REVIEW':
-        return <span className="text-[10px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-600 border border-amber-500/25 px-2 py-0.5 rounded">IN REVIEW</span>
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-600 border border-amber-500/25 px-2.5 py-0.5 rounded-full">IN REVIEW</span>
       case 'OPEN':
       case 'TODO':
       default:
-        return <span className="text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/25 px-2 py-0.5 rounded">ACTIVE</span>
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/25 px-2.5 py-0.5 rounded-full">ACTIVE</span>
     }
   }
 
@@ -600,177 +1143,194 @@ export function IssueTrackerDashboard() {
     )
   }
 
-  // Parse GitHub issue number from metadata if present
-  const getGitHubIssueNumber = (stepsToReproduce) => {
-    if (!stepsToReproduce) return null
-    try {
-      const meta = JSON.parse(stepsToReproduce)
-      return meta.github_issue_number || null
-    } catch {
-      return null
-    }
-  }
+
 
   return (
-    <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
+    <main className="flex-1 p-4 md:p-6 overflow-y-auto relative bg-background select-none">
       {/* Blurred background visuals */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-primary-fixed opacity-[0.08] blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <div className="relative z-10 max-w-7xl mx-auto space-y-3.5 animate-fade-in">
         {/* Header toolbar */}
         <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-3xl text-primary font-bold">bug_report</span>
+                <span>Issue Tracker</span>
+              </h1>
+              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed shrink-0">
                 {activeProject?.title || 'DevTrack AI'}
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-3">
-              <span className="material-symbols-outlined text-3xl text-primary font-bold">bug_report</span>
-              Issue Tracker
-            </h1>
             <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
               Log code errors, manage quality workflows, and synchronize directly with active GitHub repository issues.
             </p>
           </div>
+        </section>
 
-          <div className="flex gap-2 self-stretch sm:self-auto">
-            {isLeader && (
-              <button
-                onClick={() => navigate(`/projects/${projectId}/github-config`)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2 px-4 border border-outline-variant hover:bg-surface-container-high text-on-surface text-sm font-bold rounded-xl transition-all shadow-sm"
-              >
-                <span className="material-symbols-outlined text-sm font-bold">settings_ethernet</span>
-                <span>GitHub Config</span>
-              </button>
-            )}
+
+        {/* Mini stats counters (conditional showStats) */}
+        {showStats && (
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-on-surface">{stats.total}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Total Bugs Logged</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-rose-600">{stats.open}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Active Fixing Issues</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-amber-600">{stats.drafts}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Draft Reports (Unapproved)</p>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
+              <p className="text-2xl font-black text-emerald-700">{stats.fixed}</p>
+              <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Resolved Bugs (Closed)</p>
+            </div>
+          </section>
+        )}
+
+        {/* Toolbar Filters (conditional showFilters) */}
+        {showFilters && (
+          <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 animate-fade-in">
+            <div className="flex flex-col sm:flex-row gap-3.5 flex-1">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="OPEN">Active (Open/Todo)</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="CLOSED">Closed / Resolved</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Severity</label>
+                <select
+                  value={filters.severity}
+                  onChange={(e) => handleFilterChange('severity', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Severities</option>
+                  <option value="CRITICAL">Critical</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Environment</label>
+                <select
+                  value={filters.environment}
+                  onChange={(e) => handleFilterChange('environment', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
+                >
+                  <option value="ALL">All Environments</option>
+                  <option value="DEV">Development</option>
+                  <option value="STAGING">Staging</option>
+                  <option value="PRODUCTION">Production</option>
+                </select>
+              </div>
+            </div>
 
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2 px-5 bg-primary text-on-primary hover:bg-primary/95 text-sm font-bold rounded-xl transition-all shadow-md"
+              onClick={loadBugs}
+              className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-primary shrink-0 self-start md:self-auto"
             >
-              <span className="material-symbols-outlined text-sm font-bold">add</span>
-              <span>File New Issue</span>
+              <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
+              <span>Refresh list</span>
+            </button>
+          </section>
+        )}
+
+        {/* Unified Search & Quick Proposal Bar */}
+        {activeListTab === 'discuss' && (
+          <div className="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl py-2 px-4 shadow-sm select-none">
+            <span className="material-symbols-outlined text-on-surface-variant text-xl">search</span>
+            <input
+              type="text"
+              value={discussSearchQuery}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDiscussSearchQuery(val);
+                setQuickProposalText(val);
+              }}
+              placeholder="Tìm kiếm hoặc nhập đề xuất mới..."
+              className="flex-1 text-xs bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
+            />
+            {discussSearchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscussSearchQuery('');
+                  setQuickProposalText('');
+                }}
+                className="text-on-surface-variant hover:text-on-surface mr-2"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => openNewIssueModal(quickProposalText)}
+              className="rounded-full border border-blue-500 text-blue-500 bg-white hover:bg-blue-50 px-4 py-1.5 transition-all text-[11px] font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-xs">add</span>
+              <span>Đề xuất</span>
             </button>
           </div>
-        </section>
+        )}
 
-        {/* Mini stats counters */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-on-surface">{stats.total}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Total Bugs Logged</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-rose-600">{stats.open}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Active Fixing Issues</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-amber-600">{stats.drafts}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Draft Reports (Unapproved)</p>
-          </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl px-5 py-4 shadow-sm">
-            <p className="text-2xl font-black text-emerald-700">{stats.fixed}</p>
-            <p className="text-[10px] uppercase font-bold text-on-surface-variant mt-0.5">Resolved Bugs (Closed)</p>
-          </div>
-        </section>
-
-        {/* Toolbar Filters */}
-        <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-          <div className="flex flex-col sm:flex-row gap-3.5 flex-1">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="OPEN">Active (Open/Todo)</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="CLOSED">Closed / Resolved</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Severity</label>
-              <select
-                value={filters.severity}
-                onChange={(e) => handleFilterChange('severity', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Severities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black uppercase text-on-surface-variant pl-1">Environment</label>
-              <select
-                value={filters.environment}
-                onChange={(e) => handleFilterChange('environment', e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant text-xs text-on-surface font-semibold focus:outline-none"
-              >
-                <option value="ALL">All Environments</option>
-                <option value="DEV">Development</option>
-                <option value="STAGING">Staging</option>
-                <option value="PRODUCTION">Production</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            onClick={loadBugs}
-            className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-primary shrink-0 self-start md:self-auto"
-          >
-            <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
-            <span>Refresh list</span>
-          </button>
-        </section>
 
         {/* Tab Filters */}
-        <section className="flex items-center gap-2 mt-2 mb-2 overflow-x-auto pb-1">
+        <section className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none">
           <button
-            onClick={() => setActiveListTab('open')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'open'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+            onClick={() => setActiveListTab('discuss')}
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'discuss'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
-            <span className="material-symbols-outlined text-sm">list_alt</span>
+            <span className="material-symbols-outlined text-sm">chat_bubble</span>
+            <span>Discuss ({discussBugs?.length || 0})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveListTab('open')}
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'open'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+          >
+            <span className="material-symbols-outlined text-sm">assignment</span>
             <span>Open Issues / Tasks ({openBugs?.length || 0})</span>
           </button>
 
-          {(isLeader || isMentor) && (
-            <button
-              onClick={() => setActiveListTab('review')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'review'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-md'
-                  : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
-                }`}
-            >
-              <span className="material-symbols-outlined text-sm">rate_review</span>
-              <span>Yêu cầu review ({reviewBugs?.length || 0})</span>
-            </button>
-          )}
+
 
           <button
             onClick={() => setActiveListTab('closed')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer ${activeListTab === 'closed'
-                ? 'bg-emerald-700 text-white border-emerald-700 shadow-md'
-                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low'
+            className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'closed'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
-            <span className="material-symbols-outlined text-sm">task_alt</span>
+            <span className="material-symbols-outlined text-sm">history</span>
             <span>Closed ({closedBugs?.length || 0})</span>
           </button>
         </section>
+
+
 
         {/* Bug Reports Grid List */}
         {loading ? (
@@ -778,6 +1338,129 @@ export function IssueTrackerDashboard() {
             <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Scanning repository for logged issues...</p>
           </section>
+        ) : activeListTab === 'discuss' ? (
+          <div className="space-y-3">
+            {/* Discussion Feed list */}
+            {filteredDiscussBugs.length === 0 ? (
+              <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant">forum</span>
+                <p className="mt-3 text-xs font-bold text-on-surface-variant">Không tìm thấy chủ đề thảo luận nào khớp với từ khóa.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {filteredDiscussBugs.map((bug, index) => {
+                  const stats = discussBugsStats[bug.id] || { totalVotes: 0, totalDownvotes: 0, totalComments: 0, isAllApproved: false }
+                  const creatorName = bug.createdBy?.fullName || bug.createdBy?.username || bug.createdByName || 'Người đề xuất'
+                  const avatarLetter = (bug.displayTitle || bug.title || 'F').charAt(0).toUpperCase()
+                  const formattedDate = formatSafeDateDiscuss(bug.createdAt)
+                  
+                  const hasGitHubNumber = bug.isBug 
+                    ? (getGitHubIssueNumber(bug.stepsToReproduce) != null) 
+                    : (bug.githubIssueNumber != null);
+                  const isBlankGit = isBlankGitHubIssue(bug);
+                  const isBlankDr = isBlankDraft(bug);
+                  const isDiscussApproved = isBlankGit 
+                    ? !isBlankDr 
+                    : (hasGitHubNumber || stats.isAllApproved || (bug.status !== 'DRAFT' && bug.displayStatus !== 'DRAFT'));
+
+                  return (
+                    <div
+                      key={bug.id}
+                      onClick={() => setActiveDiscussTaskId(bug.id)}
+                      className="group bg-white border border-slate-200/80 rounded-2xl shadow-sm hover:shadow-md hover:border-sky-400/60 transition-all cursor-pointer overflow-hidden w-full"
+                    >
+                      {/* Top header — giống ProposalTab */}
+                      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                        {/* Avatar */}
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#38bdf8] text-white flex items-center justify-center font-black text-sm shrink-0 shadow-sm">
+                          {avatarLetter}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-sm text-slate-900 truncate">{bug.displayTitle || bug.title}</span>
+                            {bug.isBug || bug.displayType === 'Bug Fix Task' || bug.type === 'BUG_FIX' ? (
+                              <span className="text-[10px] font-black tracking-wider uppercase bg-rose-500/10 text-rose-600 border border-rose-500/20 px-2 py-0.5 rounded-full shrink-0">
+                                BUG REPORT
+                              </span>
+                            ) : isBlankGit ? (
+                              <span className="text-[10px] font-black tracking-wider uppercase bg-slate-500/10 text-slate-600 border border-slate-500/20 px-2 py-0.5 rounded-full shrink-0">
+                                BLANK ISSUE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black tracking-wider uppercase bg-[#0ea5e9]/10 text-[#0284c7] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full shrink-0">
+                                ĐỀ XUẤT
+                              </span>
+                            )}
+                            {creatorName && (
+                              <span className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full shrink-0" title="Người đề xuất">
+                                <span className="material-symbols-outlined text-[11px]">person</span>
+                                {creatorName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-[10px] text-slate-400 font-semibold">ID: #{String(bug.id).slice(0,7).toUpperCase()}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-[10px] text-slate-400 font-semibold">{formattedDate}</span>
+                            <span className="text-slate-300">•</span>
+                            {isDiscussApproved ? (
+                              <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <span className="material-symbols-outlined text-[10px]">check_circle</span>
+                                Đã phê duyệt
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                <span className="material-symbols-outlined text-[10px]">schedule</span>
+                                Chờ phê duyệt
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      {bug.description && (
+                        <p className="px-4 pb-3 text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                          {cleanDescription(bug.description)}
+                        </p>
+                      )}
+
+                      {/* Divider + Footer */}
+                      <div className="border-t border-slate-100 px-4 py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 select-none">
+                          <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">thumb_up</span>
+                            Tán thành ({stats.totalVotes})
+                          </span>
+                          <span className="flex items-center gap-1 hover:text-rose-500 transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">thumb_down</span>
+                            Không ({stats.totalDownvotes})
+                          </span>
+                          <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
+                            <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
+                            Góp ý ({stats.totalComments})
+                          </span>
+                        </div>
+
+                        {isLeader && !isDiscussApproved && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleBulkApprove(e, bug)}
+                            className="py-1 px-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            Phê duyệt
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         ) : displayList.length === 0 ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm space-y-4">
             <span className="material-symbols-outlined text-5xl text-on-surface-variant">check_circle</span>
@@ -850,7 +1533,7 @@ export function IssueTrackerDashboard() {
 
                     <div className="flex items-center gap-3">
                       {!bug.isSubTask && (
-                        <span className="text-[9px] font-bold uppercase bg-surface-container-high text-on-surface-variant px-1.5 py-0.5 rounded hidden sm:inline-block">
+                        <span className="text-[9px] font-bold uppercase bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-full hidden sm:inline-block">
                           Env: {bug.displayEnv}
                         </span>
                       )}
@@ -893,11 +1576,11 @@ export function IssueTrackerDashboard() {
                         const displayValue = currentAssigneeId || '';
 
                         return (
-                          <div onClick={e => e.stopPropagation()} className="relative flex items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
+                          <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
                             <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
                             {hasMultipleAssignees ? (
                               <div 
-                                className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-md border max-w-[180px] bg-blue-500/10 text-blue-600 border-blue-500/30 opacity-50 cursor-not-allowed"
+                                className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-full border max-w-[180px] bg-blue-500/10 text-blue-600 border-blue-500/30 opacity-50 cursor-not-allowed"
                                 title="Bị khoá do các sub-task đang được giao cho nhiều người khác nhau"
                               >
                                 <span className="truncate leading-tight">{firstName}</span>
@@ -908,7 +1591,7 @@ export function IssueTrackerDashboard() {
                                 value={displayValue}
                                 onChange={(e) => handleLeaderAssign(e, bug, e.target.value)}
                                 disabled={isSelectDisabled}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px] truncate transition-all cursor-pointer ${
+                                className={`text-xs font-bold px-2.5 py-1 rounded-full border focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px] truncate transition-all cursor-pointer ${
                                   assigningTaskId === (bug.isBug ? bug.fixTask?.id : bug.id) ? 'opacity-50 cursor-wait' : ''
                                 } ${
                                   displayValue
@@ -939,47 +1622,50 @@ export function IssueTrackerDashboard() {
                         });
                         const hasMultipleAssignees = uniqueAssigneeIds.size > 1;
 
+                        let content;
                         if (hasMultipleAssignees) {
                            const firstId = Array.from(uniqueAssigneeIds)[0];
                            const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
                            const firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
-                           return (
-                             <div className="flex flex-col justify-center text-[10px] font-bold text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/30 hidden lg:inline-flex max-w-[140px] truncate">
+                           content = (
+                             <div className="flex flex-col justify-center text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-blue-500/10 text-blue-600 border-blue-500/30 max-w-[180px]">
                                <span className="truncate leading-tight">{firstName}</span>
-                               <span className="text-[8px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
+                               <span className="text-[9px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
                              </div>
+                           );
+                        } else {
+                           const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
+                           content = (
+                             <span className={`text-xs font-bold px-2.5 py-1 rounded-full border max-w-[180px] truncate ${
+                               currentAssigneeId
+                                 ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                 : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                             }`}>
+                               {assignee?.name || assignee?.fullName || assignee?.username || '-- Chưa phân công --'}
+                             </span>
                            );
                         }
 
-                        if (!currentAssigneeId) return null;
-                        const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
                         return (
-                          <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant/50 hidden lg:inline-block truncate max-w-[120px]">
-                            {assignee?.fullName || assignee?.username || 'Assigned'}
-                          </span>
+                          <div className="flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
+                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
+                            {content}
+                          </div>
                         );
                       })()}
 
-                      {taskEntity && taskEntity.status !== 'IN_REVIEW' && taskEntity.status !== 'DONE' && taskEntity.status !== 'FIXED' && taskEntity.status !== 'CLOSED' && (
+
+
+                      {taskEntity && taskEntity.status !== 'IN_REVIEW' && taskEntity.status !== 'DONE' && taskEntity.status !== 'FIXED' && taskEntity.status !== 'CLOSED' && isReviewActionEnabled && (
                         <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
                           <button
                             onClick={(e) => handleRequestReview(e, bug)}
-                            disabled={!isReviewActionEnabled || approvingId === taskEntity.id}
-                            className={`py-1 px-3 rounded-lg text-[10px] font-bold transition-all shadow flex items-center gap-1 ${
-                              isReviewActionEnabled
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
-                                : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
-                            }`}
+                            disabled={approvingId === taskEntity.id}
+                            className="py-1 px-3.5 rounded-full text-[10px] font-bold transition-all shadow flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                           >
                             <span className="material-symbols-outlined text-[10px]">rate_review</span>
                             Yêu cầu review
                           </button>
-                          {!isReviewActionEnabled && (
-                            <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50">
-                              {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
-                              {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
-                            </div>
-                          )}
                         </div>
                       )}
 
@@ -988,7 +1674,7 @@ export function IssueTrackerDashboard() {
                           <button
                             onClick={(e) => handleApproveTask(e, taskEntity.id)}
                             disabled={approvingId === taskEntity.id}
-                            className="py-1 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                            className="py-1 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
                           >
                             <span className="material-symbols-outlined text-[12px]">task_alt</span>
                             Approve
@@ -996,7 +1682,7 @@ export function IssueTrackerDashboard() {
                           <button
                             onClick={(e) => handleRejectTask(e, taskEntity.id)}
                             disabled={approvingId === taskEntity.id}
-                            className="py-1 px-3 bg-error hover:bg-error/90 text-on-error text-[10px] font-bold rounded-lg transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                            className="py-1 px-3.5 bg-error hover:bg-error/90 text-on-error text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
                           >
                             <span className="material-symbols-outlined text-[12px]">cancel</span>
                             Từ chối
@@ -1004,21 +1690,22 @@ export function IssueTrackerDashboard() {
                         </div>
                       )}
 
-                      {isLeader && bug.isBug && bug.relatedTaskId === null && (
+                      {/* Approve button: only visible to leaders when the bug is in DRAFT state */}
+                      {isLeader && bug.isBug && bug.displayStatus === 'DRAFT' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleApproveBug(e, bug.id);
                           }}
                           disabled={approvingId === bug.id}
-                          className="py-1 px-3 bg-primary hover:bg-primary/95 text-on-primary text-[10px] font-bold rounded-lg transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                          className="py-1 px-3.5 bg-primary hover:bg-primary/95 text-on-primary text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
                         >
                           {approvingId === bug.id ? (
                             <span className="material-symbols-outlined text-[10px] animate-spin">progress_activity</span>
                           ) : (
                             <span className="material-symbols-outlined text-[10px]">task_alt</span>
                           )}
-                          Approve
+                          Approve & Push to GitHub
                         </button>
                       )}
 
@@ -1039,80 +1726,13 @@ export function IssueTrackerDashboard() {
                         {/* Parent Description */}
                         <div className="pl-14 pr-6 pb-3">
                           <strong className="text-xs text-on-surface-variant uppercase tracking-wider">Description</strong>
-                          <p className="mt-1.5 whitespace-pre-wrap leading-relaxed text-xs text-on-surface font-semibold">{bug.description || 'No description provided.'}</p>
+                          <p className="mt-1.5 whitespace-pre-wrap leading-relaxed text-xs text-on-surface font-semibold">{cleanDescription(bug.description) || 'No description provided.'}</p>
                         </div>
 
-                        {/* Parent Checklist Requirements */}
-                        {canHaveChecklist && (
-                          <div className="mt-2.5 pb-2">
-                            <div className="pl-14 pr-6 pb-1.5 flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm font-bold text-primary">rule</span>
-                              <strong className="text-xs text-on-surface-variant uppercase tracking-wider">Requirements Checklist (Các bước thực hiện)</strong>
-                            </div>
-                            {parentChecklist.length > 0 ? (
-                              <ul className="flex flex-col mb-2">
-                                {parentChecklist.map(item => (
-                                  <li key={item.id} className="flex items-center gap-3 py-1.5 pl-14 pr-6 hover:bg-surface-container-highest transition-colors border-l-2 border-transparent hover:border-primary">
-                                    <label className="flex items-center gap-3 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        checked={item.done}
-                                        onChange={() => {
-                                          const taskEntity = bug.isBug ? bug.fixTask : bug
-                                          handleToggleChecklist(taskEntity, item.id, item.done)
-                                        }}
-                                        className="accent-primary h-4 w-4 shrink-0 rounded border-outline-variant cursor-pointer"
-                                      />
-                                      <span className={`text-sm ${item.done ? 'line-through text-on-surface/50 font-medium' : 'text-on-surface font-semibold'}`}>
-                                        {item.content}
-                                      </span>
-                                    </label>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <div className="pl-14 pr-6 py-1 mb-2">
-                                <p className="text-xs text-on-surface-variant italic">No checklist requirements defined for this parent task.</p>
-                              </div>
-                            )}
 
-                            {/* Inline input to add checklist item to parent */}
-                            <div className="pl-14 pr-6 py-1">
-                              <div className="flex items-center gap-2 max-w-md">
-                                <input
-                                  type="text"
-                                  id={`new-parent-checklist-input-${bug.id}`}
-                                  placeholder="Add checklist requirement for parent task..."
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      const taskEntity = bug.isBug ? bug.fixTask : bug
-                                      handleAddChecklistItem(taskEntity, e.target.value)
-                                      e.target.value = ''
-                                    }
-                                  }}
-                                  className="flex-1 px-3 py-1.5 text-xs bg-surface-container-low border border-outline-variant/60 rounded-lg focus:outline-none focus:border-primary text-on-surface font-semibold"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const input = document.getElementById(`new-parent-checklist-input-${bug.id}`)
-                                    if (input && input.value.trim()) {
-                                      const taskEntity = bug.isBug ? bug.fixTask : bug
-                                      handleAddChecklistItem(taskEntity, input.value)
-                                      input.value = ''
-                                    }
-                                  }}
-                                  className="flex items-center justify-center p-1.5 bg-primary text-on-primary hover:bg-primary/90 rounded-lg shadow transition-all cursor-pointer shrink-0"
-                                >
-                                  <span className="material-symbols-outlined text-sm font-bold">add</span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
                         {/* Add Sub-task Button */}
-                        {canHaveChecklist && (
+                        {isLeader && canHaveChecklist && (
                           <div className="pl-14 pr-6 pt-2 pb-3 border-b border-outline-variant/20 mb-4">
                             <button
                               type="button"
@@ -1188,25 +1808,17 @@ export function IssueTrackerDashboard() {
 
                                           {sub.status !== 'IN_REVIEW' && sub.status !== 'DONE' && sub.status !== 'FIXED' && sub.status !== 'CLOSED' && (() => {
                                             const subChecklistPassed = !sub.checklist || sub.checklist.length === 0 || sub.checklist.every(item => item.done)
+                                            if (!subChecklistPassed) return null;
                                             return (
                                               <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
                                                 <button
                                                   onClick={(e) => handleRequestReview(e, sub)}
-                                                  disabled={!subChecklistPassed || approvingId === sub.id}
-                                                  className={`py-0.5 px-2 rounded text-[9px] font-bold transition-all shadow flex items-center gap-0.5 ${
-                                                    subChecklistPassed
-                                                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                                      : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
-                                                  }`}
+                                                  disabled={approvingId === sub.id}
+                                                  className="py-0.5 px-2.5 rounded-full text-[9px] font-bold transition-all shadow flex items-center gap-0.5 bg-amber-600 hover:bg-amber-700 text-white"
                                                 >
                                                   <span className="material-symbols-outlined text-[9px]">rate_review</span>
                                                   Yêu cầu review
                                                 </button>
-                                                {!subChecklistPassed && (
-                                                  <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2 py-1 shadow-lg border border-outline-variant whitespace-nowrap z-50">
-                                                    ⚠️ Cần hoàn thành tất cả checklist
-                                                  </div>
-                                                )}
                                               </div>
                                             )
                                           })()}
@@ -1216,19 +1828,61 @@ export function IssueTrackerDashboard() {
                                               <button
                                                 onClick={(e) => handleApproveTask(e, sub.id)}
                                                 disabled={approvingId === sub.id}
-                                                className="py-0.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                                className="py-0.5 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                               >
                                                 Approve
                                               </button>
                                               <button
                                                 onClick={(e) => handleRejectTask(e, sub.id)}
                                                 disabled={approvingId === sub.id}
-                                                className="py-0.5 px-2 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                                className="py-0.5 px-2.5 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                               >
                                                 Từ chối
                                               </button>
                                             </div>
                                           )}
+
+                                          {isLeader ? (() => {
+                                            const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                                            return (
+                                              <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
+                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                                <select
+                                                  value={currentAssigneeId || ''}
+                                                  onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
+                                                  disabled={assigningTaskId === sub.id}
+                                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
+                                                    assigningTaskId === sub.id ? 'opacity-50 cursor-wait' : ''
+                                                  } ${
+                                                    currentAssigneeId
+                                                      ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                                      : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                                                  }`}
+                                                  title="Assign to member"
+                                                >
+                                                  <option value="" className="bg-surface text-on-surface font-semibold">-- Trống --</option>
+                                                  {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
+                                                    <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                            );
+                                          })() : (() => {
+                                            const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                                            const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
+                                            return (
+                                              <div className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
+                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                  currentAssigneeId
+                                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                                    : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
+                                                }`}>
+                                                  {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
+                                                </span>
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
                                     </div>
@@ -1240,53 +1894,65 @@ export function IssueTrackerDashboard() {
                                       </div>
                                       {sub.checklist && sub.checklist.length > 0 ? (
                                         <div className="space-y-1.5">
-                                          {sub.checklist.map(item => (
-                                            <label
-                                              key={item.id}
-                                              className="flex items-center gap-3 cursor-pointer hover:bg-surface-container-high/40 p-1 rounded transition-colors select-none"
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                checked={item.done}
-                                                onChange={() => handleToggleChecklist(sub, item.id, item.done)}
-                                                className="accent-primary h-3.5 w-3.5 shrink-0 rounded border-outline-variant cursor-pointer"
-                                              />
-                                              <span className={`text-xs ${item.done ? 'line-through text-on-surface/50 font-medium' : 'text-on-surface font-semibold'}`}>
-                                                {item.content}
-                                              </span>
-                                            </label>
-                                          ))}
+                                          {sub.checklist.map(item => {
+                                            const parentAssigneeId = bug.isBug ? (bug.fixTask?.primaryAssigneeId || bug.fixTask?.primaryAssignee?.id) : (bug.primaryAssigneeId || bug.primaryAssignee?.id);
+                                            const subAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id || parentAssigneeId;
+                                            const canToggle = isLeader || String(currentUserId) === String(subAssigneeId);
+                                            return (
+                                              <label
+                                                key={item.id}
+                                                className={`flex items-center gap-3 p-1 rounded transition-colors select-none ${
+                                                  canToggle ? 'cursor-pointer hover:bg-surface-container-high/40' : 'cursor-not-allowed opacity-60'
+                                                }`}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={item.done}
+                                                  disabled={!canToggle}
+                                                  onChange={() => handleToggleChecklist(sub, item.id, item.done)}
+                                                  className={`accent-primary h-3.5 w-3.5 shrink-0 rounded border-outline-variant ${
+                                                    canToggle ? 'cursor-pointer' : 'cursor-not-allowed'
+                                                  }`}
+                                                />
+                                                <span className={`text-xs ${item.done ? 'line-through text-on-surface/50 font-medium' : 'text-on-surface font-semibold'}`}>
+                                                  {item.content}
+                                                </span>
+                                              </label>
+                                            );
+                                          })}
                                         </div>
                                       ) : (
                                         <p className="text-[10px] text-on-surface-variant italic">No requirements checklist defined for this sub-task.</p>
                                       )}
-                                      <div className="flex items-center gap-2 max-w-sm mt-1">
-                                        <input
-                                          type="text"
-                                          id={`new-subtask-checklist-input-${sub.id}`}
-                                          placeholder="Add subtask requirement..."
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              handleAddChecklistItem(sub, e.target.value)
-                                              e.target.value = ''
-                                            }
-                                          }}
-                                          className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const input = document.getElementById(`new-subtask-checklist-input-${sub.id}`)
-                                            if (input && input.value.trim()) {
-                                              handleAddChecklistItem(sub, input.value)
-                                              input.value = ''
-                                            }
-                                          }}
-                                          className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
-                                        >
-                                          <span className="material-symbols-outlined text-xs font-bold">add</span>
-                                        </button>
-                                      </div>
+                                      {isLeader && (
+                                        <div className="flex items-center gap-2 max-w-sm mt-1">
+                                          <input
+                                            type="text"
+                                            id={`new-subtask-checklist-input-${sub.id}`}
+                                            placeholder="Add subtask requirement..."
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                handleAddChecklistItem(sub, e.target.value)
+                                                e.target.value = ''
+                                              }
+                                            }}
+                                            className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const input = document.getElementById(`new-subtask-checklist-input-${sub.id}`)
+                                              if (input && input.value.trim()) {
+                                                handleAddChecklistItem(sub, input.value)
+                                                input.value = ''
+                                              }
+                                            }}
+                                            className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
+                                          >
+                                            <span className="material-symbols-outlined text-xs font-bold">add</span>
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -1328,25 +1994,17 @@ export function IssueTrackerDashboard() {
 
                                       {sub.status !== 'IN_REVIEW' && sub.status !== 'DONE' && sub.status !== 'FIXED' && sub.status !== 'CLOSED' && (() => {
                                         const subChecklistPassed = !sub.checklist || sub.checklist.length === 0 || sub.checklist.every(item => item.done)
+                                        if (!subChecklistPassed) return null;
                                         return (
                                           <div onClick={e => e.stopPropagation()} className="relative group flex items-center">
                                             <button
                                               onClick={(e) => handleRequestReview(e, sub)}
-                                              disabled={!subChecklistPassed || approvingId === sub.id}
-                                              className={`py-0.5 px-2 rounded text-[9px] font-bold transition-all shadow flex items-center gap-0.5 ${
-                                                subChecklistPassed
-                                                  ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm'
-                                                  : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-60 border border-outline-variant/40'
-                                              }`}
+                                              disabled={approvingId === sub.id}
+                                              className="py-0.5 px-2.5 rounded-full text-[9px] font-bold transition-all shadow flex items-center gap-0.5 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                                             >
                                               <span className="material-symbols-outlined text-[9px]">rate_review</span>
                                               Yêu cầu review
                                             </button>
-                                            {!subChecklistPassed && (
-                                              <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[9px] rounded px-2 py-1 shadow-lg border border-outline-variant whitespace-nowrap z-50">
-                                                ⚠️ Cần hoàn thành tất cả checklist
-                                              </div>
-                                            )}
                                           </div>
                                         )
                                       })()}
@@ -1356,30 +2014,30 @@ export function IssueTrackerDashboard() {
                                           <button
                                             onClick={(e) => handleApproveTask(e, sub.id)}
                                             disabled={approvingId === sub.id}
-                                            className="py-0.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                            className="py-0.5 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                           >
                                             Approve
                                           </button>
                                           <button
                                             onClick={(e) => handleRejectTask(e, sub.id)}
                                             disabled={approvingId === sub.id}
-                                            className="py-0.5 px-2 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
+                                            className="py-0.5 px-2.5 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                           >
                                             Từ chối
                                           </button>
                                         </div>
                                       )}
 
-                                      {isLeader && (() => {
+                                      {isLeader ? (() => {
                                         const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
                                         return (
-                                          <div onClick={e => e.stopPropagation()} className="relative flex items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
+                                          <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
                                             <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
                                             <select
                                               value={currentAssigneeId || ''}
                                               onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
                                               disabled={assigningTaskId === sub.id}
-                                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
+                                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
                                                 assigningTaskId === sub.id ? 'opacity-50 cursor-wait' : ''
                                               } ${
                                                 currentAssigneeId
@@ -1395,6 +2053,21 @@ export function IssueTrackerDashboard() {
                                             </select>
                                           </div>
                                         );
+                                      })() : (() => {
+                                        const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
+                                        const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
+                                        return (
+                                          <div className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
+                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                              currentAssigneeId
+                                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                                : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
+                                            }`}>
+                                              {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
+                                            </span>
+                                          </div>
+                                        );
                                       })()}
                                     </div>
                                   </div>
@@ -1407,53 +2080,65 @@ export function IssueTrackerDashboard() {
                                   </div>
                                   {sub.checklist && sub.checklist.length > 0 ? (
                                     <div className="space-y-1.5">
-                                      {sub.checklist.map(item => (
-                                        <label
-                                          key={item.id}
-                                          className="flex items-center gap-3 cursor-pointer hover:bg-surface-container-high/40 p-1 rounded transition-colors select-none"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={item.done}
-                                            onChange={() => handleToggleChecklist(sub, item.id, item.done)}
-                                            className="accent-primary h-3.5 w-3.5 shrink-0 rounded border-outline-variant cursor-pointer"
-                                          />
-                                          <span className={`text-xs ${item.done ? 'line-through text-on-surface/50 font-medium' : 'text-on-surface font-semibold'}`}>
-                                            {item.content}
-                                          </span>
-                                        </label>
-                                      ))}
+                                      {sub.checklist.map(item => {
+                                        const parentAssigneeId = bug.isBug ? (bug.fixTask?.primaryAssigneeId || bug.fixTask?.primaryAssignee?.id) : (bug.primaryAssigneeId || bug.primaryAssignee?.id);
+                                        const subAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id || parentAssigneeId;
+                                        const canToggle = isLeader || String(currentUserId) === String(subAssigneeId);
+                                        return (
+                                          <label
+                                            key={item.id}
+                                            className={`flex items-center gap-3 p-1 rounded transition-colors select-none ${
+                                              canToggle ? 'cursor-pointer hover:bg-surface-container-high/40' : 'cursor-not-allowed opacity-60'
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={item.done}
+                                              disabled={!canToggle}
+                                              onChange={() => handleToggleChecklist(sub, item.id, item.done)}
+                                              className={`accent-primary h-3.5 w-3.5 shrink-0 rounded border-outline-variant ${
+                                                canToggle ? 'cursor-pointer' : 'cursor-not-allowed'
+                                              }`}
+                                            />
+                                            <span className={`text-xs ${item.done ? 'line-through text-on-surface/50 font-medium' : 'text-on-surface font-semibold'}`}>
+                                              {item.content}
+                                            </span>
+                                          </label>
+                                        );
+                                      })}
                                     </div>
                                   ) : (
                                     <p className="text-[10px] text-on-surface-variant italic">No requirements checklist defined for this sub-task.</p>
                                   )}
-                                  <div className="flex items-center gap-2 max-w-sm mt-1">
-                                    <input
-                                      type="text"
-                                      id={`new-nonbug-subtask-checklist-input-${sub.id}`}
-                                      placeholder="Add subtask requirement..."
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          handleAddChecklistItem(sub, e.target.value)
-                                          e.target.value = ''
-                                        }
-                                      }}
-                                      className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const input = document.getElementById(`new-nonbug-subtask-checklist-input-${sub.id}`)
-                                        if (input && input.value.trim()) {
-                                          handleAddChecklistItem(sub, input.value)
-                                          input.value = ''
-                                        }
-                                      }}
-                                      className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
-                                    >
-                                      <span className="material-symbols-outlined text-xs font-bold">add</span>
-                                    </button>
-                                  </div>
+                                  {isLeader && (
+                                    <div className="flex items-center gap-2 max-w-sm mt-1">
+                                      <input
+                                        type="text"
+                                        id={`new-nonbug-subtask-checklist-input-${sub.id}`}
+                                        placeholder="Add subtask requirement..."
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            handleAddChecklistItem(sub, e.target.value)
+                                            e.target.value = ''
+                                          }
+                                        }}
+                                        className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const input = document.getElementById(`new-nonbug-subtask-checklist-input-${sub.id}`)
+                                          if (input && input.value.trim()) {
+                                            handleAddChecklistItem(sub, input.value)
+                                            input.value = ''
+                                          }
+                                        }}
+                                        className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
+                                      >
+                                        <span className="material-symbols-outlined text-xs font-bold">add</span>
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -1470,32 +2155,34 @@ export function IssueTrackerDashboard() {
 
         {/* Modal: Log New Bug Draft */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-4 relative animate-scale-up">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-5 relative animate-scale-up font-sans">
               <button
                 onClick={closeModal}
-                className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors"
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer border border-slate-100"
               >
-                <span className="material-symbols-outlined text-xl">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
 
-              <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/60">
-                <span className="material-symbols-outlined text-primary text-2xl font-bold">add_task</span>
-                <h2 className="text-lg font-black text-on-surface">
-                  {newIssue.parentId ? `Create Sub-task under "${newIssue.parentTitle}"` : 'File New Issue'}
-                </h2>
+              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-2xl font-bold">assignment_add</span>
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-800">
+                    {newIssue.parentId ? `Create Sub-task under "${newIssue.parentTitle}"` : 'File New Issue'}
+                  </h2>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">Chọn loại task hoặc báo cáo sự cố để bắt đầu</p>
+                </div>
               </div>
 
               {newIssue.uiType === null ? (
                 /* Step 1: Template Selection */
-                <div className="space-y-3 py-2 animate-fade-in">
+                <div className="space-y-3 py-1 animate-fade-in">
                   {[
                     { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
-                    { type: 'BUG_FIX', title: 'Fix Bug Task', desc: 'Tạo task để xử lý và sửa một bug cụ thể', icon: 'build_circle' },
                     { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
                     { type: 'REFACTOR', title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi', icon: 'build' },
-                    { type: 'TEST', title: 'Test Task', desc: 'Nhiệm vụ viết hoặc cải thiện unit test', icon: 'science' },
-                    { type: 'BLANK', title: 'Blank issue', desc: 'Create a new issue from scratch', icon: 'article' },
                   ].map((tpl) => (
                     <div
                       key={tpl.type}
@@ -1505,19 +2192,22 @@ export function IssueTrackerDashboard() {
                         if (tpl.type === 'BUG_FIX') mappedTaskType = 'BUG_FIX';
                         setNewIssue(prev => ({ ...prev, uiType: tpl.type, taskType: mappedTaskType }));
                       }}
-                      className="group flex items-center justify-between p-4 border border-outline-variant/50 hover:border-primary/50 hover:bg-surface-container-high rounded-xl cursor-pointer transition-all"
+                      className="group flex items-center justify-between p-4 bg-white border border-slate-100 hover:bg-sky-500/5 hover:border-sky-500/30 rounded-2xl cursor-pointer transition-all duration-200 select-none shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-center gap-4">
-                        <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">{tpl.icon}</span>
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 group-hover:bg-sky-500/10 text-slate-500 group-hover:text-sky-500 flex items-center justify-center transition-all duration-200 shrink-0">
+                          <span className="material-symbols-outlined text-xl">{tpl.icon}</span>
+                        </div>
                         <div>
-                          <h4 className="font-bold text-sm text-on-surface">{tpl.title}</h4>
-                          <p className="text-xs text-on-surface-variant mt-0.5">{tpl.desc}</p>
+                          <h4 className="font-extrabold text-sm text-slate-700 group-hover:text-slate-800 transition-colors">{tpl.title}</h4>
+                          <p className="text-xs text-slate-500/90 mt-0.5 font-medium">{tpl.desc}</p>
                         </div>
                       </div>
-                      <span className="material-symbols-outlined text-on-surface-variant opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all">arrow_forward</span>
+                      <span className="material-symbols-outlined text-slate-400 group-hover:text-sky-500 group-hover:translate-x-1 transition-all text-lg font-bold">arrow_forward</span>
                     </div>
                   ))}
                 </div>
+
               ) : (
                 /* Step 2: Form View */
                 <form onSubmit={handleCreateIssue} className="space-y-4 animate-fade-in">
@@ -1575,34 +2265,7 @@ export function IssueTrackerDashboard() {
                     </div>
                   )}
 
-                  {/* DYNAMIC FIELDS: NOT BUG (TASKS) */}
-                  {newIssue.uiType !== 'BUG' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-on-surface-variant pl-0.5">Priority</label>
-                        <select
-                          value={newIssue.priority}
-                          onChange={(e) => setNewIssue(prev => ({ ...prev, priority: e.target.value }))}
-                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none text-on-surface"
-                        >
-                          <option value="CRITICAL">Critical</option>
-                          <option value="HIGH">High</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="LOW">Low</option>
-                        </select>
-                      </div>
 
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs font-bold text-on-surface-variant pl-0.5">Deadline</label>
-                        <input
-                          type="date"
-                          value={newIssue.deadline}
-                          onChange={(e) => setNewIssue(prev => ({ ...prev, deadline: e.target.value }))}
-                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-on-surface-variant pl-0.5">Description</label>
@@ -1615,21 +2278,7 @@ export function IssueTrackerDashboard() {
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-on-surface-variant pl-0.5">Assignee</label>
-                    <select
-                      value={newIssue.assigneeId}
-                      onChange={(e) => setNewIssue(prev => ({ ...prev, assigneeId: e.target.value }))}
-                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none text-on-surface font-semibold"
-                    >
-                      <option value="">Unassigned (No one)</option>
-                      {(activeProject?.members || []).map(member => (
-                        <option key={member.id} value={member.id}>
-                          {member.fullName || member.username} ({member.role || 'Member'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+
 
                   {/* MORE DYNAMIC FIELDS: BUG */}
                   {newIssue.uiType === 'BUG' && (
@@ -1691,6 +2340,148 @@ export function IssueTrackerDashboard() {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Feature Discussion details (Ocean Blue Premium Popup Overlay) */}
+        {activeDiscussTaskId && (
+          <FeatureDiscussionModal
+            taskId={activeDiscussTaskId}
+            projectId={projectId}
+            discussBug={discussBugs.find(b => b.id === activeDiscussTaskId)}
+            onClose={() => {
+              setActiveDiscussTaskId(null)
+              fetchDiscussStats()
+            }}
+            onRefreshDashboard={() => {
+              loadBugs(true)
+              fetchDiscussStats()
+            }}
+          />
+        )}
+      </div>
+
+      {/* AssistiveTouch Backdrop to collapse menu when clicking outside */}
+      {assistiveOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => setAssistiveOpen(false)}
+        />
+      )}
+
+      {/* AssistiveTouch Floating Button / Widget */}
+      <div
+        style={position ? getPositionStyle(assistiveOpen) : {}}
+        className={`fixed z-50 flex items-center justify-center select-none ${!position ? 'bottom-8 right-8' : ''}`}
+      >
+        {!assistiveOpen ? (
+          /* Collapsed button - handles drag and click */
+          <button
+            type="button"
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onClick={(e) => {
+              if (dragRef.current.hasMoved) {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
+              setAssistiveOpen(true)
+            }}
+            className={`w-14 h-14 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/60 shadow-2xl rounded-2xl flex items-center justify-center transition-all duration-300 cursor-grab active:cursor-grabbing ${
+              isDragging ? 'scale-105 opacity-100 border-sky-500' : 'opacity-40 hover:opacity-100 hover:scale-105'
+            }`}
+            title="Mở menu nhanh (Kéo để di chuyển)"
+          >
+            <div className="w-9 h-9 rounded-full border border-slate-500/30 flex items-center justify-center">
+              <div className="w-5.5 h-5.5 rounded-full bg-slate-100 border border-slate-300 shadow-md"></div>
+            </div>
+          </button>
+        ) : (
+          /* Expanded menu panel */
+          <div
+            className="bg-[#181f2a]/95 backdrop-blur-lg border border-slate-700/50 shadow-2xl rounded-[32px] w-64 h-64 p-5 relative transition-all duration-300 scale-100 ease-out text-white"
+          >
+            {/* 2x2 grid container */}
+            <div className="grid grid-cols-2 grid-rows-2 h-full w-full">
+              {/* Top-Left: File Issue */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistiveOpen(false);
+                    setIsModalOpen(true);
+                  }}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
+                    <span className="material-symbols-outlined text-2xl font-bold">add</span>
+                  </div>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">File Issue</span>
+                </button>
+              </div>
+
+              {/* Top-Right: GitHub */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssistiveOpen(false);
+                    if (isLeader) {
+                      navigate(`/projects/${projectId}/github-config`);
+                    } else {
+                      toast.error("Chỉ Leader mới có quyền cấu hình GitHub!");
+                    }
+                  }}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
+                    <span className="text-base font-black tracking-tighter select-none font-sans">&lt;···&gt;</span>
+                  </div>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">GitHub</span>
+                </button>
+              </div>
+
+              {/* Bottom-Left: Thống kê */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowStats(prev => !prev)}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showStats ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
+                    <span className="material-symbols-outlined text-2xl">bar_chart</span>
+                  </div>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Thống kê</span>
+                </button>
+              </div>
+
+              {/* Bottom-Right: Bộ lọc */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(prev => !prev)}
+                  className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
+                >
+                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showFilters ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
+                    <span className="material-symbols-outlined text-2xl">filter_alt</span>
+                  </div>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Bộ lọc</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Center Home Button for collapsing */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-[#141a24] rounded-2xl border border-slate-800 shadow-md flex items-center justify-center pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setAssistiveOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-400 hover:bg-slate-300 border border-slate-500/50 cursor-pointer shadow-inner transition-colors flex items-center justify-center outline-none"
+                title="Đóng menu"
+              >
+                <div className="w-2.5 h-2.5 rounded-full bg-[#141a24]"></div>
+              </button>
             </div>
           </div>
         )}

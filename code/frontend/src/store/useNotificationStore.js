@@ -234,6 +234,14 @@ export const useNotificationStore = create((set, get) => ({
           if (payload.type === 'REFRESH_BUGS') {
             window.dispatchEvent(new CustomEvent('refresh-bugs', { detail: payload }))
           }
+
+          if (payload.type === 'NEW_COMMENT' || payload.type === 'UPDATE_COMMENT') {
+            window.dispatchEvent(new CustomEvent('task-comment-event', { detail: payload }))
+          }
+
+          if (payload.type === 'TASK_PROPOSAL_UPDATE' || payload.type === 'TASK_VOTE_UPDATE') {
+            window.dispatchEvent(new CustomEvent('task-proposal-event', { detail: payload }))
+          }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
         }

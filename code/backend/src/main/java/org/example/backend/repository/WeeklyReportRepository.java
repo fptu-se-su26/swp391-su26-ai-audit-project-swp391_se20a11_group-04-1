@@ -13,8 +13,16 @@ import java.util.Optional;
 public interface WeeklyReportRepository extends JpaRepository<WeeklyReport, Long> {
     boolean existsByProjectIdAndReportWeekStartAndReportWeekEnd(Long projectId, LocalDate weekStart, LocalDate weekEnd);
 
+    List<WeeklyReport> findByProjectIdAndReportWeekStartAndReportWeekEnd(Long projectId, LocalDate weekStart, LocalDate weekEnd);
+
+    boolean existsByProjectIdAndSprintId(Long projectId, Long sprintId);
+
+    List<WeeklyReport> findByProjectIdAndSprintIdOrderByGeneratedAtDesc(Long projectId, Long sprintId);
+
+    List<WeeklyReport> findByProjectIdAndSprintId(Long projectId, Long sprintId);
+
     List<WeeklyReport> findByProjectIdOrderByReportWeekStartDesc(Long projectId);
 
-    @EntityGraph(attributePaths = {"project", "members", "members.user", "members.user.profile"})
+    @EntityGraph(attributePaths = {"project", "sprint", "members", "members.user", "members.user.profile"})
     Optional<WeeklyReport> findWithMembersById(Long id);
 }
