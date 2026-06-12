@@ -24,7 +24,11 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
       const res = await taskService.getSlaDecisionPack(projectId, taskId)
       setData(res)
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to load SLA decision pack.')
+      if (err?.response?.status === 404) {
+        setData(null)
+      } else {
+        setError(err?.response?.data?.message || err?.message || 'Failed to load SLA decision pack.')
+      }
     } finally {
       setLoading(false)
     }

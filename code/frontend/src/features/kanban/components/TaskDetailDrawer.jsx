@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
+import SlaSummaryPanel from './SlaSummaryPanel'
 
 const cleanDescription = (desc) => {
   if (!desc) return '';
@@ -29,7 +30,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
   const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
 
   return (
-    <aside className={`absolute inset-y-0 right-0 w-full sm:w-[420px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
+    <aside className={`fixed top-0 right-0 bottom-0 w-full sm:w-[420px] h-screen bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
       task ? 'translate-x-0' : 'translate-x-full'
     }`}>
       {task && (
@@ -59,7 +60,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 kanban-scroll">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6 kanban-scroll">
             {isChildTask && (() => {
               const parentTask = tasks.find(t => String(t.id) === String(task.parentId))
               return parentTask ? (
@@ -214,6 +215,8 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               )}
             </div>
 
+            <SlaSummaryPanel projectId={projectId} taskId={task.id} />
+
             <div>
               <h3 className="text-sm font-bold text-on-background border-b border-outline-variant pb-2 mb-3">Traceability</h3>
               <div className="space-y-2">
@@ -308,7 +311,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               <span className="text-xs font-semibold text-secondary block mb-1">Git Commit Prefix</span>
               <div className="flex items-center space-x-2 bg-surface-container-lowest p-2 rounded border border-outline-variant">
                 <code className="text-sm font-label-md text-on-background flex-1">
-                  feat({task.id}): 
+                  feat(PRJ{projectId}-{task.id}): 
                 </code>
                 <button type="button" className="text-on-surface-variant hover:text-primary" title="Copy prefix">
                   <span className="material-symbols-outlined text-[16px]">content_copy</span>
