@@ -53,11 +53,11 @@ public class UseCase {
     private String alternativeFlow;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "includes", columnDefinition = "jsonb")
-    private List<String> includes;
+    @Column(name = "includes_list", columnDefinition = "jsonb")
+    private List<String> includesList;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "extends", columnDefinition = "jsonb")
+    @Column(name = "extends_list", columnDefinition = "jsonb")
     private List<String> extendsList;
 
     @Enumerated(EnumType.STRING)
@@ -97,9 +97,31 @@ public class UseCase {
     @Column(name = "req_version_hash", length = 255)
     private String reqVersionHash;
     
+    @Column(name = "show_in_diagram", nullable = false)
+    private boolean showInDiagram = true;
+    
+    @Column(name = "added_from_diagram", nullable = false)
+    private boolean addedFromDiagram = false;
+    
     // Helper method để thêm actor đồng bộ 2 chiều
     public void addActor(UseCaseActor actor) {
         actors.add(actor);
         actor.setUseCase(this);
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void calculateCompletenessScore() {
+        int score = 0;
+        int totalFields = 6;
+        
+        if (name != null && !name.trim().isEmpty()) score++;
+        if (precondition != null && !precondition.trim().isEmpty()) score++;
+        if (postcondition != null && !postcondition.trim().isEmpty()) score++;
+        if (mainFlow != null && !mainFlow.trim().isEmpty() && !mainFlow.equals("[]")) score++;
+        if (alternativeFlow != null && !alternativeFlow.trim().isEmpty() && !alternativeFlow.equals("[]")) score++;
+        if (actors != null && !actors.isEmpty()) score++;
+        
+        this.completenessScore = Math.round(((float) score / totalFields) * 100);
     }
 }

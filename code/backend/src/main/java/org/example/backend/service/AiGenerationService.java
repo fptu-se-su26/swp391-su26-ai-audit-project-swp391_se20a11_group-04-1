@@ -676,6 +676,18 @@ public class AiGenerationService {
                     uc.setActors(actorList);
                 }
                 
+                List<String> includesList = new ArrayList<>();
+                if (ucNode.has("includes") && ucNode.get("includes").isArray()) {
+                    for (JsonNode incNode : ucNode.get("includes")) includesList.add(incNode.asText());
+                }
+                uc.setIncludesList(includesList);
+
+                List<String> extendsList = new ArrayList<>();
+                if (ucNode.has("extendsList") && ucNode.get("extendsList").isArray()) {
+                    for (JsonNode extNode : ucNode.get("extendsList")) extendsList.add(extNode.asText());
+                }
+                uc.setExtendsList(extendsList);
+                
                 nextSubId++;
                 useCasesToSave.add(uc);
             }
@@ -769,6 +781,7 @@ public class AiGenerationService {
             "   - 'primaryActors': (String) Comma separated list of actors\n" +
             "   - 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
             "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- OLD USE CASE ---\n" + oldUcContext;
             
@@ -841,6 +854,7 @@ public class AiGenerationService {
             "4. 'newUseCases' must be an array of objects representing entirely new use cases (do NOT include 'id' field). Format is the same as above.\n" +
             "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
             "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- EXISTING USE CASES ---\n" + existingUcsContext.toString();
             
@@ -969,6 +983,18 @@ public class AiGenerationService {
                         String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                         uc.setReqVersionHash(reqHash);
                         
+                        List<String> includesList = new ArrayList<>();
+                        if (updatedNode.has("includes") && updatedNode.get("includes").isArray()) {
+                            for (JsonNode incNode : updatedNode.get("includes")) includesList.add(incNode.asText());
+                        }
+                        if (!includesList.isEmpty() || updatedNode.has("includes")) uc.setIncludesList(includesList);
+
+                        List<String> extendsList = new ArrayList<>();
+                        if (updatedNode.has("extendsList") && updatedNode.get("extendsList").isArray()) {
+                            for (JsonNode extNode : updatedNode.get("extendsList")) extendsList.add(extNode.asText());
+                        }
+                        if (!extendsList.isEmpty() || updatedNode.has("extendsList")) uc.setExtendsList(extendsList);
+                        
                         useCaseRepository.save(uc);
                     }
                 }
@@ -1063,6 +1089,30 @@ public class AiGenerationService {
                         try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception ignored) {}
                     }
                 }
+                
+                if (newNode.has("primaryActors") && !newNode.get("primaryActors").asText().trim().isEmpty()) {
+                    String[] actorsArr = newNode.get("primaryActors").asText().split(",");
+                    List<org.example.backend.entity.UseCaseActor> actorList = new ArrayList<>();
+                    for (String actorName : actorsArr) {
+                        org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
+                        actor.setActorName(actorName.trim());
+                        actor.setUseCase(uc);
+                        actorList.add(actor);
+                    }
+                    uc.setActors(actorList);
+                }
+
+                List<String> includesList = new ArrayList<>();
+                if (newNode.has("includes") && newNode.get("includes").isArray()) {
+                    for (JsonNode incNode : newNode.get("includes")) includesList.add(incNode.asText());
+                }
+                uc.setIncludesList(includesList);
+
+                List<String> extendsList = new ArrayList<>();
+                if (newNode.has("extendsList") && newNode.get("extendsList").isArray()) {
+                    for (JsonNode extNode : newNode.get("extendsList")) extendsList.add(extNode.asText());
+                }
+                uc.setExtendsList(extendsList);
                 
                 newUcs.add(uc);
                 nextSubId++;

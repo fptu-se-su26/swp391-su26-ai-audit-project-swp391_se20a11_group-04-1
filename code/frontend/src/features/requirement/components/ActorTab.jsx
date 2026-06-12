@@ -11,7 +11,7 @@ const ActorTab = () => {
   const handleAdd = () => {
     if (!newActorName.trim()) return;
     addActor({
-      id: Date.now().toString(),
+      id: "new_" + Date.now().toString(),
       name: newActorName.trim()
     });
     setNewActorName('');

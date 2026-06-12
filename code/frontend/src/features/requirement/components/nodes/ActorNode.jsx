@@ -1,16 +1,74 @@
-import React from 'react';
-import { Handle, Position } from '@xyflow/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Handle, Position, NodeToolbar } from '@xyflow/react';
 
-const ActorNode = ({ data, isConnectable }) => {
+const ActorNode = ({ data, id, isConnectable, selected }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(data.label);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+      setName(data.label);
+  }, [data.label]);
+
+  useEffect(() => {
+      if (isEditing && inputRef.current) {
+          inputRef.current.focus();
+      }
+  }, [isEditing]);
+
+  const handleDoubleClick = (e) => {
+      e.stopPropagation();
+      setIsEditing(true);
+  };
+
+  const submitName = () => {
+      setIsEditing(false);
+      if (name.trim() !== data.label && data.onNameUpdate) {
+          data.onNameUpdate(id, name.trim());
+      } else {
+          setName(data.label);
+      }
+  };
+
+  const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+          submitName();
+      } else if (e.key === 'Escape') {
+          setIsEditing(false);
+          setName(data.label);
+      }
+  };
+
+  // Hiệu ứng Pulse Highlight khi mới tạo
+  const isNew = data.isNew;
+
   return (
-    <div className="flex flex-col items-center min-w-[80px]">
-      {/* Target handles on both sides */}
-      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      
-      {/* Source handles on both sides */}
-      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
+    <div 
+        className={`relative group flex flex-col items-center min-w-[80px] p-2 rounded transition-all ${isNew ? 'animate-pulse ring-2 ring-yellow-400' : ''}`} 
+        onDoubleClick={handleDoubleClick}
+    >
+      <NodeToolbar isVisible={selected && !isEditing} position={Position.Top}>
+          <button 
+             onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
+             className="bg-white text-red-500 border border-red-200 shadow-md rounded-full p-1 flex items-center justify-center hover:bg-red-50 transition-colors"
+             title="Xóa Actor"
+          >
+             <span className="material-symbols-outlined text-[16px]">delete</span>
+          </button>
+      </NodeToolbar>
+
+      {/* Handles: Đồng nhất 1 màu, ẩn/hiện khi hover */}
+      {/* Target handles */}
+      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Top} id="top-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '40%' }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '40%' }} />
+
+      {/* Source handles */}
+      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '60%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '60%' }} />
       
       <div className="flex flex-col items-center">
         {/* SVG Stickman */}
@@ -22,8 +80,22 @@ const ActorNode = ({ data, isConnectable }) => {
           <line x1="15" y1="35" x2="5" y2="50" stroke="black" strokeWidth="2" />
           <line x1="15" y1="35" x2="25" y2="50" stroke="black" strokeWidth="2" />
         </svg>
-        <div className="mt-2 text-sm font-semibold text-gray-800 text-center whitespace-nowrap">
-          {data.label}
+        <div className="mt-2 flex justify-center">
+          {isEditing ? (
+              <input
+                  ref={inputRef}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={submitName}
+                  onKeyDown={handleKeyDown}
+                  className="text-sm font-semibold text-gray-800 text-center whitespace-nowrap bg-white border border-blue-400 rounded px-1 outline-none w-auto"
+                  style={{ minWidth: '80px' }}
+              />
+          ) : (
+              <div className="text-sm font-semibold text-gray-800 text-center whitespace-nowrap px-1 cursor-text select-none">
+                {data.label}
+              </div>
+          )}
         </div>
       </div>
     </div>

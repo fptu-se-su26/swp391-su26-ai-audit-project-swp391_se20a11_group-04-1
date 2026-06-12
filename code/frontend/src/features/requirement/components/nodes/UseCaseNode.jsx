@@ -1,18 +1,93 @@
-import React from 'react';
-import { Handle, Position } from '@xyflow/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Handle, Position, NodeToolbar } from '@xyflow/react';
 
-const UseCaseNode = ({ data, isConnectable }) => {
+const UseCaseNode = ({ data, id, isConnectable, selected }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(data.label);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+      setName(data.label);
+  }, [data.label]);
+
+  useEffect(() => {
+      if (isEditing && inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+      }
+  }, [isEditing]);
+
+  const handleDoubleClick = (e) => {
+      e.stopPropagation();
+      setIsEditing(true);
+  };
+
+  const submitName = () => {
+      setIsEditing(false);
+      if (name.trim() !== data.label && data.onNameUpdate) {
+          data.onNameUpdate(id, name.trim());
+      } else {
+          setName(data.label);
+      }
+  };
+
+  const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+          submitName();
+      } else if (e.key === 'Escape') {
+          setIsEditing(false);
+          setName(data.label);
+      }
+  };
+
+  // State
+  const isIsolated = data.isIsolated;
+  const isNew = data.isNew;
+
   return (
-    <div className="relative group">
-      <Handle type="target" position={Position.Left} id="left" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      <Handle type="source" position={Position.Left} id="left-s" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
-      <Handle type="target" position={Position.Right} id="right-t" isConnectable={isConnectable} style={{ opacity: 0, width: 1, height: 1 }} />
+    <div 
+        className={`relative group transition-all duration-500 ease-in-out ${isNew ? 'animate-pulse ring-4 ring-yellow-400 rounded-[50px]' : ''}`}
+        onDoubleClick={handleDoubleClick}
+    >
+      <NodeToolbar isVisible={selected && !isEditing} position={Position.Top}>
+          <button 
+             onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
+             className="bg-white text-red-500 border border-red-200 shadow-md rounded-full p-1 flex items-center justify-center hover:bg-red-50 transition-colors"
+             title="Xóa Use Case"
+          >
+             <span className="material-symbols-outlined text-[16px]">delete</span>
+          </button>
+      </NodeToolbar>
+
+      {/* Target Handles */}
+      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '40%' }} />
+      <Handle type="target" position={Position.Top} id="top-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '40%' }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '40%' }} />
+
+      {/* Source Handles */}
+      <Handle type="source" position={Position.Right} id="right-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ right: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Left} id="left-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ left: -4, top: '60%' }} />
+      <Handle type="source" position={Position.Top} id="top-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ top: -4, left: '60%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-gray-400 border-none opacity-0 group-hover:opacity-100 transition-all cursor-crosshair" style={{ bottom: -4, left: '60%' }} />
       
-      <div className="flex items-center justify-center px-4 py-2 bg-white border border-blue-500 rounded-[50px] shadow-sm min-w-[120px] min-h-[40px] text-center max-w-[200px]">
-        <span className="text-sm font-medium text-gray-800 break-words">
-          {data.label}
-        </span>
+      <div className={`flex items-center justify-center px-4 py-2 bg-white rounded-[50px] shadow-sm min-w-[120px] min-h-[40px] text-center max-w-[200px] border-2 transition-colors duration-500 ease-in-out ${isIsolated ? 'border-red-500 shadow-red-200' : 'border-black'}`}>
+        {isEditing ? (
+            <textarea
+                ref={inputRef}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={submitName}
+                onKeyDown={handleKeyDown}
+                className="text-sm font-medium text-gray-800 text-center bg-transparent border-none outline-none resize-none overflow-hidden w-full h-full"
+                rows={Math.max(1, name.split('\n').length)}
+                style={{ minHeight: '20px' }}
+            />
+        ) : (
+            <span className="text-sm font-medium text-gray-800 break-words cursor-text select-none">
+              {data.label}
+            </span>
+        )}
       </div>
     </div>
   );

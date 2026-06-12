@@ -40,6 +40,22 @@ public class RequirementServiceImpl implements RequirementService {
     private final org.example.backend.repository.ProjectRepository projectRepository;
     private final UserAccountRepository userAccountRepository;
     private final UseCaseRepository useCaseRepository;
+    private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+
+    private void checkLeaderAccess(Long projectId) {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) throw new org.example.backend.exception.ForbiddenException("Authentication required");
+        
+        UserAccount user = userAccountRepository.findByUsername(auth.getName())
+            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("User not found"));
+            
+        org.example.backend.entity.ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
+            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Access Denied: You are not an active member of this project"));
+            
+        if (!"LEADER".equalsIgnoreCase(member.getRole().getName())) {
+            throw new org.example.backend.exception.ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
+        }
+    }
 
     @Override
     @Transactional
@@ -49,6 +65,8 @@ public class RequirementServiceImpl implements RequirementService {
         if (requestDTO.getProjectId() == null) {
             throw new BadRequestException("Project is required when creating a requirement.");
         }
+        
+        checkLeaderAccess(requestDTO.getProjectId());
 
         // Lock the project row to prevent race conditions on auto-increment calculation
         var project = projectRepository.findByIdWithPessimisticWrite(requestDTO.getProjectId())
@@ -147,6 +165,8 @@ public class RequirementServiceImpl implements RequirementService {
         Requirement requirement = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
+        checkLeaderAccess(requirement.getProject().getId());
+
         requirement.setTitle(requestDTO.getTitle());
         requirement.setDescription(requestDTO.getDescription());
         requirement.setType(requestDTO.getType());
@@ -223,9 +243,11 @@ public class RequirementServiceImpl implements RequirementService {
     @Transactional
     public void deleteRequirement(Long id) {
         log.info("Deleting requirement id: {}", id);
-        if (!requirementRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Requirement not found with id: " + id);
-        }
+        Requirement req = requirementRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
+                
+        checkLeaderAccess(req.getProject().getId());
+        
         requirementRepository.deleteById(id);
     }
 

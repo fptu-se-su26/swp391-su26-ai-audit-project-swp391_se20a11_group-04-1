@@ -1,294 +1,302 @@
-// ucLayoutEngine.js
-// Custom layout algorithm for Use Case Diagram with exact X/Y positioning and Edge routing
-
 const CANVAS_WIDTH = 1300;
-const ACTOR_LEFT_X = 50; // Increased distance from UC_LEFT_X (220)
-const ACTOR_RIGHT_X = 1150; // Increased distance from right UC (780 + 180 = 960)
+const ACTOR_LEFT_X = 50;
+const ACTOR_RIGHT_X = 1150;
 const UC_LEFT_X = 220;
 const UC_RIGHT_X = 780;
-const GAP_CENTER = 560; // Just for reference
 const UC_Y_START = 60;
-let UC_Y_GAP = 75; // Mutable for large diagrams
-const ACTOR_NODE_WIDTH = 60;
-const ACTOR_NODE_HEIGHT = 90;
+const ACTOR_Y_SPACING = 120;
 const UC_NODE_WIDTH = 180;
-const UC_NODE_HEIGHT = 44;
-const ACTOR_Y_SPACING = 120; // Minimum Y spacing between actors
+const UC_GAP = 80;
+const CLUSTER_GAP = 40;
 
 export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System") => {
   const actors = initialNodes.filter(n => n.type === 'actor');
   const usecases = initialNodes.filter(n => n.type === 'useCase');
   
-  // Viêc 2: Bỏ hoàn toàn include và extend
-  const relations = initialEdges.filter(rel => rel.type !== 'include' && rel.type !== 'extend' && rel.label !== '<<include>>' && rel.label !== '<<extend>>');
+  const uniqueEdges = [];
+  const edgeSet = new Set();
+  initialEdges.forEach(edge => {
+      const isActorEdge = edge.source.startsWith('actor_') || edge.target.startsWith('actor_');
+      const key = isActorEdge 
+          ? [edge.source, edge.target].sort().join('-') 
+          : `${edge.source}->${edge.target}`;
+      if (!edgeSet.has(key)) {
+          edgeSet.add(key);
+          uniqueEdges.push(edge);
+      }
+  });
+  const relations = uniqueEdges;
 
-  // PRE-STEP: Map Explicit UC Groups
-  const ucExplicitGroup = {};
-  usecases.forEach(uc => {
-    ucExplicitGroup[uc.id] = uc.data?.group || 'shared';
+  const actorToUcs = {};
+  actors.forEach(a => actorToUcs[a.id] = []);
+  relations.forEach(r => {
+      const isSourceActor = r.source.startsWith('actor_');
+      const isTargetActor = r.target.startsWith('actor_');
+      if (isSourceActor || isTargetActor) {
+          const actorId = isSourceActor ? r.source : r.target;
+          const ucId = isSourceActor ? r.target : r.source;
+          if (actorToUcs[actorId]) {
+              actorToUcs[actorId].push(ucId);
+          }
+      }
   });
 
-  // BƯỚC 1: XÁC ĐỊNH ACTOR NÀO THUỘC BÊN NÀO
-  const actorSides = {}; // actorId -> 'left' | 'right' | 'bottom'
+  const visited = new Set();
+  const buildTree = (rootId, level = 0) => {
+      visited.add(rootId);
+      const node = { id: rootId, level, children: [] };
+      const connected = relations.filter(r => 
+          (!r.source.startsWith('actor_') && !r.target.startsWith('actor_')) &&
+          (r.source === rootId || r.target === rootId)
+      );
+      connected.forEach(r => {
+          const other = r.source === rootId ? r.target : r.source;
+          if (other.startsWith('uc_') && !visited.has(other)) {
+              node.children.push(buildTree(other, level + 1));
+          }
+      });
+      return node;
+  };
+
+  const calculateSubtreeHeight = (tree) => {
+      if (tree.children.length === 0) {
+          tree.height = UC_GAP;
+          return tree.height;
+      }
+      let totalHeight = 0;
+      tree.children.forEach(child => {
+          totalHeight += calculateSubtreeHeight(child);
+      });
+      tree.height = Math.max(UC_GAP, totalHeight);
+      return tree.height;
+  };
+
+  const actorWeights = actors.map(a => ({
+      id: a.id,
+      weight: actorToUcs[a.id].length
+  }));
+  actorWeights.sort((a, b) => b.weight - a.weight);
   
+  const actorSides = {};
+  let leftTotal = 0;
+  let rightTotal = 0;
+  actorWeights.forEach(aw => {
+      if (leftTotal <= rightTotal) {
+          actorSides[aw.id] = 'left';
+          leftTotal += Math.max(1, aw.weight);
+      } else {
+          actorSides[aw.id] = 'right';
+          rightTotal += Math.max(1, aw.weight);
+      }
+  });
+
+  const leftForest = [];
+  const rightForest = [];
+
   actors.forEach(actor => {
-    if (actor.data?.side && (actor.data.side === 'left' || actor.data.side === 'right' || actor.data.side === 'bottom')) {
-      actorSides[actor.id] = actor.data.side;
-      return;
-    }
-    
-    let leftCount = 0;
-    let rightCount = 0;
-    
-    const connectedUcIds = relations
-      .filter(rel => rel.source === actor.id || rel.target === actor.id)
-      .map(rel => rel.source === actor.id ? rel.target : rel.source);
+      const primaryUcs = actorToUcs[actor.id];
+      const side = actorSides[actor.id];
+      const targetForest = side === 'left' ? leftForest : rightForest;
       
-    connectedUcIds.forEach(ucId => {
-       if (ucExplicitGroup[ucId] === 'left') leftCount++;
-       else if (ucExplicitGroup[ucId] === 'right') rightCount++;
-    });
-    
-    if (leftCount > rightCount) actorSides[actor.id] = 'left';
-    else if (rightCount > leftCount) actorSides[actor.id] = 'right';
-    else {
-      // Default alternating left/right if equal
-      const currentLeft = Object.values(actorSides).filter(s => s === 'left').length;
-      const currentRight = Object.values(actorSides).filter(s => s === 'right').length;
-      actorSides[actor.id] = currentLeft <= currentRight ? 'left' : 'right';
-    }
+      const actorTrees = [];
+      primaryUcs.forEach(ucId => {
+          if (!visited.has(ucId)) {
+              const tree = buildTree(ucId, 0);
+              calculateSubtreeHeight(tree);
+              actorTrees.push(tree);
+          }
+      });
+      targetForest.push({ actorId: actor.id, trees: actorTrees });
   });
 
-  // BƯỚC 2: PHÂN BỔ UC GROUP SHARED
-  const finalUcSide = {}; // ucId -> 'left' | 'right'
-  
+  const isolatedTrees = [];
   usecases.forEach(uc => {
-    if (ucExplicitGroup[uc.id] === 'left') finalUcSide[uc.id] = 'left';
-    else if (ucExplicitGroup[uc.id] === 'right') finalUcSide[uc.id] = 'right';
+      if (!visited.has(uc.id)) {
+          const tree = buildTree(uc.id, 0);
+          calculateSubtreeHeight(tree);
+          isolatedTrees.push(tree);
+      }
   });
-  
-  usecases.forEach(uc => {
-    if (finalUcSide[uc.id]) return; // Already processed
-    
-    const connectedActors = relations
-      .filter(rel => rel.source === uc.id || rel.target === uc.id)
-      .map(rel => rel.source.startsWith('actor_') ? rel.source : rel.target)
-      .filter(id => id.startsWith('actor_'));
-      
-    let leftActorCount = 0;
-    let rightActorCount = 0;
-    
-    connectedActors.forEach(aId => {
-       if (actorSides[aId] === 'left') leftActorCount++;
-       else if (actorSides[aId] === 'right') rightActorCount++;
-    });
-    
-    if (leftActorCount > 0 && rightActorCount === 0) {
-        finalUcSide[uc.id] = 'left';
-    } else if (rightActorCount > 0 && leftActorCount === 0) {
-        finalUcSide[uc.id] = 'right';
-    } else {
-       // Shared by both, or connected to nothing -> place in column with fewer UCs
-       const leftTotal = Object.values(finalUcSide).filter(s => s === 'left').length;
-       const rightTotal = Object.values(finalUcSide).filter(s => s === 'right').length;
-       finalUcSide[uc.id] = leftTotal <= rightTotal ? 'left' : 'right';
-    }
-  });
-
-  // BƯỚC 3: KIỂM TRA LẠI & CHUYỂN CỘT CHO UC THEO ƯU TIÊN RELATION ACTOR
-  usecases.forEach(uc => {
-     const connectedActors = relations
-      .filter(rel => rel.source === uc.id || rel.target === uc.id)
-      .map(rel => rel.source.startsWith('actor_') ? rel.source : rel.target)
-      .filter(id => id.startsWith('actor_'));
-      
-     let leftActorCount = 0;
-     let rightActorCount = 0;
-     
-     connectedActors.forEach(aId => {
-       if (actorSides[aId] === 'left') leftActorCount++;
-       else if (actorSides[aId] === 'right') rightActorCount++;
-     });
-     
-     if (leftActorCount > rightActorCount) {
-        finalUcSide[uc.id] = 'left';
-     } else if (rightActorCount > leftActorCount) {
-        finalUcSide[uc.id] = 'right';
-     }
-  });
-
-  // BƯỚC 4: TẠO MẢNG UC VÀ TÍNH Y
-  const leftUCs = usecases.filter(uc => finalUcSide[uc.id] === 'left');
-  const rightUCs = usecases.filter(uc => finalUcSide[uc.id] === 'right');
-
-  // Handle >25 UCs
-  const maxUCs = Math.max(leftUCs.length, rightUCs.length);
-  let totalHeight = maxUCs * UC_Y_GAP;
-  if (totalHeight > 2500) {
-    UC_Y_GAP = 45;
-  } else if (totalHeight > 1500) {
-    UC_Y_GAP = 55;
-  }
-  totalHeight = Math.max(maxUCs * UC_Y_GAP, 500); // Minimum height
 
   const ucNodes = [];
-  
-  leftUCs.forEach((uc, index) => {
-    const y = UC_Y_START + index * UC_Y_GAP;
-    ucNodes.push({
-      ...uc,
-      position: { x: UC_LEFT_X, y },
-      data: { ...uc.data, side: 'left' }
-    });
-  });
-
-  rightUCs.forEach((uc, index) => {
-    const y = UC_Y_START + index * UC_Y_GAP;
-    ucNodes.push({
-      ...uc,
-      position: { x: UC_RIGHT_X, y },
-      data: { ...uc.data, side: 'right' }
-    });
-  });
-
-  // Helper to get UC's calculated Y
-  const getUcPos = (ucId) => {
-    const node = ucNodes.find(n => n.id === ucId);
-    return node ? node.position.y : 0;
-  };
-
-  // BƯỚC 5: TẠO MẢNG ACTOR VÀ TÍNH Y
-  const leftActors = [];
-  const rightActors = [];
-  const bottomActors = [];
-
-  actors.forEach(actor => {
-    const connectedUcIds = relations
-      .filter(rel => rel.source === actor.id || rel.target === actor.id)
-      .map(rel => rel.source === actor.id ? rel.target : rel.source);
-
-    const side = actorSides[actor.id];
-    if (side === 'left') leftActors.push({ actor, connectedUcIds });
-    else if (side === 'right') rightActors.push({ actor, connectedUcIds });
-    else bottomActors.push({ actor, connectedUcIds });
-  });
-
-  const calculateActorY = (connectedUcIds) => {
-    if (connectedUcIds.length === 0) return totalHeight / 2 || 300;
-    const sumY = connectedUcIds.reduce((sum, id) => sum + getUcPos(id), 0);
-    return sumY / connectedUcIds.length;
-  };
-
-  // Assign initial Y and sort
-  leftActors.forEach(item => item.initialY = calculateActorY(item.connectedUcIds));
-  rightActors.forEach(item => item.initialY = calculateActorY(item.connectedUcIds));
-  
-  leftActors.sort((a, b) => a.initialY - b.initialY);
-  rightActors.sort((a, b) => a.initialY - b.initialY);
-
-  // Viêc 3: Đảm bảo Y cách nhau tối thiểu 120px
-  const enforceSpacing = (actorList) => {
-    for (let i = 1; i < actorList.length; i++) {
-      const prevY = actorList[i - 1].finalY || actorList[i - 1].initialY;
-      const currentY = actorList[i].initialY;
-      if (currentY - prevY < ACTOR_Y_SPACING) {
-        actorList[i].finalY = prevY + ACTOR_Y_SPACING;
-      } else {
-        actorList[i].finalY = currentY;
-      }
-    }
-    if (actorList.length > 0) {
-        actorList[0].finalY = actorList[0].initialY;
-    }
-  };
-
-  enforceSpacing(leftActors);
-  enforceSpacing(rightActors);
-
   const actorNodes = [];
+  
+  let maxCenterY = UC_Y_START;
 
-  leftActors.forEach(item => {
-    actorNodes.push({
-      ...item.actor,
-      position: { x: ACTOR_LEFT_X, y: item.finalY },
-      data: { ...item.actor.data, side: 'left' }
-    });
+  const positionTree = (tree, startY, baseX, direction, sideStr, isIsolated = false) => {
+      const myY = startY + (tree.height / 2) - (UC_GAP / 2);
+      const myX = baseX + (tree.level * 300 * direction); 
+      
+      if (tree.level > 0) {
+          maxCenterY = Math.max(maxCenterY, myY + tree.height);
+      }
+
+      const uc = usecases.find(u => u.id === tree.id);
+      if (uc) {
+          ucNodes.push({
+              ...uc,
+              position: { x: myX, y: myY },
+              data: { ...uc.data, side: sideStr, isIsolated }
+          });
+      }
+      
+      let currentY = startY;
+      tree.children.forEach(child => {
+          positionTree(child, currentY, baseX, direction, sideStr, isIsolated);
+          currentY += child.height;
+      });
+  };
+
+  let leftY = UC_Y_START;
+  leftForest.forEach(cluster => {
+      const startY = leftY;
+      cluster.trees.forEach(tree => {
+          positionTree(tree, leftY, UC_LEFT_X, 1, 'left');
+          leftY += tree.height;
+      });
+      const endY = leftY - UC_GAP;
+      
+      let y = UC_Y_START;
+      if (startY <= endY) {
+          y = (startY + endY) / 2;
+      }
+      const actor = actors.find(a => a.id === cluster.actorId);
+      actorNodes.push({ ...actor, position: { x: ACTOR_LEFT_X, y }, data: { ...actor.data, side: 'left' }});
+      
+      leftY += CLUSTER_GAP;
   });
 
-  rightActors.forEach(item => {
-    actorNodes.push({
-      ...item.actor,
-      position: { x: ACTOR_RIGHT_X, y: item.finalY },
-      data: { ...item.actor.data, side: 'right' }
-    });
+  let rightY = UC_Y_START;
+  rightForest.forEach(cluster => {
+      const startY = rightY;
+      cluster.trees.forEach(tree => {
+          positionTree(tree, rightY, UC_RIGHT_X, -1, 'right');
+          rightY += tree.height;
+      });
+      const endY = rightY - UC_GAP;
+      
+      let y = UC_Y_START;
+      if (startY <= endY) {
+          y = (startY + endY) / 2;
+      }
+      const actor = actors.find(a => a.id === cluster.actorId);
+      actorNodes.push({ ...actor, position: { x: ACTOR_RIGHT_X, y }, data: { ...actor.data, side: 'right' }});
+      
+      rightY += CLUSTER_GAP;
   });
 
-  bottomActors.forEach((item, index) => {
-    const y = totalHeight + 100;
-    actorNodes.push({
-      ...item.actor,
-      position: { x: CANVAS_WIDTH / 2 - 40 + (index * 150), y },
-      data: { ...item.actor.data, side: 'bottom' }
-    });
+  const bottomCenterY = maxCenterY + CLUSTER_GAP;
+  let currentBottomY = bottomCenterY;
+
+  isolatedTrees.forEach(tree => {
+      positionTree(tree, currentBottomY, CANVAS_WIDTH / 2 - UC_NODE_WIDTH / 2, 0, 'bottom', true);
+      currentBottomY += tree.height + CLUSTER_GAP;
   });
 
-  // BƯỚC 6: SYSTEM BOUNDARY
+  const totalHeight = Math.max(leftY, rightY, currentBottomY);
+
+  // Viêc 3: Đảm bảo Y cách nhau tối thiểu 120px cho Actor
+  const enforceActorSpacing = (actNodes, side) => {
+      const sorted = actNodes.filter(n => n.data.side === side).sort((a, b) => a.position.y - b.position.y);
+      for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i].position.y < sorted[i - 1].position.y + ACTOR_Y_SPACING) {
+              sorted[i].position.y = sorted[i - 1].position.y + ACTOR_Y_SPACING;
+          }
+      }
+  };
+  enforceActorSpacing(actorNodes, 'left');
+  enforceActorSpacing(actorNodes, 'right');
+
   const systemBoundaryNode = {
-    id: 'system_boundary',
-    type: 'systemBoundary',
-    position: { x: UC_LEFT_X - 30, y: UC_Y_START - 30 },
-    data: { label: systemName },
-    draggable: false,
-    selectable: false,
-    style: {
-      width: UC_RIGHT_X + UC_NODE_WIDTH + 30 - (UC_LEFT_X - 30),
-      height: totalHeight + 60,
-      backgroundColor: 'rgba(240, 244, 250, 0.5)',
-      border: '1.5px dashed #C5D8F0',
-      borderRadius: '12px',
-      zIndex: -1,
-      pointerEvents: 'none'
-    }
+      id: 'system_boundary',
+      type: 'systemBoundary',
+      position: { x: UC_LEFT_X - 30, y: UC_Y_START - 30 },
+      data: { label: systemName },
+      draggable: false,
+      selectable: false,
+      style: {
+          width: Math.max(UC_RIGHT_X + UC_NODE_WIDTH + 30 - (UC_LEFT_X - 30), CANVAS_WIDTH / 2 + UC_NODE_WIDTH / 2 + 50 - (UC_LEFT_X - 30)),
+          height: totalHeight + 60,
+          zIndex: -1
+      }
   };
 
-  // BƯỚC 7: XÂY DỰNG EDGES
-  const resultEdges = relations.map(rel => {
-    const isSourceActor = rel.source.startsWith('actor_');
-    const isTargetActor = rel.target.startsWith('actor_');
+  const getUcX = (ucId) => {
+      const node = ucNodes.find(n => n.id === ucId);
+      return node ? node.position.x : 0;
+  };
+  const getUcY = (ucId) => {
+      const node = ucNodes.find(n => n.id === ucId);
+      return node ? node.position.y : 0;
+  };
+  const getActorPos = (actorId) => {
+      const node = actorNodes.find(n => n.id === actorId);
+      return node ? { x: node.position.x, y: node.position.y } : { x: 0, y: 0 };
+  };
 
-    const edge = {
-      ...rel,
-      id: rel.id,
-      source: rel.source,
-      target: rel.target,
-      markerEnd: {
-        type: 'arrowclosed',
-        width: 14,
-        height: 14,
+  let resultEdges = uniqueEdges.filter(rel => {
+      if (!rel.source.startsWith('actor_') && !rel.target.startsWith('actor_')) {
+          const sourceIsolated = !visited.has(rel.source);
+          const targetIsolated = !visited.has(rel.target);
+          if (sourceIsolated && targetIsolated) return false;
       }
-    };
+      return true;
+  }).map(rel => {
+      const isSourceActor = rel.source.startsWith('actor_');
+      const isTargetActor = rel.target.startsWith('actor_');
 
-    if (isSourceActor || isTargetActor) {
-      // Viêc 1: Đổi sang dây Bezier cong tự nhiên
-      edge.type = 'default';
-      
-      const actorId = isSourceActor ? rel.source : rel.target;
-      const actorSide = actorSides[actorId] || 'left';
-      
-      if (isSourceActor) {
-        edge.sourceHandle = actorSide === 'left' ? 'right' : 'left';
-        edge.targetHandle = actorSide === 'left' ? 'left' : 'right';
+      const edge = {
+          ...rel,
+          id: rel.id,
+          source: rel.source,
+          target: rel.target,
+          markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
+          type: 'default'
+      };
+
+      const sx = isSourceActor ? getActorPos(rel.source).x : getUcX(rel.source);
+      const sy = isSourceActor ? getActorPos(rel.source).y : getUcY(rel.source);
+      const tx = isTargetActor ? getActorPos(rel.target).x : getUcX(rel.target);
+      const ty = isTargetActor ? getActorPos(rel.target).y : getUcY(rel.target);
+
+      if (isSourceActor || isTargetActor) {
+          if (isSourceActor) {
+              if (sx < tx) {
+                  edge.sourceHandle = 'right';
+                  edge.targetHandle = 'left-target';
+              } else {
+                  edge.sourceHandle = 'left';
+                  edge.targetHandle = 'right-target';
+              }
+          } else {
+              if (sx < tx) {
+                  edge.sourceHandle = 'right-source';
+                  edge.targetHandle = 'left';
+              } else {
+                  edge.sourceHandle = 'left-source';
+                  edge.targetHandle = 'right';
+              }
+          }
       } else {
-        edge.sourceHandle = actorSide === 'left' ? 'left' : 'right';
-        edge.targetHandle = actorSide === 'left' ? 'right' : 'left';
+          // UCs to UCs
+          if (sx + 50 < tx) {
+              edge.sourceHandle = 'right-source';
+              edge.targetHandle = 'left-target';
+          } else if (sx > tx + 50) {
+              edge.sourceHandle = 'left-source';
+              edge.targetHandle = 'right-target';
+          } else {
+              if (sy < ty) {
+                  edge.sourceHandle = 'bottom-source';
+                  edge.targetHandle = 'top-target';
+              } else {
+                  edge.sourceHandle = 'top-source';
+                  edge.targetHandle = 'bottom-target';
+              }
+          }
       }
-    }
-
-    return edge;
+      return edge;
   });
 
-  return {
-    nodes: [systemBoundaryNode, ...actorNodes, ...ucNodes],
-    edges: resultEdges
-  };
+  return { nodes: [systemBoundaryNode, ...actorNodes, ...ucNodes], edges: resultEdges };
 };

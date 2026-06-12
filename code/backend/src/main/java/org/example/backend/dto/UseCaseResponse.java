@@ -16,7 +16,7 @@ public class UseCaseResponse {
     private String postcondition;
     private Map<String, Object> mainFlow;
     private Map<String, Object> alternativeFlow;
-    private List<String> includes;
+    private List<String> includesList;
     private List<String> extendsList;
     private List<String> actors;
     private org.example.backend.entity.UseCaseStatus status;
@@ -26,4 +26,6 @@ public class UseCaseResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean isOutdated;
+    private boolean addedFromDiagram;
+    private boolean showInDiagram;
 }

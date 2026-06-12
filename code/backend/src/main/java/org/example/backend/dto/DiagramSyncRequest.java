@@ -21,6 +21,7 @@ public class DiagramSyncRequest {
         private String id;
         private String name;
         private String group;
+        private boolean showInDiagram;
     }
 
     @Data
