@@ -42,6 +42,7 @@ const buildAssignee = (assignee) => {
 export const mapTaskFromApi = (task) => ({
   id: String(task.id),
   title: task.title || 'Untitled task',
+  backendType: task.type || null,
   description: task.description || '',
   type: backendToUiType[task.type] || 'DEV',
   priority: task.priority || 'MEDIUM',
@@ -82,6 +83,11 @@ export const mapTaskFromApi = (task) => ({
   githubIssueNumber: task.githubIssueNumber || null,
   githubIssueUrl: task.githubIssueUrl || null,
 })
+
+export const isIssueOwnedTask = (task) => {
+  if (!task) return false
+  return task.backendType === 'BUG_FIX' || task.type === 'BUG' || task.type === 'BUG_FIX'
+}
 
 const parseRequirementId = (value) => {
   if (!value) return null

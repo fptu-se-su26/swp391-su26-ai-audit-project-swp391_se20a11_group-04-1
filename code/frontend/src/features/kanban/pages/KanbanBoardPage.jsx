@@ -8,6 +8,7 @@ import TaskDetailDrawer from '../components/TaskDetailDrawer'
 import TaskFormModal from '../components/TaskFormModal'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
+import { isIssueOwnedTask } from '../utils/taskMapper'
 
 const unique = (items) => [...new Set(items.filter(Boolean))]
 
@@ -90,18 +91,15 @@ const KanbanBoardPage = () => {
   }
 
   const filteredTasks = tasks.filter((task) => {
-    // Helper to identify if a task is created/synced with a GitHub issue or is a BUG_FIX type
-    const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
-
     if (task.parentId) {
       // It is a subtask. Only show it on the board if its parent task was created from an issue.
       const parentTask = tasks.find((t) => String(t.id) === String(task.parentId))
-      if (!isFromIssue(parentTask)) {
+      if (!isIssueOwnedTask(parentTask)) {
         return false
       }
     } else {
       // It is a parent task. Hide it if it was created from an issue.
-      if (isFromIssue(task)) {
+      if (isIssueOwnedTask(task)) {
         return false
       }
     }
@@ -179,9 +177,8 @@ const KanbanBoardPage = () => {
       const targetStatusKey = column?.statusKey || status
 
       if (task) {
-        const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
         const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
-        const isIssueTaskOrSubtask = isFromIssue(task) || isFromIssue(parentTask)
+        const isIssueTaskOrSubtask = isIssueOwnedTask(task) || isIssueOwnedTask(parentTask)
 
         if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
           if (isIssueTaskOrSubtask) {
