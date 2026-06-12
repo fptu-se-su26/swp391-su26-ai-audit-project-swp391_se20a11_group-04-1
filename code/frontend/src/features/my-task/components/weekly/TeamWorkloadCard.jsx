@@ -52,7 +52,7 @@ const TeamWorkloadCard = ({ members = [] }) => {
                         <span className="font-bold text-gray-800 text-[12.5px]">
                           {name}
                         </span>
-                        {role === 'LEADER' && (
+                        {(role === 'LEADER' || role === 'PROJECT_LEADER') && (
                           <span className="px-1 py-[1.5px] rounded-[3px] bg-amber-100 text-amber-700 text-[7.5px] font-black tracking-wider uppercase">
                             LEADER
                           </span>

@@ -70,7 +70,7 @@ export default function CustomEdge({
             className="nodrag nopan z-50 animate-fade-in"
           >
              <div className="bg-white border border-gray-200 shadow-xl rounded-lg p-1.5 flex gap-1 items-center">
-                 {(data?.relType === 'include' || data?.relType === 'extend') && (
+                 {(data?.relType === 'include' || data?.relType === 'extends') && (
                      <>
                          <div className="relative inline-block text-left">
                              <button 
@@ -89,10 +89,10 @@ export default function CustomEdge({
                                          &lt;&lt;include&gt;&gt;
                                      </button>
                                      <button 
-                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'extend' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
-                                         onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); data?.onEdgeAction(id, 'changeType', 'extend'); }}
+                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'extends' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                                         onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); data?.onEdgeAction(id, 'changeType', 'extends'); }}
                                      >
-                                         &lt;&lt;extend&gt;&gt;
+                                         &lt;&lt;extends&gt;&gt;
                                      </button>
                                  </div>
                              )}

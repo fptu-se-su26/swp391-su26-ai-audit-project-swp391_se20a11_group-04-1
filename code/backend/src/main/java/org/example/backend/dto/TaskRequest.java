@@ -15,6 +15,8 @@ public class TaskRequest {
     private Long useCaseId;
     @JsonIgnore
     private boolean requirementIdPresent;
+    @JsonIgnore
+    private boolean useCaseIdPresent;
     private Long sprintId;
     private String title;
     private String description;
@@ -34,6 +36,11 @@ public class TaskRequest {
     public void setRequirementId(Long requirementId) {
         this.requirementId = requirementId;
         this.requirementIdPresent = true;
+    }
+
+    public void setUseCaseId(Long useCaseId) {
+        this.useCaseId = useCaseId;
+        this.useCaseIdPresent = true;
     }
 
     @Getter

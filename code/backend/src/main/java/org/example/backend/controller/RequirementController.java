@@ -14,6 +14,8 @@ import jakarta.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("/api/requirements")
+@RestController
+@RequestMapping("/api/requirements")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*") // For local frontend development
 public class RequirementController {
@@ -22,10 +24,7 @@ public class RequirementController {
 
     @PostMapping
     public ResponseEntity<RequirementResponseDTO> createRequirement(@Valid @RequestBody RequirementRequestDTO requestDTO, HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
-        }
+        Long userId = requireUser(session);
         RequirementResponseDTO responseDTO = requirementService.createRequirement(requestDTO, userId);
         return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
     }
@@ -37,37 +36,54 @@ public class RequirementController {
             @RequestParam(required = false) Long projectId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String priority,
-            @RequestParam(required = false) String tag) {
+            @RequestParam(required = false) String tag,
+            HttpSession session) {
+        requireUser(session);
         return ResponseEntity.ok(requirementService.getRequirements(page, size, projectId, status, priority, tag));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RequirementResponseDTO> getRequirementById(@PathVariable Long id) {
+    public ResponseEntity<RequirementResponseDTO> getRequirementById(@PathVariable Long id, HttpSession session) {
+        requireUser(session);
         return ResponseEntity.ok(requirementService.getRequirementById(id));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<RequirementResponseDTO> updateRequirement(
             @PathVariable Long id,
-            @Valid @RequestBody RequirementRequestDTO requestDTO) {
+            @Valid @RequestBody RequirementRequestDTO requestDTO,
+            HttpSession session) {
+        requireUser(session);
         return ResponseEntity.ok(requirementService.updateRequirement(id, requestDTO));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<RequirementResponseDTO> updateRequirementStatus(
             @PathVariable Long id,
-            @RequestParam String status) {
+            @RequestParam String status,
+            HttpSession session) {
+        requireUser(session);
         return ResponseEntity.ok(requirementService.updateRequirementStatus(id, status));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRequirement(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteRequirement(@PathVariable Long id, HttpSession session) {
+        requireUser(session);
         requirementService.deleteRequirement(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/tags")
-    public ResponseEntity<java.util.List<String>> getTagsByProject(@RequestParam Long projectId) {
+    public ResponseEntity<java.util.List<String>> getTagsByProject(@RequestParam Long projectId, HttpSession session) {
+        requireUser(session);
         return ResponseEntity.ok(requirementService.getTagsByProject(projectId));
+    }
+
+    private Long requireUser(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+        return userId;
     }
 }

@@ -15,11 +15,14 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useCaseService } from '../services/useCaseService';
 import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 const UseCasePage = () => {
   const navigate = useNavigate();
   const activeProject = useProjectStore((state) => state.activeProject);
+  const { userId } = useAuthStore();
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
   const [useCases, setUseCases] = useState([]);
   const [allUseCases, setAllUseCases] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -100,7 +103,7 @@ const UseCasePage = () => {
 
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id, viewMode]);
+  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id, viewMode, isDraftView]);
 
   useEffect(() => {
     setCurrentPage(0);
@@ -209,8 +212,8 @@ const UseCasePage = () => {
             {/* View Mode toggle */}
             <div className="flex items-center bg-white border border-[#E5E7EB] rounded-[10px] p-[3px]">
               <button
-                onClick={() => setViewMode('editor')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'editor' ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
+                onClick={() => setViewMode('diagram-view')}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
               >
                 <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
                 Diagram
@@ -231,6 +234,7 @@ const UseCasePage = () => {
             </button>
 
             {/* Group 3: Generate Usecase */}
+            {isLeader && (
             <button 
               onClick={() => setIsSelectionModalOpen(true)}
               className="flex items-center justify-center h-[36px] px-[16px] rounded-[10px] text-[13px] font-[500] text-white transition-all duration-300 shadow-sm hover:brightness-110 hover:shadow-[0_0_12px_rgba(83,74,183,0.35)]"
@@ -239,8 +243,10 @@ const UseCasePage = () => {
               <span className="material-symbols-outlined text-[14px] mr-1">auto_awesome</span>
               Generate Usecase
             </button>
+            )}
 
             {/* Group 4: Add Use Case */}
+            {isLeader && (
             <button 
               onClick={() => setIsModalOpen(true)}
               className="flex items-center justify-center h-[36px] px-[16px] bg-[#185FA5] hover:bg-[#0C447C] rounded-[10px] text-[13px] font-[500] text-white transition-colors"
@@ -248,14 +254,20 @@ const UseCasePage = () => {
               <span className="material-symbols-outlined text-[14px] mr-1">add</span>
               Add Use Case
             </button>
+            )}
           </div>
         </div>
 
         <UseCaseStats useCases={allUseCases} />
 
-        {viewMode === 'editor' ? (
+        {viewMode.startsWith('diagram') ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <UCDiagramEditorPage projectId={activeProject?.id} onClose={() => setViewMode('list')} />
+            <UCDiagramEditorPage 
+              projectId={activeProject?.id} 
+              mode={viewMode === 'diagram-edit' ? 'edit' : 'view'} 
+              onClose={() => setViewMode('list')} 
+              onEdit={isLeader ? () => setViewMode('diagram-edit') : undefined}
+            />
           </div>
         ) : (
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col min-h-[400px]">
@@ -265,7 +277,10 @@ const UseCasePage = () => {
               statusFilter={statusFilter}
               onStatusFilterChange={handleStatusFilterChange}
               isDraftView={isDraftView}
-              setIsDraftView={setIsDraftView}
+              setIsDraftView={(val) => {
+                setIsDraftView(val);
+                setCurrentPage(0);
+              }}
             />
           {loading ? (
             <div className="flex items-center justify-center flex-1 p-10">
@@ -279,9 +294,9 @@ const UseCasePage = () => {
           ) : (
             <UseCaseTable 
               useCases={useCases} 
-              onEdit={handleEditUseCase} 
-              onDelete={handleDeleteUseCase} 
-              onApprove={handleApproveUseCase}
+              onEdit={isLeader ? handleEditUseCase : undefined} 
+              onDelete={isLeader ? handleDeleteUseCase : undefined} 
+              onApprove={isLeader ? handleApproveUseCase : undefined}
               isDraftView={isDraftView}
             />
           )}

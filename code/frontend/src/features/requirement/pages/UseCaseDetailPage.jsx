@@ -8,10 +8,16 @@ import UseCaseAlternativeFlows from '../components/UseCaseAlternativeFlows';
 import UseCaseConditions from '../components/UseCaseConditions';
 import UseCaseAIAnalysis from '../components/UseCaseAIAnalysis';
 import AiSyncUseCaseModal from '../components/AiSyncUseCaseModal';
+import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 const UseCaseDetailPage = () => {
   const { projectId, id } = useParams();
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const { userId } = useAuthStore();
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
+  
   const [useCase, setUseCase] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -180,6 +186,7 @@ const UseCaseDetailPage = () => {
           isEditing={isEditing}
           saving={saving}
           updatingStatus={updatingStatus}
+          isLeader={isLeader}
           onEdit={handleEdit}
           onSave={handleSave}
           onCancel={handleCancel}

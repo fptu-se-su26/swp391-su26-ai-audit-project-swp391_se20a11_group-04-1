@@ -45,7 +45,7 @@ const RelationTab = () => {
       if (type === 'generalization') return actors.filter(a => a.id?.toString() !== sourceId.toString());
       return [];
     } else {
-      // Use case can point to Use Case (include, extend, generalization) or Actor (association)
+      // Use case can point to Use Case (include, extends, generalization) or Actor (association)
       if (type === 'association') return actors;
       return useCases.filter(u => u.id?.toString() !== sourceId.toString());
     }
@@ -88,7 +88,7 @@ const RelationTab = () => {
           >
             <option value="association">Association (Actor ↔ UC)</option>
             <option value="include">Include (UC → UC)</option>
-            <option value="extend">Extend (UC → UC)</option>
+            <option value="extends">Extends (UC → UC)</option>
             <option value="generalization">Generalization</option>
           </select>
         </div>
@@ -136,7 +136,7 @@ const RelationTab = () => {
                   </span>
                   <span className="text-gray-400 text-xs">
                     {rel.type === 'include' && '.>'}
-                    {rel.type === 'extend' && '.>'}
+                    {rel.type === 'extends' && '.>'}
                     {rel.type === 'generalization' && '--|>'}
                     {rel.type === 'actor-uc' && '—'}
                     {rel.type === 'association' && '—'}
@@ -150,9 +150,9 @@ const RelationTab = () => {
                     &lt;&lt;include&gt;&gt;
                   </span>
                 )}
-                {rel.type === 'extend' && (
+                {rel.type === 'extends' && (
                   <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded w-fit mt-1 border border-orange-200">
-                    &lt;&lt;extend&gt;&gt;
+                    &lt;&lt;extends&gt;&gt;
                   </span>
                 )}
                 {rel.type === 'generalization' && (

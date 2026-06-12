@@ -917,10 +917,15 @@ public class TaskServiceImpl implements TaskService {
                 task.setRequirementId(request.getRequirementId());
             }
         }
-        if (request.getUseCaseId() == null) {
-            task.setUseCaseId(null);
-        } else {
-            task.setUseCaseId(request.getUseCaseId());
+        if (request.isUseCaseIdPresent()) {
+            if (request.getUseCaseId() == null) {
+                task.setUseCaseId(null);
+            } else {
+                if (!useCaseRepository.existsByIdAndProjectId(request.getUseCaseId(), projectId)) {
+                    throw new BadRequestException("UseCase does not exist in this project");
+                }
+                task.setUseCaseId(request.getUseCaseId());
+            }
         }
         if (request.getSprintId() == null) {
             task.setSprintId(null);

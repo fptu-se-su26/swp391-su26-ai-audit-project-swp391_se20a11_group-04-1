@@ -27,19 +27,18 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
             <span className="material-symbols-outlined text-[16px]">edit_document</span>
             Diagram Drafts
           </button>
-          {!isDraftView && (
-            <select 
-              value={statusFilter}
-              onChange={(e) => onStatusFilterChange(e.target.value)}
-              className="h-[32px] bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] px-3 outline-none hover:bg-gray-50 transition-colors appearance-none cursor-pointer"
-            >
-              <option value="">All Statuses</option>
-              <option value="DRAFT">Draft</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="IN_REVIEW">In Review</option>
-              <option value="DONE">Done</option>
-            </select>
-          )}
+          <select 
+            value={statusFilter}
+            onChange={(e) => onStatusFilterChange(e.target.value)}
+            disabled={isDraftView}
+            className={`h-[32px] bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] px-3 outline-none transition-colors appearance-none ${isDraftView ? 'text-gray-400 cursor-not-allowed bg-gray-50/50' : 'text-[#374151] hover:bg-gray-50 cursor-pointer'}`}
+          >
+            <option value="">All Statuses</option>
+            <option value="DRAFT">Draft</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="IN_REVIEW">In Review</option>
+            <option value="DONE">Done</option>
+          </select>
           <button className="h-[32px] px-3 flex items-center justify-center gap-1.5 bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] hover:bg-gray-50 transition-colors">
             <span className="material-symbols-outlined text-[16px]">sort</span>
             Sort

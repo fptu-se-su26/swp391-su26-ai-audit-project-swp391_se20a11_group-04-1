@@ -5,12 +5,13 @@ import { UCDiagram } from '../components/UCDiagram';
 import { diagramService } from '../services/diagramService';
 import toast from 'react-hot-toast';
 
-const UCDiagramEditorPage = ({ projectId, onClose }) => {
+const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
   const { actors, useCases, relations, loadData } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving', 'error'
   
+  const isViewMode = mode === 'view';
   useEffect(() => {
     if (!projectId) return;
     
@@ -78,12 +79,14 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
 
   return (
     <div className="flex h-[calc(100vh-100px)] overflow-hidden bg-gray-50 relative">
-      {/* Sidebar */}
-      <DiagramSidePanel 
-        projectId={projectId} 
-        systemName={systemName} 
-        setSystemName={setSystemName}
-      />
+      {/* Sidebar - Only show in edit mode */}
+      {!isViewMode && (
+        <DiagramSidePanel 
+          projectId={projectId} 
+          systemName={systemName} 
+          setSystemName={setSystemName}
+        />
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden relative">
@@ -98,42 +101,56 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600">edit_document</span>
-              Use Case Diagram Editor
+              <span className="material-symbols-outlined text-blue-600">
+                {isViewMode ? 'visibility' : 'edit_document'}
+              </span>
+              Use Case Diagram {isViewMode ? '(View Only)' : 'Editor'}
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border 
-                ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
-                ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
-                ${saveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
-                ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : ''}
-            `}>
-              {saveStatus === 'saving' && (
-                <>
-                  <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                  Saving...
-                </>
-              )}
-              {saveStatus === 'saved' && (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  Saved
-                </>
-              )}
-              {saveStatus === 'unsaved' && (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">pending</span>
-                  Unsaved changes
-                </>
-              )}
-              {saveStatus === 'error' && (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">error</span>
-                  Save Error
-                </>
-              )}
-            </div>
+            {isViewMode ? (
+              onEdit && (
+                <button
+                  onClick={onEdit}
+                  className="flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                  Edit Diagram
+                </button>
+              )
+            ) : (
+              <div className={`flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border 
+                  ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
+                  ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
+                  ${saveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
+                  ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+              `}>
+                {saveStatus === 'saving' && (
+                  <>
+                    <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                    Saving...
+                  </>
+                )}
+                {saveStatus === 'saved' && (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                    Saved
+                  </>
+                )}
+                {saveStatus === 'unsaved' && (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">pending</span>
+                    Unsaved changes
+                  </>
+                )}
+                {saveStatus === 'error' && (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">error</span>
+                    Save Error
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,9 +162,9 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
             useCases={useCases}
             relations={relations}
             systemName={systemName}
-            mode="edit"
-            onSave={handleDiagramSave}
-            onUnsavedChanges={handleUnsavedChanges}
+            mode={mode}
+            onSave={!isViewMode ? handleDiagramSave : undefined}
+            onUnsavedChanges={!isViewMode ? handleUnsavedChanges : undefined}
           />
         </div>
       </div>
