@@ -89,18 +89,21 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
               </td>
               <td className="py-3 px-4 text-right">
                 {isDraftView ? (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onApprove) onApprove(uc.id);
-                    }}
-                    className="flex items-center justify-center gap-1 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-[8px] text-[12px] font-medium transition-colors ml-auto border border-green-200"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    Approve
-                  </button>
+                  onApprove && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onApprove) onApprove(uc.id);
+                      }}
+                      className="flex items-center justify-center gap-1 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1.5 rounded-[8px] text-[12px] font-medium transition-colors ml-auto border border-green-200"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      Approve
+                    </button>
+                  )
                 ) : (
-                  <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                  (onEdit || onDelete) && (
+                    <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
                     <button 
                       className="text-outline hover:text-on-surface opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-surface-container-low"
                       onClick={(e) => {
@@ -116,30 +119,35 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
                       <span className="material-symbols-outlined">more_vert</span>
                     </button>
                     <div className="usecase-action-menu hidden absolute right-0 mt-1 w-32 bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-50">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.currentTarget.parentElement.classList.add('hidden');
-                          if (onEdit) onEdit(uc);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">edit</span>
-                        Edit
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.currentTarget.parentElement.classList.add('hidden');
-                          if (onDelete) onDelete(uc.id);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">delete</span>
-                        Delete
-                      </button>
+                      {onEdit && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.currentTarget.parentElement.classList.add('hidden');
+                            onEdit(uc);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                          Edit
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.currentTarget.parentElement.classList.add('hidden');
+                            onDelete(uc.id);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
+                  )
                 )}
               </td>
             </tr>

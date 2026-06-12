@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
+const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLeader, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
   const { projectId } = useParams();
 
   const getStatusColor = (status) => {
@@ -48,8 +48,8 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
               <select
                 value={useCase.status || 'DRAFT'}
                 onChange={(e) => onStatusChange(e.target.value)}
-                disabled={updatingStatus}
-                className={`px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider outline-none cursor-pointer transition-all border-none ${getStatusColor(useCase.status)} appearance-none hover:opacity-80 disabled:opacity-50 text-center`}
+                disabled={updatingStatus || !isLeader}
+                className={`px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider outline-none transition-all border-none ${getStatusColor(useCase.status)} appearance-none ${isLeader ? 'cursor-pointer hover:opacity-80' : ''} disabled:opacity-50 text-center`}
               >
                 <option value="DRAFT" className="bg-white text-on-surface">DRAFT</option>
                 <option value="IN_PROGRESS" className="bg-white text-on-surface">IN_PROGRESS</option>
@@ -104,24 +104,26 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdi
             </button>
           </>
         ) : (
-          <>
-            <button 
-              onClick={onEdit}
-              className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant"
-            >
-              <span className="material-symbols-outlined text-[18px]">edit</span> Edit
-            </button>
-            <button 
-              onClick={onAiSync}
-              className={`h-11 px-5 transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm ${
-                useCase.outdated 
-                ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30' 
-                : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'
-              }`}
-            >
-              🪄 AI Update Usecase
-            </button>
-          </>
+          isLeader && (
+            <>
+              <button 
+                onClick={onEdit}
+                className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span> Edit
+              </button>
+              <button 
+                onClick={onAiSync}
+                className={`h-11 px-5 transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm ${
+                  useCase.outdated 
+                  ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30' 
+                  : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'
+                }`}
+              >
+                🪄 AI Update Usecase
+              </button>
+            </>
+          )
         )}
       </div>
     </div>

@@ -28,7 +28,7 @@ public class DiagramSyncRequest {
     @Data
     public static class DiagramRelationDTO {
         private String id;
-        private String type; // actor-uc, include, extend
+        private String type; // actor-uc, include, extends
         private String sourceId;
         private String targetId;
     }

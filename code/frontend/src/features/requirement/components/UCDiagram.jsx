@@ -49,7 +49,8 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
   const onNodesChange = useCallback(
     (changes) => {
         setNodes((nds) => applyNodeChanges(changes, nds));
-        if (onUnsavedChanges) onUnsavedChanges();
+        const isSignificant = changes.some(c => c.type !== 'dimensions' && c.type !== 'select');
+        if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
     [onUnsavedChanges]
   );
@@ -57,7 +58,8 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
   const onEdgesChange = useCallback(
     (changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
-        if (onUnsavedChanges) onUnsavedChanges();
+        const isSignificant = changes.some(c => c.type !== 'select');
+        if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
     [onUnsavedChanges]
   );
@@ -216,7 +218,7 @@ const FlowContent = ({ projectId, actors = [], useCases = [], relations = [], sy
               relType: rel.type,
               onEdgeAction: handleEdgeAction
           },
-          label: rel.type === 'include' ? '<<include>>' : rel.type === 'extend' ? '<<extend>>' : '',
+          label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
         });
       });
 
