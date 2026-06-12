@@ -17,6 +17,9 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
+    @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
+    private String apiBaseUrl;
+
     @Override
     @Async
     public void sendOtpEmail(String toEmail, String otp) {
@@ -206,8 +209,8 @@ public class EmailServiceImpl implements EmailService {
             String unlockToken = unlockTokensMap.get(ip);
             String blockToken = blockTokensMap.get(ip);
 
-            String unlockLink = "http://localhost:8080/api/v1/auth/unlock?token=" + unlockToken;
-            String blockLink = "http://localhost:8080/api/v1/auth/block-ip?token=" + blockToken;
+            String unlockLink = apiBaseUrl + "/api/v1/auth/unlock?token=" + unlockToken;
+            String blockLink = apiBaseUrl + "/api/v1/auth/block-ip?token=" + blockToken;
 
             devicesHtml.append("            <div class='device-card'>")
                     .append("                <p class='device-info'>• <strong>Thiết bị:</strong> ").append(details)

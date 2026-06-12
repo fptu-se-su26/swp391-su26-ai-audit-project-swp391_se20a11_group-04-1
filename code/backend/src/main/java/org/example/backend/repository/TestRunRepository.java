@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -13,8 +15,9 @@ import java.util.List;
 @Repository
 public interface TestRunRepository extends JpaRepository<TestRun, Long> {
 
-    @Query("SELECT DISTINCT tr FROM TestRun tr JOIN TestExecution te ON te.testRun = tr WHERE te.testCase.id = :testCaseId AND tr.isSaved = true ORDER BY tr.startedAt DESC")
-    List<TestRun> findByTestCaseIdAndIsSavedTrueOrderByStartedAtDesc(@Param("testCaseId") Long testCaseId);
+    @Query(value = "SELECT DISTINCT tr FROM TestRun tr JOIN TestExecution te ON te.testRun = tr WHERE te.testCase.id = :testCaseId AND tr.isSaved = true ORDER BY tr.startedAt DESC",
+           countQuery = "SELECT COUNT(DISTINCT tr) FROM TestRun tr JOIN TestExecution te ON te.testRun = tr WHERE te.testCase.id = :testCaseId AND tr.isSaved = true")
+    Page<TestRun> findByTestCaseIdAndIsSavedTrueOrderByStartedAtDesc(@Param("testCaseId") Long testCaseId, Pageable pageable);
 
     @Query("""
         SELECT DISTINCT tr FROM TestRun tr
@@ -40,6 +43,6 @@ public interface TestRunRepository extends JpaRepository<TestRun, Long> {
 
     // Atomic increment — KHÔNG đọc-modify-write trong Java
     @Modifying
-    @Query("UPDATE TestRun r SET r.completedCount = r.completedCount + 1 WHERE r.id = :id")
-    int incrementCompletedCount(@Param("id") Long id);
+    @Query("UPDATE TestRun r SET r.completedCount = r.completedCount + 1, r.updatedAt = :now WHERE r.id = :id")
+    int incrementCompletedCount(@Param("id") Long id, @Param("now") LocalDateTime now);
 }

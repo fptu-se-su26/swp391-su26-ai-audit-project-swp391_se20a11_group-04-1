@@ -51,10 +51,13 @@ export function useTestRun(testCaseId) {
 
       setState(s => ({ ...s, runId: testRunId }));
 
+      let errorCount = 0;
+
       // Bắt đầu polling
       pollingRef.current = setInterval(async () => {
         try {
           const { data: statusData } = await api.get(`/v1/test-runs/${testRunId}`);
+          errorCount = 0;
           const result = statusData.data;
 
           const mappedSteps = (result.executions || []).map((exec, idx) => ({
@@ -78,8 +81,10 @@ export function useTestRun(testCaseId) {
               uiStatus = hasFailedExec ? 'FAIL' : 'PASS';
             } else if (result.status === 'SYSTEM_ERROR' || result.status === 'TIMED_OUT') {
               uiStatus = 'ERROR';
+            } else if (result.status === 'CANCELLED') {
+              uiStatus = 'CANCELLED';
             } else {
-              uiStatus = 'FAIL'; // CANCELLED
+              uiStatus = 'FAIL';
             }
           } else {
             uiStatus = 'RUNNING';
@@ -97,12 +102,20 @@ export function useTestRun(testCaseId) {
             }
           });
 
+          const failedExec = (result.executions || []).find(e => e.status === 'FAILED');
+          let errorObj = null;
+          if (result.status === 'SYSTEM_ERROR') {
+            errorObj = { message: result.errorMessage || 'System error occurred during test execution' };
+          } else if (failedExec) {
+            errorObj = { message: failedExec.notes || 'Test failed', failedStepIndex: failedExec.failedStepIndex };
+          }
+
           setState(s => ({
             ...s,
             status: uiStatus,
             steps: mappedSteps.length > 0 ? mappedSteps : s.steps,
             screenshots: allScreenshots.length > 0 ? allScreenshots : s.screenshots,
-            error: result.status === 'SYSTEM_ERROR' ? { message: result.errorMessage || 'System error occurred during test execution' } : null,
+            error: errorObj,
             durationMs: totalDuration > 0 ? totalDuration : null,
             bugReportId: result.bugReportId || null,
             isSaved: result.isSaved || false,
@@ -114,6 +127,15 @@ export function useTestRun(testCaseId) {
           }
         } catch (e) {
           console.error('Polling error:', e);
+          errorCount++;
+          if (errorCount >= 5) {
+            clearInterval(pollingRef.current);
+            setState(s => ({
+              ...s,
+              status: 'ERROR',
+              error: { message: 'Mất kết nối với máy chủ (quá số lần thử lại).' }
+            }));
+          }
         }
       }, 2000); // Poll mỗi 2 giây (giảm load)
 

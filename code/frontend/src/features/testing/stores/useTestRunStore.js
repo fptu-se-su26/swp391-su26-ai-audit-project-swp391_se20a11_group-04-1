@@ -25,22 +25,26 @@ export const useTestRunStore = create((set, get) => ({
         )
     })),
 
-    onExecutionCompleted: (event) => set(state => ({
-        executions: state.executions.map(ex =>
-            ex.testCaseId === event.testCaseId
-                ? { ...ex, status: event.status, notes: event.notes,
-                    screenshotUrl: event.screenshotUrl, durationMs: event.durationMs }
-                : ex
-        ),
-        progress: {
-            completed: event.completedCount,
-            total: event.totalCount,
-            passed: event.passedCount,
-            failed: event.failedCount,
-            skipped: event.skippedCount ?? 0,
-            aborted: event.abortedCount ?? 0
-        }
-    })),
+    onExecutionCompleted: (event) => set(state => {
+        const isRunFinished = event.completedCount >= event.totalCount;
+        return {
+            executions: state.executions.map(ex =>
+                ex.testCaseId === event.testCaseId
+                    ? { ...ex, status: event.status, notes: event.notes,
+                        screenshotUrl: event.screenshotUrl, durationMs: event.durationMs }
+                    : ex
+            ),
+            isRunning: isRunFinished ? false : state.isRunning,
+            progress: {
+                completed: event.completedCount,
+                total: event.totalCount,
+                passed: event.passedCount,
+                failed: event.failedCount,
+                skipped: event.skippedCount ?? 0,
+                aborted: event.abortedCount ?? 0
+            }
+        };
+    }),
 
     onRunCompleted: (event) => set(state => ({
         activeTestRun: { ...state.activeTestRun, status: event.finalStatus },

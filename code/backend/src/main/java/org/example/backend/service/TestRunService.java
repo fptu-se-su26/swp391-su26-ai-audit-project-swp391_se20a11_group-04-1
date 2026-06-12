@@ -17,4 +17,6 @@ public interface TestRunService {
     void cancelTestRun(Long testRunId, Long requestingUserId);
     TestRunStatusResponse getTestRunStatus(Long testRunId);
     void saveTestRun(Long testRunId);
+
+    String analyzeError(Long testRunId, Long requestingUserId);
 }

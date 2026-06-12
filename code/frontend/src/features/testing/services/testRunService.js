@@ -13,3 +13,13 @@ export const getTestRunStatus = async (testRunId) => {
     const response = await axiosInstance.get(`/v1/test-runs/${testRunId}`);
     return response.data.data;
 };
+
+export const getTestRunHistory = async (testCaseId) => {
+    const response = await axiosInstance.get(`/v1/test-runs/test-cases/${testCaseId}`);
+    return response.data.data;
+};
+
+export const saveTestRun = async (testRunId) => {
+    const response = await axiosInstance.post(`/v1/test-runs/${testRunId}/save`);
+    return response.data.data;
+};

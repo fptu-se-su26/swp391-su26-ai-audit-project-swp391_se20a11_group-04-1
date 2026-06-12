@@ -5,6 +5,8 @@ import StatusBadge from '../components/StatusBadge'
 import TypeBadge from '../components/TypeBadge'
 import LiveTestRunner from '../components/LiveTestRunner'
 import TestCaseFormModal from '../components/TestCaseFormModal'
+import { getTestRunHistory } from '../services/testRunService'
+import TestRunHistoryTimeline from '../components/TestRunHistoryTimeline'
 
 export default function TestCaseDetailPage() {
   const { projectId = '1', id: testCaseId } = useParams()
@@ -22,6 +24,9 @@ export default function TestCaseDetailPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const handleFormSubmit = async (payload) => {
     setIsSubmitting(true)
@@ -39,6 +44,12 @@ export default function TestCaseDetailPage() {
   useEffect(() => {
     if (testCaseId) {
       fetchTestCaseDetail(projectId, testCaseId)
+      
+      setHistoryLoading(true)
+      getTestRunHistory(testCaseId)
+        .then(setHistory)
+        .catch(() => setHistory([]))
+        .finally(() => setHistoryLoading(false))
     }
   }, [projectId, testCaseId, fetchTestCaseDetail])
 
@@ -233,25 +244,7 @@ export default function TestCaseDetailPage() {
               <a href="#" className="text-xs text-primary hover:underline">View All</a>
             </div>
             
-            {/* Timeline Placeholder */}
-            <div className="relative border-l-2 border-surface-variant ml-3 space-y-6">
-              <div className="relative pl-6">
-                <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-surface-container-lowest bg-error"></div>
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-sm text-on-surface">Execution Failed</span>
-                  <span className="text-xs text-secondary">Oct 24, 09:12 AM</span>
-                </div>
-                <p className="text-xs text-secondary">Run by Auto_Runner</p>
-              </div>
-              <div className="relative pl-6">
-                <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 border-surface-container-lowest bg-primary-container"></div>
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-sm text-on-surface">Test Case Created</span>
-                  <span className="text-xs text-secondary">Oct 22, 11:00 AM</span>
-                </div>
-                <p className="text-xs text-secondary">By {testCase.createdBy?.username || '--'}</p>
-              </div>
-            </div>
+            <TestRunHistoryTimeline history={history} loading={historyLoading} testCase={testCase} />
           </section>
         </div>
       </div>

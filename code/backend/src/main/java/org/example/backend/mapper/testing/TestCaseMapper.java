@@ -46,6 +46,7 @@ public class TestCaseMapper {
     public TestCaseResponse toResponse(TestCase tc) {
         TestCaseResponse res = new TestCaseResponse();
         res.setId(tc.getId());
+        res.setProjectId(tc.getProjectId());
         res.setCode(tc.getTcCode());
         res.setTitle(tc.getTitle());
         res.setType(tc.getType());

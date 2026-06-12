@@ -9,8 +9,15 @@ import org.example.backend.dto.testing.internal.UpdateTestRunStatusRequest;
 import org.example.backend.exception.ForbiddenException;
 import org.example.backend.security.InternalServiceKeyValidator;
 import org.example.backend.service.TestRunService;
+import org.example.backend.repository.TestCaseRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.backend.entity.TestCase;
+import org.example.backend.exception.ResourceNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/internal/test-runs")
@@ -19,8 +26,8 @@ public class TestRunInternalController {
 
     private final TestRunService testRunService;
     private final InternalServiceKeyValidator keyValidator;
-    private final org.example.backend.repository.TestCaseRepository testCaseRepository;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final TestCaseRepository testCaseRepository;
+    private final ObjectMapper objectMapper;
 
     private void validateInternalKey(String key) {
         if (!keyValidator.isValid(key)) {
@@ -68,15 +75,15 @@ public class TestRunInternalController {
     }
 
     @GetMapping("/test-cases/{testCaseId}")
-    public ResponseEntity<java.util.Map<String, Object>> getTestCaseDetails(
+    public ResponseEntity<Map<String, Object>> getTestCaseDetails(
             @RequestHeader("X-Internal-Service-Key") String internalKey,
             @PathVariable Long testCaseId) {
         validateInternalKey(internalKey);
         
-        org.example.backend.entity.TestCase tc = testCaseRepository.findById(testCaseId)
-            .orElseThrow(() -> new org.example.backend.exception.ResourceNotFoundException("TestCase not found"));
+        TestCase tc = testCaseRepository.findById(testCaseId)
+            .orElseThrow(() -> new ResourceNotFoundException("TestCase not found"));
             
-        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        Map<String, Object> map = new HashMap<>();
         map.put("title", tc.getTitle());
         map.put("base_url", tc.getBaseUrl());
         Object parsedSteps = null;

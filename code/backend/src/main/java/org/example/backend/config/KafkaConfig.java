@@ -13,7 +13,7 @@ public class KafkaConfig {
     @Bean
     public NewTopic testRunJobsTopic() {
         return TopicBuilder.name("test-run-jobs")
-                .partitions(3)
+                .partitions(10)
                 .replicas(1)
                 .build();
     }

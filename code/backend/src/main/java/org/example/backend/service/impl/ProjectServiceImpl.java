@@ -58,6 +58,9 @@ public class ProjectServiceImpl implements ProjectService {
     private final ObjectMapper objectMapper;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
+    @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
+    private String appBaseUrl;
+
     private static final String CACHE_PREFIX = "projects:user:";
     private static final long CACHE_TTL_MINUTES = 10;
 
@@ -359,7 +362,7 @@ public class ProjectServiceImpl implements ProjectService {
         notificationWebSocketHandler.sendToUser(invitedUser.getId(), jsonPayload);
 
         // 7. Gửi Email
-        String acceptLink = "http://localhost:5173/invite/accept?token=" + token;
+        String acceptLink = appBaseUrl + "/invite/accept?token=" + token;
         String emailBody = "<h3>Xin chào " + invitedUser.getProfile().getFullName() + "</h3>"
                 + "<p>Bạn vừa nhận được một lời mời tham gia dự án <b>" + project.getName() + "</b> từ " + inviter.getProfile().getFullName() + ".</p>"
                 + "<p>Vui lòng click vào đường dẫn bên dưới để đồng ý tham gia:</p>"

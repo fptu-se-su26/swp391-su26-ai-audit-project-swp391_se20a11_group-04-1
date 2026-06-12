@@ -27,11 +27,14 @@ public class TestRunWatchdogScheduler {
     private final TestExecutionRepository testExecutionRepository;
     private final NotificationWebSocketHandler notificationWebSocketHandler;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.service.AgentTaskService agentTaskService;
 
     @Scheduled(cron = "0 * * * * *") // Mỗi phút
     @SchedulerLock(name = "testRunWatchdogTask", lockAtMostFor = "50s", lockAtLeastFor = "10s")
     @Transactional
     public void checkStaleTestRuns() {
+        agentTaskService.handleTimeoutTasks();
+
         LocalDateTime cutoff = LocalDateTime.now().minusMinutes(30);
         List<TestRun> staleRuns = testRunRepository.findStaleRunningTestRuns(cutoff);
 

@@ -7,6 +7,7 @@ const StatusBadge = ({ status }) => {
     FAIL: 'bg-red-100 text-red-800 border-red-200',
     RUNNING: 'bg-blue-100 text-blue-800 border-blue-200 animate-pulse',
     ERROR: 'bg-gray-100 text-gray-800 border-gray-200',
+    CANCELLED: 'bg-yellow-100 text-yellow-800 border-yellow-200',
     IDLE: 'bg-gray-100 text-gray-800 border-gray-200'
   };
   
@@ -15,6 +16,7 @@ const StatusBadge = ({ status }) => {
     FAIL: 'Fail',
     RUNNING: 'Running...',
     ERROR: 'Error',
+    CANCELLED: 'Cancelled',
     IDLE: 'Ready'
   };
 
@@ -119,6 +121,15 @@ const RunResultBanner = ({ runData }) => {
     );
   }
 
+  if (runData.status === 'CANCELLED') {
+    return (
+      <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <h3 className="text-sm font-medium text-yellow-800">Test Cancelled</h3>
+        <p className="mt-1 text-sm text-yellow-600">The test execution was cancelled manually or timed out.</p>
+      </div>
+    );
+  }
+
   return null;
 };
 
@@ -126,14 +137,28 @@ const RunTestCase = ({ testCase }) => {
   const [runStatus, setRunStatus] = useState('IDLE'); // IDLE, RUNNING, PASS, FAIL, ERROR
   const [runId, setRunId] = useState(null);
   const [runData, setRunData] = useState(null);
+  const [agentToken, setAgentToken] = useState(null);
   const pollIntervalRef = useRef(null);
+
+  const isLocalUrl = testCase?.baseUrl?.includes('localhost') || testCase?.baseUrl?.includes('127.0.0.1') || testCase?.baseUrl?.includes('0.0.0.0');
+
+  useEffect(() => {
+    if (isLocalUrl && testCase?.projectId && !agentToken) {
+      testCaseService.getAgentToken(testCase.projectId)
+        .then(token => setAgentToken(token))
+        .catch(err => console.error("Failed to fetch agent token:", err));
+    }
+  }, [isLocalUrl, testCase, agentToken]);
 
   const startPolling = (id) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     
+    let errorCount = 0;
+
     pollIntervalRef.current = setInterval(async () => {
       try {
         const data = await testCaseService.getTestRunStatus(id);
+        errorCount = 0;
         
         // Map executions to steps and calculate duration
         if (data.executions && data.executions.length > 0) {
@@ -147,16 +172,25 @@ const RunTestCase = ({ testCase }) => {
         setRunData(data);
         
         if (['COMPLETED', 'CANCELLED', 'SYSTEM_ERROR', 'TIMED_OUT'].includes(data.status)) {
-          const uiStatus = data.status === 'COMPLETED' 
-              ? (data.failedCount > 0 ? 'FAIL' : 'PASS') 
-              : 'ERROR';
+          let uiStatus;
+          if (data.status === 'COMPLETED') {
+            uiStatus = data.failedCount > 0 ? 'FAIL' : 'PASS';
+          } else if (data.status === 'CANCELLED') {
+            uiStatus = 'CANCELLED';
+          } else {
+            uiStatus = 'ERROR'; // SYSTEM_ERROR, TIMED_OUT
+          }
           setRunStatus(uiStatus);
           clearInterval(pollIntervalRef.current);
         }
       } catch (err) {
         console.error("Error polling test status:", err);
-        // On network error during polling, we don't crash, just keep trying
-        // Or if it's a hard error, we might set status to ERROR
+        errorCount++;
+        if (errorCount >= 5) {
+          clearInterval(pollIntervalRef.current);
+          setRunStatus('ERROR');
+          setRunData(prev => ({ ...prev, status: 'ERROR', error: 'Mất kết nối với máy chủ (quá số lần thử lại).' }));
+        }
       }
     }, 2000);
   };
@@ -208,20 +242,30 @@ const RunTestCase = ({ testCase }) => {
         <div className="p-6 flex-1 overflow-auto">
           <h3 className="text-sm font-medium text-gray-900 mb-4">Steps</h3>
           
-          {runStatus === 'ERROR' && (!runData?.steps || runData.steps.length === 0) ? (
+          {(runStatus === 'ERROR' || runStatus === 'CANCELLED') && (!runData?.steps || runData.steps.length === 0) ? (
              <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-               <p className="text-gray-500">Steps were not executed due to an error.</p>
+               <p className="text-gray-500">
+                 {runStatus === 'CANCELLED' ? 'Test execution was cancelled before steps could run.' : 'Steps were not executed due to an error.'}
+               </p>
              </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-md shadow-sm">
               {testCase.stepsStructured?.map((step, idx) => {
-                const execution = runData?.executions?.[0];
+                const execution = runData?.executions?.find(ex => ex.orderIndex === step.order) 
+                               || runData?.executions?.find(ex => ex.orderIndex === idx)
+                               || (runData?.executions?.length === 1 ? runData.executions[0] : null);
+                
+                const isFailedStep = execution?.failedStepIndex !== undefined && execution?.failedStepIndex !== null
+                  ? execution.failedStepIndex === idx
+                  : idx === testCase.stepsStructured.length - 1; // fallback
+
                 const executionResult = execution && (!isRunning || execution.status !== 'RUNNING') ? {
                     status: execution.status === 'PASSED' ? 'PASS' 
-                          : execution.status === 'FAILED' ? 'FAIL' 
+                          : (execution.status === 'FAILED' && isFailedStep) ? 'FAIL' 
+                          : (execution.status === 'FAILED' && idx < (execution.failedStepIndex || 0)) ? 'PASS'
                           : null,
-                    error: idx === testCase.stepsStructured.length - 1 ? execution.notes : null,
-                    durationMs: idx === testCase.stepsStructured.length - 1 ? execution.durationMs : null
+                    error: isFailedStep && execution.status === 'FAILED' ? execution.notes : null,
+                    durationMs: isFailedStep ? execution.durationMs : null
                 } : null;
 
                 const isExecutionRunning = isRunning || (execution?.status === 'RUNNING');
@@ -256,6 +300,33 @@ const RunTestCase = ({ testCase }) => {
             <span className="text-sm font-medium text-gray-700">Status</span>
             <StatusBadge status={runStatus} />
           </div>
+
+          {isLocalUrl && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 className="text-sm font-medium text-yellow-800 flex items-center gap-2">
+                ⚠️ Cảnh báo Localhost
+              </h3>
+              <p className="mt-1 text-sm text-yellow-700">
+                URL này là localhost. Bạn cần chạy DevTrack Local Agent trên máy để test có thể chạy được.
+              </p>
+              {agentToken ? (
+                <div className="mt-3 relative">
+                  <pre className="p-3 bg-gray-900 text-gray-100 rounded-md text-xs overflow-x-auto">
+                    npx devtrack-agent --token={agentToken}
+                  </pre>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(`npx devtrack-agent --token=${agentToken}`)}
+                    className="absolute top-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 transition-colors"
+                    title="Copy command"
+                  >
+                    Copy
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-gray-500 animate-pulse">Đang lấy token...</p>
+              )}
+            </div>
+          )}
 
           <button
             onClick={handleRun}

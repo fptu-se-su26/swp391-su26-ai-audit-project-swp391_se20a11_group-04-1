@@ -10,6 +10,7 @@ import java.util.List;
 @Data
 public class TestCaseResponse {
     private Long id;
+    private Long projectId;
     private String code;
     private String title;
     private RequirementShortResponse requirement;

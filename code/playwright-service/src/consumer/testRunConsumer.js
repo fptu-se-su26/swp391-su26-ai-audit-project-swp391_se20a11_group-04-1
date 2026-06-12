@@ -13,15 +13,35 @@ function createLogger(context) {
 }
 
 async function handleTestRunJobCommand(message) {
-    const { testRunId, correlationId } = message;
+    const { testRunId, correlationId, projectId } = message;
     const log = createLogger({ testRunId, correlationId });
 
     try {
-        // 1. Set RUNNING
-        await callInternal(`/internal/test-runs/${testRunId}/status`, 'PATCH',
-            { status: 'RUNNING' });
+        // Jitter delay (0-3000ms) to stagger workers that might have received the message concurrently
+        await sleep(Math.floor(Math.random() * 3000));
 
-        // 2. Fetch execution plan từ INTERNAL endpoint (có service key, không cần session)
+        // Dedup guard: Check if TestRun has already been processed
+        const res = await callInternalRaw(`/internal/test-runs/${testRunId}/executions`, 'GET');
+        if (res.ok) {
+            const plan = await res.json();
+            const isAlreadyProcessed = plan.executions.every(e => e.status !== 'PENDING');
+            if (isAlreadyProcessed) {
+                log.info(`TestRun ${testRunId} already processed, skipping duplicate`);
+                return; // Skip silently
+            }
+        }
+
+        // 1. Set RUNNING
+        const patchRes = await callInternalRaw(`/internal/test-runs/${testRunId}/status`, 'PATCH', { status: 'RUNNING' });
+        if (patchRes.status === 409) {
+            log.info(`TestRun ${testRunId} already started by another worker, skipping`);
+            return; // Graceful exit
+        }
+        if (!patchRes.ok) {
+            throw new Error(`PATCH RUNNING failed: ${patchRes.status}`);
+        }
+
+        // 2. Fetch execution plan
         const plan = await callInternal(`/internal/test-runs/${testRunId}/executions`);
 
         // 3. Chạy từng execution
@@ -74,7 +94,16 @@ async function handleTestRunJobCommand(message) {
                 const { executeScript, cleanupTempDir } = require('../executor');
                 const { uploadImages } = require('../services/cloudinaryService');
                 
-                const execResult = await executeScript(script, testRunId.toString(), testCaseResponse.base_url);
+                // Dùng executionId làm runId để tránh conflict temp dir khi nhiều workers chạy cùng testRunId
+                const execRunId = `${testRunId}-${execution.executionId}`;
+                
+                let execResult;
+                if (isLocalUrl(testCaseResponse.base_url)) {
+                    if (!projectId) throw new Error("projectId is missing in Kafka message for local execution");
+                    execResult = await delegateToLocalAgent(testRunId, execution.executionId, projectId, script, testCaseResponse.base_url);
+                } else {
+                    execResult = await executeScript(script, execRunId, testCaseResponse.base_url);
+                }
                 
                 outcome = execResult.status === 'PASS' ? 'PASSED' : 'FAILED';
                 notes = execResult.error ? execResult.error.message : null;
@@ -83,9 +112,13 @@ async function handleTestRunJobCommand(message) {
                 
                 // Upload screenshots to Cloudinary
                 if (execResult.screenshots && execResult.screenshots.length > 0) {
-                    evidenceUrls = await uploadImages(execResult.screenshots);
-                    if (evidenceUrls.length > 0) {
-                        screenshotUrl = evidenceUrls[evidenceUrls.length - 1]; // Set the last screenshot as the main one
+                    try {
+                        evidenceUrls = await uploadImages(execResult.screenshots);
+                        if (evidenceUrls.length > 0) {
+                            screenshotUrl = evidenceUrls[evidenceUrls.length - 1]; // Set the last screenshot as the main one
+                        }
+                    } catch (uploadErr) {
+                        log.warn('Cloudinary upload failed, but test will complete normally', uploadErr);
                     }
                 }
                 
@@ -104,7 +137,7 @@ async function handleTestRunJobCommand(message) {
                 {
                     testExecutionId: execution.executionId,
                     testCaseId: execution.testCaseId,
-                    idempotencyKey: `${testRunId}-${execution.testCaseId}`,
+                    idempotencyKey: `${testRunId}-${execution.executionId}`,
                     outcome,
                     notes,
                     screenshotUrl,
@@ -151,20 +184,82 @@ async function callInternalWithRetry(path, method, body, maxRetries = 3) {
 async function callInternal(path, method = 'GET', body = null) {
     const res = await callInternalRaw(path, method, body);
     if (!res.ok) throw new Error(`Backend ${res.status} for ${path}`);
-    return method === 'GET' ? res.json() : null;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        return res.json();
+    }
+    return null;
 }
 
 async function callInternalRaw(path, method = 'GET', body = null) {
-    return fetch(`${BACKEND_URL}${path}`, {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Internal-Service-Key': INTERNAL_SERVICE_KEY
-        },
-        body: body ? JSON.stringify(body) : null
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+        return await fetch(`${BACKEND_URL}${path}`, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Internal-Service-Key': INTERNAL_SERVICE_KEY
+            },
+            body: body ? JSON.stringify(body) : null,
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function isLocalUrl(url) {
+    if (!url) return false;
+    return url.includes('localhost') 
+        || url.includes('127.0.0.1') 
+        || url.includes('0.0.0.0');
+}
+
+async function delegateToLocalAgent(testRunId, executionId, projectId, script, baseUrl) {
+    const POLL_INTERVAL = 3000;
+    const TIMEOUT_MS = 5 * 60 * 1000;
+    const startTime = Date.now();
+
+    const taskRes = await callInternal('/internal/agent-tasks', 'POST', {
+        testRunId, executionId, projectId, script, baseUrl
+    });
+    const agentTaskId = taskRes.agentTaskId;
+
+    while (Date.now() - startTime < TIMEOUT_MS) {
+        await sleep(POLL_INTERVAL);
+        const statusRes = await callInternal(`/internal/agent-tasks/${agentTaskId}/status`);
+        
+        if (statusRes.status === 'COMPLETED') {
+            const r = statusRes.result || {};
+            return {
+                status: r.outcome === 'PASSED' ? 'PASS' : 'FAIL',
+                steps: r.steps || [],
+                screenshots: [],
+                error: r.notes ? { message: r.notes, failedStepIndex: r.failedStepIndex } : null,
+                duration: r.durationMs || (Date.now() - startTime)
+            };
+        }
+        if (statusRes.status === 'FAILED' || statusRes.status === 'TIMEOUT') {
+            return {
+                status: 'ERROR',
+                steps: [],
+                screenshots: [],
+                error: { message: statusRes.result?.notes || 'Agent task failed or timed out' },
+                duration: Date.now() - startTime
+            };
+        }
+    }
+
+    return {
+        status: 'ERROR',
+        steps: [],
+        screenshots: [],
+        error: { message: 'Local Agent không phản hồi trong 5 phút. Hãy đảm bảo Agent đang chạy.' },
+        duration: TIMEOUT_MS
+    };
+}
 
 module.exports = { handleTestRunJobCommand };

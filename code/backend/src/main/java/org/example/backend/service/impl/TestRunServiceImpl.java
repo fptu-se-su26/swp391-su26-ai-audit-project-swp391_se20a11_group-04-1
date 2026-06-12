@@ -18,11 +18,13 @@ import org.example.backend.exception.ForbiddenException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.mapper.TestRunMapper;
 import org.example.backend.repository.OutboxEventRepository;
+import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.TestCaseRepository;
 import org.example.backend.repository.TestExecutionRepository;
 import org.example.backend.repository.TestRunRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.service.AITestAnalysisService;
 import org.example.backend.service.TestRunService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,12 +47,14 @@ public class TestRunServiceImpl implements TestRunService {
     private final TestRunRepository testRunRepository;
     private final TestExecutionRepository testExecutionRepository;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final UserAccountRepository userAccountRepository;
     private final TestCaseRepository testCaseRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final TestRunMapper testRunMapper;
     private final NotificationWebSocketHandler notificationWebSocketHandler;
+    private final AITestAnalysisService aiTestAnalysisService;
 
     @Override
     @Transactional
@@ -73,11 +77,13 @@ public class TestRunServiceImpl implements TestRunService {
             exec.setTestRun(testRun);
             exec.setTestCase(testCaseRepository.getReferenceById(testCaseId));
             exec.setStatus(TestExecutionStatus.PENDING);
-            exec.setIdempotencyKey(testRun.getId() + "-" + testCaseId);
             exec.setOrderIndex(orderIndex++);
             exec.setExecutedBy(userAccountRepository.getReferenceById(userId));
             exec.setEnvironment(org.example.backend.entity.enums.Environment.DEV);
             exec.setExecutedAt(java.time.LocalDateTime.now());
+            exec = testExecutionRepository.save(exec);
+            
+            exec.setIdempotencyKey(testRun.getId() + "-" + exec.getId());
             testExecutionRepository.save(exec);
         }
 
@@ -133,6 +139,11 @@ public class TestRunServiceImpl implements TestRunService {
         }
 
         TestRunStatus newStatus = TestRunStatus.valueOf(request.status());
+
+        if (newStatus == TestRunStatus.RUNNING && testRun.getStatus() != TestRunStatus.PENDING) {
+            throw new ConflictException("TestRun already started by another worker");
+        }
+
         testRun.setStatus(newStatus);
 
         if (newStatus == TestRunStatus.RUNNING) {
@@ -142,6 +153,7 @@ public class TestRunServiceImpl implements TestRunService {
         }
         
         if (request.notes() != null && !request.notes().isEmpty()) {
+            testRun.setErrorMessage(request.notes());
             log.warn("[{}] TestRun {} recorded error: {}", testRun.getCorrelationId(), testRunId, request.notes());
         }
         
@@ -249,13 +261,10 @@ public class TestRunServiceImpl implements TestRunService {
         exec.setExecutedAt(LocalDateTime.now());
         testExecutionRepository.save(exec);
 
-        testRunRepository.incrementCompletedCount(testRunId);
+        testRunRepository.incrementCompletedCount(testRunId, LocalDateTime.now());
 
         testRun = testRunRepository.findById(testRunId)
             .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
-
-        testRun.setUpdatedAt(LocalDateTime.now());
-        testRunRepository.save(testRun);
 
         Map<TestExecutionStatus, Long> counts = getStatusCountMap(testRunId);
         int passed   = counts.getOrDefault(TestExecutionStatus.PASSED, 0L).intValue();
@@ -290,6 +299,36 @@ public class TestRunServiceImpl implements TestRunService {
         } catch (Exception e) {
             log.error("Failed to send WebSocket event for execution result {}", exec.getId(), e);
         }
+
+        // Bug 1 Fix: Auto-complete TestRun if all executions are done
+        if (testRun.getCompletedCount() >= testRun.getTotalTestCases() && !testRun.getStatus().isTerminal()) {
+            testRun.setStatus(TestRunStatus.COMPLETED);
+            testRun.setCompletedAt(LocalDateTime.now());
+            testRunRepository.save(testRun);
+
+            log.info("[{}] TestRun {} auto-COMPLETED all {} executions.", 
+                     testRun.getCorrelationId(), testRun.getId(), testRun.getTotalTestCases());
+
+            try {
+                notificationWebSocketHandler.sendToUser(
+                    testRun.getCreatedBy().getId(),
+                    objectMapper.writeValueAsString(TestRunProgressEvent.builder()
+                        .type("TEST_RUN_COMPLETED")
+                        .testRunId(testRunId)
+                        .finalStatus("COMPLETED")
+                        .totalCount(testRun.getTotalTestCases())
+                        .completedCount(testRun.getCompletedCount())
+                        .passedCount(passed)
+                        .failedCount(failed)
+                        .skippedCount(skipped)
+                        .abortedCount(aborted)
+                        .correlationId(testRun.getCorrelationId())
+                        .build())
+                );
+            } catch (Exception e) {
+                log.error("Failed to send TEST_RUN_COMPLETED WebSocket event for TestRun {}", testRunId, e);
+            }
+        }
     }
 
     @Override
@@ -299,7 +338,12 @@ public class TestRunServiceImpl implements TestRunService {
             .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
 
         if (!testRun.getCreatedBy().getId().equals(requestingUserId)) {
-            throw new ForbiddenException("Only the creator can cancel a test run");
+            boolean isMember = projectMemberRepository
+                .findByProjectIdAndUserId(testRun.getProject().getId(), requestingUserId)
+                .isPresent();
+            if (!isMember) {
+                throw new ForbiddenException("Only project members can cancel a test run");
+            }
         }
         if (testRun.getStatus().isTerminal()) {
             throw new BadRequestException("TestRun is already in terminal state: " + testRun.getStatus());
@@ -343,9 +387,10 @@ public class TestRunServiceImpl implements TestRunService {
         TestRun testRun = testRunRepository.findById(testRunId)
             .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
         
-        List<TestExecution> executions = testExecutionRepository.findByTestRunIdWithTestCaseAndSteps(testRunId);
+        List<TestExecution> executions = testExecutionRepository.findByTestRunIdWithTestCase(testRunId);
         
-        Map<TestExecutionStatus, Long> counts = getStatusCountMap(testRunId);
+        Map<TestExecutionStatus, Long> counts = executions.stream()
+            .collect(Collectors.groupingBy(TestExecution::getStatus, Collectors.counting()));
 
         List<TestRunStatusResponse.ExecutionStatusItem> items = executions.stream().map(exec -> 
             new TestRunStatusResponse.ExecutionStatusItem(
@@ -374,8 +419,8 @@ public class TestRunServiceImpl implements TestRunService {
             counts.getOrDefault(TestExecutionStatus.ABORTED, 0L).intValue(),
             testRun.getStartedAt(),
             testRun.getCompletedAt(),
-            null, // errorMessage (removed from TestRun)
-            null, // bugReportId (removed from TestRun)
+            testRun.getErrorMessage(),
+            testRun.getBugReportId(),
             testRun.getIsSaved(),
             items
         );
@@ -397,5 +442,43 @@ public class TestRunServiceImpl implements TestRunService {
             .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
         testRun.setIsSaved(true);
         testRunRepository.save(testRun);
+    }
+
+    @Override
+    @Transactional
+    public String analyzeError(Long testRunId, Long requestingUserId) {
+        TestRun testRun = testRunRepository.findById(testRunId)
+            .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
+
+        if (!testRun.getCreatedBy().getId().equals(requestingUserId)) {
+            throw new ForbiddenException("Only the creator can analyze this run");
+        }
+        
+        if (testRun.getAiAnalysis() != null) {
+            return testRun.getAiAnalysis();
+        }
+
+        List<TestExecution> executions = testExecutionRepository.findByTestRunIdWithTestCaseAndSteps(testRunId);
+        
+        TestExecution failedExec = executions.stream()
+            .filter(e -> e.getStatus() == TestExecutionStatus.FAILED)
+            .findFirst()
+            .orElse(null);
+
+        if (failedExec == null || failedExec.getNotes() == null) {
+            return "Không có thông tin lỗi để phân tích. (Hoặc step chưa lưu chi tiết lỗi)";
+        }
+
+        String analysis = aiTestAnalysisService.analyzeTestError(
+            failedExec.getTestCase().getTitle(),
+            failedExec.getTestCase().getExpectedResult(),
+            failedExec.getNotes(),
+            failedExec.getFailedStepIndex()
+        );
+        
+        testRun.setAiAnalysis(analysis);
+        testRunRepository.save(testRun);
+        
+        return analysis;
     }
 }

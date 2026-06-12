@@ -59,6 +59,14 @@ export const testCaseService = {
     const response = await axiosInstance.get(`/v1/test-runs/${runId}`)
     return response.data.data
   },
+
+  /**
+   * Lấy Agent Token cho localhost testing
+   */
+  getAgentToken: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/agent-token`)
+    return response.data.token
+  },
 }
 
 export default testCaseService

@@ -6,11 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.backend.entity.enums.TestRunStatus;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
 @Table(name = "test_runs")
@@ -61,6 +57,15 @@ public class TestRun {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private UserAccount createdBy;
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
+    @Column(name = "bug_report_id")
+    private Long bugReportId;
+
+    @Column(name = "ai_analysis", columnDefinition = "TEXT")
+    private String aiAnalysis;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

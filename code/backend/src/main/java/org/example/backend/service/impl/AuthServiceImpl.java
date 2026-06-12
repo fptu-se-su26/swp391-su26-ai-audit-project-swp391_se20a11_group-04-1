@@ -54,6 +54,9 @@ public class AuthServiceImpl implements AuthService {
     private final StringRedisTemplate redisTemplate;
     private final RateLimitService rateLimitService;
 
+    @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
+    private String apiBaseUrl;
+
     @Override
     public void requestRegistration(RegisterRequest request) {
         log.info("Received account registration request for username: {}, email: {}", request.getUsername(),
@@ -308,7 +311,7 @@ public class AuthServiceImpl implements AuthService {
                 // IP hiện tại
                 try {
                     String unlockToken = rateLimitService.createUnlockToken(user.getUsername(), ipAddress);
-                    String unlockLink = "http://localhost:8080/api/v1/auth/unlock?token=" + unlockToken;
+                    String unlockLink = apiBaseUrl + "/api/v1/auth/unlock?token=" + unlockToken;
                     emailService.sendSecurityAlertEmail(user.getEmail(), user.getUsername(), attempts.intValue(),
                             lockTimeMinutes, userAgent, location, unlockLink);
                     log.info("Successfully triggered async security alert email to: {}", user.getEmail());

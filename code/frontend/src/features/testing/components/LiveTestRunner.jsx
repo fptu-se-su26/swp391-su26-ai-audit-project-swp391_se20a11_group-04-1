@@ -1,18 +1,39 @@
 import { Play, CheckCircle, XCircle, Loader, AlertTriangle, Save, MousePointer2, MonitorPlay } from 'lucide-react';
 import { useTestRun } from '../hooks/useTestRun';
 import { useEffect, useState, useRef } from 'react';
+import AiAnalyzeButton from './AiAnalyzeButton';
+import { testCaseService } from '../services/testCaseService';
 
 export default function LiveTestRunner({ testCase }) {
   const { status, runId, steps, screenshots, error, durationMs, bugReportId, isSaved, startRun, reset, saveRun } = useTestRun(testCase.id);
   const [liveFrame, setLiveFrame] = useState(null);
   const [selectedScreenshotIndex, setSelectedScreenshotIndex] = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(null);
+  const [lastRunningStepIndex, setLastRunningStepIndex] = useState(null);
   const [leftPaneWidth, setLeftPaneWidth] = useState(50); // percentage
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  const [agentToken, setAgentToken] = useState(null);
+  const isLocalUrl = testCase?.baseUrl?.includes('localhost') || testCase?.baseUrl?.includes('127.0.0.1') || testCase?.baseUrl?.includes('0.0.0.0');
+
+  useEffect(() => {
+    if (isLocalUrl && testCase?.projectId && !agentToken) {
+      testCaseService.getAgentToken(testCase.projectId)
+        .then(token => setAgentToken(token))
+        .catch(err => console.error("Failed to fetch agent token:", err));
+    }
+  }, [isLocalUrl, testCase, agentToken]);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     let ws;
     if (status === 'RUNNING' && runId) {
-      ws = new WebSocket(`ws://localhost:4001/?runId=${runId}&role=client`);
+      ws = new WebSocket(`${import.meta.env.VITE_WS_URL || "ws://localhost:4001"}/?runId=${runId}&role=client`);
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
@@ -20,6 +41,7 @@ export default function LiveTestRunner({ testCase }) {
             setLiveFrame(msg.data);
           } else if (msg.type === 'step_started') {
             setCurrentStepIndex(msg.stepIndex);
+            setLastRunningStepIndex(msg.stepIndex);
           }
         } catch (e) {}
       };
@@ -29,6 +51,14 @@ export default function LiveTestRunner({ testCase }) {
       setCurrentStepIndex(null);
     };
   }, [status, runId]);
+
+  useEffect(() => {
+    if (status === 'IDLE' || status === 'RUNNING') {
+      if (status === 'RUNNING' && currentStepIndex === null) {
+        setLastRunningStepIndex(null);
+      }
+    }
+  }, [status, currentStepIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -76,11 +106,43 @@ export default function LiveTestRunner({ testCase }) {
         </div>
       </div>
 
+      {/* Localhost Agent Banner */}
+      {isLocalUrl && (
+        <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-medium text-yellow-800 flex items-center gap-2">
+                ⚠️ Cảnh báo Localhost
+              </h3>
+              <p className="mt-0.5 text-xs text-yellow-700">
+                URL này là localhost. Bạn cần chạy DevTrack Local Agent trên máy để test có thể chạy được.
+              </p>
+            </div>
+            {agentToken ? (
+              <div className="flex items-center gap-2 bg-white p-1.5 pr-2 rounded-md border border-yellow-300 shadow-sm">
+                <code className="px-2 py-1 bg-gray-900 text-green-400 rounded text-xs font-mono whitespace-nowrap">
+                  npx devtrack-agent --token={agentToken}
+                </code>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(`npx devtrack-agent --token=${agentToken}`)}
+                  className="px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-gray-700 transition-colors text-[11px] font-medium whitespace-nowrap"
+                  title="Copy command"
+                >
+                  Copy
+                </button>
+              </div>
+            ) : (
+              <div className="text-xs text-yellow-600 animate-pulse font-medium">Đang lấy token...</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Layout */}
       <div id="resizable-container" className="flex flex-1 min-h-0 relative flex-col lg:flex-row" onMouseMove={handleDrag}>
         
         {/* Left Pane: Steps */}
-        <div style={{ width: window.innerWidth >= 1024 ? `${leftPaneWidth}%` : '100%' }} className="p-4 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto">
+        <div style={{ width: windowWidth >= 1024 ? `${leftPaneWidth}%` : '100%' }} className="p-4 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide uppercase text-gray-500 mb-3">
             <CheckCircle size={14} /> steps
           </div>
@@ -100,6 +162,10 @@ export default function LiveTestRunner({ testCase }) {
               arr = [...arr].sort((a, b) => (a.order || 0) - (b.order || 0));
 
               return arr.map((step, i) => {
+                const effectiveFailedStepIndex = (error && error.failedStepIndex !== undefined && error.failedStepIndex !== null)
+                  ? error.failedStepIndex
+                  : (status === 'FAIL' ? lastRunningStepIndex : null);
+
                 let stepStatus = null;
                 if (status === 'RUNNING') {
                   if (currentStepIndex !== null) {
@@ -109,14 +175,23 @@ export default function LiveTestRunner({ testCase }) {
                 } else if (status === 'PASS') {
                   stepStatus = 'PASS';
                 } else if (status === 'FAIL' || status === 'ERROR') {
-                  // Fallback: nếu lỗi thì bôi đỏ bước cuối cùng hoặc bước chưa pass
-                  stepStatus = 'FAIL'; 
+                  if (effectiveFailedStepIndex !== null) {
+                    if (i < effectiveFailedStepIndex) stepStatus = 'PASS';
+                    else if (i === effectiveFailedStepIndex) stepStatus = 'FAIL';
+                  } else {
+                    // If we absolutely don't know the failed step, only mark the first one as FAIL or leave them grey
+                    // The user explicitly requested: "Không được đánh dấu đỏ tất cả các step"
+                    // So we only mark step 0 as fail if there's no other info, to avoid painting all red
+                    if (i === 0) stepStatus = 'FAIL';
+                  }
                 }
 
                 const isStepRunning = stepStatus === 'RUNNING';
                 const isPass = stepStatus === 'PASS';
                 const isFail = stepStatus === 'FAIL';
                 
+                const isFailedStep = isFail; // isFail is only true for the exact failed step now!
+
                 let bgColor = 'bg-gray-50';
                 let borderColor = 'border-transparent';
                 let numBg = 'bg-gray-200 text-gray-500';
@@ -129,7 +204,7 @@ export default function LiveTestRunner({ testCase }) {
                   bgColor = 'bg-green-50';
                   borderColor = 'border-green-200';
                   numBg = 'bg-green-500 text-white';
-                } else if (isFail) {
+                } else if (isFailedStep) {
                   bgColor = 'bg-red-50';
                   borderColor = 'border-red-200';
                   numBg = 'bg-red-500 text-white';
@@ -154,22 +229,83 @@ export default function LiveTestRunner({ testCase }) {
                         )}
                       </div>
                     </div>
-                    {isFail && step.failedStepIndex === i && error && (
-                      <div className="ml-[34px] mt-2 bg-red-50 border border-red-200 rounded p-2 text-[10px] font-mono text-red-600 whitespace-pre-wrap">
-                        {error.message}
+                    {isFailedStep && (
+                      <div className="ml-[34px] mt-2 bg-red-50 border border-red-200 rounded p-3 text-[11px] font-mono text-red-700 whitespace-pre-wrap">
+                        <div className="mb-2">
+                          <strong className="text-red-800 uppercase tracking-wide text-[10px]">Error Details:</strong>
+                          <div className="mt-1">{error.message}</div>
+                        </div>
+
+                        <div className="mt-3 text-red-800/80 font-bold italic">
+                          Execution stopped at Step {i + 1}.
+                        </div>
                       </div>
                     )}
                   </div>
                 );
               });
             })()}
+
+            {/* Overall Status OVERVIEW at bottom */}
+            {!isRunning && status === 'PASS' && (
+              <div className="mt-5 p-3 bg-green-100 border border-green-300 rounded-md text-green-800 font-bold text-[14px]">
+                🟢 TEST CASE PASSED
+              </div>
+            )}
+
+            {!isRunning && status === 'FAIL' && (() => {
+              let arr = [];
+              if (typeof testCase.stepsStructured === 'string') {
+                try { arr = JSON.parse(testCase.stepsStructured); } catch (e) {}
+              } else if (Array.isArray(testCase.stepsStructured)) {
+                arr = testCase.stepsStructured;
+              }
+              arr = [...arr].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+              const effectiveFailedStepIndex = (error && error.failedStepIndex !== undefined && error.failedStepIndex !== null)
+                ? error.failedStepIndex
+                : lastRunningStepIndex;
+
+              if (effectiveFailedStepIndex !== null && effectiveFailedStepIndex !== undefined) {
+                const stepObj = arr[effectiveFailedStepIndex];
+                const failedTitle = stepObj?.description || stepObj?.action || `Step ${effectiveFailedStepIndex + 1}`;
+                return (
+                  <div className="mt-5 p-3 bg-red-100 border border-red-300 rounded-md text-red-800">
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-[14px]">🔴 TEST CASE FAILED</div>
+                      {runId && !isRunning && (
+                        <AiAnalyzeButton testRunId={runId} />
+                      )}
+                    </div>
+                    <div className="text-[13px] font-medium mt-1">
+                      Failed Step: <span className="font-normal">{failedTitle}</span>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-5 p-3 bg-red-100 border border-red-300 rounded-md text-red-800">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-[14px]">🔴 TEST CASE FAILED</div>
+                    {runId && !isRunning && (
+                      <AiAnalyzeButton testRunId={runId} />
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Error Message */}
-          {error && (
+          {/* Global Error Message (if failedStepIndex is unknown or SYSTEM_ERROR) */}
+          {error && ((error.failedStepIndex === undefined || error.failedStepIndex === null) && lastRunningStepIndex === null) && (
             <div className="mt-4 bg-red-50 border border-red-200 rounded-md p-3 text-xs">
-              <div className="flex items-center gap-1.5 text-red-700 font-medium mb-1">
-                <AlertTriangle size={14} /> Lỗi thực thi
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5 text-red-700 font-medium">
+                  <AlertTriangle size={14} /> Lỗi thực thi
+                </div>
+                {runId && !isRunning && (
+                  <AiAnalyzeButton testRunId={runId} />
+                )}
               </div>
               <div className="text-red-600 font-mono text-[10px] whitespace-pre-wrap">{error.message}</div>
             </div>
@@ -190,7 +326,7 @@ export default function LiveTestRunner({ testCase }) {
         </div>
 
         {/* Right Pane: Browser Preview */}
-        <div style={{ width: window.innerWidth >= 1024 ? `${100 - leftPaneWidth}%` : '100%' }} className="p-4 bg-gray-50 flex flex-col">
+        <div style={{ width: windowWidth >= 1024 ? `${100 - leftPaneWidth}%` : '100%' }} className="p-4 bg-gray-50 flex flex-col">
           <div className="flex items-center gap-2 text-[11px] font-medium tracking-wide uppercase text-gray-500 mb-3">
             <Play size={14} /> headless browser screen
           </div>
