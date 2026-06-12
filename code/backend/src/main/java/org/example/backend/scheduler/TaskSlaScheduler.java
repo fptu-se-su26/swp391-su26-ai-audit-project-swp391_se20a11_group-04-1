@@ -7,7 +7,6 @@ import org.example.backend.entity.NotificationType;
 import org.example.backend.entity.SchedulerRunLog;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskStatus;
-import org.example.backend.entity.Project;
 import org.example.backend.entity.ProjectStatus;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.NotificationRepository;
@@ -20,21 +19,24 @@ import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.event.OutboxPublisherService;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
 import org.example.backend.service.sla.TaskPenaltyService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class TaskSlaScheduler {
+
+    private static final int SLA_BATCH_SIZE = 100;
 
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
@@ -53,9 +55,36 @@ public class TaskSlaScheduler {
     public void scanSlaAndApplyPenalties() {
         SchedulerRunLog runLog = schedulerRunLogService.start("TASK_SLA_SCAN");
         try {
-            int scanned = taskRepository.findAllSlaCandidates().size();
-            int penalties = taskPenaltyService.applyOverduePenalties();
-            schedulerRunLogService.finish(runLog, scanned, penalties, 0);
+            int scanned = 0;
+            int published = 0;
+            int pageNumber = 0;
+            Page<Task> page;
+            do {
+                page = taskRepository.findSlaSafetyNetCandidates(
+                        ProjectStatus.ACTIVE,
+                        TaskStatus.DONE,
+                        PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
+
+                for (Task task : page.getContent()) {
+                    scanned++;
+
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("taskId", task.getId());
+                    payload.put("projectId", task.getProject().getId());
+                    payload.put("sprintId", task.getSprintId());
+                    payload.put("assigneeId", task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null);
+                    payload.put("deadline", task.getDeadline() != null ? task.getDeadline().toString() : null);
+                    payload.put("eventType", "SLA_SAFETY_NET");
+                    payload.put("occurredAt", LocalDateTime.now().toString());
+
+                    outboxEventService.createEvent("SLA_SAFETY_NET", "Task", task.getId(), payload);
+                    published++;
+                }
+                pageNumber++;
+            } while (page.hasNext());
+
+            schedulerRunLogService.finish(runLog, scanned, 0, published);
+            log.info("Published SLA_SAFETY_NET events. Scanned: {}, Published: {}", scanned, published);
         } catch (Exception ex) {
             log.error("TASK_SLA_SCAN failed", ex);
             schedulerRunLogService.fail(runLog, ex);
@@ -126,29 +155,32 @@ public class TaskSlaScheduler {
         try {
             int scanned = 0;
             int published = 0;
-            List<Project> activeProjects = projectRepository.findAll().stream()
-                    .filter(p -> p.getStatus() == ProjectStatus.ACTIVE)
-                    .collect(Collectors.toList());
-            for (Project project : activeProjects) {
-                List<Task> tasks = taskRepository.findSlaCandidatesByProjectId(project.getId());
-                for (Task task : tasks) {
-                    if (task.getStatus() != TaskStatus.DONE) {
-                        scanned++;
+            int pageNumber = 0;
+            Page<Task> page;
+            do {
+                page = taskRepository.findSlaRecheckCandidates(
+                        ProjectStatus.ACTIVE,
+                        TaskStatus.DONE,
+                        PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
 
-                        Map<String, Object> payload = new HashMap<>();
-                        payload.put("taskId", task.getId());
-                        payload.put("projectId", task.getProject().getId());
-                        payload.put("sprintId", task.getSprintId());
-                        payload.put("assigneeId", task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null);
-                        payload.put("deadline", task.getDeadline() != null ? task.getDeadline().toString() : null);
-                        payload.put("eventType", "SLA_DAILY_RECHECK");
-                        payload.put("occurredAt", LocalDateTime.now().toString());
+                for (Task task : page.getContent()) {
+                    scanned++;
 
-                        outboxEventService.createEvent("SLA_DAILY_RECHECK", "Task", task.getId(), payload);
-                        published++;
-                    }
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("taskId", task.getId());
+                    payload.put("projectId", task.getProject().getId());
+                    payload.put("sprintId", task.getSprintId());
+                    payload.put("assigneeId", task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null);
+                    payload.put("deadline", task.getDeadline() != null ? task.getDeadline().toString() : null);
+                    payload.put("eventType", "SLA_DAILY_RECHECK");
+                    payload.put("occurredAt", LocalDateTime.now().toString());
+
+                    outboxEventService.createEvent("SLA_DAILY_RECHECK", "Task", task.getId(), payload);
+                    published++;
                 }
-            }
+                pageNumber++;
+            } while (page.hasNext());
+
             schedulerRunLogService.finish(runLog, scanned, 0, published);
             log.info("Published SLA_DAILY_RECHECK events. Scanned: {}, Published: {}", scanned, published);
         } catch (Exception ex) {
@@ -164,32 +196,33 @@ public class TaskSlaScheduler {
             LocalDate today = LocalDate.now(clock);
             int scanned = 0;
             int sent = 0;
-            List<Project> activeProjects = projectRepository.findAll().stream()
-                    .filter(p -> p.getStatus() == ProjectStatus.ACTIVE)
-                    .collect(Collectors.toList());
-            for (Project project : activeProjects) {
-                List<Task> tasks = taskRepository.findSlaCandidatesByProjectId(project.getId());
-                for (Task task : tasks) {
-                    if (task.getDeadline() != null 
-                            && task.getDeadline().isEqual(today)
-                            && task.getStatus() != TaskStatus.DONE
-                            && task.getPrimaryAssignee() != null) {
-                        scanned++;
+            int pageNumber = 0;
+            Page<Task> page;
+            do {
+                page = taskRepository.findAfternoonDeadlineReminderCandidates(
+                        ProjectStatus.ACTIVE,
+                        today,
+                        TaskStatus.DONE,
+                        PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
 
-                        Map<String, Object> payload = new HashMap<>();
-                        payload.put("taskId", task.getId());
-                        payload.put("projectId", task.getProject().getId());
-                        payload.put("sprintId", task.getSprintId());
-                        payload.put("assigneeId", task.getPrimaryAssignee().getId());
-                        payload.put("deadline", task.getDeadline().toString());
-                        payload.put("eventType", "SLA_URGENT_RECHECK");
-                        payload.put("occurredAt", LocalDateTime.now().toString());
+                for (Task task : page.getContent()) {
+                    scanned++;
 
-                        outboxEventService.createEvent("SLA_URGENT_RECHECK", "Task", task.getId(), payload);
-                        sent++;
-                    }
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("taskId", task.getId());
+                    payload.put("projectId", task.getProject().getId());
+                    payload.put("sprintId", task.getSprintId());
+                    payload.put("assigneeId", task.getPrimaryAssignee().getId());
+                    payload.put("deadline", task.getDeadline().toString());
+                    payload.put("eventType", "SLA_URGENT_RECHECK");
+                    payload.put("occurredAt", LocalDateTime.now().toString());
+
+                    outboxEventService.createEvent("SLA_URGENT_RECHECK", "Task", task.getId(), payload);
+                    sent++;
                 }
-            }
+                pageNumber++;
+            } while (page.hasNext());
+
             schedulerRunLogService.finish(runLog, scanned, 0, sent);
             log.info("Published SLA_URGENT_RECHECK events. Scanned: {}, Published: {}", scanned, sent);
         } catch (Exception ex) {

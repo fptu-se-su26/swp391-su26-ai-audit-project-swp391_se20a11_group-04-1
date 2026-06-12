@@ -1,6 +1,10 @@
 package org.example.backend.repository;
 
 import org.example.backend.entity.Task;
+import org.example.backend.entity.ProjectStatus;
+import org.example.backend.entity.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,18 +18,18 @@ import java.util.Optional;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
     List<Task> findByParentId(Long parentId);
 
     List<Task> findByStatus(org.example.backend.entity.TaskStatus status);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     @Query("select t from Task t where t.id = :id")
     Optional<Task> findWithDetailsById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "project", "kanbanColumn"})
@@ -39,6 +43,36 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     @Query("select t from Task t where t.project.id = :projectId and t.primaryAssignee is not null")
     List<Task> findSlaCandidatesByProjectId(@Param("projectId") Long projectId);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.status <> :excludedStatus")
+    Page<Task> findSlaRecheckCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                        @Param("excludedStatus") TaskStatus excludedStatus,
+                                        Pageable pageable);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.status <> :excludedStatus " +
+           "and not exists (select 1 from TaskSlaState s where s.task = t)")
+    Page<Task> findSlaSafetyNetCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                          @Param("excludedStatus") TaskStatus excludedStatus,
+                                          Pageable pageable);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.deadline = :deadline " +
+           "and t.status <> :excludedStatus")
+    Page<Task> findAfternoonDeadlineReminderCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                                       @Param("deadline") LocalDate deadline,
+                                                       @Param("excludedStatus") TaskStatus excludedStatus,
+                                                       Pageable pageable);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project"})
     List<Task> findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(Long projectId, Long sprintId);
