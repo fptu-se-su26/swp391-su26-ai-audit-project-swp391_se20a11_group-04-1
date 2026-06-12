@@ -1,13 +1,9 @@
-const CANVAS_WIDTH = 1300;
-const ACTOR_LEFT_X = 50;
-const ACTOR_RIGHT_X = 1150;
-const UC_LEFT_X = 220;
-const UC_RIGHT_X = 780;
 const UC_Y_START = 60;
 const ACTOR_Y_SPACING = 120;
 const UC_NODE_WIDTH = 180;
 const UC_GAP = 80;
 const CLUSTER_GAP = 40;
+const X_SPACING = 280;
 
 export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System") => {
   const actors = initialNodes.filter(n => n.type === 'actor');
@@ -71,6 +67,11 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       return tree.height;
   };
 
+  const getTreeDepth = (tree) => {
+      if (tree.children.length === 0) return 0;
+      return 1 + Math.max(...tree.children.map(getTreeDepth));
+  };
+
   const actorWeights = actors.map(a => ({
       id: a.id,
       weight: actorToUcs[a.id].length
@@ -92,6 +93,8 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
 
   const leftForest = [];
   const rightForest = [];
+  let maxLeftDepth = 0;
+  let maxRightDepth = 0;
 
   actors.forEach(actor => {
       const primaryUcs = actorToUcs[actor.id];
@@ -103,6 +106,12 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           if (!visited.has(ucId)) {
               const tree = buildTree(ucId, 0);
               calculateSubtreeHeight(tree);
+              const depth = getTreeDepth(tree);
+              if (side === 'left') {
+                  maxLeftDepth = Math.max(maxLeftDepth, depth);
+              } else {
+                  maxRightDepth = Math.max(maxRightDepth, depth);
+              }
               actorTrees.push(tree);
           }
       });
@@ -118,18 +127,29 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       }
   });
 
+  // --- DYNAMIC HORIZONTAL CALCULATION ---
+  const ACTOR_LEFT_X = 50;
+  const UC_LEFT_X = ACTOR_LEFT_X + X_SPACING;
+  const leftForestEndX = UC_LEFT_X + maxLeftDepth * X_SPACING;
+
+  // For isolated UCs, calculate number of columns based on how many there are (approx 5 per column)
+  let numIsolatedCols = Math.ceil(isolatedTrees.length / 5);
+  if (numIsolatedCols < 1) numIsolatedCols = 1;
+  const isolatedStartX = leftForestEndX + X_SPACING;
+  const isolatedEndX = isolatedStartX + (numIsolatedCols - 1) * X_SPACING;
+
+  const rightForestStartX = isolatedEndX + X_SPACING;
+  const UC_RIGHT_X = rightForestStartX + maxRightDepth * X_SPACING;
+  const ACTOR_RIGHT_X = UC_RIGHT_X + X_SPACING;
+
+  const CANVAS_WIDTH = ACTOR_RIGHT_X + 150;
+
   const ucNodes = [];
   const actorNodes = [];
   
-  let maxCenterY = UC_Y_START;
-
   const positionTree = (tree, startY, baseX, direction, sideStr, isIsolated = false) => {
       const myY = startY + (tree.height / 2) - (UC_GAP / 2);
-      const myX = baseX + (tree.level * 300 * direction); 
-      
-      if (tree.level > 0) {
-          maxCenterY = Math.max(maxCenterY, myY + tree.height);
-      }
+      const myX = baseX + (tree.level * X_SPACING * direction); 
 
       const uc = usecases.find(u => u.id === tree.id);
       if (uc) {
@@ -185,15 +205,33 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       rightY += CLUSTER_GAP;
   });
 
-  const bottomCenterY = maxCenterY + CLUSTER_GAP;
-  let currentBottomY = bottomCenterY;
-
-  isolatedTrees.forEach(tree => {
-      positionTree(tree, currentBottomY, CANVAS_WIDTH / 2 - UC_NODE_WIDTH / 2, 0, 'bottom', true);
-      currentBottomY += tree.height + CLUSTER_GAP;
+  const bottomLimit = Math.max(leftY, rightY);
+  
+  // Split isolated trees dynamically
+  const isolatedCols = Array.from({ length: numIsolatedCols }, () => ({ trees: [], height: 0 }));
+  isolatedTrees.forEach((tree, index) => {
+      const colIdx = index % numIsolatedCols;
+      isolatedCols[colIdx].trees.push(tree);
+      isolatedCols[colIdx].height += tree.height;
   });
 
-  const totalHeight = Math.max(leftY, rightY, currentBottomY);
+  const maxIsolatedHeight = Math.max(0, ...isolatedCols.map(c => c.height));
+
+  let currentBottomY = bottomLimit - maxIsolatedHeight;
+  if (currentBottomY < UC_Y_START) {
+      currentBottomY = UC_Y_START;
+  }
+
+  isolatedCols.forEach((col, idx) => {
+      let y = currentBottomY;
+      const baseX = isolatedStartX + idx * X_SPACING;
+      col.trees.forEach(tree => {
+          positionTree(tree, y, baseX, 0, 'bottom', true);
+          y += tree.height;
+      });
+  });
+
+  const totalHeight = Math.max(leftY, rightY, currentBottomY + maxIsolatedHeight);
 
   // Viêc 3: Đảm bảo Y cách nhau tối thiểu 120px cho Actor
   const enforceActorSpacing = (actNodes, side) => {
@@ -251,7 +289,7 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           source: rel.source,
           target: rel.target,
           markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
-          type: 'default'
+          type: 'custom'
       };
 
       const sx = isSourceActor ? getActorPos(rel.source).x : getUcX(rel.source);

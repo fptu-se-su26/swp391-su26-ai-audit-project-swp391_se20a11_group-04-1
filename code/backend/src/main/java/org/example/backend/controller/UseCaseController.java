@@ -37,12 +37,13 @@ public class UseCaseController {
             @RequestParam Long projectId,
             @RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false, defaultValue = "") String status,
+            @RequestParam(required = false) Boolean isDraft,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         String searchKeyword = keyword.isEmpty() ? null : keyword;
         String searchStatus = status.isEmpty() ? null : status;
         Pageable pageable = PageRequest.of(page, size);
-        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, pageable);
+        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 
@@ -58,6 +59,13 @@ public class UseCaseController {
     public ResponseEntity<ApiResponse<UseCaseResponse>> getUseCase(@PathVariable Long id, @RequestParam Long projectId) {
         UseCaseResponse response = useCaseService.getUseCaseById(id);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case retrieved"));
+    }
+
+    @PatchMapping("/{id}/approve")
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<UseCaseResponse>> approveUseCase(@PathVariable Long id, @RequestParam Long projectId) {
+        UseCaseResponse response = useCaseService.approveUseCase(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Use case approved"));
     }
 
     @PatchMapping("/{id}/status")

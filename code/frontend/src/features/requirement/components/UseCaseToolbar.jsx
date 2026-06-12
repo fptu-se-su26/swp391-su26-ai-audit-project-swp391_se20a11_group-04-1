@@ -1,10 +1,10 @@
 import React from 'react';
 import Input from '../../../components/ui/Input';
 
-const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilterChange }) => {
+const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilterChange, isDraftView, setIsDraftView }) => {
   return (
     <div className="px-[32px] mt-[16px] mb-6">
-      <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-[12px_16px] flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className={`border rounded-[12px] p-[12px_16px] flex flex-col md:flex-row items-center justify-between gap-4 transition-colors ${isDraftView ? 'bg-orange-50 border-orange-200' : 'bg-white border-[#E5E7EB]'}`}>
         
         {/* Left: Search input */}
         <div className="flex-1 w-full relative flex items-center">
@@ -20,17 +20,26 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
 
         {/* Right: Controls */}
         <div className="flex flex-wrap items-center gap-[6px] w-full md:w-auto">
-          <select 
-            value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value)}
-            className="h-[32px] bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] px-3 outline-none hover:bg-gray-50 transition-colors appearance-none cursor-pointer"
+          <button 
+            onClick={() => setIsDraftView(!isDraftView)}
+            className={`h-[32px] px-3 flex items-center justify-center gap-1.5 border rounded-[8px] text-[12px] font-medium transition-colors ${isDraftView ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200' : 'bg-transparent text-[#374151] border-[#E5E7EB] hover:bg-gray-50'}`}
           >
-            <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="IN_REVIEW">In Review</option>
-            <option value="DONE">Done</option>
-          </select>
+            <span className="material-symbols-outlined text-[16px]">edit_document</span>
+            Diagram Drafts
+          </button>
+          {!isDraftView && (
+            <select 
+              value={statusFilter}
+              onChange={(e) => onStatusFilterChange(e.target.value)}
+              className="h-[32px] bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] px-3 outline-none hover:bg-gray-50 transition-colors appearance-none cursor-pointer"
+            >
+              <option value="">All Statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="DONE">Done</option>
+            </select>
+          )}
           <button className="h-[32px] px-3 flex items-center justify-center gap-1.5 bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] hover:bg-gray-50 transition-colors">
             <span className="material-symbols-outlined text-[16px]">sort</span>
             Sort

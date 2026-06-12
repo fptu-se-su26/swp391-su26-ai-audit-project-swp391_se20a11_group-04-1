@@ -22,6 +22,7 @@ public class DiagramSyncRequest {
         private String name;
         private String group;
         private boolean showInDiagram;
+        private boolean addedFromDiagram;
     }
 
     @Data

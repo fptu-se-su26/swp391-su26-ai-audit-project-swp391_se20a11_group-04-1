@@ -119,7 +119,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -143,11 +143,27 @@ public class UseCaseServiceImpl implements UseCaseService {
                 }
             }
 
+            if (isDraft != null) {
+                predicates.add(cb.equal(root.get("addedFromDiagram"), isDraft));
+            } else {
+                // By default, hide drafted UCs in list view unless explicitly requested
+                predicates.add(cb.equal(root.get("addedFromDiagram"), false));
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
         return useCaseRepository.findAll(spec, pageable)
                 .map(this::mapEntityToResponse);
+    }
+
+    @Override
+    public UseCaseResponse approveUseCase(Long id) {
+        UseCase useCase = useCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        useCase.setAddedFromDiagram(false);
+        UseCase saved = useCaseRepository.save(useCase);
+        return mapEntityToResponse(saved);
     }
 
     private void mapRequestToEntity(UseCaseRequest request, UseCase useCase) {

@@ -71,6 +71,15 @@ const UseCaseTab = () => {
               <span className="text-sm font-medium text-gray-800 truncate">{uc.name}</span>
             </div>
             <div className="flex gap-1 ml-2">
+              {isHidden && uc.addedFromDiagram && (
+                <button 
+                  onClick={() => removeUseCase(uc.id)}
+                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Permanently Delete Draft"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                </button>
+              )}
               <button 
                 onClick={() => handleToggleVisibility(uc)}
                 className={`p-1 rounded transition-colors ${isHidden ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
