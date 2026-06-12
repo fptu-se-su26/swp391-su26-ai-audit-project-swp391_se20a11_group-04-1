@@ -40,6 +40,18 @@ const UseCaseDetailPage = () => {
     fetchUseCase();
   }, [fetchUseCase]);
 
+  // Unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isEditing) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isEditing]);
+
   // Enter edit mode — clone current useCase data
   const handleEdit = () => {
     setEditData({
@@ -54,14 +66,18 @@ const UseCaseDetailPage = () => {
       mainFlow: useCase.mainFlow ? JSON.parse(JSON.stringify(useCase.mainFlow)) : { steps: [] },
       alternativeFlow: useCase.alternativeFlow ? JSON.parse(JSON.stringify(useCase.alternativeFlow)) : { flows: [] },
       completenessScore: useCase.completenessScore || 0,
+      includesList: useCase.includesList ? [...useCase.includesList] : [],
+      extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
     });
     setIsEditing(true);
   };
 
   // Cancel edit — discard changes
   const handleCancel = () => {
-    setIsEditing(false);
-    setEditData(null);
+    if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+      setIsEditing(false);
+      setEditData(null);
+    }
   };
 
   // Update a field in editData
@@ -103,6 +119,8 @@ const UseCaseDetailPage = () => {
         mainFlow: editData.mainFlow,
         alternativeFlow: editData.alternativeFlow,
         completenessScore: editData.completenessScore,
+        includesList: editData.includesList,
+        extendsList: editData.extendsList,
       };
 
       await useCaseService.updateUseCase(id, payload, projectId);

@@ -38,9 +38,9 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
         {steps.length === 0 ? (
           <p className="text-on-surface-variant italic">No main flow steps defined.</p>
         ) : (
-          <ol className="list-decimal list-outside ml-6 space-y-3 font-body-md text-body-md text-on-surface">
+          <div className="flex flex-col gap-3 font-body-md text-body-md text-on-surface px-2">
             {steps.map((step, index) => (
-              <li key={index} className="group pl-1">
+              <div key={index} className="group flex items-start gap-2">
                 {isEditing ? (
                   <div className="flex-1 flex gap-2 items-start mt-[-4px]">
                     <input
@@ -62,9 +62,9 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
                 ) : (
                   <div className="whitespace-pre-wrap">{step}</div>
                 )}
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         )}
       </div>
     </div>

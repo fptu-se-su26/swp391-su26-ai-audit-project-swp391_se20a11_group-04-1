@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import UseCaseStats from '../components/UseCaseStats';
 import UseCaseToolbar from '../components/UseCaseToolbar';
 import UseCaseTable from '../components/UseCaseTable';
@@ -8,16 +9,16 @@ import UseCaseFormModal from '../components/UseCaseFormModal';
 import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
-import GlobalUMLMap from '../components/GlobalUMLMap';
 import UCDiagramEditorPage from './UCDiagramEditorPage';
-import UseCaseSidePanel from '../components/UseCaseSidePanel';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useCaseService } from '../services/useCaseService';
 import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
 import toast from 'react-hot-toast';
 
 const UseCasePage = () => {
+  const navigate = useNavigate();
   const activeProject = useProjectStore((state) => state.activeProject);
   const [useCases, setUseCases] = useState([]);
   const [allUseCases, setAllUseCases] = useState([]);
@@ -25,9 +26,8 @@ const UseCasePage = () => {
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
-  // View mode: 'list' or 'map'
+  // View mode: 'list' or 'editor'
   const [viewMode, setViewMode] = useState('list');
-  const [selectedMapNodeId, setSelectedMapNodeId] = useState(null);
 
   // AI modals
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
@@ -177,7 +177,7 @@ const UseCasePage = () => {
 
   const handleEditUseCase = (useCase) => {
     // Navigate to UseCaseDetailPage for editing
-    window.location.href = `/projects/${activeProject.id}/use-cases/${useCase.id}`;
+    navigate(`/projects/${activeProject.id}/use-cases/${useCase.id}`);
   };
 
   return (
@@ -190,14 +190,14 @@ const UseCasePage = () => {
             <p className="text-[13px] text-[#6B7280] mt-1">Manage and track system interactions and actor goals.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Group 1: View toggle */}
+            {/* View Mode toggle */}
             <div className="flex items-center bg-white border border-[#E5E7EB] rounded-[10px] p-[3px]">
               <button
-                onClick={() => setViewMode('map')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'map' ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
+                onClick={() => setViewMode('editor')}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'editor' ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
               >
-                <span className="material-symbols-outlined text-[18px] mr-1">grid_view</span>
-                Map View
+                <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
+                Diagram
               </button>
               <button
                 onClick={() => setViewMode('list')}
@@ -239,14 +239,8 @@ const UseCasePage = () => {
 
         {viewMode === 'editor' ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <UCDiagramEditorPage projectId={activeProject?.id} onClose={() => setViewMode('map')} />
+            <UCDiagramEditorPage projectId={activeProject?.id} onClose={() => setViewMode('list')} />
           </div>
-        ) : viewMode === 'map' ? (
-          <GlobalUMLMap 
-            projectId={activeProject?.id} 
-            onNodeClick={(id) => setSelectedMapNodeId(id)} 
-            onEditDiagram={() => setViewMode('editor')}
-          />
         ) : (
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col min-h-[400px]">
             <UseCaseToolbar 
@@ -310,12 +304,6 @@ const UseCasePage = () => {
         onConfirm={confirmDeleteUseCase}
         onCancel={() => setDeleteConfirmId(null)}
         type="danger"
-      />
-      
-      <UseCaseSidePanel
-        useCaseId={selectedMapNodeId}
-        activeProjectId={activeProject?.id}
-        onClose={() => setSelectedMapNodeId(null)}
       />
     </div>
   );

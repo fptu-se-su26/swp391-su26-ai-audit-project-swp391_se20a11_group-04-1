@@ -101,8 +101,20 @@ public class GeminiServiceImpl implements GeminiService {
                 "5. 'mainSuccessScenario': (String) The main success flow, 1 step per line. Number the steps like '1. ...\\n2. ...'\n" +
                 "6. 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
                 "7. 'requirementId': (Number) The EXACT ID of the Requirement this Use Case belongs to. You MUST copy the exact 'Requirement ID' number from the input. DO NOT make up a number.\n" +
-                "8. 'includes': (Array of Strings) A list of Use Case names that this Use Case INCLUDES. IF the flow involves an action already defined in the EXISTING USE CASES list, reuse it here. Return [] if none.\n" +
-                "9. 'extendsList': (Array of Strings) A list of Use Case names that this Use Case EXTENDS. IF the flow extends an action in the EXISTING USE CASES list, reuse it here. Return [] if none.\n\n" +
+                "8. 'includes': (Array of Strings) A list of existing Use Case names that this Use Case INCLUDES. \n" +
+                "   - RULE: Include means this Use Case strictly REQUIRES the included Use Case to complete its main flow. \n" +
+                "   - Identify included Use Cases by their names (e.g., Record, Log, Verify, Validate, Save, Authenticate). \n" +
+                "   - Direction: This Use Case ---> Included Use Case. \n" +
+                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical includes.\n" +
+                "9. 'extendsList': (Array of Strings) A list of existing Use Case names that this Use Case EXTENDS. \n" +
+                "   - RULE: Extend means this Use Case is an OPTIONAL/ALTERNATIVE extension to the base Use Case. \n" +
+                "   - Identify extending Use Cases by their names (e.g., View Detail, View Results, Cancel, Edit, Export). \n" +
+                "   - Direction: This Use Case (Extension) ---> Base Use Case. \n" +
+                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical extends.\n\n" +
+                "STRICT UML BUSINESS RULES:\n" +
+                "- An isolated Use Case (no actors) CANNOT include or extend other isolated Use Cases. At least one must be connected to an actor.\n" +
+                "- Use Cases that represent system sub-routines (e.g., Record, Log, Verify) should generally NOT have an actor connected directly to them, and should only be 'included' by other Use Cases.\n" +
+                "- DO NOT connect actors to sub-routine Use Cases. DO NOT add include/extend relations if not completely obvious. Prefer a clean diagram over a messy one.\n\n" +
                 "CRITICAL INSTRUCTION: All generated text (except keys) MUST BE WRITTEN IN ENGLISH, to match the target audience.\n" +
                 "YOU MUST RETURN ONLY A DIRECT JSON ARRAY. DO NOT WRAP IT IN A JSON OBJECT.\n\n" +
                 "--- ALLOWED ACTORS ---\n" + actorsContext + "\n\n" +

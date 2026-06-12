@@ -92,6 +92,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UseCaseResponse updateUseCase(Long id, UseCaseRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
@@ -153,6 +154,12 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (request.getRequirementId() != null) {
             org.example.backend.entity.Requirement req = requirementRepository.findById(request.getRequirementId())
                     .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+            
+            // Validate requirement belongs to the same project
+            if (useCase.getProjectId() != null && !req.getProject().getId().equals(useCase.getProjectId())) {
+                throw new BadRequestException("Requirement must belong to the same project as the Use Case");
+            }
+
             useCase.setRequirement(req);
             useCase.setProjectId(req.getProject().getId());
             
@@ -172,22 +179,23 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (request.getAlternativeFlow() != null) {
             try { useCase.setAlternativeFlow(objectMapper.writeValueAsString(request.getAlternativeFlow())); } catch (Exception e) { throw new BadRequestException("Invalid alternative flow data format: " + e.getMessage()); }
         }
-        if (request.getIncludes() != null) {
-            useCase.setIncludes(request.getIncludes());
+        if (request.getIncludesList() != null) {
+            useCase.setIncludesList(request.getIncludesList());
         }
         if (request.getExtendsList() != null) {
             useCase.setExtendsList(request.getExtendsList());
         }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
-        if (request.getCompletenessScore() != null) useCase.setCompletenessScore(request.getCompletenessScore());
+        // Remove completeness score update here, it will be auto-calculated
 
-        if (request.getActors() != null && !request.getActors().isEmpty()) {
+        if (request.getActors() != null) {
             useCase.getActors().clear();
             for (String actorName : request.getActors()) {
                 UseCaseActor actor = new UseCaseActor();
+                actor.setUseCase(useCase);
                 actor.setActorName(actorName);
-                useCase.addActor(actor);
+                useCase.getActors().add(actor);
             }
         }
     }
@@ -225,7 +233,7 @@ public class UseCaseServiceImpl implements UseCaseService {
             try { res.setAlternativeFlow(objectMapper.readValue(useCase.getAlternativeFlow(), new TypeReference<Map<String, Object>>() {})); } catch (Exception e) { /* ignore */ }
         }
         
-        res.setIncludes(useCase.getIncludes());
+        res.setIncludesList(useCase.getIncludesList());
         res.setExtendsList(useCase.getExtendsList());
         
         if (useCase.getActors() != null) {
@@ -240,6 +248,8 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setCreatedById(useCase.getCreatedBy() != null ? useCase.getCreatedBy().getId() : null);
         res.setCreatedAt(useCase.getCreatedAt());
         res.setUpdatedAt(useCase.getUpdatedAt());
+        res.setAddedFromDiagram(useCase.isAddedFromDiagram());
+        res.setShowInDiagram(useCase.isShowInDiagram());
         return res;
     }
 }

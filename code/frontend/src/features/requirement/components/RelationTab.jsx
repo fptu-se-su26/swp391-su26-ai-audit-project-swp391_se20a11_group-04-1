@@ -132,15 +132,33 @@ const RelationTab = () => {
                     {rel.type === 'include' && '.>'}
                     {rel.type === 'extend' && '.>'}
                     {rel.type === 'generalization' && '--|>'}
-                    {rel.type === 'association' && '-->'}
+                    {rel.type === 'actor-uc' && '—'}
+                    {rel.type === 'association' && '—'}
                   </span>
                   <span className="font-medium text-gray-800 truncate max-w-[100px]" title={getEntityName(rel.targetId)}>
                     {getEntityName(rel.targetId)}
                   </span>
                 </div>
-                <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded w-fit mt-1">
-                  &lt;&lt;{rel.type}&gt;&gt;
-                </span>
+                {rel.type === 'include' && (
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded w-fit mt-1 border border-blue-200">
+                    &lt;&lt;include&gt;&gt;
+                  </span>
+                )}
+                {rel.type === 'extend' && (
+                  <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded w-fit mt-1 border border-orange-200">
+                    &lt;&lt;extend&gt;&gt;
+                  </span>
+                )}
+                {rel.type === 'generalization' && (
+                  <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded w-fit mt-1 border border-purple-200">
+                    Generalization
+                  </span>
+                )}
+                {(rel.type === 'actor-uc' || rel.type === 'association') && (
+                  <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded w-fit mt-1 border border-gray-200">
+                    Association
+                  </span>
+                )}
               </div>
               <button 
                 onClick={() => removeRelation(rel.id)}

@@ -11,7 +11,7 @@ const UseCaseTab = () => {
   const handleAdd = () => {
     if (!newUseCaseName.trim()) return;
     addUseCase({
-      id: Date.now().toString(),
+      id: "new_" + Date.now().toString(),
       name: newUseCaseName.trim()
     });
     setNewUseCaseName('');
@@ -26,6 +26,74 @@ const UseCaseTab = () => {
     if (!editName.trim()) return;
     updateUseCase(id, { name: editName.trim() });
     setEditingId(null);
+  };
+
+  const handleFocus = (id) => {
+    if (window.focusDiagramNode) {
+      window.focusDiagramNode(`uc_${id}`);
+    }
+  };
+
+  const handleToggleVisibility = (uc) => {
+    updateUseCase(uc.id, { showInDiagram: !(uc.showInDiagram !== false) });
+  };
+
+  const visibleUseCases = useCases.filter(uc => uc.showInDiagram !== false);
+  const hiddenUseCases = useCases.filter(uc => uc.showInDiagram === false);
+
+  const renderUseCaseList = (list, isHidden) => {
+    if (list.length === 0) {
+      return <p className="text-gray-500 text-sm text-center py-2 italic">No use cases</p>;
+    }
+    return list.map(uc => (
+      <div key={uc.id} className={`flex items-center justify-between p-2 border rounded ${isHidden ? 'bg-gray-100 opacity-70' : 'bg-white'} shadow-sm hover:shadow-md transition-shadow`}>
+        {editingId === uc.id ? (
+          <div className="flex flex-1 gap-2">
+            <input 
+              type="text" 
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSave(uc.id)}
+            />
+            <Button onClick={() => handleSave(uc.id)} size="sm" variant="success">Save</Button>
+            <Button onClick={() => setEditingId(null)} size="sm" variant="secondary">Cancel</Button>
+          </div>
+        ) : (
+          <>
+            <div 
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+              onClick={() => !isHidden && handleFocus(uc.id)}
+              title={isHidden ? "Hidden from diagram" : "Click to focus on diagram"}
+            >
+              <div className={`w-2 h-2 rounded-full ${isHidden ? 'bg-gray-400' : (uc.isIsolated ? 'bg-red-400' : 'bg-green-400')}`} title={isHidden ? 'Hidden' : (uc.isIsolated ? 'Needs connection' : 'Connected')}></div>
+              <span className="text-sm font-medium text-gray-800 truncate">{uc.name}</span>
+            </div>
+            <div className="flex gap-1 ml-2">
+              <button 
+                onClick={() => handleToggleVisibility(uc)}
+                className={`p-1 rounded transition-colors ${isHidden ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                title={isHidden ? "Show on Diagram" : "Hide from Diagram"}
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {isHidden ? 'visibility' : 'visibility_off'}
+                </span>
+              </button>
+              {!isHidden && (
+                <button 
+                  onClick={() => handleEdit(uc)}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Rename (Display Name)"
+                >
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    ));
   };
 
   return (
@@ -43,47 +111,14 @@ const UseCaseTab = () => {
       </div>
 
       <div className="flex flex-col gap-2 mt-2">
-        {useCases.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-4">No use cases added yet.</p>
-        ) : (
-          useCases.map(uc => (
-            <div key={uc.id} className="flex items-center justify-between p-2 border rounded bg-white shadow-sm hover:shadow-md transition-shadow">
-              {editingId === uc.id ? (
-                <div className="flex flex-1 gap-2">
-                  <input 
-                    type="text" 
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleSave(uc.id)}
-                  />
-                  <Button onClick={() => handleSave(uc.id)} size="sm" variant="success">Save</Button>
-                  <Button onClick={() => setEditingId(null)} size="sm" variant="secondary">Cancel</Button>
-                </div>
-              ) : (
-                <>
-                  <span className="text-sm font-medium text-gray-800 truncate" title={uc.name}>{uc.name}</span>
-                  <div className="flex gap-1">
-                    <button 
-                      onClick={() => handleEdit(uc)}
-                      className="p-1 text-gray-500 hover:text-blue-600 rounded transition-colors"
-                      title="Edit Use Case"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                    </button>
-                    <button 
-                      onClick={() => removeUseCase(uc.id)}
-                      className="p-1 text-gray-500 hover:text-red-600 rounded transition-colors"
-                      title="Remove Use Case"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ))
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">On Diagram ({visibleUseCases.length})</h3>
+        {renderUseCaseList(visibleUseCases, false)}
+        
+        {hiddenUseCases.length > 0 && (
+          <>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1 border-t pt-4">Hidden ({hiddenUseCases.length})</h3>
+            {renderUseCaseList(hiddenUseCases, true)}
+          </>
         )}
       </div>
     </div>

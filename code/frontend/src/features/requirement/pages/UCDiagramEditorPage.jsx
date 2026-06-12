@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import useDiagramStore from '../../../store/useDiagramStore';
 import DiagramSidePanel from '../components/DiagramSidePanel';
 import { UCDiagram } from '../components/UCDiagram';
@@ -36,30 +36,29 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
     fetchDiagram();
   }, [projectId, loadData]);
 
-  const handleSave = async () => {
+  const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
     setSaving(true);
-    const toastId = toast.loading("Saving diagram...");
-    
-    // Call the global save function exposed by UCDiagram
-    if (window.handleDiagramSave) {
-        await window.handleDiagramSave();
-    }
-    
     try {
+      // 1. Sync semantic data
       await diagramService.syncDiagramData(projectId, {
         actors,
         useCases,
         relations
       });
-      toast.success("Diagram saved successfully", { id: toastId });
+      
+      // 2. Save layout data
+      const payload = { layoutData: JSON.stringify(positions) };
+      if (base64Png) {
+          payload.imageBase64 = base64Png;
+      }
+      await diagramService.saveDiagramLayout(projectId, payload);
     } catch (error) {
-      console.error("Failed to save diagram", error);
-      toast.error("Failed to save diagram", { id: toastId });
+      console.error("Failed to auto-save diagram", error);
     } finally {
       setSaving(false);
     }
-  };
+  }, [projectId, actors, useCases, relations]);
 
   if (loading) {
     return (
@@ -99,23 +98,19 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <button 
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center justify-center gap-2 px-6 h-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
-            >
+            <div className="flex items-center gap-2 px-4 h-9 rounded-md bg-green-50 text-green-700 font-medium text-sm border border-green-200">
               {saving ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></span>
                   Saving...
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[18px]">save</span>
-                  Save Diagram
+                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                  Auto-saved
                 </>
               )}
-            </button>
+            </div>
           </div>
         </div>
 
@@ -128,11 +123,7 @@ const UCDiagramEditorPage = ({ projectId, onClose }) => {
             relations={relations}
             systemName={systemName}
             mode="edit"
-            onSave={async (base64Png, positions) => {
-                if (base64Png) {
-                     await diagramService.saveDiagramLayout(projectId, { imageBase64: base64Png, layoutData: JSON.stringify(positions) });
-                }
-            }}
+            onSave={handleDiagramSave}
           />
         </div>
       </div>

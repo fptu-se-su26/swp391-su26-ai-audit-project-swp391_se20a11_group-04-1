@@ -37,7 +37,7 @@ public class DiagramServiceImpl implements DiagramService {
     @Override
     @Transactional(readOnly = true)
     public Object getDiagramData(Long projectId) {
-        // Retrieve use cases for the given project and format them for frontend diagram
+        // Retrieve ALL use cases for the given project, including hidden ones, so the frontend left panel can show them
         List<UseCase> useCases = useCaseRepository.findByProjectId(projectId);
         
         DiagramSyncRequest response = new DiagramSyncRequest();
@@ -45,18 +45,26 @@ public class DiagramServiceImpl implements DiagramService {
         List<DiagramSyncRequest.DiagramActorDTO> actorDtos = new ArrayList<>();
         List<DiagramSyncRequest.DiagramRelationDTO> relations = new ArrayList<>();
         
-        // Map to resolve Use Case names to IDs for include/extend relations
-        Map<String, String> ucNameToIdMap = useCases.stream()
-                .collect(Collectors.toMap(UseCase::getName, uc -> uc.getId().toString(), (u1, u2) -> u1));
+        // Map to resolve Use Case names to IDs for include/extend relations with robustness
+        Map<String, String> ucNameToIdMap = new HashMap<>();
+        for (UseCase uc : useCases) {
+            if (uc.getName() == null) continue;
+            String cleanName = uc.getName().trim().toLowerCase();
+            ucNameToIdMap.put(cleanName, uc.getId().toString());
+            if (cleanName.matches("^uc-\\d+\\s*:\\s*.*")) {
+                 String unPrefixed = cleanName.replaceFirst("^uc-\\d+\\s*:\\s*", "").trim();
+                 ucNameToIdMap.put(unPrefixed, uc.getId().toString());
+            }
+        }
         
         Set<String> uniqueActors = new HashSet<>();
         long relationIdCounter = 1;
         
         for (UseCase uc : useCases) {
-            // Map Use Case
             DiagramSyncRequest.DiagramUseCaseDTO ucDto = new DiagramSyncRequest.DiagramUseCaseDTO();
             ucDto.setId(uc.getId().toString());
             ucDto.setName(uc.getName());
+            ucDto.setShowInDiagram(uc.isShowInDiagram());
             
             // Map Actors & Actor-UC relations
             for (UseCaseActor uca : uc.getActors()) {
@@ -72,9 +80,9 @@ public class DiagramServiceImpl implements DiagramService {
             }
             
             // Includes
-            if (uc.getIncludes() != null) {
-                for (String includeTarget : uc.getIncludes()) {
-                    String targetId = ucNameToIdMap.get(includeTarget);
+            if (uc.getIncludesList() != null) {
+                for (String includeTarget : uc.getIncludesList()) {
+                    String targetId = resolveUseCaseIdRobustly(includeTarget, ucNameToIdMap);
                     if (targetId != null) {
                         DiagramSyncRequest.DiagramRelationDTO rel = new DiagramSyncRequest.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
@@ -88,7 +96,7 @@ public class DiagramServiceImpl implements DiagramService {
             // Extends
             if (uc.getExtendsList() != null) {
                 for (String extendTarget : uc.getExtendsList()) {
-                    String targetId = ucNameToIdMap.get(extendTarget);
+                    String targetId = resolveUseCaseIdRobustly(extendTarget, ucNameToIdMap);
                     if (targetId != null) {
                         DiagramSyncRequest.DiagramRelationDTO rel = new DiagramSyncRequest.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
@@ -151,6 +159,7 @@ public class DiagramServiceImpl implements DiagramService {
                 int subId = (maxSubId == null ? 0 : maxSubId) + 1;
                 newUc.setProjectSubId(subId);
                 newUc.setCode("UC" + String.format("%03d", subId));
+                newUc.setAddedFromDiagram(true);
                 
                 newUc = useCaseRepository.save(newUc);
                 
@@ -161,18 +170,27 @@ public class DiagramServiceImpl implements DiagramService {
                 // UPDATE
                 UseCase existing = existingMap.get(dto.getId());
                 if (existing != null) {
-                    existing.setName(dto.getName());
+                    // Update showInDiagram flag directly from DTO
+                    existing.setShowInDiagram(dto.isShowInDiagram());
                     useCaseRepository.save(existing);
-                    incomingIds.add(dto.getId());
+                    
+                    if (dto.isShowInDiagram()) {
+                        incomingIds.add(dto.getId());
+                    }
                 }
             }
         }
         
-        // 2. SOFT DELETE Use Cases missing from payload
+        // 2. SOFT HIDE Use Cases missing from payload (instead of deleting)
         for (UseCase existing : existingUcs) {
             if (!incomingIds.contains(existing.getId().toString()) && !existing.isAiGenerated()) {
-                // Soft delete
-                useCaseRepository.delete(existing); 
+                // Hide from diagram
+                existing.setShowInDiagram(false);
+                useCaseRepository.save(existing);
+            } else if (incomingIds.contains(existing.getId().toString()) && !existing.isShowInDiagram()) {
+                // Restore if it was hidden
+                existing.setShowInDiagram(true);
+                useCaseRepository.save(existing);
             }
         }
         
@@ -213,7 +231,7 @@ public class DiagramServiceImpl implements DiagramService {
                     }
                 }
             }
-            uc.setIncludes(includes);
+            uc.setIncludesList(includes);
             uc.setExtendsList(extendsList);
             useCaseRepository.save(uc);
         }
@@ -239,8 +257,30 @@ public class DiagramServiceImpl implements DiagramService {
         ProjectDiagram pd = projectDiagramRepository.findByProjectId(projectId)
                 .orElse(new ProjectDiagram());
         pd.setProjectId(projectId);
-        pd.setLayoutData(request.getLayoutData());
-        pd.setImageBase64(request.getImageBase64());
+        if (request.getLayoutData() != null) {
+            pd.setLayoutData(request.getLayoutData());
+        }
+        if (request.getImageBase64() != null) {
+            pd.setImageBase64(request.getImageBase64());
+        }
         projectDiagramRepository.save(pd);
+    }
+
+    private String resolveUseCaseIdRobustly(String targetName, Map<String, String> map) {
+        if (targetName == null || targetName.trim().isEmpty()) return null;
+        String cleanTarget = targetName.trim().toLowerCase();
+        String targetId = map.get(cleanTarget);
+        if (targetId != null) return targetId;
+        
+        cleanTarget = cleanTarget.replaceFirst("^uc-\\d+\\s*:\\s*", "").trim();
+        targetId = map.get(cleanTarget);
+        if (targetId != null) return targetId;
+        
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            if (entry.getKey().length() > 4 && (cleanTarget.contains(entry.getKey()) || entry.getKey().contains(cleanTarget))) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 }

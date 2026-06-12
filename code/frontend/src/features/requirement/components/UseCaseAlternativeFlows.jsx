@@ -178,11 +178,11 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   <h3 className="font-body-lg text-body-lg text-on-surface font-semibold mb-2">
                     {flowLabels[index]?.label || `${index + 1}a`}. {flow.condition || 'Alternative Condition'}
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface ml-2">
+                  <div className="space-y-1 font-body-md text-body-md text-on-surface ml-2">
                     {flow.steps?.map((step, idx) => (
-                      <li key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</li>
+                      <div key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</div>
                     ))}
-                  </ul>
+                  </div>
                 </>
               )}
             </div>
