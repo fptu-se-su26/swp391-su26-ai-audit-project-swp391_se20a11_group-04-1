@@ -3,22 +3,35 @@ package org.example.backend.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
-import org.example.backend.entity.GitHubIntegration;
-import org.example.backend.entity.Project;
-import org.example.backend.entity.ProjectCodeInsightSettings;
-import org.example.backend.entity.ProjectMember;
+import org.example.backend.dto.CodeInsightAiReviewResponse;
+import org.example.backend.dto.CodeInsightDashboardResponse;
+import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
+import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.GitHubCheckRunRepository;
+import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubIntegrationRepository;
+import org.example.backend.repository.GitHubPullRequestFileRepository;
+import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRepository;
+import org.example.backend.repository.TaskRepository;
+import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightService;
+import org.example.backend.service.CodeInsightPatchService;
+import org.example.backend.service.CodeInsightAiReviewService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +41,15 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final ProjectMemberRepository projectMemberRepository;
     private final GitHubIntegrationRepository gitHubIntegrationRepository;
     private final ProjectCodeInsightSettingsRepository settingsRepository;
+    private final TaskRepository taskRepository;
+    private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final GitHubCommitRepository commitRepository;
+    private final GitHubPullRequestRepository pullRequestRepository;
+    private final GitHubPullRequestFileRepository pullRequestFileRepository;
+    private final GitHubCheckRunRepository checkRunRepository;
+    private final CodeInsightScoringService scoringService;
+    private final CodeInsightPatchService patchService;
+    private final CodeInsightAiReviewService aiReviewService;
 
     @Override
     @Transactional(readOnly = true)
@@ -66,6 +88,97 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         // Code Insight no longer writes repository/webhook config. That belongs to GitHub Integration.
         GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId).orElse(null);
         return toResponse(projectId, integration, settings);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CodeInsightTaskEvidenceResponse getTaskEvidence(Long projectId, Long taskId, Long userId) {
+        requireProjectMember(projectId, userId);
+        Task task = taskRepository.findWithDetailsById(taskId)
+                .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
+        if (task.getProject() == null || !projectId.equals(task.getProject().getId())) {
+            throw new CustomException("Task does not belong to this project", HttpStatus.BAD_REQUEST);
+        }
+
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByTaskId(taskId);
+        List<GitHubCommit> commits = commitRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.COMMIT));
+        List<GitHubPullRequest> pullRequests = pullRequestRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.PULL_REQUEST));
+        List<GitHubCheckRun> checkRuns = checkRunRepository.findAllById(evidenceIds(links, CodeInsightEvidenceType.CHECK_RUN));
+        List<GitHubPullRequestFile> changedFiles = pullRequests.isEmpty()
+                ? List.of()
+                : pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(
+                        pullRequests.stream().map(GitHubPullRequest::getId).toList());
+
+        return CodeInsightTaskEvidenceResponse.builder()
+                .projectId(projectId)
+                .task(toTaskSummary(task))
+                .githubIssue(toGithubIssueSummary(task))
+                .commits(commits.stream().map(this::toCommitEvidence).toList())
+                .pullRequests(pullRequests.stream().map(this::toPullRequestEvidence).toList())
+                .checkRuns(checkRuns.stream().map(this::toCheckRunEvidence).toList())
+                .changedFiles(changedFiles.stream().map(this::toPullRequestFileEvidence).toList())
+                .aiReview(aiReviewService.getLatestReview(taskId))
+                .scoreSummary(scoringService.buildReviewEvidenceSummary(task))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CodeInsightTaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId) {
+        requireProjectMember(projectId, userId);
+        patchService.fetchChangedFiles(projectId, taskId, userId);
+        return getTaskEvidence(projectId, taskId, userId);
+    }
+
+    @Override
+    @Transactional
+    public CodeInsightAiReviewResponse createAiReview(Long projectId, Long taskId, Long userId) {
+        requireProjectMember(projectId, userId);
+        return aiReviewService.createReview(projectId, taskId, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CodeInsightDashboardResponse getDashboard(Long projectId, Long userId) {
+        requireProjectMember(projectId, userId);
+        List<Task> tasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId);
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectId(projectId);
+        Map<Long, List<CodeInsightEvidenceLink>> linksByTask = links.stream()
+                .filter(link -> link.getTask() != null)
+                .collect(Collectors.groupingBy(link -> link.getTask().getId()));
+
+        int pendingReviews = (int) tasks.stream().filter(task -> task.getStatus() == TaskStatus.IN_REVIEW).count();
+        int doneWithoutEvidence = (int) tasks.stream()
+                .filter(task -> task.getStatus() == TaskStatus.DONE)
+                .filter(task -> !hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int tasksWithCiFailed = (int) tasks.stream()
+                .filter(task -> "FAILED".equals(scoringService.buildReviewEvidenceSummary(task).getCiStatus()))
+                .count();
+        int tasksWithoutPullRequest = (int) tasks.stream()
+                .filter(task -> !hasEvidenceType(linksByTask.get(task.getId()), CodeInsightEvidenceType.PULL_REQUEST))
+                .count();
+        int tasksWithEvidence = (int) tasks.stream()
+                .filter(task -> hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int evidenceCoveragePercent = tasks.isEmpty() ? 0 : (int) Math.round(tasksWithEvidence * 100.0 / tasks.size());
+
+        List<CodeInsightDashboardResponse.MemberEvidenceQuality> memberQuality = tasks.stream()
+                .filter(task -> task.getPrimaryAssignee() != null)
+                .collect(Collectors.groupingBy(task -> task.getPrimaryAssignee().getId()))
+                .values()
+                .stream()
+                .map(memberTasks -> toMemberEvidenceQuality(memberTasks, linksByTask))
+                .toList();
+
+        return CodeInsightDashboardResponse.builder()
+                .pendingReviews(pendingReviews)
+                .doneWithoutEvidence(doneWithoutEvidence)
+                .tasksWithCiFailed(tasksWithCiFailed)
+                .tasksWithoutPullRequest(tasksWithoutPullRequest)
+                .evidenceCoveragePercent(evidenceCoveragePercent)
+                .memberEvidenceQuality(memberQuality)
+                .build();
     }
 
     // Verify that the current session user belongs to the project before reading or writing config.
@@ -159,6 +272,136 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .minScoreWarningThreshold(settings.getMinScoreWarningThreshold())
                 .updatedAt(settings.getUpdatedAt())
                 .build();
+    }
+
+    private List<Long> evidenceIds(List<CodeInsightEvidenceLink> links, CodeInsightEvidenceType type) {
+        return links.stream()
+                .filter(link -> link.getEvidenceType() == type)
+                .map(CodeInsightEvidenceLink::getEvidenceId)
+                .distinct()
+                .toList();
+    }
+
+    private CodeInsightTaskEvidenceResponse.TaskSummary toTaskSummary(Task task) {
+        return CodeInsightTaskEvidenceResponse.TaskSummary.builder()
+                .id(task.getId())
+                .title(task.getTitle())
+                .status(task.getStatus() != null ? task.getStatus().name() : null)
+                .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.GithubIssueSummary toGithubIssueSummary(Task task) {
+        if (task.getGithubIssueNumber() == null && !hasText(task.getGithubIssueUrl())) return null;
+        return CodeInsightTaskEvidenceResponse.GithubIssueSummary.builder()
+                .number(task.getGithubIssueNumber())
+                .url(task.getGithubIssueUrl())
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.CommitEvidence toCommitEvidence(GitHubCommit commit) {
+        return CodeInsightTaskEvidenceResponse.CommitEvidence.builder()
+                .id(commit.getId())
+                .sha(commit.getSha())
+                .branchName(commit.getBranchName())
+                .message(commit.getMessage())
+                .authorName(commit.getAuthorName())
+                .authorEmail(commit.getAuthorEmail())
+                .authorLogin(commit.getAuthorLogin())
+                .committedAt(commit.getCommittedAt())
+                .url(commit.getUrl())
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.PullRequestEvidence toPullRequestEvidence(GitHubPullRequest pullRequest) {
+        return CodeInsightTaskEvidenceResponse.PullRequestEvidence.builder()
+                .id(pullRequest.getId())
+                .prNumber(pullRequest.getPrNumber())
+                .title(pullRequest.getTitle())
+                .state(pullRequest.getState())
+                .draft(pullRequest.isDraft())
+                .authorLogin(pullRequest.getAuthorLogin())
+                .headBranch(pullRequest.getHeadBranch())
+                .baseBranch(pullRequest.getBaseBranch())
+                .headSha(pullRequest.getHeadSha())
+                .mergeCommitSha(pullRequest.getMergeCommitSha())
+                .mergedAt(pullRequest.getMergedAt())
+                .url(pullRequest.getUrl())
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.CheckRunEvidence toCheckRunEvidence(GitHubCheckRun checkRun) {
+        return CodeInsightTaskEvidenceResponse.CheckRunEvidence.builder()
+                .id(checkRun.getId())
+                .externalId(checkRun.getExternalId())
+                .sha(checkRun.getSha())
+                .name(checkRun.getName())
+                .eventType(checkRun.getEventType())
+                .status(checkRun.getStatus())
+                .conclusion(checkRun.getConclusion())
+                .startedAt(checkRun.getStartedAt())
+                .completedAt(checkRun.getCompletedAt())
+                .url(checkRun.getUrl())
+                .build();
+    }
+
+    private CodeInsightTaskEvidenceResponse.PullRequestFileEvidence toPullRequestFileEvidence(GitHubPullRequestFile file) {
+        return CodeInsightTaskEvidenceResponse.PullRequestFileEvidence.builder()
+                .id(file.getId())
+                .pullRequestId(file.getPullRequest() != null ? file.getPullRequest().getId() : null)
+                .filePath(file.getFilePath())
+                .status(file.getStatus())
+                .additions(file.getAdditions())
+                .deletions(file.getDeletions())
+                .changes(file.getChanges())
+                .patchHash(file.getPatchHash())
+                .patchSummary(file.getPatchSummary())
+                .fetchedAt(file.getFetchedAt())
+                .build();
+    }
+
+    private String displayName(UserAccount user) {
+        if (user == null) return "Unassigned";
+        if (user.getProfile() != null && hasText(user.getProfile().getFullName())) {
+            return user.getProfile().getFullName();
+        }
+        return hasText(user.getUsername()) ? user.getUsername() : user.getEmail();
+    }
+
+    private CodeInsightDashboardResponse.MemberEvidenceQuality toMemberEvidenceQuality(
+            List<Task> tasks,
+            Map<Long, List<CodeInsightEvidenceLink>> linksByTask) {
+        UserAccount member = tasks.get(0).getPrimaryAssignee();
+        int tasksWithEvidence = (int) tasks.stream()
+                .filter(task -> hasCodeEvidence(linksByTask.get(task.getId())))
+                .count();
+        int riskyTasks = (int) tasks.stream()
+                .filter(task -> {
+                    String riskLevel = scoringService.buildReviewEvidenceSummary(task).getRiskLevel();
+                    return "WARNING".equals(riskLevel) || "BLOCKED".equals(riskLevel);
+                })
+                .count();
+        return CodeInsightDashboardResponse.MemberEvidenceQuality.builder()
+                .memberId(member.getId())
+                .memberName(displayName(member))
+                .taskCount(tasks.size())
+                .tasksWithCodeEvidence(tasksWithEvidence)
+                .riskyTasks(riskyTasks)
+                .build();
+    }
+
+    private boolean hasCodeEvidence(List<CodeInsightEvidenceLink> links) {
+        return hasEvidenceType(links, CodeInsightEvidenceType.COMMIT)
+                || hasEvidenceType(links, CodeInsightEvidenceType.PULL_REQUEST);
+    }
+
+    private boolean hasEvidenceType(List<CodeInsightEvidenceLink> links, CodeInsightEvidenceType type) {
+        if (links == null || links.isEmpty()) return false;
+        Set<CodeInsightEvidenceType> types = links.stream()
+                .map(CodeInsightEvidenceLink::getEvidenceType)
+                .collect(Collectors.toSet());
+        return types.contains(type);
     }
 
     // Small local helper to avoid repeating null/blank checks around optional config fields.

@@ -36,6 +36,8 @@ spring:
     redis:
       host: localhost
       port: 6379 # Port mặc định của Redis
+    mongodb:
+      uri: mongodb://localhost:27017/dev_track_ai
 
   session:
     store-type: redis
@@ -88,3 +90,11 @@ app:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: local
     outbox-publish-delay-ms: 30000
+
+code-insight:
+  ai:
+    # gemini = real Gemini provider. AI Review returns provider errors when the API cannot produce a review.
+    provider: ${CODE_INSIGHT_AI_PROVIDER:gemini}
+    api-key: ${CODE_INSIGHT_AI_API_KEY:}
+    model: ${CODE_INSIGHT_AI_MODEL:gemini-2.5-flash}
+    timeout-seconds: ${CODE_INSIGHT_AI_TIMEOUT_SECONDS:30}

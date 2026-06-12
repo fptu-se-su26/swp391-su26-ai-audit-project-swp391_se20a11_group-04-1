@@ -7,6 +7,7 @@ import org.example.backend.repository.NotificationRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.TaskPenaltyLogRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.service.NotificationService;
 import org.example.backend.service.event.OutboxEventService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class TaskPenaltyService {
     private final NotificationRepository notificationRepository;
     private final TaskSlaRuleService taskSlaRuleService;
     private final OutboxEventService outboxEventService;
+    private final NotificationService notificationService;
 
     @Transactional
     public int applyOverduePenalties() {
@@ -37,7 +39,7 @@ public class TaskPenaltyService {
                 applyPenalty(task, evaluation);
                 changed++;
             }
-            if (evaluation.has(TaskSlaCategory.OVERDUE_FROZEN)) {
+            if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
                 escalateToLeaders(task, evaluation);
             }
         }
@@ -67,20 +69,25 @@ public class TaskPenaltyService {
     }
 
     private void escalateToLeaders(Task task, TaskSlaEvaluation evaluation) {
-        List<ProjectMember> leaders = projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER");
+        List<ProjectMember> leaders = new java.util.ArrayList<>();
+        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER"));
+        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "PROJECT_LEADER"));
+        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "MENTOR"));
         for (ProjectMember leader : leaders) {
             Long leaderId = leader.getUser().getId();
             if (notificationRepository.existsByRecipientIdAndRelatedIdAndType(leaderId, task.getId(), NotificationType.SYSTEM)) {
                 continue;
             }
-            notificationRepository.save(Notification.builder()
-                    .recipient(leader.getUser())
-                    .title("Task overdue escalation")
-                    .message("Task '" + task.getTitle() + "' is overdue for " + evaluation.overdueDays()
-                            + " days and needs leader attention.")
-                    .type(NotificationType.SYSTEM)
-                    .relatedId(task.getId())
-                    .build());
+            notificationService.createAndPush(
+                    leader.getUser(),
+                    task.getProject(),
+                    NotificationEntityType.TASK,
+                    task.getId(),
+                    NotificationType.SYSTEM,
+                    "SLA task quá hạn",
+                    "Task '" + task.getTitle() + "' đã quá hạn " + evaluation.overdueDays()
+                            + " ngày và cần Leader/Mentor xử lý."
+            );
         }
     }
 }

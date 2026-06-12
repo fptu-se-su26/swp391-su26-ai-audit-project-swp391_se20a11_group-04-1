@@ -21,6 +21,30 @@ export const codeInsightService = {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/review-queue`)
     return unwrap(response) || []
   },
+
+  // Load leader dashboard metrics for evidence coverage and review risk.
+  getDashboard: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/dashboard`)
+    return unwrap(response)
+  },
+
+  // Load linked GitHub evidence for one task review item.
+  getTaskEvidence: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence`)
+    return unwrap(response)
+  },
+
+  // Fetch PR changed-file metadata on demand and return refreshed task evidence.
+  fetchTaskChangedFiles: async (projectId, taskId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence/fetch-files`)
+    return unwrap(response)
+  },
+
+  // Create a structured AI-assisted review summary for this task.
+  createAiReview: async (projectId, taskId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/ai-review`)
+    return unwrap(response)
+  },
 }
 
 export default codeInsightService

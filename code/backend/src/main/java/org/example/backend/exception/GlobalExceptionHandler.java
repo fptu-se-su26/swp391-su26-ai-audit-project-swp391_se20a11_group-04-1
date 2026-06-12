@@ -72,6 +72,17 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex.getMessage(), ex.getStatus());
     }
 
+    @ExceptionHandler(CodeInsightAiProviderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCodeInsightAiProvider(CodeInsightAiProviderException ex) {
+        log.warn("Code Insight AI provider error [{} {}]: {}", ex.getProvider(), ex.getErrorType(), ex.getDetail());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message(ex.getMessage())
+                .errors(ex.toErrorBody())
+                .build();
+        return new ResponseEntity<>(response, ex.getHttpStatus());
+    }
+
     // ─── 2. Handle Validation Exceptions ────────────────────────────────────────
 
     /**

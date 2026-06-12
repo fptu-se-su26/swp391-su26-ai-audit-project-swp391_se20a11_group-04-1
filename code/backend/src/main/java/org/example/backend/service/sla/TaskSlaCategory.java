@@ -5,7 +5,6 @@ public enum TaskSlaCategory {
     DUE_SOON,
     OVERDUE_SHORT,
     OVERDUE_PENALTY,
-    OVERDUE_FROZEN,
     BLOCKED,
     MISSING_EVIDENCE
 }

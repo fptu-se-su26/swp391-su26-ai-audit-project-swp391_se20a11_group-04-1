@@ -37,13 +37,19 @@ public class TaskResponse {
     private String blockedReason;
     private boolean overduePenaltyApplied;
     private LocalDateTime overduePenaltyAppliedAt;
+    private List<String> slaCategories;
+    private long overdueDays;
+    private boolean hasAcceptedEvidence;
     private Long createdById;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ChecklistItem> checklist;
     private Long parentId;
     private String parentTitle;
     private String githubIssueUrl;
+    private Integer githubIssueNumber;
+
 
     @Getter
     @Setter
