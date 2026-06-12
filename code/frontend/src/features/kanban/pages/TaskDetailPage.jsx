@@ -422,7 +422,7 @@ const TaskDetailPage = () => {
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant">Git Workflow</h3>
               <span className="text-label-md text-on-surface-variant uppercase mb-1 block">Commit Prefix</span>
               <div className="flex items-center bg-surface-container-low rounded border border-outline-variant p-2">
-                <code className="font-label-md text-on-surface flex-1">feat({task.id}): </code>
+                <code className="font-label-md text-on-surface flex-1">feat(PRJ{projectId}-{task.id}): </code>
                 <button className="text-on-surface-variant hover:text-primary transition-colors" title="Copy to clipboard">
                   <span className="material-symbols-outlined text-[18px]">content_copy</span>
                 </button>
