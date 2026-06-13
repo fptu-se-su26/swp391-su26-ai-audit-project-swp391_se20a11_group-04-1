@@ -33,6 +33,8 @@ const KanbanBoardPage = () => {
   const [justDraggedTaskId, setJustDraggedTaskId] = useState(null)
   const [isCompactBoard, setIsCompactBoard] = useState(false)
   const [isBoardPanning, setIsBoardPanning] = useState(false)
+  const [reviewMoveModal, setReviewMoveModal] = useState(null)
+  const [reviewMoveReason, setReviewMoveReason] = useState('')
   const activeProject = useProjectStore((state) => state.activeProject)
   const {
     tasks,
@@ -57,6 +59,8 @@ const KanbanBoardPage = () => {
     updateTask,
     deleteTask,
     updateTaskStatus,
+    reopenTaskReview,
+    requestTaskRework,
     toggleChecklistItem,
     addColumn,
     updateColumn,
@@ -179,6 +183,25 @@ const KanbanBoardPage = () => {
       if (task) {
         const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
         const isIssueTaskOrSubtask = isIssueOwnedTask(task) || isIssueOwnedTask(parentTask)
+
+        if (task.status === 'DONE' && (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'NEEDS_CHANGES')) {
+          if (!isProjectLeader) {
+            toast.error('Only project leaders can reopen a Done task.')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+          setReviewMoveModal({
+            taskId,
+            taskTitle: task.title,
+            targetStatus: targetStatusKey,
+            targetLabel: targetStatusKey === 'IN_REVIEW' ? 'Reopened for review' : 'Needs Changes',
+          })
+          setReviewMoveReason('')
+          setDraggingTaskId(null)
+          setDragOverStatus(null)
+          return
+        }
 
         if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
           if (isIssueTaskOrSubtask) {
@@ -347,6 +370,20 @@ const KanbanBoardPage = () => {
     }
   }
 
+  const handleSubmitReviewMove = async (event) => {
+    event.preventDefault()
+    if (!reviewMoveModal || !reviewMoveReason.trim()) return
+    const reason = reviewMoveReason.trim()
+    const updatedTask = reviewMoveModal.targetStatus === 'IN_REVIEW'
+      ? await reopenTaskReview(reviewMoveModal.taskId, reason)
+      : await requestTaskRework(reviewMoveModal.taskId, reason)
+    if (updatedTask) {
+      toast.success(reviewMoveModal.targetStatus === 'IN_REVIEW' ? 'Task reopened for review.' : 'Task marked as Needs Changes.')
+      setReviewMoveModal(null)
+      setReviewMoveReason('')
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface-bright relative">
       <KanbanHeader
@@ -453,6 +490,49 @@ const KanbanBoardPage = () => {
         onClose={closeTaskForm}
         onSubmit={handleSubmitTaskForm}
       />
+
+      {reviewMoveModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <form onSubmit={handleSubmitReviewMove} className="w-full max-w-lg rounded-lg border border-outline-variant bg-surface-container-lowest shadow-2xl">
+            <div className="border-b border-outline-variant px-5 py-4">
+              <p className="font-label-md text-label-md uppercase text-primary">{reviewMoveModal.targetLabel}</p>
+              <h2 className="mt-1 text-lg font-bold text-on-surface">{reviewMoveModal.taskTitle}</h2>
+            </div>
+            <div className="space-y-3 p-5">
+              <label className="block">
+                <span className="text-sm font-semibold text-on-surface">Reason</span>
+                <textarea
+                  value={reviewMoveReason}
+                  onChange={(event) => setReviewMoveReason(event.target.value)}
+                  rows={4}
+                  required
+                  className="mt-2 w-full resize-none rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  placeholder="Explain why this Done task needs another review or rework."
+                />
+              </label>
+              <div className="rounded border border-[#f59e0b]/30 bg-[#fef3c7] px-3 py-2 text-sm text-[#92400e]">
+                This reason will be shown on the task card and saved in review history.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setReviewMoveModal(null)}
+                className="rounded-lg border border-outline-variant bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!reviewMoveReason.trim()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Confirm
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

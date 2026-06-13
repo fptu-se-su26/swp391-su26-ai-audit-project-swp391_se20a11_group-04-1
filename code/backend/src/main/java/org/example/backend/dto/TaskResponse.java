@@ -33,6 +33,9 @@ public class TaskResponse {
     private Long columnId;
     private String columnName;
     private String blockedReason;
+    private String latestReviewDecision;
+    private String latestReviewReason;
+    private LocalDateTime latestReviewDecisionAt;
     private boolean overduePenaltyApplied;
     private LocalDateTime overduePenaltyAppliedAt;
     private List<String> slaCategories;

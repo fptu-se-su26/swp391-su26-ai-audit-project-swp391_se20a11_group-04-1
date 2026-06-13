@@ -24,6 +24,10 @@ public interface TaskService {
     // Leader-only rejection that returns an IN_REVIEW task to work with feedback.
     TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId);
 
+    TaskResponse reopenTaskReview(Long taskId, TaskReviewRequest request, Long userId);
+
+    TaskResponse requestTaskRework(Long taskId, TaskReviewRequest request, Long userId);
+
     // Load the project review queue shown on the Code Insight page.
     List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId);
     void deleteTask(Long taskId, Long userId);

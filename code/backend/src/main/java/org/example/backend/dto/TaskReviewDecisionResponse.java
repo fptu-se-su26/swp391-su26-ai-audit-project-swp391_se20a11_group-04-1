@@ -36,6 +36,7 @@ public class TaskReviewDecisionResponse {
         private String requirementCode;
         private String assigneeName;
         private ReviewEvidenceSummary evidenceSummary;
+        private CodeInsightApprovalGateResponse approvalGate;
     }
 
     @Getter
@@ -62,6 +63,8 @@ public class TaskReviewDecisionResponse {
         private List<String> scoreBreakdown;
         private List<String> positiveSignals;
         private List<String> warnings;
+        private int manualEvidencePendingCount;
+        private int manualEvidenceConfirmedCount;
     }
 
     @Getter
