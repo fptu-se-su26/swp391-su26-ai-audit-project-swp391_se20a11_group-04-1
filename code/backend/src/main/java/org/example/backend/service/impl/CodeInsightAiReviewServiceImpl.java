@@ -7,10 +7,17 @@ import org.example.backend.dto.CodeInsightAiProviderResult;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.CodeInsightAiReview;
+import org.example.backend.entity.CodeInsightEvidenceLink;
+import org.example.backend.entity.CodeInsightEvidenceType;
+import org.example.backend.entity.ProjectCodeInsightSettings;
 import org.example.backend.entity.Task;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.CodeInsightAiReviewRepository;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.GitHubPullRequestFileRepository;
+import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightAiProvider;
 import org.example.backend.service.CodeInsightAiReviewInputBuilder;
 import org.example.backend.service.CodeInsightAiReviewService;
@@ -27,6 +34,10 @@ import java.util.Map;
 public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewService {
 
     private final TaskRepository taskRepository;
+    private final ProjectCodeInsightSettingsRepository settingsRepository;
+    private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final GitHubPullRequestFileRepository pullRequestFileRepository;
+    private final CodeInsightPatchService patchService;
     private final CodeInsightScoringService scoringService;
     private final CodeInsightAiReviewInputBuilder inputBuilder;
     private final CodeInsightAiProvider aiProvider;
@@ -41,6 +52,12 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
         if (task.getProject() == null || !projectId.equals(task.getProject().getId())) {
             throw new CustomException("Task does not belong to this project", HttpStatus.BAD_REQUEST);
         }
+        ProjectCodeInsightSettings settings = settingsRepository.findByProjectId(projectId)
+                .orElse(ProjectCodeInsightSettings.builder().aiReviewEnabled(false).build());
+        if (!settings.isAiReviewEnabled()) {
+            throw new CustomException("AI Review is disabled for this project", HttpStatus.FORBIDDEN);
+        }
+        ensureChangedFilesLoaded(projectId, taskId, userId);
 
         TaskReviewDecisionResponse.ReviewEvidenceSummary score = scoringService.buildReviewEvidenceSummary(task);
         CodeInsightAiProviderResult result = aiProvider.review(inputBuilder.build(task, score));
@@ -63,6 +80,22 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
                 .scoreAdjustment(clampAdjustment(result.getScoreAdjustment()))
                 .build());
         return toResponse(saved);
+    }
+
+    private void ensureChangedFilesLoaded(Long projectId, Long taskId, Long userId) {
+        List<Long> pullRequestIds = evidenceLinkRepository.findByTaskId(taskId).stream()
+                .filter(link -> link.getEvidenceType() == CodeInsightEvidenceType.PULL_REQUEST)
+                .map(CodeInsightEvidenceLink::getEvidenceId)
+                .distinct()
+                .toList();
+        if (pullRequestIds.isEmpty()) return;
+        if (!pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds).isEmpty()) {
+            return;
+        }
+        patchService.fetchChangedFiles(projectId, taskId, userId);
+        if (pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds).isEmpty()) {
+            throw new CustomException("Changed files could not be loaded from GitHub. Please retry before running AI Review.", HttpStatus.BAD_REQUEST);
+        }
     }
 
     public CodeInsightAiReviewResponse toResponse(CodeInsightAiReview review) {
