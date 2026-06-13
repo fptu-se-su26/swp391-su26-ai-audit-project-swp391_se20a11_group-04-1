@@ -44,6 +44,10 @@ public class ProjectCodeInsightSettings {
     @Builder.Default
     private int minScoreWarningThreshold = 70;
 
+    @Column(name = "block_score_threshold", nullable = false)
+    @Builder.Default
+    private int blockScoreThreshold = 50;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

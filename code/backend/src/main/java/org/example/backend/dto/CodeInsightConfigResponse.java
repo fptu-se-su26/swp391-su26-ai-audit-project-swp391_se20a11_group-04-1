@@ -29,6 +29,9 @@ public class CodeInsightConfigResponse {
         private String defaultBranch;
         private boolean active;
         private boolean hasWebhookSecret;
+        private String webhookUrl;
+        private String webhookEventsJson;
+        private LocalDateTime webhookLastSyncedAt;
         private LocalDateTime lastSyncedAt;
         private LocalDateTime updatedAt;
     }
@@ -46,6 +49,8 @@ public class CodeInsightConfigResponse {
         private boolean requireCiPass;
         private boolean aiReviewEnabled;
         private int minScoreWarningThreshold;
+        private int warningScoreThreshold;
+        private int blockScoreThreshold;
         private LocalDateTime updatedAt;
     }
 }
