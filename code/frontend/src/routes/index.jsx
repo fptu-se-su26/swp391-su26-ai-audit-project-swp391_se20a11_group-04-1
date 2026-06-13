@@ -32,6 +32,7 @@ import RtmPage from '@features/rtm/pages/RtmPage'
 
 // Feature Pages - Code Insight
 import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
+import CodeInsightTaskReviewDetailPage from '@features/code-insight/pages/CodeInsightTaskReviewDetailPage'
 
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
@@ -110,6 +111,7 @@ export function AppRoutes() {
             {/* Module 8: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
             <Route path="code-insight" element={<CodeInsightPage />} />
+            <Route path="code-insight/tasks/:taskId" element={<CodeInsightTaskReviewDetailPage />} />
 
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />
