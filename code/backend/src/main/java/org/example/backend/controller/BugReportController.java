@@ -151,6 +151,9 @@ public class BugReportController {
         
         response.put("webhookStatus", statusMap != null ? statusMap.get("webhookStatus") : "PENDING");
         response.put("lastWebhookReceivedAt", statusMap != null ? statusMap.get("lastWebhookReceivedAt") : null);
+        response.put("webhookUrl", config.getWebhookUrl());
+        response.put("webhookEventsJson", config.getWebhookEventsJson());
+        response.put("webhookLastSyncedAt", config.getWebhookLastSyncedAt());
         
         return ResponseEntity.ok(ApiResponse.success(response, "GitHub integration retrieved"));
     }
@@ -183,6 +186,9 @@ public class BugReportController {
         
         response.put("webhookStatus", statusMap != null ? statusMap.get("webhookStatus") : "PENDING");
         response.put("lastWebhookReceivedAt", statusMap != null ? statusMap.get("lastWebhookReceivedAt") : null);
+        response.put("webhookUrl", config.getWebhookUrl());
+        response.put("webhookEventsJson", config.getWebhookEventsJson());
+        response.put("webhookLastSyncedAt", config.getWebhookLastSyncedAt());
         
         return ResponseEntity.ok(ApiResponse.success(response, "GitHub integration saved successfully"));
     }
@@ -215,6 +221,15 @@ public class BugReportController {
         
         gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, webhookSecret);
         return ResponseEntity.ok(ApiResponse.success(null, "Webhook auto-configured successfully"));
+    }
+
+    @PostMapping("/projects/{projectId}/github-integration/webhook/refresh")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> refreshWebhookConfig(
+            @PathVariable Long projectId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        Map<String, Object> status = gitHubApiService.refreshWebhookConfig(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(status, "Webhook configuration refreshed"));
     }
 
     @GetMapping("/projects/{projectId}/github-integration/deliveries")
