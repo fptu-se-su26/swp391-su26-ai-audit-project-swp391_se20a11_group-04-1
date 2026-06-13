@@ -34,6 +34,11 @@ export const codeInsightService = {
     return unwrap(response)
   },
 
+  getReviewDetail: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/review-detail`)
+    return unwrap(response)
+  },
+
   // Fetch PR changed-file metadata on demand and return refreshed task evidence.
   fetchTaskChangedFiles: async (projectId, taskId) => {
     const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/evidence/fetch-files`)
@@ -44,6 +49,33 @@ export const codeInsightService = {
   createAiReview: async (projectId, taskId) => {
     const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/ai-review`)
     return unwrap(response)
+  },
+
+  getManualLinks: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/manual-links`)
+    return unwrap(response) || []
+  },
+
+  suggestManualLink: async (projectId, taskId, payload) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/manual-links`, payload)
+    return unwrap(response)
+  },
+
+  confirmManualLink: async (projectId, taskId, linkId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/manual-links/${linkId}/confirm`)
+    return unwrap(response)
+  },
+
+  rejectManualLink: async (projectId, taskId, linkId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/code-insight/tasks/${taskId}/manual-links/${linkId}/reject`)
+    return unwrap(response)
+  },
+
+  searchEvidence: async (projectId, type, query) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/code-insight/evidence/search`, {
+      params: { type, query },
+    })
+    return unwrap(response) || []
   },
 }
 

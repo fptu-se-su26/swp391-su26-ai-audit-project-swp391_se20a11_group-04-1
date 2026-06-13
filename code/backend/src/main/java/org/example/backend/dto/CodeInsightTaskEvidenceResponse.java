@@ -18,8 +18,10 @@ public class CodeInsightTaskEvidenceResponse {
     private List<CommitEvidence> commits;
     private List<CheckRunEvidence> checkRuns;
     private List<PullRequestFileEvidence> changedFiles;
+    private List<CodeInsightManualEvidenceLinkResponse> manualEvidenceLinks;
     private CodeInsightAiReviewResponse aiReview;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
+    private CodeInsightApprovalGateResponse approvalGate;
 
     @Getter
     @Setter
@@ -31,6 +33,7 @@ public class CodeInsightTaskEvidenceResponse {
         private String title;
         private String status;
         private String priority;
+        private String requirementCode;
         private String assigneeName;
     }
 

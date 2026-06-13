@@ -22,6 +22,47 @@ const evidenceModeLabel = (mode = 'MANUAL_GATE') => {
   return 'Manual gate'
 }
 
+const gateToneClass = (approvalStatus = 'CAN_APPROVE') => {
+  if (approvalStatus === 'BLOCKED') return 'bg-error-container text-error border-error/30'
+  if (approvalStatus === 'CAN_APPROVE_WITH_WARNING') return 'bg-[#fef3c7] text-[#92400e] border-[#f59e0b]/30'
+  return 'bg-[#dcfce7] text-[#166534] border-[#16a34a]/30'
+}
+
+const gateLabel = (approvalStatus = 'CAN_APPROVE') => {
+  if (approvalStatus === 'BLOCKED') return 'BLOCKED'
+  if (approvalStatus === 'CAN_APPROVE_WITH_WARNING') return 'WARNING'
+  return 'READY'
+}
+
+const evidenceBadgeClass = (tone = 'neutral') => {
+  if (tone === 'bad') return 'border-error/30 bg-error-container/40 text-error'
+  if (tone === 'warn') return 'border-[#f59e0b]/30 bg-[#fef3c7] text-[#92400e]'
+  if (tone === 'good') return 'border-[#16a34a]/30 bg-[#dcfce7] text-[#166534]'
+  return 'border-outline-variant bg-surface-container-low text-on-surface-variant'
+}
+
+const compactEvidenceBadges = (evidence = {}, aiEnabled = false) => [
+  { label: evidence.hasGithubIssue ? 'Issue Linked' : 'Issue Missing', tone: evidence.hasGithubIssue ? 'good' : 'warn' },
+  { label: (evidence.pullRequestCount || 0) > 0 ? `PR ${evidence.pullRequestCount}` : 'PR Missing', tone: (evidence.pullRequestCount || 0) > 0 ? 'good' : 'warn' },
+  { label: (evidence.commitCount || 0) > 0 ? `Commits ${evidence.commitCount}` : 'Commit Missing', tone: (evidence.commitCount || 0) > 0 ? 'good' : 'warn' },
+  { label: evidence.ciStatus === 'FAILED' ? 'CI Failed' : evidence.ciStatus === 'PASSED' ? 'CI Passed' : 'CI No CI', tone: evidence.ciStatus === 'FAILED' ? 'bad' : evidence.ciStatus === 'PASSED' ? 'good' : 'warn' },
+  { label: (evidence.changedFileCount || 0) > 0 ? `Files ${evidence.changedFileCount}` : 'Files Missing', tone: (evidence.changedFileCount || 0) > 0 ? 'good' : 'neutral' },
+  { label: aiEnabled ? 'AI Enabled' : 'AI Disabled', tone: aiEnabled ? 'neutral' : 'warn' },
+  { label: (evidence.manualEvidenceConfirmedCount || 0) > 0 ? 'Manual Confirmed' : (evidence.manualEvidencePendingCount || 0) > 0 ? 'Manual Pending' : 'Manual None', tone: (evidence.manualEvidencePendingCount || 0) > 0 ? 'warn' : 'neutral' },
+]
+
+const requiredWebhookEvents = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
+
+const parseWebhookEvents = (value) => {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 const shortSha = (sha = '') => (sha ? sha.slice(0, 7) : 'unknown')
 
 const formatDateTime = (value) => {
@@ -75,7 +116,8 @@ const CodeInsightPage = () => {
     requirePrForDone: false,
     requireCiPass: false,
     aiReviewEnabled: false,
-    minScoreWarningThreshold: 70,
+    warningScoreThreshold: 70,
+    blockScoreThreshold: 50,
   })
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(false)
@@ -91,9 +133,14 @@ const CodeInsightPage = () => {
   const [changedFilesLoading, setChangedFilesLoading] = useState(false)
   const [aiReviewLoading, setAiReviewLoading] = useState(false)
   const [aiReviewError, setAiReviewError] = useState(null)
+  const [rejectModal, setRejectModal] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectTargetStatus, setRejectTargetStatus] = useState('NEEDS_CHANGES')
 
   const canDecide = isLeaderRole(activeProject?.role)
   const repositoryConfigured = Boolean(config?.repository?.repoUrl)
+  const webhookEvents = parseWebhookEvents(config?.repository?.webhookEventsJson)
+  const missingWebhookEvents = requiredWebhookEvents.filter((eventName) => !webhookEvents.includes(eventName) && !webhookEvents.includes('*'))
   const ruleItems = [
     ['reviewGateEnabled', 'Require Leader Review Gate'],
     ['requirePrForDone', 'Require PR Before Done'],
@@ -110,7 +157,8 @@ const CodeInsightPage = () => {
       requirePrForDone: settings?.requirePrForDone ?? false,
       requireCiPass: settings?.requireCiPass ?? false,
       aiReviewEnabled: settings?.aiReviewEnabled ?? false,
-      minScoreWarningThreshold: settings?.minScoreWarningThreshold ?? 70,
+      warningScoreThreshold: settings?.warningScoreThreshold ?? settings?.minScoreWarningThreshold ?? 70,
+      blockScoreThreshold: settings?.blockScoreThreshold ?? 50,
     })
   }
 
@@ -189,7 +237,9 @@ const CodeInsightPage = () => {
         requirePrForDone: configForm.requirePrForDone,
         requireCiPass: configForm.requireCiPass,
         aiReviewEnabled: configForm.aiReviewEnabled,
-        minScoreWarningThreshold: Number(configForm.minScoreWarningThreshold),
+        warningScoreThreshold: Number(configForm.warningScoreThreshold),
+        minScoreWarningThreshold: Number(configForm.warningScoreThreshold),
+        blockScoreThreshold: Number(configForm.blockScoreThreshold),
       }
       const nextConfig = await codeInsightService.updateConfig(projectId, payload)
       hydrateConfigForm(nextConfig)
@@ -223,15 +273,24 @@ const CodeInsightPage = () => {
     }
   }
 
-  const rejectTask = async (taskId) => {
-    // Leader sends task back to work with a required reason for the audit trail.
-    const reason = window.prompt('Why should this task be returned for changes?')
-    if (!reason || !reason.trim()) return
+  const openRejectModal = (task) => {
+    setRejectModal(task)
+    setRejectReason('')
+    setRejectTargetStatus('NEEDS_CHANGES')
+  }
+
+  const submitRejectTask = async (event) => {
+    event.preventDefault()
+    const taskId = rejectModal?.id
+    const reason = rejectReason.trim()
+    if (!taskId || !reason) return
     setError('')
     setSuccess('')
     try {
-      await taskService.rejectTaskReview(taskId, reason.trim(), 'IN_PROGRESS')
-      setSuccess('Task rejected and returned to In Progress.')
+      await taskService.rejectTaskReview(taskId, reason, rejectTargetStatus)
+      setSuccess(rejectTargetStatus === 'BLOCKED' ? 'Task rejected and moved to Blocked.' : 'Task rejected and marked as Needs Changes.')
+      setRejectModal(null)
+      setRejectReason('')
       await loadReviewQueue()
       await loadDashboard()
     } catch (err) {
@@ -389,6 +448,32 @@ const CodeInsightPage = () => {
                     GitHub Config
                   </Link>
                 </div>
+                <div className="md:col-span-2 rounded-lg border border-outline-variant bg-surface-container-low p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="font-label-md text-label-md uppercase text-on-surface-variant">Code Insight Webhook Health</h3>
+                    <span className={`font-label-md text-label-md rounded px-2 py-1 uppercase ${missingWebhookEvents.length === 0 && webhookEvents.length > 0 ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fef3c7] text-[#92400e]'}`}>
+                      {missingWebhookEvents.length === 0 && webhookEvents.length > 0 ? 'Ready' : 'Needs Sync'}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {requiredWebhookEvents.map((eventName) => {
+                      const enabled = webhookEvents.includes(eventName) || webhookEvents.includes('*')
+                      return (
+                        <div key={eventName} className="flex items-center gap-2 text-sm text-on-surface-variant">
+                          <span className={`material-symbols-outlined text-[17px] ${enabled ? 'text-[#166534]' : 'text-error'}`}>
+                            {enabled ? 'check_circle' : 'cancel'}
+                          </span>
+                          {eventName}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {missingWebhookEvents.length > 0 && (
+                    <p className="mt-3 text-sm text-[#92400e]">
+                      Webhook is missing {missingWebhookEvents.join(', ')}. Code Insight may not link PR or CI evidence until GitHub Config is synced.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="rounded-lg border border-outline-variant bg-surface-container-low p-4">
@@ -423,7 +508,13 @@ const CodeInsightPage = () => {
                   <div className="flex items-center justify-between gap-3 border-t border-outline-variant pt-3 text-sm font-semibold text-on-surface">
                     <span>Score Warning Threshold</span>
                     <span className="font-label-md text-label-md rounded bg-primary-fixed px-2 py-1 text-primary">
-                      {configForm.minScoreWarningThreshold}
+                      {configForm.warningScoreThreshold}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm font-semibold text-on-surface">
+                    <span>Score Block Threshold</span>
+                    <span className="font-label-md text-label-md rounded bg-error-container px-2 py-1 text-error">
+                      {configForm.blockScoreThreshold}
                     </span>
                   </div>
                 </div>
@@ -473,11 +564,26 @@ const CodeInsightPage = () => {
                       type="number"
                       min="0"
                       max="100"
-                      value={configForm.minScoreWarningThreshold}
-                      onChange={(event) => updateConfigForm('minScoreWarningThreshold', event.target.value)}
+                      value={configForm.warningScoreThreshold}
+                      onChange={(event) => updateConfigForm('warningScoreThreshold', event.target.value)}
                       disabled={!canDecide || configLoading}
                       className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
                     />
+                  </label>
+                  <label className="block pt-2">
+                    <span className="font-label-md text-label-md uppercase text-on-surface-variant">Score Block Threshold</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="99"
+                      value={configForm.blockScoreThreshold}
+                      onChange={(event) => updateConfigForm('blockScoreThreshold', event.target.value)}
+                      disabled={!canDecide || configLoading}
+                      className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
+                    />
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      Must be lower than the warning threshold. Scores below this value block approval.
+                    </p>
                   </label>
                 </div>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -513,7 +619,7 @@ const CodeInsightPage = () => {
             ['Pending Reviews', dashboard?.pendingReviews ?? reviewQueue.length],
             ['Done Without Evidence', dashboard?.doneWithoutEvidence ?? 0],
             ['CI Failed', dashboard?.tasksWithCiFailed ?? 0],
-            ['Tasks Without PR', dashboard?.tasksWithoutPullRequest ?? 0],
+            ['Reviewed Tasks Without PR', dashboard?.tasksWithoutPullRequest ?? 0],
             ['Evidence Coverage', `${dashboard?.evidenceCoveragePercent ?? 0}%`],
             ['Members Tracked', dashboard?.memberEvidenceQuality?.length ?? 0],
           ].map(([label, value]) => (
@@ -593,8 +699,10 @@ const CodeInsightPage = () => {
             <div className="divide-y divide-outline-variant">
               {reviewQueue.map((item) => {
                 const evidence = item.task?.evidenceSummary || {}
-                const warnings = evidence.warnings || []
-                const positiveSignals = evidence.positiveSignals || []
+                const gate = item.task?.approvalGate || {}
+                const blockers = gate.blockers || (evidence.riskLevel === 'BLOCKED' ? (evidence.warnings || []) : [])
+                const warnings = gate.warnings || (evidence.riskLevel !== 'BLOCKED' ? (evidence.warnings || []) : [])
+                const approvalStatus = gate.approvalStatus || (evidence.riskLevel === 'BLOCKED' ? 'BLOCKED' : evidence.riskLevel === 'WARNING' ? 'CAN_APPROVE_WITH_WARNING' : 'CAN_APPROVE')
                 return (
                 <article key={`${item.task?.id}-${item.id || 'pending'}`} className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="min-w-0">
@@ -612,6 +720,10 @@ const CodeInsightPage = () => {
                         <span className="material-symbols-outlined text-[14px]">analytics</span>
                         {evidence.score ?? 0}/100 {evidence.riskLevel || 'READY'}
                       </span>
+                      <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 font-label-md text-label-md uppercase ${gateToneClass(approvalStatus)}`}>
+                        <span className="material-symbols-outlined text-[14px]">{approvalStatus === 'BLOCKED' ? 'lock' : approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'priority_high' : 'verified'}</span>
+                        {gateLabel(approvalStatus)}
+                      </span>
                     </div>
                     <h3 className="text-lg font-bold text-on-surface truncate">{item.task?.title}</h3>
                     <p className="text-sm text-on-surface-variant mt-1">
@@ -619,49 +731,36 @@ const CodeInsightPage = () => {
                       {item.reviewer?.name ? ` | Requested by: ${item.reviewer.name}` : ''}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        {evidenceModeLabel(evidence.evidenceMode)}
-                      </span>
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        Checklist {evidence.checklistDone ?? 0}/{evidence.checklistTotal ?? 0}
-                      </span>
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        Subtasks {evidence.subtaskDone ?? 0}/{evidence.subtaskTotal ?? 0}
-                      </span>
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        PR {evidence.pullRequestCount ?? 0}
-                      </span>
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        Commits {evidence.commitCount ?? 0}
-                      </span>
-                      <span className="rounded border border-outline-variant bg-surface-container-low px-2 py-1 font-semibold text-on-surface-variant">
-                        CI {evidence.ciStatus || 'NO_CI'}
-                      </span>
+                      {compactEvidenceBadges(evidence, configForm.aiReviewEnabled).map((badge) => (
+                        <span key={badge.label} className={`rounded border px-2 py-1 font-semibold ${evidenceBadgeClass(badge.tone)}`}>
+                          {badge.label}
+                        </span>
+                      ))}
                     </div>
-                    {(warnings.length > 0 || positiveSignals.length > 0) && (
+                    {(blockers.length > 0 || warnings.length > 0) && (
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {warnings.length > 0 && (
+                        {blockers.length > 0 && (
                           <div className="rounded-lg border border-error/20 bg-error-container/30 px-3 py-2">
                             <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-error">
-                              <span className="material-symbols-outlined text-[14px]">warning</span>
-                              Review Warnings
+                              <span className="material-symbols-outlined text-[14px]">lock</span>
+                              Blockers
                             </div>
                             <ul className="mt-1 space-y-1 text-sm text-error">
-                              {warnings.map((warning) => (
-                                <li key={warning}>{warning}</li>
+                              {blockers.slice(0, 3).map((blocker) => (
+                                <li key={blocker}>{blocker}</li>
                               ))}
                             </ul>
                           </div>
                         )}
-                        {positiveSignals.length > 0 && (
-                          <div className="rounded-lg border border-[#16a34a]/20 bg-[#dcfce7]/40 px-3 py-2">
-                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-[#166534]">
-                              <span className="material-symbols-outlined text-[14px]">verified</span>
-                              Positive Signals
+                        {warnings.length > 0 && (
+                          <div className="rounded-lg border border-[#f59e0b]/30 bg-[#fef3c7] px-3 py-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase text-[#92400e]">
+                              <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                              Warnings
                             </div>
-                            <ul className="mt-1 space-y-1 text-sm text-[#166534]">
-                              {positiveSignals.map((signal) => (
-                                <li key={signal}>{signal}</li>
+                            <ul className="mt-1 space-y-1 text-sm text-[#92400e]">
+                              {warnings.slice(0, 3).map((warning) => (
+                                <li key={warning}>{warning}</li>
                               ))}
                             </ul>
                           </div>
@@ -687,6 +786,13 @@ const CodeInsightPage = () => {
                       View Evidence
                     </button>
                     <Link
+                      to={`/projects/${projectId}/code-insight/tasks/${item.task?.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">rule</span>
+                      Review Detail
+                    </Link>
+                    <Link
                       to={`/projects/${projectId}/tasks/${item.task?.id}`}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low"
                     >
@@ -697,7 +803,7 @@ const CodeInsightPage = () => {
                       <>
                         <button
                           type="button"
-                          onClick={() => rejectTask(item.task?.id)}
+                          onClick={() => openRejectModal(item.task)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-container px-3 py-2 text-sm font-semibold text-error hover:bg-error-container/70"
                         >
                           <span className="material-symbols-outlined text-[18px]">close</span>
@@ -706,7 +812,9 @@ const CodeInsightPage = () => {
                         <button
                           type="button"
                           onClick={() => approveTask(item.task?.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container"
+                          disabled={approvalStatus === 'BLOCKED'}
+                          title={approvalStatus === 'BLOCKED' ? (blockers[0] || 'Approval is blocked') : approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? (warnings[0] || 'Approval has warnings') : 'Approve task'}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <span className="material-symbols-outlined text-[18px]">check</span>
                           Approve
@@ -721,6 +829,61 @@ const CodeInsightPage = () => {
           )}
         </section>
       </div>
+
+      {rejectModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <form onSubmit={submitRejectTask} className="w-full max-w-lg rounded-lg border border-outline-variant bg-surface-container-lowest shadow-2xl">
+            <div className="border-b border-outline-variant px-5 py-4">
+              <p className="font-label-md text-label-md uppercase text-error">Reject Review</p>
+              <h2 className="mt-1 text-lg font-bold text-on-surface">{rejectModal.title}</h2>
+            </div>
+            <div className="space-y-4 p-5">
+              <label className="block">
+                <span className="text-sm font-semibold text-on-surface">Target status</span>
+                <select
+                  value={rejectTargetStatus}
+                  onChange={(event) => setRejectTargetStatus(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                >
+                  <option value="NEEDS_CHANGES">Needs Changes</option>
+                  <option value="BLOCKED">Blocked</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-semibold text-on-surface">Reason</span>
+                <textarea
+                  value={rejectReason}
+                  onChange={(event) => setRejectReason(event.target.value)}
+                  rows={4}
+                  required
+                  className="mt-2 w-full resize-none rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  placeholder="Explain exactly what must be fixed before this task can be approved."
+                />
+              </label>
+              <div className="rounded border border-[#f59e0b]/30 bg-[#fef3c7] px-3 py-2 text-sm text-[#92400e]">
+                The reason will be visible to the assignee and saved in Code Insight decision history.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setRejectModal(null)}
+                className="rounded-lg border border-outline-variant bg-surface px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!rejectReason.trim()}
+                className="rounded-lg border border-error/30 bg-error-container px-4 py-2 text-sm font-semibold text-error hover:bg-error-container/70 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Reject Task
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {(selectedEvidence || evidenceLoading || evidenceError) && (
         <div
           className="fixed inset-0 z-50 flex justify-end bg-black/35"
@@ -908,13 +1071,18 @@ const CodeInsightPage = () => {
                       <button
                         type="button"
                         onClick={runAiReview}
-                        disabled={aiReviewLoading}
+                        disabled={aiReviewLoading || !configForm.aiReviewEnabled}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <span className="material-symbols-outlined text-[17px]">smart_toy</span>
-                        {aiReviewButtonLabel(aiReviewLoading, selectedEvidence.aiReview, aiReviewError)}
+                        {configForm.aiReviewEnabled ? aiReviewButtonLabel(aiReviewLoading, selectedEvidence.aiReview, aiReviewError) : 'AI Disabled'}
                       </button>
                     </div>
+                    {!configForm.aiReviewEnabled && (
+                      <div className="mt-3 rounded-lg border border-[#f59e0b]/30 bg-[#fef3c7] px-3 py-2 text-sm text-[#92400e]">
+                        Enable AI Review in Code Insight settings before running provider-based review.
+                      </div>
+                    )}
                     {aiReviewError && (
                       <div className="mt-3 rounded-lg border border-error/20 bg-error-container/30 p-3 text-error">
                         <p className="font-label-md text-label-md uppercase">AI Provider Error</p>
