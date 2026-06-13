@@ -21,6 +21,7 @@ import CommentTab from '../components/CommentTab'
 import ProposalTab from '../components/ProposalTab'
 import { requirementApi } from '../../requirement/services/requirementApi'
 import CreateRequirementModal from '../../requirement/components/CreateRequirementModal'
+import { formatTaskType, normalizeTaskType } from '../../kanban/utils/taskMapper'
 
 const cleanDescription = (desc) => {
   if (!desc) return '';
@@ -34,6 +35,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   const activeProject = useProjectStore((state) => state.activeProject)
   const { tasks, fetchTaskById, updateTask } = useKanbanStore()
   const task = tasks.find((item) => String(item.id) === String(taskId))
+  const taskType = normalizeTaskType(task?.type)
 
   const isBlankGit = useMemo(() => {
     const desc = task?.description || discussBug?.description;
@@ -74,8 +76,8 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   }, [task?.description])
 
   const isBugType = useMemo(() => {
-    return task?.type === 'BUG_FIX' || task?.type === 'BUG' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
-  }, [task, discussBug])
+    return taskType === 'BUG_FIX' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
+  }, [taskType, discussBug])
 
   const stepsContent = useMemo(() => {
     const rawSteps = discussBug?.stepsToReproduce || task?.stepsToReproduce
@@ -595,13 +597,13 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     </span>
                   ) : (
                     <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
-                      task.type === 'BUG' || task.type === 'BUG_FIX'
+                      taskType === 'BUG_FIX'
                         ? 'bg-rose-50 text-rose-600 border-rose-100'
-                        : task.type === 'UI/UX'
+                        : taskType === 'UI_UX'
                           ? 'bg-amber-50 text-amber-600 border-amber-100'
                           : 'bg-sky-50 text-sky-600 border-sky-100'
                     }`}>
-                      {task.type === 'BUG' || task.type === 'BUG_FIX' ? 'Bugfix / Sửa lỗi' : task.type === 'DEVELOPMENT' || task.type === 'DEV' ? 'Tính năng' : task.type || 'Nhiệm vụ'}
+                      {formatTaskType(taskType)}
                     </span>
                   )}
                   <div className="flex items-center gap-1 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer text-[11px]">
