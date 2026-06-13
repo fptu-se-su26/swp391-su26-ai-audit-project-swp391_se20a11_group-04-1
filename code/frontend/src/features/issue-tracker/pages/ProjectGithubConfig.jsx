@@ -5,6 +5,9 @@ import useProjectStore from '@store/useProjectStore'
 import bugService from '../services/bugService'
 import axiosInstance from '@/api/axiosConfig'
 
+const CODE_INSIGHT_RECOMMENDED_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
+const REQUIRED_CODE_INSIGHT_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
+
 export function ProjectGithubConfig() {
   const { projectId } = useParams()
   const navigate = useNavigate()
@@ -48,8 +51,8 @@ export function ProjectGithubConfig() {
 
   // Advanced Webhook Modal
   const [showWebhookModal, setShowWebhookModal] = useState(false)
-  const [webhookEventType, setWebhookEventType] = useState('selected') // 'push', 'all', 'selected'
-  const [selectedEvents, setSelectedEvents] = useState(['issues', 'issue_comment'])
+  const [webhookEventType, setWebhookEventType] = useState('recommended')
+  const [selectedEvents, setSelectedEvents] = useState(CODE_INSIGHT_RECOMMENDED_EVENTS)
   
   const defaultWebhookUrl = `${window.location.origin}/api/v1/github/webhook`
   const [webhookUrlInput, setWebhookUrlInput] = useState(defaultWebhookUrl)
@@ -218,16 +221,16 @@ export function ProjectGithubConfig() {
     if (e) e.preventDefault()
     if (!projectId) return
 
-    let eventsToSend = []
-    if (webhookEventType === 'push') {
-      eventsToSend = ['push']
-    } else if (webhookEventType === 'all') {
-      eventsToSend = ['*']
-    } else {
+    let eventsToSend = CODE_INSIGHT_RECOMMENDED_EVENTS
+    if (webhookEventType === 'custom') {
       eventsToSend = selectedEvents
       if (eventsToSend.length === 0) {
         toast.error('Please select at least one event.')
         return
+      }
+      const missing = REQUIRED_CODE_INSIGHT_EVENTS.filter((eventName) => !eventsToSend.includes(eventName))
+      if (missing.length > 0) {
+        toast(`Warning: webhook is missing ${missing.join(', ')}. Code Insight may not link all evidence.`)
       }
     }
 
@@ -693,32 +696,25 @@ export function ProjectGithubConfig() {
               </div>
 
               <div className="pt-4 border-t border-outline-variant/50">
-                <label className="font-bold text-on-surface block mb-3">Which events would you like to trigger this webhook?</label>
+                <label className="font-bold text-on-surface block mb-3">Webhook event preset</label>
                 
                 <div className="space-y-3">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="radio"
                       name="webhookEventType"
-                      checked={webhookEventType === 'push'}
-                      onChange={() => setWebhookEventType('push')}
+                      checked={webhookEventType === 'recommended'}
+                      onChange={() => {
+                        setWebhookEventType('recommended')
+                        setSelectedEvents(CODE_INSIGHT_RECOMMENDED_EVENTS)
+                      }}
                       className="mt-1 text-primary focus:ring-primary"
                     />
                     <div>
-                      <span className="font-bold text-on-surface">Just the push event.</span>
-                    </div>
-                  </label>
-                  
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="webhookEventType"
-                      checked={webhookEventType === 'all'}
-                      onChange={() => setWebhookEventType('all')}
-                      className="mt-1 text-primary focus:ring-primary"
-                    />
-                    <div>
-                      <span className="font-bold text-on-surface">Send me <b>everything</b>.</span>
+                      <span className="font-bold text-on-surface">Code Insight Recommended</span>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        issues, push, pull_request, workflow_run, and check_run.
+                      </p>
                     </div>
                   </label>
 
@@ -726,16 +722,19 @@ export function ProjectGithubConfig() {
                     <input
                       type="radio"
                       name="webhookEventType"
-                      checked={webhookEventType === 'selected'}
-                      onChange={() => setWebhookEventType('selected')}
+                      checked={webhookEventType === 'custom'}
+                      onChange={() => setWebhookEventType('custom')}
                       className="mt-1 text-primary focus:ring-primary"
                     />
                     <div>
-                      <span className="font-bold text-on-surface">Let me select individual events.</span>
+                      <span className="font-bold text-on-surface">Custom</span>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        Use only when you understand which evidence events Code Insight needs.
+                      </p>
                     </div>
                   </label>
 
-                  {webhookEventType === 'selected' && (
+                  {webhookEventType === 'custom' && (
                     <div className="ml-7 mt-3 p-4 bg-surface-container-low border border-outline-variant rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={selectedEvents.includes('issues')} onChange={() => handleEventCheckboxChange('issues')} className="text-primary rounded" />
@@ -756,6 +755,14 @@ export function ProjectGithubConfig() {
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" checked={selectedEvents.includes('push')} onChange={() => handleEventCheckboxChange('push')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Pushes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={selectedEvents.includes('workflow_run')} onChange={() => handleEventCheckboxChange('workflow_run')} className="text-primary rounded" />
+                        <span className="text-on-surface text-sm">Workflow runs</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={selectedEvents.includes('check_run')} onChange={() => handleEventCheckboxChange('check_run')} className="text-primary rounded" />
+                        <span className="text-on-surface text-sm">Check runs</span>
                       </label>
                     </div>
                   )}

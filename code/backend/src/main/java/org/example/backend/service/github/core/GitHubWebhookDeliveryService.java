@@ -15,4 +15,6 @@ public interface GitHubWebhookDeliveryService {
     void redeliverWebhook(Long projectId, Long deliveryId, Long userId);
 
     void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, List<String> events, String webhookSecret);
+
+    Map<String, Object> refreshWebhookConfig(Long projectId, Long userId);
 }

@@ -126,4 +126,9 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     public void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, List<String> events, String webhookSecret) {
         webhookDeliveryService.autoConfigureWebhook(projectId, userId, webhookUrl, events, webhookSecret);
     }
+
+    @Override
+    public Map<String, Object> refreshWebhookConfig(Long projectId, Long userId) {
+        return webhookDeliveryService.refreshWebhookConfig(projectId, userId);
+    }
 }

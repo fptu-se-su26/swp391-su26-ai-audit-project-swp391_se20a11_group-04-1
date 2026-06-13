@@ -131,4 +131,9 @@ public interface GitHubApiService {
      * @param webhookSecret Optional custom secret to use
      */
     void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, java.util.List<String> events, String webhookSecret);
+
+    /**
+     * Reads the current GitHub webhook and persists its Code Insight-relevant config locally.
+     */
+    java.util.Map<String, Object> refreshWebhookConfig(Long projectId, Long userId);
 }
