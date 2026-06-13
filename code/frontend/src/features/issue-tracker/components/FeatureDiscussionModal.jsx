@@ -45,14 +45,13 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     return desc && desc.includes('github-blank-draft');
   }, [task?.description, discussBug?.description]);
 
-  // Lấy trạng thái duyệt của Task. Nếu status không phải DRAFT thì coi như idea đã được thông qua.
+  // Lấy trạng thái duyệt của Task. Ý tưởng được thông qua khi đã đồng bộ lên GitHub (githubIssueNumber != null) hoặc không còn nháp.
   const ideaApproved = useMemo(() => {
     if (!task) return false
     if (isBlankGit) {
       return !isBlankDraft;
     }
-    const s = task.status ? task.status.toUpperCase() : ''
-    return s !== 'DRAFT'
+    return task.githubIssueNumber != null;
   }, [task, isBlankGit, isBlankDraft])
 
   // Trạng thái đã đồng bộ lên GitHub - githubIssueNumber ưu tiên cao nhất

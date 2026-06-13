@@ -196,7 +196,10 @@ public class TaskServiceImpl implements TaskService {
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+
+        if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
             } catch (Exception e) {
@@ -246,7 +249,10 @@ public class TaskServiceImpl implements TaskService {
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+
+        if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
             } catch (Exception e) {
@@ -376,7 +382,9 @@ public class TaskServiceImpl implements TaskService {
                 } else if (task.getStatus() == TaskStatus.IN_REVIEW) {
                     bug.setStatus(BugStatus.VERIFIED);
                 } else if (task.getStatus() == TaskStatus.TODO) {
-                    bug.setStatus(BugStatus.OPEN);
+                    if (bug.getStatus() != BugStatus.DRAFT) {
+                        bug.setStatus(BugStatus.OPEN);
+                    }
                 }
 
                 // Synchronize Assignee
