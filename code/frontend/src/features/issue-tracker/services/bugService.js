@@ -90,6 +90,10 @@ export const bugService = {
     return githubIntegrationService.autoConfigureWebhook(projectId, webhookUrl, events, webhookSecret)
   },
 
+  refreshWebhookConfig: async (projectId) => {
+    return githubIntegrationService.refreshWebhookConfig(projectId)
+  },
+
   /**
    * Fetches webhook delivery history from GitHub (last 30 deliveries)
    * GET /v1/projects/{projectId}/github-integration/deliveries
