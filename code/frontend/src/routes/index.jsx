@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // Feature Pages - Auth
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
+import VerificationPage from '@features/auth/pages/VerificationPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
@@ -65,6 +66,7 @@ export function AppRoutes() {
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/verify" element={<VerificationPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
 
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}

@@ -40,6 +40,7 @@ const Sidebar = () => {
   const location = useLocation()
   const logout = useAuthStore((state) => state.logout)
   const userRole = useAuthStore((state) => state.userRole)
+  const verifyStatus = useAuthStore((state) => state.verifyStatus) || 'UNVERIFIED'
   const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
   const email = useAuthStore((state) => state.email) || 'guest@example.com'
 
@@ -59,6 +60,13 @@ const Sidebar = () => {
     { id: 'archived', label: 'Archived', icon: 'inbox', path: '#' },
     { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
   ]
+
+  // Thêm mục tương ứng dựa trên trạng thái xác minh hoặc admin
+  if (userRole === 'ADMIN' || verifyStatus === 'VERIFIED') {
+    portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
+  } else {
+    portfolioMenuItems.push({ id: 'verify', label: 'Verify Account', icon: 'verified_user', path: '/verify' })
+  }
 
   // Xử lý click menu cấp Portfolio
   const handlePortfolioMenuClick = (item) => {
@@ -122,7 +130,7 @@ const Sidebar = () => {
         {!activeProject ? (
           // A. Hiển thị Menu Portfolio
           portfolioMenuItems.map((item) => {
-            const isActive = item.id === 'projects' && location.pathname === '/dashboard'
+            const isActive = (item.id === 'projects' && location.pathname === '/dashboard') || (item.path !== '#' && location.pathname === item.path)
             return (
               <button
                 key={item.id}
