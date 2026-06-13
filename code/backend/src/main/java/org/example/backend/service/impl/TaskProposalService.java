@@ -31,6 +31,7 @@ public class TaskProposalService {
     private final GitHubApiService gitHubApiService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final BugReportRepository bugReportRepo;
+    private final TaskVoteRepository taskVoteRepo;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskProposalService.class);
 
@@ -272,6 +273,26 @@ public class TaskProposalService {
     public void approveAndSyncTask(Long taskId, Long currentUserId) {
         Task task = taskRepo.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+
+        if (task.getParent() == null) {
+            long totalMembers = projectMemberRepository.findByProjectId(task.getProject().getId()).size();
+            long upvotes = taskVoteRepo.countByTaskIdAndIsUpvote(taskId, true);
+            long downvotes = taskVoteRepo.countByTaskIdAndIsUpvote(taskId, false);
+            long totalVotes = upvotes + downvotes;
+
+            if (3 * downvotes > 2 * totalMembers) {
+                throw new org.example.backend.exception.CustomException(
+                        "2/3 thành viên không tán thành đề xuất này vui lòng thảo luận thêm để đưa ra quyết định phù hợp.",
+                        org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
+
+            if (3 * totalVotes <= 2 * totalMembers || upvotes <= downvotes) {
+                throw new org.example.backend.exception.CustomException(
+                        "Đề xuất ý tưởng phải có trên 2/3 nhóm tham gia biểu quyết và được số đông tán thành mới cho phép duyệt.",
+                        org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
+        }
+
         UserAccount currentUser = userRepo.findById(currentUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
 

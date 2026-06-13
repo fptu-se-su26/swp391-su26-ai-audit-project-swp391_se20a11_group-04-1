@@ -27,11 +27,10 @@ export default function FeatureDiscussionPage() {
   const { tasks, fetchTaskById, updateTask, loading } = useKanbanStore()
   const task = tasks.find((item) => String(item.id) === String(id))
 
-  // Lấy trạng thái duyệt của Task. Nếu status không phải DRAFT thì coi như idea đã được thông qua.
+  // Lấy trạng thái duyệt của Task. Ý tưởng được thông qua khi đã đồng bộ lên GitHub (githubIssueNumber != null).
   const ideaApproved = useMemo(() => {
     if (!task) return false
-    const s = task.status ? task.status.toUpperCase() : ''
-    return s !== 'DRAFT'
+    return task.githubIssueNumber != null
   }, [task])
 
   const isSynced = useMemo(() => {
@@ -84,6 +83,15 @@ export default function FeatureDiscussionPage() {
   const [proposalCommentsInputs, setProposalCommentsInputs] = useState({}) // propId -> text
   const [expandedProposalComments, setExpandedProposalComments] = useState({}) // propId -> boolean
 
+  // Requirement linkage state
+  const [requirements, setRequirements] = useState([])
+  const [loadingReqs, setLoadingReqs] = useState(false)
+  const [selectedReqId, setSelectedReqId] = useState('')
+  const [savingReq, setSavingReq] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isCreateReqModalOpen, setIsCreateReqModalOpen] = useState(false)
+  const lastTaskIdRef = useRef(null)
+
   // Helper date formatting
   const formatSafeDate = (dateString) => {
     if (!dateString) return 'Vừa xong'
@@ -112,7 +120,62 @@ export default function FeatureDiscussionPage() {
     }
   }, [fetchTaskById, id, task])
 
+  // Load requirement list
+  const loadRequirements = useCallback(async () => {
+    if (!projectId) return
+    setLoadingReqs(true)
+    try {
+      const res = await requirementApi.getAllRequirements({ projectId })
+      const list = Array.isArray(res) 
+        ? res 
+        : (res && Array.isArray(res.items) ? res.items : [])
+      setRequirements(list)
+    } catch (err) {
+      console.error('Failed to load requirements:', err)
+      setRequirements([])
+    } finally {
+      setLoadingReqs(false)
+    }
+  }, [projectId])
 
+  useEffect(() => {
+    loadRequirements()
+  }, [loadRequirements])
+
+  useEffect(() => {
+    if (task && task.id !== lastTaskIdRef.current) {
+      lastTaskIdRef.current = task.id
+      setSelectedReqId(task.requirementId || '')
+      setIsEditing(!task.requirementId)
+    }
+  }, [task])
+
+  const handleSaveRequirement = async () => {
+    if (!task) return
+    setSavingReq(true)
+    try {
+      const updated = {
+        ...task,
+        requirementId: selectedReqId ? Number(selectedReqId) : null,
+        assigneeId: task.assignee?.id || task.primaryAssignee?.id || null
+      }
+      await updateTask(task.id, updated)
+      setIsEditing(false)
+      toast.success('Đã liên kết Requirement thành công!')
+    } catch (err) {
+      toast.error('Lưu liên kết Requirement thất bại!')
+    } finally {
+      setSavingReq(false)
+    }
+  }
+
+  const handleModalSuccess = (newReq) => {
+    loadRequirements()
+    if (newReq?.id) {
+      setSelectedReqId(newReq.id)
+    }
+    toast.success('Đã tạo Requirement mới!')
+  }
 
   // Fetch comments and proposals from APIs
   const loadComments = useCallback(async () => {
@@ -597,6 +660,16 @@ export default function FeatureDiscussionPage() {
                 }}
                 onContentScroll={handleContentScroll}
                 isCollapsed={isVoteCollapsed}
+                requirements={requirements}
+                loadingReqs={loadingReqs}
+                selectedReqId={selectedReqId}
+                setSelectedReqId={setSelectedReqId}
+                savingReq={savingReq}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+                setIsCreateReqModalOpen={setIsCreateReqModalOpen}
+                handleSaveRequirement={handleSaveRequirement}
+                task={task}
               />
             )}
 
@@ -610,6 +683,7 @@ export default function FeatureDiscussionPage() {
                 onRemoveItem={handleRemoveApprovedTaskItem}
                 onAddItem={handleAddApprovedTaskItem}
                 onApproveAndSync={handleApproveAndSync}
+                isLeader={isLeader}
                 onContentScroll={handleContentScroll}
               />
             )}
@@ -644,6 +718,13 @@ export default function FeatureDiscussionPage() {
           </p>
         </div>
       </div>
+
+      <CreateRequirementModal
+        isOpen={isCreateReqModalOpen}
+        onClose={() => setIsCreateReqModalOpen(false)}
+        onSuccess={handleModalSuccess}
+        projectId={projectId}
+      />
     </main>
   )
 }
