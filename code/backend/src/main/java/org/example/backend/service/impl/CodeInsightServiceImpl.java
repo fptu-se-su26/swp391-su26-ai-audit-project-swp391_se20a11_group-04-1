@@ -4,11 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
+import org.example.backend.dto.CodeInsightApprovalGateResponse;
 import org.example.backend.dto.CodeInsightDashboardResponse;
+import org.example.backend.dto.CodeInsightReviewDetailResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
+import org.example.backend.dto.CodeInsightManualEvidenceLinkResponse;
+import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.CodeInsightManualEvidenceLinkRepository;
+import org.example.backend.repository.GitHubWebhookEventRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubIntegrationRepository;
@@ -17,7 +23,11 @@ import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRepository;
+import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.TaskReviewDecisionRepository;
+import org.example.backend.service.CodeInsightApprovalGateService;
+import org.example.backend.service.CodeInsightManualEvidenceLinkService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightService;
 import org.example.backend.service.CodeInsightPatchService;
@@ -39,17 +49,23 @@ public class CodeInsightServiceImpl implements CodeInsightService {
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final RequirementRepository requirementRepository;
     private final GitHubIntegrationRepository gitHubIntegrationRepository;
     private final ProjectCodeInsightSettingsRepository settingsRepository;
     private final TaskRepository taskRepository;
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubPullRequestFileRepository pullRequestFileRepository;
     private final GitHubCheckRunRepository checkRunRepository;
+    private final GitHubWebhookEventRepository webhookEventRepository;
+    private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final CodeInsightScoringService scoringService;
+    private final CodeInsightApprovalGateService approvalGateService;
     private final CodeInsightPatchService patchService;
     private final CodeInsightAiReviewService aiReviewService;
+    private final CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
 
     @Override
     @Transactional(readOnly = true)
@@ -117,8 +133,25 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .pullRequests(pullRequests.stream().map(this::toPullRequestEvidence).toList())
                 .checkRuns(checkRuns.stream().map(this::toCheckRunEvidence).toList())
                 .changedFiles(changedFiles.stream().map(this::toPullRequestFileEvidence).toList())
+                .manualEvidenceLinks(manualEvidenceLinkService.list(projectId, taskId, userId))
                 .aiReview(aiReviewService.getLatestReview(taskId))
                 .scoreSummary(scoringService.buildReviewEvidenceSummary(task))
+                .approvalGate(approvalGateService.evaluate(task))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CodeInsightReviewDetailResponse getReviewDetail(Long projectId, Long taskId, Long userId) {
+        CodeInsightTaskEvidenceResponse evidence = getTaskEvidence(projectId, taskId, userId);
+        List<TaskReviewDecisionResponse> decisions = taskReviewDecisionRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
+                .map(this::toDecisionResponse)
+                .toList();
+        return CodeInsightReviewDetailResponse.builder()
+                .evidence(evidence)
+                .approvalGate(evidence.getApprovalGate())
+                .manualEvidenceLinks(evidence.getManualEvidenceLinks())
+                .decisionHistory(decisions)
                 .build();
     }
 
@@ -156,6 +189,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .filter(task -> "FAILED".equals(scoringService.buildReviewEvidenceSummary(task).getCiStatus()))
                 .count();
         int tasksWithoutPullRequest = (int) tasks.stream()
+                .filter(task -> task.getStatus() == TaskStatus.IN_REVIEW || task.getStatus() == TaskStatus.DONE)
                 .filter(task -> !hasEvidenceType(linksByTask.get(task.getId()), CodeInsightEvidenceType.PULL_REQUEST))
                 .count();
         int tasksWithEvidence = (int) tasks.stream()
@@ -207,6 +241,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .requireCiPass(false)
                 .aiReviewEnabled(false)
                 .minScoreWarningThreshold(70)
+                .blockScoreThreshold(50)
                 .build();
     }
 
@@ -224,13 +259,28 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         if (request.getAiReviewEnabled() != null) {
             settings.setAiReviewEnabled(request.getAiReviewEnabled());
         }
-        if (request.getMinScoreWarningThreshold() != null) {
-            int threshold = request.getMinScoreWarningThreshold();
+        Integer warningThresholdInput = request.getWarningScoreThreshold() != null
+                ? request.getWarningScoreThreshold()
+                : request.getMinScoreWarningThreshold();
+        Integer blockThresholdInput = request.getBlockScoreThreshold();
+        int currentWarning = warningThresholdInput != null ? warningThresholdInput : settings.getMinScoreWarningThreshold();
+        int currentBlock = blockThresholdInput != null ? blockThresholdInput : settings.getBlockScoreThreshold();
+        if (currentWarning < 0 || currentWarning > 100) {
+            throw new CustomException("Warning score threshold must be between 0 and 100", HttpStatus.BAD_REQUEST);
+        }
+        if (currentBlock < 0 || currentBlock > 100) {
+            throw new CustomException("Block score threshold must be between 0 and 100", HttpStatus.BAD_REQUEST);
+        }
+        if (currentBlock >= currentWarning) {
+            throw new CustomException("Block score threshold must be lower than warning score threshold", HttpStatus.BAD_REQUEST);
+        }
+        if (warningThresholdInput != null) {
+            int threshold = warningThresholdInput;
             // Clamp at validation level so scoring UI always works with a predictable 0-100 range.
-            if (threshold < 0 || threshold > 100) {
-                throw new CustomException("Minimum score warning threshold must be between 0 and 100", HttpStatus.BAD_REQUEST);
-            }
             settings.setMinScoreWarningThreshold(threshold);
+        }
+        if (blockThresholdInput != null) {
+            settings.setBlockScoreThreshold(blockThresholdInput);
         }
     }
 
@@ -256,6 +306,9 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .defaultBranch(null)
                 .active(true)
                 .hasWebhookSecret(hasText(integration.getWebhookSecretEncrypted()))
+                .webhookUrl(integration.getWebhookUrl())
+                .webhookEventsJson(integration.getWebhookEventsJson())
+                .webhookLastSyncedAt(integration.getWebhookLastSyncedAt())
                 .lastSyncedAt(null)
                 .updatedAt(integration.getConnectedAt())
                 .build();
@@ -270,6 +323,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .requireCiPass(settings.isRequireCiPass())
                 .aiReviewEnabled(settings.isAiReviewEnabled())
                 .minScoreWarningThreshold(settings.getMinScoreWarningThreshold())
+                .warningScoreThreshold(settings.getMinScoreWarningThreshold())
+                .blockScoreThreshold(settings.getBlockScoreThreshold())
                 .updatedAt(settings.getUpdatedAt())
                 .build();
     }
@@ -288,8 +343,18 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .title(task.getTitle())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .requirementCode(requirementCode(task))
                 .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
                 .build();
+    }
+
+    private String requirementCode(Task task) {
+        if (task == null || task.getRequirementId() == null) return null;
+        return requirementRepository.findById(task.getRequirementId())
+                .map(requirement -> hasText(requirement.getReqCode())
+                        ? requirement.getReqCode()
+                        : "REQ-" + requirement.getId())
+                .orElse(null);
     }
 
     private CodeInsightTaskEvidenceResponse.GithubIssueSummary toGithubIssueSummary(Task task) {
@@ -388,6 +453,38 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .taskCount(tasks.size())
                 .tasksWithCodeEvidence(tasksWithEvidence)
                 .riskyTasks(riskyTasks)
+                .build();
+    }
+
+    private TaskReviewDecisionResponse toDecisionResponse(TaskReviewDecision decision) {
+        Task task = decision.getTask();
+        return TaskReviewDecisionResponse.builder()
+                .id(decision.getId())
+                .decision(decision.getDecision() != null ? decision.getDecision().name() : null)
+                .fromStatus(decision.getFromStatus())
+                .toStatus(decision.getToStatus())
+                .reason(decision.getReason())
+                .createdAt(decision.getCreatedAt())
+                .reviewer(toReviewUserSummary(decision.getReviewer()))
+                .task(task == null ? null : TaskReviewDecisionResponse.TaskSummary.builder()
+                        .id(task.getId())
+                        .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                        .title(task.getTitle())
+                        .status(task.getStatus() != null ? task.getStatus().name() : null)
+                        .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                        .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
+                        .evidenceSummary(scoringService.buildReviewEvidenceSummary(task))
+                        .approvalGate(approvalGateService.evaluate(task))
+                        .build())
+                .build();
+    }
+
+    private TaskReviewDecisionResponse.UserSummary toReviewUserSummary(UserAccount user) {
+        if (user == null) return null;
+        return TaskReviewDecisionResponse.UserSummary.builder()
+                .id(user.getId())
+                .name(displayName(user))
+                .email(user.getEmail())
                 .build();
     }
 

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.CodeInsightManualEvidenceLinkRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
@@ -23,6 +24,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
     private final TaskRepository taskRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubCheckRunRepository checkRunRepository;
@@ -42,6 +44,13 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
         List<CodeInsightEvidenceLink> evidenceLinks = task.getId() != null
                 ? evidenceLinkRepository.findByTaskId(task.getId())
                 : Collections.emptyList();
+        List<CodeInsightManualEvidenceLink> confirmedManualLinks = task.getId() != null
+                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), CodeInsightManualEvidenceLinkStatus.CONFIRMED)
+                : Collections.emptyList();
+        List<CodeInsightManualEvidenceLink> pendingManualLinks = task.getId() != null
+                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), CodeInsightManualEvidenceLinkStatus.PENDING)
+                : Collections.emptyList();
+        boolean hasPendingManualLinks = !pendingManualLinks.isEmpty();
 
         int checklistTotal = checklist.size();
         int checklistDone = (int) checklist.stream().filter(TaskChecklist::isDone).count();
@@ -51,8 +60,11 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
         score = applyLocalSignals(task, score, positiveSignals, warnings, scoreBreakdown,
                 hasGithubIssue, hasRequirement, checklistTotal, checklistDone, subtaskTotal, subtaskDone);
 
-        EvidenceStats evidenceStats = buildEvidenceStats(evidenceLinks);
+        EvidenceStats evidenceStats = buildEvidenceStats(evidenceLinks, confirmedManualLinks);
         score = applyGithubSignals(task, score, positiveSignals, warnings, scoreBreakdown, evidenceStats);
+        if (hasPendingManualLinks) {
+            warnings.add("Manual evidence pending leader confirmation");
+        }
 
         int threshold = task.getProject() != null
                 ? codeInsightSettingsRepository.findByProjectId(task.getProject().getId())
@@ -83,6 +95,8 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
                 .scoreBreakdown(scoreBreakdown)
                 .positiveSignals(positiveSignals)
                 .warnings(warnings)
+                .manualEvidenceConfirmedCount(confirmedManualLinks.size())
+                .manualEvidencePendingCount(pendingManualLinks.size())
                 .build();
     }
 
@@ -202,10 +216,15 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
         return score;
     }
 
-    private EvidenceStats buildEvidenceStats(List<CodeInsightEvidenceLink> evidenceLinks) {
+    private EvidenceStats buildEvidenceStats(
+            List<CodeInsightEvidenceLink> evidenceLinks,
+            List<CodeInsightManualEvidenceLink> manualLinks) {
         List<Long> commitIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.COMMIT);
         List<Long> pullRequestIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.PULL_REQUEST);
         List<Long> checkRunIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.CHECK_RUN);
+        commitIds = mergeEvidenceIds(commitIds, manualEvidenceIds(manualLinks, CodeInsightEvidenceType.COMMIT));
+        pullRequestIds = mergeEvidenceIds(pullRequestIds, manualEvidenceIds(manualLinks, CodeInsightEvidenceType.PULL_REQUEST));
+        checkRunIds = mergeEvidenceIds(checkRunIds, manualEvidenceIds(manualLinks, CodeInsightEvidenceType.CHECK_RUN));
 
         List<GitHubCommit> commits = commitIds.isEmpty() ? Collections.emptyList() : commitRepository.findAllById(commitIds);
         List<GitHubPullRequest> pullRequests = pullRequestIds.isEmpty() ? Collections.emptyList() : pullRequestRepository.findAllById(pullRequestIds);
@@ -244,6 +263,21 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+    }
+
+    private List<Long> manualEvidenceIds(List<CodeInsightManualEvidenceLink> manualLinks, CodeInsightEvidenceType evidenceType) {
+        return manualLinks.stream()
+                .filter(link -> link.getEvidenceType() == evidenceType)
+                .map(CodeInsightManualEvidenceLink::getEvidenceId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private List<Long> mergeEvidenceIds(List<Long> automaticIds, List<Long> manualIds) {
+        LinkedHashSet<Long> merged = new LinkedHashSet<>(automaticIds);
+        merged.addAll(manualIds);
+        return new ArrayList<>(merged);
     }
 
     private String resolveCiStatus(
