@@ -1,11 +1,14 @@
 package org.example.backend.service.impl;
 
+import org.example.backend.dto.CodeInsightApprovalGateResponse;
 import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
+import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.service.CodeInsightAiReviewService;
+import org.example.backend.service.CodeInsightManualEvidenceLinkService;
 import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.junit.jupiter.api.DisplayName;
@@ -36,9 +39,14 @@ class CodeInsightServiceImplTest {
     @Mock private GitHubPullRequestRepository pullRequestRepository;
     @Mock private GitHubPullRequestFileRepository pullRequestFileRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;
+    @Mock private CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    @Mock private GitHubWebhookEventRepository webhookEventRepository;
+    @Mock private TaskReviewDecisionRepository taskReviewDecisionRepository;
     @Mock private CodeInsightScoringService scoringService;
     @Mock private CodeInsightPatchService patchService;
     @Mock private CodeInsightAiReviewService aiReviewService;
+    @Mock private CodeInsightApprovalGateService approvalGateService;
+    @Mock private CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
 
     @InjectMocks
     private CodeInsightServiceImpl codeInsightService;
@@ -87,6 +95,14 @@ class CodeInsightServiceImplTest {
                 .conclusion("success")
                 .build()));
         when(scoringService.buildReviewEvidenceSummary(task)).thenReturn(score);
+        when(manualEvidenceLinkService.list(10L, 12L, 5L)).thenReturn(List.of());
+        when(approvalGateService.evaluate(task)).thenReturn(CodeInsightApprovalGateResponse.builder()
+                .approvalStatus("CAN_APPROVE")
+                .score(90)
+                .riskLevel("READY")
+                .blockers(List.of())
+                .warnings(List.of())
+                .build());
 
         CodeInsightTaskEvidenceResponse response = codeInsightService.getTaskEvidence(10L, 12L, 5L);
 
