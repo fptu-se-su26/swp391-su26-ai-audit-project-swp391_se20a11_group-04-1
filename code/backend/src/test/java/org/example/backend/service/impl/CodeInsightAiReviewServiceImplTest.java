@@ -15,6 +15,10 @@ class CodeInsightAiReviewServiceImplTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
+            null,
             new ObjectMapper());
 
     @Test
