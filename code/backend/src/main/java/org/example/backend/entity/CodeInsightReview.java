@@ -39,6 +39,15 @@ public class CodeInsightReview {
     @Column(name = "risk_level", length = 40)
     private String riskLevel;
 
+    @Column(name = "gate_result", length = 30)
+    private String gateResult;
+
+    @Column(name = "evidence_confidence", length = 20)
+    private String evidenceConfidence;
+
+    @Column(name = "code_risk_level", length = 20)
+    private String codeRiskLevel;
+
     @Column(name = "score_reasons_json", columnDefinition = "TEXT")
     private String scoreReasonsJson;
 
