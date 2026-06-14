@@ -16,6 +16,27 @@ const statusTone = (value = 'READY') => {
   return 'border-[#16a34a]/30 bg-[#dcfce7] text-[#166534]'
 }
 
+const confidenceTone = (value) => {
+  if (value === 'STRONG') return 'border-[#16a34a]/30 bg-[#dcfce7] text-[#166534]'
+  if (value === 'PARTIAL') return 'border-[#f59e0b]/30 bg-[#fef3c7] text-[#92400e]'
+  if (value === 'WEAK') return 'border-error/20 bg-[#fef2f2] text-[#991b1b]'
+  return 'border-outline-variant bg-[#f3f4f6] text-[#4b5563]'
+}
+
+const riskTone = (value, taskType) => {
+  if (taskType && taskType !== 'DEVELOPMENT' && taskType !== 'BUG_FIX') {
+    return 'border-outline-variant bg-[#f3f4f6] text-[#4b5563]'
+  }
+  if (value === 'LOW') return 'border-[#16a34a]/30 bg-[#dcfce7] text-[#166534]'
+  if (value === 'MEDIUM') return 'border-[#f59e0b]/30 bg-[#fef3c7] text-[#92400e]'
+  if (value === 'HIGH' || value === 'CRITICAL') return 'border-error/30 bg-[#fef2f2] text-[#991b1b]'
+  return 'border-outline-variant bg-[#f3f4f6] text-[#4b5563]'
+}
+
+const isCodeTask = (taskType) => {
+  return taskType === 'DEVELOPMENT' || taskType === 'BUG_FIX'
+}
+
 const Card = ({ title, children, action }) => (
   <section className="rounded-lg border border-outline-variant bg-surface-container-lowest">
     <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
@@ -98,23 +119,38 @@ const CodeInsightTaskReviewDetailPage = () => {
           </div>
         ) : detail && (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
-                <p className="font-label-md text-label-md uppercase text-on-surface-variant">Score</p>
-                <p className="mt-2 text-3xl font-bold text-on-surface">{evidence.scoreSummary?.score ?? 0}/100</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {/* Pillar 1: Gate Result */}
+              <div className={`rounded-lg border p-5 ${statusTone(detail.gateResult)}`}>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[24px]">traffic</span>
+                  <p className="font-label-md text-label-md uppercase font-bold">Gate Result</p>
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {detail.gateResult === 'CAN_APPROVE' && 'READY'}
+                  {detail.gateResult === 'CAN_APPROVE_WITH_WARNING' && 'WARNING'}
+                  {detail.gateResult === 'BLOCKED' && 'BLOCKED'}
+                  {!detail.gateResult && 'PENDING'}
+                </p>
               </div>
-              <div className={`rounded-lg border p-4 ${statusTone(evidence.scoreSummary?.riskLevel)}`}>
-                <p className="font-label-md text-label-md uppercase">Risk</p>
-                <p className="mt-2 text-2xl font-bold">{evidence.scoreSummary?.riskLevel || 'READY'}</p>
+
+              {/* Pillar 2: Evidence Confidence */}
+              <div className={`rounded-lg border p-5 ${confidenceTone(detail.evidenceConfidence)}`}>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[24px]">analytics</span>
+                  <p className="font-label-md text-label-md uppercase font-bold">Evidence Confidence</p>
+                </div>
+                <p className="mt-2 text-2xl font-bold">{detail.evidenceConfidence || 'NONE'}</p>
               </div>
-              <div className={`rounded-lg border p-4 ${statusTone(detail.approvalGate?.approvalStatus)}`}>
-                <p className="font-label-md text-label-md uppercase">Approval Gate</p>
-                <p className="mt-2 text-2xl font-bold">{gateLabel}</p>
-              </div>
-              <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
-                <p className="font-label-md text-label-md uppercase text-on-surface-variant">Evidence</p>
-                <p className="mt-2 text-sm font-semibold text-on-surface">
-                  PR {evidence.pullRequests?.length || 0} · Commits {evidence.commits?.length || 0} · CI {evidence.checkRuns?.length || 0}
+
+              {/* Pillar 3: Code Risk */}
+              <div className={`rounded-lg border p-5 ${riskTone(detail.codeRiskLevel, task.type)}`}>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[24px]">warning_amber</span>
+                  <p className="font-label-md text-label-md uppercase font-bold">Code Risk</p>
+                </div>
+                <p className="mt-2 text-2xl font-bold">
+                  {isCodeTask(task.type) ? (detail.codeRiskLevel || 'PENDING') : 'N/A'}
                 </p>
               </div>
             </div>
@@ -141,19 +177,32 @@ const CodeInsightTaskReviewDetailPage = () => {
                     <div><dt className="font-semibold text-on-surface">Priority</dt><dd className="text-on-surface-variant">{task.priority || 'MEDIUM'}</dd></div>
                   </dl>
                 </Card>
-                <Card title="Gate Result">
-                  {(detail.approvalGate?.blockers || []).length > 0 && (
-                    <div className="mb-4 rounded border border-error/30 bg-error-container/40 p-3 text-error">
-                      <p className="font-bold uppercase text-xs">Blockers</p>
-                      <ul className="mt-2 space-y-1 text-sm">{detail.approvalGate.blockers.map((item) => <li key={item}>{item}</li>)}</ul>
+                <Card title="Gate Checklist">
+                  {detail.gateChecks && detail.gateChecks.length > 0 ? (
+                    <div className="space-y-4">
+                      {detail.gateChecks.map((check) => (
+                        <div key={check.name} className="flex items-start gap-3 rounded border border-outline-variant p-3 bg-surface-container-lowest">
+                          <div className="mt-0.5 shrink-0">
+                            {check.status === 'PASS' && (
+                              <span className="material-symbols-outlined text-green-600 font-bold text-[20px]">check_circle</span>
+                            )}
+                            {check.status === 'FAIL' && (
+                              <span className="material-symbols-outlined text-red-600 font-bold text-[20px]">cancel</span>
+                            )}
+                            {check.status === 'WARNING' && (
+                              <span className="material-symbols-outlined text-yellow-600 font-bold text-[20px]">warning</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-sm text-on-surface">{check.name}</p>
+                            <p className="text-xs text-on-surface-variant mt-1">{check.detail}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <Empty>No gate checklist rules evaluated.</Empty>
                   )}
-                  {(detail.approvalGate?.warnings || []).length > 0 ? (
-                    <div className="rounded border border-[#f59e0b]/30 bg-[#fef3c7] p-3 text-[#92400e]">
-                      <p className="font-bold uppercase text-xs">Warnings</p>
-                      <ul className="mt-2 space-y-1 text-sm">{detail.approvalGate.warnings.map((item) => <li key={item}>{item}</li>)}</ul>
-                    </div>
-                  ) : <Empty>No approval warnings.</Empty>}
                 </Card>
               </div>
             )}
