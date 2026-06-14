@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/projects/{projectId}/code-insight")
+@RequestMapping("/api/v1/projects/{projectId}/task-reviews")
 @RequiredArgsConstructor
 public class CodeInsightController {
 
