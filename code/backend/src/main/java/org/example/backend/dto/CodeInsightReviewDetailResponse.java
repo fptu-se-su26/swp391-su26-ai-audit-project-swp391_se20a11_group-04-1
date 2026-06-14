@@ -14,4 +14,9 @@ public class CodeInsightReviewDetailResponse {
     private CodeInsightApprovalGateResponse approvalGate;
     private List<CodeInsightManualEvidenceLinkResponse> manualEvidenceLinks;
     private List<TaskReviewDecisionResponse> decisionHistory;
+
+    private String gateResult;
+    private List<GateCheck> gateChecks;
+    private String evidenceConfidence;
+    private String codeRiskLevel;
 }

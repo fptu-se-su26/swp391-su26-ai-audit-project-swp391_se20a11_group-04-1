@@ -147,11 +147,16 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         List<TaskReviewDecisionResponse> decisions = taskReviewDecisionRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(this::toDecisionResponse)
                 .toList();
+        CodeInsightApprovalGateResponse gate = evidence.getApprovalGate();
         return CodeInsightReviewDetailResponse.builder()
                 .evidence(evidence)
-                .approvalGate(evidence.getApprovalGate())
+                .approvalGate(gate)
                 .manualEvidenceLinks(evidence.getManualEvidenceLinks())
                 .decisionHistory(decisions)
+                .gateResult(gate != null ? gate.getApprovalStatus() : null)
+                .gateChecks(gate != null ? gate.getGateChecks() : null)
+                .evidenceConfidence(gate != null ? gate.getEvidenceConfidence() : null)
+                .codeRiskLevel(gate != null ? gate.getCodeRiskLevel() : null)
                 .build();
     }
 
@@ -472,6 +477,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                         .title(task.getTitle())
                         .status(task.getStatus() != null ? task.getStatus().name() : null)
                         .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                        .type(task.getType() != null ? task.getType().name() : null)
+                        .requirementCode(requirementCode(task))
                         .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
                         .evidenceSummary(scoringService.buildReviewEvidenceSummary(task))
                         .approvalGate(approvalGateService.evaluate(task))

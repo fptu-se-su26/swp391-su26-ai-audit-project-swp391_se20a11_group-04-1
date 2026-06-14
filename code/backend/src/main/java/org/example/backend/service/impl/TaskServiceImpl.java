@@ -1485,6 +1485,7 @@ public class TaskServiceImpl implements TaskService {
                 .title(task.getTitle())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .type(task.getType() != null ? task.getType().name() : null)
                 .requirementCode(resolveRequirementCode(task.getRequirementId()))
                 .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
                 .evidenceSummary(codeInsightScoringService.buildReviewEvidenceSummary(task))

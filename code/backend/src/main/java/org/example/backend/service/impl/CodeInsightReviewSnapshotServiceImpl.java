@@ -2,6 +2,7 @@ package org.example.backend.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.example.backend.dto.CodeInsightApprovalGateResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
@@ -9,6 +10,7 @@ import org.example.backend.repository.CodeInsightAiReviewRepository;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
 import org.example.backend.repository.CodeInsightReviewRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.service.CodeInsightReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.springframework.http.HttpStatus;
@@ -33,6 +35,7 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
     private final CodeInsightReviewRepository reviewRepository;
     private final CodeInsightScoringService scoringService;
     private final ObjectMapper objectMapper;
+    private final CodeInsightApprovalGateService approvalGateService;
 
     @Override
     @Transactional
@@ -45,6 +48,8 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
         int finalScore = Math.max(0, Math.min(100, score.getScore() + aiAdjustment));
         String snapshotJson = writeSnapshot(task, score, aiReview);
 
+        CodeInsightApprovalGateResponse gate = approvalGateService.evaluate(task);
+
         CodeInsightReview saved = reviewRepository.save(CodeInsightReview.builder()
                 .task(task)
                 .reviewer(reviewer)
@@ -56,6 +61,9 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
                 .evidenceSnapshotJson(snapshotJson)
                 .evidenceHash(sha256(snapshotJson))
                 .aiReview(aiReview)
+                .gateResult(gate.getApprovalStatus())
+                .evidenceConfidence(gate.getEvidenceConfidence())
+                .codeRiskLevel(gate.getCodeRiskLevel())
                 .createdAt(LocalDateTime.now())
                 .build());
         return saved.getId();

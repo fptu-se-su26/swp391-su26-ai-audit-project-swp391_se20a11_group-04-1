@@ -33,6 +33,7 @@ public class TaskReviewDecisionResponse {
         private String title;
         private String status;
         private String priority;
+        private String type;
         private String requirementCode;
         private String assigneeName;
         private ReviewEvidenceSummary evidenceSummary;
