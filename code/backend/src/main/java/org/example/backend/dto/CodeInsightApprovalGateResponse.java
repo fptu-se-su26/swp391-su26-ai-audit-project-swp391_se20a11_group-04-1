@@ -15,4 +15,8 @@ public class CodeInsightApprovalGateResponse {
     private int score;
     private List<String> blockers;
     private List<String> warnings;
+
+    private String evidenceConfidence;
+    private String codeRiskLevel;
+    private List<GateCheck> gateChecks;
 }
