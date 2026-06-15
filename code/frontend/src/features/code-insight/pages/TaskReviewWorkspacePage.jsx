@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import codeInsightService from '../services/codeInsightService'
 import useProjectStore from '@store/useProjectStore'
+import taskService from '@features/kanban/services/taskService'
+import toast from 'react-hot-toast'
 
 // Lightweight Native STOMP Client for WebSocket communication without external npm packages
 class NativeStompClient {
@@ -251,6 +253,8 @@ export function TaskReviewWorkspacePage() {
   const [aiStreaming, setAiStreaming] = useState(false)
   const [aiStreamLogs, setAiStreamLogs] = useState('')
   const [streamingMarkdown, setStreamingMarkdown] = useState('')
+  const [reason, setReason] = useState('')
+  const [decisionLoading, setDecisionLoading] = useState(false)
 
   useEffect(() => {
     loadQueue()
@@ -259,6 +263,7 @@ export function TaskReviewWorkspacePage() {
   useEffect(() => {
     if (taskId) {
       loadDetail()
+      setReason('')
     }
   }, [projectId, taskId])
 
@@ -426,13 +431,57 @@ export function TaskReviewWorkspacePage() {
     });
   };
 
-  const handleApprove = () => {
-    alert("Approve functionality will be wired in Phase 7")
-  }
+  const handleApprove = async () => {
+    if (!taskId) return;
+    setDecisionLoading(true);
+    try {
+      await taskService.approveTaskReview(taskId, reason);
+      toast.success("Task review approved successfully!");
+      setReason('');
+      
+      const data = await codeInsightService.getReviewQueue(projectId);
+      setQueue(data || []);
+      
+      if (data && data.length > 0) {
+        navigate(`/projects/${projectId}/task-reviews/${data[0].task?.id}`);
+      } else {
+        navigate(`/projects/${projectId}/task-reviews`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || "Failed to approve task review");
+    } finally {
+      setDecisionLoading(false);
+    }
+  };
 
-  const handleRequestChanges = () => {
-    alert("Reject functionality will be wired in Phase 7")
-  }
+  const handleRequestChanges = async () => {
+    if (!taskId) return;
+    if (!reason || !reason.trim()) {
+      toast.error("Please provide a reason/comments for requesting changes.");
+      return;
+    }
+    setDecisionLoading(true);
+    try {
+      await taskService.rejectTaskReview(taskId, reason, 'NEEDS_CHANGES');
+      toast.success("Task review rejected (changes requested) successfully!");
+      setReason('');
+      
+      const data = await codeInsightService.getReviewQueue(projectId);
+      setQueue(data || []);
+      
+      if (data && data.length > 0) {
+        navigate(`/projects/${projectId}/task-reviews/${data[0].task?.id}`);
+      } else {
+        navigate(`/projects/${projectId}/task-reviews`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || "Failed to request changes");
+    } finally {
+      setDecisionLoading(false);
+    }
+  };
 
   const evidence = detail?.evidence || {}
   const task = evidence.task || {}
@@ -612,18 +661,29 @@ export function TaskReviewWorkspacePage() {
             {/* Sticky Bottom Decision Panel */}
             <div className="absolute bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant p-5 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
               <textarea 
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={decisionLoading}
                 className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-3"
                 rows="2"
                 placeholder="Write your review comments here..."
               ></textarea>
               <div className="flex gap-2">
-                <button onClick={handleRequestChanges} className="flex-1 bg-error-container text-error font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                <button 
+                  onClick={handleRequestChanges} 
+                  disabled={decisionLoading}
+                  className="flex-1 bg-error-container text-error font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
                   <span className="material-symbols-outlined text-[18px]">close</span>
-                  Request Changes
+                  {decisionLoading ? 'Processing...' : 'Request Changes'}
                 </button>
-                <button onClick={handleApprove} className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm">
+                <button 
+                  onClick={handleApprove} 
+                  disabled={decisionLoading}
+                  className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
                   <span className="material-symbols-outlined text-[18px]">check</span>
-                  Approve Task
+                  {decisionLoading ? 'Processing...' : 'Approve Task'}
                 </button>
               </div>
             </div>
