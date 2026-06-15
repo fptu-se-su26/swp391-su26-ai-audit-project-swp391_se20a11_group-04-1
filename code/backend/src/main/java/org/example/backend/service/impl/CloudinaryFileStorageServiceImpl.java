@@ -23,22 +23,52 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String storeFile(MultipartFile file) throws IOException {
+        return uploadToCloudinary(file, "upload");
+    }
+
+    @Override
+    public String storePrivateFile(MultipartFile file) throws IOException {
+        // Return the publicId so we can generate signed URLs later
+        return uploadToCloudinary(file, "private");
+    }
+
+    private String uploadToCloudinary(MultipartFile file, String type) throws IOException {
         if (file == null || file.isEmpty()) {
             return null;
         }
         
-        // Tạo UUID prefix để tránh trùng tên file
         String originalFilename = file.getOriginalFilename();
         String publicId = UUID.randomUUID().toString() + "_" + originalFilename;
 
-        // Upload lên thư mục "evidence" trên Cloudinary
         Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                 "public_id", publicId,
-                "folder", "evidence"
+                "folder", "evidence",
+                "type", type
         ));
 
-        // Trả về URL bảo mật (HTTPS) của ảnh
+        if ("private".equals(type)) {
+            // For private files, we store the full public_id (including folder) in our DB
+            return "evidence/" + publicId;
+        }
         return uploadResult.get("secure_url").toString();
+    }
+
+    @Override
+    public String getPrivateFileUrl(String publicId) {
+        if (publicId == null || publicId.isEmpty()) return null;
+        // Generate a signed URL for the private resource
+        return cloudinary.url()
+                .resourceType("image")
+                .type("private")
+                .signed(true)
+                .generate(publicId);
+    }
+
+    @Override
+    public java.io.InputStream downloadPrivateFileStream(String publicId) throws IOException {
+        String signedUrl = getPrivateFileUrl(publicId);
+        if (signedUrl == null) return null;
+        return new java.net.URL(signedUrl).openStream();
     }
 
     @Override
@@ -47,6 +77,11 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             return;
         }
         try {
+            if (!fileUrl.startsWith("http")) {
+                // Nếu fileUrl không bắt đầu bằng http, đây chính là public_id của file private được lưu trong DB
+                cloudinary.uploader().destroy(fileUrl, ObjectUtils.asMap("type", "private", "invalidate", true));
+                return;
+            }
             // Lấy public_id từ URL (Cloudinary URL format: .../upload/v1234/folder/public_id.ext)
             String[] parts = fileUrl.split("/");
             String filename = parts[parts.length - 1];
