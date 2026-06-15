@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import useAuthStore from '@store/useAuthStore'
+import axiosInstance from '@api/axiosConfig'
 
 function VerificationPage() {
   const { verifyStatus, userRole, login } = useAuthStore()
-  const [email, setEmail] = useState('')
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -50,22 +50,26 @@ function VerificationPage() {
     fileInputRef.current.click()
   }
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault()
-    if (!email) {
-      toast.error('Vui lòng nhập email công tác!')
-      return
-    }
     if (!file) {
       toast.error('Vui lòng tải lên ảnh thẻ giảng viên!')
       return
     }
 
     setLoading(true)
-    // Giả lập gửi yêu cầu lên Backend
-    setTimeout(() => {
-      setLoading(false)
-      // Cập nhật trạng thái sang PENDING
+    try {
+      const formData = new FormData()
+      formData.append('idCardImage', file)
+      
+      // Gọi API thực tế tải ảnh lên DB và Cloudinary
+      await axiosInstance.post('/mentor-verifications/request', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      // Cập nhật trạng thái store sang PENDING sau khi backend trả về thành công
       const currentAuth = useAuthStore.getState()
       login(
         currentAuth.userId,
@@ -76,131 +80,150 @@ function VerificationPage() {
         'PENDING'
       )
       toast.success('Gửi yêu cầu xác minh thành công! Đang chờ duyệt.')
-    }, 1200)
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error(error.response?.data?.error || 'Tải ảnh thất bại. Vui lòng kiểm tra lại.')
+    } finally {
+      setLoading(false)
+    }
   }
 
 
 
-  const resetRequest = () => {
-    const currentAuth = useAuthStore.getState()
-    login(
-      currentAuth.userId,
-      currentAuth.userRole,
-      currentAuth.username,
-      currentAuth.email,
-      currentAuth.fullName,
-      'UNVERIFIED'
-    )
-    setEmail('')
-    setFile(null)
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(null)
-    toast.success('Đã hoàn tác về trạng thái chưa xác minh.')
+  const resetRequest = async () => {
+    try {
+      setLoading(true)
+      // Xoá request trên Backend
+      await axiosInstance.delete('/mentor-verifications/request')
+      
+      const currentAuth = useAuthStore.getState()
+      login(
+        currentAuth.userId,
+        currentAuth.userRole,
+        currentAuth.username,
+        currentAuth.email,
+        currentAuth.fullName,
+        'UNVERIFIED'
+      )
+      setFile(null)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+      toast.success('Đã hoàn tác về trạng thái chưa xác minh.')
+    } catch (error) {
+      console.error('Cancel request error:', error)
+      toast.error(error.response?.data?.error || 'Có lỗi khi hoàn tác. Vui lòng thử lại.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const isFormValid = email && file
+  const isFormValid = !!file
 
   return (
-    <div className="w-full flex flex-col items-center justify-start select-none md:mt-[-20px] mt-[-10px]">
+    <div className="w-full flex flex-col items-center justify-start select-none py-8">
       
       {/* Container chính */}
-      <div className="w-full max-w-5xl bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-8 flex flex-col">
+      <div className="w-full max-w-4xl bg-surface-container-lowest/80 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.1)] p-8 md:p-10 flex flex-col relative overflow-hidden transition-all duration-500 hover:shadow-[0_8px_40px_rgba(14,165,233,0.08)]">
         
+        {/* Lớp phủ gradient chìm (Glow background) */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-gradient-to-br from-[#0ea5e9]/20 to-[#38bdf8]/5 blur-3xl pointer-events-none"></div>
+
         {/* Tiêu đề & Mô tả */}
-        <h1 className="font-headline-md text-headline-md text-[#0ea5e9] mb-2">Xác Minh Giảng Viên/Đối Tác Doanh Nghiệp</h1>
-        <p className="font-body-md text-body-md text-secondary mb-8">
-          Để mở khóa tính năng classroom vui lòng cung cấp email công tác và tải lên thẻ nhân viên hoặc thẻ giảng viên của bạn để hoàn tất quá trình xác minh.
-        </p>
+        <div className="relative z-10 mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] bg-clip-text text-transparent mb-3 tracking-tight">
+            Xác Minh Giảng Viên / Đối Tác
+          </h1>
+          <p className="text-[15px] text-on-surface-variant/80 max-w-2xl leading-relaxed">
+            Để mở khóa các tính năng nâng cao, vui lòng tải lên hình ảnh thẻ nhân viên hoặc thẻ giảng viên của bạn. Thông tin sẽ được bảo mật và xử lý nhanh chóng.
+          </p>
+        </div>
 
         {/* Trạng thái hiện tại */}
         {verifyStatus === 'PENDING' && (
-          <div className="mb-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-800 dark:text-blue-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
-              <p className="font-semibold text-sm">Hồ sơ xác minh của bạn đang được duyệt bởi hệ thống Admin...</p>
+          <div className="relative mb-8 overflow-hidden rounded-xl bg-gradient-to-r from-[#0ea5e9]/10 to-[#38bdf8]/5 border border-[#0ea5e9]/20 shadow-lg shadow-[#0ea5e9]/5 backdrop-blur-md transition-all duration-300">
+            {/* Thanh loading chạy ngang mượt mà */}
+            <div className="absolute top-0 left-0 h-[2px] bg-gradient-to-r from-transparent via-[#0ea5e9] to-transparent w-1/2 animate-[shimmer_2s_infinite]"></div>
+            <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-[#0ea5e9]/10 text-[#0ea5e9] shadow-inner">
+                  <span className="material-symbols-outlined text-2xl animate-pulse">hourglass_top</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#0ea5e9]">Đang xử lý xác minh</h3>
+                  <p className="text-sm text-on-surface-variant/80 mt-1">Hồ sơ xác minh của bạn đang được duyệt bởi hệ thống Admin. Quá trình này có thể mất một chút thời gian.</p>
+                </div>
+              </div>
+              <button 
+                onClick={resetRequest}
+                className="shrink-0 px-5 py-2 bg-surface-container hover:bg-[#0ea5e9]/10 text-[#0ea5e9] border border-outline-variant hover:border-[#0ea5e9]/30 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow active:scale-95"
+              >
+                Hủy & Gửi lại
+              </button>
             </div>
-            <button 
-              onClick={resetRequest}
-              className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-700 dark:text-blue-300 rounded text-xs transition-colors"
-            >
-              Hủy & Gửi lại
-            </button>
           </div>
         )}
 
         {verifyStatus === 'VERIFIED' && (
-          <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-800 dark:text-green-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-green-600 font-bold">verified</span>
-              <p className="font-semibold text-sm">Chúc mừng! Tài khoản của bạn đã được xác minh thành công làm Giảng viên/Đối tác.</p>
+          <div className="relative mb-8 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-400/5 border border-emerald-500/20 shadow-lg shadow-emerald-500/5 backdrop-blur-md transition-all duration-300">
+            <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-inner">
+                  <span className="material-symbols-outlined text-2xl font-bold">verified</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-emerald-600 dark:text-emerald-400">Xác minh thành công</h3>
+                  <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80 mt-1">Chúc mừng! Tài khoản của bạn đã được nâng cấp làm Giảng viên/Đối tác.</p>
+                </div>
+              </div>
+              <button 
+                onClick={resetRequest}
+                className="shrink-0 px-5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95"
+              >
+                Cập nhật thẻ mới
+              </button>
             </div>
-            <button 
-              onClick={resetRequest}
-              className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-700 dark:text-green-300 rounded text-xs transition-colors"
-            >
-              Đặt lại (Reset)
-            </button>
           </div>
         )}
 
         {verifyStatus === 'REJECTED' && (
-          <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-200 flex flex-col gap-2">
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-red-600 font-bold">error</span>
-                <p className="font-semibold text-sm">Yêu cầu xác minh của bạn đã bị từ chối.</p>
+          <div className="relative mb-8 overflow-hidden rounded-xl bg-gradient-to-r from-red-500/10 to-rose-400/5 border border-red-500/20 shadow-lg shadow-red-500/5 backdrop-blur-md transition-all duration-300">
+            <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20 text-red-600 dark:text-red-400 shadow-inner mt-1 sm:mt-0">
+                  <span className="material-symbols-outlined text-2xl font-bold">error</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-red-600 dark:text-red-400">Yêu cầu bị từ chối</h3>
+                  <p className="text-sm text-red-700/80 dark:text-red-300/80 mt-1">Lý do: Ảnh thẻ không rõ nét, bị mờ hoặc không hợp lệ. Vui lòng chụp lại ảnh khác rõ ràng hơn.</p>
+                </div>
               </div>
               <button 
                 onClick={resetRequest}
-                className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-700 dark:text-red-300 rounded text-xs transition-colors"
+                className="shrink-0 px-5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/20 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95"
               >
-                Gửi lại yêu cầu mới
+                Gửi lại yêu cầu
               </button>
             </div>
-            <p className="text-xs text-red-600/80 dark:text-red-300/80 mt-1">Lý do: Ảnh thẻ không rõ nét hoặc thông tin email không chính xác.</p>
           </div>
         )}
 
         {/* Form Yêu Cầu */}
         <form onSubmit={handleFormSubmit} className="space-y-6">
-          {/* Email công tác */}
-          <div>
-            <label className="block font-semibold text-body-md text-on-surface mb-2" htmlFor="email">
-              Email công tác
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-on-surface-variant/70">
-                <span className="material-symbols-outlined text-[20px]">mail</span>
-              </span>
-              <input
-                className="w-full pl-10 pr-3 py-3 border border-outline-variant rounded-lg bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#0ea5e9] focus:ring-2 focus:ring-sky-100 transition-colors disabled:opacity-50"
-                id="email"
-                name="email"
-                placeholder="giangvien@university.edu.vn"
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading || verifyStatus !== 'UNVERIFIED'}
-              />
-            </div>
-          </div>
-
           {/* Vùng tải lên ảnh thẻ */}
-          <div>
-            <label className="block font-semibold text-body-md text-on-surface mb-2">
-              Ảnh thẻ giảng viên/Đối tác doanh nghiệp
+          <div className="relative z-10">
+            <label className="block text-sm font-semibold text-on-surface mb-3">
+              Khu vực tải lên tài liệu <span className="text-red-500">*</span>
             </label>
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={verifyStatus === 'UNVERIFIED' ? triggerFileSelect : undefined}
-              className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+              className={`relative overflow-hidden border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 group ${
                 isDragging 
-                  ? 'border-[#0ea5e9] bg-sky-500/5' 
-                  : 'border-outline-variant hover:border-[#0ea5e9] bg-surface-container-lowest'
-              } ${verifyStatus !== 'UNVERIFIED' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  ? 'border-[#0ea5e9] bg-[#0ea5e9]/5 shadow-[0_0_30px_rgba(14,165,233,0.15)] scale-[1.01]' 
+                  : 'border-outline-variant hover:border-[#0ea5e9]/50 bg-surface-container-lowest hover:bg-surface-container/50 hover:shadow-md'
+              } ${verifyStatus !== 'UNVERIFIED' ? 'opacity-60 cursor-not-allowed grayscale-[30%]' : ''}`}
             >
               <input
                 type="file"
@@ -211,60 +234,75 @@ function VerificationPage() {
                 disabled={verifyStatus !== 'UNVERIFIED'}
               />
               {!file && (
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant/70 mb-4">
-                  upload
-                </span>
-              )}
-              {file && previewUrl ? (
-                <div className="flex flex-col items-center gap-3 w-full">
-                  <img src={previewUrl} alt="Preview" className="h-auto max-h-[350px] w-full object-contain rounded-md shadow-sm border border-outline-variant/30" />
-                  <div className="space-y-1 text-center mt-2">
-                    <p className="font-semibold text-sm text-on-surface">{file.name}</p>
-                    <p className="text-xs text-on-surface-variant">Size: {(file.size / 1024).toFixed(1)} KB</p>
-                  </div>
-                </div>
-              ) : (
                 <>
-                  <p className="font-semibold text-sm text-on-surface mb-1">
-                    Kéo thả ảnh vào đây hoặc nhấp để chọn
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-all duration-300 ${
+                    isDragging ? 'bg-[#0ea5e9] text-white shadow-lg shadow-[#0ea5e9]/30 scale-110' : 'bg-surface-container-highest text-on-surface-variant group-hover:bg-[#0ea5e9]/10 group-hover:text-[#0ea5e9] group-hover:-translate-y-1'
+                  }`}>
+                    <span className="material-symbols-outlined text-3xl">cloud_upload</span>
+                  </div>
+                  <p className="font-semibold text-base text-on-surface mb-2 transition-colors group-hover:text-[#0ea5e9]">
+                    Kéo thả ảnh vào đây hoặc nhấp để tải lên
                   </p>
-                  <p className="text-xs text-on-surface-variant">
-                    Hỗ trợ: JPG, PNG, GIF (Tối đa 5MB)
+                  <p className="text-sm text-on-surface-variant/70">
+                    Chỉ hỗ trợ file ảnh: JPG, PNG, GIF (Tối đa 5MB)
                   </p>
                 </>
+              )}
+              {file && previewUrl && (
+                <div className="flex flex-col items-center w-full animate-fade-in">
+                  <div className="relative group/image">
+                    <img src={previewUrl} alt="Preview" className="h-auto max-h-[280px] w-auto object-contain rounded-xl shadow-lg border border-outline-variant/30 transition-transform duration-300 group-hover/image:scale-[1.02]" />
+                    {verifyStatus === 'UNVERIFIED' && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 rounded-xl flex items-center justify-center backdrop-blur-[2px]">
+                        <span className="text-white flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full text-sm font-medium">
+                          <span className="material-symbols-outlined text-lg">edit</span> Thay đổi ảnh
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-5 px-4 py-2 bg-surface-container-high rounded-lg flex items-center gap-3 border border-outline-variant/30 shadow-sm">
+                    <span className="material-symbols-outlined text-[#0ea5e9]">image</span>
+                    <div className="text-left">
+                      <p className="font-medium text-sm text-on-surface truncate max-w-[200px] sm:max-w-[300px]">{file.name}</p>
+                      <p className="text-xs text-on-surface-variant">{(file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Nút gửi & Nút Demo */}
-          <div className="pt-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-            {/* Nút gửi yêu cầu */}
+          {/* Nút gửi */}
+          <div className="pt-2 flex justify-end">
             <button
               type="submit"
               disabled={loading || !isFormValid || verifyStatus !== 'UNVERIFIED'}
-              className={`w-full sm:w-auto px-6 py-3 font-semibold rounded-lg text-sm transition-colors ${
+              className={`relative overflow-hidden w-full sm:w-auto px-8 py-3.5 font-semibold rounded-xl text-sm transition-all duration-300 active:scale-95 ${
                 isFormValid && verifyStatus === 'UNVERIFIED' && !loading
-                  ? 'bg-[#0ea5e9] hover:bg-[#38bdf8] text-white shadow-sm'
-                  : 'bg-outline-variant/60 text-on-surface-variant/60 cursor-not-allowed'
+                  ? 'bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] hover:shadow-[0_4px_20px_rgba(14,165,233,0.3)] hover:-translate-y-0.5 text-white'
+                  : 'bg-surface-container-high text-on-surface-variant/50 cursor-not-allowed'
               }`}
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
-                  Đang gửi...
+                <span className="flex items-center justify-center gap-2 text-white/90">
+                  <span className="material-symbols-outlined text-[18px] animate-pulse">hourglass_empty</span>
+                  Đang xử lý...
                 </span>
               ) : (
-                'Submit'
+                <span className="flex items-center justify-center gap-2">
+                  Gửi Yêu Cầu <span className="material-symbols-outlined text-[18px]">send</span>
+                </span>
               )}
             </button>
-
-
           </div>
         </form>
 
         {/* Lưu ý footer */}
-        <div className="mt-8 pt-6 border-t border-outline-variant/50 text-[11px] text-on-surface-variant leading-relaxed">
-          <strong>Lưu ý:</strong> Thời gian xử lý xác minh thường từ 1-3 ngày làm việc. Chúng tôi sẽ gửi thông báo qua email khi quá trình xác minh hoàn tất.
+        <div className="mt-8 pt-6 border-t border-outline-variant/30 flex items-start gap-3">
+          <span className="material-symbols-outlined text-[#0ea5e9]/70 text-xl shrink-0 mt-0.5">info</span>
+          <p className="text-[13px] text-on-surface-variant/70 leading-relaxed">
+            <strong className="text-on-surface-variant/90">Thông tin bảo mật:</strong> Dữ liệu của bạn được mã hóa an toàn. Thời gian xử lý xác minh thường từ 1-3 ngày làm việc. Chúng tôi sẽ gửi thông báo qua hệ thống khi quá trình xác minh hoàn tất.
+          </p>
         </div>
 
       </div>

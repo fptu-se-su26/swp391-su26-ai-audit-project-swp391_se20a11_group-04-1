@@ -11,14 +11,26 @@ import java.util.UUID;
 public class MockFileStorageServiceImpl implements FileStorageService {
 
     @Override
-    public String storeFile(MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) {
-            return null;
-        }
-        // TODO: Replace with actual Cloudinary/S3 logic
-        // For MVP, return a mock URL or local path
-        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        return "https://mock-storage.com/evidence/" + filename;
+    public String storeFile(MultipartFile file) {
+        // Mock implementation
+        System.out.println("Mock uploading file: " + file.getOriginalFilename());
+        return "https://mock-storage.com/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+    }
+
+    @Override
+    public String storePrivateFile(MultipartFile file) {
+        System.out.println("Mock uploading private file: " + file.getOriginalFilename());
+        return "evidence/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+    }
+
+    @Override
+    public String getPrivateFileUrl(String publicId) {
+        return "https://mock-storage.com/private/signed/" + publicId;
+    }
+
+    @Override
+    public java.io.InputStream downloadPrivateFileStream(String publicId) {
+        return new java.io.ByteArrayInputStream(new byte[0]); // Return empty stream for mock
     }
 
     @Override

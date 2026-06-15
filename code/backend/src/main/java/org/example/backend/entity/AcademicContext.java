@@ -24,4 +24,8 @@ public class AcademicContext {
 
     @Column(name = "academic_year", nullable = false, length = 10)
     private String academicYear;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private UserAccount owner;
 }
