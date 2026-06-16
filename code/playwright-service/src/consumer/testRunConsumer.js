@@ -113,7 +113,7 @@ async function handleTestRunJobCommand(message) {
                 // Upload screenshots to Cloudinary
                 if (execResult.screenshots && execResult.screenshots.length > 0) {
                     try {
-                        evidenceUrls = await uploadImages(execResult.screenshots);
+                        evidenceUrls = await uploadImages(execResult.screenshots, execRunId);
                         if (evidenceUrls.length > 0) {
                             screenshotUrl = evidenceUrls[evidenceUrls.length - 1]; // Set the last screenshot as the main one
                         }

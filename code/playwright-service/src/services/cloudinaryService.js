@@ -9,7 +9,7 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-async function uploadImages(imagePaths) {
+async function uploadImages(imagePaths, runId) {
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
         console.warn('[Cloudinary] Missing CLOUDINARY_CLOUD_NAME, skipping upload.');
         return [];
@@ -18,9 +18,14 @@ async function uploadImages(imagePaths) {
     const uploadPromises = imagePaths.map(async (filePath) => {
         try {
             if (!fs.existsSync(filePath)) return null;
+            const basename = path.basename(filePath, '.png');
             const res = await cloudinary.uploader.upload(filePath, {
                 folder: 'devtrack_ai/test_runs',
-                resource_type: 'image'
+                public_id: runId ? `${runId}_${basename}` : basename,
+                resource_type: 'image',
+                use_filename: false,
+                unique_filename: false,
+                overwrite: true
             });
             return res.secure_url;
         } catch (err) {
