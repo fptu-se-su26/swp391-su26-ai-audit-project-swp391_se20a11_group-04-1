@@ -19,7 +19,7 @@ async function startAgent({ token, backendUrl }) {
         console.log('ℹ️ Playwright đã sẵn sàng.');
     }
 
-    const { executeScript } = require('./executor');
+    const { executeScript, executeApiTest } = require('./executor');
 
     // Issue 10 FIX: isRunning guard ngăn chạy đồng thời 2 task
     let isRunning = false;
@@ -45,13 +45,23 @@ async function startAgent({ token, backendUrl }) {
                 console.log(`🎥 Live stream: ${task.wsUrl}/?runId=${task.runId}&role=provider`);
             }
 
-            const result = await executeScript(task.script, task.taskId, task.baseUrl, {
-                WS_URL: task.wsUrl || 'ws://localhost:4001'
-            });
+            let result;
+            let apiResultPayload = null;
+
+            if (task.taskType === 'API_TEST_JOB') {
+                console.log(`📡 Thực thi API Test Job trực tiếp...`);
+                const apiResult = await executeApiTest(task.script);
+                result = { status: apiResult.status, duration: apiResult.duration };
+                apiResultPayload = apiResult.apiResult;
+            } else {
+                result = await executeScript(task.script, task.taskId, task.baseUrl, {
+                    WS_URL: task.wsUrl || 'ws://localhost:4001'
+                });
+            }
             
             // Log chi tiết cho cả FAIL và ERROR
             if (result.status !== 'PASS') {
-                console.error(`🚨 Test ${result.status}:`, result.error?.message || 'Unknown error');
+                console.error(`🚨 Test ${result.status}:`, result.error?.message || apiResultPayload?.error || 'Unknown error');
                 if (result.error?.stack) {
                     console.error('   Stack:', result.error.stack.split('\n')[0]);
                 }
@@ -69,17 +79,24 @@ async function startAgent({ token, backendUrl }) {
                 });
             }
 
+            const payloadBody = {
+                outcome: result.status === 'PASS' ? 'PASSED' : 'FAILED',
+                notes: result.error?.message || null,
+                durationMs: result.duration,
+                failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null ? result.error.failedStepIndex : null,
+                steps: result.steps || [],
+                evidenceUrls: result.screenshots || []
+            };
+
+            // Nếu có kết quả từ API test, gộp chung vào payload
+            if (apiResultPayload) {
+                Object.assign(payloadBody, apiResultPayload);
+            }
+
             await fetch(`${backendUrl}/api/v1/agent-tasks/${task.taskId}/result?token=${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    outcome: result.status === 'PASS' ? 'PASSED' : 'FAILED',
-                    notes: result.error?.message || null,
-                    durationMs: result.duration,
-                    failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null ? result.error.failedStepIndex : null,
-                    steps: result.steps,
-                    evidenceUrls: result.screenshots || []
-                })
+                body: JSON.stringify(payloadBody)
             });
 
             console.log(`✓ Task ${task.taskId} hoàn thành với kết quả: ${result.status}`);

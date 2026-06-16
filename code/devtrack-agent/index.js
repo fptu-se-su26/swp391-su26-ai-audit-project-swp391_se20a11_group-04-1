@@ -5,7 +5,7 @@ const token = args.token || process.env.DEVTRACK_TOKEN;
 const backendUrl = args.backend || process.env.DEVTRACK_BACKEND_URL || 'http://localhost:8080';
 
 if (!token) {
-    console.error('❌ Thiếu token. Chạy: npx devtrack-agent --token=YOUR_TOKEN');
+    console.error('❌ Thiếu token. Chạy: npx devtrack-agent@latest --token=YOUR_TOKEN');
     process.exit(1);
 }
 

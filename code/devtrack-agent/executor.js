@@ -213,4 +213,48 @@ function cleanupTempDir(tempDir) {
     } catch (e) { }
 }
 
-module.exports = { executeScript };
+async function executeApiTest(script) {
+    const startTime = Date.now();
+    try {
+        const config = JSON.parse(script);
+        const url = config.url;
+        const method = config.method || 'GET';
+        const headers = config.headers || {};
+        let body = config.body || null;
+
+        const options = { method, headers };
+        if (body && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+            options.body = typeof body === 'object' ? JSON.stringify(body) : String(body);
+        }
+
+        const res = await fetch(url, options);
+        const timeMs = Date.now() - startTime;
+        
+        const responseBody = await res.text();
+        const responseHeaders = {};
+        res.headers.forEach((value, key) => {
+            responseHeaders[key] = value;
+        });
+
+        return {
+            status: 'PASS',
+            duration: timeMs,
+            apiResult: {
+                status: res.status,
+                timeMs: timeMs,
+                body: responseBody,
+                headers: responseHeaders
+            }
+        };
+    } catch (err) {
+        return {
+            status: 'ERROR',
+            duration: Date.now() - startTime,
+            apiResult: {
+                error: err.message
+            }
+        };
+    }
+}
+
+module.exports = { executeScript, executeApiTest };
