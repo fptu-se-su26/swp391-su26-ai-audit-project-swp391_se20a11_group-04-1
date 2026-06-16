@@ -95,6 +95,9 @@ services:
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-1234567890abcdef}
       WS_URL: ws://playwright-server:4001
       MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
