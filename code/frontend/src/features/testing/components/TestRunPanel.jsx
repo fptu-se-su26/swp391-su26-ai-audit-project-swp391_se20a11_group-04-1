@@ -32,6 +32,30 @@ export function TestRunPanel({ projectId, testCaseIds }) {
         }
     }, []); // chỉ chạy khi component mount lần đầu
 
+    useEffect(() => {
+        let ws;
+        if (activeTestRun?.testRunId && isRunning) {
+            ws = new WebSocket(`${import.meta.env.VITE_WS_URL || "ws://localhost:4001"}/?runId=${activeTestRun.testRunId}&role=client`);
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    const store = useTestRunStore.getState();
+                    if (msg.type === 'TEST_CASE_STARTED') {
+                        store.onExecutionStarted(msg);
+                    } else if (msg.type === 'TEST_CASE_COMPLETED') {
+                        store.onExecutionCompleted(msg);
+                    } else if (msg.type === 'TEST_RUN_COMPLETED') {
+                        store.onRunCompleted(msg);
+                    }
+                } catch (e) {}
+            };
+            ws.onerror = () => console.error('[TestRunPanel] WS error');
+        }
+        return () => {
+            if (ws) ws.close();
+        };
+    }, [activeTestRun?.testRunId, isRunning]);
+
     const handleRunTest = async () => {
         setLoading(true);
         try {

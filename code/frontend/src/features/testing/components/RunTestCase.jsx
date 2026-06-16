@@ -252,8 +252,7 @@ const RunTestCase = ({ testCase }) => {
             <div className="bg-white border border-gray-200 rounded-md shadow-sm">
               {testCase.stepsStructured?.map((step, idx) => {
                 const execution = runData?.executions?.find(ex => ex.orderIndex === step.order) 
-                               || runData?.executions?.find(ex => ex.orderIndex === idx)
-                               || (runData?.executions?.length === 1 ? runData.executions[0] : null);
+                               || runData?.executions?.find(ex => ex.orderIndex === idx);
                 
                 const isFailedStep = execution?.failedStepIndex !== undefined && execution?.failedStepIndex !== null
                   ? execution.failedStepIndex === idx
@@ -312,10 +311,10 @@ const RunTestCase = ({ testCase }) => {
               {agentToken ? (
                 <div className="mt-3 relative">
                   <pre className="p-3 bg-gray-900 text-gray-100 rounded-md text-xs overflow-x-auto">
-                    npx devtrack-agent --token={agentToken}
+                    npx devtrack-agent@latest --token={agentToken}
                   </pre>
                   <button 
-                    onClick={() => navigator.clipboard.writeText(`npx devtrack-agent --token=${agentToken}`)}
+                    onClick={() => navigator.clipboard.writeText(`npx devtrack-agent@latest --token=${agentToken}`)}
                     className="absolute top-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 transition-colors"
                     title="Copy command"
                   >
