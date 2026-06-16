@@ -30,9 +30,13 @@ import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.service.CodeInsightManualEvidenceLinkService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightService;
+import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightAiReviewService;
 import org.springframework.http.HttpStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.backend.repository.CodeInsightAiReviewRepository;
+import org.example.backend.dto.ReqDiffAlignmentResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +70,9 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final CodeInsightPatchService patchService;
     private final CodeInsightAiReviewService aiReviewService;
     private final CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
+    private final EvidenceLinkRepository generalEvidenceLinkRepository;
+    private final CodeInsightAiReviewRepository aiReviewRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -125,6 +132,22 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 : pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(
                         pullRequests.stream().map(GitHubPullRequest::getId).toList());
 
+        List<EvidenceLink> generalLinks = task.getId() != null
+                ? generalEvidenceLinkRepository.findByEntityTypeAndEntityId(EvidenceEntityType.TASK, task.getId())
+                : List.of();
+        List<CodeInsightTaskEvidenceResponse.GeneralEvidenceSummary> generalEvidences = generalLinks.stream()
+                .map(EvidenceLink::getEvidence)
+                .filter(ev -> ev != null)
+                .map(ev -> CodeInsightTaskEvidenceResponse.GeneralEvidenceSummary.builder()
+                        .id(ev.getId())
+                        .title(ev.getTitle())
+                        .type(ev.getType() != null ? ev.getType().name() : null)
+                        .fileUrl(ev.getFileUrl())
+                        .externalUrl(ev.getExternalUrl())
+                        .status(ev.getStatus() != null ? ev.getStatus().name() : null)
+                        .build())
+                .toList();
+
         return CodeInsightTaskEvidenceResponse.builder()
                 .projectId(projectId)
                 .task(toTaskSummary(task))
@@ -137,6 +160,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .aiReview(aiReviewService.getLatestReview(taskId))
                 .scoreSummary(scoringService.buildReviewEvidenceSummary(task))
                 .approvalGate(approvalGateService.evaluate(task))
+                .generalEvidences(generalEvidences)
                 .build();
     }
 
@@ -148,6 +172,75 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .map(this::toDecisionResponse)
                 .toList();
         CodeInsightApprovalGateResponse gate = evidence.getApprovalGate();
+        
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
+
+        List<CodeInsightReviewDetailResponse.RequirementAcCoverageSummary> acCoverage = new java.util.ArrayList<>();
+        if (task.getRequirementId() != null) {
+            Requirement requirement = requirementRepository.findById(task.getRequirementId()).orElse(null);
+            if (requirement != null && requirement.getAcceptanceCriteria() != null) {
+                List<String> criteria = List.of();
+                try {
+                    criteria = objectMapper.readValue(requirement.getAcceptanceCriteria(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+                } catch (Exception ignored) {}
+
+                if (!criteria.isEmpty()) {
+                    List<Task> siblingTasks = taskRepository.findByRequirementId(requirement.getId());
+                    List<Long> doneTaskIds = siblingTasks.stream()
+                            .filter(t -> t.getStatus() == org.example.backend.entity.TaskStatus.DONE)
+                            .map(Task::getId)
+                            .toList();
+
+                    List<CodeInsightAiReview> approvedReviews = doneTaskIds.isEmpty() ? List.of() : aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);
+
+                    for (String ac : criteria) {
+                        String finalStatus = "NOT_FOUND";
+                        Long coveredByTaskId = null;
+                        String coveredByTaskCode = null;
+
+                        for (CodeInsightAiReview rev : approvedReviews) {
+                            if (rev.getAlignmentResultJson() != null) {
+                                try {
+                                    ReqDiffAlignmentResult alignResult = objectMapper.readValue(rev.getAlignmentResultJson(), ReqDiffAlignmentResult.class);
+                                    if (alignResult.getAlignmentMatrix() != null) {
+                                        for (ReqDiffAlignmentResult.AlignmentItem item : alignResult.getAlignmentMatrix()) {
+                                            if (ac.equals(item.getAcText())) {
+                                                if ("FULLY_COVERED".equals(item.getStatus())) {
+                                                    finalStatus = "FULLY_COVERED";
+                                                    coveredByTaskId = rev.getTask().getId();
+                                                    coveredByTaskCode = rev.getTask().getTaskCode() != null 
+                                                        ? rev.getTask().getTaskCode() 
+                                                        : "TSK-" + rev.getTask().getId();
+                                                    break;
+                                                } else if ("PARTIAL".equals(item.getStatus()) && !"FULLY_COVERED".equals(finalStatus)) {
+                                                    finalStatus = "PARTIAL";
+                                                    coveredByTaskId = rev.getTask().getId();
+                                                    coveredByTaskCode = rev.getTask().getTaskCode() != null 
+                                                        ? rev.getTask().getTaskCode() 
+                                                        : "TSK-" + rev.getTask().getId();
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                            if ("FULLY_COVERED".equals(finalStatus)) {
+                                break;
+                            }
+                        }
+
+                        acCoverage.add(CodeInsightReviewDetailResponse.RequirementAcCoverageSummary.builder()
+                                .acText(ac)
+                                .status(finalStatus)
+                                .coveredByTaskId(coveredByTaskId)
+                                .coveredByTaskCode(coveredByTaskCode)
+                                .build());
+                    }
+                }
+            }
+        }
+
         return CodeInsightReviewDetailResponse.builder()
                 .evidence(evidence)
                 .approvalGate(gate)
@@ -157,6 +250,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .gateChecks(gate != null ? gate.getGateChecks() : null)
                 .evidenceConfidence(gate != null ? gate.getEvidenceConfidence() : null)
                 .codeRiskLevel(gate != null ? gate.getCodeRiskLevel() : null)
+                .requirementAcCoverage(acCoverage)
                 .build();
     }
 
@@ -244,7 +338,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .reviewGateEnabled(true)
                 .requirePrForDone(false)
                 .requireCiPass(false)
-                .aiReviewEnabled(false)
+                .aiReviewEnabled(true)
                 .minScoreWarningThreshold(70)
                 .blockScoreThreshold(50)
                 .build();

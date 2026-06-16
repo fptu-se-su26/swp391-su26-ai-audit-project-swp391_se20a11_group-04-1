@@ -22,6 +22,7 @@ public class CodeInsightTaskEvidenceResponse {
     private CodeInsightAiReviewResponse aiReview;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
     private CodeInsightApprovalGateResponse approvalGate;
+    private List<GeneralEvidenceSummary> generalEvidences;
 
     @Getter
     @Setter
@@ -118,5 +119,19 @@ public class CodeInsightTaskEvidenceResponse {
         private String patchHash;
         private String patchSummary;
         private LocalDateTime fetchedAt;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class GeneralEvidenceSummary {
+        private Long id;
+        private String title;
+        private String type;
+        private String fileUrl;
+        private String externalUrl;
+        private String status;
     }
 }
