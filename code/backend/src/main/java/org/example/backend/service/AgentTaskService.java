@@ -14,4 +14,6 @@ public interface AgentTaskService {
     void submitTaskResult(UUID taskId, String token, AgentTaskResultSubmitDTO resultDTO);
     String getOrCreateAgentToken(Long projectId);
     void handleTimeoutTasks();
+    
+    String regenerateAgentToken(Long projectId);
 }

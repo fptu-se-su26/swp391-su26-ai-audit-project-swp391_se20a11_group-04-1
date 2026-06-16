@@ -15,6 +15,7 @@ import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.AgentTaskRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.service.AgentTaskService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class AgentTaskServiceImpl implements AgentTaskService {
     private final AgentTaskRepository agentTaskRepository;
     private final ProjectRepository projectRepository;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @org.springframework.beans.factory.annotation.Value("${app.playwright.public-ws-url:ws://localhost:4001}")
     private String publicWsUrl;
@@ -49,6 +51,7 @@ public class AgentTaskServiceImpl implements AgentTaskService {
                 .script(createDTO.getScript())
                 .baseUrl(createDTO.getBaseUrl())
                 .status(AgentTaskStatus.PENDING)
+                .taskType(createDTO.getTaskType() != null ? createDTO.getTaskType() : "PLAYWRIGHT")
                 .build();
 
         task = agentTaskRepository.save(task);
@@ -100,6 +103,7 @@ public class AgentTaskServiceImpl implements AgentTaskService {
                 .baseUrl(task.getBaseUrl())
                 .wsUrl(publicWsUrl)
                 .runId(task.getTestRunId() + "-" + task.getExecutionId())
+                .taskType(task.getTaskType())
                 .build();
     }
 
@@ -129,9 +133,18 @@ public class AgentTaskServiceImpl implements AgentTaskService {
         task.setCompletedAt(LocalDateTime.now());
 
         try {
-            task.setResult(objectMapper.writeValueAsString(resultDTO));
+            String payload = objectMapper.writeValueAsString(resultDTO);
+            task.setResult(payload);
+            
+            // Nếu là API_TEST_JOB, bắn event để ApiTestExecutorService xử lý
+            if ("API_TEST_JOB".equals(task.getTaskType())) {
+                // Chúng ta sẽ cần tạo class org.example.backend.service.event.ApiTestJobCompletedEvent
+                // Tạm thời gọi instance
+                eventPublisher.publishEvent(new org.example.backend.service.event.ApiTestJobCompletedEvent(taskId, payload));
+            }
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize agent task result", e);
+            throw new RuntimeException("Failed to serialize agent task result", e);
         }
 
         agentTaskRepository.save(task);
@@ -151,6 +164,19 @@ public class AgentTaskServiceImpl implements AgentTaskService {
             // Token đã tồn tại → trả lại trực tiếp (plain text)
             return project.getAgentToken();
         }
+
+        String rawToken = "dta_" + projectId + "_" + UUID.randomUUID().toString().replace("-", "");
+        project.setAgentToken(rawToken);
+        projectRepository.save(project);
+
+        return rawToken;
+    }
+
+    @Override
+    @Transactional
+    public String regenerateAgentToken(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
 
         String rawToken = "dta_" + projectId + "_" + UUID.randomUUID().toString().replace("-", "");
         project.setAgentToken(rawToken);

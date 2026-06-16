@@ -15,4 +15,5 @@ public class AgentTaskResponseDTO {
     private String baseUrl;
     private String wsUrl;
     private String runId;
+    private String taskType;
 }

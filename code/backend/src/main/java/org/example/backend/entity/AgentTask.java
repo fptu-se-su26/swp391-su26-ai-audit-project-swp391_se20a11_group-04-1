@@ -25,10 +25,10 @@ public class AgentTask {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "test_run_id", nullable = false)
+    @Column(name = "test_run_id")
     private Long testRunId;
 
-    @Column(name = "execution_id", nullable = false)
+    @Column(name = "execution_id")
     private Long executionId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -40,6 +40,10 @@ public class AgentTask {
 
     @Column(name = "base_url")
     private String baseUrl;
+
+    @Column(name = "task_type", nullable = false, length = 30)
+    @Builder.Default
+    private String taskType = "PLAYWRIGHT";
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

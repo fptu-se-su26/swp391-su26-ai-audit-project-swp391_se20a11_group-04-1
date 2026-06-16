@@ -237,6 +237,12 @@ public class TestRunServiceImpl implements TestRunService {
             .orElseThrow(() -> new ResourceNotFoundException("TestExecution not found for key: " + request.idempotencyKey()));
 
         TestRun testRun = exec.getTestRun();
+        if (!testRun.getId().equals(testRunId)) {
+            log.warn("Mismatch: execution {} belongs to testRun {} but callback arrived at {}", 
+                     exec.getId(), testRun.getId(), testRunId);
+            throw new BadRequestException("Execution does not belong to the specified TestRun");
+        }
+
         if (testRun.getStatus().isTerminal()) {
             log.info("[{}] TestRun {} is terminal, ignoring late callback for execution {}",
                 testRun.getCorrelationId(), testRunId, exec.getId());

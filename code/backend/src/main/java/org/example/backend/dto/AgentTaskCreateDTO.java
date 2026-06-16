@@ -9,4 +9,5 @@ public class AgentTaskCreateDTO {
     private Long projectId;
     private String script;
     private String baseUrl;
+    private String taskType;
 }

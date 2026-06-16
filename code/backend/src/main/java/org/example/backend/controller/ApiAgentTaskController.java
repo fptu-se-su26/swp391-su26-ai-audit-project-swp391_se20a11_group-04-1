@@ -53,4 +53,19 @@ public class ApiAgentTaskController {
         String token = agentTaskService.getOrCreateAgentToken(projectId);
         return ResponseEntity.ok(Map.of("token", token));
     }
+
+    @PostMapping("/projects/{projectId}/agent-token/regenerate")
+    public ResponseEntity<?> regenerateAgentToken(
+            @PathVariable Long projectId,
+            HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new ForbiddenException("Authentication required");
+        }
+        if (projectMemberRepository.findByProjectIdAndUserId(projectId, userId).isEmpty()) {
+            throw new ForbiddenException("You are not a member of this project");
+        }
+        String token = agentTaskService.regenerateAgentToken(projectId);
+        return ResponseEntity.ok(Map.of("token", token));
+    }
 }
