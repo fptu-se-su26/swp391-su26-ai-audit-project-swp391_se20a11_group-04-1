@@ -395,7 +395,7 @@ public class CodeInsightApprovalGateServiceImpl implements CodeInsightApprovalGa
                 .reviewGateEnabled(true)
                 .requirePrForDone(false)
                 .requireCiPass(false)
-                .aiReviewEnabled(false)
+                .aiReviewEnabled(true)
                 .minScoreWarningThreshold(70)
                 .blockScoreThreshold(50)
                 .build();
