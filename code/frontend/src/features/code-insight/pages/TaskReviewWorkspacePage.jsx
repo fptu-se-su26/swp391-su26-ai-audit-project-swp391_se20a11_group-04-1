@@ -174,34 +174,101 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
           </div>
 
           {parsedAlignment && (
-            <div className="space-y-3 mt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-on-surface flex items-center gap-1">
-                  <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
-                  Requirement Acceptance Criteria Coverage
-                </span>
-                <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-black text-xs">
-                  {Math.round((aiReview.alignmentCoverageRatio || 0) * 100)}% Coverage ({aiReview.alignmentCoveredCount || 0}/{aiReview.alignmentTotalCount || 0})
-                </span>
-              </div>
-              <div className="border border-outline-variant/60 rounded-xl overflow-hidden divide-y divide-outline-variant/60 shadow-sm bg-surface">
-                {parsedAlignment.alignmentMatrix && parsedAlignment.alignmentMatrix.length > 0 ? (
-                  parsedAlignment.alignmentMatrix.map((ac, idx) => (
-                    <div key={idx} className="p-3 flex items-start gap-3 justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-on-surface">{ac.acText}</p>
-                        {ac.evidenceDetail && <p className="text-xs text-on-surface-variant font-mono">{ac.evidenceDetail}</p>}
-                        {ac.feedback && <p className="text-xs text-secondary italic">{ac.feedback}</p>}
+            <div className="space-y-4">
+              {/* Section 1: Targeted by This Task */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-green-600 text-[18px]">verified</span>
+                    Tiêu chí của Task hiện tại (Targeted by This Task)
+                  </span>
+                </div>
+                
+                <div className="border border-green-200/60 rounded-xl overflow-hidden divide-y divide-green-100 shadow-sm bg-green-50/5">
+                  {targetedCriteria.length > 0 ? (
+                    targetedCriteria.map((ac, idx) => (
+                      <div key={idx} className="p-3 flex items-start gap-3 justify-between bg-green-50/5">
+                        <div className="space-y-1 text-left">
+                          <p className="text-sm font-semibold text-green-950">{ac.acText}</p>
+                          {ac.evidenceDetail && <p className="text-xs text-green-700/80 font-mono">{ac.evidenceDetail}</p>}
+                          {ac.feedback && <p className="text-xs text-green-800 italic">{ac.feedback}</p>}
+                        </div>
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
+                          ac.status === 'FULLY_COVERED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>{ac.status?.replace('_', ' ')}</span>
                       </div>
-                      <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
-                        ac.status === 'FULLY_COVERED' ? 'bg-green-100 text-green-800' :
-                        ac.status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>{ac.status?.replace('_', ' ')}</span>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-xs text-on-surface-variant italic">
+                      Task này không phủ trực tiếp tiêu chí nào (hoặc là task phi kỹ thuật, thiết kế/tài liệu chung).
                     </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-xs text-on-surface-variant">No alignment mappings generated.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 2: Requirement Progress Context (Collapsible) */}
+              <div className="space-y-2 pt-2 border-t border-outline-variant/60">
+                <button 
+                  onClick={() => setShowProgressContext(prev => !prev)}
+                  type="button"
+                  className="w-full flex justify-between items-center py-2 px-3 hover:bg-surface-container-low rounded-lg transition-all text-left"
+                >
+                  <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
+                    Requirement Progress Context (Tiến độ chung)
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: showProgressContext ? 'rotate(180deg)' : 'none' }}>
+                      expand_more
+                    </span>
+                  </span>
+                </button>
+
+                {showProgressContext && (
+                  <div className="border border-outline-variant/60 rounded-xl overflow-hidden divide-y divide-outline-variant/60 shadow-sm bg-surface mt-2 animate-fade-in">
+                    {requirementAcCoverage && requirementAcCoverage.length > 0 ? (
+                      requirementAcCoverage.map((ac, idx) => {
+                        const isCoveredHere = targetedCriteria.some(tc => tc.acText === ac.acText);
+                        const isFullyCovered = ac.status === 'FULLY_COVERED';
+                        const isPartial = ac.status === 'PARTIAL';
+                        
+                        return (
+                          <div key={idx} className="p-3 flex items-start gap-3 justify-between hover:bg-surface-container-lowest transition-colors">
+                            <div className="flex items-start gap-2.5">
+                              <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0 select-none" style={{
+                                color: isCoveredHere ? '#15803d' : (isFullyCovered || isPartial ? '#0284c7' : '#94a3b8')
+                              }}>
+                                {isCoveredHere ? 'check_box' : (isFullyCovered || isPartial ? 'check_box' : 'check_box_outline_blank')}
+                              </span>
+                              <div className="space-y-0.5 text-left">
+                                <p className={`text-sm font-medium ${isFullyCovered || isPartial ? 'text-on-surface line-through opacity-70' : 'text-on-surface'}`}>
+                                  {ac.acText}
+                                </p>
+                                {(isFullyCovered || isPartial) && (
+                                  <p className="text-[10px] text-primary font-bold">
+                                    {isCoveredHere 
+                                      ? '✓ Được xử lý trong task hiện tại' 
+                                      : `✓ Đã duyệt hoàn thành ở task ${ac.coveredByTaskCode || 'TSK-' + ac.coveredByTaskId}`}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
+                              isFullyCovered ? 'bg-green-50 text-green-700 border border-green-200' :
+                              isPartial ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                              'bg-slate-50 text-slate-500 border border-slate-200'
+                            }`}>
+                              {ac.status?.replace('_', ' ')}
+                            </span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-4 text-center text-xs text-on-surface-variant italic">
+                        Không có thông tin tiến độ Acceptance Criteria nào.
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -222,7 +289,7 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
                       risk.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-blue-100 text-blue-800'
                     }`}>{risk.severity}</span>
-                    <div>
+                    <div className="text-left">
                       <p className="text-sm font-bold text-on-surface">{risk.title}</p>
                       <p className="text-xs text-on-surface-variant mt-0.5">{risk.detail}</p>
                     </div>
@@ -237,6 +304,10 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
       )}
     </div>
   )
+}
+
+const isCodeTask = (taskType) => {
+  return taskType === 'DEVELOPMENT' || taskType === 'BUG_FIX'
 }
 
 export function TaskReviewWorkspacePage() {
@@ -353,6 +424,10 @@ export function TaskReviewWorkspacePage() {
       try {
         const data = JSON.parse(event.data);
         setAiStreamLogs((prev) => prev + `[${data.phase}] ${data.message}\n`);
+        if (data.phase === 'ERROR') {
+          setAiStreaming(false);
+          eventSource.close();
+        }
       } catch (e) {
         console.error(e);
       }
@@ -597,15 +672,18 @@ export function TaskReviewWorkspacePage() {
 
               {/* Component A & B */}
               <CodePatchAnalyzer changedFiles={evidence.changedFiles} />
-              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} />
+              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} requirementAcCoverage={detail?.requirementAcCoverage} />
             </div>
           </main>
 
           {/* COLUMN 3: Gate & Decision (Right) */}
+                    {/* COLUMN 3: Gate & Decision (Right) */}
           <aside className="w-[360px] shrink-0 border-l border-outline-variant bg-surface-container-lowest flex flex-col h-full shadow-sm relative z-10">
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-40">
+            
+            {/* 1. Phần nội dung cuộn độc lập bên trên */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
               
-              {/* Gate Checklist */}
+              {/* A. Gate Checklist */}
               <div>
                 <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
@@ -630,36 +708,175 @@ export function TaskReviewWorkspacePage() {
                 </div>
               </div>
 
-              {/* Evidence Vault */}
+              {/* B. Evidence Confidence (Đã chỉnh lại format đồng bộ & đặt ở vị trí mới) */}
+              <div>
+                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                  Evidence Confidence
+                </h3>
+                <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-black tracking-wide uppercase border shrink-0 ${
+                      detail.evidenceConfidence === 'STRONG' ? 'bg-green-50 text-green-700 border-green-200' :
+                      detail.evidenceConfidence === 'PARTIAL' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                      detail.evidenceConfidence === 'WEAK' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                      'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                      {detail.evidenceConfidence || 'NONE'}
+                    </span>
+                    <span className="text-xs text-on-surface-variant font-medium leading-normal">
+                      {detail.evidenceConfidence === 'STRONG' ? 'Bằng chứng đầy đủ, tin cậy cao.' :
+                       detail.evidenceConfidence === 'PARTIAL' ? 'Thiếu một vài bằng chứng.' :
+                       detail.evidenceConfidence === 'WEAK' ? 'Bằng chứng rất ít hoặc lệch.' :
+                       'Chưa ghi nhận bằng chứng.'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* C. Evidence Vault */}
               <div>
                 <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-[18px]">inventory_2</span>
                   Evidence Vault
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
-                    <span className="block text-2xl font-black text-on-surface">{evidence.commits?.length || 0}</span>
-                    <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Commits</span>
+                {isCodeTask(task.type) ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
+                        <span className="block text-2xl font-black text-on-surface">{evidence.commits?.length || 0}</span>
+                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Commits</span>
+                      </div>
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
+                        <span className="block text-2xl font-black text-on-surface">{evidence.pullRequests?.length || 0}</span>
+                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">PRs</span>
+                      </div>
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
+                        <span className="block text-2xl font-black text-on-surface">{evidence.checkRuns?.length || 0}</span>
+                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">CI Checks</span>
+                      </div>
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
+                        <span className="block text-2xl font-black text-on-surface">{evidence.githubIssue ? 'Yes' : 'No'}</span>
+                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Issue</span>
+                      </div>
+                    </div>
+
+                    {/* Show general evidences for code tasks if they exist */}
+                    {evidence.generalEvidences && evidence.generalEvidences.length > 0 && (
+                      <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface">
+                        <span className="block text-xs uppercase tracking-wider text-on-surface-variant font-bold mb-3 text-left">
+                          Attached Documents & Links
+                        </span>
+                        <div className="space-y-2 text-left">
+                          {evidence.generalEvidences.map((ge) => (
+                            <div key={ge.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex items-center justify-between gap-2 hover:shadow-sm transition-all">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                  {ge.type === 'SCREENSHOT' ? 'image' :
+                                   ge.type === 'SCREEN_RECORDING' ? 'movie' :
+                                   ge.type === 'FIGMA_LINK' ? 'link' :
+                                   ge.type === 'DEPLOY_LINK' ? 'language' : 'description'}
+                                </span>
+                                <div className="overflow-hidden">
+                                  <p className="text-xs font-bold text-on-surface truncate" title={ge.title}>{ge.title}</p>
+                                  <p className="text-[9px] uppercase text-on-surface-variant font-bold">{ge.type}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
+                                  ge.status === 'ACCEPTED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  ge.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                  'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                }`}>{ge.status}</span>
+                                {(ge.fileUrl || ge.externalUrl) && (
+                                  <a
+                                    href={ge.fileUrl || ge.externalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary-hover flex items-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
-                    <span className="block text-2xl font-black text-on-surface">{evidence.pullRequests?.length || 0}</span>
-                    <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">PRs</span>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Non-code task display */}
+                    {evidence.githubIssue && (
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface flex items-center justify-between">
+                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Linked Issue</span>
+                        <a
+                          href={evidence.githubIssue.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-bold text-primary hover:underline"
+                        >
+                          Issue #{evidence.githubIssue.number}
+                        </a>
+                      </div>
+                    )}
+
+                    {evidence.generalEvidences && evidence.generalEvidences.length > 0 ? (
+                      <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface">
+                        <span className="block text-xs uppercase tracking-wider text-on-surface-variant font-bold mb-3 text-left">
+                          Attached Documents & Links
+                        </span>
+                        <div className="space-y-2 text-left">
+                          {evidence.generalEvidences.map((ge) => (
+                            <div key={ge.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex items-center justify-between gap-2 hover:shadow-sm transition-all">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                  {ge.type === 'SCREENSHOT' ? 'image' :
+                                   ge.type === 'SCREEN_RECORDING' ? 'movie' :
+                                   ge.type === 'FIGMA_LINK' ? 'link' :
+                                   ge.type === 'DEPLOY_LINK' ? 'language' : 'description'}
+                                </span>
+                                <div className="overflow-hidden">
+                                  <p className="text-xs font-bold text-on-surface truncate" title={ge.title}>{ge.title}</p>
+                                  <p className="text-[9px] uppercase text-on-surface-variant font-bold">{ge.type}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
+                                  ge.status === 'ACCEPTED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  ge.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                  'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                }`}>{ge.status}</span>
+                                {(ge.fileUrl || ge.externalUrl) && (
+                                  <a
+                                    href={ge.fileUrl || ge.externalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:text-primary-hover flex items-center"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 border border-dashed border-outline-variant/60 rounded-xl bg-surface/50 text-center">
+                        <span className="material-symbols-outlined text-on-surface-variant/40 text-3xl">inventory_2</span>
+                        <p className="text-xs text-on-surface-variant mt-2 font-medium">Không có evidence</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
-                    <span className="block text-2xl font-black text-on-surface">{evidence.checkRuns?.length || 0}</span>
-                    <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">CI Checks</span>
-                  </div>
-                  <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
-                    <span className="block text-2xl font-black text-on-surface">{evidence.githubIssue ? 'Yes' : 'No'}</span>
-                    <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Issue</span>
-                  </div>
-                </div>
+                )}
               </div>
 
             </div>
 
-            {/* Sticky Bottom Decision Panel */}
-            <div className="absolute bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant p-5 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+            {/* 2. Sticky Bottom Decision Panel - Cuộn co giãn Flexbox */}
+            <div className="border-t border-outline-variant p-5 bg-surface-container-lowest shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
               <textarea 
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
