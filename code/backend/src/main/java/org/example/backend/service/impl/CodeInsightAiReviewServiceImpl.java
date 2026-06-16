@@ -96,6 +96,7 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
             }
             String rawDiff = rawDiffBuilder.toString();
             try {
+                delay(1500);
                 analysisResult = patchAnalyzerService.analyzePatch(rawDiff);
             } catch (Exception ex) {
                 log.error("Failed to analyze patch for task " + taskId, ex);
@@ -116,6 +117,7 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
 
         if (analysisResult != null && !acceptanceCriteria.isEmpty()) {
             try {
+                delay(1500);
                 alignmentResult = alignmentService.align(analysisResult, acceptanceCriteria);
             } catch (Exception ex) {
                 log.error("Failed to align requirement-diff for task " + taskId, ex);
@@ -296,6 +298,14 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
             return json != null ? objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {}) : null;
         } catch (Exception ex) {
             return null;
+        }
+    }
+
+    private void delay(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }

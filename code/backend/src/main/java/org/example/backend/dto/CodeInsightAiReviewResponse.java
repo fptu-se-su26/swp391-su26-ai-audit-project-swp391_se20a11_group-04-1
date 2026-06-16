@@ -25,6 +25,7 @@ public class CodeInsightAiReviewResponse {
     private List<ReviewNote> reviewNotes;
     private Map<String, Object> providerError;
     private boolean legacy;
+    private ReqDiffAlignmentResult alignmentResult;
     private String alignmentResultJson;
     private Double alignmentCoverageRatio;
     private Integer alignmentCoveredCount;
