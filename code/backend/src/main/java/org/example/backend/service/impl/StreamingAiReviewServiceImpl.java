@@ -83,11 +83,9 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                     .distinct()
                     .toList();
 
-            CodePatchAnalysisResult analysisResult = null;
-            ReqDiffAlignmentResult alignmentResult = null;
-
+            String rawDiff = "";
             if (!pullRequestIds.isEmpty()) {
-                sendStatus(emitter, "ANALYZING_PATCH", "Performing static code patch analysis...");
+                sendStatus(emitter, "ANALYZING_PATCH", "Preparing static code changes...");
                 List<GitHubPullRequestFile> files = pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds);
                 StringBuilder rawDiffBuilder = new StringBuilder();
                 for (GitHubPullRequestFile file : files) {
@@ -97,12 +95,7 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                         rawDiffBuilder.append(file.getPatchSummary()).append("\n");
                     }
                 }
-                String rawDiff = rawDiffBuilder.toString();
-                try {
-                    analysisResult = patchAnalyzerService.analyzePatch(rawDiff);
-                } catch (Exception ex) {
-                    log.error("Failed to analyze patch for task " + taskId, ex);
-                }
+                rawDiff = rawDiffBuilder.toString();
             }
 
             List<String> acceptanceCriteria = List.of();
@@ -117,40 +110,32 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                 }
             }
 
-            if (analysisResult != null && !acceptanceCriteria.isEmpty()) {
-                sendStatus(emitter, "REQ_ALIGNMENT", "Aligning code changes with requirement acceptance criteria...");
-                try {
-                    alignmentResult = alignmentService.align(analysisResult, acceptanceCriteria);
-                    if (alignmentResult != null) {
-                        sendAlignment(emitter, alignmentResult);
-                    }
-                } catch (Exception ex) {
-                    log.error("Failed to align requirement-diff for task " + taskId, ex);
-                }
+            if (!acceptanceCriteria.isEmpty()) {
+                sendStatus(emitter, "REQ_ALIGNMENT", "Preparing requirement acceptance criteria...");
             }
 
-            sendStatus(emitter, "GENERATING_REVIEW", "Evaluating risks and generating final review recommendations...");
+            sendStatus(emitter, "GENERATING_REVIEW", "Analyzing patch, aligning requirements and evaluating risks...");
 
             if (apiKey == null || apiKey.isBlank()) {
                 throw new IllegalStateException("AI provider API key is not configured.");
             }
 
             String promptInputJson = writeJson(aiInput);
-            String prompt = buildStreamingPrompt(promptInputJson);
+            String prompt = buildStreamingPrompt(promptInputJson, rawDiff, acceptanceCriteria);
 
-            // Call Gemini streaming endpoint
-            callGeminiStreaming(prompt, aiInput, alignmentResult, task, emitter);
+            // Call Gemini streaming endpoint (single API call)
+            callGeminiStreaming(prompt, aiInput, null, task, emitter);
 
         } catch (Exception e) {
             log.error("Error in executeStreamingReview for taskId: " + taskId, e);
             try {
                 emitter.send(SseEmitter.event()
-                        .name("error")
-                        .data(Map.of("message", e.getMessage())));
+                        .name("status")
+                        .data(Map.of("phase", "ERROR", "message", e.getMessage())));
+                emitter.complete();
             } catch (Exception ex) {
                 log.error("Failed to send error event over SSE", ex);
             }
-            throw e;
         }
     }
 
@@ -170,7 +155,14 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
         }
     }
 
-    private String buildStreamingPrompt(String promptInputJson) {
+    private String buildStreamingPrompt(String promptInputJson, String rawDiff, List<String> acceptanceCriteria) {
+        StringBuilder acText = new StringBuilder();
+        if (acceptanceCriteria != null) {
+            for (int i = 0; i < acceptanceCriteria.size(); i++) {
+                acText.append(String.format("AC-%d: %s\n", i + 1, acceptanceCriteria.get(i)));
+            }
+        }
+
         return """
                 You are Code Insight AI Review. You are advisory only and must not approve or reject tasks.
                 
@@ -189,14 +181,48 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                   "riskDetails": [{"severity":"INFO|LOW|MEDIUM|HIGH|CRITICAL","category":"EVIDENCE_GAP|CI_FAILURE|REQUIREMENT_MISMATCH|TEST_COVERAGE|SECURITY|QUALITY|SCOPE_RISK|AUTHOR_MISMATCH|LARGE_CHANGE","title":"...","detail":"..."}],
                   "questionsForLeader": ["..."],
                   "evidenceAssessment": {"requirementLinked":false,"githubIssueLinked":false,"hasCommitEvidence":false,"hasPullRequestEvidence":false,"ciPassed":false,"authorMatchesAssignee":false,"changedFilesReviewed":0,"binaryFilesSkipped":0,"truncatedFiles":0},
-                  "reviewNotes": [{"file":"...","severity":"INFO|LOW|MEDIUM|HIGH|CRITICAL","lineHint":null,"message":"..."}]
+                  "reviewNotes": [{"file":"...","severity":"INFO|LOW|MEDIUM|HIGH|CRITICAL","lineHint":null,"message":"..."}],
+                  "alignmentResult": {
+                    "alignmentMatrix": [
+                      {
+                        "acText": "User can reset password",
+                        "status": "FULLY_COVERED|PARTIAL|NOT_FOUND",
+                        "evidenceDetail": "AuthService.java:resetPassword method implements the password reset logic",
+                        "feedback": "Fully implemented"
+                      }
+                    ],
+                    "coverageRatio": 0.8,
+                    "coveredCount": 4,
+                    "totalCount": 5,
+                    "finalRiskLevel": "LOW|MEDIUM|HIGH|CRITICAL"
+                  }
                 }
                 
-                Clamp confidence to 0..1 and scoreAdjustment to -15..15.
-                Do not put any markdown fences around the JSON.
+                Strict rules for alignmentResult status mapping:
+                - FULLY_COVERED: There is clear evidence in the code changes implementing this specific AC.
+                - PARTIAL: The AC is partly implemented, but some parts are hardcoded, missing validation, or left unfinished.
+                - NOT_FOUND: No code changes relate to this AC.
+
+                Strict rules for alignmentResult finalRiskLevel:
+                - CRITICAL: Major security flaws (SQL injection, hardcoded auth, missing token check) or broken critical flows.
+                - HIGH: Significant technical risks (N+1 query, unhandled exception in sensitive flow, poor performance).
+                - MEDIUM: Moderate risks, partial AC coverage, or small code smells.
+                - LOW: Standard clean code changes matching the AC.
+                 Strict rules based on task type (found in review input JSON as task.type):
+                 - Identify if the task is a non-code task (non-code task types include DOCUMENTATION, UI_UX, RESEARCH, and other tasks that do not write code).
+                 - For non-code tasks, you MUST NOT generate technical warnings or risks related to git commits, pull requests, code regression, test coverage, or "No CI Pipeline" (e.g. lack of CI pipeline to verify doc syntax, lack of automated UI test runs, etc.). Warn only about actual missing requirements or documentation/links if relevant.
+                 
+                 Clamp confidence to 0..1 and scoreAdjustment to -15..15.
+                 Do not put any markdown fences around the JSON.
                 
                 Review input JSON:
-                """ + promptInputJson;
+                """ + promptInputJson + """
+                
+                Git Diff of Changes:
+                """ + (rawDiff != null && !rawDiff.isEmpty() ? rawDiff : "No diff available") + """
+                
+                Acceptance Criteria List:
+                """ + acText.toString();
     }
 
     private void callGeminiStreaming(
@@ -221,7 +247,22 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                 objectMapper.writeValue(requestCallback.getBody(), requestBody);
             }, response -> {
                 if (!response.getStatusCode().is2xxSuccessful()) {
-                    throw new IllegalStateException("Gemini streaming call failed with status: " + response.getStatusCode());
+                    String errorBody = "";
+                    try {
+                        errorBody = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+                    } catch (Exception ignored) {}
+                    
+                    String errorMsg = "Gemini streaming call failed with status: " + response.getStatusCode();
+                    if (!errorBody.isEmpty()) {
+                        try {
+                            JsonNode errorNode = objectMapper.readTree(errorBody);
+                            String apiMsg = errorNode.at("/error/message").asText("");
+                            if (!apiMsg.isEmpty()) {
+                                errorMsg = apiMsg;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    throw new IllegalStateException(errorMsg);
                 }
 
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
@@ -328,13 +369,18 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
         Integer alignmentTotalCount = null;
         String codeRiskLevel = null;
 
-        if (alignmentResult != null) {
+        ReqDiffAlignmentResult finalAlignment = alignmentResult;
+        if (reviewResponse != null && reviewResponse.getAlignmentResult() != null) {
+            finalAlignment = reviewResponse.getAlignmentResult();
+        }
+
+        if (finalAlignment != null) {
             try {
-                alignmentResultJson = objectMapper.writeValueAsString(alignmentResult);
-                alignmentCoverageRatio = alignmentResult.getCoverageRatio();
-                alignmentCoveredCount = alignmentResult.getCoveredCount();
-                alignmentTotalCount = alignmentResult.getTotalCount();
-                codeRiskLevel = alignmentResult.getFinalRiskLevel();
+                alignmentResultJson = objectMapper.writeValueAsString(finalAlignment);
+                alignmentCoverageRatio = finalAlignment.getCoverageRatio();
+                alignmentCoveredCount = finalAlignment.getCoveredCount();
+                alignmentTotalCount = finalAlignment.getTotalCount();
+                codeRiskLevel = finalAlignment.getFinalRiskLevel();
             } catch (Exception ex) {
                 log.error("Failed to serialize alignment result for task " + task.getId(), ex);
             }
@@ -551,6 +597,14 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                     .data(Map.of("status", "done", "reviewId", reviewId)));
         } catch (Exception ex) {
             log.warn("Failed to send complete event over SSE", ex);
+        }
+    }
+
+    private void delay(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
