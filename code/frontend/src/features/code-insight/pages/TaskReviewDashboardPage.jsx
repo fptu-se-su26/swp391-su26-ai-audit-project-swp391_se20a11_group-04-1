@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import useProjectStore from '@store/useProjectStore'
-import codeInsightService from '../services/codeInsightService'
+import TaskReviewService from '../services/taskReviewService'
 
 export function TaskReviewDashboardPage() {
   const { projectId } = useParams()
@@ -25,7 +25,7 @@ export function TaskReviewDashboardPage() {
   const loadReviewQueue = async () => {
     setLoading(true)
     try {
-      const data = await codeInsightService.getReviewQueue(projectId)
+      const data = await TaskReviewService.getReviewQueue(projectId)
       setReviewQueue(data || [])
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load Task Review queue')
