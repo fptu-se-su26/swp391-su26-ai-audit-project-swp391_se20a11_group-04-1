@@ -80,6 +80,7 @@ github:
   client-id: "YOUR_GITHUB_OAUTH_CLIENT_ID"
   client-secret: "YOUR_GITHUB_OAUTH_CLIENT_SECRET"
   redirect-uri: "http://localhost:5173/github/callback"
+  webhook-url: "YOUR_NGROK_PUBLIC_URL_HERE/api/v1/github/webhook" # 👈 Điền link Ngrok public để nhận webhook từ GitHub local (ví dụ: https://xxxx.ngrok-free.dev/api/v1/github/webhook)
   encryption:
     # 👈 Mật khẩu dùng để mã hóa (AES key). PHẢI đúng 16, 24, hoặc 32 ký tự.
     # Bạn CẦN TẠO 1 chuỗi ngẫu nhiên (ví dụ: DevTrackSecKey123456789012345678)
