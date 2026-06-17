@@ -23,6 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.concurrent.TimeUnit;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,11 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final UserAccountRepository userAccountRepository;
     private final org.example.backend.repository.ProjectRepository projectRepository;
     private final org.example.backend.util.ClassroomTokenUtil classroomTokenUtil;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final TransactionTemplate transactionTemplate;
+
+    @Value("${app.redis.lock.classroom-join-prefix:lock:classroom_join:}")
+    private String classroomJoinLockPrefix;
 
     @Override
     @Transactional
@@ -132,23 +141,44 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    @Transactional
     public void joinClassroom(String token, Long userId) {
         Long classroomId = classroomTokenUtil.decodeToken(token);
         if (classroomId == null) {
             throw new BadRequestException("Link mời không hợp lệ hoặc đã hết hạn.");
         }
-        AcademicContext ac = academicContextRepository.findById(classroomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
-                
-        UserAccount user = userAccountRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
-                
-        // Check if already enrolled
-        boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
-        if (!isEnrolled && !ac.getOwner().getId().equals(userId)) {
-            ac.getEnrolledStudents().add(user);
-            academicContextRepository.save(ac);
+
+        // 1. Xin khóa (Lock) từ Redis với TTL = 1 giây
+        String lockKey = classroomJoinLockPrefix + classroomId;
+        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "locked", 1, TimeUnit.SECONDS);
+
+        if (Boolean.FALSE.equals(acquired)) {
+            // Nếu không lấy được khóa -> Báo bận thay vì bắt đợi
+            throw new BadRequestException("Hệ thống đang có nhiều người tham gia cùng lúc, vui lòng thử lại sau 1 giây!");
+        }
+
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                AcademicContext ac = academicContextRepository.findById(classroomId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+                        
+                UserAccount user = userAccountRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+                        
+                // Check if already enrolled
+                boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+                if (!isEnrolled && !ac.getOwner().getId().equals(userId)) {
+                    // 2. Kiểm tra giới hạn thành viên (quan trọng)
+                    if (ac.getEnrolledStudents().size() >= ac.getMaxMembers()) {
+                        throw new BadRequestException("Lớp học đã đủ số lượng thành viên (" + ac.getMaxMembers() + ").");
+                    }
+                    
+                    ac.getEnrolledStudents().add(user);
+                    academicContextRepository.save(ac);
+                }
+            });
+        } finally {
+            // 3. Trả lại khóa khi xong việc
+            stringRedisTemplate.delete(lockKey);
         }
     }
 
