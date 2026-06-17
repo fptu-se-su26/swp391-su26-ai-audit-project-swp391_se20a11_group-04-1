@@ -8,10 +8,10 @@ import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.CodeInsightAiReviewRepository;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
-import org.example.backend.repository.CodeInsightReviewRepository;
+import org.example.backend.repository.TaskReviewSnapshotRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.CodeInsightApprovalGateService;
-import org.example.backend.service.CodeInsightReviewSnapshotService;
+import org.example.backend.service.TaskReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,12 +27,12 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSnapshotService {
+public class TaskReviewSnapshotServiceImpl implements TaskReviewSnapshotService {
 
     private final UserAccountRepository userAccountRepository;
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
-    private final CodeInsightReviewRepository reviewRepository;
+    private final TaskReviewSnapshotRepository reviewRepository;
     private final CodeInsightScoringService scoringService;
     private final ObjectMapper objectMapper;
     private final CodeInsightApprovalGateService approvalGateService;
@@ -50,7 +50,7 @@ public class CodeInsightReviewSnapshotServiceImpl implements CodeInsightReviewSn
 
         CodeInsightApprovalGateResponse gate = approvalGateService.evaluate(task);
 
-        CodeInsightReview saved = reviewRepository.save(CodeInsightReview.builder()
+        TaskReviewSnapshot saved = reviewRepository.save(TaskReviewSnapshot.builder()
                 .task(task)
                 .reviewer(reviewer)
                 .ruleScore(score.getScore())

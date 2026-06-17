@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightManualEvidenceLinkResponse {
+public class ManualEvidenceLinkResponse {
     private Long id;
     private Long projectId;
     private Long taskId;

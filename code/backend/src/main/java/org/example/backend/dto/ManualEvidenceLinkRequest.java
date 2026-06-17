@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class CodeInsightManualEvidenceLinkRequest {
+public class ManualEvidenceLinkRequest {
     private String evidenceType;
     private Long evidenceId;
     private String reason;

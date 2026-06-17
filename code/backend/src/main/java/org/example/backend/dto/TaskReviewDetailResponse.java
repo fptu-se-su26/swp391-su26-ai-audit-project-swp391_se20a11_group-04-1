@@ -9,10 +9,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightReviewDetailResponse {
-    private CodeInsightTaskEvidenceResponse evidence;
+public class TaskReviewDetailResponse {
+    private TaskEvidenceResponse evidence;
     private CodeInsightApprovalGateResponse approvalGate;
-    private List<CodeInsightManualEvidenceLinkResponse> manualEvidenceLinks;
+    private List<ManualEvidenceLinkResponse> manualEvidenceLinks;
     private List<TaskReviewDecisionResponse> decisionHistory;
 
     private String gateResult;

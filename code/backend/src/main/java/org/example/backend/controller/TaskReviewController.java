@@ -6,16 +6,16 @@ import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
-import org.example.backend.dto.CodeInsightDashboardResponse;
-import org.example.backend.dto.CodeInsightEvidenceSearchResponse;
-import org.example.backend.dto.CodeInsightManualEvidenceLinkRequest;
-import org.example.backend.dto.CodeInsightManualEvidenceLinkResponse;
-import org.example.backend.dto.CodeInsightReviewDetailResponse;
-import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
+import org.example.backend.dto.TaskReviewDashboardResponse;
+import org.example.backend.dto.EvidenceSearchResponse;
+import org.example.backend.dto.ManualEvidenceLinkRequest;
+import org.example.backend.dto.ManualEvidenceLinkResponse;
+import org.example.backend.dto.TaskReviewDetailResponse;
+import org.example.backend.dto.TaskEvidenceResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.exception.CustomException;
-import org.example.backend.service.CodeInsightManualEvidenceLinkService;
-import org.example.backend.service.CodeInsightService;
+import org.example.backend.service.ManualEvidenceLinkService;
+import org.example.backend.service.TaskReviewService;
 import org.example.backend.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,11 +26,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/task-reviews")
 @RequiredArgsConstructor
-public class CodeInsightController {
+public class TaskReviewController {
 
     private final TaskService taskService;
-    private final CodeInsightService codeInsightService;
-    private final CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
+    private final TaskReviewService TaskReviewService;
+    private final ManualEvidenceLinkService manualEvidenceLinkService;
 
     // Read the current GitHub repository and Code Insight rule settings for this project.
     @GetMapping("/config")
@@ -40,7 +40,7 @@ public class CodeInsightController {
         // Pull userId from HTTP session because project authorization is session based in this app.
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.getConfig(projectId, userId),
+                TaskReviewService.getConfig(projectId, userId),
                 "Code Insight configuration retrieved"));
     }
 
@@ -53,7 +53,7 @@ public class CodeInsightController {
         // The request body is passed to the service so URL parsing and secret hashing stay out of the controller.
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.updateConfig(projectId, request, userId),
+                TaskReviewService.updateConfig(projectId, request, userId),
                 "Code Insight configuration updated"));
     }
 
@@ -71,47 +71,47 @@ public class CodeInsightController {
 
     // Read leader/mentor dashboard counts derived from current task and evidence state.
     @GetMapping("/dashboard")
-    public ResponseEntity<ApiResponse<CodeInsightDashboardResponse>> getDashboard(
+    public ResponseEntity<ApiResponse<TaskReviewDashboardResponse>> getDashboard(
             @PathVariable Long projectId,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.getDashboard(projectId, userId),
+                TaskReviewService.getDashboard(projectId, userId),
                 "Code Insight dashboard retrieved"));
     }
 
     // Load linked GitHub issue/PR/commit/CI evidence for one task.
     @GetMapping("/tasks/{taskId}/evidence")
-    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> getTaskEvidence(
+    public ResponseEntity<ApiResponse<TaskEvidenceResponse>> getTaskEvidence(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.getTaskEvidence(projectId, taskId, userId),
+                TaskReviewService.getTaskEvidence(projectId, taskId, userId),
                 "Code Insight task evidence retrieved"));
     }
 
     @GetMapping("/tasks/{taskId}/review-detail")
-    public ResponseEntity<ApiResponse<CodeInsightReviewDetailResponse>> getReviewDetail(
+    public ResponseEntity<ApiResponse<TaskReviewDetailResponse>> getReviewDetail(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.getReviewDetail(projectId, taskId, userId),
+                TaskReviewService.getReviewDetail(projectId, taskId, userId),
                 "Code Insight review detail retrieved"));
     }
 
     // Fetch changed files from GitHub on demand; this is a POST because it writes cache rows.
     @PostMapping("/tasks/{taskId}/evidence/fetch-files")
-    public ResponseEntity<ApiResponse<CodeInsightTaskEvidenceResponse>> fetchTaskChangedFiles(
+    public ResponseEntity<ApiResponse<TaskEvidenceResponse>> fetchTaskChangedFiles(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.fetchTaskChangedFiles(projectId, taskId, userId),
+                TaskReviewService.fetchTaskChangedFiles(projectId, taskId, userId),
                 "Code Insight changed files fetched"));
     }
 
@@ -123,12 +123,12 @@ public class CodeInsightController {
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
-                codeInsightService.createAiReview(projectId, taskId, userId),
+                TaskReviewService.createAiReview(projectId, taskId, userId),
                 "Code Insight AI review created"));
     }
 
     @GetMapping("/tasks/{taskId}/manual-links")
-    public ResponseEntity<ApiResponse<List<CodeInsightManualEvidenceLinkResponse>>> listManualLinks(
+    public ResponseEntity<ApiResponse<List<ManualEvidenceLinkResponse>>> listManualLinks(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             HttpSession session) {
@@ -139,10 +139,10 @@ public class CodeInsightController {
     }
 
     @PostMapping("/tasks/{taskId}/manual-links")
-    public ResponseEntity<ApiResponse<CodeInsightManualEvidenceLinkResponse>> suggestManualLink(
+    public ResponseEntity<ApiResponse<ManualEvidenceLinkResponse>> suggestManualLink(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
-            @RequestBody CodeInsightManualEvidenceLinkRequest request,
+            @RequestBody ManualEvidenceLinkRequest request,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
@@ -151,7 +151,7 @@ public class CodeInsightController {
     }
 
     @PostMapping("/tasks/{taskId}/manual-links/{linkId}/confirm")
-    public ResponseEntity<ApiResponse<CodeInsightManualEvidenceLinkResponse>> confirmManualLink(
+    public ResponseEntity<ApiResponse<ManualEvidenceLinkResponse>> confirmManualLink(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             @PathVariable Long linkId,
@@ -163,7 +163,7 @@ public class CodeInsightController {
     }
 
     @PostMapping("/tasks/{taskId}/manual-links/{linkId}/reject")
-    public ResponseEntity<ApiResponse<CodeInsightManualEvidenceLinkResponse>> rejectManualLink(
+    public ResponseEntity<ApiResponse<ManualEvidenceLinkResponse>> rejectManualLink(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
             @PathVariable Long linkId,
@@ -175,7 +175,7 @@ public class CodeInsightController {
     }
 
     @GetMapping("/evidence/search")
-    public ResponseEntity<ApiResponse<CodeInsightEvidenceSearchResponse>> searchEvidence(
+    public ResponseEntity<ApiResponse<EvidenceSearchResponse>> searchEvidence(
             @PathVariable Long projectId,
             @RequestParam String type,
             @RequestParam(required = false) String query,
