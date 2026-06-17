@@ -74,6 +74,9 @@ export function ProjectGithubConfig() {
           setWebhookSecretInput(config.webhookSecret || '')
           setWebhookStatus(config.webhookStatus || 'PENDING')
           setLastWebhookReceivedAt(config.lastWebhookReceivedAt || null)
+          if (config.configuredWebhookUrl) {
+            setWebhookUrlInput(config.configuredWebhookUrl)
+          }
           if (config.repoOwner && config.repoName) {
             setSearchRepo(`${config.repoOwner}/${config.repoName}`)
             setIsEditingConfig(false)
@@ -766,22 +769,23 @@ export function ProjectGithubConfig() {
               <div className="bg-surface-container-low p-4 rounded-lg border border-blue-500/30 text-blue-800 dark:text-blue-200 mb-6 flex gap-3">
                 <span className="material-symbols-outlined text-blue-500 shrink-0">info</span>
                 <p className="text-xs leading-relaxed">
-                  We'll send a POST request to the URL below with details of any subscribed events. You can also specify which data format you'd like to receive. 
-                  You can freely edit the Payload URL and Secret below (e.g., use an ngrok URL for local testing).
+                  We'll send a POST request to the URL below with details of any subscribed events. 
+                  The Webhook Payload URL is configured statically on the backend server for security.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="font-bold text-on-surface">Payload URL <span className="text-red-500">*</span></label>
+                <label className="font-bold text-on-surface">Payload URL</label>
                 <input
                   type="text"
                   required
+                  readOnly
+                  disabled
                   value={webhookUrlInput}
-                  onChange={(e) => setWebhookUrlInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant text-on-surface-variant font-mono text-xs outline-none focus:border-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/60 text-on-surface-variant/70 font-mono text-xs cursor-not-allowed outline-none"
                   placeholder="https://<your-ngrok-id>.ngrok-free.app/api/v1/github/webhook"
                 />
-                <p className="text-xs text-on-surface-variant mt-1">Hint: Use Ngrok on port 8080. Example: <code>https://abc.ngrok-free.app/api/v1/github/webhook</code></p>
+                <p className="text-xs text-on-surface-variant mt-1">This URL is configured via the backend server's <code>application.yaml</code> settings.</p>
               </div>
 
               <div className="space-y-2">

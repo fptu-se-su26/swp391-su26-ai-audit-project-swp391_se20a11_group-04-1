@@ -131,6 +131,9 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             String errorBody = e.getResponseBodyAsString();
             log.error("Failed to create GitHub repository. HTTP {}. Body: {}", e.getStatusCode(), errorBody);
+            if (errorBody != null && errorBody.contains("already exists")) {
+                throw new CustomException("GitHub repository name already exists on your account. Please choose a different name.", HttpStatus.BAD_REQUEST);
+            }
             throw new CustomException("Failed to create GitHub repository: " + errorBody, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             log.error("Failed to create GitHub repository", e);
