@@ -35,6 +35,11 @@ export const githubIntegrationService = {
     return response.data.data
   },
 
+  refreshWebhookConfig: async (projectId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/github-integration/webhook/refresh`)
+    return response.data.data
+  },
+
   getWebhookDeliveries: async (projectId) => {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/github-integration/deliveries`)
     return response.data.data

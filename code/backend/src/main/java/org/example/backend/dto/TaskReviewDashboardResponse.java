@@ -9,7 +9,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightDashboardResponse {
+public class TaskReviewDashboardResponse {
     private int pendingReviews;
     private int doneWithoutEvidence;
     private int tasksWithCiFailed;

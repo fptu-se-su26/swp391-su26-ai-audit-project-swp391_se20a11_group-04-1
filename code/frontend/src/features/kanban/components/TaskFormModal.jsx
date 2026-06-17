@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TASK_STATUSES, priorityOptions, typeOptions } from '../store/useKanbanStore'
+import { formatTaskType, normalizeTaskType } from '../utils/taskMapper'
 
 const emptyFormData = {
   title: '',
@@ -12,7 +13,7 @@ const emptyFormData = {
   deadline: '',
   weight: '1.0',
   estimatedHours: '',
-  type: 'DEV',
+  type: 'DEVELOPMENT',
   priority: 'MEDIUM',
   status: 'TODO',
   columnId: '',
@@ -51,7 +52,7 @@ const TaskFormModal = ({
         deadline: task.deadline || '',
         weight: task.weight ? String(task.weight) : '1.0',
         estimatedHours: task.estimatedHours ? String(task.estimatedHours) : '',
-        type: task.type || 'DEV',
+        type: normalizeTaskType(task.type),
         priority: task.priority || 'MEDIUM',
         status: task.status || 'TODO',
         columnId: task.columnId || columnOptions.find((column) => column.statusKey === task.status)?.id || '',
@@ -197,7 +198,7 @@ const TaskFormModal = ({
                 onChange={(event) => updateField('type', event.target.value)}
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                {typeOptions.map((type) => <option key={type} value={type}>{formatTaskType(type)}</option>)}
               </select>
             </div>
             <div className="space-y-1">

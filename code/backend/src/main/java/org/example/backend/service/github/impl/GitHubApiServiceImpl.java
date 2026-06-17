@@ -118,12 +118,17 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     }
 
     @Override
-    public Object createRepository(Long userId, String name, String description, boolean isPrivate) {
-        return oauthService.createRepository(userId, name, description, isPrivate);
+    public Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate) {
+        return oauthService.createRepository(userId, name, description, isPrivate, autoInit, gitignoreTemplate, licenseTemplate);
     }
 
     @Override
     public void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, List<String> events, String webhookSecret) {
         webhookDeliveryService.autoConfigureWebhook(projectId, userId, webhookUrl, events, webhookSecret);
+    }
+
+    @Override
+    public Map<String, Object> refreshWebhookConfig(Long projectId, Long userId) {
+        return webhookDeliveryService.refreshWebhookConfig(projectId, userId);
     }
 }

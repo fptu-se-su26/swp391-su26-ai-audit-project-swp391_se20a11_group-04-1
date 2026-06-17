@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
+import axiosInstance from '@/api/axiosConfig'
 
 /**
  * DashboardPage - Trang tổng quan không gian làm việc dự án DevTrackAI
@@ -11,6 +12,7 @@ import useProjectStore from '@store/useProjectStore'
  */
 export function DashboardPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Trạng thái modal và form tạo dự án mới
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -21,6 +23,30 @@ export function DashboardPage() {
     deadline: '',
     description: ''
   })
+
+  // Trạng thái cấu hình GitHub
+  const [hasToken, setHasToken] = useState(false)
+  const [userRepos, setUserRepos] = useState([])
+  const [loadingRepos, setLoadingRepos] = useState(false)
+  const [githubStatusLoading, setGithubStatusLoading] = useState(false)
+  
+  // Repo được chọn
+  const [selectedRepo, setSelectedRepo] = useState(null) // { owner, name }
+  const [searchRepo, setSearchRepo] = useState('')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+
+  // Cấu hình khi tạo repo mới
+  const [enableGithub, setEnableGithub] = useState(false)
+  const [isNewRepo, setIsNewRepo] = useState(false)
+  const [newRepoData, setNewRepoData] = useState({
+    name: '',
+    description: '',
+    isPrivate: false,
+    autoInit: true,
+    gitignoreTemplate: 'None',
+    licenseTemplate: 'None'
+  })
+  const [creatingRepo, setCreatingRepo] = useState(false)
 
   // Đọc dữ liệu và hàm từ Zustand store
   const {
@@ -48,14 +74,120 @@ export function DashboardPage() {
     navigate(`/projects/${project.id}/dashboard`)
   }
 
-  // Fetch chỉ khi chưa có dữ liệu (giữ state khi user vào project detail và back)
+  // Lấy trạng thái OAuth và Repo
+  const checkGithubStatus = async () => {
+    setGithubStatusLoading(true)
+    try {
+      const res = await axiosInstance.get('/v1/github/status')
+      const tokenExists = res.data?.data?.hasToken || false
+      setHasToken(tokenExists)
+      if (tokenExists) {
+        fetchUserRepos()
+      }
+    } catch (err) {
+      console.error('Failed to check GitHub OAuth status:', err)
+    } finally {
+      setGithubStatusLoading(false)
+    }
+  }
+
+  const fetchUserRepos = async () => {
+    setLoadingRepos(true)
+    try {
+      const res = await axiosInstance.get('/v1/github/repos')
+      setUserRepos(res.data?.data || [])
+    } catch (err) {
+      console.error('Failed to fetch repositories:', err)
+    } finally {
+      setLoadingRepos(false)
+    }
+  }
+
+  // Kết nối OAuth GitHub
+  const handleConnectGitHub = async () => {
+    try {
+      const stateToSave = {
+        formData,
+        selectedRepo,
+        enableGithub,
+        isNewRepo,
+        newRepoData
+      }
+      sessionStorage.setItem('pendingProjectForm', JSON.stringify(stateToSave))
+      
+      const res = await axiosInstance.get('/v1/github/auth-url')
+      const state = btoa(JSON.stringify({ isCreateProjectFlow: true }))
+      window.location.href = res.data.data + "&state=" + state
+    } catch (err) {
+      console.error("OAuth Init Error:", err)
+      toast.error('Kết nối GitHub thất bại: ' + (err.response?.data?.message || err.message))
+    }
+  }
+
+  // Tạo Repo mới trên GitHub
+  const handleCreateGithubRepo = async () => {
+    if (!newRepoData.name.trim()) {
+      toast.error('Tên kho lưu trữ GitHub không được để trống!')
+      return null
+    }
+    setCreatingRepo(true)
+    try {
+      const res = await axiosInstance.post('/v1/github/repos', {
+        name: newRepoData.name.trim(),
+        description: newRepoData.description.trim(),
+        isPrivate: newRepoData.isPrivate,
+        autoInit: newRepoData.autoInit,
+        gitignoreTemplate: newRepoData.gitignoreTemplate,
+        licenseTemplate: newRepoData.licenseTemplate
+      })
+      return res.data?.data // trả về repo object
+    } catch (err) {
+      console.error('Failed to create GitHub repository:', err)
+      toast.error('Tạo kho lưu trữ trên GitHub thất bại: ' + (err.response?.data?.message || err.message))
+      return null
+    } finally {
+      setCreatingRepo(false)
+    }
+  }
+
+  // Fetch khi chưa có dữ liệu
   useEffect(() => {
     if (projects.length === 0) {
       fetchProjects()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const location = useLocation()
+  // Khôi phục trạng thái form sau khi OAuth redirect
+  useEffect(() => {
+    const savedForm = sessionStorage.getItem('pendingProjectForm')
+    const hasOAuthState = location.state?.openCreateProject
+    
+    if (savedForm) {
+      try {
+        const parsed = JSON.parse(savedForm)
+        if (parsed.formData) setFormData(parsed.formData)
+        if (parsed.selectedRepo) {
+          setSelectedRepo(parsed.selectedRepo)
+          setSearchRepo(`${parsed.selectedRepo.owner}/${parsed.selectedRepo.name}`)
+        }
+        if (parsed.enableGithub !== undefined) setEnableGithub(parsed.enableGithub)
+        if (parsed.isNewRepo !== undefined) setIsNewRepo(parsed.isNewRepo)
+        if (parsed.newRepoData) setNewRepoData(parsed.newRepoData)
+        
+        setIsModalOpen(true)
+        checkGithubStatus()
+      } catch (e) {
+        console.error("Failed to restore form state", e)
+      } finally {
+        sessionStorage.removeItem('pendingProjectForm')
+      }
+    } else if (hasOAuthState) {
+      setIsModalOpen(true)
+      checkGithubStatus()
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
+
   const isGlobalDashboard = location.pathname === '/dashboard'
 
   useEffect(() => {
@@ -67,6 +199,7 @@ export function DashboardPage() {
   // Xử lý mở modal tạo dự án mới
   const handleCreateProject = () => {
     setIsModalOpen(true)
+    checkGithubStatus()
   }
 
   // Xử lý gửi form tạo dự án mới
@@ -92,7 +225,47 @@ export function DashboardPage() {
       return
     }
 
-    const success = await createProject(formData)
+    // Kiểm tra cấu hình GitHub cho dự án code
+    const isCodeProj = ['WEB_APP', 'MOBILE', 'DATABASE'].includes(formData.type)
+    const shouldLinkGithub = isCodeProj || enableGithub
+
+    let repoOwner = null
+    let repoName = null
+
+    if (shouldLinkGithub) {
+      if (!hasToken) {
+        toast.error('Vui lòng kết nối tài khoản GitHub để tiếp tục!')
+        return
+      }
+
+      if (isNewRepo) {
+        // Tạo repo mới trực tiếp trên GitHub
+        const createdRepo = await handleCreateGithubRepo()
+        if (!createdRepo) return // Dừng nếu tạo repo thất bại
+        
+        // Tên repo đầy đủ: "owner/name"
+        const fullName = createdRepo.full_name || ''
+        const parts = fullName.split('/')
+        repoOwner = parts[0]
+        repoName = parts[1]
+      } else {
+        // Lấy repo đã chọn sẵn
+        if (!selectedRepo) {
+          toast.error('Vui lòng chọn một kho lưu trữ GitHub!')
+          return
+        }
+        repoOwner = selectedRepo.owner
+        repoName = selectedRepo.name
+      }
+    }
+
+    const payload = {
+      ...formData,
+      repoOwner,
+      repoName
+    }
+
+    const success = await createProject(payload)
     if (success) {
       toast.success('Tạo dự án mới thành công!')
       setIsModalOpen(false)
@@ -102,6 +275,18 @@ export function DashboardPage() {
         type: 'WEB_APP',
         deadline: '',
         description: ''
+      })
+      setSelectedRepo(null)
+      setSearchRepo('')
+      setEnableGithub(false)
+      setIsNewRepo(false)
+      setNewRepoData({
+        name: '',
+        description: '',
+        isPrivate: false,
+        autoInit: true,
+        gitignoreTemplate: 'None',
+        licenseTemplate: 'None'
       })
     } else {
       toast.error(error || 'Tạo dự án thất bại, vui lòng thử lại!')
@@ -590,6 +775,228 @@ export function DashboardPage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
                   ></textarea>
+                </div>
+
+                {/* GitHub Integration */}
+                <div className="pt-4 border-t border-outline-variant/40 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-[20px]">webhook</span>
+                      GitHub Repository Integration
+                    </h4>
+                    {!['WEB_APP', 'MOBILE', 'DATABASE'].includes(formData.type) && (
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={enableGithub}
+                          onChange={(e) => setEnableGithub(e.target.checked)}
+                          className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                        />
+                        <span className="text-xs font-semibold text-on-surface-variant">Enable GitHub</span>
+                      </label>
+                    )}
+                  </div>
+
+                  {(['WEB_APP', 'MOBILE', 'DATABASE'].includes(formData.type) || enableGithub) && (
+                    <div className="p-4 bg-surface-container-low rounded-xl border border-outline-variant/60 space-y-4">
+                      {githubStatusLoading ? (
+                        <div className="text-center py-4 text-xs text-on-surface-variant italic">
+                          Checking GitHub Connection...
+                        </div>
+                      ) : !hasToken ? (
+                        <div className="text-center py-3 space-y-3">
+                          <p className="text-xs text-on-surface-variant">
+                            Bạn cần liên kết tài khoản GitHub của mình trước khi kết nối repository.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleConnectGitHub}
+                            className="px-4 py-2 bg-secondary text-on-secondary text-xs font-bold rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5 mx-auto"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">link</span>
+                            Connect to GitHub
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Tabs: Select Existing vs Create New */}
+                          <div className="flex bg-surface-container-high p-1 rounded-xl">
+                            <button
+                              type="button"
+                              onClick={() => setIsNewRepo(false)}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                !isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                              }`}
+                            >
+                              Choose Repository
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsNewRepo(true)}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                              }`}
+                            >
+                              Create New Repo
+                            </button>
+                          </div>
+
+                          {!isNewRepo ? (
+                            /* Select Existing */
+                            <div className="space-y-2 relative">
+                              <label className="block text-[11px] font-bold text-outline uppercase tracking-wider">
+                                Select Repository
+                              </label>
+                              <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                  <input
+                                    type="text"
+                                    placeholder="Search your repos..."
+                                    value={searchRepo}
+                                    onChange={(e) => {
+                                      setSearchRepo(e.target.value)
+                                      setIsDropdownOpen(true)
+                                    }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                    className="w-full bg-surface-container-lowest border border-outline rounded-xl px-3 py-2 text-sm text-on-surface"
+                                  />
+                                  {isDropdownOpen && (
+                                    <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-surface-container-lowest border border-outline rounded-xl shadow-lg z-30 divide-y divide-outline-variant">
+                                      {loadingRepos ? (
+                                        <div className="p-3 text-xs text-on-surface-variant italic">Loading repos...</div>
+                                      ) : userRepos.filter(r => r.full_name?.toLowerCase().includes(searchRepo.toLowerCase())).length > 0 ? (
+                                        userRepos
+                                          .filter(r => r.full_name?.toLowerCase().includes(searchRepo.toLowerCase()))
+                                          .map(r => (
+                                            <button
+                                              key={r.id}
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedRepo({ owner: r.owner.login, name: r.name })
+                                                setSearchRepo(r.full_name)
+                                                setIsDropdownOpen(false)
+                                              }}
+                                              className="w-full text-left p-2.5 hover:bg-surface-container-low text-xs text-on-surface truncate font-medium block"
+                                            >
+                                              {r.full_name}
+                                            </button>
+                                          ))
+                                      ) : (
+                                        <div className="p-3 text-xs text-on-surface-variant italic">No repos found</div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {searchRepo && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRepo(null)
+                                      setSearchRepo('')
+                                    }}
+                                    className="px-2.5 bg-surface border border-outline rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            /* Create New Repo */
+                            <div className="space-y-3 text-left">
+                              {/* Repo Name */}
+                              <div className="space-y-1">
+                                <label className="block text-[11px] font-bold text-outline uppercase tracking-wider">
+                                  Repo Name
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="my-awesome-repo"
+                                  value={newRepoData.name}
+                                  onChange={(e) => setNewRepoData({ ...newRepoData, name: e.target.value })}
+                                  className="w-full bg-surface-container-lowest border border-outline rounded-xl px-3 py-2 text-sm text-on-surface"
+                                />
+                              </div>
+
+                              {/* Repo Description */}
+                              <div className="space-y-1">
+                                <label className="block text-[11px] font-bold text-outline uppercase tracking-wider">
+                                  Repo Description (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Short summary of repository..."
+                                  value={newRepoData.description}
+                                  onChange={(e) => setNewRepoData({ ...newRepoData, description: e.target.value })}
+                                  className="w-full bg-surface-container-lowest border border-outline rounded-xl px-3 py-2 text-sm text-on-surface"
+                                />
+                              </div>
+
+                              {/* Private checkbox & README checkbox */}
+                              <div className="flex gap-4 pt-1">
+                                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-on-surface-variant">
+                                  <input
+                                    type="checkbox"
+                                    checked={newRepoData.isPrivate}
+                                    onChange={(e) => setNewRepoData({ ...newRepoData, isPrivate: e.target.checked })}
+                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                                  />
+                                  <span>Private Repository</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-on-surface-variant">
+                                  <input
+                                    type="checkbox"
+                                    checked={newRepoData.autoInit}
+                                    onChange={(e) => setNewRepoData({ ...newRepoData, autoInit: e.target.checked })}
+                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                                  />
+                                  <span>Add README.md</span>
+                                </label>
+                              </div>
+
+                              {/* Gitignore & License grid */}
+                              <div className="grid grid-cols-2 gap-3 pt-1">
+                                <div className="space-y-1">
+                                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">
+                                    Add .gitignore
+                                  </label>
+                                  <select
+                                    value={newRepoData.gitignoreTemplate}
+                                    onChange={(e) => setNewRepoData({ ...newRepoData, gitignoreTemplate: e.target.value })}
+                                    className="w-full bg-surface-container-lowest border border-outline rounded-xl px-2 py-1.5 text-xs text-on-surface focus:outline-none"
+                                  >
+                                    {['None', 'Node', 'Java', 'Maven', 'Python', 'Go', 'Rust', 'C++'].map(t => (
+                                      <option key={t} value={t}>{t === 'None' ? 'None (.gitignore)' : t}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">
+                                    Add License
+                                  </label>
+                                  <select
+                                    value={newRepoData.licenseTemplate}
+                                    onChange={(e) => setNewRepoData({ ...newRepoData, licenseTemplate: e.target.value })}
+                                    className="w-full bg-surface-container-lowest border border-outline rounded-xl px-2 py-1.5 text-xs text-on-surface focus:outline-none"
+                                  >
+                                    {[
+                                      { value: 'None', label: 'None (License)' },
+                                      { value: 'mit', label: 'MIT License' },
+                                      { value: 'apache-2.0', label: 'Apache 2.0' },
+                                      { value: 'gpl-3.0', label: 'GPLv3' },
+                                      { value: 'unlicense', label: 'Unlicense' }
+                                    ].map(l => (
+                                      <option key={l.value} value={l.value}>{l.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer Modal Buttons */}
