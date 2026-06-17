@@ -17,11 +17,22 @@ const notificationMeta = (notification) => {
   if (notification.entityType === 'TASK') {
     return { icon: 'task_alt', className: 'bg-emerald-500/10 text-emerald-700' }
   }
+  if (notification.entityType === 'MENTOR_VERIFICATION') {
+    const isError = /từ chối|hết hạn|cancel/i.test(`${notification.title} ${notification.message}`)
+    return isError 
+      ? { icon: 'gpp_bad', className: 'bg-red-500/10 text-red-700' }
+      : { icon: 'verified_user', className: 'bg-emerald-500/10 text-emerald-700' }
+  }
   return { icon: 'info', className: 'bg-secondary/10 text-secondary' }
 }
 
 const notificationPath = (notification, fallbackProjectId) => {
   const projectId = notification.projectId || fallbackProjectId
+
+  if (notification.entityType === 'MENTOR_VERIFICATION') {
+    return '/verification'
+  }
+
   if (!projectId) return null
 
   if (notification.entityType === 'WEEKLY_REPORT') {

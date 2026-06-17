@@ -35,6 +35,16 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String storeFile(MultipartFile file) throws IOException {
+        return uploadToCloudinary(file, "upload");
+    }
+
+    @Override
+    public String storePrivateFile(MultipartFile file) throws IOException {
+        // Return the publicId so we can generate signed URLs later
+        return uploadToCloudinary(file, "private");
+    }
+
+    private String uploadToCloudinary(MultipartFile file, String type) throws IOException {
         if (file == null || file.isEmpty()) {
             return null;
         }
@@ -46,21 +56,33 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             return "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150";
         }
         
-        // Tạo UUID prefix để tránh trùng tên file, strip path separators khỏi tên file
         String originalFilename = file.getOriginalFilename();
         String sanitizedFilename = originalFilename != null
                 ? originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_")
                 : "upload";
-        String publicId = UUID.randomUUID().toString() + "_" + sanitizedFilename;
+                
+        String ext = "";
+        String baseName = sanitizedFilename;
+        if (sanitizedFilename.contains(".")) {
+            int dotIdx = sanitizedFilename.lastIndexOf('.');
+            ext = sanitizedFilename.substring(dotIdx);
+            baseName = sanitizedFilename.substring(0, dotIdx);
+        }
+        
+        String publicIdWithoutExt = UUID.randomUUID().toString() + "_" + baseName;
+        String publicIdWithExt = publicIdWithoutExt + ext;
 
         try {
-            // Upload lên thư mục "evidence" trên Cloudinary
             Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                    "public_id", publicId,
-                    "folder", "evidence"
+                    "public_id", publicIdWithoutExt,
+                    "folder", "evidence",
+                    "type", type
             ));
 
-            // Trả về URL bảo mật (HTTPS) của ảnh
+            if ("private".equals(type)) {
+                // For private files, store the full public_id in DB
+                return "evidence/" + publicIdWithExt;
+            }
             return uploadResult.get("secure_url").toString();
         } catch (Exception e) {
             log.error("Failed to upload file to Cloudinary: {}", e.getMessage(), e);
@@ -69,12 +91,54 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
     }
 
     @Override
+    public String getPrivateFileUrl(String publicId) {
+        if (publicId == null || publicId.isEmpty()) return null;
+        if (publicId.startsWith("http")) return publicId;
+        // Generate a signed URL for the private resource
+        return cloudinary.url()
+                .resourceType("image")
+                .type("private")
+                .signed(true)
+                .generate(publicId);
+    }
+
+    @Override
+    public java.io.InputStream downloadPrivateFileStream(String publicId) throws IOException {
+        if (publicId != null && publicId.startsWith("http")) {
+            return new java.net.URL(publicId).openStream();
+        }
+        try {
+            String signedUrl = getPrivateFileUrl(publicId);
+            if (signedUrl != null) {
+                return new java.net.URL(signedUrl).openStream();
+            }
+        } catch (IOException e) {
+            System.out.println("⚠️ Failed to download as private, trying public URL... " + e.getMessage());
+            // Fallback for old images that might have been uploaded as 'upload' (public) instead of 'private'
+            String publicUrl = cloudinary.url().generate(publicId);
+            try {
+                return new java.net.URL(publicUrl).openStream();
+            } catch (Exception ex) {
+                System.out.println("❌ Fallback also failed: " + ex.getMessage());
+                throw ex; // Re-throw if both fail
+            }
+        }
+        return null;
+    }
+
+    @Override
     public void deleteFile(String fileUrl) {
         if (fileUrl == null || fileUrl.isEmpty()) {
             return;
         }
         try {
-            // Lấy public_id từ Cloudinary URL: .../upload/v{version}/{folder}/{public_id}.{format}
+            if (!fileUrl.startsWith("http")) {
+                // Nếu fileUrl không bắt đầu bằng http, đây chính là public_id của file private được lưu trong DB
+                cloudinary.uploader().destroy(fileUrl, ObjectUtils.asMap("type", "private", "invalidate", true));
+                return;
+            }
+            
+            // Lấy public_id từ Cloudinary URL cho file public
             int uploadIdx = fileUrl.indexOf("/upload/");
             if (uploadIdx == -1) return;
             String pathAfterUpload = fileUrl.substring(uploadIdx + "/upload/".length());

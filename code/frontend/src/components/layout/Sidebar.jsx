@@ -40,6 +40,7 @@ const Sidebar = () => {
   const location = useLocation()
   const logout = useAuthStore((state) => state.logout)
   const userRole = useAuthStore((state) => state.userRole)
+  const verifyStatus = useAuthStore((state) => state.verifyStatus) || 'UNVERIFIED'
   const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
   const email = useAuthStore((state) => state.email) || 'guest@example.com'
 
@@ -60,12 +61,21 @@ const Sidebar = () => {
     { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
   ]
 
+  // Tất cả mọi người đều thấy mục Classrooms (học sinh thấy lớp đã tham gia, mentor tạo lớp)
+  portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
+  
+  // Luôn hiển thị mục Verify cho người dùng bình thường để họ có thể xem lại tài liệu đã nộp
+  if (userRole !== 'ADMIN') {
+    portfolioMenuItems.push({ id: 'verify', label: 'Verify Account', icon: 'verified_user', path: '/verify' })
+  }
+
   // Xử lý click menu cấp Portfolio
   const handlePortfolioMenuClick = (item) => {
     if (item.path === '#') {
       toast.success(`Chức năng "${item.label}" đang được phát triển!`)
       return
     }
+    
     clearActiveProject()
     navigate(item.path)
   }
@@ -122,7 +132,7 @@ const Sidebar = () => {
         {!activeProject ? (
           // A. Hiển thị Menu Portfolio
           portfolioMenuItems.map((item) => {
-            const isActive = item.id === 'projects' && location.pathname === '/dashboard'
+            const isActive = (item.id === 'projects' && location.pathname === '/dashboard') || (item.path !== '#' && location.pathname === item.path)
             return (
               <button
                 key={item.id}

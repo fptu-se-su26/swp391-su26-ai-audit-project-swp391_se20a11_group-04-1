@@ -52,6 +52,7 @@ public class ProjectResponse {
         private LocalDate deadline;
         
         private String major; // Sẽ được maps vào subject của AcademicContext
+        private Long classroomId; // Optional: ID của lớp học nếu sinh viên tạo nhóm trong lớp
         private String repoOwner;
         private String repoName;
         private String webhookUrl;

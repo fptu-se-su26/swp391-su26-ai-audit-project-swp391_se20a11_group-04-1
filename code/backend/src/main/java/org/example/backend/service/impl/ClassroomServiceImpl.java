@@ -1,0 +1,275 @@
+package org.example.backend.service.impl;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.example.backend.dto.ClassroomResponse;
+import org.example.backend.dto.CreateClassroomRequest;
+import org.example.backend.dto.PaginatedResponse;
+import org.example.backend.entity.AcademicContext;
+import org.example.backend.entity.AcademicSeason;
+import org.example.backend.entity.UserAccount;
+import org.example.backend.exception.BadRequestException;
+import org.example.backend.exception.ResourceNotFoundException;
+import org.example.backend.repository.AcademicContextRepository;
+import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.service.ClassroomService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.concurrent.TimeUnit;
+import org.springframework.data.redis.core.StringRedisTemplate;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ClassroomServiceImpl implements ClassroomService {
+
+    private final AcademicContextRepository academicContextRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final org.example.backend.repository.ProjectRepository projectRepository;
+    private final org.example.backend.util.ClassroomTokenUtil classroomTokenUtil;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final TransactionTemplate transactionTemplate;
+
+    @Value("${app.redis.lock.classroom-join-prefix:lock:classroom_join:}")
+    private String classroomJoinLockPrefix;
+
+    @Override
+    @Transactional
+    public ClassroomResponse createClassroom(CreateClassroomRequest request, Long userId) {
+        UserAccount owner = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+
+        if (owner.getVerifyStatus() != org.example.backend.entity.VerifyStatus.VERIFIED && !"ADMIN".equals(owner.getSystemRole().getName())) {
+            throw new BadRequestException("Chỉ những tài khoản đã được xác thực (Verified) mới có thể tạo Lớp học.");
+        }
+
+        AcademicSeason semester;
+        try {
+            semester = AcademicSeason.valueOf(request.getSemester().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Học kỳ không hợp lệ.");
+        }
+
+        int maxMembers = request.getMaxMembers();
+        if (maxMembers > 50 || maxMembers < 5) {
+            throw new BadRequestException("Số lượng thành viên tối đa phải từ 5 đến 50.");
+        }
+
+        AcademicContext classroom = AcademicContext.builder()
+                .subject(request.getSubject().trim())
+                .semester(semester)
+                .academicYear(request.getAcademicYear() != null ? request.getAcademicYear() : "")
+                .owner(owner)
+                .maxMembers(maxMembers)
+                .startDate(LocalDate.now())
+                .build();
+
+        AcademicContext savedClassroom = academicContextRepository.save(classroom);
+
+        return mapToResponse(savedClassroom);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaginatedResponse<ClassroomResponse> getMyClassrooms(Long userId, int page, int size, String semesterFilter, String search) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+
+        AcademicSeason seasonFilter = null;
+        if (semesterFilter != null && !semesterFilter.isEmpty() && !semesterFilter.equalsIgnoreCase("all")) {
+            try {
+                // Front-end sends SP26, SU26, FA25 etc. 
+                // We map them to the corresponding ENUM if possible, or frontend should send SPRING/SUMMER
+                // For simplicity, let's assume frontend sends SPRING, SUMMER, FALL, PERSONAL
+                seasonFilter = AcademicSeason.valueOf(semesterFilter.toUpperCase());
+            } catch (Exception e) {
+                // Ignore invalid semester filter
+            }
+        }
+
+        Page<AcademicContext> classroomPage;
+        if (seasonFilter != null || (search != null && !search.isEmpty())) {
+            String searchQ = search == null ? "" : search;
+            classroomPage = academicContextRepository.findByUserIdWithFilters(userId, seasonFilter, searchQ, pageable);
+        } else {
+            classroomPage = academicContextRepository.findByUserId(userId, pageable);
+        }
+
+        List<ClassroomResponse> content = classroomPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PaginatedResponse.<ClassroomResponse>builder()
+                .items(content)
+                .currentPage(classroomPage.getNumber())
+                .pageSize(classroomPage.getSize())
+                .totalItems(classroomPage.getTotalElements())
+                .totalPages(classroomPage.getTotalPages())
+                .hasMore(!classroomPage.isLast())
+                .build();
+    }
+
+    @Override
+    public String generateInviteLink(Long classroomId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+        if (!ac.getOwner().getId().equals(userId)) {
+            throw new org.example.backend.exception.CustomException("Chỉ người tạo lớp học mới có quyền tạo link mời.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        return classroomTokenUtil.generateToken(classroomId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomResponse getClassroomFromToken(String token) {
+        Long classroomId = classroomTokenUtil.decodeToken(token);
+        if (classroomId == null) {
+            throw new BadRequestException("Link mời không hợp lệ hoặc đã hết hạn.");
+        }
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+        return mapToResponse(ac);
+    }
+
+    @Override
+    public void joinClassroom(String token, Long userId) {
+        Long classroomId = classroomTokenUtil.decodeToken(token);
+        if (classroomId == null) {
+            throw new BadRequestException("Link mời không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // 1. Xin khóa (Lock) từ Redis với TTL = 1 giây
+        String lockKey = classroomJoinLockPrefix + classroomId;
+        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "locked", 1, TimeUnit.SECONDS);
+
+        if (Boolean.FALSE.equals(acquired)) {
+            // Nếu không lấy được khóa -> Báo bận thay vì bắt đợi
+            throw new BadRequestException("Hệ thống đang có nhiều người tham gia cùng lúc, vui lòng thử lại sau 1 giây!");
+        }
+
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                AcademicContext ac = academicContextRepository.findById(classroomId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+                        
+                UserAccount user = userAccountRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+                        
+                // Check if already enrolled
+                boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+                if (!isEnrolled && !ac.getOwner().getId().equals(userId)) {
+                    // 2. Kiểm tra giới hạn thành viên (quan trọng)
+                    if (ac.getEnrolledStudents().size() >= ac.getMaxMembers()) {
+                        throw new BadRequestException("Lớp học đã đủ số lượng thành viên (" + ac.getMaxMembers() + ").");
+                    }
+                    
+                    ac.getEnrolledStudents().add(user);
+                    academicContextRepository.save(ac);
+                }
+            });
+        } finally {
+            // 3. Trả lại khóa khi xong việc
+            stringRedisTemplate.delete(lockKey);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomResponse getClassroomById(Long classroomId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+                
+        boolean isOwner = ac.getOwner().getId().equals(userId);
+        boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+        
+        if (!isOwner && !isEnrolled) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền xem lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        
+        ClassroomResponse response = mapToResponse(ac);
+        
+        // Fetch projects
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+        response.setProjectCount(projects.size());
+        
+        // Map projects
+        List<ClassroomResponse.ProjectSummaryDto> projectDtos = projects.stream().map(p -> {
+            ClassroomResponse.ProjectSummaryDto dto = new ClassroomResponse.ProjectSummaryDto();
+            dto.setId(p.getId());
+            dto.setName(p.getName());
+            dto.setDescription(p.getDescription());
+            dto.setStatus(p.getStatus().name());
+            dto.setCompletion(p.getProgress());
+            dto.setUpdatedAt(p.getUpdatedAt().toString()); // Simplify for now
+            
+            // Map members
+            List<ClassroomResponse.ProjectMemberDto> members = p.getMembers().stream().map(pm -> {
+                ClassroomResponse.ProjectMemberDto mDto = new ClassroomResponse.ProjectMemberDto();
+                mDto.setId(pm.getUser().getId());
+                mDto.setFullName(pm.getUser().getProfile() != null ? pm.getUser().getProfile().getFullName() : pm.getUser().getUsername());
+                return mDto;
+            }).collect(Collectors.toList());
+            dto.setMembers(members);
+            
+            return dto;
+        }).collect(Collectors.toList());
+        
+        response.setProjects(projectDtos);
+
+        // Map class members
+        List<ClassroomResponse.ClassroomMemberDto> memberDtos = ac.getEnrolledStudents().stream().map(u -> {
+            ClassroomResponse.ClassroomMemberDto mDto = new ClassroomResponse.ClassroomMemberDto();
+            mDto.setId(u.getId());
+            mDto.setFullName(u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername());
+            mDto.setEmail(u.getEmail());
+            return mDto;
+        }).collect(Collectors.toList());
+        response.setMembers(memberDtos);
+        
+        // Calculate stats
+        ClassroomResponse.ClassroomStatsDto stats = new ClassroomResponse.ClassroomStatsDto();
+        stats.setTeams(projects.size());
+        stats.setStudents(ac.getEnrolledStudents().size());
+        
+        long onTrack = projects.stream().filter(p -> org.example.backend.entity.ProjectStatus.ACTIVE.equals(p.getStatus())).count();
+        stats.setOnTrack((int)onTrack);
+        if (projects.size() > 0) {
+            stats.setOnTrackPercent((int) ((onTrack * 100) / projects.size()));
+            double avgProgress = projects.stream().mapToInt(org.example.backend.entity.Project::getProgress).average().orElse(0);
+            stats.setAvgProgress((int)avgProgress);
+        }
+        
+        response.setStats(stats);
+        
+        return response;
+    }
+
+    private ClassroomResponse mapToResponse(AcademicContext ac) {
+        return ClassroomResponse.builder()
+                .id(ac.getId())
+                .subject(ac.getSubject())
+                .semester(ac.getSemester().name())
+                .academicYear(ac.getAcademicYear())
+                .status(ac.getStatus().name())
+                .maxMembers(ac.getMaxMembers())
+                .startDate(ac.getStartDate())
+                .endDate(ac.getEndDate())
+                .memberCount(ac.getEnrolledStudents().size()) // Count actual members
+                .projectCount(0) // Logic to count projects if needed later
+                .owner(ClassroomResponse.OwnerDto.builder()
+                        .id(ac.getOwner().getId())
+                        .fullName(ac.getOwner().getProfile() != null ? ac.getOwner().getProfile().getFullName() : ac.getOwner().getUsername())
+                        .email(ac.getOwner().getEmail())
+                        .build())
+                .build();
+    }
+}
