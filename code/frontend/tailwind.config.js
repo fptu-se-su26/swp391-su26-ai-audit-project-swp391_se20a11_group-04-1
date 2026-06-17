@@ -60,7 +60,9 @@ export default {
         "DEFAULT": "0.125rem",
         "lg": "0.25rem",
         "xl": "0.5rem",
-        "full": "0.75rem"
+        "full": "0.75rem",
+        "bezel-outer": "2rem",
+        "bezel-inner": "calc(2rem - 0.375rem)"
       },
       spacing: {
         "gutter": "24px",
@@ -73,13 +75,13 @@ export default {
         "topbar_height": "64px"
       },
       fontFamily: {
-        "body-lg": ["Inter", "sans-serif"],
+        "body-lg": ["Outfit", "sans-serif"],
         "label-md": ["JetBrains Mono", "monospace"],
-        "headline-md": ["Inter", "sans-serif"],
-        "body-md": ["Inter", "sans-serif"],
-        "headline-lg-mobile": ["Inter", "sans-serif"],
-        "display-lg": ["Inter", "sans-serif"],
-        "headline-sm": ["Inter", "sans-serif"]
+        "headline-md": ["Outfit", "sans-serif"],
+        "body-md": ["Outfit", "sans-serif"],
+        "headline-lg-mobile": ["Outfit", "sans-serif"],
+        "display-lg": ["Outfit", "sans-serif"],
+        "headline-sm": ["Outfit", "sans-serif"]
       },
       fontSize: {
         "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
@@ -113,6 +115,9 @@ export default {
         fadeIn: 'fadeIn 0.2s ease-out',
         slideUp: 'slideUp 0.3s ease-out',
         slideDown: 'slideDown 0.3s ease-out',
+      },
+      transitionTimingFunction: {
+        "spring": "cubic-bezier(0.32,0.72,0,1)"
       }
     },
   },

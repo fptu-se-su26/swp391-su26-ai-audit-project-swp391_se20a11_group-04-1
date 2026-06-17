@@ -14,6 +14,24 @@ app.use(express.json({ limit: '5mb' }));
 // Store kết quả tạm trong memory (đủ cho MVP)
 const runResults = new Map();
 
+// Thêm file-based cache
+const resultsDir = path.join(process.cwd(), 'test-results');
+fs.mkdirSync(resultsDir, { recursive: true });
+
+// Chạy mỗi giờ, xóa file cũ hơn 2 giờ
+setInterval(() => {
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    if (!fs.existsSync(resultsDir)) return;
+    fs.readdirSync(resultsDir)
+        .filter(f => f.endsWith('.json'))
+        .forEach(f => {
+            const filePath = path.join(resultsDir, f);
+            try {
+                if (fs.statSync(filePath).mtimeMs < cutoff) fs.unlinkSync(filePath);
+            } catch (_) {}
+        });
+}, 60 * 60 * 1000);
+
 // Queue đơn giản tránh quá tải
 let runningCount = 0;
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_RUNS) || 3;
@@ -30,10 +48,10 @@ app.post('/run', async (req, res) => {
     }
 
     const { testCase } = req.body;
-    console.log("Received testCase payload:", JSON.stringify(testCase, null, 2));
     if (!testCase) return res.status(400).json({ error: 'Thiếu testCase trong body' });
+    console.log("Received testCase:", { title: testCase.title, runId: testCase.runId, hasScript: !!testCase.cached_playwright_script });
 
-    const runId = `run_${Date.now()}_${uuidv4().slice(0, 8)}`;
+    const runId = testCase.runId || `run_${Date.now()}_${uuidv4().slice(0, 8)}`;
     runResults.set(runId, { status: 'RUNNING', startedAt: new Date() });
     runningCount++;
 
@@ -85,7 +103,7 @@ app.post('/run', async (req, res) => {
                 }
             }
 
-            runResults.set(runId, {
+            const finalData = {
                 status: execResult.status,
                 scriptSource,
                 script,                   // Gửi script về để Spring Boot cache vào DB
@@ -94,18 +112,22 @@ app.post('/run', async (req, res) => {
                 error: execResult.error,
                 duration: execResult.duration,
                 finishedAt: new Date(),
-            });
+            };
+            runResults.set(runId, finalData);
+            fs.writeFileSync(path.join(resultsDir, `${runId}.json`), JSON.stringify(finalData));
 
             cleanupTempDir(execResult.tempDir);
             console.log(`[${runId}] Done: ${execResult.status} | ${execResult.duration}ms`);
         } catch (err) {
-            runResults.set(runId, {
+            const errData = {
                 status: 'ERROR',
                 error: { message: err.message },
                 steps: [],
                 screenshots: [],
                 finishedAt: new Date(),
-            });
+            };
+            runResults.set(runId, errData);
+            fs.writeFileSync(path.join(resultsDir, `${runId}.json`), JSON.stringify(errData));
             console.error(`[${runId}] Error:`, err.message);
         } finally {
             runningCount--;
@@ -119,7 +141,21 @@ app.post('/run', async (req, res) => {
  */
 app.get('/status/:runId', (req, res) => {
     const runId = req.params.runId;
-    const data = runResults.get(runId);
+    let data = runResults.get(runId);
+    
+    // Check file-based cache if not in memory
+    if (!data) {
+        const resultFile = path.join(resultsDir, `${runId}.json`);
+        if (fs.existsSync(resultFile)) {
+            try {
+                data = JSON.parse(fs.readFileSync(resultFile, 'utf8'));
+                runResults.set(runId, data);
+            } catch (e) {
+                console.error('Lỗi đọc cache file:', e);
+            }
+        }
+    }
+
     if (!data) return res.status(404).json({ error: 'Run không tồn tại' });
     
     // Deep copy to avoid mutating the cached map
@@ -153,15 +189,19 @@ app.get('/status/:runId', (req, res) => {
 
     res.json(responseData);
 
-    // Xóa khỏi memory sau khi Spring Boot đã đọc kết quả cuối
+    // Xóa khỏi memory và disk sau khi Spring Boot đã đọc kết quả cuối
     if (responseData.status !== 'RUNNING') {
-        setTimeout(() => runResults.delete(runId), 30000);
+        setTimeout(() => {
+            runResults.delete(runId);
+            const resultFile = path.join(resultsDir, `${runId}.json`);
+            if (fs.existsSync(resultFile)) fs.unlinkSync(resultFile);
+        }, 30000);
     }
 });
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 const server = app.listen(PORT, () => console.log(`Playwright Service running on :${PORT}`));
 
 // ==========================================
@@ -203,21 +243,24 @@ wss.on('connection', (ws, req) => {
             });
         } else if (role === 'provider') {
             providers.set(runId, ws);
-            ws.on('message', (message) => {
+            ws.on('message', (message, isBinary) => {
+                const msgStr = message.toString();
                 // Buffer the latest frame so late-connecting clients can catch up
-                frameBuffer.set(runId, message);
+                if (msgStr.includes('"type":"frame"')) {
+                    frameBuffer.set(runId, msgStr);
+                }
 
                 const clientSet = clients.get(runId);
                 if (clientSet) {
                     for (const clientWs of clientSet) {
-                        if (clientWs.readyState === 1) clientWs.send(message);
+                        if (clientWs.readyState === 1) clientWs.send(msgStr);
                     }
                 }
             });
             ws.on('close', () => {
                 providers.delete(runId);
                 // Clean up frame buffer after provider disconnects
-                setTimeout(() => frameBuffer.delete(runId), 10000);
+                frameBuffer.delete(runId);
             });
         } else {
             ws.close();

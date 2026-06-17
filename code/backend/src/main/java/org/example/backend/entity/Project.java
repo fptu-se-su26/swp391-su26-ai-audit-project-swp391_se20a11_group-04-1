@@ -62,6 +62,9 @@ public class Project {
     @JoinColumn(name = "created_by", nullable = false)
     private UserAccount createdBy;
 
+    @Column(name = "agent_token")
+    private String agentToken;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

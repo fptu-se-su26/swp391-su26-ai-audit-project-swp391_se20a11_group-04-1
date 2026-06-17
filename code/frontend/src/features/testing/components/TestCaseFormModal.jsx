@@ -15,6 +15,8 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
     precondition: '',
     expectedResult: '',
     baseUrl: '',
+    apiMethod: 'GET',
+    apiUrl: '',
     steps: []
   })
 
@@ -48,7 +50,11 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           precondition: testCase.precondition || '',
           expectedResult: testCase.expectedResult || '',
           baseUrl: testCase.baseUrl || '',
-          steps: (testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps) ? [...(testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps)] : []
+          apiMethod: testCase.apiMethod || 'GET',
+          apiUrl: testCase.apiUrl || '',
+          steps: (testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps) 
+            ? [...(testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps)] 
+            : (testCase.type === 'UI' ? [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }] : [{ description: '' }])
         })
       } else {
         setFormData({
@@ -58,6 +64,8 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           precondition: '',
           expectedResult: '',
           baseUrl: '',
+          apiMethod: 'GET',
+          apiUrl: '',
           steps: [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }]
         })
       }
@@ -71,6 +79,11 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
     
     if (formData.type === 'UI' && !formData.baseUrl) {
       toast.error('Base URL is required for UI tests.')
+      return
+    }
+
+    if (formData.type === 'API' && (!formData.apiUrl || !formData.apiUrl.trim())) {
+      toast.error('API URL is required')
       return
     }
 
@@ -93,11 +106,23 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
         expected: ['expect_url', 'expect_text'].includes(s.action) ? s.expected : undefined,
         description: s.description || undefined
       }))
-    } else {
+    } else if (formData.type !== 'API') {
       payload.steps = formData.steps.map((s, i) => ({
         stepNumber: i + 1,
         description: s.description
       }))
+    }
+    
+    if (formData.type === 'API') {
+       payload.apiMethod = formData.apiMethod
+       payload.apiUrl = formData.apiUrl
+       // Keep original test case configurations if they exist, to avoid overwriting them to null during simple edit
+       if (testCase) {
+         payload.apiHeaders = testCase.apiHeaders
+         payload.apiQueryParams = testCase.apiQueryParams
+         payload.apiBody = testCase.apiBody
+         payload.apiAssertions = testCase.apiAssertions
+       }
     }
 
     onSubmit(payload)
@@ -209,6 +234,37 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
               </div>
             )}
 
+            {formData.type === 'API' && (
+              <div className="flex flex-col gap-1.5 p-4 bg-primary-container/10 border border-primary/20 rounded-lg">
+                <label className="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[18px]">api</span>
+                  API Endpoint <span className="text-error">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.apiMethod}
+                    onChange={e => setFormData({ ...formData, apiMethod: e.target.value })}
+                    className="w-24 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all font-medium"
+                  >
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                  </select>
+                  <input
+                    type="url"
+                    required
+                    value={formData.apiUrl || ''}
+                    onChange={e => setFormData({ ...formData, apiUrl: e.target.value })}
+                    className="flex-1 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                    placeholder="E.g., https://api.example.com/v1/users"
+                  />
+                </div>
+                <span className="text-xs text-on-surface-variant mt-1">You can configure Headers, Body, and Assertions in the Test Case Detail page after saving.</span>
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-label-md text-on-surface">Precondition</label>
               <textarea
@@ -220,7 +276,9 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
               />
             </div>
 
-            <TestStepEditorWrapper formData={formData} setFormData={setFormData} />
+            {formData.type !== 'API' && (
+              <TestStepEditorWrapper formData={formData} setFormData={setFormData} />
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label className="font-label-md text-label-md text-on-surface">Expected Result <span className="text-error">*</span></label>

@@ -104,6 +104,29 @@ public class TestCase {
     @Column(name = "run_count", nullable = false)
     private Integer runCount = 0;
     
+    // --- API Testing Fields ---
+    @Column(name = "api_method", length = 10)
+    private String apiMethod;
+
+    @Column(name = "api_url", length = 1000)
+    private String apiUrl;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "api_headers", columnDefinition = "JSONB")
+    private String apiHeaders;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "api_query_params", columnDefinition = "JSONB")
+    private String apiQueryParams;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "api_body", columnDefinition = "JSONB")
+    private String apiBody;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "api_assertions", columnDefinition = "JSONB")
+    private String apiAssertions;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

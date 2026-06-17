@@ -57,7 +57,7 @@ Gợi ý:
 - [ ] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
-- [ ] Antigravity
+- [x] Antigravity
 - [ ] Microsoft Copilot
 - [ ] Perplexity
 - [ ] Công cụ khác: ....................................
@@ -65,13 +65,13 @@ Gợi ý:
 ### Công cụ được sử dụng nhiều nhất
 
 ```text
-Viết tại đây...
+Antigravity / Cursor
 ```
 
 ### Lý do sử dụng công cụ đó
 
 ```text
-Viết tại đây...
+Đây là các công cụ AI có khả năng đọc hiểu codebase lớn (agentic AI) giúp phân tích toàn diện nhiều file liên kết với nhau (ví dụ: Spring Boot Backend <-> Node.js Agent <-> React Frontend) thay vì chỉ sinh code rời rạc.
 ```
 
 ---
@@ -213,7 +213,10 @@ Trong quá trình thực hiện, em/nhóm chưa ghi nhận trường hợp AI g�
 Mô tả rõ phần nào là đóng góp chính của sinh viên/nhóm, không phải chỉ copy từ AI.
 
 ```text
-Viết tại đây...
+- Tư duy phản biện và Review Code: Khi AI đề xuất giải pháp, tôi không copy-paste mù quáng mà review kỹ từng dòng. Ví dụ: Phát hiện AI thiếu tham số trong function signature của executor.js khiến Node.js ném lỗi ReferenceError.
+- Quản lý kiến trúc config: Tự phát hiện và sửa cấu hình application.yaml bị duplicate block `app:`, điều mà AI không nhận ra khi tự động merge file.
+- Xử lý edge-cases: Tự phân tích luồng Kafka (`testRunConsumer.js`) để nhận ra rủi ro ID conflict khi chạy Multi-Testcases (Suite execution) trong tương lai và note lại làm Technical Debt.
+- Nắm rõ logic nghiệp vụ: Tự sửa file LocalTestRunWorker.java và RunTestCase.jsx để luồng UI render chính xác, đồng thời map đúng các status như CANCELLED.
 ```
 
 Gợi ý:
@@ -362,7 +365,7 @@ Viết tại đây...
 ### 16.3. Phần nào trong bài thể hiện rõ nhất năng lực thật sự của em/nhóm?
 
 ```text
-Viết tại đây...
+Phần sửa các bug tiềm ẩn (Hidden Bugs) trong luồng tích hợp hệ thống phân tán (React - Spring Boot - Local Nodejs Agent). AI chỉ đưa ra base implementation, nhưng việc làm cho hệ thống hoạt động trơn tru (fix config, fix websocket room ID, fix crash params) hoàn toàn là do năng lực đọc log và debug hệ thống của tôi.
 ```
 
 ### 16.4. Em/nhóm muốn cải thiện kỹ năng nào sau bài này?

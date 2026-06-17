@@ -56,7 +56,55 @@ export const testCaseService = {
    * Get Test Run Status (Polling)
    */
   getTestRunStatus: async (runId) => {
-    const response = await axiosInstance.get(`/v1/test-runs/${runId}/status`)
+    const response = await axiosInstance.get(`/v1/test-runs/${runId}`)
+    return response.data.data
+  },
+
+  /**
+   * Lấy Agent Token cho localhost testing
+   */
+  getAgentToken: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/agent-token`)
+    return response.data.token
+  },
+  /**
+   * Run API Test
+   */
+  runApiTest: async (projectId, testCaseId, environmentId = null) => {
+    const params = environmentId ? { environmentId } : {}
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/${testCaseId}/run-api`, null, { params })
+    return response.data.data
+  },
+
+  /**
+   * Generate API Test from description
+   */
+  generateApiTest: async (projectId, description) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-api`, { description })
+    return response.data.data
+  },
+
+  /**
+   * Lấy lịch sử run API Test
+   */
+  getApiTestResults: async (projectId, testCaseId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/test-cases/${testCaseId}/api-results`)
+    return response.data.data
+  },
+
+  /**
+   * Lấy 1 API Test Result cụ thể (để poll)
+   */
+  getApiTestResult: async (projectId, testCaseId, resultId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/test-cases/${testCaseId}/api-results/${resultId}`)
+    return response.data.data
+  },
+
+  /**
+   * Lưu 1 API Test Result vào History
+   */
+  saveApiTestResult: async (projectId, testCaseId, resultId) => {
+    const response = await axiosInstance.patch(`/v1/projects/${projectId}/test-cases/${testCaseId}/api-results/${resultId}/save`)
     return response.data.data
   },
 }

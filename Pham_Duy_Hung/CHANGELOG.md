@@ -277,6 +277,9 @@ DD/MM/YYYY
 
 ## Đã hoàn thành
 
+- [x] Tích hợp CDP Screencast Live Stream cho Local Agent
+- [x] Fix lỗi YAML Config Override
+- [x] Fix lỗi Playwright Script Parameter Crash
 - [ ] Viết test case
 - [ ] Chạy test chức năng chính
 - [ ] Kiểm tra output

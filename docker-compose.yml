@@ -1,0 +1,211 @@
+version: '3.9'
+
+networks:
+  devtrack-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  playwright-temp:
+
+services:
+
+  # ─── 1. POSTGRESQL ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: devtrack-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dev_track_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-devtrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      TZ: Asia/Ho_Chi_Minh
+      PGTZ: Asia/Ho_Chi_Minh
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - devtrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devtrack} -d ${POSTGRES_DB:-dev_track_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ─── 2. REDIS ────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: devtrack-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - devtrack-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── 3. KAFKA (KRaft mode, no Zookeeper) ─────────────────
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: devtrack-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      # QUAN TRỌNG: ADVERTISED_LISTENERS phải dùng service name, không phải localhost
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 10
+    ports:
+      - "9092:9092"
+    networks:
+      - devtrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ─── 4. PLAYWRIGHT HTTP SERVER ────────────────────────────
+  playwright-server:
+    build:
+      context: ./code/playwright-service
+      dockerfile: Dockerfile
+    container_name: devtrack-playwright-server
+    restart: "no"
+    environment:
+      PORT: 4001
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+      WS_URL: ws://playwright-server:4001
+    volumes:
+      - playwright-temp:/app/temp
+      - playwright-temp:/app/test-results
+    ports:
+      - "4001:4001"
+    networks:
+      - devtrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ─── 5. SPRING BOOT BACKEND ──────────────────────────────
+  backend:
+    build:
+      context: ./code/backend
+      dockerfile: Dockerfile
+    container_name: devtrack-backend
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      playwright-server:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-dev_track_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-devtrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PLAYWRIGHT_SERVICE_URL: http://playwright-server:4001
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-1234567890abcdef}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:5173/github/callback}
+      GITHUB_ENCRYPTION_KEY: ${GITHUB_ENCRYPTION_KEY:-1234567890123456}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+      APP_EVENTS_PUBLISHER: kafka
+    ports:
+      - "8080:8080"
+    networks:
+      - devtrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
+
+  # ─── 6. PLAYWRIGHT KAFKA WORKER (x3) ─────────────────────
+  playwright-worker:
+    build:
+      context: ./code/playwright-service
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      playwright-server:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      BACKEND_URL: http://backend:8080
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-1234567890abcdef}
+      WS_URL: ws://playwright-server:4001
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+    volumes:
+      - playwright-temp:/app/temp
+    networks:
+      - devtrack-net
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: none
+        delay: 10s
+        max_attempts: 0
+
+  # ─── 7. FRONTEND ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./code/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:4001}
+    container_name: devtrack-frontend
+    restart: "no"
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    networks:
+      - devtrack-net
