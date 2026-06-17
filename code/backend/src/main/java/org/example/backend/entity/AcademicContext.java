@@ -28,4 +28,8 @@ public class AcademicContext {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
     private UserAccount owner;
+
+    @Column(name = "max_members", nullable = false)
+    @Builder.Default
+    private Integer maxMembers = 50;
 }

@@ -7,6 +7,7 @@ import VerificationPage from '@features/auth/pages/VerificationPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
+import ClassroomsPage from '@features/workspace/pages/ClassroomsPage'
 import ContributionPage from '@features/workspace/pages/ContributionPage'
 import AcceptInvitePage from '@features/workspace/pages/AcceptInvitePage'
 
@@ -66,6 +67,7 @@ export function AppRoutes() {
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/verify" element={<VerificationPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
 

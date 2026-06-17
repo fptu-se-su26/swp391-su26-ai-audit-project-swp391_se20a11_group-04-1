@@ -94,10 +94,25 @@ export default {
         shimmer: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(400%)' },
-        }
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(16px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        slideDown: {
+          '0%': { opacity: '0', maxHeight: '0' },
+          '100%': { opacity: '1', maxHeight: '600px' },
+        },
       },
       animation: {
         shimmer: 'shimmer 3s infinite linear',
+        fadeIn: 'fadeIn 0.2s ease-out',
+        slideUp: 'slideUp 0.3s ease-out',
+        slideDown: 'slideDown 0.3s ease-out',
       }
     },
   },
