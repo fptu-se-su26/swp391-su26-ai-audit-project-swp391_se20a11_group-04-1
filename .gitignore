@@ -2,6 +2,11 @@
 # SWP391 - MASTER GITIGNORE (Hybrid Java Spring & React)
 # ====================================================================
 
+# --- SECRET / ENV FILES ---
+.env
+*.env
+!.env.example
+
 # --- SYSTEM FILES ---
 .DS_Store
 Thumbs.db
