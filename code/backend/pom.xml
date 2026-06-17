@@ -42,6 +42,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+        <!-- Ho tro Auto-Reload khi Code thay doi -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
         <!-- Cung cap filter bao mat, BCrypt -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -204,31 +204,38 @@ public class ProjectServiceImpl implements ProjectService {
         // Evict cache ngay khi có mutation
         evictUserProjectsCache(userId);
 
-        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject)
-        String semester = "Summer 2026";
-        String academicYear = "2026";
-        String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
-
-        TypedQuery<AcademicContext> query = entityManager.createQuery(
-                "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
-                AcademicContext.class
-        );
-        query.setParameter("subject", subject);
-        query.setParameter("semester", semester);
-        query.setParameter("academicYear", academicYear);
-
-        List<AcademicContext> academicContexts = query.getResultList();
-        AcademicContext academicContext;
-        if (academicContexts.isEmpty()) {
-            academicContext = AcademicContext.builder()
-                    .subject(subject)
-                    .semester(semester)
-                    .academicYear(academicYear)
-                    .build();
-            entityManager.persist(academicContext);
-            log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject) cho Personal Project
+        AcademicContext academicContext = null;
+        if (request.getClassroomId() != null) {
+            academicContext = entityManager.find(AcademicContext.class, request.getClassroomId());
+            if (academicContext == null) {
+                throw new ResourceNotFoundException("Lớp học không tồn tại.");
+            }
         } else {
-            academicContext = academicContexts.get(0);
+            AcademicSeason semester = AcademicSeason.PERSONAL;
+            String academicYear = String.valueOf(java.time.LocalDate.now().getYear());
+            String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
+
+            TypedQuery<AcademicContext> query = entityManager.createQuery(
+                    "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
+                    AcademicContext.class
+            );
+            query.setParameter("subject", subject);
+            query.setParameter("semester", semester);
+            query.setParameter("academicYear", academicYear);
+
+            List<AcademicContext> academicContexts = query.getResultList();
+            if (academicContexts.isEmpty()) {
+                academicContext = AcademicContext.builder()
+                        .subject(subject)
+                        .semester(semester)
+                        .academicYear(academicYear)
+                        .build();
+                entityManager.persist(academicContext);
+                log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+            } else {
+                academicContext = academicContexts.get(0);
+            }
         }
 
         // 3. Phân tích loại dự án (ProjectType)
@@ -252,7 +259,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")
                 .type(projectType)
                 .academicContext(academicContext)
-                .startDate(startDate)
+                .startDate(java.time.LocalDate.now())
                 .deadline(deadline)
                 .status(ProjectStatus.PLANNING)
                 .createdBy(creator)
@@ -773,7 +780,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .title(project.getName())
                 .major(project.getAcademicContext() != null ? project.getAcademicContext().getSubject() : project.getType().name())
                 .status(project.getStatus().name())
-                .semester(project.getAcademicContext() != null ? project.getAcademicContext().getSemester() : "Fall 2023")
+                .semester(project.getAcademicContext() != null && project.getAcademicContext().getSemester() != null ? project.getAcademicContext().getSemester().name() + " " + project.getAcademicContext().getAcademicYear() : "PERSONAL " + java.time.LocalDate.now().getYear())
                 .role(localRole)
                 .atRiskReqCount(project.getAtRiskReqCount())
                 .deadline(project.getDeadline())

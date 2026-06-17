@@ -37,6 +37,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/classrooms/join").permitAll()
                 .requestMatchers("/api/v1/github/webhook").permitAll()
                 .requestMatchers("/api/v1/evidence/test-evidence").permitAll()
                 .requestMatchers("/api/v1/test-cases/**", "/api/v1/test-runs/**").permitAll()

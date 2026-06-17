@@ -91,6 +91,9 @@ app:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: local
     outbox-publish-delay-ms: 30000
+  classroom:
+    invite:
+      secret: "YOUR_16_CHAR_SECRET_KEY_HERE" # 👈 Thay thế bằng một chuỗi ngẫu nhiên (ví dụ: DevTrackClassrm1)
 
 code-insight:
   ai:
