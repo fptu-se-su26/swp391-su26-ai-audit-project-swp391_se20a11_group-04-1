@@ -1,0 +1,29 @@
+-- 1. Rename code_insight_reviews to task_review_snapshots
+ALTER TABLE code_insight_reviews RENAME TO task_review_snapshots;
+
+-- 2. Rename constraints of task_review_snapshots
+ALTER TABLE task_review_snapshots RENAME CONSTRAINT chk_code_insight_reviews_rule_score TO chk_task_review_snapshots_rule_score;
+ALTER TABLE task_review_snapshots RENAME CONSTRAINT chk_code_insight_reviews_final_score TO chk_task_review_snapshots_final_score;
+ALTER TABLE task_review_snapshots RENAME CONSTRAINT chk_code_insight_reviews_ai_adjustment TO chk_task_review_snapshots_ai_adjustment;
+
+-- Rename index
+ALTER INDEX idx_code_insight_reviews_task_created RENAME TO idx_task_review_snapshots_task_created;
+
+-- 3. Rename code_insight_manual_evidence_links to manual_evidence_links
+ALTER TABLE code_insight_manual_evidence_links RENAME TO manual_evidence_links;
+
+-- Rename constraints of manual_evidence_links
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT fk_code_insight_manual_links_project TO fk_manual_evidence_links_project;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT fk_code_insight_manual_links_task TO fk_manual_evidence_links_task;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT fk_code_insight_manual_links_suggested_by TO fk_manual_evidence_links_suggested_by;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT fk_code_insight_manual_links_confirmed_by TO fk_manual_evidence_links_confirmed_by;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT uk_code_insight_manual_links_target TO uk_manual_evidence_links_target;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT chk_code_insight_manual_links_type TO chk_manual_evidence_links_type;
+ALTER TABLE manual_evidence_links RENAME CONSTRAINT chk_code_insight_manual_links_status TO chk_manual_evidence_links_status;
+
+-- Rename indexes
+ALTER INDEX idx_code_insight_manual_links_task RENAME TO idx_manual_evidence_links_task;
+ALTER INDEX idx_code_insight_manual_links_project RENAME TO idx_manual_evidence_links_project;
+
+-- 4. Update task_review_decisions table's column code_insight_review_id to task_review_snapshot_id
+ALTER TABLE task_review_decisions RENAME COLUMN code_insight_review_id TO task_review_snapshot_id;

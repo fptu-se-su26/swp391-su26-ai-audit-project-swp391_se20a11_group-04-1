@@ -105,7 +105,7 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
     }
 
     @Override
-    public Object createRepository(Long userId, String name, String description, boolean isPrivate) {
+    public Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate) {
         String token = integrationService.getDecryptedUserToken(userId);
         HttpHeaders headers = buildAuthHeaders(token);
         String url = "https://api.github.com/user/repos";
@@ -116,6 +116,14 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
             body.put("description", description);
         }
         body.put("private", isPrivate);
+        body.put("auto_init", autoInit);
+        
+        if (gitignoreTemplate != null && !gitignoreTemplate.trim().isEmpty() && !gitignoreTemplate.equalsIgnoreCase("none")) {
+            body.put("gitignore_template", gitignoreTemplate);
+        }
+        if (licenseTemplate != null && !licenseTemplate.trim().isEmpty() && !licenseTemplate.equalsIgnoreCase("none")) {
+            body.put("license_template", licenseTemplate);
+        }
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Map.class);
@@ -123,6 +131,9 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             String errorBody = e.getResponseBodyAsString();
             log.error("Failed to create GitHub repository. HTTP {}. Body: {}", e.getStatusCode(), errorBody);
+            if (errorBody != null && errorBody.contains("already exists")) {
+                throw new CustomException("GitHub repository name already exists on your account. Please choose a different name.", HttpStatus.BAD_REQUEST);
+            }
             throw new CustomException("Failed to create GitHub repository: " + errorBody, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             log.error("Failed to create GitHub repository", e);

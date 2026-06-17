@@ -124,7 +124,10 @@ public class EvidenceServiceImpl implements EvidenceService {
                     new TypeReference<List<EvidenceLinkRequest>>() {});
                 for (EvidenceLinkRequest linkReq : links) {
                     EvidenceLink link = new EvidenceLink();
-                    link.setEntityType(EvidenceEntityType.valueOf(linkReq.getEntityType()));
+                    if (!"TASK".equals(linkReq.getEntityType())) {
+                        throw new org.example.backend.exception.BadRequestException("Evidence can only be linked to TASK");
+                    }
+                    link.setEntityType(EvidenceEntityType.TASK);
                     link.setEntityId(linkReq.getEntityId());
                     savedEvidence.addLink(link);
                 }
@@ -164,7 +167,10 @@ public class EvidenceServiceImpl implements EvidenceService {
                     new TypeReference<List<EvidenceLinkRequest>>() {});
                 for (EvidenceLinkRequest linkReq : links) {
                     EvidenceLink link = new EvidenceLink();
-                    link.setEntityType(EvidenceEntityType.valueOf(linkReq.getEntityType()));
+                    if (!"TASK".equals(linkReq.getEntityType())) {
+                        throw new org.example.backend.exception.BadRequestException("Evidence can only be linked to TASK");
+                    }
+                    link.setEntityType(EvidenceEntityType.TASK);
                     link.setEntityId(linkReq.getEntityId());
                     evidence.addLink(link);
                 }

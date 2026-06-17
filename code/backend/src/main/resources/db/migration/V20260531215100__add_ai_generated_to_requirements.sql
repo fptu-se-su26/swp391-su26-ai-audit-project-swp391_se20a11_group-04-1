@@ -1,0 +1,2 @@
+ALTER TABLE requirements
+ADD COLUMN ai_generated BOOLEAN DEFAULT FALSE;

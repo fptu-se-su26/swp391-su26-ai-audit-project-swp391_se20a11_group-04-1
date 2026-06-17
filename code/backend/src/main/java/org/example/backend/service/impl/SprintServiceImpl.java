@@ -64,7 +64,8 @@ public class SprintServiceImpl implements SprintService {
                 .status(parseEnum(request.getStatus(), SprintStatus.class, SprintStatus.PLANNED))
                 .capacityHours(validateCapacity(request.getCapacityHours()))
                 .build();
-        validateDateRange(sprint.getStartDate(), sprint.getEndDate());
+        org.example.backend.util.DateValidationUtils.validateDateRange(sprint.getStartDate(), sprint.getEndDate(), "Sprint");
+        org.example.backend.util.DateValidationUtils.validateBounds(sprint.getStartDate(), sprint.getEndDate(), project.getStartDate(), project.getDeadline(), "Sprint", "Project");
         validateScheduleRules(projectId, null, sprint.getStartDate(), sprint.getEndDate(), sprint.getStatus());
 
         return toSprintResponse(sprintRepository.save(sprint));
@@ -90,7 +91,8 @@ public class SprintServiceImpl implements SprintService {
         if (request.getStatus() != null) {
             sprint.setStatus(parseEnum(request.getStatus(), SprintStatus.class, sprint.getStatus()));
         }
-        validateDateRange(sprint.getStartDate(), sprint.getEndDate());
+        org.example.backend.util.DateValidationUtils.validateDateRange(sprint.getStartDate(), sprint.getEndDate(), "Sprint");
+        org.example.backend.util.DateValidationUtils.validateBounds(sprint.getStartDate(), sprint.getEndDate(), sprint.getProject().getStartDate(), sprint.getProject().getDeadline(), "Sprint", "Project");
         validateScheduleRules(projectId, sprint.getId(), sprint.getStartDate(), sprint.getEndDate(), sprint.getStatus());
         clearOutOfRangePlanDates(sprint);
 
@@ -207,11 +209,7 @@ public class SprintServiceImpl implements SprintService {
         return !date.isBefore(sprint.getStartDate()) && !date.isAfter(sprint.getEndDate());
     }
 
-    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
-        if (endDate.isBefore(startDate)) {
-            throw new BadRequestException("Sprint end date must be on or after start date");
-        }
-    }
+
 
     private void validateScheduleRules(Long projectId, Long sprintId, LocalDate startDate, LocalDate endDate, SprintStatus status) {
         if (sprintRepository.existsOverlappingSprint(projectId, sprintId, startDate, endDate)) {

@@ -87,13 +87,13 @@ class GitHubControllerTest {
         body.put("isPrivate", true);
 
         Map<String, Object> mockResponse = Map.of("id", 123, "name", "new-repo");
-        when(gitHubApiService.createRepository(1L, "new-repo", "A new repo", true)).thenReturn(mockResponse);
+        when(gitHubApiService.createRepository(1L, "new-repo", "A new repo", true, false, null, null)).thenReturn(mockResponse);
 
         ResponseEntity<ApiResponse<Object>> response = gitHubController.createRepository(body, session);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody().getData()).isEqualTo(mockResponse);
-        verify(gitHubApiService, times(1)).createRepository(1L, "new-repo", "A new repo", true);
+        verify(gitHubApiService, times(1)).createRepository(1L, "new-repo", "A new repo", true, false, null, null);
     }
 
     @Test

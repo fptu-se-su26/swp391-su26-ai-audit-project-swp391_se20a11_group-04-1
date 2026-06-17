@@ -1,7 +1,7 @@
 import React from 'react';
 
 const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
-  const steps = mainFlow?.steps || [];
+  const steps = Array.isArray(mainFlow?.steps) ? mainFlow.steps : [];
 
   const handleStepChange = (index, value) => {
     const newSteps = [...steps];
@@ -38,14 +38,11 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
         {steps.length === 0 ? (
           <p className="text-on-surface-variant italic">No main flow steps defined.</p>
         ) : (
-          <ol className="space-y-3 font-body-md text-body-md text-on-surface">
+          <div className="flex flex-col gap-3 font-body-md text-body-md text-on-surface px-2">
             {steps.map((step, index) => (
-              <li key={index} className="flex gap-3 items-start group">
-                <span className="font-label-md text-label-md text-secondary bg-surface-container-highest w-7 h-7 flex items-center justify-center rounded-full shrink-0 mt-0.5">
-                  {index + 1}
-                </span>
+              <div key={index} className="group flex items-start gap-2">
                 {isEditing ? (
-                  <div className="flex-1 flex gap-2 items-start">
+                  <div className="flex-1 flex gap-2 items-start mt-[-4px]">
                     <input
                       type="text"
                       value={step}
@@ -63,11 +60,11 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
                     </button>
                   </div>
                 ) : (
-                  <span className="whitespace-pre-wrap py-1">{step}</span>
+                  <div className="whitespace-pre-wrap">{step}</div>
                 )}
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         )}
       </div>
     </div>

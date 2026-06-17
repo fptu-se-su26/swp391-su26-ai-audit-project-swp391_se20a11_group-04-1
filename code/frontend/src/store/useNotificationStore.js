@@ -228,6 +228,9 @@ export const useNotificationStore = create((set, get) => ({
             )
           }
 
+          if (payload.type === 'AI_PROGRESS') {
+            window.dispatchEvent(new CustomEvent('AI_PROGRESS', { detail: payload.data }))
+          }
           if (payload.type === 'REFRESH_BUGS') {
             window.dispatchEvent(new CustomEvent('refresh-bugs', { detail: payload }))
           }

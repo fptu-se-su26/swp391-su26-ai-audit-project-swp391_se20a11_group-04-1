@@ -3,6 +3,7 @@ package org.example.backend.service;
 import org.example.backend.dto.RequirementRequestDTO;
 import org.example.backend.dto.RequirementResponseDTO;
 import org.example.backend.dto.PaginatedResponse;
+import java.util.List;
 
 public interface RequirementService {
     RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO, Long userId);
@@ -15,5 +16,7 @@ public interface RequirementService {
             String priority,
             String tag);
     RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
+    RequirementResponseDTO updateRequirementStatus(Long id, String status);
     void deleteRequirement(Long id);
+    List<String> getTagsByProject(Long projectId);
 }
