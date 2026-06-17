@@ -562,7 +562,7 @@ export default function ClassroomsPage() {
                       </button>
                     </div>
                     <button
-                      onClick={() => setExpandedClassroom(classroom)}
+                      onClick={() => navigate(`/classrooms/${classroom.id}`)}
                       className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>View Details</span>
