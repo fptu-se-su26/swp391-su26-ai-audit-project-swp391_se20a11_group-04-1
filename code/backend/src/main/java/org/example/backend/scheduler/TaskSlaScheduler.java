@@ -128,7 +128,7 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(fixedDelayString = "${app.events.outbox-publish-delay-ms:30000}")
+    @Scheduled(fixedDelayString = "${app.events.outbox-publish-delay-ms:3000}")
     public void publishOutboxEvents() {
         try {
             outboxPublisherService.publishPendingEvents();

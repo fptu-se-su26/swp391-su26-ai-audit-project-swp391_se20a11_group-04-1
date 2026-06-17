@@ -208,3 +208,27 @@ a:hover { color: var(--color-primary); }
   overflow: hidden !important;
   pointer-events: none;
 }
+
+/* =====================================================
+   Stitch AI High-End UI Classes
+   ===================================================== */
+.bezel-shadow {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+
+.fade-up {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeUpAnim 0.5s cubic-bezier(0.32,0.72,0,1) forwards;
+}
+
+@keyframes fadeUpAnim {
+  to {
+      opacity: 1;
+      transform: translateY(0);
+  }
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }

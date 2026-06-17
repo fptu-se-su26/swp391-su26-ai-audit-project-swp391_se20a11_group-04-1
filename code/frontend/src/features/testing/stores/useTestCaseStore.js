@@ -55,6 +55,7 @@ export const useTestCaseStore = create((set, get) => ({
         ...(filters.status && { status: filters.status }),
         ...(filters.type && { type: filters.type }),
         ...(filters.requirementId && { requirementId: filters.requirementId }),
+        ...(filters.search && { search: filters.search }),
       }
       const res = await testCaseService.getTestCases(projectId, params)
       
@@ -115,12 +116,14 @@ export const useTestCaseStore = create((set, get) => ({
   /**
    * Cập nhật test case
    */
-  updateTestCase: async (projectId, testCaseId, requestData) => {
+  updateTestCase: async (projectId, testCaseId, requestData, skipFetchList = false) => {
     set({ isLoading: true, error: null })
     try {
       await testCaseService.updateTestCase(projectId, testCaseId, requestData)
       set({ isFormOpen: false, editingTestCase: null, isLoading: false })
-      await get().fetchTestCases(projectId)
+      if (!skipFetchList) {
+        await get().fetchTestCases(projectId)
+      }
     } catch (error) {
       set({ error: error.message, isLoading: false })
       throw error
@@ -138,6 +141,33 @@ export const useTestCaseStore = create((set, get) => ({
       await get().fetchTestCases(projectId)
     } catch (error) {
       set({ error: error.message, isLoading: false })
+      throw error
+    }
+  },
+
+  /**
+   * Chạy API Test Case
+   */
+  runApiTest: async (projectId, testCaseId, environmentId = null) => {
+    // Không set isLoading để tránh block UI trong lúc run, tự component handle loading
+    try {
+      const result = await testCaseService.runApiTest(projectId, testCaseId, environmentId)
+      return result
+    } catch (error) {
+      console.error('[TestCaseStore] runApiTest error:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Generate API Test Case using AI
+   */
+  generateApiTest: async (projectId, description) => {
+    try {
+      const generatedTestCase = await testCaseService.generateApiTest(projectId, description)
+      return generatedTestCase
+    } catch (error) {
+      console.error('[TestCaseStore] generateApiTest error:', error)
       throw error
     }
   },

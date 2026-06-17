@@ -53,7 +53,7 @@ class NotificationWebSocketHandlerTest {
 
         // Test sending message
         when(mockSession.isOpen()).thenReturn(true);
-        NotificationWebSocketHandler.sendToUser(123L, "{\"message\":\"Hello\"}");
+        handler.sendToUser(123L, "{\"message\":\"Hello\"}");
         verify(mockSession, times(1)).sendMessage(any(TextMessage.class));
     }
 
@@ -85,7 +85,7 @@ class NotificationWebSocketHandlerTest {
 
         // THEN: sendToUser sẽ không gửi được nữa vì session đã bị remove khỏi map tĩnh
         reset(mockSession);
-        NotificationWebSocketHandler.sendToUser(123L, "{\"message\":\"Hello\"}");
+        handler.sendToUser(123L, "{\"message\":\"Hello\"}");
         verify(mockSession, never()).sendMessage(any(TextMessage.class));
     }
 
@@ -100,7 +100,7 @@ class NotificationWebSocketHandlerTest {
 
         // WHEN: Đo thời gian thực thi của sendToUser
         long startTime = System.currentTimeMillis();
-        NotificationWebSocketHandler.sendToUser(123L, "{\"message\":\"Speed Test\"}");
+        handler.sendToUser(123L, "{\"message\":\"Speed Test\"}");
         long duration = System.currentTimeMillis() - startTime;
 
         // THEN: Thời gian thực thi gửi WebSocket phải nhỏ hơn 1000ms
@@ -125,7 +125,7 @@ class NotificationWebSocketHandlerTest {
         handler.afterConnectionEstablished(session2);
 
         // WHEN
-        NotificationWebSocketHandler.broadcast("{\"type\":\"REFRESH_BUGS\",\"projectId\":100}");
+        handler.broadcast("{\"type\":\"REFRESH_BUGS\",\"projectId\":100}");
 
         // THEN
         verify(session1, times(1)).sendMessage(any(TextMessage.class));

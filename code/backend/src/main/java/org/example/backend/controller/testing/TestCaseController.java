@@ -9,13 +9,23 @@ import org.example.backend.dto.testing.TestCaseResponse;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
 import org.example.backend.service.testing.TestCaseService;
+import org.example.backend.service.ApiTestExecutorService;
+import org.example.backend.service.AiApiTestGeneratorService;
+import org.example.backend.dto.apitest.ApiTestResultResponse;
+import org.example.backend.repository.ApiTestResultRepository;
+import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.entity.UserAccount;
+import org.example.backend.exception.ResourceNotFoundException;
+import java.util.concurrent.CompletableFuture;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.example.backend.annotation.PreAuthorizeProjectMember;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -26,6 +36,10 @@ import java.security.Principal;
 public class TestCaseController {
 
     private final TestCaseService testCaseService;
+    private final ApiTestExecutorService apiTestExecutorService;
+    private final AiApiTestGeneratorService aiApiTestGeneratorService;
+    private final ApiTestResultRepository apiTestResultRepository;
+    private final UserAccountRepository userAccountRepository;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -35,8 +49,9 @@ public class TestCaseController {
             @Valid @RequestBody TestCaseRequest request,
             Principal principal) {
         
-        // Fallback dummy user ID since security integration might not be complete in this scope
-        Long currentUserId = 1L; 
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
 
         return ApiResponse.success(
             testCaseService.create(projectId, request, currentUserId),
@@ -81,7 +96,9 @@ public class TestCaseController {
             @Valid @RequestBody TestCaseRequest request,
             Principal principal) {
 
-        Long currentUserId = 1L;
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
 
         return ApiResponse.success(
             testCaseService.update(projectId, testCaseId, request, currentUserId),
@@ -90,13 +107,98 @@ public class TestCaseController {
     }
 
     @DeleteMapping("/{testCaseId}")
+    @PreAuthorizeProjectMember
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
             @PathVariable Long projectId,
             @PathVariable Long testCaseId,
             Principal principal) {
 
-        Long currentUserId = 1L;
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
         testCaseService.delete(projectId, testCaseId, currentUserId);
+    }
+
+    @PostMapping("/{testCaseId}/run-api")
+    @PreAuthorizeProjectMember
+    public CompletableFuture<ApiResponse<ApiTestResultResponse>> runApi(
+            @PathVariable Long projectId,
+            @PathVariable Long testCaseId,
+            @RequestParam(required = false) Long environmentId,
+            Principal principal) {
+
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
+
+        return apiTestExecutorService.execute(testCaseId, environmentId, currentUserId)
+                .thenApply(result -> ApiResponse.success(result, "API test executed successfully"))
+                .exceptionally(ex -> {
+                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                    if (cause instanceof RuntimeException) {
+                        throw (RuntimeException) cause;
+                    }
+                    throw new RuntimeException(cause);
+                });
+    }
+
+    @PostMapping("/generate-api")
+    @PreAuthorizeProjectMember
+    public ApiResponse<TestCaseRequest> generateApiTestFromDescription(
+            @PathVariable Long projectId,
+            @RequestBody Map<String, String> payload) {
+        String description = payload.get("description");
+        if (description == null || description.trim().isEmpty()) {
+            throw new org.example.backend.exception.BusinessException("Description is required");
+        }
+        return ApiResponse.success(
+            aiApiTestGeneratorService.generateFromDescription(description),
+            "API test generated successfully"
+        );
+    }
+
+    @GetMapping("/{testCaseId}/api-results")
+    @PreAuthorizeProjectMember
+    public ApiResponse<List<ApiTestResultResponse>> getApiTestResults(
+            @PathVariable Long projectId,
+            @PathVariable Long testCaseId) {
+        
+        List<ApiTestResultResponse> results = apiTestResultRepository.findByTestCaseIdAndIsSavedTrueOrderByExecutedAtDesc(testCaseId)
+                .stream()
+                .map(apiTestExecutorService::mapToResponse)
+                .collect(Collectors.toList());
+
+        return ApiResponse.success(results, "API test results retrieved successfully");
+    }
+
+    @GetMapping("/{testCaseId}/api-results/{resultId}")
+    @PreAuthorizeProjectMember
+    public ApiResponse<ApiTestResultResponse> getApiTestResult(
+            @PathVariable Long projectId,
+            @PathVariable Long testCaseId,
+            @PathVariable Long resultId) {
+        
+        ApiTestResultResponse result = apiTestResultRepository.findByIdAndTestCaseId(resultId, testCaseId)
+                .map(apiTestExecutorService::mapToResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("API test result not found"));
+
+        return ApiResponse.success(result, "API test result retrieved successfully");
+    }
+
+    @PatchMapping("/{testCaseId}/api-results/{resultId}/save")
+    @PreAuthorizeProjectMember
+    public ApiResponse<ApiTestResultResponse> saveApiTestResult(
+            @PathVariable Long projectId,
+            @PathVariable Long testCaseId,
+            @PathVariable Long resultId) {
+        
+        org.example.backend.entity.ApiTestResult result = apiTestResultRepository.findByIdAndTestCaseId(resultId, testCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("API test result not found"));
+
+        result.setSaved(true);
+        apiTestResultRepository.save(result);
+
+        return ApiResponse.success(apiTestExecutorService.mapToResponse(result), "API test result saved successfully");
     }
 }

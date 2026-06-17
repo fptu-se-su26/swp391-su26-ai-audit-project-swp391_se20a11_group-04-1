@@ -15,10 +15,18 @@ public class KafkaEventPublisher implements EventPublisher {
 
     @Override
     public void publish(OutboxEvent event) {
-        kafkaTemplate.send(resolveTopic(event), String.valueOf(event.getAggregateId()), event.getPayload()).join();
+        // Dùng aggregateId làm key để các test run khác nhau hash vào partition khác nhau
+        // → Worker có thể xử lý song song nhờ partitionsConsumedConcurrently
+        String key = event.getAggregateId() != null
+                ? String.valueOf(event.getAggregateId())
+                : null;
+        kafkaTemplate.send(resolveTopic(event), key, event.getPayload()).join();
     }
 
     private String resolveTopic(OutboxEvent event) {
+        if ("TEST_RUN_JOB".equals(event.getEventType())) {
+            return "test-run-jobs";
+        }
         if (event.getEventType().startsWith("TASK_")) {
             return "devtrack.task.events";
         }

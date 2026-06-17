@@ -10,6 +10,7 @@ import java.util.List;
 @Data
 public class TestCaseResponse {
     private Long id;
+    private Long projectId;
     private String code;
     private String title;
     private RequirementShortResponse requirement;
@@ -25,4 +26,12 @@ public class TestCaseResponse {
     private LocalDateTime lastExecutedAt;
     private String baseUrl;
     private Object stepsStructured;
+
+    // --- API Testing Fields ---
+    private String apiMethod;
+    private String apiUrl;
+    private Object apiHeaders;
+    private Object apiQueryParams;
+    private Object apiBody;
+    private Object apiAssertions;
 }

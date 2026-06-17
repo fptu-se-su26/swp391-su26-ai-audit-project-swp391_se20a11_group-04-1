@@ -1,0 +1,17 @@
+{
+  "name": "devtrack-agent",
+  "version": "1.0.14",
+  "description": "Local Agent for DevTrack AI",
+  "main": "index.js",
+  "bin": {
+    "devtrack-agent": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "minimist": "^1.2.8",
+    "@playwright/test": "^1.52.0",
+    "ws": "^8.18.0"
+  }
+}
