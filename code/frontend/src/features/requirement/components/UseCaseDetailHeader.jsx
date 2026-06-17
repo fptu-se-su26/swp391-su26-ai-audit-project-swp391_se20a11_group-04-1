@@ -1,15 +1,12 @@
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
 
-const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLeader, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
-  const { projectId } = useParams();
-
+const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, onEdit, onSave, onCancel, onFieldChange, onStatusChange }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'DRAFT': return 'bg-slate-50 text-slate-600 border border-slate-200';
-      case 'IN_PROGRESS': return 'bg-amber-50 text-amber-700 border border-amber-200';
-      case 'IN_REVIEW': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-      case 'DONE': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+      case 'APPROVED': return 'bg-[#e6f4ea] text-[#137333]';
+      case 'IN_REVIEW': return 'bg-[#fef7e0] text-[#b06000]';
+      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700';
+      case 'REJECTED': return 'bg-red-100 text-red-700';
       default: return 'bg-surface-variant text-on-surface-variant';
     }
   };
@@ -17,12 +14,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
   return (
     <div className="flex flex-col md:flex-row md:items-start justify-between gap-stack_lg mb-stack_lg pb-stack_md border-b border-outline-variant">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-stack_sm mb-3 flex-wrap">
-          <Link to={`/projects/${projectId}/use-cases`} className="flex items-center gap-1 text-secondary hover:text-primary transition-colors font-body-md text-body-md mr-1">
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Use Cases
-          </Link>
-          <div className="w-px h-4 bg-outline-variant mr-1"></div>
+        <div className="flex items-center gap-stack_sm mb-2 flex-wrap">
           {isEditing ? (
             <>
               <select
@@ -33,7 +25,8 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
                 <option value="DRAFT">DRAFT</option>
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="IN_REVIEW">IN_REVIEW</option>
-                <option value="DONE">DONE</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
               </select>
               <input
                 type="text"
@@ -48,13 +41,14 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
               <select
                 value={useCase.status || 'DRAFT'}
                 onChange={(e) => onStatusChange(e.target.value)}
-                disabled={updatingStatus || !isLeader}
-                className={`px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider outline-none transition-all border-none ${getStatusColor(useCase.status)} appearance-none ${isLeader ? 'cursor-pointer hover:opacity-80' : ''} disabled:opacity-50 text-center`}
+                disabled={updatingStatus}
+                className={`px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider outline-none cursor-pointer transition-all border-none ${getStatusColor(useCase.status)} appearance-none hover:opacity-80 disabled:opacity-50 text-center`}
               >
                 <option value="DRAFT" className="bg-white text-on-surface">DRAFT</option>
                 <option value="IN_PROGRESS" className="bg-white text-on-surface">IN_PROGRESS</option>
                 <option value="IN_REVIEW" className="bg-white text-on-surface">IN_REVIEW</option>
-                <option value="DONE" className="bg-white text-on-surface">DONE</option>
+                <option value="APPROVED" className="bg-white text-on-surface">APPROVED</option>
+                <option value="REJECTED" className="bg-white text-on-surface">REJECTED</option>
               </select>
               <span className="text-secondary font-label-md text-label-md">{useCase.version || 'v1.0'}</span>
             </>
@@ -104,26 +98,17 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
             </button>
           </>
         ) : (
-          isLeader && (
-            <>
-              <button 
-                onClick={onEdit}
-                className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant"
-              >
-                <span className="material-symbols-outlined text-[18px]">edit</span> Edit
-              </button>
-              <button 
-                onClick={onAiSync}
-                className={`h-11 px-5 transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm ${
-                  useCase.outdated 
-                  ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30' 
-                  : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'
-                }`}
-              >
-                🪄 AI Update Usecase
-              </button>
-            </>
-          )
+          <>
+            <button 
+              onClick={onEdit}
+              className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant"
+            >
+              <span className="material-symbols-outlined text-[18px]">edit</span> Edit
+            </button>
+            <button className="h-11 px-5 bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm">
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>smart_toy</span> Suggest Test Cases
+            </button>
+          </>
         )}
       </div>
     </div>

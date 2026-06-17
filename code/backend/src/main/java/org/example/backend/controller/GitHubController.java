@@ -40,20 +40,6 @@ public class GitHubController {
     }
 
     /**
-     * Endpoint to check if the current user has connected GitHub account.
-     */
-    @GetMapping("/status")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getGitHubStatus(jakarta.servlet.http.HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            throw new org.example.backend.exception.CustomException("Please login to continue", org.springframework.http.HttpStatus.UNAUTHORIZED);
-        }
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("hasToken", gitHubApiService.hasUserToken(userId));
-        return ResponseEntity.ok(ApiResponse.success(response, "Success"));
-    }
-
-    /**
      * Endpoint to fetch all repositories accessible by the connected user.
      */
     @GetMapping("/repos")
@@ -77,16 +63,13 @@ public class GitHubController {
         String name = (String) body.get("name");
         String description = (String) body.get("description");
         Boolean isPrivate = (Boolean) body.getOrDefault("isPrivate", false);
-        Boolean autoInit = (Boolean) body.getOrDefault("autoInit", false);
-        String gitignoreTemplate = (String) body.get("gitignoreTemplate");
-        String licenseTemplate = (String) body.get("licenseTemplate");
         
         if (name == null || name.trim().isEmpty()) {
             throw new org.example.backend.exception.CustomException("Repository name is required", org.springframework.http.HttpStatus.BAD_REQUEST);
         }
         
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
-                .body(ApiResponse.success(gitHubApiService.createRepository(userId, name, description, isPrivate, autoInit, gitignoreTemplate, licenseTemplate), "Repository created successfully"));
+                .body(ApiResponse.success(gitHubApiService.createRepository(userId, name, description, isPrivate), "Repository created successfully"));
     }
 
     /**
@@ -101,14 +84,13 @@ public class GitHubController {
     @PostMapping("/webhook")
     public ResponseEntity<ApiResponse<String>> handleGitHubWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signatureHeader,
-            @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestHeader(value = "X-GitHub-Event", required = false) String eventType,
             @RequestBody byte[] payloadBytes) {
         
         log.info("Received incoming GitHub Webhook event: {}", eventType);
         
         // Delegate verification and two-way sync processing to the Service layer
-        gitHubApiService.handleWebhook(signatureHeader, deliveryId, eventType, payloadBytes);
+        gitHubApiService.handleWebhook(signatureHeader, eventType, payloadBytes);
         
         return ResponseEntity.ok(ApiResponse.success("Webhook processed successfully", "Event synchronized"));
     }

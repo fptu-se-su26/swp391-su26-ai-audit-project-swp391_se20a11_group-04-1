@@ -28,6 +28,4 @@ public class RequirementResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> tags;
-    private Boolean aiGenerated;
-    private List<String> coveredCriteria;
 }

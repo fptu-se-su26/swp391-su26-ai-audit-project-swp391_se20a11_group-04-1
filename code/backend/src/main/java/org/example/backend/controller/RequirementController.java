@@ -2,7 +2,6 @@ package org.example.backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.dto.RequirementRequestDTO;
 import org.example.backend.dto.RequirementResponseDTO;
@@ -16,72 +15,47 @@ import jakarta.servlet.http.HttpSession;
 @RestController
 @RequestMapping("/api/requirements")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*") // For local frontend development
 public class RequirementController {
 
     private final RequirementService requirementService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<RequirementResponseDTO>> createRequirement(@Valid @RequestBody RequirementRequestDTO requestDTO, HttpSession session) {
-        Long userId = requireUser(session);
-        RequirementResponseDTO responseDTO = requirementService.createRequirement(requestDTO, userId);
-        return new ResponseEntity<>(ApiResponse.success(responseDTO, "Requirement created"), HttpStatus.CREATED);
-    }
-
-    @GetMapping
-    public ResponseEntity<ApiResponse<PaginatedResponse<RequirementResponseDTO>>> getRequirements(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = true) Long projectId,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String priority,
-            @RequestParam(required = false) String tag,
-            HttpSession session) {
-        requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirements(page, size, projectId, status, priority, tag), "Requirements retrieved"));
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<RequirementResponseDTO>> getRequirementById(@PathVariable Long id, HttpSession session) {
-        requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirementById(id), "Requirement retrieved"));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<RequirementResponseDTO>> updateRequirement(
-            @PathVariable Long id,
-            @Valid @RequestBody RequirementRequestDTO requestDTO,
-            HttpSession session) {
-        requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.updateRequirement(id, requestDTO), "Requirement updated"));
-    }
-
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<RequirementResponseDTO>> updateRequirementStatus(
-            @PathVariable Long id,
-            @RequestParam String status,
-            HttpSession session) {
-        requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.updateRequirementStatus(id, status), "Requirement status updated"));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteRequirement(@PathVariable Long id, HttpSession session) {
-        requireUser(session);
-        requirementService.deleteRequirement(id);
-        return ResponseEntity.ok(ApiResponse.success(null, "Requirement deleted"));
-    }
-
-    @GetMapping("/tags")
-    public ResponseEntity<ApiResponse<java.util.List<String>>> getTagsByProject(@RequestParam Long projectId, HttpSession session) {
-        requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.getTagsByProject(projectId), "Tags retrieved"));
-    }
-
-    private Long requireUser(HttpSession session) {
+    public ResponseEntity<RequirementResponseDTO> createRequirement(@Valid @RequestBody RequirementRequestDTO requestDTO, HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
         }
-        return userId;
+        RequirementResponseDTO responseDTO = requirementService.createRequirement(requestDTO, userId);
+        return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<PaginatedResponse<RequirementResponseDTO>> getRequirements(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Long projectId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) String tag) {
+        return ResponseEntity.ok(requirementService.getRequirements(page, size, projectId, status, priority, tag));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<RequirementResponseDTO> getRequirementById(@PathVariable Long id) {
+        return ResponseEntity.ok(requirementService.getRequirementById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<RequirementResponseDTO> updateRequirement(
+            @PathVariable Long id,
+            @Valid @RequestBody RequirementRequestDTO requestDTO) {
+        return ResponseEntity.ok(requirementService.updateRequirement(id, requestDTO));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteRequirement(@PathVariable Long id) {
+        requirementService.deleteRequirement(id);
+        return ResponseEntity.noContent().build();
     }
 }

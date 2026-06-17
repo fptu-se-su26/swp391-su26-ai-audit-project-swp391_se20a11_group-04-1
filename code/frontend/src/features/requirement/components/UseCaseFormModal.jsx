@@ -205,7 +205,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     <option value="DRAFT">Draft</option>
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="IN_REVIEW">In Review</option>
-                    <option value="DONE">Done</option>
+                    <option value="APPROVED">Approved</option>
                   </select>
                 </div>
                 <div>

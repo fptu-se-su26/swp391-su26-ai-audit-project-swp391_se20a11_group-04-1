@@ -87,13 +87,13 @@ class GitHubControllerTest {
         body.put("isPrivate", true);
 
         Map<String, Object> mockResponse = Map.of("id", 123, "name", "new-repo");
-        when(gitHubApiService.createRepository(1L, "new-repo", "A new repo", true, false, null, null)).thenReturn(mockResponse);
+        when(gitHubApiService.createRepository(1L, "new-repo", "A new repo", true)).thenReturn(mockResponse);
 
         ResponseEntity<ApiResponse<Object>> response = gitHubController.createRepository(body, session);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody().getData()).isEqualTo(mockResponse);
-        verify(gitHubApiService, times(1)).createRepository(1L, "new-repo", "A new repo", true, false, null, null);
+        verify(gitHubApiService, times(1)).createRepository(1L, "new-repo", "A new repo", true);
     }
 
     @Test
@@ -101,15 +101,14 @@ class GitHubControllerTest {
     void handleGitHubWebhook_Success() {
         // GIVEN
         String mockSignature = "sha256=12345abcde67890f";
-        String mockDelivery = "delivery-1";
         String mockEvent = "issues";
         byte[] mockPayload = "{\"action\":\"opened\",\"issue\":{\"number\":12}}".getBytes();
 
-        doNothing().when(gitHubApiService).handleWebhook(eq(mockSignature), eq(mockDelivery), eq(mockEvent), eq(mockPayload));
+        doNothing().when(gitHubApiService).handleWebhook(eq(mockSignature), eq(mockEvent), eq(mockPayload));
 
         // WHEN
         ResponseEntity<ApiResponse<String>> response = gitHubController.handleGitHubWebhook(
-                mockSignature, mockDelivery, mockEvent, mockPayload
+                mockSignature, mockEvent, mockPayload
         );
 
         // THEN
@@ -119,6 +118,6 @@ class GitHubControllerTest {
         assertThat(response.getBody().getMessage()).isEqualTo("Event synchronized");
         assertThat(response.getBody().getData()).isEqualTo("Webhook processed successfully");
 
-        verify(gitHubApiService, times(1)).handleWebhook(eq(mockSignature), eq(mockDelivery), eq(mockEvent), eq(mockPayload));
+        verify(gitHubApiService, times(1)).handleWebhook(eq(mockSignature), eq(mockEvent), eq(mockPayload));
     }
 }

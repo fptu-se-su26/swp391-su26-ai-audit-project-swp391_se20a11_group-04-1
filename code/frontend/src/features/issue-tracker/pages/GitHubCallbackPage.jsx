@@ -15,12 +15,10 @@ export function GitHubCallbackPage() {
     // Extract projectId from state if we passed it, or fallback
     const stateParam = searchParams.get('state')
     let projectId = null
-    let isCreateProjectFlow = false
     if (stateParam) {
       try {
         const decoded = JSON.parse(atob(stateParam))
         projectId = decoded.projectId
-        isCreateProjectFlow = decoded.isCreateProjectFlow || false
       } catch (e) {
         console.error("Failed to parse state param", e)
       }
@@ -44,9 +42,7 @@ export function GitHubCallbackPage() {
         
         // Redirect back to the project config if we know the project, else dashboard
         setTimeout(() => {
-          if (isCreateProjectFlow) {
-            navigate('/', { state: { openCreateProject: true } })
-          } else if (projectId) {
+          if (projectId) {
             navigate(`/projects/${projectId}/github-config`)
           } else {
             navigate('/') // fallback

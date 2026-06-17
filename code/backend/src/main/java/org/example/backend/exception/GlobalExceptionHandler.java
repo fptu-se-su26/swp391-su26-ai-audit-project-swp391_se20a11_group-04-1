@@ -78,17 +78,6 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex.getMessage(), ex.getStatus());
     }
 
-    @ExceptionHandler(CodeInsightAiProviderException.class)
-    public ResponseEntity<ApiResponse<Void>> handleCodeInsightAiProvider(CodeInsightAiProviderException ex) {
-        log.warn("Code Insight AI provider error [{} {}]: {}", ex.getProvider(), ex.getErrorType(), ex.getDetail());
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .success(false)
-                .message(ex.getMessage())
-                .errors(ex.toErrorBody())
-                .build();
-        return new ResponseEntity<>(response, ex.getHttpStatus());
-    }
-
     // ─── 2. Handle Validation Exceptions ────────────────────────────────────────
 
     /**
@@ -171,12 +160,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
         log.warn("Malformed request body: {}", ex.getMessage());
         return buildErrorResponse("Invalid request body. Please check the JSON format.", HttpStatus.BAD_REQUEST);
-    }
-
-    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
-        log.warn("Max upload size exceeded: {}", ex.getMessage());
-        return buildErrorResponse("Kích thước file vượt quá giới hạn cho phép (tối đa 10MB).", HttpStatus.BAD_REQUEST);
     }
 
     // ─── 5. Handle Security Exceptions ──────────────────────────────────────────

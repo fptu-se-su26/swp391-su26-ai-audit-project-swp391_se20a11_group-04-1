@@ -58,7 +58,7 @@ const EvidenceDetailPage = () => {
       fetchEvidence();
     } catch (error) {
       console.error('Failed to update evidence:', error);
-      toast.error(error.response?.data?.message || 'Failed to update evidence');
+      toast.error('Failed to update evidence');
       throw error;
     }
   };

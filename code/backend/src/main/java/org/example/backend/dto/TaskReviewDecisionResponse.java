@@ -3,7 +3,6 @@ package org.example.backend.dto;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Getter
 @Setter
@@ -33,39 +32,8 @@ public class TaskReviewDecisionResponse {
         private String title;
         private String status;
         private String priority;
-        private String type;
         private String requirementCode;
         private String assigneeName;
-        private ReviewEvidenceSummary evidenceSummary;
-        private CodeInsightApprovalGateResponse approvalGate;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class ReviewEvidenceSummary {
-        // Local rule score gives leaders a reliable baseline before GitHub patch/AI evidence is connected.
-        private int score;
-        private String riskLevel;
-        private String evidenceMode;
-        private boolean hasGithubIssue;
-        private boolean hasRequirement;
-        private int checklistTotal;
-        private int checklistDone;
-        private int subtaskTotal;
-        private int subtaskDone;
-        private int commitCount;
-        private int pullRequestCount;
-        private int checkRunCount;
-        private String ciStatus;
-        private boolean hasMergedPullRequest;
-        private List<String> scoreBreakdown;
-        private List<String> positiveSignals;
-        private List<String> warnings;
-        private int manualEvidencePendingCount;
-        private int manualEvidenceConfirmedCount;
     }
 
     @Getter

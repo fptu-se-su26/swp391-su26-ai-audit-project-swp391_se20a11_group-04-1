@@ -1,5 +1,3 @@
-import { shortTaskType } from '../../../kanban/utils/taskMapper'
-
 /**
  * WeeklyTaskCard - Card task nhỏ gọn trong weekly grid
  * Nhận TaskCalendarItemResponse từ backend (đã có displayStatus sẵn)
@@ -86,7 +84,7 @@ const WeeklyTaskCard = ({ task, onClick }) => {
           )}
           {task.type && (
             <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1 rounded">
-              {shortTaskType(task.type)}
+              {task.type}
             </span>
           )}
         </div>

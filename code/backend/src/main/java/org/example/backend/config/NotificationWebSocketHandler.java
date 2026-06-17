@@ -56,15 +56,13 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     /**
      * Gửi tin nhắn real-time tới tất cả các session đang kết nối
      */
-    public static void broadcast(String jsonPayload) {
+    public void broadcast(String jsonPayload) {
         log.info("🚀 Broadcasting WebSocket message to all active sessions: {}", jsonPayload);
         userSessions.forEach((userId, sessions) -> {
             for (WebSocketSession session : sessions) {
                 if (session.isOpen()) {
                     try {
-                        synchronized (session) {
-                            session.sendMessage(new TextMessage(jsonPayload));
-                        }
+                        session.sendMessage(new TextMessage(jsonPayload));
                     } catch (IOException e) {
                         log.error("❌ Failed to broadcast WebSocket message to User ID {}", userId, e);
                     }
@@ -76,7 +74,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
     /**
      * Gửi tin nhắn real-time tới một user cụ thể
      */
-    public static void sendToUser(Long userId, String jsonPayload) {
+    public void sendToUser(Long userId, String jsonPayload) {
         List<WebSocketSession> sessions = userSessions.get(userId);
         if (sessions == null || sessions.isEmpty()) {
             return;
@@ -86,9 +84,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
-                    synchronized (session) {
-                        session.sendMessage(new TextMessage(jsonPayload));
-                    }
+                    session.sendMessage(new TextMessage(jsonPayload));
                 } catch (IOException e) {
                     log.error("❌ Failed to send WebSocket message to User ID {}", userId, e);
                 }

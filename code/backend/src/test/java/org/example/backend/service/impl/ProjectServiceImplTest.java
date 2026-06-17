@@ -52,9 +52,6 @@ class ProjectServiceImplTest {
     @Mock
     private ObjectMapper objectMapper;
 
-    @Mock
-    private org.example.backend.service.github.GitHubApiService gitHubApiService;
-
     @InjectMocks
     private ProjectServiceImpl projectService;
 

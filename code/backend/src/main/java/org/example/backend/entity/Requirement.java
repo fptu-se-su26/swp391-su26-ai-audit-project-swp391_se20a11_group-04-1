@@ -92,17 +92,15 @@ public class Requirement {
     @Builder.Default
     private boolean isDeleted = false;
 
-    @Column(name = "ai_generated", nullable = false)
+    @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private Boolean aiGenerated = false;
+    @ToString.Exclude
+    private List<RequirementTag> tags = new ArrayList<>();
 
-    @Column(name = "tags", columnDefinition = "text[]")
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Builder.Default
-    private List<String> tags = new ArrayList<>();
-
-    @Column(name = "source_generation_id")
-    private java.util.UUID sourceGenerationId;
+    public void addTag(RequirementTag tag) {
+        tags.add(tag);
+        tag.setRequirement(this);
+    }
 
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { normalizeTaskType, shortTaskType } from '../utils/taskMapper'
 
 const priorityClasses = {
   LOW: 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]',
@@ -9,18 +8,14 @@ const priorityClasses = {
 }
 
 const typeClasses = {
-  DEVELOPMENT: 'bg-[#f5f3ff] text-[#6d28d9] border-[#ddd6fe]',
-  TESTING: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
-  DOCUMENTATION: 'bg-[#f8fafc] text-[#475569] border-[#cbd5e1]',
-  UI_UX: 'bg-[#f0f9ff] text-[#0284c7] border-[#bae6fd]',
-  RESEARCH: 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]',
-  DEPLOYMENT: 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
-  BUG_FIX: 'bg-error text-white border-error',
-  REVIEW: 'bg-[#eef2ff] text-[#4338ca] border-[#c7d2fe]',
+  DEV: 'bg-[#f5f3ff] text-[#6d28d9] border-[#ddd6fe]',
+  'UI/UX': 'bg-[#f0f9ff] text-[#0284c7] border-[#bae6fd]',
+  QA: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
+  BUG: 'bg-error text-white border-error',
+  DOCS: 'bg-[#f8fafc] text-[#475569] border-[#cbd5e1]',
 }
 
 const getEvidenceClass = (status) => {
-  if (status.startsWith('Uploaded')) return 'text-purple-600 font-medium'
   if (status === 'Accepted') return 'text-[#16a34a]'
   if (status === 'Pending') return 'text-[#ca8a04]'
   if (status === 'Missing') return 'text-error'
@@ -39,10 +34,7 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
   const completed = task.checklist.filter((item) => item.done).length
   const isDone = task.status === 'DONE'
   const isBlocked = task.status === 'BLOCKED'
-  const needsChanges = task.status === 'NEEDS_CHANGES'
-  const wasReopened = task.latestReviewDecision === 'REOPENED_REVIEW' || task.latestReviewDecision === 'REQUESTED_REWORK' || task.latestReviewDecision === 'REJECTED'
   const priorityLabel = isCompact ? task.priority.slice(0, 3) : task.priority
-  const normalizedType = normalizeTaskType(task.type)
 
   const handleMenuClick = (event) => {
     event.stopPropagation()
@@ -77,9 +69,7 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
       onDragStart={(event) => onDragStart(event, task.id)}
       onDragEnd={onDragEnd}
       className={`w-full text-left rounded-lg ${isCompact ? 'p-2' : 'p-3'} transition-all group border relative ${
-        needsChanges
-          ? 'bg-[#fffbeb] border-[#f59e0b]'
-          : isBlocked
+        isBlocked
           ? 'bg-[#fef2f2] border-[#fca5a5]'
           : isDone
             ? 'bg-surface border-outline-variant opacity-80 hover:opacity-100'
@@ -89,25 +79,14 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
       } ${isDragging ? 'opacity-50 scale-[0.98]' : ''}`}
     >
       <div className={`flex justify-between items-start gap-2 ${isCompact ? 'mb-1' : 'mb-2'}`}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
-            ID: {task.id}
-          </span>
-          {task.githubIssueNumber && (
-            <span className={`text-[9px] font-bold px-1 py-0.2 rounded shrink-0 border flex items-center gap-0.5 ${
-              isDone 
-                ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]' 
-                : 'bg-purple-50 text-purple-600 border-purple-200'
-            }`}>
-              #{task.githubIssueNumber}
-            </span>
-          )}
-        </div>
+        <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
+          {task.id}
+        </span>
         <div className="flex items-start justify-end gap-1">
           <div className="flex flex-wrap justify-end gap-1">
             {!isCompact && (
-              <span className={`${typeClasses[normalizedType] || typeClasses.DEVELOPMENT} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
-                {shortTaskType(normalizedType)}
+              <span className={`${typeClasses[task.type] || typeClasses.DOCS} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
+                {task.type}
               </span>
             )}
             <span className={`${priorityClasses[task.priority] || priorityClasses.MEDIUM} font-label-md text-[10px] px-1.5 py-0.5 rounded border`}>
@@ -160,18 +139,6 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
         <div className="bg-surface-container-lowest p-2 rounded text-xs border border-error-container mb-3 flex items-start space-x-1">
           <span className="material-symbols-outlined text-[14px] text-error mt-0.5">block</span>
           <span className="text-on-surface-variant">{task.blockedReason}</span>
-        </div>
-      )}
-
-      {!isCompact && needsChanges && (
-        <div className="mb-3 rounded border border-[#f59e0b]/40 bg-[#fef3c7] p-2 text-xs text-[#92400e]">
-          <div className="flex items-center gap-1 font-bold uppercase">
-            <span className="material-symbols-outlined text-[14px]">published_with_changes</span>
-            {wasReopened ? 'Needs Changes' : 'Needs Changes'}
-          </div>
-          {task.latestReviewReason && (
-            <p className="mt-1 line-clamp-2">{task.latestReviewReason}</p>
-          )}
         </div>
       )}
 

@@ -75,6 +75,24 @@ const RequirementFormProperties = ({ formData, onChange }) => {
         </div>
       </div>
 
+      {/* Evidence Required Toggle */}
+      <div className="pt-4 border-t border-surface-container-high flex items-center justify-between">
+        <div className="flex flex-col">
+          <span className="font-headline-sm text-[16px] text-on-surface">Evidence Required</span>
+          <span className="font-body-md text-[12px] text-secondary">Require vault upload for completion</span>
+        </div>
+        <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
+          <input 
+            checked={formData.evidenceRequired}
+            onChange={(e) => onChange('evidenceRequired', e.target.checked)}
+            className={`toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer z-10 transition-all duration-300 ${formData.evidenceRequired ? 'right-0 border-primary' : 'right-6 border-outline-variant'}`} 
+            id="toggle" 
+            name="toggle" 
+            type="checkbox" 
+          />
+          <label className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-all duration-300 ${formData.evidenceRequired ? 'bg-primary' : 'bg-outline-variant'}`} htmlFor="toggle"></label>
+        </div>
+      </div>
     </div>
   );
 };

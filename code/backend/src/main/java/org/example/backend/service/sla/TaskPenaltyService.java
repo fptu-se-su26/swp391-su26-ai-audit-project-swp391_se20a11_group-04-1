@@ -3,16 +3,15 @@ package org.example.backend.service.sla;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.*;
+import org.example.backend.repository.NotificationRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.TaskPenaltyLogRepository;
 import org.example.backend.repository.TaskRepository;
-import org.example.backend.service.NotificationService;
 import org.example.backend.service.event.OutboxEventService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,26 +19,30 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class TaskPenaltyService {
-    private static final String SLA_OVERDUE_TITLE = "SLA task quá hạn";
 
     private final TaskRepository taskRepository;
     private final TaskPenaltyLogRepository taskPenaltyLogRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final NotificationRepository notificationRepository;
+    private final TaskSlaRuleService taskSlaRuleService;
     private final OutboxEventService outboxEventService;
-    private final NotificationService notificationService;
 
     @Transactional
-    public void applyPenaltyIfNeeded(Task task, TaskSlaEvaluation evaluation) {
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) && !task.isOverduePenaltyApplied()) {
-            applyPenalty(task, evaluation);
+    public int applyOverduePenalties() {
+        List<Task> tasks = taskRepository.findAllSlaCandidates();
+        int changed = 0;
+        for (Task task : tasks) {
+            TaskSlaEvaluation evaluation = taskSlaRuleService.evaluate(task);
+            if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) && !task.isOverduePenaltyApplied()) {
+                applyPenalty(task, evaluation);
+                changed++;
+            }
+            if (evaluation.has(TaskSlaCategory.OVERDUE_FROZEN)) {
+                escalateToLeaders(task, evaluation);
+            }
         }
-    }
-
-    @Transactional
-    public void escalateToLeadersIfNeeded(Task task, TaskSlaEvaluation evaluation) {
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
-            escalateToLeaders(task, evaluation);
-        }
+        log.info("Applied {} overdue penalties", changed);
+        return changed;
     }
 
     private void applyPenalty(Task task, TaskSlaEvaluation evaluation) {
@@ -55,38 +58,29 @@ public class TaskPenaltyService {
                     .build());
         }
 
-        Map<String, Object> penaltyPayload = new HashMap<>();
-        penaltyPayload.put("taskId", task.getId());
-        penaltyPayload.put("projectId", task.getProject().getId());
-        if (task.getPrimaryAssignee() != null) {
-            penaltyPayload.put("assigneeId", task.getPrimaryAssignee().getId());
-        }
-        penaltyPayload.put("overdueDays", evaluation.overdueDays());
-        penaltyPayload.put("penaltyLabel", "OVERDUE_PENALTY");
-        outboxEventService.createEvent("TASK_PENALTY_APPLIED", "Task", task.getId(), penaltyPayload);
+        outboxEventService.createEvent("TASK_PENALTY_APPLIED", "Task", task.getId(), Map.of(
+                "taskId", task.getId(),
+                "assigneeId", task.getPrimaryAssignee().getId(),
+                "overdueDays", evaluation.overdueDays(),
+                "penaltyLabel", "OVERDUE_PENALTY"
+        ));
     }
 
     private void escalateToLeaders(Task task, TaskSlaEvaluation evaluation) {
-        List<ProjectMember> leaders = new java.util.ArrayList<>();
-        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER"));
-        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "PROJECT_LEADER"));
-        leaders.addAll(projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "MENTOR"));
+        List<ProjectMember> leaders = projectMemberRepository.findByProjectIdAndRoleName(task.getProject().getId(), "LEADER");
         for (ProjectMember leader : leaders) {
             Long leaderId = leader.getUser().getId();
-            if (notificationService.hasAlreadyNotified(
-                    leaderId, task.getId(), NotificationType.SYSTEM, NotificationEntityType.TASK, SLA_OVERDUE_TITLE)) {
+            if (notificationRepository.existsByRecipientIdAndRelatedIdAndType(leaderId, task.getId(), NotificationType.SYSTEM)) {
                 continue;
             }
-            notificationService.createAndPush(
-                    leader.getUser(),
-                    task.getProject(),
-                    NotificationEntityType.TASK,
-                    task.getId(),
-                    NotificationType.SYSTEM,
-                    SLA_OVERDUE_TITLE,
-                    "Task '" + task.getTitle() + "' đã quá hạn " + evaluation.overdueDays()
-                            + " ngày và cần Leader/Mentor xử lý."
-            );
+            notificationRepository.save(Notification.builder()
+                    .recipient(leader.getUser())
+                    .title("Task overdue escalation")
+                    .message("Task '" + task.getTitle() + "' is overdue for " + evaluation.overdueDays()
+                            + " days and needs leader attention.")
+                    .type(NotificationType.SYSTEM)
+                    .relatedId(task.getId())
+                    .build());
         }
     }
 }

@@ -172,16 +172,6 @@ class BugReportServiceImplTest {
         when(projectRepository.findById(100L)).thenReturn(Optional.of(mockProject));
         when(userAccountRepository.findById(1L)).thenReturn(Optional.of(mockUser));
 
-        TaskResponse mockTaskResponse = TaskResponse.builder()
-                .id(200L)
-                .title("[BUG] NullPointerException in AuthController")
-                .build();
-        when(taskService.createTask(eq(100L), any(TaskRequest.class), eq(1L))).thenReturn(mockTaskResponse);
-
-        Task mockTask = new Task();
-        mockTask.setId(200L);
-        when(taskRepository.findById(200L)).thenReturn(Optional.of(mockTask));
-
         when(bugReportRepository.save(any(BugReport.class))).thenAnswer(invocation -> {
             BugReport saved = invocation.getArgument(0);
             saved.setId(501L);
@@ -197,14 +187,13 @@ class BugReportServiceImplTest {
         assertThat(result.getTitle()).isEqualTo("NullPointerException in AuthController");
         assertThat(result.getSeverity()).isEqualTo(BugSeverity.HIGH);
         assertThat(result.getEnvironment()).isEqualTo(Environment.STAGING);
-        verify(bugReportRepository, times(2)).save(any(BugReport.class));
+        verify(bugReportRepository, times(1)).save(any(BugReport.class));
     }
 
     @Test
     @DisplayName("approveAndConvertBug — Success as Leader")
     void approveAndConvertBug_Success() {
         // GIVEN
-        mockBugReport.setStatus(BugStatus.DRAFT);
         when(bugReportRepository.findById(500L)).thenReturn(Optional.of(mockBugReport));
         when(projectMemberRepository.findByProjectIdAndUserId(100L, 1L)).thenReturn(Optional.of(mockLeaderMember));
 
@@ -246,7 +235,6 @@ class BugReportServiceImplTest {
     @DisplayName("approveAndConvertBug — Throws FORBIDDEN when calling member is not a Project Leader")
     void approveAndConvertBug_Forbidden() {
         // GIVEN
-        mockBugReport.setStatus(BugStatus.DRAFT);
         when(bugReportRepository.findById(500L)).thenReturn(Optional.of(mockBugReport));
         when(projectMemberRepository.findByProjectIdAndUserId(100L, 1L)).thenReturn(Optional.of(mockNormalMember));
 

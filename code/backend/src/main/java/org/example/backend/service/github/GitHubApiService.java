@@ -44,11 +44,10 @@ public interface GitHubApiService {
      * Handles incoming GitHub Webhook events (issues opened, closed, assigned, edited).
      *
      * @param signatureHeader the X-Hub-Signature-256 header for secure HMAC verification
-     * @param deliveryId      the X-GitHub-Delivery header for duplicate detection
      * @param eventType       the X-GitHub-Event header (e.g. "issues")
      * @param payloadBody     the raw JSON payload body
      */
-    void handleWebhook(String signatureHeader, String deliveryId, String eventType, byte[] payloadBytes);
+    void handleWebhook(String signatureHeader, String eventType, byte[] payloadBytes);
 
     /**
      * Decrypts an encrypted token or secret using the system's AES key.
@@ -119,7 +118,7 @@ public interface GitHubApiService {
      * @param isPrivate   Whether the repository should be private
      * @return The created repository details as an Object (Map/JSON)
      */
-    Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate);
+    Object createRepository(Long userId, String name, String description, boolean isPrivate);
 
     /**
      * Auto-configures the GitHub webhook for the given project.
@@ -131,9 +130,4 @@ public interface GitHubApiService {
      * @param webhookSecret Optional custom secret to use
      */
     void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, java.util.List<String> events, String webhookSecret);
-
-    /**
-     * Reads the current GitHub webhook and persists its Code Insight-relevant config locally.
-     */
-    java.util.Map<String, Object> refreshWebhookConfig(Long projectId, Long userId);
 }

@@ -11,7 +11,14 @@ const RequirementFormActionBar = ({ onCancel, onSave, onSaveDraft, loading }) =>
       >
         Cancel
       </button>
-
+      <button 
+        type="button" 
+        onClick={onSaveDraft}
+        className="px-6 py-2 rounded-lg font-body-md text-body-md text-on-surface border border-outline-variant hover:bg-surface-container-low transition-colors disabled:opacity-50" 
+        disabled={loading}
+      >
+        Save Draft
+      </button>
       <button 
         type="button"
         onClick={onSave}

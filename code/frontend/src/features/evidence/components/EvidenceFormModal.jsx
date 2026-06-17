@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import useProjectStore from '../../../store/useProjectStore';
 import { requirementApi } from '../../requirement/services/requirementApi';
 import { testCaseService } from '../../testing/services/testCaseService';
-import { taskService } from '../../kanban/services/taskService';
 import { EVIDENCE_TYPES } from './EvidenceToolbar';
 
 // Evidence types that support file upload
@@ -93,10 +92,6 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
       newErrors.file = 'File is required for this evidence type';
     }
 
-    if (formData.linkedEntities.length === 0 && !linkInput.entityId) {
-      newErrors.linkedEntities = 'Please select a Task to link this evidence to';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,18 +115,8 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
       if (formData.file) {
         apiData.append('file', formData.file);
       }
-      
-      let finalEntities = [...formData.linkedEntities];
-      if (linkInput.entityId && !finalEntities.some(l => String(l.entityId) === String(linkInput.entityId))) {
-        finalEntities.push({ ...linkInput, entityId: Number(linkInput.entityId) });
-      }
-
-      if (finalEntities.length > 0) {
-        const cleanedEntities = finalEntities.map(e => ({
-          entityType: e.entityType,
-          entityId: Number(e.entityId)
-        }));
-        apiData.append('linkedEntities', JSON.stringify(cleanedEntities));
+      if (formData.linkedEntities.length > 0) {
+        apiData.append('linkedEntities', JSON.stringify(formData.linkedEntities));
       }
 
       if (onSuccess) {
@@ -146,7 +131,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
   };
 
   // Add linked entity
-  const [linkInput, setLinkInput] = useState({ entityType: 'TASK', entityId: '', entityLabel: '' });
+  const [linkInput, setLinkInput] = useState({ entityType: 'REQUIREMENT', entityId: '', entityLabel: '' });
   const [targetOptions, setTargetOptions] = useState([]);
   const [loadingTargets, setLoadingTargets] = useState(false);
 
@@ -159,10 +144,14 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
     const fetchTargets = async () => {
       try {
         let options = [];
-        if (linkInput.entityType === 'TASK') {
-          const res = await taskService.getProjectTasks(activeProject.id);
+        if (linkInput.entityType === 'REQUIREMENT') {
+          const res = await requirementApi.getAllRequirements({ projectId: activeProject.id });
           const data = res.items || res.data?.content || res.data || res || [];
-          options = data.map(item => ({ id: item.id, code: `TSK-${item.id}`, title: item.title }));
+          options = data.map(item => ({ id: item.id, code: item.reqCode || `REQ-${item.id}`, title: item.title }));
+        } else if (linkInput.entityType === 'TEST_CASE') {
+          const res = await testCaseService.getTestCases(activeProject.id, {});
+          const data = res.items || res.data?.content || res.data || res || [];
+          options = data.map(item => ({ id: item.id, code: item.tcCode || item.code || `TC-${item.id}`, title: item.title }));
         }
         setTargetOptions(options);
       } catch (err) {
@@ -395,10 +384,12 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
             <div className="flex items-center gap-2 mb-2">
               <select
                 value={linkInput.entityType}
-                disabled
-                className="w-1/3 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-low outline-none"
+                onChange={(e) => setLinkInput((prev) => ({ ...prev, entityType: e.target.value }))}
+                className="w-1/3 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
               >
+                <option value="REQUIREMENT">Requirement</option>
                 <option value="TASK">Task</option>
+                <option value="TEST_CASE">Test Case</option>
               </select>
               <select
                 value={linkInput.entityId}
@@ -424,12 +415,6 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 <span className="material-symbols-outlined text-[20px]">add</span>
               </button>
             </div>
-            {errors.linkedEntities && (
-              <p className="mt-1 font-body-md text-[12px] text-error flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">error</span>
-                {errors.linkedEntities}
-              </p>
-            )}
 
             {/* Linked entity chips */}
             {formData.linkedEntities.length > 0 && (

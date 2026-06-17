@@ -18,7 +18,6 @@ public class ProjectResponse {
     private String semester;
     private String role;
     private int atRiskReqCount;
-    private LocalDate startDate;
     private LocalDate deadline;
     private int progress;
     private String aiInsight;
@@ -44,17 +43,7 @@ public class ProjectResponse {
         private String name;
         private String description;
         private String type; // WEB_APP, MOBILE, DATABASE, RESEARCH, OTHER
-        
-        @jakarta.validation.constraints.NotNull(message = "Start date is required")
-        private LocalDate startDate;
-        
-        @jakarta.validation.constraints.NotNull(message = "Deadline is required")
         private LocalDate deadline;
-        
         private String major; // Sẽ được maps vào subject của AcademicContext
-        private Long classroomId; // Optional: ID của lớp học nếu sinh viên tạo nhóm trong lớp
-        private String repoOwner;
-        private String repoName;
-        private String webhookUrl;
     }
 }

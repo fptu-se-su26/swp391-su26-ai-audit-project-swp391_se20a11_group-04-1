@@ -4,7 +4,7 @@ import axios from 'axios'
 // Khi dev: Vite proxy /api → localhost:8080
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 60000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

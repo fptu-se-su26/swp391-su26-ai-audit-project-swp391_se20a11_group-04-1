@@ -8,7 +8,7 @@
 | Class | SE20A11 |
 | Semester | SU26 |
 | Group | 4 |
-| Topic | Software Project Management System for IT Student Teams |
+| Topic | An AI-Integrated Project Workspace for IT Student Teams |
 | Repository |  |
 
 ---

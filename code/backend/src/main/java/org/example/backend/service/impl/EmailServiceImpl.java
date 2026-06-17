@@ -17,8 +17,8 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:8080}")
-    private String appBaseUrl;
+    @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
+    private String apiBaseUrl;
 
     @Override
     @Async
@@ -209,8 +209,8 @@ public class EmailServiceImpl implements EmailService {
             String unlockToken = unlockTokensMap.get(ip);
             String blockToken = blockTokensMap.get(ip);
 
-            String unlockLink = appBaseUrl + "/api/v1/auth/unlock?token=" + unlockToken;
-            String blockLink = appBaseUrl + "/api/v1/auth/block-ip?token=" + blockToken;
+            String unlockLink = apiBaseUrl + "/api/v1/auth/unlock?token=" + unlockToken;
+            String blockLink = apiBaseUrl + "/api/v1/auth/block-ip?token=" + blockToken;
 
             devicesHtml.append("            <div class='device-card'>")
                     .append("                <p class='device-info'>• <strong>Thiết bị:</strong> ").append(details)
@@ -289,8 +289,9 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @Async
     public void sendEmail(String toEmail, String subject, String body) {
-        log.info("Sending basic email to: {}", toEmail);
+        log.info("Sending basic email asynchronously to: {}", toEmail);
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -300,13 +301,9 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(body, true);
 
             mailSender.send(message);
-            log.info("Successfully sent basic email to: {}", toEmail);
-        } catch (org.springframework.mail.MailException e) {
-            log.error("Mail server authentication/connection failed to: {}", toEmail, e);
-            throw new BadRequestException("Email server error. Please check SMTP configuration.");
+            log.info("Successfully sent basic email asynchronously to: {}", toEmail);
         } catch (Exception e) {
-            log.error("Failed to send basic email to: {}", toEmail, e);
-            throw new BadRequestException("Failed to send email");
+            log.error("Failed to send basic email asynchronously to: {}", toEmail, e);
         }
     }
 }

@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import useProjectStore from '@store/useProjectStore'
 import { TASK_STATUSES, priorityOptions, typeOptions } from '../store/useKanbanStore'
-import { formatTaskType, normalizeTaskType } from '../utils/taskMapper'
 
 const emptyFormData = {
   title: '',
@@ -14,7 +12,7 @@ const emptyFormData = {
   deadline: '',
   weight: '1.0',
   estimatedHours: '',
-  type: 'DEVELOPMENT',
+  type: 'DEV',
   priority: 'MEDIUM',
   status: 'TODO',
   columnId: '',
@@ -28,11 +26,9 @@ const TaskFormModal = ({
   requirementOptions = [],
   sprintOptions = [],
   columnOptions = TASK_STATUSES,
-  isLeaderRole = true,
   onClose,
   onSubmit,
 }) => {
-  const activeProject = useProjectStore((state) => state.activeProject)
   const [formData, setFormData] = useState({
     ...emptyFormData,
   })
@@ -55,7 +51,7 @@ const TaskFormModal = ({
         deadline: task.deadline || '',
         weight: task.weight ? String(task.weight) : '1.0',
         estimatedHours: task.estimatedHours ? String(task.estimatedHours) : '',
-        type: normalizeTaskType(task.type),
+        type: task.type || 'DEV',
         priority: task.priority || 'MEDIUM',
         status: task.status || 'TODO',
         columnId: task.columnId || columnOptions.find((column) => column.statusKey === task.status)?.id || '',
@@ -87,14 +83,6 @@ const TaskFormModal = ({
       nextErrors.title = 'Title is required.'
     }
 
-    if (!formData.startDate) {
-      nextErrors.startDate = 'Start date is required.'
-    }
-
-    if (!formData.deadline) {
-      nextErrors.deadline = 'Deadline is required.'
-    }
-
     if (formData.status === 'BLOCKED' && !formData.blockedReason.trim()) {
       nextErrors.blockedReason = 'Reason is required.'
     }
@@ -104,18 +92,7 @@ const TaskFormModal = ({
     }
 
     if (formData.startDate && formData.deadline && formData.deadline < formData.startDate) {
-      nextErrors.deadline = 'Deadline must be after start date.'
-    }
-
-    if (activeProject?.deadline && formData.deadline && formData.deadline > activeProject.deadline) {
-      nextErrors.deadline = `Deadline cannot exceed project deadline (${activeProject.deadline}).`
-    }
-
-    if (formData.sprintId && formData.deadline) {
-      const selectedSprint = sprintOptions.find(s => String(s.id) === String(formData.sprintId))
-      if (selectedSprint?.endDate && formData.deadline > selectedSprint.endDate) {
-        nextErrors.deadline = `Deadline cannot exceed sprint end date (${selectedSprint.endDate}).`
-      }
+      nextErrors.deadline = 'Deadline must be after start.'
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -143,7 +120,7 @@ const TaskFormModal = ({
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 kanban-scroll">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-on-surface-variant uppercase">Title <span className="text-error">*</span></label>
+            <label className="text-xs font-bold text-on-surface-variant uppercase">Title</label>
             <input
               value={formData.title}
               onChange={(event) => updateField('title', event.target.value)}
@@ -220,7 +197,7 @@ const TaskFormModal = ({
                 onChange={(event) => updateField('type', event.target.value)}
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {typeOptions.map((type) => <option key={type} value={type}>{formatTaskType(type)}</option>)}
+                {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
               </select>
             </div>
             <div className="space-y-1">
@@ -263,33 +240,27 @@ const TaskFormModal = ({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Start date <span className="text-error">*</span></label>
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Start date</label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(event) => updateField('startDate', event.target.value)}
-                aria-invalid={Boolean(errors.startDate)}
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
+              <input
+                type="date"
+                value={formData.deadline}
+                onChange={(event) => updateField('deadline', event.target.value)}
+                aria-invalid={Boolean(errors.deadline)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                  errors.startDate ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                  errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
                 }`}
               />
-              {errors.startDate && <p className="text-xs font-semibold text-error">{errors.startDate}</p>}
+              {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
             </div>
-            {isLeaderRole && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline <span className="text-error">*</span></label>
-                <input
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(event) => updateField('deadline', event.target.value)}
-                  aria-invalid={Boolean(errors.deadline)}
-                  className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                    errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
-                  }`}
-                />
-                {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
-              </div>
-            )}
             <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Weight</label>
               <input
@@ -306,20 +277,18 @@ const TaskFormModal = ({
               />
               {errors.weight && <p className="text-xs font-semibold text-error">{errors.weight}</p>}
             </div>
-            {isLeaderRole && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.estimatedHours}
-                  onChange={(event) => updateField('estimatedHours', event.target.value)}
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="4"
-                />
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={formData.estimatedHours}
+                onChange={(event) => updateField('estimatedHours', event.target.value)}
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="4"
+              />
+            </div>
           </div>
 
           {formData.status === 'BLOCKED' && (

@@ -10,8 +10,6 @@ import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.FileStorageService;
-import org.example.backend.service.event.OutboxEventService;
-import org.example.backend.service.sla.SlaStateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,12 +50,6 @@ class EvidenceServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
-
-    @Mock
-    private OutboxEventService outboxEventService;
-
-    @Mock
-    private SlaStateService slaStateService;
 
     @InjectMocks
     private EvidenceServiceImpl evidenceService;
@@ -180,26 +172,6 @@ class EvidenceServiceImplTest {
         assertEquals("ACCEPTED", response.getStatus());
         assertEquals(mockUser.getId(), response.getReviewedById());
         verify(evidenceRepository).save(any(Evidence.class));
-    }
-
-    @Test
-    void updateEvidenceStatus_TaskLink_ReevaluatesSla() {
-        EvidenceLink taskLink = new EvidenceLink();
-        taskLink.setEntityType(EvidenceEntityType.TASK);
-        taskLink.setEntityId(42L);
-        mockEvidence.getEvidenceLinks().add(taskLink);
-
-        EvidenceStatusUpdateRequest request = new EvidenceStatusUpdateRequest();
-        request.setStatus("ACCEPTED");
-
-        when(evidenceRepository.findById(10L)).thenReturn(Optional.of(mockEvidence));
-        when(userAccountRepository.findById(1L)).thenReturn(Optional.of(mockUser));
-        when(evidenceRepository.save(any(Evidence.class))).thenReturn(mockEvidence);
-
-        evidenceService.updateEvidenceStatus(10L, request);
-
-        verify(outboxEventService).createEvent(eq("EVIDENCE_STATUS_CHANGED"), eq("Evidence"), eq(10L), any());
-        verify(slaStateService).evaluateAndPersist(42L, "EVIDENCE_STATUS_CHANGED");
     }
 
     @Test

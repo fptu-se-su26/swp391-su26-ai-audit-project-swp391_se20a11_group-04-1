@@ -108,7 +108,6 @@ public class BugReportServiceImpl implements BugReportService {
             }
         }
 
-        // New issues start as DRAFT
         BugReport bug = BugReport.builder()
                 .project(project)
                 .title(title)
@@ -118,86 +117,63 @@ public class BugReportServiceImpl implements BugReportService {
                 .testExecution(testExecution)
                 .assignedTo(assignee)
                 .createdBy(creator)
-                .status(BugStatus.DRAFT)
+                .status(BugStatus.OPEN)
                 .stepsToReproduce(stepsJson)
                 .expectedResult((String) request.get("expectedResult"))
                 .actualResult((String) request.get("actualResult"))
                 .build();
 
-        bug = bugReportRepository.save(bug);
-
-        // Auto-create associated Task (BUG_FIX)
-        TaskRequest taskReq = new TaskRequest();
-        taskReq.setTitle("[BUG] " + title);
-        taskReq.setDescription(description);
-        taskReq.setType("BUG_FIX");
-        taskReq.setPriority(mapSeverityToPriority(severity));
-        taskReq.setStatus("TODO");
-        taskReq.setPrimaryAssigneeId(assignee != null ? assignee.getId() : null);
-        taskReq.setChecklist(new ArrayList<>());
-
-        TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
-        Task createdTask = taskRepository.findById(taskResponse.getId())
-                .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
-
-        bug.setRelatedTask(createdTask);
-        bug = bugReportRepository.save(bug);
-
-        return bug;
+        return bugReportRepository.save(bug);
     }
 
     @Override
     public BugReport approveAndConvertBug(Long bugId, Long userId) {
         BugReport bug = bugReportRepository.findById(bugId)
                 .orElseThrow(() -> new CustomException("Bug report not found", HttpStatus.NOT_FOUND));
-
+        
         Long projectId = bug.getProject().getId();
-
-        // 1. Authorize - only PROJECT_LEADER may approve a DRAFT bug report
+        
+        // 1. Authorize - Verify calling user is a PROJECT_LEADER in this project
         ProjectMember caller = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
-
+        
         if (!isLeaderRole(caller.getRole().getName())) {
             throw new CustomException("Only Project Leaders are authorized to approve and convert bug reports.", HttpStatus.FORBIDDEN);
-        }
-
-        // 2. Guard: only DRAFT issues can be approved
-        if (bug.getStatus() != BugStatus.DRAFT) {
-            throw new BadRequestException("Only DRAFT bug reports can be approved. Current status: " + bug.getStatus());
         }
 
         if (bug.getRelatedTask() != null) {
             throw new BadRequestException("This bug report has already been approved and converted to a task.");
         }
 
-        log.info("Approving Bug Report ID: {} — promoting from DRAFT → OPEN and creating linked Task", bugId);
+        log.info("Approving Bug Report ID: {} for conversion to Task", bugId);
 
-        // 3. Prepare TaskRequest to auto-create the linked BUG_FIX task
+        // 2. Prepare TaskRequest (Reusing your existing TaskRequest structure!)
         TaskRequest taskReq = new TaskRequest();
         taskReq.setTitle("[BUG] " + bug.getTitle());
         taskReq.setDescription(bug.getDescription());
-        taskReq.setType("BUG_FIX");
+        taskReq.setType("BUG_FIX"); // Maps to TaskType.BUG_FIX
         taskReq.setPriority(mapSeverityToPriority(bug.getSeverity()));
         taskReq.setStatus("TODO");
         taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
-        taskReq.setChecklist(new ArrayList<>());
+        taskReq.setChecklist(new ArrayList<>()); // Empty checklists to start
 
-        // 4. Create the linked Task via existing TaskService
+        // 3. Call existing TaskService.createTask method directly to create the task
         TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
 
-        // 5. Link the Task back to the BugReport and promote to OPEN
+        // 4. Link the newly created Task back to the BugReport
         Task createdTask = taskRepository.findById(taskResponse.getId())
                 .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
-
+        
         bug.setRelatedTask(createdTask);
-        bug.setStatus(BugStatus.OPEN); // DRAFT → OPEN on approval
+        bug.setStatus(BugStatus.OPEN); // Confirm its transition to officially OPEN
         bug = bugReportRepository.save(bug);
 
-        // 6. Push to GitHub ONLY after approval (non-blocking)
+        // 5. Outbound sync - create the GitHub Issue via API calls
         try {
             gitHubApiService.createGitHubIssue(bug, userId);
         } catch (Exception e) {
-            log.error("GitHub sync failed for approved Bug Report ID: {} — approval still committed", bugId, e);
+            log.error("Outbound GitHub synchronization failed for Bug Report ID: {}", bugId, e);
+            // Non-blocking: we still want the local bug report approval to stand even if GitHub is slow or down
         }
 
         return bug;
@@ -230,7 +206,7 @@ public class BugReportServiceImpl implements BugReportService {
      * accepting both 'LEADER' (stored in DB) and 'PROJECT_LEADER' (legacy code constant).
      */
     private boolean isLeaderRole(String roleName) {
-        return roleName != null && roleName.toUpperCase().contains("LEADER");
+        return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
     }
 
     private String mapSeverityToPriority(BugSeverity severity) {
