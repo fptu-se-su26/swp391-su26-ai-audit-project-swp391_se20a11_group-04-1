@@ -119,7 +119,7 @@ public interface GitHubApiService {
      * @param isPrivate   Whether the repository should be private
      * @return The created repository details as an Object (Map/JSON)
      */
-    Object createRepository(Long userId, String name, String description, boolean isPrivate);
+    Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate);
 
     /**
      * Auto-configures the GitHub webhook for the given project.

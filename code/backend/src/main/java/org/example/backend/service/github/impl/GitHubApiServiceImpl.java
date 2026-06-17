@@ -118,8 +118,8 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     }
 
     @Override
-    public Object createRepository(Long userId, String name, String description, boolean isPrivate) {
-        return oauthService.createRepository(userId, name, description, isPrivate);
+    public Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate) {
+        return oauthService.createRepository(userId, name, description, isPrivate, autoInit, gitignoreTemplate, licenseTemplate);
     }
 
     @Override
