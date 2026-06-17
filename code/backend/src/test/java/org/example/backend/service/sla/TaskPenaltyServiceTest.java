@@ -52,7 +52,6 @@ class TaskPenaltyServiceTest {
                 taskRepository,
                 taskPenaltyLogRepository,
                 projectMemberRepository,
-                notificationRepository,
                 outboxEventService,
                 notificationService
         );

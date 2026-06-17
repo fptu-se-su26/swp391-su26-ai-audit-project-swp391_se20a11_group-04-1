@@ -4,7 +4,8 @@ ALTER TABLE project_code_insight_settings
     ADD COLUMN IF NOT EXISTS block_score_threshold INTEGER NOT NULL DEFAULT 50;
 
 ALTER TABLE project_code_insight_settings
-    DROP CONSTRAINT IF EXISTS chk_project_code_insight_settings_threshold;
+    DROP CONSTRAINT IF EXISTS chk_project_code_insight_settings_threshold,
+    DROP CONSTRAINT IF EXISTS chk_project_code_insight_settings_thresholds;
 
 ALTER TABLE project_code_insight_settings
     ADD CONSTRAINT chk_project_code_insight_settings_thresholds
