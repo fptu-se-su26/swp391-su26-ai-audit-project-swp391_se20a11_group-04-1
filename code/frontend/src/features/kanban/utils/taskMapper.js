@@ -60,7 +60,7 @@ export const mapTaskFromApi = (task) => ({
   assignee: buildAssignee(task.primaryAssignee),
   requirement: task.requirementCode || (task.requirementId ? `REQ-${String(task.requirementId).padStart(2, '0')}` : 'No Requirement'),
   requirementId: task.requirementId || null,
-  evidenceStatus: 'Not Uploaded',
+  evidenceStatus: task.evidenceCount > 0 ? `Uploaded (${task.evidenceCount})` : 'Not Uploaded',
   testStatus: 'Not Run',
   blockedReason: task.blockedReason || '',
   // Thêm các field cần cho Daily/Weekly view

@@ -1,12 +1,16 @@
 package org.example.backend.dto;
 
 import lombok.Data;
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 @Data
 public class DiagramSyncRequest {
+    @NotNull
     private List<DiagramActorDTO> actors;
+    @NotNull
     private List<DiagramUseCaseDTO> useCases;
+    @NotNull
     private List<DiagramRelationDTO> relations;
 
     @Data

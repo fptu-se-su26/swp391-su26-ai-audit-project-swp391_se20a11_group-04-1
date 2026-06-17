@@ -1,15 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import useDiagramStore from '../../../store/useDiagramStore';
 import DiagramSidePanel from '../components/DiagramSidePanel';
 import { UCDiagram } from '../components/UCDiagram';
 import { diagramService } from '../services/diagramService';
+import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
 
 const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
-  const { actors, useCases, relations, loadData } = useDiagramStore();
+  const { actors, useCases, relations, loadData, reset } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving', 'error'
+  const diagramRef = useRef(null);
   
   const isViewMode = mode === 'view';
   useEffect(() => {
@@ -18,6 +20,16 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     const fetchDiagram = async () => {
       setLoading(true);
       try {
+        // Fetch requirements check
+        try {
+          const reqData = await requirementApi.getAllRequirements({ projectId, size: 1 });
+          if (!reqData || reqData.empty || (reqData.items && reqData.items.length === 0) || (reqData.content && reqData.content.length === 0) || (Array.isArray(reqData) && reqData.length === 0)) {
+            toast.error("Dự án hiện chưa có Requirement nào. Bạn sẽ không thể tạo thêm Use Case mới từ bản vẽ!", { duration: 6000 });
+          }
+        } catch (err) {
+          console.warn("Failed to check requirements", err);
+        }
+
         const data = await diagramService.getDiagramData(projectId);
         if (data) {
           loadData({
@@ -35,7 +47,12 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     };
     
     fetchDiagram();
-  }, [projectId, loadData]);
+
+    // Clear the store when unmounting
+    return () => {
+      reset();
+    };
+  }, [projectId, loadData, reset]);
 
   const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
@@ -43,14 +60,42 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     try {
       // 1. Sync semantic data
       const currentState = useDiagramStore.getState();
-      await diagramService.syncDiagramData(projectId, {
+      const response = await diagramService.syncDiagramData(projectId, {
         actors: currentState.actors,
         useCases: currentState.useCases,
         relations: currentState.relations
       });
       
+      const idMappings = response?.data;
+      let newPositions = { ...positions };
+      
+      if (idMappings && Object.keys(idMappings).length > 0) {
+        useDiagramStore.getState().updateIds(idMappings);
+        
+        // Update keys in positions to match new IDs
+        newPositions = {};
+        for (const [key, value] of Object.entries(positions)) {
+            let mappedKey = key;
+            if (key.startsWith('uc_')) {
+                const oldId = key.substring(3);
+                if (idMappings[oldId]) mappedKey = `uc_${idMappings[oldId]}`;
+            } else if (key.startsWith('actor_')) {
+                const oldId = key.substring(6);
+                if (idMappings[oldId]) mappedKey = idMappings[oldId];
+                else if (idMappings[key]) mappedKey = idMappings[key];
+            } else if (idMappings[key]) {
+                mappedKey = idMappings[key];
+            }
+            newPositions[mappedKey] = value;
+        }
+      }
+      
       // 2. Save layout data
-      const payload = { layoutData: JSON.stringify(positions) };
+      const layoutObj = {
+          positions: newPositions,
+          systemName: systemName
+      };
+      const payload = { layoutData: JSON.stringify(layoutObj) };
       if (base64Png) {
           payload.imageBase64 = base64Png;
       }
@@ -60,7 +105,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
       console.error("Failed to auto-save diagram", error);
       setSaveStatus('error');
     }
-  }, [projectId]);
+  }, [projectId, systemName]);
 
   const handleUnsavedChanges = useCallback(() => {
       setSaveStatus('unsaved');
@@ -108,7 +153,14 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            {isViewMode ? (
+              <button
+                onClick={() => window.exportDiagramDrawio?.(systemName)}
+                className="flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                Export Draw.io
+              </button>
+              {isViewMode ? (
               onEdit && (
                 <button
                   onClick={onEdit}
@@ -157,12 +209,15 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
         {/* Interactive Canvas */}
         <div className="flex-1 w-full h-full relative overflow-hidden bg-[#F8FAFC]">
           <UCDiagram 
+            ref={diagramRef}
+            key={projectId}
             projectId={projectId}
             actors={actors}
             useCases={useCases}
             relations={relations}
             systemName={systemName}
             mode={mode}
+            onSystemNameLoad={setSystemName}
             onSave={!isViewMode ? handleDiagramSave : undefined}
             onUnsavedChanges={!isViewMode ? handleUnsavedChanges : undefined}
           />

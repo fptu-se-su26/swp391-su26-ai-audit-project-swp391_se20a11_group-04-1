@@ -21,11 +21,16 @@ public class DiagramController {
     }
 
     @PostMapping("/projects/{projectId}/sync")
-    public ResponseEntity<ApiResponse<Void>> syncDiagramData(
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> syncDiagramData(
             @PathVariable Long projectId,
-            @RequestBody DiagramSyncRequest request) {
-        diagramService.syncDiagramData(projectId, request);
-        return ResponseEntity.ok(ApiResponse.success("Diagram synced successfully"));
+            @jakarta.validation.Valid @RequestBody DiagramSyncRequest request,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new org.example.backend.exception.CustomException("Please login to continue", org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        java.util.Map<String, String> mappings = diagramService.syncDiagramData(projectId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(mappings, "Diagram synced successfully"));
     }
 
     @GetMapping("/projects/{projectId}/layout")

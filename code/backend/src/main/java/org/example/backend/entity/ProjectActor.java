@@ -31,6 +31,9 @@ public class ProjectActor {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean isDeleted = false;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

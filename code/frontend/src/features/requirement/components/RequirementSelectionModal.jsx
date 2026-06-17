@@ -47,7 +47,7 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   const toggleSelectAll = () => {
-    const reqsWithoutUcs = requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id));
+    const reqsWithoutUcs = requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id)));
     if (selectedIds.size === reqsWithoutUcs.length) {
       setSelectedIds(new Set());
     } else {
@@ -100,10 +100,10 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="checkbox" 
-                checked={selectedIds.size > 0 && selectedIds.size === requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length}
+                checked={selectedIds.size > 0 && selectedIds.size === requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length}
                 ref={input => {
                   if (input) {
-                    const max = requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length;
+                    const max = requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length;
                     input.indeterminate = selectedIds.size > 0 && selectedIds.size < max;
                   }
                 }}
@@ -111,7 +111,7 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
                 className="w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] cursor-pointer"
               />
               <span className="text-[13px] font-medium text-[#111827]">
-                Select All ({selectedIds.size} / {requirements.filter(req => !useCases.some(uc => uc.requirementId === req.id)).length} valid)
+                Select All ({selectedIds.size} / {requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length} valid)
               </span>
             </label>
             <span className="text-[11px] text-[#9CA3AF] italic">
@@ -133,7 +133,7 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
           ) : (
             <div className="flex flex-col">
               {requirements.map(req => {
-                const reqUcs = useCases.filter(uc => uc.requirementId === req.id);
+                const reqUcs = useCases.filter(uc => String(uc.requirementId) === String(req.id));
                 const hasUcs = reqUcs.length > 0;
                 const isSelected = selectedIds.has(req.id);
                 

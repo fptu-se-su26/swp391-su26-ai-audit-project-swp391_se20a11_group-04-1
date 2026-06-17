@@ -19,7 +19,7 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
     @Query(value = "SELECT DISTINCT unnest(tags) FROM requirements WHERE project_id = :projectId", nativeQuery = true)
     List<String> findAllDistinctTagsByProjectId(@Param("projectId") Long projectId);
 
-    @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId")
+    @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId AND r.isDeleted = false")
     List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
 
     List<Requirement> findByProjectId(Long projectId);

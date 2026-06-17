@@ -202,6 +202,11 @@ public class AiGenerationService {
         if (reqs.isEmpty()) {
             throw new RuntimeException("Không tìm thấy Requirement nào hợp lệ.");
         }
+        for (Requirement req : reqs) {
+            if (!req.getProject().getId().equals(projectId)) {
+                throw new RuntimeException("Requirement ID " + req.getId() + " không thuộc dự án này.");
+            }
+        }
 
         sendProgress(userId, 1, "Fetching ecosystem context (Actors and Existing Use Cases)...");
         List<org.example.backend.entity.ProjectActor> dbActors = projectActorRepository.findByProjectId(projectId);
@@ -420,20 +425,23 @@ public class AiGenerationService {
         stagingRepository.deleteAll(pending);
     }
 
-    public List<AiGenerationStaging> getPendingGenerations(Long projectId) {
-        return stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, AiStage.REQUIREMENT, AiGenerationStatus.PENDING);
+    public List<AiGenerationStaging> getPendingGenerations(Long projectId, org.example.backend.entity.AiStage stage) {
+        return stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
     }
 
     public Map<String, Object> getLastPayloadDebug() {
         return stagingRepository.findAll().stream()
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .findFirst()
-                .map(staging -> Map.of("id", staging.getId(), "payload", staging.getPayload(), "generationId", staging.getGenerationId()))
-                .orElse(Map.of("error", "No staging records found"));
+                .max(java.util.Comparator.comparing(AiGenerationStaging::getCreatedAt))
+                .map(s -> Map.of(
+                        "id", s.getId(),
+                        "generationId", s.getGenerationId(),
+                        "payload", s.getPayload()
+                ))
+                .orElse(Map.of("message", "No records found"));
     }
 
-    public List<Map<String, Object>> getPendingGenerationsWithDuplicateCheck(Long projectId) {
-        List<AiGenerationStaging> stagings = getPendingGenerations(projectId);
+    public List<Map<String, Object>> getPendingGenerationsWithDuplicateCheck(Long projectId, org.example.backend.entity.AiStage stage) {
+        List<AiGenerationStaging> stagings = getPendingGenerations(projectId, stage);
         
         List<String> existingTitles = requirementRepository.findTitlesByProjectId(projectId);
         java.util.Set<String> lowerCaseTitles = existingTitles.stream().map(String::toLowerCase).collect(java.util.stream.Collectors.toSet());
@@ -494,16 +502,22 @@ public class AiGenerationService {
         if (stagingPayload != null && stagingPayload.has("project_actors")) {
             JsonNode actorsNode = stagingPayload.get("project_actors");
             if (actorsNode.isArray()) {
+                List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
+                java.util.Set<String> existingNames = existingActors.stream()
+                        .map(a -> a.getName().toLowerCase())
+                        .collect(java.util.stream.Collectors.toSet());
+                
                 List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
                 for (JsonNode actorNode : actorsNode) {
                     String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
                     String desc = actorNode.has("description") ? actorNode.get("description").asText() : "";
-                    if (!name.isEmpty()) {
+                    if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
                         actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
                                 .project(project)
                                 .name(name)
                                 .description(desc)
                                 .build());
+                        existingNames.add(name.toLowerCase());
                     }
                 }
                 if (!actorsToSave.isEmpty()) {
@@ -542,10 +556,18 @@ public class AiGenerationService {
                 String title = reqNode.has("title") ? reqNode.get("title").asText() : "Untitled Requirement";
                 String description = reqNode.has("description") ? reqNode.get("description").asText() : "";
 
+                List<String> tagsList = new ArrayList<>();
+                if (reqNode.has("tags") && reqNode.get("tags").isArray()) {
+                    for (JsonNode tagNode : reqNode.get("tags")) {
+                        tagsList.add(tagNode.asText());
+                    }
+                }
+
                 Requirement req = Requirement.builder()
                         .project(project)
                         .title(title)
                         .description(description)
+                        .tags(tagsList)
                         .type(type)
                         .priority(priority)
                         .acceptanceCriteria(acceptanceCriteria)
@@ -748,8 +770,21 @@ public class AiGenerationService {
                 .map(u -> u.getCode() != null ? u.getCode() + ": " + u.getName() : u.getName())
                 .toList();
 
+        String typeInstruction = "";
+        if (req.getType() != null) {
+            switch (req.getType()) {
+                case FUNCTIONAL: typeInstruction = "\nInstruction: This is a Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses. Extract Primary Actors and step-by-step flows."; break;
+                case NON_FUNCTIONAL: typeInstruction = "\nInstruction: This is a Non-Functional Requirement. If a Use Case cannot be meaningfully created, skip this requirement entirely and return an empty array for it. Do not force the creation of user-action Use Cases."; break;
+                case BUSINESS_RULE: typeInstruction = "\nInstruction: This is a Business Rule. Generate exactly one Use Case named 'Validate [Rule Name]' with alternate flows detailing when the rule is violated. Do not generate standard functional flows."; break;
+                case SECURITY: typeInstruction = "\nInstruction: This is a Security Requirement. Focus on threat prevention, access control, and data protection. The primary actor for Security Use Cases MUST be 'System' or 'Admin', NOT regular users."; break;
+                default: typeInstruction = "\nInstruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses."; break;
+            }
+        } else {
+            typeInstruction = "\nInstruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses.";
+        }
         String reqContext = "Title: " + req.getTitle() + 
             "\nDescription: " + req.getDescription() + 
+            "\nType: " + req.getType() + typeInstruction +
             "\nAcceptance Criteria: " + req.getAcceptanceCriteria();
         
         // Fetch actors
@@ -816,8 +851,21 @@ public class AiGenerationService {
                 .map(u -> u.getCode() != null ? u.getCode() + ": " + u.getName() : u.getName())
                 .toList();
 
+        String typeInstruction = "";
+        if (req.getType() != null) {
+            switch (req.getType()) {
+                case FUNCTIONAL: typeInstruction = "\nInstruction: This is a Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses. Extract Primary Actors and step-by-step flows."; break;
+                case NON_FUNCTIONAL: typeInstruction = "\nInstruction: This is a Non-Functional Requirement. If a Use Case cannot be meaningfully created, skip this requirement entirely and return an empty array for it. Do not force the creation of user-action Use Cases."; break;
+                case BUSINESS_RULE: typeInstruction = "\nInstruction: This is a Business Rule. Generate exactly one Use Case named 'Validate [Rule Name]' with alternate flows detailing when the rule is violated. Do not generate standard functional flows."; break;
+                case SECURITY: typeInstruction = "\nInstruction: This is a Security Requirement. Focus on threat prevention, access control, and data protection. The primary actor for Security Use Cases MUST be 'System' or 'Admin', NOT regular users."; break;
+                default: typeInstruction = "\nInstruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses."; break;
+            }
+        } else {
+            typeInstruction = "\nInstruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses.";
+        }
         String reqContext = "Title: " + req.getTitle() + 
             "\nDescription: " + req.getDescription() + 
+            "\nType: " + req.getType() + typeInstruction +
             "\nAcceptance Criteria: " + req.getAcceptanceCriteria();
         
         StringBuilder existingUcsContext = new StringBuilder();
@@ -899,6 +947,16 @@ public class AiGenerationService {
             .orElseThrow(() -> new RuntimeException("User not found"));
             
         Project project = req.getProject();
+        
+        // Create a staging record for traceability
+        AiGenerationStaging staging = new AiGenerationStaging();
+        staging.setProject(project);
+        staging.setGenerationId(java.util.UUID.randomUUID());
+        staging.setStage(AiStage.USE_CASE);
+        staging.setStatus(AiGenerationStatus.CONFIRMED);
+        staging.setPayload(payload);
+        staging.setDocumentText("Synced from Requirement: " + req.getTitle());
+        stagingRepository.save(staging);
         
         // 1. Update existing Use Cases
         if (payload.has("updatedUseCases") && payload.get("updatedUseCases").isArray()) {
@@ -1020,6 +1078,7 @@ public class AiGenerationService {
                 uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);
                 uc.setCreatedBy(user);
                 uc.setAiGenerated(true);
+                uc.setSourceGenerationId(staging.getGenerationId());
                 
                 String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
                 String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -1118,6 +1177,65 @@ public class AiGenerationService {
                 nextSubId++;
             }
             useCaseRepository.saveAll(newUcs);
+        }
+    }
+
+    public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId) {
+        org.example.backend.entity.UseCase uc = useCaseRepository.findById(useCaseId)
+                .orElseThrow(() -> new RuntimeException("Use Case not found: " + useCaseId));
+        
+        Long projectId = uc.getProjectId();
+        List<Requirement> reqs = requirementRepository.findByProjectId(projectId).stream()
+                .filter(r -> !"System Architecture Diagram".equals(r.getTitle()))
+                .toList();
+        
+        if (reqs.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        String actorsStr = uc.getActors() != null ? 
+            uc.getActors().stream().map(a -> a.getActorName()).collect(java.util.stream.Collectors.joining(", ")) : "";
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are an expert System Analyst. I have a draft Use Case and a list of existing Requirements in the system.\n");
+        prompt.append("Use Case Name: ").append(uc.getName()).append("\n");
+        prompt.append("Use Case Actors: ").append(actorsStr).append("\n");
+        prompt.append("System Requirements:\n");
+        for (Requirement r : reqs) {
+            prompt.append("- ID: ").append(r.getId()).append(" | Title: ").append(r.getTitle()).append(" | Desc: ").append(r.getDescription() == null ? "" : r.getDescription()).append("\n");
+        }
+        prompt.append("Based on the Use Case name and actors, suggest up to 3 most relevant Requirement IDs that this Use Case should belong to.\n");
+        prompt.append("Return ONLY a valid JSON array of numbers. E.g. [1, 2, 3]. Do NOT return markdown or any other text.");
+
+        try {
+            String aiResponse = geminiService.generateText(prompt.toString());
+            // parse JSON array
+            if (aiResponse.startsWith("```json")) {
+                aiResponse = aiResponse.replace("```json", "").replace("```", "").trim();
+            } else if (aiResponse.startsWith("```")) {
+                aiResponse = aiResponse.replace("```", "").trim();
+            }
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode arrayNode = mapper.readTree(aiResponse);
+            List<Long> suggestedIds = new ArrayList<>();
+            if (arrayNode.isArray()) {
+                for (JsonNode n : arrayNode) {
+                    suggestedIds.add(n.asLong());
+                }
+            }
+            
+            return reqs.stream()
+                .filter(r -> suggestedIds.contains(r.getId()))
+                .map(r -> org.example.backend.dto.RequirementResponseDTO.builder()
+                        .id(r.getId())
+                        .title(r.getTitle())
+                        .reqCode(r.getReqCode())
+                        .description(r.getDescription())
+                        .build())
+                .toList();
+        } catch (Exception e) {
+            log.error("Error suggesting requirements", e);
+            return new ArrayList<>();
         }
     }
 }

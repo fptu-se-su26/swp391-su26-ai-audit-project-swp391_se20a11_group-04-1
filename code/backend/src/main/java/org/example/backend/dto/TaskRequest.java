@@ -23,7 +23,10 @@ public class TaskRequest {
     private String type;
     private Long primaryAssigneeId;
     private String priority;
+    @jakarta.validation.constraints.NotNull(message = "Start date is required")
     private LocalDate startDate;
+    
+    @jakarta.validation.constraints.NotNull(message = "Deadline is required")
     private LocalDate deadline;
     private BigDecimal weight;
     private BigDecimal estimatedHours;

@@ -16,6 +16,7 @@ const typeClasses = {
 }
 
 const getEvidenceClass = (status) => {
+  if (status.startsWith('Uploaded')) return 'text-purple-600 font-medium'
   if (status === 'Accepted') return 'text-[#16a34a]'
   if (status === 'Pending') return 'text-[#ca8a04]'
   if (status === 'Missing') return 'text-error'

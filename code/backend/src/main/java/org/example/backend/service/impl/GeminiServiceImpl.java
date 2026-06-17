@@ -50,9 +50,14 @@ public class GeminiServiceImpl implements GeminiService {
                 "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
                 "   a. 'title': (String) A concise title of the requirement.\n" +
                 "   b. 'description': (String) Detailed description.\n" +
-                "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High'.\n" +
+                "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High', 'Critical'. Determine priority based on:\n" +
+                "      - 'Critical': Core system functionality (auth, payments, security, primary business logic) without which the system cannot function.\n" +
+                "      - 'High': Important features that significantly impact user experience or business value but are not absolute blockers for basic operation.\n" +
+                "      - 'Medium': Standard features, common enhancements, or secondary functionality.\n" +
+                "      - 'Low': 'Nice to have' features, minor UI tweaks, or rarely used edge cases.\n" +
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
-                "   e. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
+                "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
+                "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
                 "--- DOCUMENT TEXT ---\n" + documentText;
@@ -77,6 +82,28 @@ public class GeminiServiceImpl implements GeminiService {
             reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
             reqsContext.append("Title: ").append(r.getTitle()).append("\n");
             reqsContext.append("Description: ").append(r.getDescription()).append("\n");
+            reqsContext.append("Type: ").append(r.getType()).append("\n");
+            if (r.getType() != null) {
+                switch (r.getType()) {
+                    case FUNCTIONAL:
+                        reqsContext.append("Instruction: This is a Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses. Extract Primary Actors and step-by-step flows.\n");
+                        break;
+                    case NON_FUNCTIONAL:
+                        reqsContext.append("Instruction: This is a Non-Functional Requirement. If a Use Case cannot be meaningfully created, skip this requirement entirely and return an empty array for it. Do not force the creation of user-action Use Cases.\n");
+                        break;
+                    case BUSINESS_RULE:
+                        reqsContext.append("Instruction: This is a Business Rule. Generate exactly one Use Case named 'Validate [Rule Name]' with alternate flows detailing when the rule is violated. Do not generate standard functional flows.\n");
+                        break;
+                    case SECURITY:
+                        reqsContext.append("Instruction: This is a Security Requirement. Focus on threat prevention, access control, and data protection. The primary actor for Security Use Cases MUST be 'System' or 'Admin', NOT regular users.\n");
+                        break;
+                    default:
+                        reqsContext.append("Instruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses.\n");
+                        break;
+                }
+            } else {
+                reqsContext.append("Instruction: Treat this as a standard Functional Requirement. Focus on identifying the exact actions the user performs and the system's responses.\n");
+            }
             reqsContext.append("Acceptance Criteria: ").append(r.getAcceptanceCriteria()).append("\n");
             reqsContext.append("---\n");
         }

@@ -18,6 +18,7 @@ export function DashboardPage() {
     name: '',
     major: '',
     type: 'WEB_APP',
+    startDate: '',
     deadline: '',
     description: ''
   })
@@ -80,15 +81,21 @@ export function DashboardPage() {
       toast.error('Chuyên ngành không được để trống!')
       return
     }
+    if (!formData.startDate) {
+      toast.error('Ngày bắt đầu không được để trống!')
+      return
+    }
     if (!formData.deadline) {
       toast.error('Hạn chót dự án không được để trống!')
       return
     }
-    const selectedDeadline = new Date(formData.deadline)
+    const start = new Date(formData.startDate)
+    const deadline = new Date(formData.deadline)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    if (selectedDeadline < today) {
-      toast.error('Hạn chót dự án không được ở trong quá khứ!')
+
+    if (deadline < start) {
+      toast.error('Hạn chót không được trước ngày bắt đầu!')
       return
     }
 
@@ -100,6 +107,7 @@ export function DashboardPage() {
         name: '',
         major: '',
         type: 'WEB_APP',
+        startDate: '',
         deadline: '',
         description: ''
       })
@@ -562,19 +570,34 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Hạn chót */}
-                <div className="space-y-1.5">
-                  <label htmlFor="projDeadline" className="block text-xs font-bold uppercase tracking-wider text-outline">
-                    Final Deadline <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="projDeadline"
-                    type="date"
-                    required
-                    value={formData.deadline}
-                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                  />
+                {/* Dates */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="projStartDate" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                      Start Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="projStartDate"
+                      type="date"
+                      required
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="projDeadline" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                      Deadline <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="projDeadline"
+                      type="date"
+                      required
+                      value={formData.deadline}
+                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    />
+                  </div>
                 </div>
 
                 {/* Mô tả */}

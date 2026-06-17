@@ -15,7 +15,7 @@ UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpecificationExecutor
     @Query(value = "SELECT MAX(project_sub_id) FROM use_cases WHERE project_id = :projectId", nativeQuery = true)
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 
-    boolean existsByRequirementIdAndStatusNot(Long requirementId, String status);
+    boolean existsByRequirementIdAndStatusNot(Long requirementId, org.example.backend.entity.UseCaseStatus status);
     boolean existsByIdAndProjectId(Long id, Long projectId);
     java.util.List<UseCase> findByProjectId(Long projectId);
     java.util.List<UseCase> findByRequirementId(Long requirementId);

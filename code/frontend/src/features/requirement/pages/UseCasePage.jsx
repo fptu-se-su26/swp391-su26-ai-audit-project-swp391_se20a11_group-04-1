@@ -8,6 +8,7 @@ import Button from '../../../components/ui/Button';
 import UseCaseFormModal from '../components/UseCaseFormModal';
 import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
+import ApproveUseCaseModal from '../components/ApproveUseCaseModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
 import UCDiagramEditorPage from './UCDiagramEditorPage';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -36,6 +37,7 @@ const UseCasePage = () => {
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [generationId, setGenerationId] = useState(null);
+  const [approveModalData, setApproveModalData] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [generatingCount, setGeneratingCount] = useState(0);
 
@@ -47,6 +49,10 @@ const UseCasePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isDraftView, setIsDraftView] = useState(false);
+
+  useEffect(() => {
+    setIsDraftView(false);
+  }, [activeProject?.id]);
 
   const fetchUseCases = async () => {
     if (!activeProject?.id) return;
@@ -78,12 +84,8 @@ const UseCasePage = () => {
   const fetchAllUseCases = async () => {
     if (!activeProject?.id) return;
     try {
-      const data = await useCaseService.searchUseCases({
-        projectId: activeProject.id,
-        page: 0,
-        size: 1000
-      });
-      setAllUseCases(data.content || []);
+      const data = await useCaseService.getAllUseCases(activeProject.id);
+      setAllUseCases(data || []);
     } catch (error) {
       console.error('Failed to fetch all use cases for stats', error);
     }
@@ -189,14 +191,7 @@ const UseCasePage = () => {
   };
 
   const handleApproveUseCase = async (id) => {
-    try {
-      await useCaseService.approveUseCase(id, activeProject.id);
-      toast.success('Use Case approved successfully');
-      handleRefresh();
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to approve Use Case');
-    }
+    setApproveModalData(id);
   };
 
   return (
@@ -339,6 +334,14 @@ const UseCasePage = () => {
         onConfirm={confirmDeleteUseCase}
         onCancel={() => setDeleteConfirmId(null)}
         type="danger"
+      />
+      
+      <ApproveUseCaseModal
+        isOpen={!!approveModalData}
+        onClose={() => setApproveModalData(null)}
+        useCaseId={approveModalData}
+        projectId={activeProject?.id}
+        onSuccess={handleRefresh}
       />
     </div>
   );

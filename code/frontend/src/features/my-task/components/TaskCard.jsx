@@ -108,8 +108,8 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] text-white font-bold">
             {assigneeInitials}
           </div>
-          <span className="text-[11px] text-[#6B7280]">
-            {task.evidenceCount > 0 ? 'Evidence Logged' : 'No Evidence'}
+          <span className={`text-[11px] font-bold flex items-center gap-1 ${task.evidenceCount > 0 ? 'text-purple-600' : 'text-[#6B7280]'}`}>
+            {task.evidenceCount > 0 ? `Uploaded (${task.evidenceCount})` : 'Not Uploaded'}
           </span>
         </div>
 

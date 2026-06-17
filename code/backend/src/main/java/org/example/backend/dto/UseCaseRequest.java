@@ -18,5 +18,4 @@ public class UseCaseRequest {
     private List<String> actors;
     private org.example.backend.entity.UseCaseStatus status;
     private String version;
-    private Integer completenessScore;
 }

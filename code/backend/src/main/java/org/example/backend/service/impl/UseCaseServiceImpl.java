@@ -46,8 +46,8 @@ public class UseCaseServiceImpl implements UseCaseService {
     private org.example.backend.repository.ProjectRepository projectRepository;
 
     @Override
-    public UseCaseResponse createUseCase(UseCaseRequest request, String username) {
-        UserAccount user = userAccountRepository.findByUsername(username)
+    public UseCaseResponse createUseCase(UseCaseRequest request, Long userId) {
+        UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         UseCase useCase = new UseCase();
@@ -82,9 +82,12 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse updateUseCaseStatus(Long id, org.example.backend.entity.UseCaseStatus status) {
+    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         
         useCase.setStatus(status);
         UseCase saved = useCaseRepository.save(useCase);
@@ -93,9 +96,12 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public UseCaseResponse updateUseCase(Long id, UseCaseRequest request) {
+    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         
         mapRequestToEntity(request, useCase);
         
@@ -112,9 +118,12 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public void deleteUseCase(Long id) {
+    public void deleteUseCase(Long id, Long projectId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         useCaseRepository.delete(useCase);
     }
 
@@ -158,9 +167,29 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse approveUseCase(Long id) {
+    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
+        
+        if (requirementId != null) {
+            org.example.backend.entity.Requirement req = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + requirementId));
+                
+            if (!req.getProject().getId().equals(useCase.getProjectId())) {
+                throw new org.example.backend.exception.BusinessException("Requirement does not belong to the same project");
+            }
+            
+            useCase.setRequirement(req);
+            
+            String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+            String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            useCase.setReqVersionHash(currentHash);
+        }
+        
         useCase.setAddedFromDiagram(false);
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
@@ -266,6 +295,8 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setUpdatedAt(useCase.getUpdatedAt());
         res.setAddedFromDiagram(useCase.isAddedFromDiagram());
         res.setShowInDiagram(useCase.isShowInDiagram());
+        res.setAiGenerated(useCase.isAiGenerated());
+        res.setSourceGenerationId(useCase.getSourceGenerationId());
         return res;
     }
 }

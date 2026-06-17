@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import useProjectStore from '@store/useProjectStore'
 import { TASK_STATUSES, priorityOptions, typeOptions } from '../store/useKanbanStore'
 
 const emptyFormData = {
@@ -29,6 +30,7 @@ const TaskFormModal = ({
   onClose,
   onSubmit,
 }) => {
+  const activeProject = useProjectStore((state) => state.activeProject)
   const [formData, setFormData] = useState({
     ...emptyFormData,
   })
@@ -83,6 +85,14 @@ const TaskFormModal = ({
       nextErrors.title = 'Title is required.'
     }
 
+    if (!formData.startDate) {
+      nextErrors.startDate = 'Start date is required.'
+    }
+
+    if (!formData.deadline) {
+      nextErrors.deadline = 'Deadline is required.'
+    }
+
     if (formData.status === 'BLOCKED' && !formData.blockedReason.trim()) {
       nextErrors.blockedReason = 'Reason is required.'
     }
@@ -92,7 +102,18 @@ const TaskFormModal = ({
     }
 
     if (formData.startDate && formData.deadline && formData.deadline < formData.startDate) {
-      nextErrors.deadline = 'Deadline must be after start.'
+      nextErrors.deadline = 'Deadline must be after start date.'
+    }
+
+    if (activeProject?.deadline && formData.deadline && formData.deadline > activeProject.deadline) {
+      nextErrors.deadline = `Deadline cannot exceed project deadline (${activeProject.deadline}).`
+    }
+
+    if (formData.sprintId && formData.deadline) {
+      const selectedSprint = sprintOptions.find(s => String(s.id) === String(formData.sprintId))
+      if (selectedSprint?.endDate && formData.deadline > selectedSprint.endDate) {
+        nextErrors.deadline = `Deadline cannot exceed sprint end date (${selectedSprint.endDate}).`
+      }
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -120,7 +141,7 @@ const TaskFormModal = ({
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 kanban-scroll">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-on-surface-variant uppercase">Title</label>
+            <label className="text-xs font-bold text-on-surface-variant uppercase">Title <span className="text-error">*</span></label>
             <input
               value={formData.title}
               onChange={(event) => updateField('title', event.target.value)}
@@ -240,16 +261,20 @@ const TaskFormModal = ({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Start date</label>
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Start date <span className="text-error">*</span></label>
               <input
                 type="date"
                 value={formData.startDate}
                 onChange={(event) => updateField('startDate', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-invalid={Boolean(errors.startDate)}
+                className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                  errors.startDate ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                }`}
               />
+              {errors.startDate && <p className="text-xs font-semibold text-error">{errors.startDate}</p>}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
+              <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline <span className="text-error">*</span></label>
               <input
                 type="date"
                 value={formData.deadline}

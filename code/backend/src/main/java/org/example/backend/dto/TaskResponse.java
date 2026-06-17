@@ -40,6 +40,7 @@ public class TaskResponse {
     private List<String> slaCategories;
     private long overdueDays;
     private boolean hasAcceptedEvidence;
+    private int evidenceCount;
     private Long createdById;
     private String createdByName;
     private LocalDateTime createdAt;

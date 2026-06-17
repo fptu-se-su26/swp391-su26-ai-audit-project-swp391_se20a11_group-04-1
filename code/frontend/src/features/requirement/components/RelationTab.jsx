@@ -7,7 +7,7 @@ const RelationTab = () => {
   
   const [sourceId, setSourceId] = useState('');
   const [targetId, setTargetId] = useState('');
-  const [type, setType] = useState('association');
+  const [type, setType] = useState('actor-uc');
 
   // Helper to resolve name from id
   const getEntityName = (id) => {
@@ -32,7 +32,7 @@ const RelationTab = () => {
     // Reset fields
     setSourceId('');
     setTargetId('');
-    setType('association');
+    setType('actor-uc');
   };
 
   const getFilteredTargets = () => {
@@ -41,12 +41,12 @@ const RelationTab = () => {
     
     if (isSourceActor) {
       // Actor can only point to Use Case (association) or other Actor (generalization)
-      if (type === 'association') return useCases;
+      if (type === 'actor-uc') return useCases;
       if (type === 'generalization') return actors.filter(a => a.id?.toString() !== sourceId.toString());
       return [];
     } else {
       // Use case can point to Use Case (include, extends, generalization) or Actor (association)
-      if (type === 'association') return actors;
+      if (type === 'actor-uc') return actors;
       return useCases.filter(u => u.id?.toString() !== sourceId.toString());
     }
   };
@@ -86,7 +86,7 @@ const RelationTab = () => {
             }}
             className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="association">Association (Actor ↔ UC)</option>
+            <option value="actor-uc">Association (Actor ↔ UC)</option>
             <option value="include">Include (UC → UC)</option>
             <option value="extends">Extends (UC → UC)</option>
             <option value="generalization">Generalization</option>
@@ -122,12 +122,7 @@ const RelationTab = () => {
         {relations.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-4">No relations added yet.</p>
         ) : (
-          [...relations].sort((a, b) => {
-             const sourceA = getEntityName(a.sourceId);
-             const sourceB = getEntityName(b.sourceId);
-             if (sourceA !== sourceB) return sourceA.localeCompare(sourceB);
-             return getEntityName(a.targetId).localeCompare(getEntityName(b.targetId));
-          }).map(rel => (
+          [...relations].map(rel => (
             <div key={rel.id} className="flex items-center justify-between p-2.5 border rounded bg-white shadow-sm hover:shadow-md transition-shadow">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2 text-sm">
@@ -139,7 +134,6 @@ const RelationTab = () => {
                     {rel.type === 'extends' && '.>'}
                     {rel.type === 'generalization' && '--|>'}
                     {rel.type === 'actor-uc' && '—'}
-                    {rel.type === 'association' && '—'}
                   </span>
                   <span className="font-medium text-gray-800 truncate max-w-[100px]" title={getEntityName(rel.targetId)}>
                     {getEntityName(rel.targetId)}
@@ -160,7 +154,7 @@ const RelationTab = () => {
                     Generalization
                   </span>
                 )}
-                {(rel.type === 'actor-uc' || rel.type === 'association') && (
+                {(rel.type === 'actor-uc') && (
                   <span className="text-[11px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded w-fit mt-1 border border-gray-200">
                     Association
                   </span>

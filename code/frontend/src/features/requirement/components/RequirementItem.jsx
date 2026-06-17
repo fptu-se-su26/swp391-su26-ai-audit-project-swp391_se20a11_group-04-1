@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
 import { getInitials, getAvatarColor } from '../../../utils/avatarHelper';
+import toast from 'react-hot-toast';
 
 const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
   const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0, reqCode, aiGenerated } = req;
@@ -57,7 +58,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
     setShowOwnerMenu(false);
     try {
       const payload = {
-        projectId: req.projectId,
+        projectId: activeProject?.id || req.projectId,
         title: req.title,
         description: req.description || '',
         type: req.type || 'FUNCTIONAL',
@@ -73,6 +74,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
       // The state is already updated locally.
     } catch (error) {
       console.error('Lỗi khi cập nhật owner:', error);
+      toast.error(error.response?.data?.message || 'Không thể cập nhật người phụ trách');
       // Revert state if failed
       const prevMember = getMemberById(req.ownerId);
       setCurrentOwner(
@@ -196,7 +198,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
 
           {/* Owner Dropdown Menu */}
           {showOwnerMenu && (
-            <div className="absolute top-full right-1/2 translate-x-1/2 mt-2 w-48 bg-surface border border-outline-variant rounded-lg shadow-xl py-1 z-[200]">
+            <div className="absolute top-full right-1/2 translate-x-1/2 mt-2 w-48 bg-surface border border-outline-variant rounded-lg shadow-xl py-1 z-50">
               <div className="px-3 py-2 text-xs font-label-md text-secondary uppercase border-b border-outline-variant mb-1 text-left">
                 Assign to
               </div>

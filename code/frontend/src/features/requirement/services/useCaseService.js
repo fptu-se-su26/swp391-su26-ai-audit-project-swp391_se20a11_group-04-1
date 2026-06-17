@@ -44,9 +44,17 @@ export const useCaseService = {
   },
 
   // Approve Use Case từ Diagram
-  approveUseCase: async (useCaseId, projectId) => {
-    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params: { projectId } });
+  approveUseCase: async (useCaseId, projectId, requirementId) => {
+    const params = { projectId };
+    if (requirementId) params.requirementId = requirementId;
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params });
     return response.data.data;
+  },
+
+  // Lấy danh sách Requirement đề xuất từ AI cho Use Case
+  suggestRequirements: async (useCaseId) => {
+    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`);
+    return response.data;
   },
 
   // AI: Generate Use Cases

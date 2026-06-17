@@ -19,10 +19,10 @@ const RequirementDetailAIActions = ({ requirement }) => {
           <span className="material-symbols-outlined text-primary filled">smart_toy</span> AI Actions
         </h3>
         <div className="space-y-2">
-          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center">
+          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Suggest Missing Tests clicked')}>
             Suggest Missing Tests <span className="material-symbols-outlined text-[18px] text-secondary">chevron_right</span>
           </button>
-          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center">
+          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Review Acceptance Criteria clicked')}>
             Review Acceptance Criteria <span className="material-symbols-outlined text-[18px] text-secondary">chevron_right</span>
           </button>
         </div>
