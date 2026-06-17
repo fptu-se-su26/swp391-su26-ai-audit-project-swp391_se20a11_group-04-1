@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import { sprintService } from '@features/sprint/services/sprintService'
+
 import { sprintReportService } from '@features/sprint-report/services/sprintReportService'
 import SprintReportHeader from '@features/sprint-report/components/SprintReportHeader'
 import SprintSelector from '@features/sprint-report/components/SprintSelector'
@@ -18,6 +19,9 @@ import {
   taskHasSlaCategory,
   todayStr,
 } from '@features/sprint-report/utils/sprintReportUtils'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import SprintReportPdfTemplate from '@features/sprint-report/components/SprintReportPdfTemplate'
 
 export default function SprintReportPage() {
   const navigate = useNavigate()
@@ -36,7 +40,9 @@ export default function SprintReportPage() {
   const [tasksLoading, setTasksLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDetailLoading, setReportDetailLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isTestingDigest, setIsTestingDigest] = useState(false)
+  const exportRef = useRef(null)
   const canGenerate = canGenerateSprintReport(activeProject?.role)
 
   const loadSprints = useCallback(async () => {
@@ -83,8 +89,11 @@ export default function SprintReportPage() {
 
   useEffect(() => {
     loadSprints()
+  }, [loadSprints])
+
+  useEffect(() => {
     loadReports()
-  }, [loadSprints, loadReports])
+  }, [loadReports])
 
   useEffect(() => {
     const focusRequestedReport = async () => {
@@ -148,26 +157,67 @@ export default function SprintReportPage() {
     loadReportDetail()
   }, [activeProject?.id, selectedReportId])
 
-  const handleGenerateReport = async () => {
-    if (!activeProject?.id || !selectedSprintId) return
-    if (!canGenerate) {
-      toast.error('Only Leader/Mentor can generate reports')
+  const handleExportPdf = async () => {
+    if (!exportRef.current || !selectedSprintId) return
+    setIsExporting(true)
+    const toastId = toast.loading(canGenerate ? 'Generating report and exporting PDF...' : 'Exporting PDF...')
+    try {
+      if (canGenerate) {
+        try {
+          const report = await sprintReportService.generate(activeProject.id, selectedSprintId)
+          setSelectedReportDetail(report || null)
+          await loadReports()
+          if (report?.id) setSelectedReportId(report.id)
+          // Wait a tick (300ms) for React to re-render the template with the new report details
+          await new Promise((resolve) => setTimeout(resolve, 300))
+        } catch (genError) {
+          console.error('Failed to generate report in background:', genError)
+          toast.error(
+            genError.response?.data?.message || 'Could not save new report snapshot, exporting live data instead.',
+            { id: toastId }
+          )
+          // Pause briefly so the user sees the error before the PDF exports
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+          // Re-create the loading toast
+          toast.loading('Exporting PDF...', { id: toastId })
+        }
+      }
+
+      const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/png')
+      // Create PDF with custom dimensions matching the canvas to avoid cutting
+      const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height])
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height)
+      
+      const projectName = activeProject.name || activeProject.title || 'project'
+      const sprintName = selectedSprint?.name || 'sprint'
+      const fileName = `sprint-report-${projectName}-${sprintName}.pdf`.replace(/\s+/g, '-').toLowerCase()
+      
+      pdf.save(fileName)
+      toast.success('PDF exported successfully', { id: toastId })
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to export PDF', { id: toastId })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleTestDigest = async () => {
+    if (!activeProject?.id) {
+      toast.error('Không tìm thấy project ID')
       return
     }
-    setGenerating(true)
+    setIsTestingDigest(true)
+    const toastId = toast.loading('Đang kích hoạt hệ thống nhắc nhở...')
     try {
-      const report = await sprintReportService.generate(activeProject.id, selectedSprintId)
-      toast.success('Sprint report generated')
-      setSelectedReportDetail(report || null)
-      await loadReports()
-      if (report?.id) setSelectedReportId(report.id)
-      window.setTimeout(() => {
-        reportResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
+      await sprintReportService.triggerDailyDigest(activeProject.id)
+      toast.success('Đã chạy thử hệ thống gửi mail thành công', { id: toastId })
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Only Leader/Mentor can generate reports')
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Có lỗi khi chạy thử gửi mail', { id: toastId })
     } finally {
-      setGenerating(false)
+      setIsTestingDigest(false)
     }
   }
 
@@ -279,28 +329,31 @@ export default function SprintReportPage() {
       <div className="mx-auto max-w-7xl space-y-5">
         <SprintReportHeader
           activeProject={activeProject}
-          canGenerate={canGenerate}
-          generating={generating}
           onRefresh={() => {
             loadSprints()
-            loadReports()
+            if (selectedSprintId) loadReports()
           }}
-          onGenerate={handleGenerateReport}
+          onExportPdf={handleExportPdf}
+          isExporting={isExporting}
+          canExport={!!selectedSprintId && (!!selectedReportId || sprintTasks.length > 0)}
+          onTestDigest={handleTestDigest}
+          isTestingDigest={isTestingDigest}
         />
 
-        {!canGenerate && (
-          <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
-            Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports.
-          </div>
-        )}
+        <div className="space-y-5 rounded-lg bg-background">
+          {!canGenerate && (
+            <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
+              Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
+            </div>
+          )}
 
-        {sprintsLoading && !sprints.length ? (
-          <div className="py-12 text-center text-sm text-on-surface-variant">Loading sprints...</div>
-        ) : sprints.length === 0 ? (
-          <section className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
-            <p className="text-sm text-on-surface-variant">No sprints yet. Create one from the Sprints page.</p>
-          </section>
-        ) : (
+          {sprintsLoading && !sprints.length ? (
+            <div className="py-12 text-center text-sm text-on-surface-variant">Loading sprints...</div>
+          ) : sprints.length === 0 ? (
+            <section className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest p-8 text-center">
+              <p className="text-sm text-on-surface-variant">No sprints yet. Create one from the Sprints page.</p>
+            </section>
+          ) : (
           <>
             <SprintSelector
               sprints={sprints}
@@ -340,6 +393,21 @@ export default function SprintReportPage() {
             )}
           </>
         )}
+        </div>
+
+        {/* Hidden PDF Template */}
+        <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+          <div ref={exportRef}>
+            <SprintReportPdfTemplate
+              project={activeProject}
+              sprint={selectedSprint}
+              summary={summary}
+              riskTasks={riskTasks}
+              members={members}
+              report={selectedReport}
+            />
+          </div>
+        </div>
       </div>
     </main>
   )

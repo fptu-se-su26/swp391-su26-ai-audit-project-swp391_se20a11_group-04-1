@@ -66,3 +66,71 @@ Han che hien tai la em chua test end-to-end day du voi database that vi DB local
 ## 8. Ket luan
 
 Module 3 da hoan thanh phan code chinh va da duoc tich hop vao cau truc du an. AI ho tro em trong viec phan tich, dinh huong va trien khai, nhung em van can tu kiem tra, sua lai theo convention team va dam bao co the giai thich duoc code da lam.
+
+---
+
+## 9. Reflection bo sung - Task SLA, Daily Digest va Event-driven SLA
+
+Sau Module 3 Task/Kanban, em tiep tuc tham gia phan Task SLA, Daily Digest, Sprint Report va Notification. Day la giai doan em hoc duoc nhieu hon ve cac tac vu backend tu dong, xu ly theo thoi gian va cach thiet ke chuc nang de vua dung nghiep vu vua co the demo ro rang.
+
+### 9.1. AI da ho tro em o diem nao
+
+AI ho tro em:
+
+- Phan tich yeu cau Task SLA va nhac nho thong minh.
+- Giai thich cach tach Daily Digest, SLA rule, scheduler, penalty va notification.
+- De xuat cach tranh spam email bang Daily Digest va action idempotency.
+- Giai thich vai tro cua scheduler, cron job, outbox event va Kafka.
+- Ho tro thiet ke Sprint/Weekly Report co metric cards, SLA risk table va scheduler panel.
+- Ho tro nang cap SLA tu rule co ban thanh Event-driven SLA co state va decision log.
+- Ho tro phan tich Project Isolation de khong tron task/email giua cac project.
+- Ho tro lap ke hoach Full SLA Core truoc khi them AI/Recovery Plan.
+
+### 9.2. Phan em tu suy nghi va quyet dinh
+
+Em khong dung AI de thay the viec quyet dinh nghiep vu. Mot so quyet dinh em da chon sau khi trao doi:
+
+- Khong gui email realtime cho moi thay doi nho, vi de gay spam.
+- Dung Daily Digest de gom thong tin can nhac trong ngay.
+- Phan biet task sap den han, deadline hom nay, tre ngan va tre du dieu kien penalty.
+- Tre duoi 3 ngay la warning period, tre tu 3 ngay tro len moi penalty.
+- Moi project phai la mot workspace rieng, Daily Digest/SLA Reminder khong duoc tron project.
+- Truoc khi dung AI/Recovery Plan, phai lam SLA Core deterministic that chac.
+- SLA Core phai co rule ro rang, state, log, action log va UI Decision Pack.
+
+### 9.3. Dieu hoc duoc ve ky thuat
+
+Qua phan nay, em hoc duoc:
+
+- Scheduler dung de xu ly cac nghiep vu phu thuoc thoi gian nhu deadline, digest va report.
+- Outbox pattern giup tach viec tao event khoi viec publish event.
+- Kafka chi nen dung khi co ly do that, vi du task/evidence thay doi thi can re-evaluate SLA.
+- SLA khong nen chi la if/else trong mot service lon; can co read model va decision log de giai thich.
+- `action_key` tot hon duplicate check bang title vi no co ngay, category, user, task va project.
+- Project isolation rat quan trong voi he thong quan ly nhieu project.
+- UI Decision Pack giup bien du lieu backend thanh thu co the nhin thay khi demo.
+
+### 9.4. Cach em kiem chung ket qua AI
+
+Em khong chi nhan ket qua AI ma co kiem tra lai bang:
+
+- Doc code hien co truoc khi yeu cau sua.
+- Yeu cau AI so sanh y tuong voi thuc te da implement.
+- Chay backend compile.
+- Chay frontend build.
+- Kiem tra repository/query co projectId hay khong.
+- Kiem tra duplicate notification co bi chan qua muc hay khong.
+- Yeu cau giai thich root cause khi gap loi JPA/Hibernate.
+
+### 9.5. Bai hoc lon nhat
+
+Bai hoc lon nhat la: AI co the giup em nghi ra huong nang cap, nhung core nghiep vu nhu SLA phai deterministic, co rule ro rang va co log kiem chung. AI khong nen la noi tinh SLA. AI chi nen la lop ho tro sau nay de giai thich, tong hop va de xuat recovery plan dua tren du lieu SLA da duoc tinh dung.
+
+### 9.6. Huong phat trien tiep theo
+
+Huong tiep theo cua phan SLA la:
+
+- Hoan thien UI SLA Decision Pack.
+- Bo sung test cho rule, state, action log va project isolation.
+- Sau khi SLA Core chac, moi phat trien Recovery Plan co leader approval.
+- Khong claim he thong la full autonomous neu chua co approve/apply/audit workflow day du.

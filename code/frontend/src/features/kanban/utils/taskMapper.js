@@ -93,6 +93,7 @@ export const mapTaskFromApi = (task) => {
     estimatedHours: task.estimatedHours ?? null,
     overduePenaltyApplied: Boolean(task.overduePenaltyApplied),
     overduePenaltyAppliedAt: task.overduePenaltyAppliedAt || '',
+    hasAcceptedEvidence: Boolean(task.hasAcceptedEvidence),
     sprintPlanDate: task.sprintPlanDate || null,
     assignee: buildAssignee(task.primaryAssignee),
     requirement: task.requirementCode || (task.requirementId ? `REQ-${String(task.requirementId).padStart(2, '0')}` : 'No Requirement'),

@@ -70,7 +70,7 @@ const KanbanBoardPage = () => {
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null
   const editingTask = tasks.find((task) => task.id === editingTaskId) || null
-  const isProjectLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role)
+  const isProjectLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
 
   useEffect(() => {
     fetchProjectTasks(activeProject?.id)
@@ -222,6 +222,13 @@ const KanbanBoardPage = () => {
         }
 
         if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
+          if (targetStatusKey === 'IN_REVIEW' && !task.hasAcceptedEvidence) {
+            toast.error('Cannot request review before accepted evidence is uploaded.')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+
           // Check checklist for all tasks
           const hasIncompleteChecklist = task.checklist && task.checklist.length > 0 && task.checklist.some(item => !item.done)
           if (hasIncompleteChecklist) {
@@ -481,6 +488,7 @@ const KanbanBoardPage = () => {
       />
 
       <TaskFormModal
+        isLeaderRole={isProjectLeader}
         isOpen={isTaskFormOpen}
         task={editingTask}
         assigneeOptions={activeProject?.members || []}

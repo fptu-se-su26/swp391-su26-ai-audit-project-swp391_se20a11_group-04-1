@@ -1,0 +1,14 @@
+package org.example.backend.repository;
+
+import org.example.backend.entity.TaskSlaPauseLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface TaskSlaPauseLogRepository extends JpaRepository<TaskSlaPauseLog, Long> {
+    Optional<TaskSlaPauseLog> findFirstByTaskIdAndResumedAtIsNullOrderByPausedAtDesc(Long taskId);
+    List<TaskSlaPauseLog> findByTaskIdOrderByPausedAtDesc(Long taskId);
+}

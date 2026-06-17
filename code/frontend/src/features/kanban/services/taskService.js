@@ -90,6 +90,46 @@ export const taskService = {
     return unwrap(response)
   },
 
+  getSlaDecisionPack: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/tasks/${taskId}/sla-decision-pack`)
+    return unwrap(response)
+  },
+
+  getSlaPauseLogs: async (projectId, taskId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/tasks/${taskId}/sla-pause-logs`)
+    return unwrap(response)
+  },
+
+  getRecoveryPlan: async (projectId, taskId) => {
+    try {
+      const response = await axiosInstance.get(`/v1/projects/${projectId}/tasks/${taskId}/recovery-plans/latest`)
+      return unwrap(response)
+    } catch (e) {
+      if (e.response?.status === 404) return null
+      throw e
+    }
+  },
+
+  generateRecoveryPlan: async (projectId, taskId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/tasks/${taskId}/recovery-plans/generate`)
+    return unwrap(response)
+  },
+
+  approveRecoveryPlan: async (projectId, planId) => {
+    const response = await axiosInstance.patch(`/v1/projects/${projectId}/recovery-plans/${planId}/approve`)
+    return unwrap(response)
+  },
+
+  rejectRecoveryPlan: async (projectId, planId, reason) => {
+    const response = await axiosInstance.patch(`/v1/projects/${projectId}/recovery-plans/${planId}/reject`, { reason })
+    return unwrap(response)
+  },
+
+  executeRecoveryPlan: async (projectId, planId) => {
+    const response = await axiosInstance.patch(`/v1/projects/${projectId}/recovery-plans/${planId}/execute`)
+    return unwrap(response)
+  },
+
   reopenTaskReview: async (taskId, reason) => {
     const response = await axiosInstance.post(`/v1/tasks/${taskId}/reopen-review`, { reason })
     return unwrap(response)

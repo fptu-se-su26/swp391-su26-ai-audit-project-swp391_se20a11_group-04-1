@@ -110,26 +110,33 @@ export const useNotificationStore = create((set, get) => ({
   initWebSocket: (userId) => {
     const existingSocket = get().socket
     if (existingSocket) {
-      if (existingSocket.readyState === WebSocket.OPEN) {
+      if (existingSocket.readyState === WebSocket.OPEN || existingSocket.readyState === WebSocket.CONNECTING) {
         return
       }
       existingSocket.close()
     }
 
     try {
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       const backendUrl = import.meta.env.VITE_API_BASE_URL
 
       let wsUrl = ''
       if (backendUrl && backendUrl.startsWith('http')) {
-        wsUrl = backendUrl.replace(/^http/, 'ws') + '/ws/notifications?userId=' + userId
+        let baseWs = backendUrl.replace(/^http/, 'ws')
+        if (baseWs.endsWith('/api')) {
+          wsUrl = baseWs + `/ws/notifications?userId=${userId}`
+        } else {
+          wsUrl = baseWs.replace(/\/$/, '') + `/api/ws/notifications?userId=${userId}`
+        }
       } else {
-        wsUrl = isDev
-          ? `ws://localhost:8080/api/ws/notifications?userId=${userId}`
-          : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/notifications?userId=${userId}`
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?userId=${userId}`
       }
 
       const ws = new WebSocket(wsUrl)
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected')
+      }
 
       ws.onmessage = (event) => {
         try {
@@ -284,6 +291,7 @@ export const useNotificationStore = create((set, get) => ({
       }
 
       ws.onclose = (event) => {
+        console.log(`WebSocket closed: code=${event.code}, reason=${event.reason || 'No reason'}`)
         if (event.code !== 1000) {
           setTimeout(() => {
             const currentUserId = localStorage.getItem('userId')
@@ -295,7 +303,7 @@ export const useNotificationStore = create((set, get) => ({
       }
 
       ws.onerror = (error) => {
-        console.error('WebSocket connection error occurred:', error)
+        console.warn(`WebSocket connection error. Target URL: ${wsUrl.replace(/userId=\d+/, 'userId=***')}`)
       }
 
       set({ socket: ws })

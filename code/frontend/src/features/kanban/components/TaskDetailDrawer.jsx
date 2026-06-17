@@ -2,6 +2,8 @@ import { Link, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
+import SlaSummaryPanel from './SlaSummaryPanel'
+import RecoveryPlanPanel from './RecoveryPlanPanel'
 import { isIssueOwnedTask } from '../utils/taskMapper'
 
 const cleanDescription = (desc) => {
@@ -13,7 +15,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
   const { projectId } = useParams()
   const tasks = useKanbanStore((state) => state.tasks)
   const activeProject = useProjectStore((state) => state.activeProject)
-  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role)
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
   const taskDetailPath = task && projectId ? `/projects/${projectId}/tasks/${task.id}` : '#'
 
   const subtasks = task ? tasks.filter(t => t.parentId === String(task.id)) : []
@@ -22,15 +24,16 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
 
   // Checklist completion
   const isChecklistPassed = task ? (!task.checklist || task.checklist.length === 0 || task.checklist.every((item) => item.done)) : false
+  const hasReviewEvidence = task ? Boolean(task.hasAcceptedEvidence) : false
 
   // Subtasks completion
   const areAllSubtasksDone = hasSubtasks && subtasks.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
 
   // Determine if the action is enabled
-  const isReviewActionEnabled = isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed)
+  const isReviewActionEnabled = hasReviewEvidence && (isChildTask ? isChecklistPassed : (hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed))
 
   return (
-    <aside className={`absolute inset-y-0 right-0 w-full sm:w-[420px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
+    <aside className={`fixed top-0 right-0 bottom-0 w-full sm:w-[420px] h-screen bg-surface-container-lowest border-l border-outline-variant shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
       task ? 'translate-x-0' : 'translate-x-full'
     }`}>
       {task && (
@@ -60,7 +63,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 kanban-scroll">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6 kanban-scroll">
             {isChildTask && (() => {
               const parentTask = tasks.find(t => String(t.id) === String(task.parentId))
               return parentTask ? (
@@ -79,7 +82,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
             <div>
               <h2 className="text-xl font-bold text-on-background mb-2">{task.title}</h2>
               <p className="text-sm text-on-surface-variant leading-relaxed">
-                {task.description || 'No description has been added yet.'}
+                {cleanDescription(task.description) || 'No description has been added yet.'}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
@@ -109,8 +112,9 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                     </button>
                     {!isReviewActionEnabled && (
                       <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-surface-container-highest text-on-surface text-[10px] rounded px-2.5 py-1.5 shadow-lg border border-outline-variant whitespace-nowrap z-50 animate-fade-in">
-                        {!isChecklistPassed && "⚠️ Cần hoàn thành tất cả checklist"}
-                        {isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "⚠️ Cần hoàn thành tất cả task con"}
+                        {!hasReviewEvidence && "Can review only after accepted evidence is uploaded"}
+                        {hasReviewEvidence && !isChecklistPassed && "Can review only after all checklist items are done"}
+                        {hasReviewEvidence && isChecklistPassed && hasSubtasks && !areAllSubtasksDone && "Can review only after all child tasks are done"}
                       </div>
                     )}
                   </div>
@@ -122,10 +126,10 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               <div>
                 <span className="text-xs font-semibold text-outline uppercase block mb-1">Assignee</span>
                 <div className="flex items-center space-x-2">
-                  <div className={`w-6 h-6 rounded-full ${task.assignee.color} flex items-center justify-center font-semibold text-[10px] border border-outline-variant`}>
-                    {task.assignee.initials}
+                  <div className={`w-6 h-6 rounded-full ${task.assignee?.color ?? 'bg-surface-container-highest text-on-surface-variant'} flex items-center justify-center font-semibold text-[10px] border border-outline-variant`}>
+                    {task.assignee?.initials ?? '?'}
                   </div>
-                  <span className="text-on-background font-medium">{task.assignee.name}</span>
+                  <span className="text-on-background font-medium">{task.assignee?.name ?? 'Unassigned'}</span>
                 </div>
               </div>
               <div>
@@ -213,6 +217,9 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 </div>
               )}
             </div>
+
+            <SlaSummaryPanel projectId={projectId} taskId={task.id} />
+            <RecoveryPlanPanel projectId={projectId} taskId={task.id} isLeader={isLeader} compact />
 
             <div>
               <h3 className="text-sm font-bold text-on-background border-b border-outline-variant pb-2 mb-3">Traceability</h3>
@@ -308,7 +315,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               <span className="text-xs font-semibold text-secondary block mb-1">Git Commit Prefix</span>
               <div className="flex items-center space-x-2 bg-surface-container-lowest p-2 rounded border border-outline-variant">
                 <code className="text-sm font-label-md text-on-background flex-1">
-                  feat({task.id}): 
+                  feat(PRJ{projectId}-{task.id}): 
                 </code>
                 <button type="button" className="text-on-surface-variant hover:text-primary" title="Copy prefix">
                   <span className="material-symbols-outlined text-[16px]">content_copy</span>

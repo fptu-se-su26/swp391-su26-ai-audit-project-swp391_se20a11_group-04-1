@@ -1,13 +1,42 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@store/useAuthStore';
 import { getInitials, getAvatarColor } from '@utils/avatarHelper';
+import toast from 'react-hot-toast';
 
 import { NotificationDropdown } from './NotificationDropdown';
 
 const TopNavBar = () => {
   const fullName = useAuthStore((state) => state.fullName);
+  const logout = useAuthStore((state) => state.logout);
   const initials = getInitials(fullName);
   const avatarColor = getAvatarColor(fullName);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    setMenuOpen(false);
+    logout();
+    toast.success('Đăng xuất thành công!');
+    navigate('/login');
+  };
+
+  const handleProfileClick = () => {
+    setMenuOpen(false);
+    navigate('/profile');
+  };
 
   return (
     <header className="bg-surface-container-lowest dark:bg-surface-dim text-primary dark:text-primary-fixed font-body-lg text-body-lg fixed top-0 w-full h-topbar_height border-b border-outline-variant dark:border-outline flex justify-between items-center px-margin_desktop z-50 md:w-[calc(100%-280px)]">
@@ -15,7 +44,7 @@ const TopNavBar = () => {
         <button className="md:hidden text-on-surface-variant p-2 -ml-2">
           <span className="material-symbols-outlined">menu</span>
         </button>
-        <div className="text-headline-sm font-headline-sm text-primary-container dark:text-primary-fixed-dim font-bold tracking-tight">DevTrack AI</div>
+        <div className="text-headline-sm font-headline-sm text-primary-container dark:text-primary-fixed-dim font-bold tracking-tight font-display">DevTrack AI</div>
       </div>
       <div className="flex items-center gap-4">
         <div className="relative hidden sm:block">
@@ -23,9 +52,37 @@ const TopNavBar = () => {
           <input className="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-body-md font-body-md text-on-surface focus:ring-2 focus:ring-primary-container w-[200px] lg:w-[300px] transition-all" placeholder="Search..." type="text" />
         </div>
         <NotificationDropdown />
-        {/* Avatar động theo người đăng nhập */}
-        <div className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shadow-inner shrink-0 cursor-pointer border border-outline-variant/40">
-          {initials}
+        
+        {/* Avatar động với dropdown menu */}
+        <div className="relative" ref={menuRef}>
+          <div 
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shadow-inner shrink-0 cursor-pointer border border-outline-variant/40 hover:opacity-90 transition-opacity"
+          >
+            {initials}
+          </div>
+
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-48 rounded-xl bg-surface-container-lowest border border-outline-variant/60 shadow-lg py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="px-4 py-2 border-b border-outline-variant/40">
+                <p className="font-semibold text-sm text-on-surface truncate">{fullName || 'User'}</p>
+              </div>
+              <button
+                onClick={handleProfileClick}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">account_circle</span>
+                My Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-error hover:bg-error-container/20 hover:text-error transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

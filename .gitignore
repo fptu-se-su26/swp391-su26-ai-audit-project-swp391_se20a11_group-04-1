@@ -84,10 +84,10 @@ private
 /code/KANBAN_UPGRADE_PLAN.md
 /code/.gitignore
 /Tin/
+/local-test-data/
 
 # --- AGENT CONFIGS ---
 .agent/
 GEMINI.md
 diff_dashboard.txt
 ERRORS.md
-
