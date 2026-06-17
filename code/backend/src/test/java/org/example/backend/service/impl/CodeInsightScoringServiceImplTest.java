@@ -24,6 +24,7 @@ class CodeInsightScoringServiceImplTest {
     @Mock private TaskRepository taskRepository;
     @Mock private ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     @Mock private CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    @Mock private ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     @Mock private GitHubCommitRepository commitRepository;
     @Mock private GitHubPullRequestRepository pullRequestRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;

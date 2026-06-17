@@ -15,6 +15,13 @@ import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UseCaseRepository;
+import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.CodeInsightAiReviewRepository;
+import org.example.backend.entity.Task;
+import org.example.backend.entity.CodeInsightAiReview;
+import org.example.backend.dto.ReqDiffAlignmentResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.example.backend.service.RequirementService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +48,9 @@ public class RequirementServiceImpl implements RequirementService {
     private final UserAccountRepository userAccountRepository;
     private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+    private final TaskRepository taskRepository;
+    private final CodeInsightAiReviewRepository aiReviewRepository;
+    private final ObjectMapper objectMapper;
 
     private void checkLeaderAccess(Long projectId) {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -254,6 +264,33 @@ public class RequirementServiceImpl implements RequirementService {
     private RequirementResponseDTO mapToDTO(Requirement req) {
         List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
 
+        List<String> covered = new ArrayList<>();
+        if (req.getId() != null) {
+            List<Task> tasks = taskRepository.findByRequirementId(req.getId());
+            List<Long> doneTaskIds = tasks.stream()
+                    .filter(t -> t.getStatus() == org.example.backend.entity.TaskStatus.DONE)
+                    .map(Task::getId)
+                    .toList();
+
+            if (!doneTaskIds.isEmpty()) {
+                List<CodeInsightAiReview> reviews = aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);
+                for (CodeInsightAiReview rev : reviews) {
+                    if (rev.getAlignmentResultJson() != null) {
+                        try {
+                            ReqDiffAlignmentResult alignResult = objectMapper.readValue(rev.getAlignmentResultJson(), ReqDiffAlignmentResult.class);
+                            if (alignResult.getAlignmentMatrix() != null) {
+                                for (ReqDiffAlignmentResult.AlignmentItem item : alignResult.getAlignmentMatrix()) {
+                                    if ("FULLY_COVERED".equals(item.getStatus()) && item.getAcText() != null) {
+                                        covered.add(item.getAcText());
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
+        }
+
         return RequirementResponseDTO.builder()
                 .id(req.getId())
                 .projectId(req.getProject().getId())
@@ -272,6 +309,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .updatedAt(req.getUpdatedAt())
                 .tags(tags)
                 .aiGenerated(req.getAiGenerated() != null ? req.getAiGenerated() : false)
+                .coveredCriteria(covered)
                 .build();
     }
 

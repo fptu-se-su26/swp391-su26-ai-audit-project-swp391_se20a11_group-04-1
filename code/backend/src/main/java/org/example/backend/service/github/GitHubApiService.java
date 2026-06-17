@@ -119,7 +119,7 @@ public interface GitHubApiService {
      * @param isPrivate   Whether the repository should be private
      * @return The created repository details as an Object (Map/JSON)
      */
-    Object createRepository(Long userId, String name, String description, boolean isPrivate);
+    Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate);
 
     /**
      * Auto-configures the GitHub webhook for the given project.
@@ -131,4 +131,9 @@ public interface GitHubApiService {
      * @param webhookSecret Optional custom secret to use
      */
     void autoConfigureWebhook(Long projectId, Long userId, String webhookUrl, java.util.List<String> events, String webhookSecret);
+
+    /**
+     * Reads the current GitHub webhook and persists its Code Insight-relevant config locally.
+     */
+    java.util.Map<String, Object> refreshWebhookConfig(Long projectId, Long userId);
 }

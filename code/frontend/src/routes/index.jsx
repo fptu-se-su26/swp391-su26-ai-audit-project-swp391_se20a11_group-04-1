@@ -32,7 +32,8 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 import RtmPage from '@features/rtm/pages/RtmPage'
 
 // Feature Pages - Code Insight
-import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
+import TaskReviewDashboardPage from '@features/code-insight/pages/TaskReviewDashboardPage'
+import TaskReviewWorkspacePage from '@features/code-insight/pages/TaskReviewWorkspacePage'
 
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
@@ -73,8 +74,6 @@ export function AppRoutes() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
 
-            <Route path="dashboard" element={<DashboardPage />} />
-
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
             <Route path="requirements/staging" element={<AiStagingReviewPage />} />
@@ -111,7 +110,8 @@ export function AppRoutes() {
 
             {/* Module 8: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
-            <Route path="code-insight" element={<CodeInsightPage />} />
+            <Route path="task-reviews" element={<TaskReviewDashboardPage />} />
+            <Route path="task-reviews/:taskId" element={<TaskReviewWorkspacePage />} />
 
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />
@@ -129,4 +129,3 @@ export function AppRoutes() {
 }
 
 export default AppRoutes
-

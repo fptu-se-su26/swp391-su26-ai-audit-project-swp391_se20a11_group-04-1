@@ -1,3 +1,5 @@
+import { shortTaskType } from '../../kanban/utils/taskMapper'
+
 /**
  * TaskCard - Hiển thị 1 card task trong Daily View
  * Nhận data trực tiếp từ TaskCalendarItemResponse (backend đã tính sẵn displayStatus)
@@ -94,7 +96,7 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
       <div className="flex flex-wrap gap-2 mb-3">
         {task.type && (
           <span className="bg-[#F3F4F6] text-[#374151] text-[10px] px-2 py-0.5 rounded font-medium">
-            {task.type}
+            {shortTaskType(task.type)}
           </span>
         )}
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${STATUS_STYLE[displayStatus] || 'bg-gray-400 text-white'}`}>

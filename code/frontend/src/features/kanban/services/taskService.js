@@ -84,9 +84,19 @@ export const taskService = {
     return unwrap(response)
   },
 
-  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
-    // Leader rejection endpoint; sends task back to IN_PROGRESS or BLOCKED with a reason.
+  rejectTaskReview: async (taskId, reason, targetStatus = 'NEEDS_CHANGES') => {
+    // Leader rejection endpoint; sends task to Needs Changes or Blocked with a reason.
     const response = await axiosInstance.post(`/v1/tasks/${taskId}/reject`, { reason, targetStatus })
+    return unwrap(response)
+  },
+
+  reopenTaskReview: async (taskId, reason) => {
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/reopen-review`, { reason })
+    return unwrap(response)
+  },
+
+  requestTaskRework: async (taskId, reason) => {
+    const response = await axiosInstance.post(`/v1/tasks/${taskId}/request-rework`, { reason })
     return unwrap(response)
   },
 }

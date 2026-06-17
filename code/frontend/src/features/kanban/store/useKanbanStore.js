@@ -1,18 +1,19 @@
 import { create } from 'zustand'
 import taskService from '../services/taskService'
-import { mapTaskFromApi, mapTaskToApi } from '../utils/taskMapper'
+import { TASK_TYPES, mapTaskFromApi, mapTaskToApi } from '../utils/taskMapper'
 import { requirementApi } from '@features/requirement/services/requirementApi'
 
 export const TASK_STATUSES = [
   { id: 'TODO', title: 'Todo', statusKey: 'TODO', color: 'bg-outline' },
   { id: 'IN_PROGRESS', title: 'In Progress', statusKey: 'IN_PROGRESS', color: 'bg-primary' },
+  { id: 'NEEDS_CHANGES', title: 'Needs Changes', statusKey: 'NEEDS_CHANGES', color: 'bg-[#f59e0b]' },
   { id: 'IN_REVIEW', title: 'In Review', statusKey: 'IN_REVIEW', color: 'bg-[#a855f7]' },
   { id: 'DONE', title: 'Done', statusKey: 'DONE', color: 'bg-[#16a34a]' },
   { id: 'BLOCKED', title: 'Blocked', statusKey: 'BLOCKED', color: 'bg-error' },
 ]
 
 export const priorityOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-export const typeOptions = ['DEV', 'UI/UX', 'QA', 'BUG', 'DOCS']
+export const typeOptions = TASK_TYPES
 
 const replaceTask = (tasks, updatedTask) =>
   tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
@@ -271,7 +272,7 @@ export const useKanbanStore = create((set, get) => ({
     }
   },
 
-  rejectTaskReview: async (taskId, reason, targetStatus = 'IN_PROGRESS') => {
+  rejectTaskReview: async (taskId, reason, targetStatus = 'NEEDS_CHANGES') => {
     // Replace local task with backend response after leader rejection returns it to work.
     set({ loading: true, error: null })
     try {
@@ -280,6 +281,30 @@ export const useKanbanStore = create((set, get) => ({
       return task
     } catch (error) {
       set({ error: error.response?.data?.message || error.message || 'Failed to reject task review', loading: false })
+      return null
+    }
+  },
+
+  reopenTaskReview: async (taskId, reason) => {
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.reopenTaskReview(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to reopen task review', loading: false })
+      return null
+    }
+  },
+
+  requestTaskRework: async (taskId, reason) => {
+    set({ loading: true, error: null })
+    try {
+      const task = mapTaskFromApi(await taskService.requestTaskRework(taskId, reason))
+      set((state) => ({ tasks: replaceTask(state.tasks, task), loading: false }))
+      return task
+    } catch (error) {
+      set({ error: error.response?.data?.message || error.message || 'Failed to request task rework', loading: false })
       return null
     }
   },

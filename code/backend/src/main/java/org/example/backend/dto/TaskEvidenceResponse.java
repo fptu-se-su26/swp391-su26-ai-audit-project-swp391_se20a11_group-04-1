@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightTaskEvidenceResponse {
+public class TaskEvidenceResponse {
     private Long projectId;
     private TaskSummary task;
     private GithubIssueSummary githubIssue;
@@ -18,8 +18,11 @@ public class CodeInsightTaskEvidenceResponse {
     private List<CommitEvidence> commits;
     private List<CheckRunEvidence> checkRuns;
     private List<PullRequestFileEvidence> changedFiles;
+    private List<ManualEvidenceLinkResponse> manualEvidenceLinks;
     private CodeInsightAiReviewResponse aiReview;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
+    private CodeInsightApprovalGateResponse approvalGate;
+    private List<GeneralEvidenceSummary> generalEvidences;
 
     @Getter
     @Setter
@@ -31,6 +34,8 @@ public class CodeInsightTaskEvidenceResponse {
         private String title;
         private String status;
         private String priority;
+        private String type;
+        private String requirementCode;
         private String assigneeName;
     }
 
@@ -115,5 +120,19 @@ public class CodeInsightTaskEvidenceResponse {
         private String patchHash;
         private String patchSummary;
         private LocalDateTime fetchedAt;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class GeneralEvidenceSummary {
+        private Long id;
+        private String title;
+        private String type;
+        private String fileUrl;
+        private String externalUrl;
+        private String status;
     }
 }
