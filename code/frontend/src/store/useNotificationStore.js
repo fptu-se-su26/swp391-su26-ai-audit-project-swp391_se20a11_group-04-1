@@ -239,6 +239,42 @@ export const useNotificationStore = create((set, get) => ({
           if (payload.type === 'TASK_PROPOSAL_UPDATE' || payload.type === 'TASK_VOTE_UPDATE') {
             window.dispatchEvent(new CustomEvent('task-proposal-event', { detail: payload }))
           }
+
+          if (payload.type === 'VERIFICATION_UPDATE') {
+            import('@store/useAuthStore').then((module) => {
+              const store = module.useAuthStore || module.default
+              if (store && store.getState) {
+                store.getState().fetchMe()
+              }
+            }).catch(err => console.error('Failed to import useAuthStore dynamically:', err))
+            
+            window.dispatchEvent(new CustomEvent('verification-update', { detail: payload.data }))
+
+            const isApproved = payload.data?.status === 'VERIFIED'
+            toast(
+              (t) =>
+                React.createElement('div', { className: `flex items-center justify-between gap-3 w-full ${isApproved ? 'text-emerald-850' : 'text-red-850'}` },
+                  React.createElement('span', { className: 'font-semibold text-sm' }, payload.data?.message || 'Trạng thái xác minh của bạn đã được cập nhật!'),
+                  React.createElement('button', {
+                    onClick: () => toast.dismiss(t.id),
+                    className: `shrink-0 w-5 h-5 rounded-full ${isApproved ? 'bg-emerald-200/50 hover:bg-emerald-200 text-emerald-950' : 'bg-red-200/50 hover:bg-red-200 text-red-950'} flex items-center justify-center transition-all focus:outline-none text-[10px] font-extrabold cursor-pointer border-none`,
+                    title: 'Đóng'
+                  }, '✕')
+                ),
+              {
+                duration: 5000,
+                style: {
+                  minWidth: '300px',
+                  maxWidth: '420px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                  borderRadius: '10px',
+                  border: isApproved ? '1px solid #c3e6cb' : '1px solid #f5c6cb',
+                  padding: '10px 14px',
+                  background: isApproved ? '#d4edda' : '#f8d7da'
+                }
+              }
+            )
+          }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
         }

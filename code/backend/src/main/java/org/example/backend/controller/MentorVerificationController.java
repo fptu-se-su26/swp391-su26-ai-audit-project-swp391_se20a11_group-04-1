@@ -6,6 +6,7 @@ import org.example.backend.entity.UserAccount;
 import org.example.backend.service.FileStorageService;
 import org.example.backend.service.MentorVerificationService;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,7 +22,7 @@ import org.springframework.core.io.InputStreamResource;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/mentor-verifications")
+@RequestMapping("/api/v1/mentor-verifications")
 @RequiredArgsConstructor
 public class MentorVerificationController {
 
@@ -51,20 +52,27 @@ public class MentorVerificationController {
         }
     }
 
-    @DeleteMapping("/request")
-    public ResponseEntity<?> cancelRequest(@SessionAttribute("userId") Long userId) {
-        try {
-            verificationService.cancelRequest(userId);
-            return ResponseEntity.ok(Map.of("message", "Verification request cancelled successfully"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
     @GetMapping("/me")
     public ResponseEntity<?> getMyRequests(@SessionAttribute("userId") Long userId) {
         List<MentorVerificationRequest> requests = verificationService.getUserRequests(userId);
-        return ResponseEntity.ok(requests);
+        List<Map<String, Object>> response = requests.stream().map(req -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", req.getId());
+            map.put("status", req.getStatus().name());
+            map.put("createdAt", req.getCreatedAt());
+            map.put("resolvedAt", req.getResolvedAt());
+            if (req.getResolvedAt() != null) {
+                map.put("expiredAt", req.getResolvedAt().plusYears(1));
+            } else if (req.getCreatedAt() != null) {
+                map.put("expiredAt", req.getCreatedAt().plusYears(1));
+            } else {
+                map.put("expiredAt", null);
+            }
+            map.put("message", req.getMessage());
+            map.put("cardImageUrl", "/api/v1/mentor-verifications/requests/" + req.getId() + "/card-image");
+            return map;
+        }).toList();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/pending")
@@ -82,7 +90,7 @@ public class MentorVerificationController {
             map.put("status", req.getStatus().name());
             map.put("createdAt", req.getCreatedAt());
             // Use internal proxy URL to ensure 100% security
-            map.put("cardImageUrl", "/api/mentor-verifications/requests/" + req.getId() + "/card-image");
+            map.put("cardImageUrl", "/api/v1/mentor-verifications/requests/" + req.getId() + "/card-image");
             return map;
         }).toList();
 
@@ -90,23 +98,31 @@ public class MentorVerificationController {
     }
 
     @GetMapping("/requests/{id}/card-image")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<InputStreamResource> getCardImage(@PathVariable Long id, @SessionAttribute("userId") Long adminId) {
+    public ResponseEntity<InputStreamResource> getCardImage(
+            @PathVariable Long id, 
+            @SessionAttribute("userId") Long userId,
+            @SessionAttribute(value = "userRole", required = false) String userRole) {
         try {
-            // Find request. Ideally add a method in service to get by ID securely.
-            // Using a shortcut stream for MVP logic (in real app, use Service layer)
-            MentorVerificationRequest request = verificationService.getAllPendingRequests().stream()
-                    .filter(r -> r.getId().equals(id))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Request not found"));
+            MentorVerificationRequest request = verificationService.getRequestById(id);
             
+            // Allow access if the user is an ADMIN or is the owner of the request
+            if (!"ADMIN".equals(userRole) && !request.getUser().getId().equals(userId)) {
+                System.out.println("❌ Forbidden: userRole=" + userRole + ", requestUserId=" + request.getUser().getId() + ", currentUserId=" + userId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            System.out.println("🔍 Downloading image via backend for request ID: " + id + ", cardImageUrl: " + request.getCardImageUrl());
             java.io.InputStream in = fileStorageService.downloadPrivateFileStream(request.getCardImageUrl());
-            if (in == null) return ResponseEntity.notFound().build();
+            if (in == null) {
+                System.out.println("❌ Image InputStream is NULL for cardImageUrl: " + request.getCardImageUrl());
+                return ResponseEntity.notFound().build();
+            }
             
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.IMAGE_JPEG_VALUE)
                     .body(new InputStreamResource(in));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.notFound().build();
         }
     }
@@ -118,6 +134,16 @@ public class MentorVerificationController {
         try {
             MentorVerificationRequest request = verificationService.approveRequest(id, adminId);
             return ResponseEntity.ok(Map.of("message", "Request approved successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    @DeleteMapping("/request")
+    public ResponseEntity<?> resetMyRequest(@SessionAttribute("userId") Long userId) {
+        try {
+            verificationService.resetVerification(userId);
+            return ResponseEntity.ok(Map.of("message", "Verification reset successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

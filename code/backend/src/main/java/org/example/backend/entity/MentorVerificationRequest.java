@@ -29,8 +29,8 @@ public class MentorVerificationRequest {
     @Builder.Default
     private VerificationRequestStatus status = VerificationRequestStatus.PENDING;
 
-    @Column(name = "rejection_reason", columnDefinition = "TEXT")
-    private String rejectionReason;
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
