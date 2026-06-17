@@ -3,7 +3,7 @@ import axiosInstance from '@api/axiosConfig'
 // All backend responses wrap useful payload under data.data.
 const unwrap = (response) => response.data?.data
 
-export const codeInsightService = {
+export const TaskReviewService = {
   // Load repository config and Code Insight settings for the current project.
   getConfig: async (projectId) => {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/task-reviews/config`)
@@ -78,4 +78,4 @@ export const codeInsightService = {
     return unwrap(response) || []
   },
 }
-export default codeInsightService
+export default TaskReviewService

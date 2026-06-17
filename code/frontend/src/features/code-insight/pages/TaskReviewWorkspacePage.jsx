@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import codeInsightService from '../services/codeInsightService'
+import TaskReviewService from '../services/taskReviewService'
 import useProjectStore from '@store/useProjectStore'
 import taskService from '@features/kanban/services/taskService'
 import toast from 'react-hot-toast'
@@ -327,6 +327,16 @@ export function TaskReviewWorkspacePage() {
   const [reason, setReason] = useState('')
   const [decisionLoading, setDecisionLoading] = useState(false)
 
+  // Manual evidence links state
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false)
+  const [suggestType, setSuggestType] = useState('COMMIT') // COMMIT, PULL_REQUEST, CHECK_RUN
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [selectedEvidence, setSelectedEvidence] = useState(null)
+  const [suggestReason, setSuggestReason] = useState('')
+  const [suggestSubmitLoading, setSuggestSubmitLoading] = useState(false)
+
   useEffect(() => {
     loadQueue()
   }, [projectId])
@@ -382,7 +392,7 @@ export function TaskReviewWorkspacePage() {
 
   const loadQueue = async () => {
     try {
-      const data = await codeInsightService.getReviewQueue(projectId)
+      const data = await TaskReviewService.getReviewQueue(projectId)
       setQueue(data || [])
       // Auto select first task if no task id
       if (!taskId && data && data.length > 0) {
@@ -397,7 +407,7 @@ export function TaskReviewWorkspacePage() {
     setDetailLoading(true)
     setError('')
     try {
-      const data = await codeInsightService.getReviewDetail(projectId, taskId)
+      const data = await TaskReviewService.getReviewDetail(projectId, taskId)
       setDetail(data)
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load task review details')
@@ -506,6 +516,70 @@ export function TaskReviewWorkspacePage() {
     });
   };
 
+  const handleConfirmManualLink = async (linkId) => {
+    try {
+      await TaskReviewService.confirmManualLink(projectId, taskId, linkId);
+      toast.success("Manual evidence link confirmed!");
+      loadDetail();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to confirm manual link");
+    }
+  };
+
+  const handleRejectManualLink = async (linkId) => {
+    try {
+      await TaskReviewService.rejectManualLink(projectId, taskId, linkId);
+      toast.success("Manual evidence link rejected!");
+      loadDetail();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to reject manual link");
+    }
+  };
+
+  const handleSearchEvidence = async (query = searchQuery) => {
+    setSearchLoading(true);
+    try {
+      const data = await TaskReviewService.searchEvidence(projectId, suggestType, query);
+      setSearchResults(data.results || []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to search evidence items");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSuggestManualLink = async (e) => {
+    e.preventDefault();
+    if (!selectedEvidence) {
+      toast.error("Please select an evidence item");
+      return;
+    }
+    setSuggestSubmitLoading(true);
+    try {
+      await TaskReviewService.suggestManualLink(projectId, taskId, {
+        evidenceType: suggestType,
+        evidenceId: selectedEvidence.id,
+        reason: suggestReason
+      });
+      toast.success("Manual link suggested successfully!");
+      setIsSuggestModalOpen(false);
+      loadDetail();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Failed to suggest link");
+    } finally {
+      setSuggestSubmitLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isSuggestModalOpen) {
+      handleSearchEvidence('');
+      setSelectedEvidence(null);
+      setSuggestReason('');
+    }
+  }, [isSuggestModalOpen, suggestType]);
+
   const handleApprove = async () => {
     if (!taskId) return;
     setDecisionLoading(true);
@@ -514,7 +588,7 @@ export function TaskReviewWorkspacePage() {
       toast.success("Task review approved successfully!");
       setReason('');
       
-      const data = await codeInsightService.getReviewQueue(projectId);
+      const data = await TaskReviewService.getReviewQueue(projectId);
       setQueue(data || []);
       
       if (data && data.length > 0) {
@@ -542,7 +616,7 @@ export function TaskReviewWorkspacePage() {
       toast.success("Task review rejected (changes requested) successfully!");
       setReason('');
       
-      const data = await codeInsightService.getReviewQueue(projectId);
+      const data = await TaskReviewService.getReviewQueue(projectId);
       setQueue(data || []);
       
       if (data && data.length > 0) {
@@ -801,11 +875,92 @@ export function TaskReviewWorkspacePage() {
                               </div>
                             </div>
                           ))}
+                          </div>
                         </div>
+                      )}
+
+                      {/* Manual Git Links Section */}
+                      <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="block text-xs uppercase tracking-wider text-on-surface-variant font-bold text-left">
+                            Manually Linked Git Evidences
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsSuggestModalOpen(true)}
+                            className="px-2 py-1 bg-surface-container-low text-[10px] font-bold text-primary border border-outline-variant hover:bg-surface-container-high rounded-lg flex items-center gap-1 transition-all"
+                          >
+                            <span className="material-symbols-outlined text-[12px]">add</span>
+                            Suggest Link
+                          </button>
+                        </div>
+                        
+                        {detail?.manualEvidenceLinks && detail.manualEvidenceLinks.length > 0 ? (
+                          <div className="space-y-2 text-left">
+                            {detail.manualEvidenceLinks.map((ml) => (
+                              <div key={ml.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex flex-col gap-1.5 hover:shadow-sm transition-all">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                      {ml.evidenceType === 'COMMIT' ? 'history' :
+                                       ml.evidenceType === 'PULL_REQUEST' ? 'description' : 'published_with_changes'}
+                                    </span>
+                                    <div className="overflow-hidden">
+                                      <p className="text-xs font-bold text-on-surface truncate">
+                                        {ml.evidenceType} #{ml.evidenceId}
+                                      </p>
+                                      <p className="text-[9px] text-on-surface-variant">
+                                        Suggested by {ml.suggestedBy?.name || 'Unknown'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide ${
+                                    ml.status === 'CONFIRMED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    ml.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                  }`}>
+                                    {ml.status}
+                                  </span>
+                                </div>
+                                
+                                {ml.reason && (
+                                  <p className="text-[10px] italic text-on-surface-variant bg-surface-container-lowest px-2 py-1 rounded">
+                                    Reason: {ml.reason}
+                                  </p>
+                                )}
+
+                                {ml.status === 'PENDING' && (
+                                  <div className="flex justify-end gap-1.5 mt-1 border-t border-outline-variant/30 pt-1.5">
+                                    <button
+                                      onClick={() => handleRejectManualLink(ml.id)}
+                                      type="button"
+                                      className="px-2 py-1 bg-red-50 text-[9px] font-bold text-red-700 hover:bg-red-100 rounded flex items-center gap-0.5 border border-red-200 transition-all"
+                                    >
+                                      <span className="material-symbols-outlined text-[10px]">close</span>
+                                      Reject
+                                    </button>
+                                    <button
+                                      onClick={() => handleConfirmManualLink(ml.id)}
+                                      type="button"
+                                      className="px-2 py-1 bg-green-50 text-[9px] font-bold text-green-700 hover:bg-green-100 rounded flex items-center gap-0.5 border border-green-200 transition-all"
+                                    >
+                                      <span className="material-symbols-outlined text-[10px]">check</span>
+                                      Approve
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-on-surface-variant italic text-center py-2 bg-surface-container-lowest/50 rounded-lg">
+                            No manual Git links suggested yet.
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ) : (
+                    </div>
+                  ) : (
                   <div className="space-y-4">
                     {/* Non-code task display */}
                     {evidence.githubIssue && (
@@ -905,6 +1060,162 @@ export function TaskReviewWorkspacePage() {
               </div>
             </div>
           </aside>
+
+          {/* Suggest Git Link Modal */}
+          {isSuggestModalOpen && (
+            <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fade-in">
+                {/* Modal Header */}
+                <div className="p-5 border-b border-outline-variant flex items-center justify-between">
+                  <h3 className="font-bold text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">link</span>
+                    Suggest Manual Git Evidence Link
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsSuggestModalOpen(false)}
+                    className="text-on-surface-variant hover:bg-surface-container-high p-1.5 rounded-full transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">close</span>
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <form onSubmit={handleSuggestManualLink} className="p-5 overflow-y-auto space-y-4 text-left flex-1">
+                  {/* Type Select */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                      Evidence Type
+                    </label>
+                    <div className="flex gap-2">
+                      {['COMMIT', 'PULL_REQUEST', 'CHECK_RUN'].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setSuggestType(t)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            suggestType === t
+                              ? 'bg-primary text-on-primary border-primary shadow-sm'
+                              : 'bg-surface text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
+                          }`}
+                        >
+                          {t === 'COMMIT' ? 'Commit' : t === 'PULL_REQUEST' ? 'PR' : 'CI Check'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Search Box */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                      Search Repository {suggestType === 'COMMIT' ? 'Commits' : suggestType === 'PULL_REQUEST' ? 'PRs' : 'CI Checks'}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Enter keywords to search..."
+                        className="flex-1 bg-surface border border-outline-variant rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSearchEvidence()}
+                        className="px-4 py-2 bg-secondary text-on-secondary font-bold text-sm rounded-xl hover:opacity-90 transition-all shrink-0 shadow-sm"
+                      >
+                        Search
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Results */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                      Select Evidence Item
+                    </label>
+                    <div className="border border-outline-variant rounded-xl max-h-48 overflow-y-auto divide-y divide-outline-variant bg-surface">
+                      {searchLoading ? (
+                        <div className="p-4 text-center text-xs text-on-surface-variant italic">
+                          Searching...
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        searchResults.map((item) => {
+                          const isSelected = selectedEvidence?.id === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setSelectedEvidence(item)}
+                              className={`w-full p-3 text-left flex items-start gap-2.5 transition-colors ${
+                                isSelected ? 'bg-primary-container/20 border-l-4 border-primary' : 'hover:bg-surface-container-low'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-primary text-[18px] mt-0.5 shrink-0">
+                                {suggestType === 'COMMIT' ? 'history' :
+                                 suggestType === 'PULL_REQUEST' ? 'description' : 'published_with_changes'}
+                              </span>
+                              <div className="overflow-hidden">
+                                <p className="text-xs font-bold text-on-surface break-words">{item.title}</p>
+                                {item.subtitle && <p className="text-[10px] text-on-surface-variant truncate mt-0.5">{item.subtitle}</p>}
+                                {item.reference && <p className="text-[9px] text-neutral-400 font-mono mt-0.5 truncate">{item.reference}</p>}
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="p-4 text-center text-xs text-on-surface-variant italic">
+                          No results found. Type query and click Search.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reason */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                      Reason for Linking
+                    </label>
+                    <textarea
+                      value={suggestReason}
+                      onChange={(e) => setSuggestReason(e.target.value)}
+                      placeholder="Explain why this evidence belongs to this task..."
+                      rows="2"
+                      className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+                    ></textarea>
+                  </div>
+
+                  {/* Selected Item Indicator */}
+                  {selectedEvidence && (
+                    <div className="p-3 bg-green-50/10 border border-green-200/40 rounded-xl flex items-center gap-2">
+                      <span className="material-symbols-outlined text-green-600 text-[18px]">verified</span>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-bold text-green-950 truncate">Selected: {selectedEvidence.title}</p>
+                      </div>
+                    </div>
+                  )}
+                </form>
+
+                {/* Modal Footer */}
+                <div className="p-5 border-t border-outline-variant bg-surface-container-low flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSuggestModalOpen(false)}
+                    className="px-4 py-2 border border-outline-variant text-on-surface-variant font-bold text-sm rounded-xl hover:bg-surface-container-high transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSuggestManualLink}
+                    disabled={suggestSubmitLoading || !selectedEvidence}
+                    className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-xl hover:opacity-90 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    {suggestSubmitLoading ? 'Submitting...' : 'Link Evidence'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
