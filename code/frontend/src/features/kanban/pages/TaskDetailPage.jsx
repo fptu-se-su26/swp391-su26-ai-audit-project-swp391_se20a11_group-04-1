@@ -4,6 +4,7 @@ import TaskFormModal from '../components/TaskFormModal'
 import SlaDecisionPackPanel from '../components/SlaDecisionPackPanel'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
+import { normalizeTaskType } from '../utils/taskMapper'
 
 const isLeaderRole = (role = '') => {
   // Normalize project role labels so leader-only review actions show correctly.
@@ -63,6 +64,7 @@ const TaskDetailPage = () => {
   }
 
   const completedChecklist = task.checklist.filter((item) => item.done).length
+  const taskType = normalizeTaskType(task.type)
 
   const subtasks = tasks.filter(t => t.parentId === String(task.id))
   const hasSubtasks = subtasks.length > 0
@@ -155,7 +157,7 @@ const TaskDetailPage = () => {
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">{task.title}</h1>
             </div>
             <div className="flex gap-2">
-              {task.type !== 'BUG_FIX' && (
+              {taskType !== 'BUG_FIX' && (
                 <button
                   type="button"
                   onClick={() => navigate(`/projects/${projectId}/features/${task.id}/discuss`)}

@@ -22,7 +22,9 @@ import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
-import org.example.backend.repository.NotificationRepository;
+import org.example.backend.service.TaskReviewSnapshotService;
+import org.example.backend.service.CodeInsightScoringService;
+import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.repository.TaskCommentRepository;
 import org.example.backend.repository.TaskProposalRepository;
 import org.example.backend.entity.TaskComment;
@@ -46,6 +48,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
@@ -60,6 +63,7 @@ public class TaskServiceImpl implements TaskService {
     private final ProjectMemberRepository projectMemberRepository;
     private final UserAccountRepository userAccountRepository;
     private final RequirementRepository requirementRepository;
+    private final org.example.backend.repository.UseCaseRepository useCaseRepository;
     private final SprintRepository sprintRepository;
     private final BugReportRepository bugReportRepository;
     private final GitHubApiService gitHubApiService;
@@ -69,6 +73,9 @@ public class TaskServiceImpl implements TaskService {
     private final EvidenceLinkRepository evidenceLinkRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
+    private final TaskReviewSnapshotService TaskReviewSnapshotService;
+    private final CodeInsightScoringService codeInsightScoringService;
+    private final CodeInsightApprovalGateService codeInsightApprovalGateService;
     private final TaskCommentRepository taskCommentRepository;
     private final TaskProposalRepository taskProposalRepository;
     private final TaskSlaRuleService taskSlaRuleService;
@@ -172,6 +179,12 @@ public class TaskServiceImpl implements TaskService {
             setColumnFromStatus(task, projectId, task.getStatus());
         }
         Task savedTask = taskRepository.save(task);
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
+        }
+        if (savedTask.getUseCaseId() != null) {
+            syncUseCaseStatus(savedTask.getUseCaseId());
+        }
 
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("taskId", savedTask.getId());
@@ -201,14 +214,28 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
-
         LocalDate oldDeadline = task.getDeadline();
         Long oldSprintId = task.getSprintId();
         Long oldAssigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
         TaskStatus oldStatus = task.getStatus();
+        Long oldReqId = task.getRequirementId();
+        Long oldUcId = task.getUseCaseId();
 
         applyRequest(task, request, task.getProject().getId(), userId);
         Task savedTask = taskRepository.save(task);
+
+        if (oldReqId != null && !oldReqId.equals(savedTask.getRequirementId())) {
+            syncRequirementStatus(oldReqId);
+        }
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
+        }
+        if (oldUcId != null && !oldUcId.equals(savedTask.getUseCaseId())) {
+            syncUseCaseStatus(oldUcId);
+        }
+        if (savedTask.getUseCaseId() != null) {
+            syncUseCaseStatus(savedTask.getUseCaseId());
+        }
 
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("taskId", savedTask.getId());
@@ -258,7 +285,10 @@ public class TaskServiceImpl implements TaskService {
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+
+        if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
             } catch (Exception e) {
@@ -314,6 +344,7 @@ public class TaskServiceImpl implements TaskService {
             changeTaskStatus(task, nextStatus, userId);
         }
         Task savedTask = taskRepository.save(task);
+<<<<<<< HEAD
 
         if (!Objects.equals(oldStatus, savedTask.getStatus())) {
             HashMap<String, Object> payload = new HashMap<>();
@@ -329,12 +360,21 @@ public class TaskServiceImpl implements TaskService {
             outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
         }
 
+        if (savedTask.getRequirementId() != null) {
+            syncRequirementStatus(savedTask.getRequirementId());
+        }
+        if (savedTask.getUseCaseId() != null) {
+            syncUseCaseStatus(savedTask.getUseCaseId());
+        }
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
             checkAndCompleteParentTask(savedTask.getParent());
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
-        if (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null) {
+        boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+
+        if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
                 gitHubApiService.updateGitHubIssueStatusForTask(savedTask, userId);
             } catch (Exception e) {
@@ -441,8 +481,13 @@ public class TaskServiceImpl implements TaskService {
         if (task.getStatus() != TaskStatus.IN_REVIEW) {
             throw new BadRequestException("Only tasks in review can be approved");
         }
+<<<<<<< HEAD
         ensureAcceptedEvidenceBeforeReview(task);
+=======
+        codeInsightApprovalGateService.assertCanApprove(task);
+>>>>>>> 165188f08b933f8f0fdb138e6d9837119f977e4c
 
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
         if (task.getCompletedAt() == null) {
@@ -457,6 +502,7 @@ public class TaskServiceImpl implements TaskService {
         }
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.APPROVED, fromStatus, TaskStatus.DONE,
+                reviewSnapshotId,
                 request != null ? request.getReason() : null);
 
         if (!Objects.equals(fromStatus, TaskStatus.DONE)) {
@@ -486,23 +532,26 @@ public class TaskServiceImpl implements TaskService {
         }
 
         String reason = requiredText(request != null ? request.getReason() : null, "Reject reason is required");
-        TaskStatus targetStatus = parseEnum(request != null ? request.getTargetStatus() : null, TaskStatus.class, TaskStatus.IN_PROGRESS);
-        if (targetStatus != TaskStatus.IN_PROGRESS && targetStatus != TaskStatus.BLOCKED) {
-            throw new BadRequestException("Rejected task must return to IN_PROGRESS or BLOCKED");
+        TaskStatus targetStatus = parseEnum(request != null ? request.getTargetStatus() : null, TaskStatus.class, TaskStatus.NEEDS_CHANGES);
+        if (targetStatus != TaskStatus.NEEDS_CHANGES && targetStatus != TaskStatus.BLOCKED) {
+            throw new BadRequestException("Rejected task must return to NEEDS_CHANGES or BLOCKED");
         }
 
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(targetStatus);
         task.setCompletedAt(null);
         if (targetStatus == TaskStatus.BLOCKED) {
             task.setBlockedReason(reason);
+        } else {
+            task.setBlockedReason(null);
         }
         setColumnFromStatus(task, task.getProject().getId(), targetStatus);
         syncSlaPauseForStatusChange(task, fromStatus, targetStatus);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         syncGitHubIssueStatus(savedTask, userId);
-        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reason);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REJECTED, fromStatus, targetStatus, reviewSnapshotId, reason);
 
         if (!Objects.equals(fromStatus, targetStatus)) {
             HashMap<String, Object> payload = new HashMap<>();
@@ -518,6 +567,51 @@ public class TaskServiceImpl implements TaskService {
             outboxEventService.createEvent("TASK_STATUS_CHANGED", "Task", savedTask.getId(), payload);
         }
 
+        return toResponse(savedTask);
+    }
+
+    @Override
+    public TaskResponse reopenTaskReview(Long taskId, TaskReviewRequest request, Long userId) {
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.DONE) {
+            throw new BadRequestException("Only done tasks can be reopened for review");
+        }
+        String reason = requiredText(request != null ? request.getReason() : null, "Reopen reason is required");
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.IN_REVIEW);
+        task.setCompletedAt(null);
+        task.setBlockedReason(null);
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.IN_REVIEW);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        syncGitHubIssueStatus(savedTask, userId);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REOPENED_REVIEW, fromStatus, TaskStatus.IN_REVIEW, reviewSnapshotId, reason);
+        notifyAssignee(savedTask, "Task reopened for review", reason);
+        return toResponse(savedTask);
+    }
+
+    @Override
+    public TaskResponse requestTaskRework(Long taskId, TaskReviewRequest request, Long userId) {
+        Task task = findTask(taskId);
+        ensureProjectLeader(task.getProject().getId(), userId);
+        if (task.getStatus() != TaskStatus.DONE) {
+            throw new BadRequestException("Only done tasks can be sent back for rework");
+        }
+        String reason = requiredText(request != null ? request.getReason() : null, "Rework reason is required");
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
+        TaskStatus fromStatus = task.getStatus();
+        task.setStatus(TaskStatus.NEEDS_CHANGES);
+        task.setCompletedAt(null);
+        task.setBlockedReason(null);
+        setColumnFromStatus(task, task.getProject().getId(), TaskStatus.NEEDS_CHANGES);
+        Task savedTask = taskRepository.save(task);
+        syncWithBugReport(savedTask, userId);
+        syncGitHubIssueStatus(savedTask, userId);
+        recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REQUESTED_REWORK, fromStatus, TaskStatus.NEEDS_CHANGES, reviewSnapshotId, reason);
+        notifyAssignee(savedTask, "Task needs changes", reason);
+>>>>>>> 165188f08b933f8f0fdb138e6d9837119f977e4c
         return toResponse(savedTask);
     }
 
@@ -539,12 +633,14 @@ public class TaskServiceImpl implements TaskService {
                 // Synchronize Status
                 if (task.getStatus() == TaskStatus.DONE) {
                     bug.setStatus(BugStatus.FIXED);
-                } else if (task.getStatus() == TaskStatus.IN_PROGRESS) {
+                } else if (task.getStatus() == TaskStatus.IN_PROGRESS || task.getStatus() == TaskStatus.NEEDS_CHANGES) {
                     bug.setStatus(BugStatus.IN_PROGRESS);
                 } else if (task.getStatus() == TaskStatus.IN_REVIEW) {
                     bug.setStatus(BugStatus.VERIFIED);
                 } else if (task.getStatus() == TaskStatus.TODO) {
-                    bug.setStatus(BugStatus.OPEN);
+                    if (bug.getStatus() != BugStatus.DRAFT) {
+                        bug.setStatus(BugStatus.OPEN);
+                    }
                 }
 
                 // Synchronize Assignee
@@ -608,7 +704,16 @@ public class TaskServiceImpl implements TaskService {
     public void deleteTask(Long taskId, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
+        Long reqId = task.getRequirementId();
+        Long ucId = task.getUseCaseId();
         taskRepository.delete(task);
+        taskRepository.flush();
+        if (reqId != null) {
+            syncRequirementStatus(reqId);
+        }
+        if (ucId != null) {
+            syncUseCaseStatus(ucId);
+        }
     }
 
     // =========================================================================
@@ -1039,13 +1144,25 @@ public class TaskServiceImpl implements TaskService {
             }
             task.setDescription(newDesc);
         }
-        if (request.getRequirementId() == null) {
-            task.setRequirementId(null);
-        } else {
-            if (!requirementRepository.existsByIdAndProjectId(request.getRequirementId(), projectId)) {
-                throw new BadRequestException("Requirement does not exist in this project");
+        if (request.isRequirementIdPresent()) {
+            if (request.getRequirementId() == null) {
+                task.setRequirementId(null);
+            } else {
+                if (!requirementRepository.existsByIdAndProjectId(request.getRequirementId(), projectId)) {
+                    throw new BadRequestException("Requirement does not exist in this project");
+                }
+                task.setRequirementId(request.getRequirementId());
             }
-            task.setRequirementId(request.getRequirementId());
+        }
+        if (request.isUseCaseIdPresent()) {
+            if (request.getUseCaseId() == null) {
+                task.setUseCaseId(null);
+            } else {
+                if (!useCaseRepository.existsByIdAndProjectId(request.getUseCaseId(), projectId)) {
+                    throw new BadRequestException("UseCase does not exist in this project");
+                }
+                task.setUseCaseId(request.getUseCaseId());
+            }
         }
         if (request.getSprintId() == null) {
             task.setSprintId(null);
@@ -1063,8 +1180,15 @@ public class TaskServiceImpl implements TaskService {
         if (request.getPriority() != null) task.setPriority(parseEnum(request.getPriority(), Priority.class, task.getPriority()));
         if (request.getStartDate() != null) task.setStartDate(request.getStartDate());
         if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
-        if (task.getDeadline() != null && task.getStartDate() != null && task.getDeadline().isBefore(task.getStartDate())) {
-            throw new BadRequestException("Task deadline must be on or after start date");
+        org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
+        if (task.getProject() != null) {
+            org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), task.getProject().getStartDate(), task.getProject().getDeadline(), "Task", "Project");
+        }
+        if (task.getSprintId() != null) {
+            Sprint sprint = sprintRepository.findById(task.getSprintId()).orElse(null);
+            if (sprint != null) {
+                org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), sprint.getStartDate(), sprint.getEndDate(), "Task", "Sprint");
+            }
         }
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
@@ -1121,13 +1245,34 @@ public class TaskServiceImpl implements TaskService {
 
         boolean hasSubTasks = task.getSubTasks() != null && !task.getSubTasks().isEmpty();
 
+        if (task.getStatus() == TaskStatus.DONE
+                && (nextStatus == TaskStatus.IN_REVIEW
+                || nextStatus == TaskStatus.NEEDS_CHANGES
+                || nextStatus == TaskStatus.IN_PROGRESS)) {
+            throw new BadRequestException("Use reopen review or request rework action for completed tasks.");
+        }
+
+        if (task.getStatus() == TaskStatus.IN_REVIEW
+                && (nextStatus == TaskStatus.DONE
+                || nextStatus == TaskStatus.NEEDS_CHANGES
+                || nextStatus == TaskStatus.BLOCKED)) {
+            throw new BadRequestException("Use review approve or reject action for tasks in review.");
+        }
+
+        if (task.getStatus() == TaskStatus.NEEDS_CHANGES
+                && nextStatus == TaskStatus.DONE
+                && isReviewGateEnabled(task.getProject().getId())) {
+            throw new BadRequestException("Task with requested changes must be reviewed before Done.");
+        }
+
         // ONLY block transition for unassigned task if it's moving FROM TODO
         if (task.getStatus() == TaskStatus.TODO && task.getPrimaryAssignee() == null && !hasSubTasks) {
             throw new BadRequestException("Task chưa được assign, không thể chuyển sang trạng thái này!");
         }
 
         // Enforce flow: IN_PROGRESS -> IN_REVIEW
-        if (task.getStatus() == TaskStatus.IN_PROGRESS && nextStatus == TaskStatus.DONE) {
+        if ((task.getStatus() == TaskStatus.IN_PROGRESS || task.getStatus() == TaskStatus.NEEDS_CHANGES)
+                && nextStatus == TaskStatus.DONE) {
             throw new BadRequestException("Phải chuyển task sang trạng thái In Review để được phê duyệt trước khi chuyển sang Done.");
         }
 
@@ -1300,6 +1445,12 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+    private void notifyAssignee(Task task, String title, String message) {
+        if (task != null && task.getPrimaryAssignee() != null) {
+            sendNotification(task.getPrimaryAssignee(), title, message, task);
+        }
+    }
+
     private void sendNotification(UserAccount recipient, String title, String message, Task task) {
         notificationService.createAndPush(
                 recipient,
@@ -1407,6 +1558,17 @@ public class TaskServiceImpl implements TaskService {
             TaskStatus fromStatus,
             TaskStatus toStatus,
             String reason) {
+        recordReviewDecision(task, reviewerId, decision, fromStatus, toStatus, null, reason);
+    }
+
+    private void recordReviewDecision(
+            Task task,
+            Long reviewerId,
+            TaskReviewDecisionType decision,
+            TaskStatus fromStatus,
+            TaskStatus toStatus,
+            Long TaskReviewSnapshotId,
+            String reason) {
         UserAccount reviewer = userAccountRepository.findById(reviewerId)
                 .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
         taskReviewDecisionRepository.save(TaskReviewDecision.builder()
@@ -1416,6 +1578,7 @@ public class TaskServiceImpl implements TaskService {
                 .fromStatus(fromStatus.name())
                 .toStatus(toStatus.name())
                 .reason(trimToNull(reason))
+                .TaskReviewSnapshotId(TaskReviewSnapshotId)
                 .build());
     }
 
@@ -1504,6 +1667,7 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
+<<<<<<< HEAD
     private List<TaskResponse> toResponses(List<Task> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return Collections.emptyList();
@@ -1554,6 +1718,10 @@ public class TaskServiceImpl implements TaskService {
         return new TaskResponseContext(requirementCodes, sprintNames, acceptedEvidenceTaskIds);
     }
 
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
     private TaskResponse toResponse(Task task) {
         return toResponse(task, null);
     }
@@ -1562,11 +1730,14 @@ public class TaskServiceImpl implements TaskService {
         var sla = context != null
                 ? taskSlaRuleService.evaluate(task, context.hasAcceptedEvidence(task.getId()))
                 : taskSlaRuleService.evaluate(task);
+        Optional<TaskReviewDecision> latestDecision = taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId());
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
                 .requirementId(task.getRequirementId())
                 .requirementCode(context != null ? context.requirementCode(task.getRequirementId()) : resolveRequirementCode(task.getRequirementId()))
+                .useCaseId(task.getUseCaseId())
+                .useCaseCode(resolveUseCaseCode(task.getUseCaseId()))
                 .sprintId(task.getSprintId())
                 .sprintName(context != null ? context.sprintName(task.getSprintId()) : resolveSprintName(task.getSprintId()))
                 .title(task.getTitle())
@@ -1583,16 +1754,20 @@ public class TaskServiceImpl implements TaskService {
                 .columnId(task.getKanbanColumn() != null ? task.getKanbanColumn().getId() : null)
                 .columnName(task.getKanbanColumn() != null ? task.getKanbanColumn().getName() : null)
                 .blockedReason(task.getBlockedReason())
+                .latestReviewDecision(latestDecision.map(item -> item.getDecision().name()).orElse(null))
+                .latestReviewReason(latestDecision.map(TaskReviewDecision::getReason).orElse(null))
+                .latestReviewDecisionAt(latestDecision.map(TaskReviewDecision::getCreatedAt).orElse(null))
                 .overduePenaltyApplied(task.isOverduePenaltyApplied())
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
                 .hasAcceptedEvidence(sla.hasAcceptedEvidence())
+                .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
-                .createdByName(task.getCreatedBy() != null ? 
+                .createdByName(task.getCreatedBy() != null ?
                         (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
-                                ? task.getCreatedBy().getProfile().getFullName() 
-                                : task.getCreatedBy().getUsername()) 
+                                ? task.getCreatedBy().getProfile().getFullName()
+                                : task.getCreatedBy().getUsername())
                         : null)
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
@@ -1655,8 +1830,11 @@ public class TaskServiceImpl implements TaskService {
                 .title(task.getTitle())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .type(task.getType() != null ? task.getType().name() : null)
                 .requirementCode(resolveRequirementCode(task.getRequirementId()))
                 .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
+                .evidenceSummary(codeInsightScoringService.buildReviewEvidenceSummary(task))
+                .approvalGate(codeInsightApprovalGateService.evaluate(task))
                 .build();
     }
 
@@ -1673,6 +1851,13 @@ public class TaskServiceImpl implements TaskService {
         if (requirementId == null) return null;
         return requirementRepository.findById(requirementId)
                 .map(requirement -> requirement.getReqCode() != null ? requirement.getReqCode() : "REQ-" + requirement.getId())
+                .orElse(null);
+    }
+
+    private String resolveUseCaseCode(Long useCaseId) {
+        if (useCaseId == null) return null;
+        return useCaseRepository.findById(useCaseId)
+                .map(uc -> uc.getCode() != null ? uc.getCode() : "UC-" + uc.getId())
                 .orElse(null);
     }
 
@@ -1710,6 +1895,95 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+
+    private void syncRequirementStatus(Long requirementId) {
+        if (requirementId == null) return;
+        Requirement req = requirementRepository.findById(requirementId).orElse(null);
+        if (req == null) return;
+
+        List<Task> reqTasks = taskRepository.findByRequirementId(requirementId);
+        if (reqTasks.isEmpty()) {
+            if (req.getStatus() != RequirementStatus.DRAFT) {
+                req.setStatus(RequirementStatus.DRAFT);
+                requirementRepository.save(req);
+            }
+            return;
+        }
+
+        boolean allTodo = true;
+        boolean allDone = true;
+        boolean allReviewOrDone = true;
+        boolean hasInProgressOrBlocked = false;
+
+        for (Task t : reqTasks) {
+            TaskStatus ts = t.getStatus();
+            if (ts != TaskStatus.TODO) allTodo = false;
+            if (ts != TaskStatus.DONE) allDone = false;
+            if (ts != TaskStatus.IN_REVIEW && ts != TaskStatus.DONE) allReviewOrDone = false;
+            if (ts == TaskStatus.IN_PROGRESS || ts == TaskStatus.BLOCKED) hasInProgressOrBlocked = true;
+        }
+
+        RequirementStatus newStatus;
+        if (allTodo) {
+            newStatus = RequirementStatus.DRAFT;
+        } else if (allDone) {
+            newStatus = RequirementStatus.DONE;
+        } else if (allReviewOrDone) {
+            newStatus = RequirementStatus.IN_REVIEW;
+        } else {
+            newStatus = RequirementStatus.IN_PROGRESS;
+        }
+
+        if (req.getStatus() != newStatus) {
+            req.setStatus(newStatus);
+            requirementRepository.save(req);
+        }
+    }
+
+    private void syncUseCaseStatus(Long useCaseId) {
+        if (useCaseId == null) return;
+        UseCase uc = useCaseRepository.findById(useCaseId).orElse(null);
+        if (uc == null) return;
+
+        List<Task> ucTasks = taskRepository.findByUseCaseId(useCaseId);
+        if (ucTasks.isEmpty()) {
+            if (uc.getStatus() != UseCaseStatus.DRAFT) {
+                uc.setStatus(UseCaseStatus.DRAFT);
+                useCaseRepository.save(uc);
+            }
+            return;
+        }
+
+        boolean allTodo = true;
+        boolean allDone = true;
+        boolean allReviewOrDone = true;
+        boolean hasInProgressOrBlocked = false;
+
+        for (Task t : ucTasks) {
+            TaskStatus ts = t.getStatus();
+            if (ts != TaskStatus.TODO) allTodo = false;
+            if (ts != TaskStatus.DONE) allDone = false;
+            if (ts != TaskStatus.IN_REVIEW && ts != TaskStatus.DONE) allReviewOrDone = false;
+            if (ts == TaskStatus.IN_PROGRESS || ts == TaskStatus.BLOCKED) hasInProgressOrBlocked = true;
+        }
+
+        UseCaseStatus newStatus;
+        if (allTodo) {
+            newStatus = UseCaseStatus.DRAFT;
+        } else if (allDone) {
+            newStatus = UseCaseStatus.DONE;
+        } else if (allReviewOrDone) {
+            newStatus = UseCaseStatus.IN_REVIEW;
+        } else {
+            newStatus = UseCaseStatus.IN_PROGRESS;
+        }
+
+        if (uc.getStatus() != newStatus) {
+            uc.setStatus(newStatus);
+            useCaseRepository.save(uc);
+        }
+    }
+
     @Override
     @Transactional
     public void autoApproveTasksExceedingReviewPeriod() {
@@ -1735,6 +2009,7 @@ public class TaskServiceImpl implements TaskService {
                 log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}",
                         task.getId(), task.getTitle(), timestamp);
                 try {
+                    codeInsightApprovalGateService.assertCanApprove(task);
                     changeTaskStatus(task, TaskStatus.DONE, null);
                     taskRepository.save(task);
 

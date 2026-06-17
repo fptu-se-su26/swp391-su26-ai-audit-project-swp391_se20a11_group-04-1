@@ -9,17 +9,25 @@ import java.util.Map;
 public class UseCaseResponse {
     private Long id;
     private Long requirementId;
+    private RequirementResponseDTO requirement;
     private String code;
     private String name;
     private String precondition;
     private String postcondition;
     private Map<String, Object> mainFlow;
     private Map<String, Object> alternativeFlow;
+    private List<String> includesList;
+    private List<String> extendsList;
     private List<String> actors;
-    private String status;
+    private org.example.backend.entity.UseCaseStatus status;
     private String version;
     private Integer completenessScore;
     private Long createdById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean isOutdated;
+    private boolean addedFromDiagram;
+    private boolean showInDiagram;
+    private boolean aiGenerated;
+    private java.util.UUID sourceGenerationId;
 }

@@ -230,7 +230,7 @@ public class BugReportServiceImpl implements BugReportService {
      * accepting both 'LEADER' (stored in DB) and 'PROJECT_LEADER' (legacy code constant).
      */
     private boolean isLeaderRole(String roleName) {
-        return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
+        return roleName != null && roleName.toUpperCase().contains("LEADER");
     }
 
     private String mapSeverityToPriority(BugSeverity severity) {

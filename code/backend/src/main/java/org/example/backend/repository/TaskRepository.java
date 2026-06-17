@@ -23,6 +23,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByParentId(Long parentId);
 
+    List<Task> findByRequirementId(Long requirementId);
+
     List<Task> findByStatus(org.example.backend.entity.TaskStatus status);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
@@ -32,7 +34,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "project", "kanbanColumn"})
+    Optional<Task> findByProjectIdAndTaskCodeIgnoreCase(Long projectId, String taskCode);
+
+    Optional<Task> findByProjectIdAndProjectSubId(Long projectId, Integer projectSubId);
+
+    Optional<Task> findByProjectIdAndId(Long projectId, Long id);
+
+    List<Task> findByProjectIdAndGithubIssueNumber(Long projectId, Integer githubIssueNumber);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     // Code Insight review queue reads live IN_REVIEW tasks with enough data for display.
     List<Task> findByProjectIdAndStatusOrderByUpdatedAtDesc(Long projectId, org.example.backend.entity.TaskStatus status);
 
@@ -78,6 +88,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(Long projectId, Long sprintId);
 
     long countBySprintId(Long sprintId);
+
+    List<Task> findByRequirementId(Long requirementId);
+
+    List<Task> findByUseCaseId(Long useCaseId);
 
     // ── Daily View queries ────────────────────────────────────────────────────
 
