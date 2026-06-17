@@ -143,7 +143,7 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
         String roleName = member.getRole() != null ? member.getRole().getName() : "";
-        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName)) {
+        if (roleName == null || !roleName.toUpperCase().contains("LEADER")) {
             throw new CustomException("Only project leaders can manage board columns", HttpStatus.FORBIDDEN);
         }
     }

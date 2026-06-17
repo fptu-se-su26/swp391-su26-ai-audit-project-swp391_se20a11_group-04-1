@@ -251,11 +251,10 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       position: { x: UC_LEFT_X - 30, y: UC_Y_START - 30 },
       data: { label: systemName },
       draggable: false,
-      selectable: false,
+      selectable: true,
       style: {
           width: Math.max(UC_RIGHT_X + UC_NODE_WIDTH + 30 - (UC_LEFT_X - 30), CANVAS_WIDTH / 2 + UC_NODE_WIDTH / 2 + 50 - (UC_LEFT_X - 30)),
-          height: totalHeight + 60,
-          zIndex: -1
+          height: totalHeight + 60
       }
   };
 

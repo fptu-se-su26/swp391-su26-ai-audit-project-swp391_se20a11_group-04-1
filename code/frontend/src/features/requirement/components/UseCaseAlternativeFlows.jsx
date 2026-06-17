@@ -31,7 +31,7 @@ const computeFlowLabels = (flows, totalMainSteps) => {
 };
 
 const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowChange }) => {
-  const flows = alternativeFlow?.flows || [];
+  const flows = Array.isArray(alternativeFlow?.flows) ? alternativeFlow.flows : [];
   const totalMainSteps = mainFlow?.steps?.length || 0;
 
   // Helper to remove markdown bold and leading bullet asterisks
@@ -145,7 +145,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   </div>
                   
                   <div className="pl-4 border-l-2 border-outline-variant ml-2 space-y-2 mt-3">
-                    {flow.steps?.map((step, stepIndex) => (
+                    {(Array.isArray(flow.steps) ? flow.steps : []).map((step, stepIndex) => (
                       <div key={stepIndex} className="flex gap-2 items-start">
                         <span className="text-on-surface-variant text-sm mt-1 shrink-0">•</span>
                         <input
@@ -179,7 +179,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                     {flowLabels[index]?.label || `${index + 1}a`}. {flow.condition || 'Alternative Condition'}
                   </h3>
                   <div className="space-y-1 font-body-md text-body-md text-on-surface ml-2">
-                    {flow.steps?.map((step, idx) => (
+                    {(Array.isArray(flow.steps) ? flow.steps : []).map((step, idx) => (
                       <div key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</div>
                     ))}
                   </div>

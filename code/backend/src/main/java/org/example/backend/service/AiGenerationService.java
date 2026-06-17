@@ -84,9 +84,13 @@ public class AiGenerationService {
         String contextWarning = null;
         
         if (existingCache.isPresent() && existingCache.get().getPayload() != null) {
-            sendProgress(userId, 1, "File exact match found in cache!");
-            sendProgress(userId, 2, "Skipping Gemini API analysis...");
+            sendProgress(userId, 1, "File exact match found in cache! Verifying...");
+            try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            sendProgress(userId, 2, "Skipping Gemini API analysis. Rebuilding structure...");
+            try { Thread.sleep(4000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             sendProgress(userId, 3, "Restoring previous AI results...");
+            try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            
             payload = existingCache.get().getPayload();
             documentText = existingCache.get().getDocumentText();
             
@@ -824,7 +828,9 @@ public class AiGenerationService {
         response = response.replaceAll("(?s)^.*?```(?:json)?(.*?)```.*$", "$1").trim();
         
         try {
-            JsonNode root = objectMapper.readTree(response.trim());
+            com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+            JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ArrayNode arr = objectMapper.createArrayNode();
             arr.add(root);
             String evalStr = geminiService.evaluateUseCasesWithCritic(arr.toString(), java.util.List.of(req), projectExistingUcs, projectActors);
@@ -915,7 +921,9 @@ public class AiGenerationService {
         }
         
         try {
-            JsonNode root = objectMapper.readTree(response.trim());
+            com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
+                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+            JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ObjectNode evaluatedRoot = objectMapper.createObjectNode();
             
             if (root.has("updatedUseCases") && root.get("updatedUseCases").isArray() && root.get("updatedUseCases").size() > 0) {
@@ -1180,6 +1188,7 @@ public class AiGenerationService {
         }
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId) {
         org.example.backend.entity.UseCase uc = useCaseRepository.findById(useCaseId)
                 .orElseThrow(() -> new RuntimeException("Use Case not found: " + useCaseId));

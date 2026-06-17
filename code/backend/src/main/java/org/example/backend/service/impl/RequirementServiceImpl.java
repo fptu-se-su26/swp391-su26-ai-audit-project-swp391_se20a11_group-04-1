@@ -52,7 +52,7 @@ public class RequirementServiceImpl implements RequirementService {
         org.example.backend.entity.ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
             .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Access Denied: You are not an active member of this project"));
             
-        if (!"LEADER".equalsIgnoreCase(member.getRole().getName()) && !"PROJECT_LEADER".equalsIgnoreCase(member.getRole().getName())) {
+        if (member.getRole() == null || !member.getRole().getName().toUpperCase().contains("LEADER")) {
             throw new org.example.backend.exception.ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
         }
     }

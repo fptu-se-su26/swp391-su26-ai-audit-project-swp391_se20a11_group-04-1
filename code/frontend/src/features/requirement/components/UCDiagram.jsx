@@ -368,7 +368,12 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       if (savedPositions && !forceReset) {
         const restoredNodes = layoutedNodes.map(node => {
            if (savedPositions[node.id]) {
-               return { ...node, position: savedPositions[node.id] };
+               const posData = savedPositions[node.id];
+               const newNode = { ...node, position: { x: posData.x, y: posData.y } };
+               if (posData.width !== undefined && posData.height !== undefined) {
+                   newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
+               }
+               return newNode;
            }
            return node;
         });
@@ -503,7 +508,14 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
             isSavingRef.current = true;
             try {
                 const positions = {};
-                nodes.forEach(n => { positions[n.id] = n.position; });
+                nodes.forEach(n => { 
+                    positions[n.id] = {
+                        x: n.position.x,
+                        y: n.position.y,
+                        width: n.width || n.style?.width,
+                        height: n.height || n.style?.height
+                    }; 
+                });
                 
                 let dataUrl = null;
                 if (reactFlowWrapper.current) {

@@ -641,7 +641,7 @@ public class ProjectServiceImpl implements ProjectService {
      * so the system works correctly without requiring a DB migration.
      */
     private boolean isLeaderRole(String roleName) {
-        return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
+        return roleName != null && roleName.toUpperCase().contains("LEADER");
     }
 
     /**
