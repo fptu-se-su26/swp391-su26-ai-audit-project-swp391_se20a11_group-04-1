@@ -94,7 +94,7 @@ class GitHubApiServiceImplTest {
         when(oauthService.getOAuthUrl()).thenReturn("https://github.com/login/oauth/authorize");
         when(oauthService.exchangeCodeForToken("code", 1L)).thenReturn("Success");
         when(oauthService.getUserRepositories(1L)).thenReturn(List.of(Map.of("name", "repo")));
-        when(oauthService.createRepository(1L, "repo", "desc", true)).thenReturn(Map.of("name", "repo"));
+        when(oauthService.createRepository(1L, "repo", "desc", true, false, null, null)).thenReturn(Map.of("name", "repo"));
         when(webhookDeliveryService.getRateLimit(100L, 1L)).thenReturn(Map.of("remaining", 4999));
         when(webhookDeliveryService.getWebhookDeliveryStatus(100L, 1L)).thenReturn(Map.of("webhookStatus", "HEALTHY"));
         when(webhookDeliveryService.getWebhookDeliveries(100L, 1L)).thenReturn(List.of(Map.of("id", "1")));
@@ -102,7 +102,7 @@ class GitHubApiServiceImplTest {
         assertThat(gitHubApiService.getOAuthUrl()).contains("github.com");
         assertThat(gitHubApiService.exchangeCodeForToken("code", 1L)).isEqualTo("Success");
         assertThat(gitHubApiService.getUserRepositories(1L)).isInstanceOf(List.class);
-        assertThat(gitHubApiService.createRepository(1L, "repo", "desc", true)).isInstanceOf(Map.class);
+        assertThat(gitHubApiService.createRepository(1L, "repo", "desc", true, false, null, null)).isInstanceOf(Map.class);
         assertThat(gitHubApiService.getRateLimit(100L, 1L)).containsEntry("remaining", 4999);
         assertThat(gitHubApiService.getWebhookDeliveryStatus(100L, 1L)).containsEntry("webhookStatus", "HEALTHY");
         assertThat(gitHubApiService.getWebhookDeliveries(100L, 1L)).isInstanceOf(List.class);
