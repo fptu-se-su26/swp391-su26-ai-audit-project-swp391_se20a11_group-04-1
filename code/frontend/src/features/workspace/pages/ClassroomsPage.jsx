@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import useAuthStore from '@store/useAuthStore'
 import toast from 'react-hot-toast'
 import { getInitials } from '@utils/avatarHelper'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { classroomApi } from '@api/classroomApi'
 
 /**
  * ClassroomsPage - Classroom management page for Mentors and Admins.
@@ -134,12 +136,26 @@ export default function ClassroomsPage() {
   const navigate = useNavigate()
   const userRole = useAuthStore((s) => s.userRole)
   const fullName = useAuthStore((s) => s.fullName)
+  const queryClient = useQueryClient()
 
   const [selectedSemester, setSelectedSemester] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedClassroom, setExpandedClassroom] = useState(null)
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [inviteLinkModal, setInviteLinkModal] = useState(null)
+
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear().toString();
+  const defaultSemester = currentMonth >= 5 && currentMonth <= 8 ? 'SUMMER' : currentMonth >= 9 ? 'FALL' : 'SPRING';
+
+  const [newClassroom, setNewClassroom] = useState({
+    subjectCode: '',
+    classCode: '',
+    semester: defaultSemester,
+    academicYear: currentYear,
+    maxMembers: 50
+  });
 
   const [assistiveOpen, setAssistiveOpen] = useState(false)
   const [showStats, setShowStats] = useState(false)
@@ -197,24 +213,56 @@ export default function ClassroomsPage() {
     }
   };
 
+  // API Fetch
+  const { data: classroomsData, isLoading } = useQuery({
+    queryKey: ['classrooms', selectedSemester, searchQuery],
+    queryFn: async () => {
+      const params = {
+        page: 0,
+        size: 50,
+      }
+      if (selectedSemester !== 'all') {
+        // Need to extract SPRING, SUMMER, FALL from SP26 etc if possible, but our backend expects SPRING, SUMMER, FALL, PERSONAL
+        // Let's just pass the selectedSemester, the backend currently handles exact matches or we can adjust logic.
+        // Actually, backend expects AcademicSeason enum: SPRING, SUMMER, FALL, PERSONAL.
+        let season = selectedSemester;
+        if (season.startsWith('SP')) season = 'SPRING';
+        else if (season.startsWith('SU')) season = 'SUMMER';
+        else if (season.startsWith('FA')) season = 'FALL';
+        params.semester = season;
+      }
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+      const response = await classroomApi.getMyClassrooms(params);
+      return response.data.data;
+    }
+  })
+
+  const fetchedClassrooms = classroomsData?.items || [];
+
   // Filter and search classrooms
-  const filteredClassrooms = useMemo(() => {
-    return MOCK_CLASSROOMS.filter((cls) => {
-      const matchesSemester = selectedSemester === 'all' || cls.semester === selectedSemester
-      const q = searchQuery.toLowerCase().trim()
-      const matchesSearch =
-        !q ||
-        cls.subject.toLowerCase().includes(q) ||
-        cls.owner.fullName.toLowerCase().includes(q) ||
-        cls.semester.toLowerCase().includes(q)
-      return matchesSemester && matchesSearch
-    })
-  }, [selectedSemester, searchQuery])
+  const filteredClassrooms = fetchedClassrooms;
 
   // Stats
-  const totalClassrooms = MOCK_CLASSROOMS.length
-  const activeClassrooms = MOCK_CLASSROOMS.filter((c) => c.status === 'ACTIVE').length
-  const totalStudents = MOCK_CLASSROOMS.reduce((sum, c) => sum + c.memberCount, 0)
+  const totalClassrooms = fetchedClassrooms.length
+  const activeClassrooms = fetchedClassrooms.filter((c) => c.status === 'ACTIVE').length
+  const totalStudents = fetchedClassrooms.reduce((sum, c) => sum + (c.memberCount || 0), 0)
+
+  // Mutation
+  const createMutation = useMutation({
+    mutationFn: (data) => classroomApi.createClassroom(data),
+    onSuccess: () => {
+      toast.success('Tạo lớp học thành công!');
+      setIsCreateModalOpen(false);
+      setNewClassroom({ ...newClassroom, subjectCode: '', classCode: '' });
+      queryClient.invalidateQueries(['classrooms']);
+    },
+    onError: (error) => {
+      const message = error.response?.data?.message || 'Có lỗi xảy ra khi tạo lớp học';
+      toast.error(message);
+    }
+  });
 
 
 
@@ -227,8 +275,31 @@ export default function ClassroomsPage() {
   }
 
   const handleCreateClassroom = () => {
-    toast.success('Chức năng "Tạo Classroom" sẽ được kích hoạt khi hoàn thiện Backend API!')
-    setIsCreateModalOpen(false)
+    if (!newClassroom.subjectCode || !newClassroom.classCode) {
+      toast.error('Vui lòng nhập đầy đủ tên môn học và mã lớp!');
+      return;
+    }
+
+    let finalSubject = '';
+    if (newClassroom.semester === 'PERSONAL') {
+      finalSubject = `${newClassroom.subjectCode} - ${newClassroom.classCode}`;
+    } else {
+      let prefix = '';
+      if (newClassroom.semester === 'SPRING') prefix = 'SP';
+      else if (newClassroom.semester === 'SUMMER') prefix = 'SU';
+      else if (newClassroom.semester === 'FALL') prefix = 'FA';
+      const yearSuffix = newClassroom.academicYear.substring(2, 4);
+      prefix = prefix + yearSuffix;
+
+      finalSubject = `${prefix}-${newClassroom.subjectCode}-${newClassroom.classCode}`;
+    }
+
+    createMutation.mutate({
+      subject: finalSubject,
+      semester: newClassroom.semester,
+      academicYear: newClassroom.academicYear,
+      maxMembers: newClassroom.maxMembers
+    });
   }
 
   return (
@@ -349,7 +420,12 @@ export default function ClassroomsPage() {
         )}
 
         {/* Classroom Grid */}
-        {filteredClassrooms.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+            <p className="text-on-surface-variant font-medium">Đang tải danh sách lớp học...</p>
+          </div>
+        ) : filteredClassrooms.length === 0 ? (
           <div className="py-20 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/60 shadow-sm">
             <span className="material-symbols-outlined text-5xl text-outline mb-3">school</span>
             <h3 className="font-bold text-base text-on-surface">Không tìm thấy lớp học nào</h3>
@@ -451,7 +527,7 @@ export default function ClassroomsPage() {
 
                     {/* Member Avatars Preview */}
                     <div className="mt-auto flex items-center -space-x-2 overflow-hidden">
-                      {classroom.members.slice(0, 4).map((member, idx) => (
+                      {(classroom.members || []).slice(0, 4).map((member, idx) => (
                         <div
                           key={member.id}
                           title={member.fullName}
@@ -481,7 +557,6 @@ export default function ClassroomsPage() {
                       <button
                         onClick={() => toast.success('Chức năng xuất báo cáo sẽ được tích hợp sau!')}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:bg-surface-container hover:text-on-surface transition-all"
-                        title="Export"
                       >
                         <span className="material-symbols-outlined text-base">download</span>
                       </button>
@@ -534,37 +609,83 @@ export default function ClassroomsPage() {
 
             {/* Form Body */}
             <div className="p-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-outline">
-                  Subject Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="E.g., SWP391, SWR302"
-                  className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    {newClassroom.semester === 'PERSONAL' ? 'Tên Dự Án' : 'Mã Môn Học'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={newClassroom.semester === 'PERSONAL' ? "E.g., DevTrack" : "E.g., SWP391"}
+                    value={newClassroom.subjectCode}
+                    onChange={(e) => setNewClassroom({ ...newClassroom, subjectCode: e.target.value.toUpperCase() })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    {newClassroom.semester === 'PERSONAL' ? 'Tên Lớp/Nhóm' : 'Mã Lớp'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={newClassroom.semester === 'PERSONAL' ? "E.g., Group 04" : "E.g., SE20A11"}
+                    value={newClassroom.classCode}
+                    onChange={(e) => setNewClassroom({ ...newClassroom, classCode: e.target.value.toUpperCase() })}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
+                  />
+                </div>
               </div>
+
+              {newClassroom.subjectCode && newClassroom.classCode && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-primary text-xl shrink-0">info</span>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    Tên lớp sẽ được lưu: <br />
+                    <span className="font-bold text-primary mt-1 block text-sm">
+                      {newClassroom.semester === 'PERSONAL' 
+                        ? `${newClassroom.subjectCode} - ${newClassroom.classCode}`
+                        : `${newClassroom.semester === 'SPRING' ? 'SP' : newClassroom.semester === 'SUMMER' ? 'SU' : 'FA'}${newClassroom.academicYear.substring(2, 4)}-${newClassroom.subjectCode}-${newClassroom.classCode}`
+                      }
+                    </span>
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-outline">
                     Semester <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary cursor-pointer hover:bg-surface-container transition-colors">
-                    <option value="SU26">Summer 2026</option>
-                    <option value="FA26">Fall 2026</option>
-                    <option value="SP27">Spring 2027</option>
+                  <select 
+                    value={newClassroom.semester}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      if (selected !== 'PERSONAL' && selected !== defaultSemester) {
+                        toast.error(`Bạn chỉ có thể tạo lớp cho học kỳ hiện tại (${defaultSemester}) hoặc PERSONAL.`);
+                        setNewClassroom({ ...newClassroom, semester: defaultSemester });
+                      } else {
+                        setNewClassroom({ ...newClassroom, semester: selected });
+                      }
+                    }}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer hover:bg-surface-container transition-colors"
+                  >
+                    <option value="SPRING">Spring</option>
+                    <option value="SUMMER">Summer</option>
+                    <option value="FALL">Fall</option>
+                    <option value="PERSONAL">Personal</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-outline">
+                  <label className={`block text-xs font-bold uppercase tracking-wider transition-colors ${newClassroom.semester === 'PERSONAL' ? 'text-outline/40' : 'text-outline'}`}>
                     Academic Year <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="E.g., 2025-2026"
-                    defaultValue="2025-2026"
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    placeholder="E.g., 2026"
+                    value={newClassroom.semester === 'PERSONAL' ? '' : newClassroom.academicYear}
+                    disabled={true}
+                    className="w-full border rounded-xl px-4 py-2.5 text-sm transition-all bg-surface-container-low/50 border-outline-variant/30 text-on-surface-variant/70 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -575,12 +696,17 @@ export default function ClassroomsPage() {
                 </label>
                 <input
                   type="number"
-                  defaultValue={50}
+                  value={newClassroom.maxMembers}
+                  onChange={(e) => {
+                    let val = parseInt(e.target.value);
+                    if (val > 50) val = 50;
+                    setNewClassroom({ ...newClassroom, maxMembers: val });
+                  }}
                   min={5}
-                  max={100}
+                  max={50}
                   className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
-                <p className="text-[10px] text-on-surface-variant">Giới hạn số sinh viên tối đa trong lớp (5-100).</p>
+                <p className="text-[10px] text-on-surface-variant">Giới hạn số sinh viên tối đa trong lớp (5-50).</p>
               </div>
 
               {/* Footer */}
@@ -593,10 +719,14 @@ export default function ClassroomsPage() {
                 </button>
                 <button
                   onClick={handleCreateClassroom}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-on-primary-fixed-variant text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5"
+                  disabled={createMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-on-primary-fixed-variant text-xs font-bold shadow-md shadow-primary/20 transition-all flex items-center justify-center min-w-[120px]"
                 >
-                  <span className="material-symbols-outlined text-sm font-bold">check</span>
-                  <span>Create Classroom</span>
+                  {createMutation.isPending ? (
+                    <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin"></div>
+                  ) : (
+                    'Create'
+                  )}
                 </button>
               </div>
             </div>
