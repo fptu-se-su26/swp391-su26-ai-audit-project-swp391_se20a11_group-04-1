@@ -64,7 +64,10 @@ const Sidebar = () => {
   // Thêm mục tương ứng dựa trên trạng thái xác minh hoặc admin
   if (userRole === 'ADMIN' || verifyStatus === 'VERIFIED') {
     portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
-  } else {
+  }
+  
+  // Luôn hiển thị mục Verify cho người dùng bình thường để họ có thể xem lại tài liệu đã nộp
+  if (userRole !== 'ADMIN') {
     portfolioMenuItems.push({ id: 'verify', label: 'Verify Account', icon: 'verified_user', path: '/verify' })
   }
 
@@ -74,6 +77,7 @@ const Sidebar = () => {
       toast.success(`Chức năng "${item.label}" đang được phát triển!`)
       return
     }
+    
     clearActiveProject()
     navigate(item.path)
   }

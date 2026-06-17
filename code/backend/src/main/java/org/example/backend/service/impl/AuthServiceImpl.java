@@ -53,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final RateLimitService rateLimitService;
+    private final org.example.backend.service.MentorVerificationService mentorVerificationService;
 
     @Override
     public void requestRegistration(RegisterRequest request) {
@@ -198,6 +199,7 @@ public class AuthServiceImpl implements AuthService {
         boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
 
         if (matches) {
+            checkAndExpireVerification(user);
             // Đăng nhập thành công! Giải phóng các bộ đếm và khóa
             redisTemplate.delete(attemptKey);
             redisTemplate.delete(lockKey);
@@ -233,6 +235,7 @@ public class AuthServiceImpl implements AuthService {
                     .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
                     .systemRole(roleName)
                     .isActive(user.isActive())
+                    .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                     .createdAt(user.getCreatedAt())
                     .build();
         } else {
@@ -419,6 +422,7 @@ public class AuthServiceImpl implements AuthService {
         }
         UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new CustomException("Tài khoản không tồn tại hoặc phiên đăng nhập đã hết hạn.", HttpStatus.UNAUTHORIZED));
+        checkAndExpireVerification(user);
         return UserResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -426,7 +430,12 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
                 .systemRole(user.getSystemRole() != null ? user.getSystemRole().getName() : "USER")
                 .isActive(user.isActive())
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private void checkAndExpireVerification(UserAccount user) {
+        mentorVerificationService.checkAndExpireVerification(user);
     }
 }

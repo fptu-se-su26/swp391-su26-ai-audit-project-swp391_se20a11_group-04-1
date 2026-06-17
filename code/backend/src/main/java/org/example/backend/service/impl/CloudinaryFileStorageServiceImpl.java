@@ -38,17 +38,26 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         }
         
         String originalFilename = file.getOriginalFilename();
-        String publicId = UUID.randomUUID().toString() + "_" + originalFilename;
+        String ext = "";
+        String baseName = originalFilename;
+        if (originalFilename != null && originalFilename.contains(".")) {
+            int dotIdx = originalFilename.lastIndexOf('.');
+            ext = originalFilename.substring(dotIdx);
+            baseName = originalFilename.substring(0, dotIdx);
+        }
+        
+        String publicIdWithoutExt = UUID.randomUUID().toString() + "_" + baseName;
+        String publicIdWithExt = publicIdWithoutExt + ext;
 
         Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                "public_id", publicId,
+                "public_id", publicIdWithoutExt,
                 "folder", "evidence",
                 "type", type
         ));
 
         if ("private".equals(type)) {
-            // For private files, we store the full public_id (including folder) in our DB
-            return "evidence/" + publicId;
+            // For private files, we store the full public_id (including folder and extension) in our DB
+            return "evidence/" + publicIdWithExt;
         }
         return uploadResult.get("secure_url").toString();
     }
@@ -56,6 +65,7 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
     @Override
     public String getPrivateFileUrl(String publicId) {
         if (publicId == null || publicId.isEmpty()) return null;
+        if (publicId.startsWith("http")) return publicId;
         // Generate a signed URL for the private resource
         return cloudinary.url()
                 .resourceType("image")
@@ -66,9 +76,26 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public java.io.InputStream downloadPrivateFileStream(String publicId) throws IOException {
-        String signedUrl = getPrivateFileUrl(publicId);
-        if (signedUrl == null) return null;
-        return new java.net.URL(signedUrl).openStream();
+        if (publicId != null && publicId.startsWith("http")) {
+            return new java.net.URL(publicId).openStream();
+        }
+        try {
+            String signedUrl = getPrivateFileUrl(publicId);
+            if (signedUrl != null) {
+                return new java.net.URL(signedUrl).openStream();
+            }
+        } catch (IOException e) {
+            System.out.println("⚠️ Failed to download as private, trying public URL... " + e.getMessage());
+            // Fallback for old images that might have been uploaded as 'upload' (public) instead of 'private'
+            String publicUrl = cloudinary.url().generate(publicId);
+            try {
+                return new java.net.URL(publicUrl).openStream();
+            } catch (Exception ex) {
+                System.out.println("❌ Fallback also failed: " + ex.getMessage());
+                throw ex; // Re-throw if both fail
+            }
+        }
+        return null;
     }
 
     @Override
