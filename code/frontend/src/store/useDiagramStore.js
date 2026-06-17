@@ -11,6 +11,12 @@ const useDiagramStore = create((set) => ({
     relations: data.relations || []
   }),
 
+  reset: () => set({
+    actors: [],
+    useCases: [],
+    relations: []
+  }),
+
   addActor: (actor) => set((state) => ({
     actors: [...state.actors, actor]
   })),
@@ -51,7 +57,34 @@ const useDiagramStore = create((set) => ({
 
   removeRelation: (id) => set((state) => ({
     relations: state.relations.filter((rel) => rel.id.toString() !== id.toString())
-  }))
+  })),
+
+  updateRelation: (id, updatedData) => set((state) => ({
+    relations: state.relations.map((rel) => 
+      rel.id.toString() === id.toString() ? { ...rel, ...updatedData } : rel
+    )
+  })),
+
+  updateIds: (idMappings) => set((state) => {
+    if (!idMappings || Object.keys(idMappings).length === 0) return state;
+
+    return {
+      idMappings,
+      actors: state.actors.map(actor => ({
+        ...actor,
+        id: idMappings[actor.id] ? idMappings[actor.id].replace('actor_', '') : actor.id
+      })),
+      useCases: state.useCases.map(uc => ({
+        ...uc,
+        id: idMappings[uc.id] || uc.id
+      })),
+      relations: state.relations.map(rel => ({
+        ...rel,
+        sourceId: idMappings[rel.sourceId] ? idMappings[rel.sourceId].replace('actor_', '') : rel.sourceId,
+        targetId: idMappings[rel.targetId] || rel.targetId
+      }))
+    };
+  })
 }));
 
 export default useDiagramStore;

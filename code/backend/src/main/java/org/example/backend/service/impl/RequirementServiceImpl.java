@@ -52,7 +52,7 @@ public class RequirementServiceImpl implements RequirementService {
         org.example.backend.entity.ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
             .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Access Denied: You are not an active member of this project"));
             
-        if (!"LEADER".equalsIgnoreCase(member.getRole().getName())) {
+        if (!"LEADER".equalsIgnoreCase(member.getRole().getName()) && !"PROJECT_LEADER".equalsIgnoreCase(member.getRole().getName())) {
             throw new org.example.backend.exception.ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
         }
     }
@@ -188,7 +188,7 @@ public class RequirementServiceImpl implements RequirementService {
 
             // Enforce DONE State Constraints
             if (requestDTO.getStatus() == RequirementStatus.DONE) {
-                boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, "DONE");
+                boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, org.example.backend.entity.UseCaseStatus.DONE);
                 if (hasPendingUseCases) {
                     throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
                 }
@@ -228,7 +228,7 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         if (parsedStatus == RequirementStatus.DONE) {
-            boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, "DONE");
+            boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, org.example.backend.entity.UseCaseStatus.DONE);
             if (hasPendingUseCases) {
                 throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
             }
@@ -278,6 +278,9 @@ public class RequirementServiceImpl implements RequirementService {
     private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // Hide the System Architecture Diagram dummy requirement
+            predicates.add(criteriaBuilder.notEqual(root.get("title"), "System Architecture Diagram"));
 
             if (projectId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));

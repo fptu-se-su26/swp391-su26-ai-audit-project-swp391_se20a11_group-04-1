@@ -2,6 +2,7 @@ package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.DiagramSyncRequest;
+import org.example.backend.dto.DiagramSyncResponse;
 import org.example.backend.entity.Requirement;
 import org.example.backend.entity.UseCase;
 import org.example.backend.entity.UseCaseActor;
@@ -11,7 +12,11 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.ProjectDiagramRepository;
+import org.example.backend.repository.ProjectActorRepository;
+import org.example.backend.repository.ProjectRepository;
 import org.example.backend.entity.ProjectDiagram;
+import org.example.backend.entity.ProjectActor;
+import org.example.backend.entity.Project;
 import org.example.backend.dto.DiagramSaveRequest;
 import org.example.backend.service.DiagramService;
 import org.springframework.stereotype.Service;
@@ -28,11 +33,8 @@ public class DiagramServiceImpl implements DiagramService {
     private final RequirementRepository requirementRepository;
     private final UserAccountRepository userAccountRepository;
     private final ProjectDiagramRepository projectDiagramRepository;
-
-    private UserAccount getCurrentUser() {
-        return userAccountRepository.findById(1L)
-                .orElseThrow(() -> new ResourceNotFoundException("Mock User not found"));
-    }
+    private final ProjectActorRepository projectActorRepository;
+    private final ProjectRepository projectRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,10 +42,10 @@ public class DiagramServiceImpl implements DiagramService {
         // Retrieve ALL use cases for the given project, including hidden ones, so the frontend left panel can show them
         List<UseCase> useCases = useCaseRepository.findByProjectId(projectId);
         
-        DiagramSyncRequest response = new DiagramSyncRequest();
-        List<DiagramSyncRequest.DiagramUseCaseDTO> ucDtos = new ArrayList<>();
-        List<DiagramSyncRequest.DiagramActorDTO> actorDtos = new ArrayList<>();
-        List<DiagramSyncRequest.DiagramRelationDTO> relations = new ArrayList<>();
+        DiagramSyncResponse response = new DiagramSyncResponse();
+        List<DiagramSyncResponse.DiagramUseCaseDTO> ucDtos = new ArrayList<>();
+        List<DiagramSyncResponse.DiagramActorDTO> actorDtos = new ArrayList<>();
+        List<DiagramSyncResponse.DiagramRelationDTO> relations = new ArrayList<>();
         
         // Map to resolve Use Case names to IDs for include/extend relations with robustness
         Map<String, String> ucNameToIdMap = new HashMap<>();
@@ -57,11 +59,22 @@ public class DiagramServiceImpl implements DiagramService {
             }
         }
         
-        Set<String> uniqueActors = new HashSet<>();
+        List<ProjectActor> projectActors = projectActorRepository.findByProjectId(projectId);
+        Map<String, String> actorNameToIdMap = new HashMap<>();
+        for (ProjectActor pa : projectActors) {
+            if (pa.isDeleted()) continue; // Ignore soft-deleted actors
+            
+            DiagramSyncResponse.DiagramActorDTO actorDto = new DiagramSyncResponse.DiagramActorDTO();
+            actorDto.setId("actor_" + pa.getId());
+            actorDto.setName(pa.getName());
+            actorDtos.add(actorDto);
+            actorNameToIdMap.put(pa.getName(), pa.getId().toString());
+        }
+        
         long relationIdCounter = 1;
         
         for (UseCase uc : useCases) {
-            DiagramSyncRequest.DiagramUseCaseDTO ucDto = new DiagramSyncRequest.DiagramUseCaseDTO();
+            DiagramSyncResponse.DiagramUseCaseDTO ucDto = new DiagramSyncResponse.DiagramUseCaseDTO();
             ucDto.setId(uc.getId().toString());
             ucDto.setName(uc.getName());
             ucDto.setShowInDiagram(uc.isShowInDiagram());
@@ -70,12 +83,20 @@ public class DiagramServiceImpl implements DiagramService {
             // Map Actors & Actor-UC relations
             for (UseCaseActor uca : uc.getActors()) {
                 String actorName = uca.getActorName();
-                uniqueActors.add(actorName);
+                String paId = actorNameToIdMap.get(actorName);
+                if (paId == null) {
+                    paId = actorName;
+                    DiagramSyncResponse.DiagramActorDTO tempActorDto = new DiagramSyncResponse.DiagramActorDTO();
+                    tempActorDto.setId("actor_" + paId);
+                    tempActorDto.setName(actorName);
+                    actorDtos.add(tempActorDto);
+                    actorNameToIdMap.put(actorName, paId);
+                }
                 
-                DiagramSyncRequest.DiagramRelationDTO rel = new DiagramSyncRequest.DiagramRelationDTO();
+                DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                 rel.setId("rel_" + (relationIdCounter++));
                 rel.setType("actor-uc");
-                rel.setSourceId("actor_" + actorName); // Prefix with 'actor_' to distinguish
+                rel.setSourceId("actor_" + paId); 
                 rel.setTargetId(uc.getId().toString());
                 relations.add(rel);
             }
@@ -85,7 +106,7 @@ public class DiagramServiceImpl implements DiagramService {
                 for (String includeTarget : uc.getIncludesList()) {
                     String targetId = resolveUseCaseIdRobustly(includeTarget, ucNameToIdMap);
                     if (targetId != null) {
-                        DiagramSyncRequest.DiagramRelationDTO rel = new DiagramSyncRequest.DiagramRelationDTO();
+                        DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
                         rel.setType("include");
                         rel.setSourceId(uc.getId().toString());
@@ -99,9 +120,9 @@ public class DiagramServiceImpl implements DiagramService {
                 for (String extendTarget : uc.getExtendsList()) {
                     String targetId = resolveUseCaseIdRobustly(extendTarget, ucNameToIdMap);
                     if (targetId != null) {
-                        DiagramSyncRequest.DiagramRelationDTO rel = new DiagramSyncRequest.DiagramRelationDTO();
+                        DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
-                        rel.setType("extend");
+                        rel.setType("extends");
                         rel.setSourceId(uc.getId().toString());
                         rel.setTargetId(targetId);
                         relations.add(rel);
@@ -109,13 +130,6 @@ public class DiagramServiceImpl implements DiagramService {
                 }
             }
             ucDtos.add(ucDto);
-        }
-        
-        for (String actorName : uniqueActors) {
-            DiagramSyncRequest.DiagramActorDTO actorDto = new DiagramSyncRequest.DiagramActorDTO();
-            actorDto.setId("actor_" + actorName);
-            actorDto.setName(actorName);
-            actorDtos.add(actorDto);
         }
         
         response.setActors(actorDtos);
@@ -127,8 +141,74 @@ public class DiagramServiceImpl implements DiagramService {
 
     @Override
     @Transactional
-    public void syncDiagramData(Long projectId, DiagramSyncRequest request) {
-        UserAccount currentUser = getCurrentUser();
+    public java.util.Map<String, String> syncDiagramData(Long projectId, DiagramSyncRequest request, Long userId) {
+        UserAccount currentUser = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+                
+        List<UseCase> existingUcsBeforeUpdate = useCaseRepository.findByProjectId(projectId);
+        Set<String> linkedActorNames = new HashSet<>();
+        for (UseCase uc : existingUcsBeforeUpdate) {
+            if (uc.getActors() != null) {
+                for (org.example.backend.entity.UseCaseActor uca : uc.getActors()) {
+                    linkedActorNames.add(uca.getActorName());
+                }
+            }
+        }
+
+        // Sync Actors to ProjectActor table
+        List<ProjectActor> existingProjectActors = projectActorRepository.findByProjectId(projectId);
+        Map<String, ProjectActor> existingActorMap = existingProjectActors.stream()
+                .collect(Collectors.toMap(a -> "actor_" + a.getId(), a -> a));
+        Map<String, ProjectActor> existingActorByName = existingProjectActors.stream()
+                .collect(Collectors.toMap(a -> a.getName(), a -> a, (a1, a2) -> a1));
+                
+        java.util.Map<String, String> idMappings = new java.util.HashMap<>();
+                
+        for (DiagramSyncRequest.DiagramActorDTO actorDto : request.getActors()) {
+            ProjectActor pa = null;
+            if (actorDto.getId().startsWith("actor_") && !actorDto.getId().startsWith("actor_new")) {
+                pa = existingActorMap.get(actorDto.getId());
+            }
+            if (pa == null) {
+                pa = existingActorByName.get(actorDto.getName());
+            }
+
+            if (pa != null) {
+                if (pa.isDeleted()) {
+                    pa.setDeleted(false);
+                    projectActorRepository.save(pa);
+                }
+                if (!pa.getName().equals(actorDto.getName())) {
+                    pa.setName(actorDto.getName());
+                    projectActorRepository.save(pa);
+                }
+                if (actorDto.getId().startsWith("actor_") && !actorDto.getId().equals("actor_" + pa.getId())) {
+                    updateRelationsTempId(request.getRelations(), actorDto.getId(), "actor_" + pa.getId());
+                }
+                // ALWAYS update the ID to the real ID so actorIdToNameMap works correctly
+                if (actorDto.getId().startsWith("new_") || actorDto.getId().startsWith("actor_new_")) {
+                    idMappings.put(actorDto.getId(), "actor_" + pa.getId());
+                }
+                actorDto.setId("actor_" + pa.getId());
+            } else {
+                ProjectActor newPa = new ProjectActor();
+                newPa.setProject(project);
+                newPa.setName(actorDto.getName());
+                newPa = projectActorRepository.save(newPa);
+                if (actorDto.getId().startsWith("new_") || actorDto.getId().startsWith("actor_new_")) {
+                    idMappings.put(actorDto.getId(), "actor_" + newPa.getId());
+                }
+                updateRelationsTempId(request.getRelations(), actorDto.getId(), "actor_" + newPa.getId());
+                actorDto.setId("actor_" + newPa.getId());
+                
+                // Add to maps to prevent duplicates in same payload
+                existingActorByName.put(newPa.getName(), newPa);
+                existingActorMap.put("actor_" + newPa.getId(), newPa);
+            }
+        }
         
         List<UseCase> existingUcs = useCaseRepository.findByProjectId(projectId);
         Map<String, UseCase> existingMap = existingUcs.stream()
@@ -139,21 +219,56 @@ public class DiagramServiceImpl implements DiagramService {
         // 1. CREATE or UPDATE Use Cases
         for (DiagramSyncRequest.DiagramUseCaseDTO dto : request.getUseCases()) {
             if (dto.getId() != null && dto.getId().startsWith("new_")) {
-                // CREATE
-                UseCase newUc = new UseCase();
-                newUc.setName(dto.getName());
-                newUc.setProjectId(projectId);
+                // Safeguard against duplicate UCs
+                UseCase existing = null;
+                for (UseCase uc : existingUcs) {
+                    if (uc.getName() != null && uc.getName().equals(dto.getName()) && uc.isAddedFromDiagram()) {
+                        existing = uc;
+                        break;
+                    }
+                }
                 
-                // Assign a dummy requirement if it doesn't have one, or expect the frontend to pass it
-                // For MVP, we will fetch the first requirement of the project and assign it
-                Requirement defaultReq = requirementRepository.findByProjectId(projectId).stream().findFirst()
-                        .orElseThrow(() -> new RuntimeException("No requirement found in project to attach Use Case to"));
-                newUc.setRequirement(defaultReq);
+                if (existing != null) {
+                    idMappings.put(dto.getId(), existing.getId().toString());
+                    updateRelationsTempId(request.getRelations(), dto.getId(), existing.getId().toString());
+                    incomingIds.add(existing.getId().toString());
+                    // Treat as UPDATE
+                    existing.setShowInDiagram(dto.isShowInDiagram());
+                    useCaseRepository.save(existing);
+                } else {
+                    // CREATE
+                    UseCase newUc = new UseCase();
+                    newUc.setName(dto.getName());
+                    newUc.setProjectId(projectId);
+                    // Assign to a specific System Architecture Diagram requirement
+                    Requirement defaultReq = requirementRepository.findByProjectId(projectId).stream()
+                          .filter(r -> "System Architecture Diagram".equals(r.getTitle()))
+                          .findFirst()
+                          .orElseGet(() -> {
+                              Integer maxReqSubId = requirementRepository.findMaxProjectSubIdByProjectId(projectId);
+                              int reqSubId = (maxReqSubId == null ? 0 : maxReqSubId) + 1;
+                              Requirement newReq = Requirement.builder()
+                                      .project(project)
+                                      .title("System Architecture Diagram")
+                                      .description("Tự động tạo ra để chứa các Use Case vẽ thủ công từ sơ đồ.")
+                                      .type(org.example.backend.entity.RequirementType.FUNCTIONAL)
+                                      .priority(org.example.backend.entity.Priority.MEDIUM)
+                                      .acceptanceCriteria("[]")
+                                      .status(org.example.backend.entity.RequirementStatus.DONE)
+                                      .projectSubId(reqSubId)
+                                      .reqCode("REQ-" + reqSubId)
+                                      .owner(currentUser)
+                                      .createdBy(currentUser)
+                                      .aiGenerated(false)
+                                      .build();
+                              return requirementRepository.save(newReq);
+                          });
+                    newUc.setRequirement(defaultReq);
 
-                newUc.setAiGenerated(false);
-                newUc.setCreatedBy(currentUser);
-                newUc.setMainFlow("{}");
-                newUc.setAlternativeFlow("{}");
+                    newUc.setAiGenerated(false);
+                    newUc.setCreatedBy(currentUser);
+                    newUc.setMainFlow("{}");
+                    newUc.setAlternativeFlow("{}");
                 
                 // We'll need to assign a generated projectSubId and code, simplified here
                 Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(projectId);
@@ -164,35 +279,41 @@ public class DiagramServiceImpl implements DiagramService {
                 
                 newUc = useCaseRepository.save(newUc);
                 
+                idMappings.put(dto.getId(), newUc.getId().toString());
                 // Replace "new_x" references in relations with actual DB ID
                 updateRelationsTempId(request.getRelations(), dto.getId(), newUc.getId().toString());
                 incomingIds.add(newUc.getId().toString());
-            } else if (dto.getId() != null) {
-                // UPDATE
-                UseCase existing = existingMap.get(dto.getId());
-                if (existing != null) {
-                    // Update showInDiagram flag directly from DTO
-                    existing.setShowInDiagram(dto.isShowInDiagram());
-                    useCaseRepository.save(existing);
-                    
-                    if (dto.isShowInDiagram()) {
-                        incomingIds.add(dto.getId());
-                    }
+                
+                // Add to existingUcs so relations can find it
+                existingUcs.add(newUc);
                 }
-            }
+            } else if (dto.getId() != null) {
+                  // UPDATE
+                  UseCase existing = existingMap.get(dto.getId());
+                  if (existing != null) {
+                      // Update showInDiagram flag directly from DTO
+                      existing.setShowInDiagram(dto.isShowInDiagram());
+                      
+                      // BUG 1 FIX: Only update name if it's a draft (addedFromDiagram)
+                      if (existing.isAddedFromDiagram()) {
+                          existing.setName(dto.getName());
+                      }
+                      
+                      useCaseRepository.save(existing);
+                      
+                      if (dto.isShowInDiagram()) {
+                          incomingIds.add(dto.getId());
+                      }
+                  }
+              }
         }
         
-        // 2. SOFT HIDE or PERMANENTLY DELETE Use Cases missing from payload
+        // 2. SOFT HIDE Use Cases missing from payload
         for (UseCase existing : existingUcs) {
             if (!incomingIds.contains(existing.getId().toString()) && !existing.isAiGenerated()) {
-                if (existing.isAddedFromDiagram()) {
-                    // Smart Deletion: If it's a draft created in the diagram, permanently delete it
-                    useCaseRepository.delete(existing);
-                } else {
-                    // Soft Hide: If it's a formal UC, just hide it from diagram
-                    existing.setShowInDiagram(false);
-                    useCaseRepository.save(existing);
-                }
+                // Soft Hide: If it's missing from diagram, just hide it
+                existing.setShowInDiagram(false);
+                useCaseRepository.save(existing);
             } else if (incomingIds.contains(existing.getId().toString()) && !existing.isShowInDiagram()) {
                 // Restore if it was hidden
                 existing.setShowInDiagram(true);
@@ -234,18 +355,38 @@ public class DiagramServiceImpl implements DiagramService {
                 } else if ("include".equals(rel.getType())) {
                     if (uc.getId().toString().equals(rel.getSourceId())) {
                         UseCase target = updatedMap.get(rel.getTargetId());
-                        if (target != null) includes.add(target.getName()); // Store names as per DB design
+                        if (target != null) includes.add(target.getId().toString()); // BUG 2 FIX: Store ID instead of Name
                     }
-                } else if ("extend".equals(rel.getType())) {
+                } else if ("extends".equals(rel.getType())) {
                     if (uc.getId().toString().equals(rel.getSourceId())) {
                         UseCase target = updatedMap.get(rel.getTargetId());
-                        if (target != null) extendsList.add(target.getName());
+                        if (target != null) extendsList.add(target.getId().toString()); // BUG 2 FIX: Store ID instead of Name
                     }
                 }
             }
             uc.setIncludesList(includes);
             uc.setExtendsList(extendsList);
             useCaseRepository.save(uc);
+        }
+        
+        deleteMissingActors(existingProjectActors, new java.util.ArrayList<>(linkedActorNames), request.getActors());
+        
+        return idMappings;
+    }
+
+    private void deleteMissingActors(List<ProjectActor> existingProjectActors, List<String> linkedActorNames, List<DiagramSyncRequest.DiagramActorDTO> requestActors) {
+        // Hybrid Deletion of missing actors
+        for (ProjectActor pa : existingProjectActors) {
+            boolean inPayload = requestActors.stream().anyMatch(a -> a.getName().equals(pa.getName()));
+            if (!inPayload && !pa.isDeleted()) {
+                boolean wasLinked = linkedActorNames.contains(pa.getName());
+                if (wasLinked) {
+                    pa.setDeleted(true);
+                    projectActorRepository.save(pa);
+                } else {
+                    projectActorRepository.delete(pa);
+                }
+            }
         }
     }
 

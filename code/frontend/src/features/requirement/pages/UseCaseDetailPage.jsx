@@ -78,12 +78,30 @@ const UseCaseDetailPage = () => {
     setIsEditing(true);
   };
 
-  // Cancel edit — discard changes
   const handleCancel = () => {
-    if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-      setIsEditing(false);
-      setEditData(null);
+    const originalData = {
+      name: useCase.name || '',
+      code: useCase.code || '',
+      status: useCase.status || 'DRAFT',
+      version: useCase.version || 'v1.0',
+      requirementId: useCase.requirementId,
+      actors: useCase.actors ? [...useCase.actors] : [],
+      precondition: useCase.precondition || '',
+      postcondition: useCase.postcondition || '',
+      mainFlow: useCase.mainFlow ? JSON.parse(JSON.stringify(useCase.mainFlow)) : { steps: [] },
+      alternativeFlow: useCase.alternativeFlow ? JSON.parse(JSON.stringify(useCase.alternativeFlow)) : { flows: [] },
+      completenessScore: useCase.completenessScore || 0,
+      includesList: useCase.includesList ? [...useCase.includesList] : [],
+      extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
+    };
+
+    if (JSON.stringify(editData) !== JSON.stringify(originalData)) {
+      if (!window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+        return;
+      }
     }
+    setIsEditing(false);
+    setEditData(null);
   };
 
   // Update a field in editData

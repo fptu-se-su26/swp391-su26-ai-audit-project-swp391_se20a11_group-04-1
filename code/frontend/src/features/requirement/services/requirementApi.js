@@ -5,29 +5,29 @@ const API_URL = '/requirements';
 export const requirementApi = {
   getAllRequirements: async (params = {}) => {
     const response = await axiosInstance.get(API_URL, { params });
-    return response.data;
+    return response.data.data;
   },
 
   getRequirementById: async (id) => {
     const response = await axiosInstance.get(`${API_URL}/${id}`);
-    return response.data;
+    return response.data.data;
   },
 
   createRequirement: async (requirementData) => {
     const response = await axiosInstance.post(API_URL, requirementData);
-    return response.data;
+    return response.data.data;
   },
 
   updateRequirement: async (id, requirementData) => {
     const response = await axiosInstance.put(`${API_URL}/${id}`, requirementData);
-    return response.data;
+    return response.data.data;
   },
 
   updateStatus: async (id, status) => {
     const response = await axiosInstance.patch(`${API_URL}/${id}/status`, null, {
       params: { status }
     });
-    return response.data;
+    return response.data.data;
   },
 
   deleteRequirement: async (id) => {
@@ -37,7 +37,7 @@ export const requirementApi = {
 
   getTags: async (projectId) => {
     const response = await axiosInstance.get(`${API_URL}/tags`, { params: { projectId } });
-    return response.data;
+    return response.data.data;
   },
 
   generateRequirementsWithAi: async (projectId, file) => {

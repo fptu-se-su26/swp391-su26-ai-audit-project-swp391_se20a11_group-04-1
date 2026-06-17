@@ -288,9 +288,12 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           id: rel.id,
           source: rel.source,
           target: rel.target,
-          markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
           type: 'custom'
       };
+      
+      if (!isSourceActor && !isTargetActor) {
+          edge.markerEnd = { type: 'arrowclosed', width: 14, height: 14 };
+      }
 
       const sx = isSourceActor ? getActorPos(rel.source).x : getUcX(rel.source);
       const sy = isSourceActor ? getActorPos(rel.source).y : getUcY(rel.source);
@@ -301,35 +304,35 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           if (isSourceActor) {
               if (sx < tx) {
                   edge.sourceHandle = 'right';
-                  edge.targetHandle = 'left-target';
+                  edge.targetHandle = 'left';
               } else {
                   edge.sourceHandle = 'left';
-                  edge.targetHandle = 'right-target';
+                  edge.targetHandle = 'right';
               }
           } else {
               if (sx < tx) {
-                  edge.sourceHandle = 'right-source';
+                  edge.sourceHandle = 'right';
                   edge.targetHandle = 'left';
               } else {
-                  edge.sourceHandle = 'left-source';
+                  edge.sourceHandle = 'left';
                   edge.targetHandle = 'right';
               }
           }
       } else {
           // UCs to UCs
           if (sx + 50 < tx) {
-              edge.sourceHandle = 'right-source';
-              edge.targetHandle = 'left-target';
+              edge.sourceHandle = 'right';
+              edge.targetHandle = 'left';
           } else if (sx > tx + 50) {
-              edge.sourceHandle = 'left-source';
-              edge.targetHandle = 'right-target';
+              edge.sourceHandle = 'left';
+              edge.targetHandle = 'right';
           } else {
               if (sy < ty) {
-                  edge.sourceHandle = 'bottom-source';
-                  edge.targetHandle = 'top-target';
+                  edge.sourceHandle = 'bottom';
+                  edge.targetHandle = 'top';
               } else {
-                  edge.sourceHandle = 'top-source';
-                  edge.targetHandle = 'bottom-target';
+                  edge.sourceHandle = 'top';
+                  edge.targetHandle = 'bottom';
               }
           }
       }

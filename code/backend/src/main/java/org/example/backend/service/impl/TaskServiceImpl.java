@@ -943,8 +943,15 @@ public class TaskServiceImpl implements TaskService {
         if (request.getPriority() != null) task.setPriority(parseEnum(request.getPriority(), Priority.class, task.getPriority()));
         if (request.getStartDate() != null) task.setStartDate(request.getStartDate());
         if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
-        if (task.getDeadline() != null && task.getStartDate() != null && task.getDeadline().isBefore(task.getStartDate())) {
-            throw new BadRequestException("Task deadline must be on or after start date");
+        org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
+        if (task.getProject() != null) {
+            org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), task.getProject().getStartDate(), task.getProject().getDeadline(), "Task", "Project");
+        }
+        if (task.getSprintId() != null) {
+            Sprint sprint = sprintRepository.findById(task.getSprintId()).orElse(null);
+            if (sprint != null) {
+                org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), sprint.getStartDate(), sprint.getEndDate(), "Task", "Sprint");
+            }
         }
         if (request.getWeight() != null) task.setWeight(validateWeight(request.getWeight()));
         if (request.getEstimatedHours() != null) task.setEstimatedHours(request.getEstimatedHours());
@@ -1403,6 +1410,7 @@ public class TaskServiceImpl implements TaskService {
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
                 .hasAcceptedEvidence(sla.hasAcceptedEvidence())
+                .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ?
                         (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null

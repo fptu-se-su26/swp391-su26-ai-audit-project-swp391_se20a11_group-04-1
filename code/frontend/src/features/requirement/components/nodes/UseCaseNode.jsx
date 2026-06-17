@@ -60,17 +60,11 @@ const UseCaseNode = ({ data, id, isConnectable, selected }) => {
       </NodeToolbar>
 
       {/* Handles: Đã ẩn hoàn toàn nhưng vẫn hoạt động nhờ ConnectionMode.Loose */}
-      {/* Target handles */}
-      <Handle type="target" position={Position.Left} id="left-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ left: -4, top: '40%' }} />
-      <Handle type="target" position={Position.Right} id="right-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ right: -4, top: '40%' }} />
-      <Handle type="target" position={Position.Top} id="top-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ top: -4, left: '40%' }} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ bottom: -4, left: '40%' }} />
-
-      {/* Source handles */}
-      <Handle type="source" position={Position.Right} id="right-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ right: -4, top: '60%' }} />
-      <Handle type="source" position={Position.Left} id="left-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ left: -4, top: '60%' }} />
-      <Handle type="source" position={Position.Top} id="top-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ top: -4, left: '60%' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ bottom: -4, left: '60%' }} />
+      {/* Source handles act as both source and target in Loose mode */}
+      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ right: -4, top: '50%' }} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ left: -4, top: '50%' }} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ top: -4, left: '50%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-2 !h-2 !bg-transparent border-none opacity-0" style={{ bottom: -4, left: '50%' }} />
       
       <div className={`flex items-center justify-center px-4 py-2 bg-white rounded-[50px] shadow-sm min-w-[120px] min-h-[40px] text-center max-w-[200px] border-2 transition-colors duration-500 ease-in-out ${isIsolated ? 'border-red-500 shadow-red-200' : 'border-black'}`}>
         {isEditing ? (

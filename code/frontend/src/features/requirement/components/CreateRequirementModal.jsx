@@ -4,7 +4,6 @@ import RequirementFormHeader from './RequirementFormHeader';
 import RequirementFormDetails from './RequirementFormDetails';
 import RequirementFormCriteria from './RequirementFormCriteria';
 import RequirementFormProperties from './RequirementFormProperties';
-import AIAcceleratorsCard from './AIAcceleratorsCard';
 import RequirementFormActionBar from './RequirementFormActionBar';
 import { requirementApi } from '../services/requirementApi';
 
@@ -13,7 +12,6 @@ const emptyForm = (projectId) => ({
   description: '',
   type: 'FUNCTIONAL',
   priority: 'MEDIUM',
-  evidenceRequired: false,
   tags: [],
   acceptanceCriteria: [],
   ownerId: null,
@@ -124,7 +122,6 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
 
             <div className="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
               <RequirementFormProperties formData={formData} onChange={handleChange} />
-              <AIAcceleratorsCard />
             </div>
           </div>
         </div>

@@ -28,4 +28,6 @@ public class UseCaseResponse {
     private boolean isOutdated;
     private boolean addedFromDiagram;
     private boolean showInDiagram;
+    private boolean aiGenerated;
+    private java.util.UUID sourceGenerationId;
 }

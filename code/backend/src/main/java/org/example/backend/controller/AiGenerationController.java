@@ -57,8 +57,13 @@ public class AiGenerationController {
     }
 
     @GetMapping("/staging/{projectId}")
-    public ResponseEntity<?> getPendingGenerations(@PathVariable Long projectId) {
-        List<Map<String, Object>> responseList = aiGenerationService.getPendingGenerationsWithDuplicateCheck(projectId);
+    public ResponseEntity<?> getPendingGenerations(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) org.example.backend.entity.AiStage stage) {
+        if (stage == null) {
+            stage = org.example.backend.entity.AiStage.REQUIREMENT;
+        }
+        List<Map<String, Object>> responseList = aiGenerationService.getPendingGenerationsWithDuplicateCheck(projectId, stage);
         return ResponseEntity.ok(responseList);
     }
 
@@ -204,6 +209,22 @@ public class AiGenerationController {
             return ResponseEntity.ok(Map.of("message", "Use Cases synchronized successfully."));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/use-cases/{useCaseId}/suggest-requirements")
+    public ResponseEntity<?> suggestRequirements(
+            @PathVariable Long useCaseId,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        try {
+            return ResponseEntity.ok(aiGenerationService.suggestRequirementsForUseCase(useCaseId));
+        } catch (Exception e) {
+            log.error("Failed to suggest requirements", e);
+            return ResponseEntity.status(500).build();
         }
     }
 }

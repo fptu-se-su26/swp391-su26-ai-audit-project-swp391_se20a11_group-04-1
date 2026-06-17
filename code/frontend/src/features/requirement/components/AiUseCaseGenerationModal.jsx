@@ -14,8 +14,13 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   useEffect(() => {
     if (isOpen && generationId) {
       setLoading(true);
-      useCaseService.getGenerationById(generationId)
+        useCaseService.getGenerationById(generationId)
         .then(data => {
+          if (data.stage !== 'USE_CASE') {
+            toast.error("Không thể hiển thị do bản nháp này không phải là Use Case.");
+            onClose();
+            return;
+          }
           setProjectId(data.project);
           let payloadData = data.payload || [];
           if (typeof payloadData === 'string') {

@@ -237,10 +237,10 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        LocalDate deadline = request.getDeadline() != null ? request.getDeadline() : LocalDate.now().plusMonths(3);
-        if (deadline.isBefore(LocalDate.now())) {
-            throw new BadRequestException("Hạn chót dự án không được ở trong quá khứ.");
-        }
+        LocalDate deadline = request.getDeadline();
+        LocalDate startDate = request.getStartDate();
+        
+        org.example.backend.util.DateValidationUtils.validateDateRange(startDate, deadline, "Project");
 
         // 4. Tạo và lưu thực thể Project
         Project project = Project.builder()
@@ -248,7 +248,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")
                 .type(projectType)
                 .academicContext(academicContext)
-                .startDate(LocalDate.now())
+                .startDate(startDate)
                 .deadline(deadline)
                 .status(ProjectStatus.PLANNING)
                 .createdBy(creator)

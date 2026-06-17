@@ -20,6 +20,12 @@ public class ProjectDiagram {
     @Column(name = "project_id", nullable = false, unique = true)
     private Long projectId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false, insertable = false, updatable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Project project;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "layout_data", columnDefinition = "jsonb")
     private String layoutData;
@@ -27,7 +33,11 @@ public class ProjectDiagram {
     @Column(name = "image_base64", columnDefinition = "TEXT")
     private String imageBase64;
 
+    @org.hibernate.annotations.CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     @UpdateTimestamp
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 }
