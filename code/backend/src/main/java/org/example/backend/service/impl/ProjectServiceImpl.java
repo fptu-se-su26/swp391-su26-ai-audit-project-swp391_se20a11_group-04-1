@@ -201,30 +201,37 @@ public class ProjectServiceImpl implements ProjectService {
         evictUserProjectsCache(userId);
 
         // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject) cho Personal Project
-        AcademicSeason semester = AcademicSeason.PERSONAL;
-        String academicYear = String.valueOf(java.time.LocalDate.now().getYear());
-        String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
-
-        TypedQuery<AcademicContext> query = entityManager.createQuery(
-                "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
-                AcademicContext.class
-        );
-        query.setParameter("subject", subject);
-        query.setParameter("semester", semester);
-        query.setParameter("academicYear", academicYear);
-
-        List<AcademicContext> academicContexts = query.getResultList();
-        AcademicContext academicContext;
-        if (academicContexts.isEmpty()) {
-            academicContext = AcademicContext.builder()
-                    .subject(subject)
-                    .semester(semester)
-                    .academicYear(academicYear)
-                    .build();
-            entityManager.persist(academicContext);
-            log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+        AcademicContext academicContext = null;
+        if (request.getClassroomId() != null) {
+            academicContext = entityManager.find(AcademicContext.class, request.getClassroomId());
+            if (academicContext == null) {
+                throw new ResourceNotFoundException("Lớp học không tồn tại.");
+            }
         } else {
-            academicContext = academicContexts.get(0);
+            AcademicSeason semester = AcademicSeason.PERSONAL;
+            String academicYear = String.valueOf(java.time.LocalDate.now().getYear());
+            String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
+
+            TypedQuery<AcademicContext> query = entityManager.createQuery(
+                    "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
+                    AcademicContext.class
+            );
+            query.setParameter("subject", subject);
+            query.setParameter("semester", semester);
+            query.setParameter("academicYear", academicYear);
+
+            List<AcademicContext> academicContexts = query.getResultList();
+            if (academicContexts.isEmpty()) {
+                academicContext = AcademicContext.builder()
+                        .subject(subject)
+                        .semester(semester)
+                        .academicYear(academicYear)
+                        .build();
+                entityManager.persist(academicContext);
+                log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+            } else {
+                academicContext = academicContexts.get(0);
+            }
         }
 
         // 3. Phân tích loại dự án (ProjectType)

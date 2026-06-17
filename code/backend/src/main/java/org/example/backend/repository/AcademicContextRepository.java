@@ -12,12 +12,11 @@ import java.util.Optional;
 
 @Repository
 public interface AcademicContextRepository extends JpaRepository<AcademicContext, Long> {
-    
-    @Query("SELECT ac FROM AcademicContext ac WHERE ac.owner.id = :ownerId")
-    Page<AcademicContext> findByOwnerId(Long ownerId, Pageable pageable);
+    @Query("SELECT DISTINCT ac FROM AcademicContext ac LEFT JOIN ac.enrolledStudents es WHERE (ac.owner.id = :userId OR es.id = :userId)")
+    Page<AcademicContext> findByUserId(Long userId, Pageable pageable);
 
-    @Query("SELECT ac FROM AcademicContext ac WHERE ac.owner.id = :ownerId AND (:semester IS NULL OR ac.semester = :semester) AND LOWER(ac.subject) LIKE LOWER(CONCAT('%', :search, '%'))")
-    Page<AcademicContext> findByOwnerIdWithFilters(Long ownerId, AcademicSeason semester, String search, Pageable pageable);
+    @Query("SELECT DISTINCT ac FROM AcademicContext ac LEFT JOIN ac.enrolledStudents es WHERE (ac.owner.id = :userId OR es.id = :userId) AND (:semester IS NULL OR ac.semester = :semester) AND LOWER(ac.subject) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<AcademicContext> findByUserIdWithFilters(Long userId, AcademicSeason semester, String search, Pageable pageable);
 
     Optional<AcademicContext> findBySubjectAndSemesterAndAcademicYear(String subject, AcademicSeason semester, String academicYear);
 }

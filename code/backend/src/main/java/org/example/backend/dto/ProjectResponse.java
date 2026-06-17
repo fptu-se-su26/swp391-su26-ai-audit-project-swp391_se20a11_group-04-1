@@ -45,5 +45,6 @@ public class ProjectResponse {
         private String type; // WEB_APP, MOBILE, DATABASE, RESEARCH, OTHER
         private LocalDate deadline;
         private String major; // Sẽ được maps vào subject của AcademicContext
+        private Long classroomId; // Optional: ID của lớp học nếu sinh viên tạo nhóm trong lớp
     }
 }

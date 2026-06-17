@@ -9,6 +9,7 @@ import VerificationPage from '@features/auth/pages/VerificationPage'
 import DashboardPage from '@features/workspace/pages/DashboardPage'
 import ClassroomsPage from '@features/workspace/pages/ClassroomsPage'
 import ClassroomDetailPage from '@features/workspace/pages/ClassroomDetailPage'
+import JoinClassroomPage from '@features/workspace/pages/JoinClassroomPage'
 import ContributionPage from '@features/workspace/pages/ContributionPage'
 import AcceptInvitePage from '@features/workspace/pages/AcceptInvitePage'
 
@@ -62,6 +63,7 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/classrooms/join" element={<JoinClassroomPage />} />
 
       {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>

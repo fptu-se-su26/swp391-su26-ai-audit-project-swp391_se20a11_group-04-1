@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { getInitials } from '@utils/avatarHelper'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { classroomApi } from '@api/classroomApi'
+import axiosClient from '@api/axiosConfig'
 
 /**
  * ClassroomsPage - Classroom management page for Mentors and Admins.
@@ -19,88 +20,6 @@ const SEMESTER_OPTIONS = [
   { value: 'SU26', label: 'Summer 2026' },
   { value: 'FA25', label: 'Fall 2025' },
   { value: 'SP25', label: 'Spring 2025' },
-]
-
-// Mock classroom data for UI development
-const MOCK_CLASSROOMS = [
-  {
-    id: 1,
-    subject: 'SWP391',
-    semester: 'SU26',
-    academicYear: '2025-2026',
-    maxMembers: 50,
-    owner: { id: 3, fullName: 'Dr. Nguyen Van A', email: 'nguyenvana@fpt.edu.vn' },
-    memberCount: 32,
-    projectCount: 8,
-    status: 'ACTIVE',
-    createdAt: '2026-05-15T10:30:00',
-    members: [
-      { id: 1, fullName: 'Tran Minh Duc', email: 'ducmt@fpt.edu.vn', role: 'LEADER', joinedAt: '2026-05-16' },
-      { id: 2, fullName: 'Le Thi Bich Ngoc', email: 'ngocltb@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-16' },
-      { id: 3, fullName: 'Pham Hoang Nam', email: 'namph@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-17' },
-      { id: 4, fullName: 'Vo Thanh Phong', email: 'phongvt@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-17' },
-      { id: 5, fullName: 'Nguyen Thi Mai', email: 'maintl@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-18' },
-    ],
-  },
-  {
-    id: 2,
-    subject: 'SWR302',
-    semester: 'SU26',
-    academicYear: '2025-2026',
-    maxMembers: 50,
-    owner: { id: 3, fullName: 'Dr. Nguyen Van A', email: 'nguyenvana@fpt.edu.vn' },
-    memberCount: 28,
-    projectCount: 6,
-    status: 'ACTIVE',
-    createdAt: '2026-05-20T08:00:00',
-    members: [
-      { id: 6, fullName: 'Hoang Duc Thinh', email: 'thinhht@fpt.edu.vn', role: 'LEADER', joinedAt: '2026-05-21' },
-      { id: 7, fullName: 'Bui Van Kien', email: 'kienbv@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-21' },
-      { id: 8, fullName: 'Dang Thu Hien', email: 'hiendt@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-05-22' },
-    ],
-  },
-  {
-    id: 3,
-    subject: 'PRJ301',
-    semester: 'SP26',
-    academicYear: '2025-2026',
-    maxMembers: 40,
-    owner: { id: 5, fullName: 'ThS. Tran Bao Ngoc', email: 'ngoctb@fpt.edu.vn' },
-    memberCount: 40,
-    projectCount: 10,
-    status: 'FULL',
-    createdAt: '2026-01-10T09:00:00',
-    members: [
-      { id: 9, fullName: 'Ngo Quang Huy', email: 'huynq@fpt.edu.vn', role: 'LEADER', joinedAt: '2026-01-11' },
-      { id: 10, fullName: 'Ly Thi Thanh', email: 'thanhlt@fpt.edu.vn', role: 'MEMBER', joinedAt: '2026-01-11' },
-    ],
-  },
-  {
-    id: 4,
-    subject: 'SWP391',
-    semester: 'FA25',
-    academicYear: '2025-2026',
-    maxMembers: 50,
-    owner: { id: 3, fullName: 'Dr. Nguyen Van A', email: 'nguyenvana@fpt.edu.vn' },
-    memberCount: 48,
-    projectCount: 12,
-    status: 'ARCHIVED',
-    createdAt: '2025-09-01T08:00:00',
-    members: [],
-  },
-  {
-    id: 5,
-    subject: 'SWT301',
-    semester: 'SP25',
-    academicYear: '2024-2025',
-    maxMembers: 35,
-    owner: { id: 7, fullName: 'TS. Pham Minh Tuan', email: 'tuanpm@fpt.edu.vn' },
-    memberCount: 30,
-    projectCount: 7,
-    status: 'ARCHIVED',
-    createdAt: '2025-01-05T10:00:00',
-    members: [],
-  },
 ]
 
 // Color palette for member avatars
@@ -136,7 +55,10 @@ export default function ClassroomsPage() {
   const navigate = useNavigate()
   const userRole = useAuthStore((s) => s.userRole)
   const fullName = useAuthStore((s) => s.fullName)
+  const verifyStatus = useAuthStore((s) => s.verifyStatus)
   const queryClient = useQueryClient()
+
+  const canCreateClassroom = userRole === 'ADMIN' || verifyStatus === 'VERIFIED'
 
   const [selectedSemester, setSelectedSemester] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -267,11 +189,25 @@ export default function ClassroomsPage() {
 
 
   const handleCopyInviteLink = (classroom) => {
-    const fakeLink = `${window.location.origin}/join-classroom/${classroom.id}?code=${btoa(classroom.subject + '-' + classroom.semester)}`
-    navigator.clipboard.writeText(fakeLink).then(() => {
+    const realLink = `${window.location.origin}/classrooms/join?token=${classroom.realToken}`
+    navigator.clipboard.writeText(realLink).then(() => {
       toast.success('Đã sao chép link mời vào clipboard!')
     })
     setInviteLinkModal(null)
+  }
+
+  const handleOpenInviteLinkModal = async (classroom, e) => {
+    e.stopPropagation();
+    try {
+      // Use axiosClient to fetch the token instead of classroomApi if classroomApi doesn't have it
+      // I'll assume classroomApi doesn't have it yet, so we'll import axiosClient
+      const { data } = await axiosClient.get(`/v1/classrooms/${classroom.id}/invite-link`);
+      if (data.success && data.data) {
+        setInviteLinkModal({ ...classroom, realToken: data.data });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Chỉ người tạo lớp học mới có quyền tạo link mời.');
+    }
   }
 
   const handleCreateClassroom = () => {
@@ -322,13 +258,15 @@ export default function ClassroomsPage() {
               Quản lý các lớp học, xem danh sách thành viên và theo dõi tiến độ nhóm.
             </p>
           </div>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-on-primary-fixed-variant transition-all shadow-md shadow-primary/10 shrink-0"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>
-            <span>Create Classroom</span>
-          </button>
+          {canCreateClassroom && (
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-on-primary-fixed-variant transition-all shadow-md shadow-primary/10 shrink-0"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+              <span>Create Classroom</span>
+            </button>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -472,7 +410,7 @@ export default function ClassroomsPage() {
                       </div>
                       {classroom.status !== 'ARCHIVED' && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); setInviteLinkModal(classroom) }}
+                          onClick={(e) => handleOpenInviteLinkModal(classroom, e)}
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white transition-all shrink-0"
                           title="Copy invite link"
                         >
@@ -758,7 +696,7 @@ export default function ClassroomsPage() {
 
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2.5 text-xs text-on-surface-variant font-mono truncate">
-                  {`${window.location.origin}/join-classroom/${inviteLinkModal.id}?code=${btoa(inviteLinkModal.subject + '-' + inviteLinkModal.semester)}`}
+                  {`${window.location.origin}/classrooms/join?token=${inviteLinkModal.realToken}`}
                 </div>
                 <button
                   onClick={() => handleCopyInviteLink(inviteLinkModal)}
@@ -768,9 +706,9 @@ export default function ClassroomsPage() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 text-[10px] text-on-surface-variant bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
-                <span className="material-symbols-outlined text-amber-600 text-sm">info</span>
-                <span>Link mời sẽ được kích hoạt khi Backend API hoàn thiện.</span>
+              <div className="flex items-center gap-2 text-[10px] text-emerald-600 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                <span>Link mời này đã được tạo từ hệ thống.</span>
               </div>
             </div>
           </div>

@@ -61,10 +61,8 @@ const Sidebar = () => {
     { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
   ]
 
-  // Thêm mục tương ứng dựa trên trạng thái xác minh hoặc admin
-  if (userRole === 'ADMIN' || verifyStatus === 'VERIFIED') {
-    portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
-  }
+  // Tất cả mọi người đều thấy mục Classrooms (học sinh thấy lớp đã tham gia, mentor tạo lớp)
+  portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
   
   // Luôn hiển thị mục Verify cho người dùng bình thường để họ có thể xem lại tài liệu đã nộp
   if (userRole !== 'ADMIN') {

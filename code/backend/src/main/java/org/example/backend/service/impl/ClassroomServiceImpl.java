@@ -31,6 +31,8 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     private final AcademicContextRepository academicContextRepository;
     private final UserAccountRepository userAccountRepository;
+    private final org.example.backend.repository.ProjectRepository projectRepository;
+    private final org.example.backend.util.ClassroomTokenUtil classroomTokenUtil;
 
     @Override
     @Transactional
@@ -88,9 +90,9 @@ public class ClassroomServiceImpl implements ClassroomService {
         Page<AcademicContext> classroomPage;
         if (seasonFilter != null || (search != null && !search.isEmpty())) {
             String searchQ = search == null ? "" : search;
-            classroomPage = academicContextRepository.findByOwnerIdWithFilters(userId, seasonFilter, searchQ, pageable);
+            classroomPage = academicContextRepository.findByUserIdWithFilters(userId, seasonFilter, searchQ, pageable);
         } else {
-            classroomPage = academicContextRepository.findByOwnerId(userId, pageable);
+            classroomPage = academicContextRepository.findByUserId(userId, pageable);
         }
 
         List<ClassroomResponse> content = classroomPage.getContent().stream()
@@ -107,6 +109,120 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .build();
     }
 
+    @Override
+    public String generateInviteLink(Long classroomId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+        if (!ac.getOwner().getId().equals(userId)) {
+            throw new org.example.backend.exception.CustomException("Chỉ người tạo lớp học mới có quyền tạo link mời.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        return classroomTokenUtil.generateToken(classroomId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomResponse getClassroomFromToken(String token) {
+        Long classroomId = classroomTokenUtil.decodeToken(token);
+        if (classroomId == null) {
+            throw new BadRequestException("Link mời không hợp lệ hoặc đã hết hạn.");
+        }
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+        return mapToResponse(ac);
+    }
+
+    @Override
+    @Transactional
+    public void joinClassroom(String token, Long userId) {
+        Long classroomId = classroomTokenUtil.decodeToken(token);
+        if (classroomId == null) {
+            throw new BadRequestException("Link mời không hợp lệ hoặc đã hết hạn.");
+        }
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+                
+        UserAccount user = userAccountRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+                
+        // Check if already enrolled
+        boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+        if (!isEnrolled && !ac.getOwner().getId().equals(userId)) {
+            ac.getEnrolledStudents().add(user);
+            academicContextRepository.save(ac);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomResponse getClassroomById(Long classroomId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+                
+        boolean isOwner = ac.getOwner().getId().equals(userId);
+        boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+        
+        if (!isOwner && !isEnrolled) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền xem lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        
+        ClassroomResponse response = mapToResponse(ac);
+        
+        // Fetch projects
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+        response.setProjectCount(projects.size());
+        
+        // Map projects
+        List<ClassroomResponse.ProjectSummaryDto> projectDtos = projects.stream().map(p -> {
+            ClassroomResponse.ProjectSummaryDto dto = new ClassroomResponse.ProjectSummaryDto();
+            dto.setId(p.getId());
+            dto.setName(p.getName());
+            dto.setDescription(p.getDescription());
+            dto.setStatus(p.getStatus().name());
+            dto.setCompletion(p.getProgress());
+            dto.setUpdatedAt(p.getUpdatedAt().toString()); // Simplify for now
+            
+            // Map members
+            List<ClassroomResponse.ProjectMemberDto> members = p.getMembers().stream().map(pm -> {
+                ClassroomResponse.ProjectMemberDto mDto = new ClassroomResponse.ProjectMemberDto();
+                mDto.setId(pm.getUser().getId());
+                mDto.setFullName(pm.getUser().getProfile() != null ? pm.getUser().getProfile().getFullName() : pm.getUser().getUsername());
+                return mDto;
+            }).collect(Collectors.toList());
+            dto.setMembers(members);
+            
+            return dto;
+        }).collect(Collectors.toList());
+        
+        response.setProjects(projectDtos);
+
+        // Map class members
+        List<ClassroomResponse.ClassroomMemberDto> memberDtos = ac.getEnrolledStudents().stream().map(u -> {
+            ClassroomResponse.ClassroomMemberDto mDto = new ClassroomResponse.ClassroomMemberDto();
+            mDto.setId(u.getId());
+            mDto.setFullName(u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername());
+            mDto.setEmail(u.getEmail());
+            return mDto;
+        }).collect(Collectors.toList());
+        response.setMembers(memberDtos);
+        
+        // Calculate stats
+        ClassroomResponse.ClassroomStatsDto stats = new ClassroomResponse.ClassroomStatsDto();
+        stats.setTeams(projects.size());
+        stats.setStudents(ac.getEnrolledStudents().size());
+        
+        long onTrack = projects.stream().filter(p -> org.example.backend.entity.ProjectStatus.ACTIVE.equals(p.getStatus())).count();
+        stats.setOnTrack((int)onTrack);
+        if (projects.size() > 0) {
+            stats.setOnTrackPercent((int) ((onTrack * 100) / projects.size()));
+            double avgProgress = projects.stream().mapToInt(org.example.backend.entity.Project::getProgress).average().orElse(0);
+            stats.setAvgProgress((int)avgProgress);
+        }
+        
+        response.setStats(stats);
+        
+        return response;
+    }
+
     private ClassroomResponse mapToResponse(AcademicContext ac) {
         return ClassroomResponse.builder()
                 .id(ac.getId())
@@ -117,7 +233,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .maxMembers(ac.getMaxMembers())
                 .startDate(ac.getStartDate())
                 .endDate(ac.getEndDate())
-                .memberCount(0) // Logic to count actual members if needed later
+                .memberCount(ac.getEnrolledStudents().size()) // Count actual members
                 .projectCount(0) // Logic to count projects if needed later
                 .owner(ClassroomResponse.OwnerDto.builder()
                         .id(ac.getOwner().getId())

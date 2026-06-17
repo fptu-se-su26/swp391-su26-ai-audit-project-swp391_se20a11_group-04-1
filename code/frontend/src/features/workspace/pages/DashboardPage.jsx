@@ -64,6 +64,17 @@ export function DashboardPage() {
     }
   }, [location.pathname, activeProject, clearActiveProject, isGlobalDashboard])
 
+  // Check for createProjectForClassroom URL param to automatically open modal
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const classroomId = searchParams.get('createProjectForClassroom')
+    if (classroomId) {
+      toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
+      setFormData(prev => ({ ...prev, classroomId: parseInt(classroomId, 10) }))
+      setIsModalOpen(true)
+    }
+  }, [location.search])
+
   // Xử lý mở modal tạo dự án mới
   const handleCreateProject = () => {
     setIsModalOpen(true)
@@ -103,6 +114,13 @@ export function DashboardPage() {
         deadline: '',
         description: ''
       })
+      
+      // Clear URL param if exists
+      const searchParams = new URLSearchParams(location.search)
+      if (searchParams.has('createProjectForClassroom')) {
+        searchParams.delete('createProjectForClassroom')
+        navigate({ search: searchParams.toString() }, { replace: true })
+      }
     } else {
       toast.error(error || 'Tạo dự án thất bại, vui lòng thử lại!')
     }
