@@ -344,7 +344,6 @@ public class TaskServiceImpl implements TaskService {
             changeTaskStatus(task, nextStatus, userId);
         }
         Task savedTask = taskRepository.save(task);
-<<<<<<< HEAD
 
         if (!Objects.equals(oldStatus, savedTask.getStatus())) {
             HashMap<String, Object> payload = new HashMap<>();
@@ -481,11 +480,7 @@ public class TaskServiceImpl implements TaskService {
         if (task.getStatus() != TaskStatus.IN_REVIEW) {
             throw new BadRequestException("Only tasks in review can be approved");
         }
-<<<<<<< HEAD
-        ensureAcceptedEvidenceBeforeReview(task);
-=======
         codeInsightApprovalGateService.assertCanApprove(task);
->>>>>>> 165188f08b933f8f0fdb138e6d9837119f977e4c
 
         Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
@@ -611,7 +606,6 @@ public class TaskServiceImpl implements TaskService {
         syncGitHubIssueStatus(savedTask, userId);
         recordReviewDecision(savedTask, userId, TaskReviewDecisionType.REQUESTED_REWORK, fromStatus, TaskStatus.NEEDS_CHANGES, reviewSnapshotId, reason);
         notifyAssignee(savedTask, "Task needs changes", reason);
->>>>>>> 165188f08b933f8f0fdb138e6d9837119f977e4c
         return toResponse(savedTask);
     }
 
@@ -1667,7 +1661,6 @@ public class TaskServiceImpl implements TaskService {
         }
     }
 
-<<<<<<< HEAD
     private List<TaskResponse> toResponses(List<Task> tasks) {
         if (tasks == null || tasks.isEmpty()) {
             return Collections.emptyList();
