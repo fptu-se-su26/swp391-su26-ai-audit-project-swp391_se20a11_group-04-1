@@ -1,7 +1,7 @@
 import React from 'react';
 
 const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
-  const steps = mainFlow?.steps || [];
+  const steps = Array.isArray(mainFlow?.steps) ? mainFlow.steps : [];
 
   const handleStepChange = (index, value) => {
     const newSteps = [...steps];

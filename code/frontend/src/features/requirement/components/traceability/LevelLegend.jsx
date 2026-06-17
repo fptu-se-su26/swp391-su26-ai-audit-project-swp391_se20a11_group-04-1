@@ -6,7 +6,6 @@ const LevelLegend = () => {
     { name: 'Use Case', color: 'bg-cyan-500' },
     { name: 'Task', color: 'bg-amber-500' },
     { name: 'Test', color: 'bg-emerald-500' },
-    { name: 'Evidence', color: 'bg-purple-500' },
   ];
 
   return (

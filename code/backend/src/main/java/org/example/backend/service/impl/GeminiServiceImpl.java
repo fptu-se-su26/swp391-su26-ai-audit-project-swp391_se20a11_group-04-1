@@ -43,8 +43,43 @@ public class GeminiServiceImpl implements GeminiService {
 
     @Override
     public String extractRequirementsFromText(String documentText) {
+        // Phase 1: Determine Domain and Priorities
+        String phase1Prompt = "You are an expert System Architect. Analyze the following project document text. " +
+                "Your task is to identify the primary business domain of the project and list the top 3-5 most critical Non-Functional Requirements (NFRs) / Constraints for this specific domain. " +
+                "Your response MUST be a pure JSON object (without ```json wrappers) with exactly two fields:\n" +
+                "1. 'domain': (String) The specific business domain (e.g., Banking, E-commerce, Healthcare, Logistics).\n" +
+                "2. 'priorities': (Array of Strings) The top 3-5 critical NFRs or business priorities (e.g., ['Data Encryption', 'High Availability', 'Audit Logging']).\n" +
+                "Do not add any explanation, return ONLY the JSON object.\n\n" +
+                "--- DOCUMENT TEXT ---\n" + documentText;
+
+        String phase1Response = cleanJsonOutput(callGeminiApi(phase1Prompt));
+
+        String domain = "General Software";
+        String priorities = "Standard performance, security, and usability best practices";
+        try {
+            JsonNode p1Node = objectMapper.readTree(phase1Response);
+            if (p1Node.has("domain")) {
+                domain = p1Node.get("domain").asText();
+            }
+            if (p1Node.has("priorities")) {
+                StringBuilder sb = new StringBuilder();
+                for (JsonNode node : p1Node.get("priorities")) {
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(node.asText());
+                }
+                priorities = sb.toString();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse Phase 1 domain classification JSON. Using fallback.", e);
+        }
+
+        // Phase 2: Generate Requirements with Domain Context
         String prompt = "Below is the text extracted from a project requirement document. " +
                 "Your task is to analyze and extract a list of Actors (Roles) and Requirements from this text. " +
+                "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
+                "- Business Domain: " + domain + "\n" +
+                "- Strict Domain Priorities/Constraints: " + priorities + "\n" +
+                "When generating Acceptance Criteria (especially for Non-Functional requirements), you MUST strictly enforce and integrate the domain constraints mentioned above.\n\n" +
                 "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
                 "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have 'name' (String) and 'description' (String).\n" +
                 "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
@@ -57,13 +92,15 @@ public class GeminiServiceImpl implements GeminiService {
                 "      - 'Low': 'Nice to have' features, minor UI tweaks, or rarely used edge cases.\n" +
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
                 "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
-                "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. Criteria must be clear, practical, and testable.\n" +
+                "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
                 "--- DOCUMENT TEXT ---\n" + documentText;
-        
-        String response = callGeminiApi(prompt);
-        // Clean up formatting if Gemini returns ```json ... ```
+
+        return cleanJsonOutput(callGeminiApi(prompt));
+    }
+
+    private String cleanJsonOutput(String response) {
         if (response.startsWith("```json")) {
             response = response.substring(7);
         }

@@ -58,19 +58,22 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
               steps.push(trimmed.replace(/^[-*]\s*/, ''));
             }
           } else {
-            const cleanedLine = trimmed.replace(/^(?:Step\s*\d+:?|\d+[\.)])\s*/i, '');
-            steps.push(cleanedLine);
+            steps.push(trimmed);
           }
         });
         return steps;
       };
 
       const parseMainFlow = (data) => {
-        return normalizeFlowToText(data);
+        const text = normalizeFlowToText(data);
+        const steps = cleanFlowArray(text);
+        return { steps: steps };
       };
 
       const parseAltFlow = (data) => {
-        return normalizeFlowToText(data);
+        const text = normalizeFlowToText(data);
+        const steps = cleanFlowArray(text);
+        return { flows: [{ condition: "AI Synced Alternative Flows", steps: steps }] };
       };
 
       const payload = {

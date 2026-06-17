@@ -193,7 +193,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .map(role -> role.getName())
                 .orElse("");
         String normalized = roleName.toUpperCase(Locale.ROOT).replace(" ", "_");
-        if (!normalized.equals("PROJECT_LEADER") && !normalized.equals("LEADER")) {
+        if (normalized == null || !normalized.contains("LEADER")) {
             throw new CustomException("Only project leader can update Code Insight configuration", HttpStatus.FORBIDDEN);
         }
     }

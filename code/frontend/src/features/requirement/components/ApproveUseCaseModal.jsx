@@ -22,7 +22,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
       setSelectedReqId('');
       try {
         const reqsData = await requirementApi.getAllRequirements({ projectId, size: 1000 });
-        setAllReqs(reqsData.data?.items || []);
+        setAllReqs(reqsData.content || reqsData.items || (Array.isArray(reqsData) ? reqsData : []));
         
         const suggData = await useCaseService.suggestRequirements(useCaseId);
         setSuggestions(suggData || []);

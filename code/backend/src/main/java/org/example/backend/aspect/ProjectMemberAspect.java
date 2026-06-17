@@ -67,7 +67,7 @@ public class ProjectMemberAspect {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
                 .orElseThrow(() -> new ForbiddenException("Access Denied: You are not an active member of this project"));
 
-        if (!"LEADER".equalsIgnoreCase(member.getRole().getName())) {
+        if (member.getRole() == null || !member.getRole().getName().toUpperCase().contains("LEADER")) {
             throw new ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
         }
     }
