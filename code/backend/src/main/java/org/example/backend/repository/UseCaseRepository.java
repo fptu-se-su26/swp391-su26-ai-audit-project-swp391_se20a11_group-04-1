@@ -9,14 +9,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 @Repository
-public interface
-UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpecificationExecutor<UseCase> {
+public interface UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpecificationExecutor<UseCase> {
     
     @Query(value = "SELECT MAX(project_sub_id) FROM use_cases WHERE project_id = :projectId", nativeQuery = true)
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 
-    boolean existsByRequirementIdAndStatusNot(Long requirementId, org.example.backend.entity.UseCaseStatus status);
-    boolean existsByIdAndProjectId(Long id, Long projectId);
+    boolean existsByRequirementIdAndStatusNot(Long requirementId, String status);
     java.util.List<UseCase> findByProjectId(Long projectId);
-    java.util.List<UseCase> findByRequirementId(Long requirementId);
 }

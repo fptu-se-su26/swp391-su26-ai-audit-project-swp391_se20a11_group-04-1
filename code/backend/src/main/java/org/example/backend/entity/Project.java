@@ -41,9 +41,6 @@ public class Project {
     @Column(name = "start_date")
     private LocalDate startDate;
 
-    @Column(name = "end_date")
-    private LocalDate endDate;
-
     @Column(nullable = false)
     private LocalDate deadline;
 

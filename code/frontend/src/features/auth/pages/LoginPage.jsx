@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import authService from '../services/authService'
 import useAuthStore from '@store/useAuthStore'
 
 function LoginPage() {
   const navigate = useNavigate()
-  const location = useLocation()
-  const returnUrl = location.state?.returnUrl || '/dashboard'
-  
   const [formData, setFormData] = useState({
     usernameOrEmail: '',
     password: '',
@@ -94,7 +91,7 @@ function LoginPage() {
         useAuthStore.getState().login(id, systemRole, username, email, fullName)
         
         setTimeout(() => {
-          navigate(returnUrl)
+          navigate('/dashboard')
         }, 1000)
       } else {
         toast.error(response.data?.message || 'Sai tài khoản hoặc mật khẩu!')
@@ -129,7 +126,7 @@ function LoginPage() {
       toast.success('Đăng nhập thành công! (Chế độ giả lập)')
       useAuthStore.getState().login('1', 'USER', 'dungsa', 'dungsa@fpt.edu.vn', 'Anh Dung')
       setTimeout(() => {
-        navigate(returnUrl)
+        navigate('/dashboard')
       }, 1000)
     } finally {
       setLoading(false)

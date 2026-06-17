@@ -33,7 +33,7 @@ export function ContributionPage() {
   }
 
   // Xác định vai trò của user hiện tại trong dự án
-  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
+  const isLeader = activeProject.role === 'Project Leader'
 
   // Xử lý gửi lời mời thành viên
   const handleInviteSubmit = async (e) => {

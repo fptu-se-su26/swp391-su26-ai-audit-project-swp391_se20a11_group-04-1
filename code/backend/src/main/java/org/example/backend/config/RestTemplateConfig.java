@@ -10,10 +10,10 @@ public class RestTemplateConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        // Timeout 180 giây cho AI Generation
+        // Timeout 70 giây (Playwright chạy tối đa 60s + buffer)
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
-        factory.setReadTimeout(180000);
+        factory.setReadTimeout(70000);
         return new RestTemplate(factory);
     }
 

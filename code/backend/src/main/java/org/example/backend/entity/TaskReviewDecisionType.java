@@ -8,11 +8,5 @@ public enum TaskReviewDecisionType {
     APPROVED,
 
     // Leader returned the task to work with feedback.
-    REJECTED,
-
-    // Leader reopened a completed task for another review pass.
-    REOPENED_REVIEW,
-
-    // Leader found a completed task needs rework.
-    REQUESTED_REWORK
+    REJECTED
 }

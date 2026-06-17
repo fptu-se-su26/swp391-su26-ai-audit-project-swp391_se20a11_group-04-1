@@ -3,20 +3,17 @@ import React from 'react';
 const RequirementDetailTraceability = ({ requirement }) => {
   if (!requirement) return null;
 
-  const tasksTotal = requirement.tasks?.length || 0;
-  const tasksCount = requirement.tasks?.filter(t => t.status === 'DONE').length || 0;
+  // Temporary mock logic since API doesn't return these metrics yet
+  const tasksCount = 0;
+  const tasksTotal = 0;
   
-  const testsTotal = requirement.tests?.length || 0;
-  const testsCount = requirement.tests?.filter(t => t.status === 'PASS' || t.status === 'PASSED').length || 0;
+  const testsCount = 0;
+  const testsTotal = 0;
 
-  const evidenceTotal = requirement.evidences?.length || 0;
-  const evidenceCount = requirement.evidences?.filter(e => e.status === 'VERIFIED' || e.status === 'APPROVED' || e.status === 'Verified').length || 0;
+  const evidenceCount = 0;
+  const evidenceTotal = 0;
 
-  const bugsCount = 0; // Not fetched yet
-
-  const tasksPercent = tasksTotal ? (tasksCount / tasksTotal) * 100 : 0;
-  const testsPercent = testsTotal ? (testsCount / testsTotal) * 100 : 0;
-  const evidencePercent = evidenceTotal ? (evidenceCount / evidenceTotal) * 100 : 0;
+  const bugsCount = 0;
 
   return (
     <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack_lg">
@@ -32,7 +29,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
             <span className="font-label-md text-label-md font-medium text-secondary">{tasksCount}/{tasksTotal} Done</span>
           </div>
           <div className="w-full bg-surface-container-high rounded-full h-2">
-            <div className="bg-emerald-500 h-2 rounded-full transition-all" style={{ width: `${tasksPercent}%` }}></div>
+            <div className="bg-outline-variant h-2 rounded-full" style={{ width: '0%' }}></div>
           </div>
         </div>
         {/* Tests Progress */}
@@ -42,7 +39,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
             <span className="font-label-md text-label-md font-medium text-secondary">{testsCount}/{testsTotal} Pass</span>
           </div>
           <div className="w-full bg-surface-container-high rounded-full h-2">
-            <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${testsPercent}%` }}></div>
+            <div className="bg-outline-variant h-2 rounded-full" style={{ width: '0%' }}></div>
           </div>
         </div>
         {/* Evidence Progress */}
@@ -52,7 +49,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
             <span className="font-label-md text-label-md font-medium text-secondary">{evidenceCount}/{evidenceTotal} Accepted</span>
           </div>
           <div className="w-full bg-surface-container-high rounded-full h-2">
-            <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${evidencePercent}%` }}></div>
+            <div className="bg-outline-variant h-2 rounded-full" style={{ width: '0%' }}></div>
           </div>
         </div>
         {/* Bugs */}

@@ -8,6 +8,7 @@ import org.example.backend.dto.RequirementResponseDTO;
 import org.example.backend.entity.Priority;
 import org.example.backend.entity.Requirement;
 import org.example.backend.entity.RequirementStatus;
+import org.example.backend.entity.RequirementTag;
 import org.example.backend.entity.ProjectStatus;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.BadRequestException;
@@ -15,13 +16,6 @@ import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UseCaseRepository;
-import org.example.backend.repository.TaskRepository;
-import org.example.backend.repository.CodeInsightAiReviewRepository;
-import org.example.backend.entity.Task;
-import org.example.backend.entity.CodeInsightAiReview;
-import org.example.backend.dto.ReqDiffAlignmentResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.example.backend.service.RequirementService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -47,25 +41,6 @@ public class RequirementServiceImpl implements RequirementService {
     private final org.example.backend.repository.ProjectRepository projectRepository;
     private final UserAccountRepository userAccountRepository;
     private final UseCaseRepository useCaseRepository;
-    private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
-    private final TaskRepository taskRepository;
-    private final CodeInsightAiReviewRepository aiReviewRepository;
-    private final ObjectMapper objectMapper;
-
-    private void checkLeaderAccess(Long projectId) {
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) throw new org.example.backend.exception.ForbiddenException("Authentication required");
-        
-        UserAccount user = userAccountRepository.findByUsername(auth.getName())
-            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("User not found"));
-            
-        org.example.backend.entity.ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
-            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Access Denied: You are not an active member of this project"));
-            
-        if (member.getRole() == null || !member.getRole().getName().toUpperCase().contains("LEADER")) {
-            throw new org.example.backend.exception.ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
-        }
-    }
 
     @Override
     @Transactional
@@ -75,8 +50,6 @@ public class RequirementServiceImpl implements RequirementService {
         if (requestDTO.getProjectId() == null) {
             throw new BadRequestException("Project is required when creating a requirement.");
         }
-        
-        checkLeaderAccess(requestDTO.getProjectId());
 
         // Lock the project row to prevent race conditions on auto-increment calculation
         var project = projectRepository.findByIdWithPessimisticWrite(requestDTO.getProjectId())
@@ -116,7 +89,10 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         if (requestDTO.getTags() != null) {
-            requirement.setTags(new ArrayList<>(requestDTO.getTags()));
+            for (String tagName : requestDTO.getTags()) {
+                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
+                requirement.addTag(tag);
+            }
         }
 
         Requirement savedReq = requirementRepository.save(requirement);
@@ -141,7 +117,7 @@ public class RequirementServiceImpl implements RequirementService {
             String priority,
             String tag) {
         int currentPage = Math.max(page, 0);
-        int pageSize = Math.min(Math.max(size, 1), 1000);
+        int pageSize = Math.min(Math.max(size, 1), 10);
 
         PageRequest pageRequest = PageRequest.of(
                 currentPage,
@@ -175,8 +151,6 @@ public class RequirementServiceImpl implements RequirementService {
         Requirement requirement = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
-        checkLeaderAccess(requirement.getProject().getId());
-
         requirement.setTitle(requestDTO.getTitle());
         requirement.setDescription(requestDTO.getDescription());
         requirement.setType(requestDTO.getType());
@@ -198,7 +172,7 @@ public class RequirementServiceImpl implements RequirementService {
 
             // Enforce DONE State Constraints
             if (requestDTO.getStatus() == RequirementStatus.DONE) {
-                boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, org.example.backend.entity.UseCaseStatus.DONE);
+                boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, "DONE");
                 if (hasPendingUseCases) {
                     throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
                 }
@@ -209,42 +183,15 @@ public class RequirementServiceImpl implements RequirementService {
             requirement.setEvidenceRequired(requestDTO.getEvidenceRequired());
         }
 
+        // Update tags — orphan removal handles deletion of old tags
         requirement.getTags().clear();
         if (requestDTO.getTags() != null) {
-            requirement.getTags().addAll(requestDTO.getTags());
-        }
-
-        Requirement updatedReq = requirementRepository.save(requirement);
-        return mapToDTO(updatedReq);
-    }
-
-    @Override
-    @Transactional
-    public RequirementResponseDTO updateRequirementStatus(Long id, String status) {
-        log.info("Updating status for requirement id: {} to {}", id, status);
-        Requirement requirement = requirementRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
-
-        var project = requirement.getProject();
-        if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
-            throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
-        }
-
-        RequirementStatus parsedStatus;
-        try {
-            parsedStatus = RequirementStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new BadRequestException("Invalid status: " + status);
-        }
-
-        if (parsedStatus == RequirementStatus.DONE) {
-            boolean hasPendingUseCases = useCaseRepository.existsByRequirementIdAndStatusNot(id, org.example.backend.entity.UseCaseStatus.DONE);
-            if (hasPendingUseCases) {
-                throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
+            for (String tagName : requestDTO.getTags()) {
+                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
+                requirement.addTag(tag);
             }
         }
 
-        requirement.setStatus(parsedStatus);
         Requirement updatedReq = requirementRepository.save(requirement);
         return mapToDTO(updatedReq);
     }
@@ -253,43 +200,16 @@ public class RequirementServiceImpl implements RequirementService {
     @Transactional
     public void deleteRequirement(Long id) {
         log.info("Deleting requirement id: {}", id);
-        Requirement req = requirementRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
-                
-        checkLeaderAccess(req.getProject().getId());
-        
+        if (!requirementRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Requirement not found with id: " + id);
+        }
         requirementRepository.deleteById(id);
     }
 
     private RequirementResponseDTO mapToDTO(Requirement req) {
-        List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
-
-        List<String> covered = new ArrayList<>();
-        if (req.getId() != null) {
-            List<Task> tasks = taskRepository.findByRequirementId(req.getId());
-            List<Long> doneTaskIds = tasks.stream()
-                    .filter(t -> t.getStatus() == org.example.backend.entity.TaskStatus.DONE)
-                    .map(Task::getId)
-                    .toList();
-
-            if (!doneTaskIds.isEmpty()) {
-                List<CodeInsightAiReview> reviews = aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);
-                for (CodeInsightAiReview rev : reviews) {
-                    if (rev.getAlignmentResultJson() != null) {
-                        try {
-                            ReqDiffAlignmentResult alignResult = objectMapper.readValue(rev.getAlignmentResultJson(), ReqDiffAlignmentResult.class);
-                            if (alignResult.getAlignmentMatrix() != null) {
-                                for (ReqDiffAlignmentResult.AlignmentItem item : alignResult.getAlignmentMatrix()) {
-                                    if ("FULLY_COVERED".equals(item.getStatus()) && item.getAcText() != null) {
-                                        covered.add(item.getAcText());
-                                    }
-                                }
-                            }
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
-        }
+        List<String> tags = req.getTags().stream()
+                .map(RequirementTag::getTag)
+                .collect(Collectors.toList());
 
         return RequirementResponseDTO.builder()
                 .id(req.getId())
@@ -308,17 +228,12 @@ public class RequirementServiceImpl implements RequirementService {
                 .createdAt(req.getCreatedAt())
                 .updatedAt(req.getUpdatedAt())
                 .tags(tags)
-                .aiGenerated(req.getAiGenerated() != null ? req.getAiGenerated() : false)
-                .coveredCriteria(covered)
                 .build();
     }
 
     private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
-
-            // Hide the System Architecture Diagram dummy requirement
-            predicates.add(criteriaBuilder.notEqual(root.get("title"), "System Architecture Diagram"));
 
             if (projectId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
@@ -335,21 +250,13 @@ public class RequirementServiceImpl implements RequirementService {
             }
 
             if (tag != null && !tag.isBlank()) {
-                jakarta.persistence.criteria.Expression<String> tagsString = criteriaBuilder.function("array_to_string", String.class, root.get("tags"), criteriaBuilder.literal(","));
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(tagsString), "%" + tag.trim().toLowerCase(Locale.ROOT) + "%"));
+                query.distinct(true);
+                Join<Requirement, RequirementTag> tagsJoin = root.join("tags", JoinType.LEFT);
+                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(tagsJoin.get("tag")), tag.trim().toLowerCase(Locale.ROOT)));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<String> getTagsByProject(Long projectId) {
-        if (projectId == null) {
-            throw new BadRequestException("Project ID is required to fetch tags.");
-        }
-        return requirementRepository.findAllDistinctTagsByProjectId(projectId);
     }
 
     private String normalizeEnumValue(String value) {

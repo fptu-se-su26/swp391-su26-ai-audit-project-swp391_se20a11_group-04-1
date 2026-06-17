@@ -36,8 +36,6 @@ spring:
     redis:
       host: localhost
       port: 6379 # Port mặc định của Redis
-    mongodb:
-      uri: mongodb://localhost:27017/dev_track_ai
 
   session:
     store-type: redis
@@ -70,17 +68,11 @@ cloudinary:
   api-key: "YOUR_API_KEY_HERE"
   api-secret: "YOUR_API_SECRET_HERE"
 
-gemini:
-  api:
-    key: "YOUR_GEMINI_API_KEY_HERE" # 👈 Điền Google Gemini API Key vào đây
-    url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-
 # GitHub OAuth & Integration Settings
 github:
   client-id: "YOUR_GITHUB_OAUTH_CLIENT_ID"
   client-secret: "YOUR_GITHUB_OAUTH_CLIENT_SECRET"
   redirect-uri: "http://localhost:5173/github/callback"
-  webhook-url: "YOUR_NGROK_PUBLIC_URL_HERE/api/v1/github/webhook" # 👈 Điền link Ngrok public để nhận webhook từ GitHub local (ví dụ: https://xxxx.ngrok-free.dev/api/v1/github/webhook)
   encryption:
     # 👈 Mật khẩu dùng để mã hóa (AES key). PHẢI đúng 16, 24, hoặc 32 ký tự.
     # Bạn CẦN TẠO 1 chuỗi ngẫu nhiên (ví dụ: DevTrackSecKey123456789012345678)
@@ -91,14 +83,3 @@ app:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: local
     outbox-publish-delay-ms: 30000
-  classroom:
-    invite:
-      secret: "YOUR_16_CHAR_SECRET_KEY_HERE" # 👈 Thay thế bằng một chuỗi ngẫu nhiên (ví dụ: DevTrackClassrm1)
-
-code-insight:
-  ai:
-    # gemini = real Gemini provider. AI Review returns provider errors when the API cannot produce a review.
-    provider: ${CODE_INSIGHT_AI_PROVIDER:gemini}
-    api-key: ${CODE_INSIGHT_AI_API_KEY:}
-    model: ${CODE_INSIGHT_AI_MODEL:gemini-2.5-flash}
-    timeout-seconds: ${CODE_INSIGHT_AI_TIMEOUT_SECONDS:30}

@@ -236,11 +236,11 @@ DD/MM/YYYY
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Triển khai cơ chế Progressive Lockout & Fast-Fail bằng Redis | Nguyễn Thành Đạt | AuthServiceImpl.java | Commit 8d340e6 |
-| 2 | Triển khai cơ chế Khóa kép Đa IP, tích hợp GeoIP và Email Action Link | Nguyễn Thành Đạt | EmailServiceImpl.java, AuthServiceImpl.java | Tính năng hoạt động |
-| 3 | Triển khai cơ chế Reset Trạng Thái Bảo Mật & Cô lập Hacker | Nguyễn Thành Đạt | AuthServiceImpl.java | Hoàn thành |
-| 4 | Tích hợp và bảo mật Token GitHub (OAuth 2.0) bằng mã hóa AES | Nguyễn Thành Đạt | GithubIntegrationService.java | Hoàn thành |
-| 5 | Triển khai đồng bộ GitHub Issues Webhook và ràng buộc duyệt Task | Nguyễn Thành Đạt | TaskServiceImpl.java, GithubWebhookController.java | Hoàn thành |
+| 1 |  |  |  |  |
+| 2 |  |  |  |  |
+| 3 |  |  |  |  |
+| 4 |  |  |  |  |
+| 5 |  |  |  |  |
 
 ## AI có hỗ trợ không?
 

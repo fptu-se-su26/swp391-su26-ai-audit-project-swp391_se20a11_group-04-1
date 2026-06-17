@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import taskService from '@features/kanban/services/taskService'
@@ -96,7 +95,6 @@ const SprintCard = ({ sprint, selected, onOpen }) => (
 
 const SprintPage = () => {
   const activeProject = useProjectStore((state) => state.activeProject)
-  const navigate = useNavigate()
   const [sprints, setSprints] = useState([])
   const [projectTasks, setProjectTasks] = useState([])
   const [sprintTasks, setSprintTasks] = useState([])
@@ -307,13 +305,6 @@ const SprintPage = () => {
             <button className="px-4 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest hover:bg-surface-container-high font-black flex items-center gap-2" onClick={loadSprintsAndTasks}>
               <span className="material-symbols-outlined text-lg">refresh</span>
               Refresh
-            </button>
-            <button
-              className="px-4 py-2 rounded-lg border border-primary/60 bg-primary-fixed text-on-primary-fixed hover:bg-primary/10 font-black flex items-center gap-2 transition-colors"
-              onClick={() => navigate(`/projects/${activeProject.id}/sprint-reports`)}
-            >
-              <span className="material-symbols-outlined text-lg">campaign</span>
-              View Sprint Report
             </button>
             <button className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-black flex items-center gap-2" onClick={openCreate}>
               <span className="material-symbols-outlined text-lg">add</span>

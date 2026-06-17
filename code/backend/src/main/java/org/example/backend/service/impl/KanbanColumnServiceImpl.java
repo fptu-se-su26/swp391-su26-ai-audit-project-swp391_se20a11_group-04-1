@@ -28,10 +28,9 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
     private static final List<DefaultColumn> DEFAULT_COLUMNS = List.of(
             new DefaultColumn("Todo", "TODO", "bg-outline", 0),
             new DefaultColumn("In Progress", "IN_PROGRESS", "bg-primary", 1),
-            new DefaultColumn("Needs Changes", "NEEDS_CHANGES", "bg-[#f59e0b]", 2),
-            new DefaultColumn("In Review", "IN_REVIEW", "bg-[#a855f7]", 3),
-            new DefaultColumn("Done", "DONE", "bg-[#16a34a]", 4),
-            new DefaultColumn("Blocked", "BLOCKED", "bg-error", 5)
+            new DefaultColumn("In Review", "IN_REVIEW", "bg-[#a855f7]", 2),
+            new DefaultColumn("Done", "DONE", "bg-[#16a34a]", 3),
+            new DefaultColumn("Blocked", "BLOCKED", "bg-error", 4)
     );
 
     private final KanbanColumnRepository kanbanColumnRepository;
@@ -108,11 +107,13 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
 
     public synchronized List<KanbanColumn> ensureDefaultColumns(Long projectId) {
         List<KanbanColumn> existing = kanbanColumnRepository.findByProjectIdOrderByColumnOrderAscIdAsc(projectId);
+        if (!existing.isEmpty()) {
+            return existing;
+        }
+
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
-        List<KanbanColumn> missing = DEFAULT_COLUMNS.stream()
-                .filter(defaultColumn -> existing.stream()
-                        .noneMatch(column -> defaultColumn.statusKey().equals(column.getStatusKey())))
+        List<KanbanColumn> columns = DEFAULT_COLUMNS.stream()
                 .map(defaultColumn -> KanbanColumn.builder()
                         .project(project)
                         .name(defaultColumn.name())
@@ -123,10 +124,7 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
                         .archived(false)
                         .build())
                 .collect(Collectors.toList());
-        if (!missing.isEmpty()) {
-            kanbanColumnRepository.saveAll(missing);
-        }
-        return kanbanColumnRepository.findByProjectIdOrderByColumnOrderAscIdAsc(projectId);
+        return kanbanColumnRepository.saveAll(columns);
     }
 
     private KanbanColumn findProjectColumn(Long projectId, Long columnId) {
@@ -145,7 +143,7 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
         String roleName = member.getRole() != null ? member.getRole().getName() : "";
-        if (roleName == null || !roleName.toUpperCase().contains("LEADER")) {
+        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName)) {
             throw new CustomException("Only project leaders can manage board columns", HttpStatus.FORBIDDEN);
         }
     }

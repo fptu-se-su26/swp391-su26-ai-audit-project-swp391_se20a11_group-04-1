@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import useProjectStore from '@store/useProjectStore'
-import toast from 'react-hot-toast'
 
 const emptyForm = {
   name: '',
@@ -12,7 +10,6 @@ const emptyForm = {
 }
 
 const SprintFormModal = ({ open, sprint, onClose, onSubmit, saving }) => {
-  const activeProject = useProjectStore((state) => state.activeProject)
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
@@ -42,22 +39,6 @@ const SprintFormModal = ({ open, sprint, onClose, onSubmit, saving }) => {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    
-    if (form.startDate && form.endDate && form.endDate < form.startDate) {
-      toast.error('End date must be after start date.')
-      return
-    }
-
-    if (activeProject?.startDate && form.startDate && form.startDate < activeProject.startDate) {
-      toast.error(`Sprint start date cannot be earlier than project start date (${activeProject.startDate}).`)
-      return
-    }
-
-    if (activeProject?.deadline && form.endDate && form.endDate > activeProject.deadline) {
-      toast.error(`Sprint end date cannot exceed project deadline (${activeProject.deadline}).`)
-      return
-    }
-
     onSubmit({
       ...form,
       capacityHours: form.capacityHours === '' ? null : Number(form.capacityHours),

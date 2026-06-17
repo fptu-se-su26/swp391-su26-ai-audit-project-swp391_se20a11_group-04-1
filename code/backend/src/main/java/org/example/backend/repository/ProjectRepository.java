@@ -20,8 +20,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("SELECT p FROM Project p WHERE p.id = :projectId")
     Optional<Project> findByIdWithPessimisticWrite(@Param("projectId") Long projectId);
 
-    java.util.List<Project> findByAcademicContextId(Long academicContextId);
-
     /**
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).
      */

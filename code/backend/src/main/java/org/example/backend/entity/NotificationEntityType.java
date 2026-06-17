@@ -9,6 +9,5 @@ public enum NotificationEntityType {
     TASK,
     BUG_REPORT,
     REQUIREMENT,
-    WEEKLY_REPORT,
-    MENTOR_VERIFICATION
+    WEEKLY_REPORT
 }

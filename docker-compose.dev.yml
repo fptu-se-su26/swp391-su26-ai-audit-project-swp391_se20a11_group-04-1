@@ -6,7 +6,6 @@ networks:
 volumes:
   postgres-data:
   redis-data:
-  mongodb-data:
   playwright-temp:
 
 services:
@@ -28,19 +27,7 @@ services:
     networks:
       - devtrack-net
 
-  # ─── 2. MONGODB ──────────────────────────────────────────
-  mongodb:
-    image: mongo:7.0
-    container_name: devtrack-mongodb-dev
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb-data:/data/db
-    networks:
-      - devtrack-net
-
-  # ─── 3. REDIS ────────────────────────────────────────────
+  # ─── 2. REDIS ────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: devtrack-redis-dev

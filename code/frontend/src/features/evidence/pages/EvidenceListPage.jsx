@@ -121,7 +121,7 @@ const EvidenceListPage = () => {
       fetchEvidences();
     } catch (error) {
       console.error('Failed to save evidence:', error);
-      toast.error(error.response?.data?.message || 'Failed to save evidence');
+      toast.error('Failed to save evidence');
       throw error;
     }
   };

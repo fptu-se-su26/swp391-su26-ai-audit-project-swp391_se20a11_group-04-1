@@ -7,7 +7,6 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.exception.ForbiddenException;
-import org.example.backend.entity.ProjectMember;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,31 +44,6 @@ public class ProjectMemberAspect {
 
         projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
                 .orElseThrow(() -> new ForbiddenException("Access Denied: You are not an active member of this project"));
-    }
-
-    @Before("@annotation(org.example.backend.annotation.PreAuthorizeProjectLeader)")
-    public void checkProjectLeader(JoinPoint joinPoint) {
-        Long projectId = extractProjectId(joinPoint);
-
-        if (projectId == null) {
-            throw new BusinessException("Project ID is missing in the method parameters. Cannot verify leadership.", "PROJECT_ID_MISSING");
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new ForbiddenException("Authentication is required");
-        }
-
-        String username = authentication.getName();
-        UserAccount user = userAccountRepository.findByUsername(username)
-                .orElseThrow(() -> new ForbiddenException("Authenticated user not found"));
-
-        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
-                .orElseThrow(() -> new ForbiddenException("Access Denied: You are not an active member of this project"));
-
-        if (member.getRole() == null || !member.getRole().getName().toUpperCase().contains("LEADER")) {
-            throw new ForbiddenException("Access Denied: You must be a LEADER of this project to perform this action");
-        }
     }
 
     private Long extractProjectId(JoinPoint joinPoint) {

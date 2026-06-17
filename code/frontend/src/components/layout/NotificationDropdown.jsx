@@ -4,53 +4,6 @@ import toast from 'react-hot-toast'
 import useNotificationStore from '@store/useNotificationStore'
 import useProjectStore from '@store/useProjectStore'
 
-const notificationMeta = (notification) => {
-  if (notification.type === 'INVITATION') {
-    return { icon: 'mail', className: 'bg-primary/10 text-primary' }
-  }
-  if (notification.entityType === 'WEEKLY_REPORT') {
-    return { icon: 'summarize', className: 'bg-blue-500/10 text-blue-700' }
-  }
-  if (notification.entityType === 'TASK' && /sla|quá hạn|penalty|overdue/i.test(`${notification.title} ${notification.message}`)) {
-    return { icon: 'release_alert', className: 'bg-red-500/10 text-red-700' }
-  }
-  if (notification.entityType === 'TASK') {
-    return { icon: 'task_alt', className: 'bg-emerald-500/10 text-emerald-700' }
-  }
-  if (notification.entityType === 'MENTOR_VERIFICATION') {
-    const isError = /từ chối|hết hạn|cancel/i.test(`${notification.title} ${notification.message}`)
-    return isError 
-      ? { icon: 'gpp_bad', className: 'bg-red-500/10 text-red-700' }
-      : { icon: 'verified_user', className: 'bg-emerald-500/10 text-emerald-700' }
-  }
-  return { icon: 'info', className: 'bg-secondary/10 text-secondary' }
-}
-
-const notificationPath = (notification, fallbackProjectId) => {
-  const projectId = notification.projectId || fallbackProjectId
-
-  if (notification.entityType === 'MENTOR_VERIFICATION') {
-    return '/verification'
-  }
-
-  if (!projectId) return null
-
-  if (notification.entityType === 'WEEKLY_REPORT') {
-    const reportQuery = notification.relatedId ? `?reportId=${notification.relatedId}` : ''
-    return `/projects/${projectId}/sprint-reports${reportQuery}`
-  }
-
-  if (notification.entityType === 'TASK' && notification.relatedId) {
-    return `/projects/${projectId}/tasks/${notification.relatedId}`
-  }
-
-  if (notification.entityType === 'PROJECT_INVITATION') {
-    return '/dashboard'
-  }
-
-  return null
-}
-
 export function NotificationDropdown() {
   const navigate = useNavigate()
   const {
@@ -64,7 +17,7 @@ export function NotificationDropdown() {
     rejectInvitation
   } = useNotificationStore()
 
-  const { activeProject, fetchProjects } = useProjectStore()
+  const { fetchProjects } = useProjectStore()
 
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
@@ -100,11 +53,6 @@ export function NotificationDropdown() {
   const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       await markAsRead(notification.id)
-    }
-    const path = notificationPath(notification, activeProject?.id)
-    if (path) {
-      setIsOpen(false)
-      navigate(path)
     }
   }
 
@@ -211,9 +159,11 @@ export function NotificationDropdown() {
                   )}
 
                   {/* Icon loại thông báo */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notificationMeta(n).className}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    n.type === 'INVITATION' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'
+                  }`}>
                     <span className="material-symbols-outlined text-lg">
-                      {notificationMeta(n).icon}
+                      {n.type === 'INVITATION' ? 'mail' : 'info'}
                     </span>
                   </div>
 

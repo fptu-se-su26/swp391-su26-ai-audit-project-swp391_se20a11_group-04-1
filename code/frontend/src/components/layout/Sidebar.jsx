@@ -40,7 +40,6 @@ const Sidebar = () => {
   const location = useLocation()
   const logout = useAuthStore((state) => state.logout)
   const userRole = useAuthStore((state) => state.userRole)
-  const verifyStatus = useAuthStore((state) => state.verifyStatus) || 'UNVERIFIED'
   const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
   const email = useAuthStore((state) => state.email) || 'guest@example.com'
 
@@ -61,21 +60,12 @@ const Sidebar = () => {
     { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
   ]
 
-  // Tất cả mọi người đều thấy mục Classrooms (học sinh thấy lớp đã tham gia, mentor tạo lớp)
-  portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
-  
-  // Luôn hiển thị mục Verify cho người dùng bình thường để họ có thể xem lại tài liệu đã nộp
-  if (userRole !== 'ADMIN') {
-    portfolioMenuItems.push({ id: 'verify', label: 'Verify Account', icon: 'verified_user', path: '/verify' })
-  }
-
   // Xử lý click menu cấp Portfolio
   const handlePortfolioMenuClick = (item) => {
     if (item.path === '#') {
       toast.success(`Chức năng "${item.label}" đang được phát triển!`)
       return
     }
-    
     clearActiveProject()
     navigate(item.path)
   }
@@ -132,7 +122,7 @@ const Sidebar = () => {
         {!activeProject ? (
           // A. Hiển thị Menu Portfolio
           portfolioMenuItems.map((item) => {
-            const isActive = (item.id === 'projects' && location.pathname === '/dashboard') || (item.path !== '#' && location.pathname === item.path)
+            const isActive = item.id === 'projects' && location.pathname === '/dashboard'
             return (
               <button
                 key={item.id}
@@ -157,7 +147,6 @@ const Sidebar = () => {
             <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
             <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
             <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
-            {/* Sprint Reports entry point moved to SprintPage → "View Sprint Report" button */}
             <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
             <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
@@ -177,7 +166,7 @@ const Sidebar = () => {
               defaultIconClass="text-primary-container"
             />
             <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
-            <NavItem to={`/projects/${activeProject.id}/task-reviews`} icon="fact_check" label="Task Review" />
+            <NavItem to={`/projects/${activeProject.id}/code-insight`} icon="code" label="Code Insight" />
 
             {/* Team Section */}
             <div className="pt-4 pb-2">
@@ -204,11 +193,7 @@ const Sidebar = () => {
 
       {/* PERSISTENT USER STATUS & LOGOUT */}
       <div className="pt-5 border-t border-outline-variant mt-auto flex flex-col gap-3">
-        <div 
-          onClick={() => navigate('/profile')}
-          className="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-surface-container-high transition-colors"
-          title="Xem trang cá nhân"
-        >
+        <div className="flex items-center gap-3 p-1 rounded-lg">
           <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
             {getInitials(fullName)}
           </div>

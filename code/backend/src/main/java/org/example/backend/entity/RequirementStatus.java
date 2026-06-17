@@ -4,5 +4,6 @@ public enum RequirementStatus {
     DRAFT,
     IN_PROGRESS,
     IN_REVIEW,
-    DONE
+    DONE,
+    DEPRECATED
 }

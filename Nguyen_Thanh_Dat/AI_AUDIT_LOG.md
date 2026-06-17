@@ -573,237 +573,24 @@ Sinh viên đã tiếp nhận và sử dụng những phần sau từ gợi ý c
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
 
 ```text
-Tự phản biện lại đề xuất ban đầu của AI về việc dùng IP Blocking (do nhược điểm chặn nhầm người dùng mạng NAT). Buộc AI chuyển sang Account-based Lockout. Đẩy logic kiểm tra khóa Redis lên TRƯỚC khi truy vấn Database để tối ưu Fast-Fail, tiết kiệm CPU từ hàm băm Bcrypt.
+Viết tại đây...
 ```
 
 #### 4.5. Minh chứng
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | 8d340e6 |
-| File liên quan | AuthServiceImpl.java, AuthController.java |
-| Screenshot | (Tham khảo UI) |
-| Kết quả chạy/test | Đăng nhập sai 3 lần trả về đúng mã 423 Locked |
+| Link commit |  |
+| File liên quan |  |
+| Screenshot |  |
+| Kết quả chạy/test |  |
 | Link video demo |  |
-| Ghi chú khác | Fast-fail hoạt động hoàn hảo |
+| Ghi chú khác |  |
 
 #### 4.6. Nhận xét cá nhân/nhóm
 
 ```text
-Không nên tin tưởng 100% vào giải pháp mặc định của AI. Việc hiểu rõ rủi ro hệ thống (như mạng NAT, giới hạn DB) giúp điều hướng AI thiết kế ra kiến trúc cấp độ Production.
-```
-
----
-
-### Lần sử dụng AI số 4
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 19/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích sử dụng | Thiết kế cơ chế Khóa Kép Đa IP và Action Link qua Email |
-| Phần việc liên quan | Security / Backend |
-| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
-
-#### 4.1. Prompt đã sử dụng
-
-```text
-Oke, nếu như là IP thứ 2 trong vòng 1 ngày mà đăng nhập sai liên tục như thế thì mới khóa toàn bộ tài khoản (kể cả người dùng thật), và lúc này có thể khẳng định là đang bị tấn công... 
-Vấn đề là IP chỉ là một con số, làm sao phân biệt được 2 IP đó? Có thể hiện địa chỉ trực quan được không, ví dụ 'Macbook - Hà Nội, Việt Nam' kiểu thế?
-Và tôi muốn áp dụng biện pháp: Phân biệt nút bấm riêng cho từng IP trong Email. Trong Email cảnh báo, liệt kê danh sách các thiết bị lỗi kèm theo đường link whitelist riêng biệt:
-- Thiết bị 1: MacBook Pro - Hà Nội 👉 [Xác nhận Thiết bị này của tôi]
-- Thiết bị 2: Linux Server - Nga 👉 [Thiết bị lạ (Chặn IP này)]
-Khi click vào nút của Thiết bị 1, server sẽ whitelist IP đó. Bạn hãy thực hiện ở phía backend sao cho code chuẩn, các hàm có tính reuse cao.
-...
-Khoan, vai tôi dùng điện thoại (iPhone) đăng nhập mà sao nó hiện cảnh báo là Macbook???
-```
-
-#### 4.2. Kết quả AI gợi ý
-
-```text
-AI đề xuất kiến trúc Khóa kép (Double-Lockout) và sử dụng thư viện phân tích User-Agent kết hợp gọi API GeoIP (ip-api.com) để lấy vị trí địa lý của IP. Gợi ý sinh Secure Token (TTL 1 giờ) nhúng vào các nút bấm trong Email để người dùng thực hiện hành động Whitelist hoặc Blacklist IP trực tiếp mà không cần đăng nhập lại. 
-Về việc nhận diện sai điện thoại thành Macbook, AI giải thích chi tiết do cơ chế 'Request Desktop Website' của Apple iOS 13+ tự động đổi User-Agent thành Macintosh.
-```
-
-#### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Áp dụng toàn bộ luồng logic sinh Secure Token cho Email Action Link. Tích hợp logic gọi GeoIP API và phân tích User-Agent để lấy thông tin thiết bị/vị trí. Áp dụng luôn cơ chế Khóa kép (kích hoạt khi có từ 2 IP trở lên).
-```
-
-#### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Kiểm chứng thực tế việc Apple thay đổi User-Agent và quyết định giữ nguyên logic nhận diện, thay vào đó hướng dẫn người dùng tắt tính năng giả lập giao diện máy tính trên trình duyệt điện thoại để nhận diện chuẩn xác. Tinh chỉnh lại giao diện nút bấm trong HTML Email cho đẹp và trực quan hơn.
-```
-
-#### 4.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| File liên quan | EmailServiceImpl.java, AuthServiceImpl.java |
-| Kết quả chạy/test | Email được gửi thành công với đúng vị trí địa lý và thiết bị, các nút bấm hoạt động chuẩn xác mở khóa IP. |
-
-#### 4.6. Nhận xét cá nhân/nhóm
-
-```text
-Kiến thức của AI về các "đặc tả ẩn" của các hệ điều hành (như Apple iOS đổi User-Agent) là vô cùng quý giá, giúp giải thích được những bug tưởng chừng như vô lý trong thực tế.
-```
-
----
-
-### Lần sử dụng AI số 5
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 19/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích sử dụng | Thiết kế cơ chế Reset Trạng Thái Bảo Mật (Security State Reset) thông minh |
-| Phần việc liên quan | Security / Backend |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần |
-
-#### 5.1. Prompt đã sử dụng
-
-```text
-Một vấn đề nữa là 1 máy đăng nhập sai nhưng máy kia đăng nhập vào mà nó không reset. Tôi đăng xuất phát xong log sai 1 lần thì nó lại khóa luôn.
-...
-Tức là ở đây khi chủ tài khoản đăng nhập thành công vào hệ thống đang bị khóa một phần, thì máy hacker có bị xóa đếm lỗi không hay xóa hết tất cả?
-```
-
-#### 5.2. Kết quả AI gợi ý
-
-```text
-AI phân tích lỗi không dọn sạch các đếm lỗi của các IP cũ và global lock trong Redis Hash khi có thiết bị đăng nhập thành công. Gợi ý cơ chế dọn sạch bảo mật thông minh: Hệ thống sẽ chỉ xóa đếm lỗi và mở khóa cho IP của thiết bị vừa đăng nhập thành công (chủ tài khoản). Hệ thống KHÔNG xóa đếm lỗi và khóa của máy hacker. Máy của hacker vẫn tiếp tục bị khóa cứng.
-```
-
-#### 5.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Áp dụng cơ chế dọn dẹp bộ đếm lỗi (Clear Failure Count) chỉ định theo địa chỉ IP vào khối logic đăng nhập thành công (Login Success).
-```
-
-#### 5.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Tái cấu trúc cách lưu trữ Redis từ Key-Value String thông thường sang cấu trúc Redis Hash để có thể dễ dàng quản lý (thêm, xóa) trạng thái khóa của nhiều IP trên cùng một tài khoản một cách cô lập và độc lập.
-```
-
-#### 5.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| File liên quan | AuthServiceImpl.java |
-| Kết quả chạy/test | Người dùng thật đăng nhập thành công và bộ đếm bị reset, trong khi IP khác tiếp tục bị block trả về 423 Locked. |
-
-#### 5.6. Nhận xét cá nhân/nhóm
-
-```text
-Tư duy "Cô lập hacker" cần được xác định rõ khi xử lý tài nguyên chung như Redis. Nếu không cẩn thận, việc người dùng đăng nhập thành công vô tình lại "mở cửa" cho hacker.
-```
-
----
-
-### Lần sử dụng AI số 6
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 20/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích sử dụng | Bảo mật Token GitHub (OAuth 2.0) & Mã hóa dữ liệu nhạy cảm |
-| Phần việc liên quan | Security / Integration |
-| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
-
-#### 6.1. Prompt đã sử dụng
-
-```text
-[Lần 1 - Tôi]: Trước đây tôi sử dụng PAT (Personal Access Token) để gọi API GitHub, nhưng rủi ro quá cao nên tôi refactor sang luồng OAuth 2.0. Hãy viết code lưu Access Token vào DB.
-[AI Lần 1]: Trả về đoạn code entity có trường String github_token và lưu trực tiếp.
-
-[Lần 2 - Tôi phản biện]: Cách này quá rủi ro! Nếu Database bị dump thì token lộ hết à? Tôi không chấp nhận lưu plain-text. Hãy đề xuất cơ chế mã hóa AES 2 chiều. Chìa khóa mã hóa không được hardcode. Và nếu Github trả về 401 Unauthorized do token hết hạn thì Backend xử lý sao? KHÔNG được log giá trị token ra màn hình!
-```
-
-#### 6.2. Kết quả AI gợi ý
-
-```text
-AI thừa nhận thiếu sót về bảo mật và đề xuất sử dụng mã hóa đối xứng AES-256 trước khi lưu. Khóa mã hóa được khuyến cáo nạp qua biến môi trường. AI bổ sung luồng try-catch và `RestTemplate Interceptor`, tự động bắt lỗi 401 từ GitHub để xóa token (unlink) và gửi cảnh báo về UI. Phần log được thiết kế ẩn danh hoàn toàn (chỉ log hành động "Cập nhật khóa AES" hoặc "Lỗi 401").
-```
-
-#### 6.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Sử dụng bộ công cụ mã hóa AES của thuật toán Java Cryptography Architecture (JCA) do AI sinh ra. Áp dụng luồng bắt lỗi 401 để quản lý vòng đời OAuth Token.
-```
-
-#### 6.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Thay vì ném lỗi chung chung, nhóm đã bọc ngoại lệ giải mã (Decryption Exception) thành `SecurityException` và tự động kích hoạt luồng "Hủy liên kết tài khoản" nếu phát hiện token lưu trong DB bị hỏng hoặc có dấu hiệu bị can thiệp.
-```
-
-#### 6.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| File liên quan | GithubIntegrationService.java |
-| Kết quả chạy/test | Dữ liệu cột token trong database biến thành chuỗi hash AES vô nghĩa. Nếu token thật trên GitHub bị revoke, backend bắn lỗi 401 và tự xóa liên kết. |
-
-#### 6.6. Nhận xét cá nhân/nhóm
-
-```text
-AI thường làm việc ở chế độ "vừa đủ chạy" (CRUD) nếu không có sức ép. Việc đưa ra yêu cầu phản biện khắt khe (Database Dump, 401 Lifecycle) là bắt buộc để code đạt chuẩn Production.
-```
-
----
-
-### Lần sử dụng AI số 7
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 20/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích sử dụng | Đồng bộ GitHub Issues & Ràng buộc Review Gate |
-| Phần việc liên quan | Webhook / Business Logic / State Machine |
-| Mức độ sử dụng | Phản biện logic / Ép AI cấu trúc lại mã nguồn |
-
-#### 7.1. Prompt đã sử dụng
-
-```text
-[Lần 1 - Tôi]: Tôi cần cập nhật trạng thái Task thành DONE và đồng bộ lên Github Issue qua Webhook.
-[AI Lần 1]: Viết hàm `updateTaskStatus()` thực hiện đổi status = DONE đơn giản.
-
-[Lần 2 - Tôi phản biện]: Logic nghiệp vụ của bạn sai hoàn toàn! App của tôi có quy trình duyệt Task (Review Gate). User không được phép nhảy cóc từ IN_PROGRESS sang DONE mà phải qua bước IN_REVIEW để Mentor duyệt. Bạn viết code như vậy thì user dùng Postman tự bypass hoàn thành task à? 
-Yêu cầu: Viết một State Machine tại tầng Service. Chặn đứng hành vi vượt rào bằng ngoại lệ HTTP 400 Bad Request và ghi log mức độ WARN "Vượt rào duyệt task" kèm IP!
-```
-
-#### 7.2. Kết quả AI gợi ý
-
-```text
-Sau khi bị ép theo Domain Knowledge của dự án, AI đã thiết kế lại `TaskServiceImpl` thành một State Machine chặt chẽ. AI bổ sung kiểm tra: Nếu muốn chuyển sang DONE, bắt buộc `oldStatus == IN_REVIEW` và `mentorApproved == true`. Nếu vi phạm, hệ thống ném `BadRequestException` và dùng Logger.warn() ghi lại IP. Đồng thời, AI cũng nhắc nhở việc cấu hình Webhook Fast-Fail để chặn rác từ GitHub gửi về.
-```
-
-#### 7.3. Phần sinh viên/nhóm đã sử dụng từ AI
-
-```text
-Sử dụng logic State Machine cho vòng đời của Task (Task Lifecycle) và thiết lập cơ chế Fast-Fail cho API nhận Webhook từ GitHub.
-```
-
-#### 7.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
-
-```text
-Cải thiện log truy vết: Tự động ghi nhận số `Issue Number` và `URL` của GitHub khi tạo Task thành công để dễ dàng tracking (Traceability) thay vì chỉ log "Thành công" chung chung.
-```
-
-#### 7.5. Minh chứng
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| File liên quan | TaskServiceImpl.java, GithubWebhookController.java |
-| Kết quả chạy/test | Bắn Postman bypass trạng thái: Backend trả về 400 và log ra Terminal `[WARN] Cố tình vượt rào duyệt task từ IP: 192...` |
-
-#### 7.6. Nhận xét cá nhân/nhóm
-
-```text
-Mô hình AI thiếu ngữ cảnh về Business Logic (Nghiệp vụ). Sự phản biện mạnh mẽ và đặt ra các giả thuyết tấn công (Postman bypass) giúp định hướng lại luồng tư duy của AI.
+Viết tại đây...
 ```
 
 ---
@@ -836,10 +623,9 @@ Ghi lại các trường hợp AI trả lời sai, thiếu, chưa phù hợp ho�
 
 | STT | Lỗi/hạn chế từ AI | Cách phát hiện | Cách xử lý/cải tiến |
 |---:|---|---|---|
-| 1 | Đề xuất dùng IP Blocking để chống Brute-force. | Phân tích thực tế mạng doanh nghiệp (NAT) và hiệu năng DB. | Phản biện và yêu cầu AI đổi sang Account-based Blocking trên Redis. |
-| 2 | Code phân tích User-Agent nhận diện iPhone là Macbook. | Test thực tế bằng iPhone cá nhân. | AI giải thích do tính năng ẩn của iOS 13+. Nhóm chọn cách giữ nguyên thư viện và nhắc người dùng tắt giả lập PC trên điện thoại. |
-| 3 | Xóa key Redis chung làm mở khóa cho cả hacker. | Đặt câu hỏi phản biện về việc máy hacker có được mở khóa không. | Chuyển sang dùng Redis Hash để quản lý đếm lỗi theo từng IP. |
-| 4 | AI chỉ sinh code CRUD cơ bản cho phép update trạng thái Task tự do. | Rà soát quy trình nghiệp vụ (Business Logic). | Cung cấp ngữ cảnh về "Review Gate" và ép AI viết State Machine chặn chuyển trạng thái sai. |
+| 1 |  |  |  |
+| 2 |  |  |  |
+| 3 |  |  |  |
 
 ---
 

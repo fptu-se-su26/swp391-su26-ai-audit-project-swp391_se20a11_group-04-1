@@ -7,7 +7,6 @@ import java.util.List;
 
 public interface TaskService {
     List<TaskResponse> getProjectTasks(Long projectId, Long userId);
-    List<TaskResponse> getHotTasks(Long projectId, Long userId, int limit);
     List<TaskResponse> getMyTasks(Long userId);
     TaskResponse getTask(Long taskId, Long userId);
     TaskResponse createTask(Long projectId, TaskRequest request, Long userId);
@@ -23,10 +22,6 @@ public interface TaskService {
 
     // Leader-only rejection that returns an IN_REVIEW task to work with feedback.
     TaskResponse rejectTaskReview(Long taskId, TaskReviewRequest request, Long userId);
-
-    TaskResponse reopenTaskReview(Long taskId, TaskReviewRequest request, Long userId);
-
-    TaskResponse requestTaskRework(Long taskId, TaskReviewRequest request, Long userId);
 
     // Load the project review queue shown on the Code Insight page.
     List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId);
