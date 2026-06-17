@@ -56,6 +56,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.service.github.GitHubApiService gitHubApiService;
 
     private static final String CACHE_PREFIX = "projects:user:";
     private static final long CACHE_TTL_MINUTES = 10;
@@ -273,6 +274,40 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMemberRepository.save(leaderMember);
         log.info("👑 Assigned user ID: {} as PROJECT_LEADER for project ID: {}", userId, project.getId());
+
+        // Auto configure GitHub Integration if provided
+        if (request.getRepoOwner() != null && !request.getRepoOwner().trim().isEmpty()
+                && request.getRepoName() != null && !request.getRepoName().trim().isEmpty()) {
+            try {
+                log.info("⚙️ Automatically configuring GitHub Integration for project {} with repo: {}/{}", 
+                        project.getId(), request.getRepoOwner(), request.getRepoName());
+                
+                Map<String, Object> configRequest = new java.util.HashMap<>();
+                configRequest.put("repoOwner", request.getRepoOwner().trim());
+                configRequest.put("repoName", request.getRepoName().trim());
+                
+                // Generate a random 24-char webhook secret
+                String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                java.security.SecureRandom random = new java.security.SecureRandom();
+                StringBuilder secretSb = new StringBuilder();
+                for (int i = 0; i < 24; i++) {
+                    secretSb.append(chars.charAt(random.nextInt(chars.length())));
+                }
+                String webhookSecret = secretSb.toString();
+                configRequest.put("webhookSecret", webhookSecret);
+
+                // Save integration configuration
+                gitHubApiService.saveIntegration(project.getId(), configRequest, userId);
+
+                // If webhookUrl is provided, auto configure webhook on GitHub
+                if (request.getWebhookUrl() != null && !request.getWebhookUrl().trim().isEmpty()) {
+                    List<String> events = List.of("issues", "push", "pull_request", "workflow_run", "check_run");
+                    gitHubApiService.autoConfigureWebhook(project.getId(), userId, request.getWebhookUrl().trim(), events, webhookSecret);
+                }
+            } catch (Exception e) {
+                log.error("❌ Failed to automatically configure GitHub webhook during project creation", e);
+            }
+        }
 
         // Do project được query lại hoặc refresh để lấy members list đầy đủ cho việc mapping
         project.setMembers(List.of(leaderMember));

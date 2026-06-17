@@ -105,7 +105,7 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
     }
 
     @Override
-    public Object createRepository(Long userId, String name, String description, boolean isPrivate) {
+    public Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate) {
         String token = integrationService.getDecryptedUserToken(userId);
         HttpHeaders headers = buildAuthHeaders(token);
         String url = "https://api.github.com/user/repos";
@@ -116,6 +116,14 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
             body.put("description", description);
         }
         body.put("private", isPrivate);
+        body.put("auto_init", autoInit);
+        
+        if (gitignoreTemplate != null && !gitignoreTemplate.trim().isEmpty() && !gitignoreTemplate.equalsIgnoreCase("none")) {
+            body.put("gitignore_template", gitignoreTemplate);
+        }
+        if (licenseTemplate != null && !licenseTemplate.trim().isEmpty() && !licenseTemplate.equalsIgnoreCase("none")) {
+            body.put("license_template", licenseTemplate);
+        }
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Map.class);
