@@ -118,9 +118,88 @@ const CodePatchAnalyzer = ({ changedFiles }) => {
     </div>
   )
 }
+// Custom Lightweight Markdown Parser
+const renderMarkdown = (text) => {
+  if (!text) return null;
+  
+  const lines = text.split('\n');
+  const renderedElements = [];
+  let currentList = [];
+
+  const flushList = (key) => {
+    if (currentList.length > 0) {
+      renderedElements.push(
+        <ul key={`list-${key}`} className="list-disc pl-5 mb-3 space-y-1.5 text-left">
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  const parseInline = (str) => {
+    let html = str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+      
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    html = html.replace(/`(.*?)`/g, '<code class="bg-surface-container-high text-primary px-1.5 py-0.5 rounded font-mono text-xs border border-outline-variant/30">$1</code>');
+    
+    return <span dangerouslySetInnerHTML={{ __html: html }} />;
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      const itemContent = trimmed.substring(2);
+      currentList.push(
+        <li key={`li-${idx}`} className="text-sm text-on-surface-variant leading-relaxed text-left">
+          {parseInline(itemContent)}
+        </li>
+      );
+    } else {
+      flushList(idx);
+      
+      if (trimmed.startsWith('#### ')) {
+        renderedElements.push(
+          <h5 key={`h4-${idx}`} className="text-sm font-bold text-on-surface mt-3 mb-1.5 text-left">
+            {parseInline(trimmed.substring(5))}
+          </h5>
+        );
+      } else if (trimmed.startsWith('### ')) {
+        renderedElements.push(
+          <h4 key={`h3-${idx}`} className="text-base font-bold text-primary mt-4 mb-2 text-left">
+            {parseInline(trimmed.substring(4))}
+          </h4>
+        );
+      } else if (trimmed.startsWith('## ')) {
+        renderedElements.push(
+          <h3 key={`h2-${idx}`} className="text-lg font-black text-on-surface mt-5 mb-3 text-left">
+            {parseInline(trimmed.substring(3))}
+          </h3>
+        );
+      } else if (trimmed === '') {
+        renderedElements.push(<div key={`br-${idx}`} className="h-1.5" />);
+      } else {
+        renderedElements.push(
+          <p key={`p-${idx}`} className="text-sm text-on-surface-variant leading-relaxed mb-2 text-left">
+            {parseInline(trimmed)}
+          </p>
+        );
+      }
+    }
+  });
+  
+  flushList(lines.length);
+  return <div className="space-y-1">{renderedElements}</div>;
+};
 
 // Component B: Req-Diff Alignment & Risk Assessment
-const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
+const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, approvalGate }) => {
+  const [showProgressContext, setShowProgressContext] = useState(false);
   const parsedAlignment = useMemo(() => {
     if (!aiReview || !aiReview.alignmentResultJson) return null;
     try {
@@ -131,6 +210,8 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
     }
   }, [aiReview]);
 
+  const targetedCriteria = parsedAlignment?.alignmentMatrix || [];
+
   return (
     <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm mt-4">
       <h3 className="font-bold text-on-surface mb-3 flex items-center gap-2">
@@ -139,12 +220,12 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
       </h3>
 
       {streamingMarkdown && (
-        <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant whitespace-pre-wrap leading-relaxed shadow-sm">
+        <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant leading-relaxed shadow-sm">
           <div className="font-bold text-xs uppercase text-neutral-500 mb-2 flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm text-primary animate-pulse">chat</span>
             Live AI Audit Commentary
           </div>
-          {streamingMarkdown}
+          <div className="text-left">{renderMarkdown(streamingMarkdown)}</div>
         </div>
       )}
 
@@ -164,13 +245,32 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown }) => {
                 aiReview.codeRiskLevel === 'HIGH' ? 'bg-red-100 text-red-800' :
                 aiReview.codeRiskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
                 'bg-blue-100 text-blue-800'
-              }`}>Risk: {aiReview.codeRiskLevel}</span>
+              }`}>Code Risk: {aiReview.codeRiskLevel}</span>
+            )}
+            
+            {/* Overall Task status badge */}
+            {approvalGate && (
+              <span className={`ml-auto px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase flex items-center gap-1.5 border ${
+                approvalGate.approvalStatus === 'BLOCKED' ? 'bg-red-500 text-white border-red-600 animate-pulse' :
+                approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'bg-amber-500 text-white border-amber-600' :
+                'bg-emerald-600 text-white border-emerald-700'
+              }`}>
+                <span className="material-symbols-outlined text-[14px]">
+                  {approvalGate.approvalStatus === 'BLOCKED' ? 'gavel' :
+                   approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'warning' : 'verified'}
+                </span>
+                Gate Status: {
+                  approvalGate.approvalStatus === 'CAN_APPROVE' ? 'READY' :
+                  approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'WARNING' :
+                  approvalGate.approvalStatus || 'UNKNOWN'
+                }
+              </span>
             )}
           </div>
           
           <div className="p-4 bg-surface rounded-xl border border-outline-variant/60">
             <p className="font-bold text-sm text-on-surface mb-1">Executive Summary</p>
-            <p className="text-sm text-on-surface-variant leading-relaxed">{aiReview.summary}</p>
+            <div className="text-left">{renderMarkdown(aiReview.summary)}</div>
           </div>
 
           {parsedAlignment && (
@@ -746,7 +846,7 @@ export function TaskReviewWorkspacePage() {
 
               {/* Component A & B */}
               <CodePatchAnalyzer changedFiles={evidence.changedFiles} />
-              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} requirementAcCoverage={detail?.requirementAcCoverage} />
+              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} requirementAcCoverage={detail?.requirementAcCoverage} approvalGate={detail?.approvalGate} />
             </div>
           </main>
 
