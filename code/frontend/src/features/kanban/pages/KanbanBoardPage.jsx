@@ -35,6 +35,7 @@ const KanbanBoardPage = () => {
   const [isBoardPanning, setIsBoardPanning] = useState(false)
   const [reviewMoveModal, setReviewMoveModal] = useState(null)
   const [reviewMoveReason, setReviewMoveReason] = useState('')
+  const [selectedTargetStatus, setSelectedTargetStatus] = useState('NEEDS_CHANGES')
   const activeProject = useProjectStore((state) => state.activeProject)
   const {
     tasks,
@@ -184,25 +185,6 @@ const KanbanBoardPage = () => {
         const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
         const isIssueTaskOrSubtask = isIssueOwnedTask(task) || isIssueOwnedTask(parentTask)
 
-        if (task.status === 'DONE' && (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'NEEDS_CHANGES')) {
-          if (!isProjectLeader) {
-            toast.error('Only project leaders can reopen a Done task.')
-            setDraggingTaskId(null)
-            setDragOverStatus(null)
-            return
-          }
-          setReviewMoveModal({
-            taskId,
-            taskTitle: task.title,
-            targetStatus: targetStatusKey,
-            targetLabel: targetStatusKey === 'IN_REVIEW' ? 'Reopened for review' : 'Needs Changes',
-          })
-          setReviewMoveReason('')
-          setDraggingTaskId(null)
-          setDragOverStatus(null)
-          return
-        }
-
         if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
           if (isIssueTaskOrSubtask) {
             toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')
@@ -210,10 +192,28 @@ const KanbanBoardPage = () => {
             setDragOverStatus(null)
             return
           }
+
+          if (!isProjectLeader) {
+            toast.error('Only project leaders can reopen a Done task.')
+            setDraggingTaskId(null)
+            setDragOverStatus(null)
+            return
+          }
+
+          setReviewMoveModal({
+            taskId,
+            taskTitle: task.title,
+            targetStatus: targetStatusKey,
+            targetLabel: 'Reopen Completed Task',
+          })
+          setSelectedTargetStatus(targetStatusKey === 'IN_REVIEW' ? 'IN_REVIEW' : 'NEEDS_CHANGES')
+          setReviewMoveReason('')
+          setDraggingTaskId(null)
+          setDragOverStatus(null)
+          return
         }
 
         const isUnassigned = !task.assignee?.id
-        // If moving OUT of TODO and it's unassigned
         if (isUnassigned && targetStatusKey !== 'TODO' && targetStatusKey !== 'OPEN') {
           toast.error('Task chưa được assign, không thể chuyển sang trạng thái này!')
           setDraggingTaskId(null)
@@ -374,11 +374,11 @@ const KanbanBoardPage = () => {
     event.preventDefault()
     if (!reviewMoveModal || !reviewMoveReason.trim()) return
     const reason = reviewMoveReason.trim()
-    const updatedTask = reviewMoveModal.targetStatus === 'IN_REVIEW'
+    const updatedTask = selectedTargetStatus === 'IN_REVIEW'
       ? await reopenTaskReview(reviewMoveModal.taskId, reason)
       : await requestTaskRework(reviewMoveModal.taskId, reason)
     if (updatedTask) {
-      toast.success(reviewMoveModal.targetStatus === 'IN_REVIEW' ? 'Task reopened for review.' : 'Task marked as Needs Changes.')
+      toast.success(selectedTargetStatus === 'IN_REVIEW' ? 'Task reopened for review.' : 'Task marked as Needs Changes.')
       setReviewMoveModal(null)
       setReviewMoveReason('')
     }
@@ -498,9 +498,58 @@ const KanbanBoardPage = () => {
               <p className="font-label-md text-label-md uppercase text-primary">{reviewMoveModal.targetLabel}</p>
               <h2 className="mt-1 text-lg font-bold text-on-surface">{reviewMoveModal.taskTitle}</h2>
             </div>
-            <div className="space-y-3 p-5">
-              <label className="block">
-                <span className="text-sm font-semibold text-on-surface">Reason</span>
+            <div className="space-y-4 p-5">
+              {/* Target Status / Action Selector */}
+              <div className="space-y-1.5 text-left">
+                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Reopen Action / Target Status</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTargetStatus('NEEDS_CHANGES')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                      selectedTargetStatus === 'NEEDS_CHANGES'
+                        ? 'bg-[#fef3c7] text-[#92400e] border-[#f59e0b]'
+                        : 'bg-surface border-outline-variant hover:bg-surface-container-high text-on-surface-variant'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">warning</span>
+                    Request Rework (Needs Changes)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTargetStatus('IN_REVIEW')}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                      selectedTargetStatus === 'IN_REVIEW'
+                        ? 'bg-primary-container/20 text-primary border-primary'
+                        : 'bg-surface border-outline-variant hover:bg-surface-container-high text-on-surface-variant'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">find_in_page</span>
+                    Send to Review (In Review)
+                  </button>
+                </div>
+              </div>
+
+              {selectedTargetStatus === 'IN_REVIEW' ? (
+                <div className="rounded-lg border border-[#f59e0b]/30 bg-[#fef3c7]/60 p-3 text-xs text-[#92400e] text-left flex gap-2 items-start">
+                  <span className="material-symbols-outlined text-[18px] shrink-0 text-[#d97706]">info</span>
+                  <div>
+                    <strong className="block mb-0.5 font-bold">Lưu ý quan trọng:</strong>
+                    Bạn đang chọn đưa task về cột <strong>In Review</strong> (Đang đánh giá). Task sẽ không chuyển sang cột <strong>Needs Changes</strong> (Yêu cầu sửa đổi). Lập trình viên sẽ tiếp tục đợi đánh giá tiếp. Nếu task có lỗi hoặc cần Dev chỉnh sửa lại code/tài liệu, hãy bấm chọn nút <strong>Request Rework (Needs Changes)</strong> ở trên.
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-red-500/20 bg-red-50/60 p-3 text-xs text-red-800 text-left flex gap-2 items-start">
+                  <span className="material-symbols-outlined text-[18px] shrink-0 text-red-600">warning</span>
+                  <div>
+                    <strong className="block mb-0.5 font-bold">Yêu cầu sửa đổi (Needs Changes):</strong>
+                    Task sẽ được chuyển sang cột <strong>Needs Changes</strong>. Lập trình viên phụ trách sẽ được yêu cầu chỉnh sửa lại code/tài liệu dựa trên lý do bạn nhập phía dưới.
+                  </div>
+                </div>
+              )}
+
+              <label className="block text-left">
+                <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Reason / Lý do mở lại</span>
                 <textarea
                   value={reviewMoveReason}
                   onChange={(event) => setReviewMoveReason(event.target.value)}
@@ -510,8 +559,8 @@ const KanbanBoardPage = () => {
                   placeholder="Explain why this Done task needs another review or rework."
                 />
               </label>
-              <div className="rounded border border-[#f59e0b]/30 bg-[#fef3c7] px-3 py-2 text-sm text-[#92400e]">
-                This reason will be shown on the task card and saved in review history.
+              <div className="rounded border border-[#f59e0b]/30 bg-[#fef3c7]/40 px-3 py-2 text-sm text-[#92400e] text-left">
+                Lý do này sẽ được hiển thị trên thẻ task và được lưu trong lịch sử review.
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
