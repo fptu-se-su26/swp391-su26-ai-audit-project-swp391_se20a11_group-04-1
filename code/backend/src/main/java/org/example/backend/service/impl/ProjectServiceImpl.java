@@ -200,9 +200,9 @@ public class ProjectServiceImpl implements ProjectService {
         // Evict cache ngay khi có mutation
         evictUserProjectsCache(userId);
 
-        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject)
-        String semester = "Summer 2026";
-        String academicYear = "2026";
+        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject) cho Personal Project
+        AcademicSeason semester = AcademicSeason.PERSONAL;
+        String academicYear = String.valueOf(java.time.LocalDate.now().getYear());
         String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
 
         TypedQuery<AcademicContext> query = entityManager.createQuery(
@@ -248,7 +248,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")
                 .type(projectType)
                 .academicContext(academicContext)
-                .startDate(LocalDate.now())
+                .startDate(java.time.LocalDate.now())
                 .deadline(deadline)
                 .status(ProjectStatus.PLANNING)
                 .createdBy(creator)
@@ -715,7 +715,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .title(project.getName())
                 .major(project.getAcademicContext() != null ? project.getAcademicContext().getSubject() : project.getType().name())
                 .status(project.getStatus().name())
-                .semester(project.getAcademicContext() != null ? project.getAcademicContext().getSemester() : "Fall 2023")
+                .semester(project.getAcademicContext() != null && project.getAcademicContext().getSemester() != null ? project.getAcademicContext().getSemester().name() + " " + project.getAcademicContext().getAcademicYear() : "PERSONAL " + java.time.LocalDate.now().getYear())
                 .role(localRole)
                 .atRiskReqCount(project.getAtRiskReqCount())
                 .deadline(project.getDeadline())
