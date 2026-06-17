@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
-import org.example.backend.repository.CodeInsightManualEvidenceLinkRepository;
+import org.example.backend.repository.ManualEvidenceLinkRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
@@ -24,7 +24,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
     private final TaskRepository taskRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
-    private final CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    private final ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubCheckRunRepository checkRunRepository;
@@ -44,11 +44,11 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
         List<CodeInsightEvidenceLink> evidenceLinks = task.getId() != null
                 ? evidenceLinkRepository.findByTaskId(task.getId())
                 : Collections.emptyList();
-        List<CodeInsightManualEvidenceLink> confirmedManualLinks = task.getId() != null
-                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), CodeInsightManualEvidenceLinkStatus.CONFIRMED)
+        List<ManualEvidenceLink> confirmedManualLinks = task.getId() != null
+                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), ManualEvidenceLinkStatus.CONFIRMED)
                 : Collections.emptyList();
-        List<CodeInsightManualEvidenceLink> pendingManualLinks = task.getId() != null
-                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), CodeInsightManualEvidenceLinkStatus.PENDING)
+        List<ManualEvidenceLink> pendingManualLinks = task.getId() != null
+                ? manualEvidenceLinkRepository.findByTaskIdAndStatus(task.getId(), ManualEvidenceLinkStatus.PENDING)
                 : Collections.emptyList();
         boolean hasPendingManualLinks = !pendingManualLinks.isEmpty();
 
@@ -218,7 +218,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
 
     private EvidenceStats buildEvidenceStats(
             List<CodeInsightEvidenceLink> evidenceLinks,
-            List<CodeInsightManualEvidenceLink> manualLinks) {
+            List<ManualEvidenceLink> manualLinks) {
         List<Long> commitIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.COMMIT);
         List<Long> pullRequestIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.PULL_REQUEST);
         List<Long> checkRunIds = evidenceIds(evidenceLinks, CodeInsightEvidenceType.CHECK_RUN);
@@ -265,10 +265,10 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
                 .toList();
     }
 
-    private List<Long> manualEvidenceIds(List<CodeInsightManualEvidenceLink> manualLinks, CodeInsightEvidenceType evidenceType) {
+    private List<Long> manualEvidenceIds(List<ManualEvidenceLink> manualLinks, CodeInsightEvidenceType evidenceType) {
         return manualLinks.stream()
                 .filter(link -> link.getEvidenceType() == evidenceType)
-                .map(CodeInsightManualEvidenceLink::getEvidenceId)
+                .map(ManualEvidenceLink::getEvidenceId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();

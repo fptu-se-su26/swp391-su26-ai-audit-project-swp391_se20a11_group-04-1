@@ -1,16 +1,16 @@
 package org.example.backend.service.impl;
 
 import org.example.backend.dto.CodeInsightApprovalGateResponse;
-import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
+import org.example.backend.dto.TaskEvidenceResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
-import org.example.backend.dto.CodeInsightReviewDetailResponse;
+import org.example.backend.dto.TaskReviewDetailResponse;
 import org.example.backend.dto.ReqDiffAlignmentResult;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
 import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.service.CodeInsightAiReviewService;
-import org.example.backend.service.CodeInsightManualEvidenceLinkService;
+import org.example.backend.service.ManualEvidenceLinkService;
 import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightScoringService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,8 +31,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("CodeInsightServiceImpl")
-class CodeInsightServiceImplTest {
+@DisplayName("TaskReviewServiceImpl")
+class TaskReviewServiceImplTest {
 
     @Mock private ProjectRepository projectRepository;
     @Mock private ProjectMemberRepository projectMemberRepository;
@@ -44,21 +44,21 @@ class CodeInsightServiceImplTest {
     @Mock private GitHubPullRequestRepository pullRequestRepository;
     @Mock private GitHubPullRequestFileRepository pullRequestFileRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;
-    @Mock private CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    @Mock private ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     @Mock private GitHubWebhookEventRepository webhookEventRepository;
     @Mock private TaskReviewDecisionRepository taskReviewDecisionRepository;
     @Mock private CodeInsightScoringService scoringService;
     @Mock private CodeInsightPatchService patchService;
     @Mock private CodeInsightAiReviewService aiReviewService;
     @Mock private CodeInsightApprovalGateService approvalGateService;
-    @Mock private CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
+    @Mock private ManualEvidenceLinkService manualEvidenceLinkService;
     @Mock private CodeInsightAiReviewRepository aiReviewRepository;
     @Mock private ObjectMapper objectMapper;
     @Mock private EvidenceLinkRepository generalEvidenceLinkRepository;
     @Mock private RequirementRepository requirementRepository;
 
     @InjectMocks
-    private CodeInsightServiceImpl codeInsightService;
+    private TaskReviewServiceImpl TaskReviewService;
 
     @Test
     void getTaskEvidenceReturnsLinkedGithubMetadata() {
@@ -113,7 +113,7 @@ class CodeInsightServiceImplTest {
                 .warnings(List.of())
                 .build());
 
-        CodeInsightTaskEvidenceResponse response = codeInsightService.getTaskEvidence(10L, 12L, 5L);
+        TaskEvidenceResponse response = TaskReviewService.getTaskEvidence(10L, 12L, 5L);
 
         assertThat(response.getTask().getTitle()).isEqualTo("Implement login");
         assertThat(response.getGithubIssue().getNumber()).isEqualTo(34);
@@ -127,7 +127,7 @@ class CodeInsightServiceImplTest {
     void getTaskEvidenceRejectsNonMember() {
         when(projectMemberRepository.findByProjectIdAndUserId(10L, 5L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> codeInsightService.getTaskEvidence(10L, 12L, 5L))
+        assertThatThrownBy(() -> TaskReviewService.getTaskEvidence(10L, 12L, 5L))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("You do not have access to this project");
     }
@@ -231,19 +231,19 @@ class CodeInsightServiceImplTest {
         when(objectMapper.readValue("alignment-json", ReqDiffAlignmentResult.class)).thenReturn(alignResult);
 
         // Run service method
-        CodeInsightReviewDetailResponse response = codeInsightService.getReviewDetail(projectId, taskId, userId);
+        TaskReviewDetailResponse response = TaskReviewService.getReviewDetail(projectId, taskId, userId);
 
         // Assertions
         assertThat(response).isNotNull();
         assertThat(response.getRequirementAcCoverage()).hasSize(2);
         
-        CodeInsightReviewDetailResponse.RequirementAcCoverageSummary sum1 = response.getRequirementAcCoverage().get(0);
+        TaskReviewDetailResponse.RequirementAcCoverageSummary sum1 = response.getRequirementAcCoverage().get(0);
         assertThat(sum1.getAcText()).isEqualTo("AC1");
         assertThat(sum1.getStatus()).isEqualTo("FULLY_COVERED");
         assertThat(sum1.getCoveredByTaskId()).isEqualTo(13L);
         assertThat(sum1.getCoveredByTaskCode()).isEqualTo("TSK-13");
 
-        CodeInsightReviewDetailResponse.RequirementAcCoverageSummary sum2 = response.getRequirementAcCoverage().get(1);
+        TaskReviewDetailResponse.RequirementAcCoverageSummary sum2 = response.getRequirementAcCoverage().get(1);
         assertThat(sum2.getAcText()).isEqualTo("AC2");
         assertThat(sum2.getStatus()).isEqualTo("PARTIAL");
         assertThat(sum2.getCoveredByTaskId()).isEqualTo(13L);

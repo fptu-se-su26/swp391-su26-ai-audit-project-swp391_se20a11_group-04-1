@@ -29,7 +29,7 @@ class CodeInsightApprovalGateServiceImplTest {
     @Mock private CodeInsightScoringService scoringService;
     @Mock private ProjectCodeInsightSettingsRepository settingsRepository;
     @Mock private CodeInsightEvidenceLinkRepository codeInsightEvidenceLinkRepository;
-    @Mock private CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    @Mock private ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     @Mock private CodeInsightAiReviewRepository aiReviewRepository;
     @Mock private EvidenceLinkRepository generalEvidenceLinkRepository;
     @Mock private EvidenceConfidenceService confidenceService;
