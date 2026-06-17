@@ -167,7 +167,7 @@ const Sidebar = () => {
               defaultIconClass="text-primary-container"
             />
             <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
-            <NavItem to={`/projects/${activeProject.id}/code-insight`} icon="code" label="Code Insight" />
+            <NavItem to={`/projects/${activeProject.id}/task-reviews`} icon="fact_check" label="Task Review" />
 
             {/* Team Section */}
             <div className="pt-4 pb-2">

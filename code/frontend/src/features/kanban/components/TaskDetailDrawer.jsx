@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
+import { isIssueOwnedTask } from '../utils/taskMapper'
 
 const cleanDescription = (desc) => {
   if (!desc) return '';
@@ -187,9 +188,8 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                   const targetStatusKey = column?.statusKey || task.status
 
                   if (task.status === 'DONE' && targetStatusKey !== 'DONE' && targetStatusKey !== 'BLOCKED') {
-                    const isFromIssue = (t) => t && (t.githubIssueNumber != null || t.type === 'BUG_FIX')
                     const parentTask = task.parentId ? tasks.find((t) => String(t.id) === String(task.parentId)) : null
-                    const isIssueTaskOrSubtask = isFromIssue(task) || isFromIssue(parentTask)
+                    const isIssueTaskOrSubtask = isIssueOwnedTask(task) || isIssueOwnedTask(parentTask)
 
                     if (isIssueTaskOrSubtask) {
                       toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')

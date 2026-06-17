@@ -28,4 +28,5 @@ public class RequirementResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> tags;
+    private List<String> coveredCriteria;
 }

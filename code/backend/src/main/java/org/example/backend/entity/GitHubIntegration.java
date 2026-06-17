@@ -33,6 +33,15 @@ public class GitHubIntegration {
     @Column(name = "webhook_secret_encrypted")
     private String webhookSecretEncrypted;
 
+    @Column(name = "webhook_url", length = 500)
+    private String webhookUrl;
+
+    @Column(name = "webhook_events_json", columnDefinition = "TEXT")
+    private String webhookEventsJson;
+
+    @Column(name = "webhook_last_synced_at")
+    private LocalDateTime webhookLastSyncedAt;
+
     @Column(name = "connected_at", nullable = false)
     @Builder.Default
     private LocalDateTime connectedAt = LocalDateTime.now();

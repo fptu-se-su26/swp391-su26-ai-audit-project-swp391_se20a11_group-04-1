@@ -2,6 +2,8 @@ package org.example.backend.service.github.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.entity.GitHubIntegration;
 import org.example.backend.entity.UserGithubToken;
 import org.example.backend.exception.CustomException;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +36,10 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
     private final UserGithubTokenRepository userGithubTokenRepository;
     private final GitHubIntegrationService integrationService;
     private final RestTemplate restTemplate = new RestTemplate(new org.springframework.http.client.JdkClientHttpRequestFactory());
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final List<String> CODE_INSIGHT_RECOMMENDED_EVENTS = List.of(
+            "issues", "push", "pull_request", "workflow_run", "check_run");
 
     @Override
     public Map<String, Object> getWebhookDeliveryStatus(Long projectId, Long userId) {
@@ -191,6 +198,7 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
                     if (config != null && webhookUrl.equals(config.get("url"))) {
                         Long hookId = ((Number) hook.get("id")).longValue();
                         updateWebhook(hookId, hooksUrl, webhookUrl, integration.getWebhookSecretEncrypted(), events, headers);
+                        persistWebhookConfig(integration, webhookUrl, normalizedEvents(events));
                         return;
                     }
                 }
@@ -203,6 +211,7 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
         Map<String, Object> body = webhookRequestBody(webhookUrl, integration.getWebhookSecretEncrypted(), events);
         try {
             restTemplate.postForEntity(hooksUrl, new HttpEntity<>(body, headers), Map.class);
+            persistWebhookConfig(integration, webhookUrl, normalizedEvents(events));
             log.info("Auto-configured webhook for project {} at {}", projectId, hooksUrl);
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             String errorBody = e.getResponseBodyAsString();
@@ -212,6 +221,37 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
             log.error("Failed to create webhook", e);
             throw new CustomException("Failed to auto-configure webhook on GitHub", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public Map<String, Object> refreshWebhookConfig(Long projectId, Long userId) {
+        GitHubIntegration integration = integrationService.getIntegration(projectId, userId);
+        if (integration == null) throw new CustomException("GitHub integration not found", HttpStatus.NOT_FOUND);
+
+        HttpHeaders headers = buildAuthHeaders(integrationService.getDecryptedUserToken(userId));
+        ResponseEntity<List> hooksResp = restTemplate.exchange(hooksUrl(integration), HttpMethod.GET, new HttpEntity<>(headers), List.class);
+        if (hooksResp.getBody() == null || hooksResp.getBody().isEmpty()) {
+            throw new CustomException("No webhook found on GitHub repository", HttpStatus.NOT_FOUND);
+        }
+
+        for (Object item : hooksResp.getBody()) {
+            Map<String, Object> hook = (Map<String, Object>) item;
+            Map<String, Object> config = (Map<String, Object>) hook.get("config");
+            if (config != null && config.get("url") != null && config.get("url").toString().contains("/api/v1/github/webhook")) {
+                String webhookUrl = config.get("url").toString();
+                List<String> events = hook.get("events") instanceof List
+                        ? (List<String>) hook.get("events")
+                        : CODE_INSIGHT_RECOMMENDED_EVENTS;
+                persistWebhookConfig(integration, webhookUrl, events);
+                Map<String, Object> status = toStatusMap(hook);
+                status.put("webhookUrl", webhookUrl);
+                status.put("webhookEvents", events);
+                status.put("webhookActive", hook.get("active"));
+                return status;
+            }
+        }
+
+        throw new CustomException("Could not find the specific Audit Tool webhook on this repository", HttpStatus.NOT_FOUND);
     }
 
     private Map<String, Object> toStatusMap(Map<String, Object> hook) {
@@ -267,8 +307,13 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
         try {
             restTemplate.exchange(updateUrl, HttpMethod.PATCH, new HttpEntity<>(body, headers), Map.class);
             log.info("Updated existing webhook {} at {}", hookId, updateUrl);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            String errorBody = e.getResponseBodyAsString();
+            log.error("Failed to update webhook. HTTP {}. Body: {}", e.getStatusCode(), errorBody);
+            throw new CustomException("GitHub API Error: " + errorBody, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
-            log.warn("Failed to update existing webhook. It might still work if config is identical.", e);
+            log.error("Failed to update existing webhook", e);
+            throw new CustomException("Failed to update webhook on GitHub", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -277,7 +322,7 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
         body.put("name", "web");
         body.put("active", true);
         if (events == null || events.isEmpty()) {
-            body.put("events", Arrays.asList("push"));
+            body.put("events", CODE_INSIGHT_RECOMMENDED_EVENTS);
         } else if (events.contains("*")) {
             body.put("events", Arrays.asList("*"));
         } else {
@@ -291,6 +336,23 @@ public class GitHubWebhookDeliveryServiceImpl implements GitHubWebhookDeliverySe
         config.put("secret", integrationService.decryptToken(encryptedSecret));
         body.put("config", config);
         return body;
+    }
+
+    private List<String> normalizedEvents(List<String> events) {
+        if (events == null || events.isEmpty()) return CODE_INSIGHT_RECOMMENDED_EVENTS;
+        if (events.contains("*")) return Arrays.asList("*");
+        return events;
+    }
+
+    private void persistWebhookConfig(GitHubIntegration integration, String webhookUrl, List<String> events) {
+        integration.setWebhookUrl(webhookUrl);
+        try {
+            integration.setWebhookEventsJson(objectMapper.writeValueAsString(events));
+        } catch (JsonProcessingException e) {
+            throw new CustomException("Failed to persist webhook event configuration", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        integration.setWebhookLastSyncedAt(LocalDateTime.now());
+        gitHubIntegrationRepository.save(integration);
     }
 
     private String hooksUrl(GitHubIntegration integration) {

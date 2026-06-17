@@ -73,6 +73,21 @@ public class CodeInsightAiReview {
     @Builder.Default
     private int scoreAdjustment = 0;
 
+    @Column(name = "alignment_result_json", columnDefinition = "TEXT")
+    private String alignmentResultJson;
+
+    @Column(name = "alignment_coverage_ratio")
+    private Double alignmentCoverageRatio;
+
+    @Column(name = "alignment_covered_count")
+    private Integer alignmentCoveredCount;
+
+    @Column(name = "alignment_total_count")
+    private Integer alignmentTotalCount;
+
+    @Column(name = "code_risk_level", length = 20)
+    private String codeRiskLevel;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
