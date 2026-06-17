@@ -442,6 +442,7 @@ public class TaskReviewServiceImpl implements TaskReviewService {
                 .title(task.getTitle())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
                 .priority(task.getPriority() != null ? task.getPriority().name() : null)
+                .type(task.getType() != null ? task.getType().name() : null)
                 .requirementCode(requirementCode(task))
                 .assigneeName(task.getPrimaryAssignee() != null ? displayName(task.getPrimaryAssignee()) : "Unassigned")
                 .build();

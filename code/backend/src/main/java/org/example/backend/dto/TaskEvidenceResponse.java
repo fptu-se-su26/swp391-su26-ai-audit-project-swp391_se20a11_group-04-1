@@ -34,6 +34,7 @@ public class TaskEvidenceResponse {
         private String title;
         private String status;
         private String priority;
+        private String type;
         private String requirementCode;
         private String assigneeName;
     }
