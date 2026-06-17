@@ -1,6 +1,6 @@
 package org.example.backend.entity;
 
-public enum CodeInsightManualEvidenceLinkStatus {
+public enum ManualEvidenceLinkStatus {
     PENDING,
     CONFIRMED,
     REJECTED

@@ -40,8 +40,8 @@ public class TaskReviewDecision {
     @Column(columnDefinition = "TEXT")
     private String reason;
 
-    @Column(name = "code_insight_review_id")
-    private Long codeInsightReviewId;
+    @Column(name = "task_review_snapshot_id")
+    private Long TaskReviewSnapshotId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

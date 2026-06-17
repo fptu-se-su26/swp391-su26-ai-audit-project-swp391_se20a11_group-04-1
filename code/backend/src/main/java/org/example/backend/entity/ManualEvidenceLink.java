@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "code_insight_manual_evidence_links",
+@Table(name = "manual_evidence_links",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_code_insight_manual_links_target",
                 columnNames = {"project_id", "task_id", "evidence_type", "evidence_id"}))
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightManualEvidenceLink {
+public class ManualEvidenceLink {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,7 +38,7 @@ public class CodeInsightManualEvidenceLink {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private CodeInsightManualEvidenceLinkStatus status;
+    private ManualEvidenceLinkStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "suggested_by", nullable = false)
