@@ -7,5 +7,5 @@ public interface GitHubOAuthService {
 
     Object getUserRepositories(Long userId);
 
-    Object createRepository(Long userId, String name, String description, boolean isPrivate);
+    Object createRepository(Long userId, String name, String description, boolean isPrivate, boolean autoInit, String gitignoreTemplate, String licenseTemplate);
 }

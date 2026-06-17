@@ -52,11 +52,20 @@ public class UseCase {
     @Column(name = "alternative_flow", columnDefinition = "jsonb")
     private String alternativeFlow;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "includes_list", columnDefinition = "jsonb")
+    private List<String> includesList;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extends_list", columnDefinition = "jsonb")
+    private List<String> extendsList;
+
+    @Enumerated(EnumType.STRING)
     @Column(length = 50)
-    private String status = "DRAFT";
+    private UseCaseStatus status = UseCaseStatus.DRAFT;
 
     @Column(length = 20)
-    private String version = "v1.0";
+    private String version = org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION;
 
     @Column(name = "completeness_score")
     private Integer completenessScore = 0;
@@ -76,12 +85,43 @@ public class UseCase {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
+    @Column(name = "ai_generated")
+    private boolean aiGenerated = false;
+
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
+
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();
+    
+    @Column(name = "req_version_hash", length = 255)
+    private String reqVersionHash;
+    
+    @Column(name = "show_in_diagram", nullable = false)
+    private boolean showInDiagram = true;
+    
+    @Column(name = "added_from_diagram", nullable = false)
+    private boolean addedFromDiagram = false;
     
     // Helper method để thêm actor đồng bộ 2 chiều
     public void addActor(UseCaseActor actor) {
         actors.add(actor);
         actor.setUseCase(this);
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void calculateCompletenessScore() {
+        int score = 0;
+        int totalFields = 6;
+        
+        if (name != null && !name.trim().isEmpty()) score++;
+        if (precondition != null && !precondition.trim().isEmpty()) score++;
+        if (postcondition != null && !postcondition.trim().isEmpty()) score++;
+        if (mainFlow != null && !mainFlow.trim().isEmpty() && !mainFlow.equals("[]")) score++;
+        if (alternativeFlow != null && !alternativeFlow.trim().isEmpty() && !alternativeFlow.equals("[]")) score++;
+        if (actors != null && !actors.isEmpty()) score++;
+        
+        this.completenessScore = Math.round(((float) score / totalFields) * 100);
     }
 }

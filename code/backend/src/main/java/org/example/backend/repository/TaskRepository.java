@@ -19,6 +19,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     List<Task> findByParentId(Long parentId);
 
+    List<Task> findByRequirementId(Long requirementId);
+
     List<Task> findByStatus(org.example.backend.entity.TaskStatus status);
 
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
@@ -48,6 +50,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(Long projectId, Long sprintId);
 
     long countBySprintId(Long sprintId);
+
+    List<Task> findByRequirementId(Long requirementId);
+
+    List<Task> findByUseCaseId(Long useCaseId);
 
     // ── Daily View queries ────────────────────────────────────────────────────
 

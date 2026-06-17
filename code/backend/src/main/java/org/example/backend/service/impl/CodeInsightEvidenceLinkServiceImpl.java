@@ -7,6 +7,7 @@ import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.CodeInsightEvidenceLinkService;
+import org.example.backend.service.WebSocketBroadcastService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class CodeInsightEvidenceLinkServiceImpl implements CodeInsightEvidenceLi
     private final TaskRepository taskRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
+    private final WebSocketBroadcastService webSocketBroadcastService;
 
     @Override
     @Transactional
@@ -198,6 +200,9 @@ public class CodeInsightEvidenceLinkServiceImpl implements CodeInsightEvidenceLi
                 .confidence(CodeInsightEvidenceConfidence.HIGH)
                 .reason(reason)
                 .build());
+
+        // Broadcast to WebSocket to let client know a new evidence link has been created
+        webSocketBroadcastService.broadcastEvidenceLinked(project.getId(), task.getId(), evidenceType.name(), source.name());
     }
 
     private Integer parseInt(String value) {

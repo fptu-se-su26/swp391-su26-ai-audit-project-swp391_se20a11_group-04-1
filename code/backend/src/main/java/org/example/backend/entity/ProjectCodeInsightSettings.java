@@ -38,11 +38,15 @@ public class ProjectCodeInsightSettings {
 
     @Column(name = "ai_review_enabled", nullable = false)
     @Builder.Default
-    private boolean aiReviewEnabled = false;
+    private boolean aiReviewEnabled = true;
 
     @Column(name = "min_score_warning_threshold", nullable = false)
     @Builder.Default
     private int minScoreWarningThreshold = 70;
+
+    @Column(name = "block_score_threshold", nullable = false)
+    @Builder.Default
+    private int blockScoreThreshold = 50;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

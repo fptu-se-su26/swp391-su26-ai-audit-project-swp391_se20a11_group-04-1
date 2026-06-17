@@ -3,18 +3,33 @@ package org.example.backend.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.CodeInsightAiProviderResult;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
+import org.example.backend.dto.CodePatchAnalysisResult;
+import org.example.backend.dto.ReqDiffAlignmentResult;
 import org.example.backend.entity.CodeInsightAiReview;
+import org.example.backend.entity.CodeInsightEvidenceLink;
+import org.example.backend.entity.CodeInsightEvidenceType;
+import org.example.backend.entity.ProjectCodeInsightSettings;
 import org.example.backend.entity.Task;
+import org.example.backend.entity.Requirement;
+import org.example.backend.entity.GitHubPullRequestFile;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.CodeInsightAiReviewRepository;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.GitHubPullRequestFileRepository;
+import org.example.backend.repository.ProjectCodeInsightSettingsRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.RequirementRepository;
+import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightAiProvider;
 import org.example.backend.service.CodeInsightAiReviewInputBuilder;
 import org.example.backend.service.CodeInsightAiReviewService;
 import org.example.backend.service.CodeInsightScoringService;
+import org.example.backend.service.CodePatchAnalyzerService;
+import org.example.backend.service.ReqDiffAlignmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +39,22 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewService {
 
     private final TaskRepository taskRepository;
+    private final ProjectCodeInsightSettingsRepository settingsRepository;
+    private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final GitHubPullRequestFileRepository pullRequestFileRepository;
+    private final CodeInsightPatchService patchService;
     private final CodeInsightScoringService scoringService;
     private final CodeInsightAiReviewInputBuilder inputBuilder;
     private final CodeInsightAiProvider aiProvider;
     private final CodeInsightAiReviewRepository aiReviewRepository;
     private final ObjectMapper objectMapper;
+    private final RequirementRepository requirementRepository;
+    private final CodePatchAnalyzerService patchAnalyzerService;
+    private final ReqDiffAlignmentService alignmentService;
 
     @Override
     @Transactional
@@ -41,9 +64,83 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
         if (task.getProject() == null || !projectId.equals(task.getProject().getId())) {
             throw new CustomException("Task does not belong to this project", HttpStatus.BAD_REQUEST);
         }
+        ProjectCodeInsightSettings settings = settingsRepository.findByProjectId(projectId)
+                .orElse(ProjectCodeInsightSettings.builder().aiReviewEnabled(true).build());
+        if (!settings.isAiReviewEnabled()) {
+            throw new CustomException("AI Review is disabled for this project", HttpStatus.FORBIDDEN);
+        }
+        ensureChangedFilesLoaded(projectId, taskId, userId);
 
         TaskReviewDecisionResponse.ReviewEvidenceSummary score = scoringService.buildReviewEvidenceSummary(task);
         CodeInsightAiProviderResult result = aiProvider.review(inputBuilder.build(task, score));
+
+        // --- Phase 4: Req-Diff Alignment & Risk Assessment ---
+        List<Long> pullRequestIds = evidenceLinkRepository.findByTaskId(taskId).stream()
+                .filter(link -> link.getEvidenceType() == CodeInsightEvidenceType.PULL_REQUEST)
+                .map(CodeInsightEvidenceLink::getEvidenceId)
+                .distinct()
+                .toList();
+
+        CodePatchAnalysisResult analysisResult = null;
+        ReqDiffAlignmentResult alignmentResult = null;
+
+        if (!pullRequestIds.isEmpty()) {
+            List<GitHubPullRequestFile> files = pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds);
+            StringBuilder rawDiffBuilder = new StringBuilder();
+            for (GitHubPullRequestFile file : files) {
+                rawDiffBuilder.append("--- ").append(file.getFilePath()).append("\n");
+                rawDiffBuilder.append("+++ ").append(file.getFilePath()).append("\n");
+                if (file.getPatchSummary() != null) {
+                    rawDiffBuilder.append(file.getPatchSummary()).append("\n");
+                }
+            }
+            String rawDiff = rawDiffBuilder.toString();
+            try {
+                delay(1500);
+                analysisResult = patchAnalyzerService.analyzePatch(rawDiff);
+            } catch (Exception ex) {
+                log.error("Failed to analyze patch for task " + taskId, ex);
+            }
+        }
+
+        List<String> acceptanceCriteria = List.of();
+        if (task.getRequirementId() != null) {
+            Requirement requirement = requirementRepository.findById(task.getRequirementId()).orElse(null);
+            if (requirement != null && requirement.getAcceptanceCriteria() != null) {
+                try {
+                    acceptanceCriteria = objectMapper.readValue(requirement.getAcceptanceCriteria(), new TypeReference<List<String>>() {});
+                } catch (Exception ex) {
+                    log.error("Failed to parse acceptance criteria for requirement " + task.getRequirementId(), ex);
+                }
+            }
+        }
+
+        if (analysisResult != null && !acceptanceCriteria.isEmpty()) {
+            try {
+                delay(1500);
+                alignmentResult = alignmentService.align(analysisResult, acceptanceCriteria);
+            } catch (Exception ex) {
+                log.error("Failed to align requirement-diff for task " + taskId, ex);
+            }
+        }
+
+        String alignmentResultJson = null;
+        Double alignmentCoverageRatio = null;
+        Integer alignmentCoveredCount = null;
+        Integer alignmentTotalCount = null;
+        String codeRiskLevel = null;
+
+        if (alignmentResult != null) {
+            try {
+                alignmentResultJson = objectMapper.writeValueAsString(alignmentResult);
+                alignmentCoverageRatio = alignmentResult.getCoverageRatio();
+                alignmentCoveredCount = alignmentResult.getCoveredCount();
+                alignmentTotalCount = alignmentResult.getTotalCount();
+                codeRiskLevel = alignmentResult.getFinalRiskLevel();
+            } catch (Exception ex) {
+                log.error("Failed to serialize alignment result for task " + taskId, ex);
+            }
+        }
 
         CodeInsightAiReview saved = aiReviewRepository.save(CodeInsightAiReview.builder()
                 .task(task)
@@ -61,8 +158,29 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
                 .reviewNotesJson(writeJson(result.getReviewNotes()))
                 .providerErrorJson(writeJson(result.getProviderError()))
                 .scoreAdjustment(clampAdjustment(result.getScoreAdjustment()))
+                .alignmentResultJson(alignmentResultJson)
+                .alignmentCoverageRatio(alignmentCoverageRatio)
+                .alignmentCoveredCount(alignmentCoveredCount)
+                .alignmentTotalCount(alignmentTotalCount)
+                .codeRiskLevel(codeRiskLevel)
                 .build());
         return toResponse(saved);
+    }
+
+    private void ensureChangedFilesLoaded(Long projectId, Long taskId, Long userId) {
+        List<Long> pullRequestIds = evidenceLinkRepository.findByTaskId(taskId).stream()
+                .filter(link -> link.getEvidenceType() == CodeInsightEvidenceType.PULL_REQUEST)
+                .map(CodeInsightEvidenceLink::getEvidenceId)
+                .distinct()
+                .toList();
+        if (pullRequestIds.isEmpty()) return;
+        if (!pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds).isEmpty()) {
+            return;
+        }
+        patchService.fetchChangedFiles(projectId, taskId, userId);
+        if (pullRequestFileRepository.findByPullRequestIdInOrderByFilePathAsc(pullRequestIds).isEmpty()) {
+            throw new CustomException("Changed files could not be loaded from GitHub. Please retry before running AI Review.", HttpStatus.BAD_REQUEST);
+        }
     }
 
     public CodeInsightAiReviewResponse toResponse(CodeInsightAiReview review) {
@@ -93,6 +211,11 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
                 .providerError(providerError)
                 .legacy(legacy)
                 .scoreAdjustment(review.getScoreAdjustment())
+                .alignmentResultJson(review.getAlignmentResultJson())
+                .alignmentCoverageRatio(review.getAlignmentCoverageRatio())
+                .alignmentCoveredCount(review.getAlignmentCoveredCount())
+                .alignmentTotalCount(review.getAlignmentTotalCount())
+                .codeRiskLevel(review.getCodeRiskLevel())
                 .createdAt(review.getCreatedAt())
                 .build();
     }
@@ -175,6 +298,14 @@ public class CodeInsightAiReviewServiceImpl implements CodeInsightAiReviewServic
             return json != null ? objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {}) : null;
         } catch (Exception ex) {
             return null;
+        }
+    }
+
+    private void delay(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
