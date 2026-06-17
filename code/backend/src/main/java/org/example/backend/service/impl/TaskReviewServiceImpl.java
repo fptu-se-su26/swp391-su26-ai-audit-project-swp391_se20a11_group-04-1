@@ -5,15 +5,15 @@ import org.example.backend.dto.CodeInsightConfigRequest;
 import org.example.backend.dto.CodeInsightConfigResponse;
 import org.example.backend.dto.CodeInsightAiReviewResponse;
 import org.example.backend.dto.CodeInsightApprovalGateResponse;
-import org.example.backend.dto.CodeInsightDashboardResponse;
-import org.example.backend.dto.CodeInsightReviewDetailResponse;
-import org.example.backend.dto.CodeInsightTaskEvidenceResponse;
-import org.example.backend.dto.CodeInsightManualEvidenceLinkResponse;
+import org.example.backend.dto.TaskReviewDashboardResponse;
+import org.example.backend.dto.TaskReviewDetailResponse;
+import org.example.backend.dto.TaskEvidenceResponse;
+import org.example.backend.dto.ManualEvidenceLinkResponse;
 import org.example.backend.dto.TaskReviewDecisionResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
-import org.example.backend.repository.CodeInsightManualEvidenceLinkRepository;
+import org.example.backend.repository.ManualEvidenceLinkRepository;
 import org.example.backend.repository.GitHubWebhookEventRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
@@ -27,9 +27,9 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskReviewDecisionRepository;
 import org.example.backend.service.CodeInsightApprovalGateService;
-import org.example.backend.service.CodeInsightManualEvidenceLinkService;
+import org.example.backend.service.ManualEvidenceLinkService;
 import org.example.backend.service.CodeInsightScoringService;
-import org.example.backend.service.CodeInsightService;
+import org.example.backend.service.TaskReviewService;
 import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.service.CodeInsightPatchService;
 import org.example.backend.service.CodeInsightAiReviewService;
@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class CodeInsightServiceImpl implements CodeInsightService {
+public class TaskReviewServiceImpl implements TaskReviewService {
 
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
@@ -58,7 +58,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final ProjectCodeInsightSettingsRepository settingsRepository;
     private final TaskRepository taskRepository;
     private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
-    private final CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    private final ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubPullRequestFileRepository pullRequestFileRepository;
@@ -69,7 +69,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
     private final CodeInsightApprovalGateService approvalGateService;
     private final CodeInsightPatchService patchService;
     private final CodeInsightAiReviewService aiReviewService;
-    private final CodeInsightManualEvidenceLinkService manualEvidenceLinkService;
+    private final ManualEvidenceLinkService manualEvidenceLinkService;
     private final EvidenceLinkRepository generalEvidenceLinkRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
     private final ObjectMapper objectMapper;
@@ -115,7 +115,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
 
     @Override
     @Transactional(readOnly = true)
-    public CodeInsightTaskEvidenceResponse getTaskEvidence(Long projectId, Long taskId, Long userId) {
+    public TaskEvidenceResponse getTaskEvidence(Long projectId, Long taskId, Long userId) {
         requireProjectMember(projectId, userId);
         Task task = taskRepository.findWithDetailsById(taskId)
                 .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
@@ -135,10 +135,10 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         List<EvidenceLink> generalLinks = task.getId() != null
                 ? generalEvidenceLinkRepository.findByEntityTypeAndEntityId(EvidenceEntityType.TASK, task.getId())
                 : List.of();
-        List<CodeInsightTaskEvidenceResponse.GeneralEvidenceSummary> generalEvidences = generalLinks.stream()
+        List<TaskEvidenceResponse.GeneralEvidenceSummary> generalEvidences = generalLinks.stream()
                 .map(EvidenceLink::getEvidence)
                 .filter(ev -> ev != null)
-                .map(ev -> CodeInsightTaskEvidenceResponse.GeneralEvidenceSummary.builder()
+                .map(ev -> TaskEvidenceResponse.GeneralEvidenceSummary.builder()
                         .id(ev.getId())
                         .title(ev.getTitle())
                         .type(ev.getType() != null ? ev.getType().name() : null)
@@ -148,7 +148,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                         .build())
                 .toList();
 
-        return CodeInsightTaskEvidenceResponse.builder()
+        return TaskEvidenceResponse.builder()
                 .projectId(projectId)
                 .task(toTaskSummary(task))
                 .githubIssue(toGithubIssueSummary(task))
@@ -166,8 +166,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
 
     @Override
     @Transactional(readOnly = true)
-    public CodeInsightReviewDetailResponse getReviewDetail(Long projectId, Long taskId, Long userId) {
-        CodeInsightTaskEvidenceResponse evidence = getTaskEvidence(projectId, taskId, userId);
+    public TaskReviewDetailResponse getReviewDetail(Long projectId, Long taskId, Long userId) {
+        TaskEvidenceResponse evidence = getTaskEvidence(projectId, taskId, userId);
         List<TaskReviewDecisionResponse> decisions = taskReviewDecisionRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(this::toDecisionResponse)
                 .toList();
@@ -176,7 +176,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
 
-        List<CodeInsightReviewDetailResponse.RequirementAcCoverageSummary> acCoverage = new java.util.ArrayList<>();
+        List<TaskReviewDetailResponse.RequirementAcCoverageSummary> acCoverage = new java.util.ArrayList<>();
         if (task.getRequirementId() != null) {
             Requirement requirement = requirementRepository.findById(task.getRequirementId()).orElse(null);
             if (requirement != null && requirement.getAcceptanceCriteria() != null) {
@@ -230,7 +230,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                             }
                         }
 
-                        acCoverage.add(CodeInsightReviewDetailResponse.RequirementAcCoverageSummary.builder()
+                        acCoverage.add(TaskReviewDetailResponse.RequirementAcCoverageSummary.builder()
                                 .acText(ac)
                                 .status(finalStatus)
                                 .coveredByTaskId(coveredByTaskId)
@@ -241,7 +241,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
             }
         }
 
-        return CodeInsightReviewDetailResponse.builder()
+        return TaskReviewDetailResponse.builder()
                 .evidence(evidence)
                 .approvalGate(gate)
                 .manualEvidenceLinks(evidence.getManualEvidenceLinks())
@@ -256,7 +256,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
 
     @Override
     @Transactional
-    public CodeInsightTaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId) {
+    public TaskEvidenceResponse fetchTaskChangedFiles(Long projectId, Long taskId, Long userId) {
         requireProjectMember(projectId, userId);
         patchService.fetchChangedFiles(projectId, taskId, userId);
         return getTaskEvidence(projectId, taskId, userId);
@@ -271,7 +271,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
 
     @Override
     @Transactional(readOnly = true)
-    public CodeInsightDashboardResponse getDashboard(Long projectId, Long userId) {
+    public TaskReviewDashboardResponse getDashboard(Long projectId, Long userId) {
         requireProjectMember(projectId, userId);
         List<Task> tasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId);
         List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectId(projectId);
@@ -296,7 +296,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .count();
         int evidenceCoveragePercent = tasks.isEmpty() ? 0 : (int) Math.round(tasksWithEvidence * 100.0 / tasks.size());
 
-        List<CodeInsightDashboardResponse.MemberEvidenceQuality> memberQuality = tasks.stream()
+        List<TaskReviewDashboardResponse.MemberEvidenceQuality> memberQuality = tasks.stream()
                 .filter(task -> task.getPrimaryAssignee() != null)
                 .collect(Collectors.groupingBy(task -> task.getPrimaryAssignee().getId()))
                 .values()
@@ -304,7 +304,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .map(memberTasks -> toMemberEvidenceQuality(memberTasks, linksByTask))
                 .toList();
 
-        return CodeInsightDashboardResponse.builder()
+        return TaskReviewDashboardResponse.builder()
                 .pendingReviews(pendingReviews)
                 .doneWithoutEvidence(doneWithoutEvidence)
                 .tasksWithCiFailed(tasksWithCiFailed)
@@ -436,8 +436,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .toList();
     }
 
-    private CodeInsightTaskEvidenceResponse.TaskSummary toTaskSummary(Task task) {
-        return CodeInsightTaskEvidenceResponse.TaskSummary.builder()
+    private TaskEvidenceResponse.TaskSummary toTaskSummary(Task task) {
+        return TaskEvidenceResponse.TaskSummary.builder()
                 .id(task.getId())
                 .title(task.getTitle())
                 .status(task.getStatus() != null ? task.getStatus().name() : null)
@@ -456,16 +456,16 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .orElse(null);
     }
 
-    private CodeInsightTaskEvidenceResponse.GithubIssueSummary toGithubIssueSummary(Task task) {
+    private TaskEvidenceResponse.GithubIssueSummary toGithubIssueSummary(Task task) {
         if (task.getGithubIssueNumber() == null && !hasText(task.getGithubIssueUrl())) return null;
-        return CodeInsightTaskEvidenceResponse.GithubIssueSummary.builder()
+        return TaskEvidenceResponse.GithubIssueSummary.builder()
                 .number(task.getGithubIssueNumber())
                 .url(task.getGithubIssueUrl())
                 .build();
     }
 
-    private CodeInsightTaskEvidenceResponse.CommitEvidence toCommitEvidence(GitHubCommit commit) {
-        return CodeInsightTaskEvidenceResponse.CommitEvidence.builder()
+    private TaskEvidenceResponse.CommitEvidence toCommitEvidence(GitHubCommit commit) {
+        return TaskEvidenceResponse.CommitEvidence.builder()
                 .id(commit.getId())
                 .sha(commit.getSha())
                 .branchName(commit.getBranchName())
@@ -478,8 +478,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
-    private CodeInsightTaskEvidenceResponse.PullRequestEvidence toPullRequestEvidence(GitHubPullRequest pullRequest) {
-        return CodeInsightTaskEvidenceResponse.PullRequestEvidence.builder()
+    private TaskEvidenceResponse.PullRequestEvidence toPullRequestEvidence(GitHubPullRequest pullRequest) {
+        return TaskEvidenceResponse.PullRequestEvidence.builder()
                 .id(pullRequest.getId())
                 .prNumber(pullRequest.getPrNumber())
                 .title(pullRequest.getTitle())
@@ -495,8 +495,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
-    private CodeInsightTaskEvidenceResponse.CheckRunEvidence toCheckRunEvidence(GitHubCheckRun checkRun) {
-        return CodeInsightTaskEvidenceResponse.CheckRunEvidence.builder()
+    private TaskEvidenceResponse.CheckRunEvidence toCheckRunEvidence(GitHubCheckRun checkRun) {
+        return TaskEvidenceResponse.CheckRunEvidence.builder()
                 .id(checkRun.getId())
                 .externalId(checkRun.getExternalId())
                 .sha(checkRun.getSha())
@@ -510,8 +510,8 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                 .build();
     }
 
-    private CodeInsightTaskEvidenceResponse.PullRequestFileEvidence toPullRequestFileEvidence(GitHubPullRequestFile file) {
-        return CodeInsightTaskEvidenceResponse.PullRequestFileEvidence.builder()
+    private TaskEvidenceResponse.PullRequestFileEvidence toPullRequestFileEvidence(GitHubPullRequestFile file) {
+        return TaskEvidenceResponse.PullRequestFileEvidence.builder()
                 .id(file.getId())
                 .pullRequestId(file.getPullRequest() != null ? file.getPullRequest().getId() : null)
                 .filePath(file.getFilePath())
@@ -533,7 +533,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
         return hasText(user.getUsername()) ? user.getUsername() : user.getEmail();
     }
 
-    private CodeInsightDashboardResponse.MemberEvidenceQuality toMemberEvidenceQuality(
+    private TaskReviewDashboardResponse.MemberEvidenceQuality toMemberEvidenceQuality(
             List<Task> tasks,
             Map<Long, List<CodeInsightEvidenceLink>> linksByTask) {
         UserAccount member = tasks.get(0).getPrimaryAssignee();
@@ -546,7 +546,7 @@ public class CodeInsightServiceImpl implements CodeInsightService {
                     return "WARNING".equals(riskLevel) || "BLOCKED".equals(riskLevel);
                 })
                 .count();
-        return CodeInsightDashboardResponse.MemberEvidenceQuality.builder()
+        return TaskReviewDashboardResponse.MemberEvidenceQuality.builder()
                 .memberId(member.getId())
                 .memberName(displayName(member))
                 .taskCount(tasks.size())

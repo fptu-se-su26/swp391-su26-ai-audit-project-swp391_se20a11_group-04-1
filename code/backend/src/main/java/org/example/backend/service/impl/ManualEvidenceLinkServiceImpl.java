@@ -1,14 +1,14 @@
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.example.backend.dto.CodeInsightEvidenceSearchResponse;
-import org.example.backend.dto.CodeInsightManualEvidenceLinkRequest;
-import org.example.backend.dto.CodeInsightManualEvidenceLinkResponse;
+import org.example.backend.dto.EvidenceSearchResponse;
+import org.example.backend.dto.ManualEvidenceLinkRequest;
+import org.example.backend.dto.ManualEvidenceLinkResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
-import org.example.backend.service.CodeInsightManualEvidenceLinkService;
+import org.example.backend.service.ManualEvidenceLinkService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,19 +20,19 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
-public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManualEvidenceLinkService {
+public class ManualEvidenceLinkServiceImpl implements ManualEvidenceLinkService {
 
     private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
     private final UserAccountRepository userAccountRepository;
-    private final CodeInsightManualEvidenceLinkRepository manualLinkRepository;
+    private final ManualEvidenceLinkRepository manualLinkRepository;
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubCommitRepository commitRepository;
     private final GitHubCheckRunRepository checkRunRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public List<CodeInsightManualEvidenceLinkResponse> list(Long projectId, Long taskId, Long userId) {
+    public List<ManualEvidenceLinkResponse> list(Long projectId, Long taskId, Long userId) {
         requireProjectMember(projectId, userId);
         Task task = requireTask(projectId, taskId);
         return manualLinkRepository.findByTaskIdOrderByCreatedAtDesc(task.getId()).stream()
@@ -42,10 +42,10 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
 
     @Override
     @Transactional
-    public CodeInsightManualEvidenceLinkResponse suggest(
+    public ManualEvidenceLinkResponse suggest(
             Long projectId,
             Long taskId,
-            CodeInsightManualEvidenceLinkRequest request,
+            ManualEvidenceLinkRequest request,
             Long userId) {
         ProjectMember member = requireProjectMember(projectId, userId);
         Task task = requireTask(projectId, taskId);
@@ -60,9 +60,9 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
 
         UserAccount actor = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
-        CodeInsightManualEvidenceLink link = manualLinkRepository
+        ManualEvidenceLink link = manualLinkRepository
                 .findByProjectIdAndTaskIdAndEvidenceTypeAndEvidenceId(projectId, taskId, type, request.getEvidenceId())
-                .orElseGet(CodeInsightManualEvidenceLink::new);
+                .orElseGet(ManualEvidenceLink::new);
         link.setProject(task.getProject());
         link.setTask(task);
         link.setEvidenceType(type);
@@ -70,8 +70,8 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
         link.setSuggestedBy(actor);
         link.setReason(trim(request.getReason()));
         link.setStatus(isLeader(member)
-                ? CodeInsightManualEvidenceLinkStatus.CONFIRMED
-                : CodeInsightManualEvidenceLinkStatus.PENDING);
+                ? ManualEvidenceLinkStatus.CONFIRMED
+                : ManualEvidenceLinkStatus.PENDING);
         link.setConfirmedBy(isLeader(member) ? actor : null);
         link.setUpdatedAt(LocalDateTime.now());
         return toResponse(manualLinkRepository.save(link));
@@ -79,40 +79,40 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
 
     @Override
     @Transactional
-    public CodeInsightManualEvidenceLinkResponse confirm(Long projectId, Long taskId, Long linkId, Long userId) {
+    public ManualEvidenceLinkResponse confirm(Long projectId, Long taskId, Long linkId, Long userId) {
         requireLeader(projectId, userId);
         requireTask(projectId, taskId);
-        CodeInsightManualEvidenceLink link = requireLink(projectId, taskId, linkId);
+        ManualEvidenceLink link = requireLink(projectId, taskId, linkId);
         UserAccount actor = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
-        link.setStatus(CodeInsightManualEvidenceLinkStatus.CONFIRMED);
+        link.setStatus(ManualEvidenceLinkStatus.CONFIRMED);
         link.setConfirmedBy(actor);
         return toResponse(manualLinkRepository.save(link));
     }
 
     @Override
     @Transactional
-    public CodeInsightManualEvidenceLinkResponse reject(Long projectId, Long taskId, Long linkId, Long userId) {
+    public ManualEvidenceLinkResponse reject(Long projectId, Long taskId, Long linkId, Long userId) {
         requireLeader(projectId, userId);
         requireTask(projectId, taskId);
-        CodeInsightManualEvidenceLink link = requireLink(projectId, taskId, linkId);
-        link.setStatus(CodeInsightManualEvidenceLinkStatus.REJECTED);
+        ManualEvidenceLink link = requireLink(projectId, taskId, linkId);
+        link.setStatus(ManualEvidenceLinkStatus.REJECTED);
         link.setConfirmedBy(null);
         return toResponse(manualLinkRepository.save(link));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CodeInsightEvidenceSearchResponse search(Long projectId, String evidenceType, String query, Long userId) {
+    public EvidenceSearchResponse search(Long projectId, String evidenceType, String query, Long userId) {
         requireProjectMember(projectId, userId);
         CodeInsightEvidenceType type = parseEvidenceType(evidenceType);
         String q = query == null ? "" : query.trim();
-        List<CodeInsightEvidenceSearchResponse.ResultItem> results = new ArrayList<>();
+        List<EvidenceSearchResponse.ResultItem> results = new ArrayList<>();
         if (type == CodeInsightEvidenceType.PULL_REQUEST) {
             (q.isEmpty()
                     ? pullRequestRepository.findTop20ByProjectIdOrderByUpdatedAtDesc(projectId)
                     : pullRequestRepository.findTop20ByProjectIdAndTitleContainingIgnoreCaseOrderByUpdatedAtDesc(projectId, q))
-                    .forEach(pr -> results.add(CodeInsightEvidenceSearchResponse.ResultItem.builder()
+                    .forEach(pr -> results.add(EvidenceSearchResponse.ResultItem.builder()
                             .id(pr.getId())
                             .evidenceType("PULL_REQUEST")
                             .title("#" + pr.getPrNumber() + " " + nullToEmpty(pr.getTitle()))
@@ -128,7 +128,7 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
             if (commits.isEmpty() && !q.isEmpty()) {
                 commits = commitRepository.findTop20ByProjectIdAndMessageContainingIgnoreCaseOrderByUpdatedAtDesc(projectId, q);
             }
-            commits.forEach(commit -> results.add(CodeInsightEvidenceSearchResponse.ResultItem.builder()
+            commits.forEach(commit -> results.add(EvidenceSearchResponse.ResultItem.builder()
                     .id(commit.getId())
                     .evidenceType("COMMIT")
                     .title(shortSha(commit.getSha()) + " - " + nullToEmpty(commit.getMessage()))
@@ -141,7 +141,7 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
             (q.isEmpty()
                     ? checkRunRepository.findTop20ByProjectIdOrderByUpdatedAtDesc(projectId)
                     : checkRunRepository.findTop20ByProjectIdAndNameContainingIgnoreCaseOrderByUpdatedAtDesc(projectId, q))
-                    .forEach(check -> results.add(CodeInsightEvidenceSearchResponse.ResultItem.builder()
+                    .forEach(check -> results.add(EvidenceSearchResponse.ResultItem.builder()
                             .id(check.getId())
                             .evidenceType("CHECK_RUN")
                             .title(nullToEmpty(check.getName()))
@@ -151,7 +151,7 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
                             .occurredAt(check.getCompletedAt())
                             .build()));
         }
-        return CodeInsightEvidenceSearchResponse.builder().results(results).build();
+        return EvidenceSearchResponse.builder().results(results).build();
     }
 
     private ProjectMember requireProjectMember(Long projectId, Long userId) {
@@ -174,8 +174,8 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
         return task;
     }
 
-    private CodeInsightManualEvidenceLink requireLink(Long projectId, Long taskId, Long linkId) {
-        CodeInsightManualEvidenceLink link = manualLinkRepository.findById(linkId)
+    private ManualEvidenceLink requireLink(Long projectId, Long taskId, Long linkId) {
+        ManualEvidenceLink link = manualLinkRepository.findById(linkId)
                 .orElseThrow(() -> new CustomException("Manual evidence link not found", HttpStatus.NOT_FOUND));
         if (link.getProject() == null || !projectId.equals(link.getProject().getId())
                 || link.getTask() == null || !taskId.equals(link.getTask().getId())) {
@@ -213,8 +213,8 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
         }
     }
 
-    private CodeInsightManualEvidenceLinkResponse toResponse(CodeInsightManualEvidenceLink link) {
-        return CodeInsightManualEvidenceLinkResponse.builder()
+    private ManualEvidenceLinkResponse toResponse(ManualEvidenceLink link) {
+        return ManualEvidenceLinkResponse.builder()
                 .id(link.getId())
                 .projectId(link.getProject() != null ? link.getProject().getId() : null)
                 .taskId(link.getTask() != null ? link.getTask().getId() : null)
@@ -229,9 +229,9 @@ public class CodeInsightManualEvidenceLinkServiceImpl implements CodeInsightManu
                 .build();
     }
 
-    private CodeInsightManualEvidenceLinkResponse.UserSummary userSummary(UserAccount user) {
+    private ManualEvidenceLinkResponse.UserSummary userSummary(UserAccount user) {
         if (user == null) return null;
-        return CodeInsightManualEvidenceLinkResponse.UserSummary.builder()
+        return ManualEvidenceLinkResponse.UserSummary.builder()
                 .id(user.getId())
                 .name(displayName(user))
                 .email(user.getEmail())

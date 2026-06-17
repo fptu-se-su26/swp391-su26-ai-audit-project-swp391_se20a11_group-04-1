@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightTaskEvidenceResponse {
+public class TaskEvidenceResponse {
     private Long projectId;
     private TaskSummary task;
     private GithubIssueSummary githubIssue;
@@ -18,7 +18,7 @@ public class CodeInsightTaskEvidenceResponse {
     private List<CommitEvidence> commits;
     private List<CheckRunEvidence> checkRuns;
     private List<PullRequestFileEvidence> changedFiles;
-    private List<CodeInsightManualEvidenceLinkResponse> manualEvidenceLinks;
+    private List<ManualEvidenceLinkResponse> manualEvidenceLinks;
     private CodeInsightAiReviewResponse aiReview;
     private TaskReviewDecisionResponse.ReviewEvidenceSummary scoreSummary;
     private CodeInsightApprovalGateResponse approvalGate;
