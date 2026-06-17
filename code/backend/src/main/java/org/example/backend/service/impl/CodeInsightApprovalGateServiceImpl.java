@@ -25,7 +25,7 @@ public class CodeInsightApprovalGateServiceImpl implements CodeInsightApprovalGa
     private final CodeInsightScoringService scoringService;
     private final ProjectCodeInsightSettingsRepository settingsRepository;
     private final CodeInsightEvidenceLinkRepository codeInsightEvidenceLinkRepository;
-    private final CodeInsightManualEvidenceLinkRepository manualEvidenceLinkRepository;
+    private final ManualEvidenceLinkRepository manualEvidenceLinkRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
     private final EvidenceLinkRepository generalEvidenceLinkRepository;
     private final EvidenceConfidenceService confidenceService;
@@ -387,7 +387,7 @@ public class CodeInsightApprovalGateServiceImpl implements CodeInsightApprovalGa
         return task != null && task.getId() != null
                 && !manualEvidenceLinkRepository.findByTaskIdAndStatus(
                 task.getId(),
-                CodeInsightManualEvidenceLinkStatus.PENDING).isEmpty();
+                ManualEvidenceLinkStatus.PENDING).isEmpty();
     }
 
     private ProjectCodeInsightSettings defaultSettings() {

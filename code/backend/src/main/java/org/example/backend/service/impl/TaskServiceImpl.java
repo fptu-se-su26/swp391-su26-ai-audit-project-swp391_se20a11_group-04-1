@@ -21,7 +21,7 @@ import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
-import org.example.backend.service.CodeInsightReviewSnapshotService;
+import org.example.backend.service.TaskReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightApprovalGateService;
 import org.example.backend.repository.TaskCommentRepository;
@@ -64,7 +64,7 @@ public class TaskServiceImpl implements TaskService {
     private final EvidenceRepository evidenceRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
-    private final CodeInsightReviewSnapshotService codeInsightReviewSnapshotService;
+    private final TaskReviewSnapshotService TaskReviewSnapshotService;
     private final CodeInsightScoringService codeInsightScoringService;
     private final CodeInsightApprovalGateService codeInsightApprovalGateService;
     private final TaskCommentRepository taskCommentRepository;
@@ -308,7 +308,7 @@ public class TaskServiceImpl implements TaskService {
         }
         codeInsightApprovalGateService.assertCanApprove(task);
 
-        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
         if (task.getCompletedAt() == null) {
@@ -342,7 +342,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Rejected task must return to NEEDS_CHANGES or BLOCKED");
         }
 
-        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(targetStatus);
         task.setCompletedAt(null);
@@ -367,7 +367,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Only done tasks can be reopened for review");
         }
         String reason = requiredText(request != null ? request.getReason() : null, "Reopen reason is required");
-        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.IN_REVIEW);
         task.setCompletedAt(null);
@@ -389,7 +389,7 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Only done tasks can be sent back for rework");
         }
         String reason = requiredText(request != null ? request.getReason() : null, "Rework reason is required");
-        Long reviewSnapshotId = codeInsightReviewSnapshotService.createSnapshot(task, userId);
+        Long reviewSnapshotId = TaskReviewSnapshotService.createSnapshot(task, userId);
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.NEEDS_CHANGES);
         task.setCompletedAt(null);
@@ -1303,7 +1303,7 @@ public class TaskServiceImpl implements TaskService {
             TaskReviewDecisionType decision,
             TaskStatus fromStatus,
             TaskStatus toStatus,
-            Long codeInsightReviewId,
+            Long TaskReviewSnapshotId,
             String reason) {
         UserAccount reviewer = userAccountRepository.findById(reviewerId)
                 .orElseThrow(() -> new CustomException("Reviewer not found", HttpStatus.NOT_FOUND));
@@ -1314,7 +1314,7 @@ public class TaskServiceImpl implements TaskService {
                 .fromStatus(fromStatus.name())
                 .toStatus(toStatus.name())
                 .reason(trimToNull(reason))
-                .codeInsightReviewId(codeInsightReviewId)
+                .TaskReviewSnapshotId(TaskReviewSnapshotId)
                 .build());
     }
 

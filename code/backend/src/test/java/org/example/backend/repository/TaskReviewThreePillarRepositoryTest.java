@@ -1,7 +1,7 @@
 package org.example.backend.repository;
 
 import org.example.backend.entity.CodeInsightAiReview;
-import org.example.backend.entity.CodeInsightReview;
+import org.example.backend.entity.TaskReviewSnapshot;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.UserAccount;
 import org.junit.jupiter.api.Test;
@@ -15,10 +15,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-public class CodeInsightThreePillarRepositoryTest {
+public class TaskReviewThreePillarRepositoryTest {
 
     @Autowired
-    private CodeInsightReviewRepository reviewRepository;
+    private TaskReviewSnapshotRepository reviewRepository;
 
     @Autowired
     private CodeInsightAiReviewRepository aiReviewRepository;
@@ -64,8 +64,8 @@ public class CodeInsightThreePillarRepositoryTest {
         assertThat(retrievedAiReview.getAlignmentTotalCount()).isEqualTo(2);
         assertThat(retrievedAiReview.getCodeRiskLevel()).isEqualTo("MEDIUM");
 
-        // 2. Test CodeInsightReview new fields
-        CodeInsightReview review = CodeInsightReview.builder()
+        // 2. Test TaskReviewSnapshot new fields
+        TaskReviewSnapshot review = TaskReviewSnapshot.builder()
                 .task(task)
                 .reviewer(reviewer)
                 .ruleScore(80)
@@ -78,10 +78,10 @@ public class CodeInsightThreePillarRepositoryTest {
                 .aiReview(retrievedAiReview)
                 .build();
 
-        CodeInsightReview savedReview = reviewRepository.save(review);
+        TaskReviewSnapshot savedReview = reviewRepository.save(review);
         assertThat(savedReview.getId()).isNotNull();
 
-        CodeInsightReview retrievedReview = reviewRepository.findById(savedReview.getId()).orElse(null);
+        TaskReviewSnapshot retrievedReview = reviewRepository.findById(savedReview.getId()).orElse(null);
         assertThat(retrievedReview).isNotNull();
         assertThat(retrievedReview.getGateResult()).isEqualTo("CAN_APPROVE_WITH_WARNING");
         assertThat(retrievedReview.getEvidenceConfidence()).isEqualTo("STRONG");
