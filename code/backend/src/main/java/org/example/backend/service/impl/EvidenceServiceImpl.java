@@ -14,6 +14,7 @@ import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.EvidenceService;
 import org.example.backend.service.FileStorageService;
 import org.example.backend.service.event.OutboxEventService;
+import org.example.backend.service.sla.SlaStateService;
 import java.util.HashMap;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,19 +39,22 @@ public class EvidenceServiceImpl implements EvidenceService {
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
     private final OutboxEventService outboxEventService;
+    private final SlaStateService slaStateService;
 
     public EvidenceServiceImpl(EvidenceRepository evidenceRepository,
                                EvidenceLinkRepository evidenceLinkRepository,
                                UserAccountRepository userAccountRepository,
                                FileStorageService fileStorageService,
                                ObjectMapper objectMapper,
-                               OutboxEventService outboxEventService) {
+                               OutboxEventService outboxEventService,
+                               SlaStateService slaStateService) {
         this.evidenceRepository = evidenceRepository;
         this.evidenceLinkRepository = evidenceLinkRepository;
         this.userAccountRepository = userAccountRepository;
         this.fileStorageService = fileStorageService;
         this.objectMapper = objectMapper;
         this.outboxEventService = outboxEventService;
+        this.slaStateService = slaStateService;
     }
 
     // Mock getCurrentUser for MVP since Security is not fully confirmed
@@ -134,7 +138,8 @@ public class EvidenceServiceImpl implements EvidenceService {
                     savedEvidence.addLink(link);
                 }
                 // Save again with links
-                evidenceRepository.save(savedEvidence);
+                savedEvidence = evidenceRepository.save(savedEvidence);
+                refreshLinkedTaskSla(savedEvidence, "EVIDENCE_LINKED_TO_TASK");
             } catch (JsonProcessingException e) {
                 throw new BadRequestException("Invalid linkedEntities format");
             }
@@ -178,7 +183,9 @@ public class EvidenceServiceImpl implements EvidenceService {
             }
         }
 
-        return mapToResponse(evidenceRepository.save(evidence));
+        Evidence savedEvidence = evidenceRepository.save(evidence);
+        refreshLinkedTaskSla(savedEvidence, "EVIDENCE_LINKED_TO_TASK");
+        return mapToResponse(savedEvidence);
     }
 
     @Override
@@ -207,6 +214,7 @@ public class EvidenceServiceImpl implements EvidenceService {
                     payload.put("occurredAt", LocalDateTime.now().toString());
 
                     outboxEventService.createEvent("EVIDENCE_STATUS_CHANGED", "Evidence", savedEvidence.getId(), payload);
+                    slaStateService.evaluateAndPersist(link.getEntityId(), "EVIDENCE_STATUS_CHANGED");
                 }
             }
         }
@@ -257,9 +265,21 @@ public class EvidenceServiceImpl implements EvidenceService {
             payload.put("occurredAt", LocalDateTime.now().toString());
 
             outboxEventService.createEvent("EVIDENCE_LINKED_TO_TASK", "Evidence", savedEvidence.getId(), payload);
+            slaStateService.evaluateAndPersist(request.getEntityId(), "EVIDENCE_LINKED_TO_TASK");
         }
 
         return mapToResponse(savedEvidence);
+    }
+
+    private void refreshLinkedTaskSla(Evidence evidence, String eventType) {
+        if (evidence.getEvidenceLinks() == null) {
+            return;
+        }
+        for (EvidenceLink link : evidence.getEvidenceLinks()) {
+            if (link.getEntityType() == EvidenceEntityType.TASK) {
+                slaStateService.evaluateAndPersist(link.getEntityId(), eventType);
+            }
+        }
     }
 
     @Override

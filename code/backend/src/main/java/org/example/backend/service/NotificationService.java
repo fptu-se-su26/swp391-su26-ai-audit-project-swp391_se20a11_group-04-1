@@ -20,4 +20,5 @@ public interface NotificationService {
     void notifyTaskAssigned(Task task, UserAccount recipient, UserAccount actor, boolean actorIsProjectLeader);
     void notifyTaskReviewRequested(Task task, UserAccount requester, List<UserAccount> reviewers);
     void notifyTaskStatusChanged(Task task, TaskStatus oldStatus, TaskStatus newStatus);
+    boolean hasAlreadyNotified(Long recipientId, Long relatedId, NotificationType type, NotificationEntityType entityType, String title);
 }

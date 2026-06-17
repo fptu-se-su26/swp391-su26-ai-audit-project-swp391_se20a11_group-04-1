@@ -609,13 +609,13 @@ export function IssueTrackerDashboard() {
     }
   }
 
-  const isLeader = activeProject?.role === 'Project Leader'
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
 
   const canApproveReject = (assigneeId) => {
     if (!assigneeId) return false
     if (Number(assigneeId) === Number(currentUserId)) return false
     const member = activeProject?.members?.find(m => Number(m.id) === Number(assigneeId))
-    const assigneeIsLeader = member?.role === 'Project Leader'
+    const assigneeIsLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(member?.role)
     if (assigneeIsLeader) {
       return true
     } else {

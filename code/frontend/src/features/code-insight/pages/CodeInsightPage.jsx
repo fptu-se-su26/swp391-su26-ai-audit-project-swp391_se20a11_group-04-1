@@ -7,7 +7,7 @@ import codeInsightService from '../services/codeInsightService'
 const isLeaderRole = (role = '') => {
   // Normalize backend/project role labels so both "LEADER" and "Project Leader" work.
   const normalized = role.toUpperCase().replace(/\s+/g, '_')
-  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
+  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER' || normalized === 'MENTOR'
 }
 
 const CodeInsightPage = () => {

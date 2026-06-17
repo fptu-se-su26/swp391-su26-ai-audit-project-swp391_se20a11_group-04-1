@@ -18,6 +18,7 @@ import java.util.EnumSet;
 public class TaskSlaRuleService {
 
     private final EvidenceLinkRepository evidenceLinkRepository;
+    private final TaskSlaPauseService taskSlaPauseService;
     private final Clock clock;
 
     public TaskSlaEvaluation evaluate(Task task) {
@@ -82,9 +83,6 @@ public class TaskSlaRuleService {
     }
 
     private long calculateOverdueDays(Task task, LocalDate today) {
-        if (task.getDeadline() == null || !today.isAfter(task.getDeadline())) {
-            return 0;
-        }
-        return ChronoUnit.DAYS.between(task.getDeadline(), today);
+        return taskSlaPauseService.calculateEffectiveOverdueDays(task, today);
     }
 }

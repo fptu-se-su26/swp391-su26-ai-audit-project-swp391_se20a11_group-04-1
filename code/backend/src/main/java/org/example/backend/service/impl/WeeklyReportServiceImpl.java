@@ -17,6 +17,7 @@ import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.sla.TaskSlaCategory;
 import org.example.backend.service.sla.TaskSlaEvaluation;
 import org.example.backend.service.sla.TaskSlaRuleService;
+import org.example.backend.service.sla.SlaRiskAssessmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +51,7 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
     private final NotificationService notificationService;
     private final OutboxEventService outboxEventService;
     private final TaskSlaRuleService taskSlaRuleService;
+    private final SlaRiskAssessmentService slaRiskAssessmentService;
     private final Clock clock;
 
     @Override
@@ -78,7 +80,41 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         WeeklyReport report = weeklyReportRepository.findWithMembersById(reportId)
                 .filter(item -> item.getProject() != null && projectId.equals(item.getProject().getId()))
                 .orElseThrow(() -> new CustomException("Weekly report not found", HttpStatus.NOT_FOUND));
-        return toResponse(report);
+        
+        WeeklyReportResponse response = toResponse(report);
+        if (!isLeaderOrMentor(projectId, userId)) {
+            filterReportForMember(response, userId);
+        }
+        return response;
+    }
+
+    private boolean isLeaderOrMentor(Long projectId, Long userId) {
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(m -> m.getRole() != null && canGenerateReport(m.getRole().getName()))
+                .orElse(false);
+    }
+
+    private void filterReportForMember(WeeklyReportResponse response, Long userId) {
+        if (response.getMembers() != null) {
+            List<WeeklyReportResponse.MemberRisk> filteredMembers = response.getMembers().stream()
+                    .filter(m -> userId.equals(m.getUserId()))
+                    .toList();
+            response.setMembers(filteredMembers);
+        }
+        if (response.getDecisionPack() != null) {
+            if (response.getDecisionPack().getRiskTasks() != null) {
+                List<WeeklyReportResponse.RiskTaskDecision> filteredTasks = response.getDecisionPack().getRiskTasks().stream()
+                        .filter(t -> userId.equals(t.getAssigneeId()))
+                        .toList();
+                response.getDecisionPack().setRiskTasks(filteredTasks);
+            }
+            if (response.getDecisionPack().getMemberDecisions() != null) {
+                List<WeeklyReportResponse.MemberDecision> filteredMemberDecisions = response.getDecisionPack().getMemberDecisions().stream()
+                        .filter(m -> userId.equals(m.getUserId()))
+                        .toList();
+                response.getDecisionPack().setMemberDecisions(filteredMemberDecisions);
+            }
+        }
     }
 
     @Override
@@ -488,41 +524,28 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
             TaskSlaEvaluation eval = taskSlaRuleService.evaluate(task);
             boolean isRisk = false;
             
-            String riskLevel = "NORMAL";
-            List<String> reasons = new ArrayList<>();
-            String recommendedAction = "";
+            SlaRiskAssessmentService.AssessmentResult assessment = slaRiskAssessmentService.assess(task, eval);
+            String riskLevel = assessment.getRiskLevel();
+            List<String> reasons = assessment.getReasons();
+            String recommendedAction = assessment.getRecommendedAction();
+            
             boolean isPenalty = eval.categories().contains(TaskSlaCategory.OVERDUE_PENALTY) || task.isOverduePenaltyApplied();
 
             if (isPenalty) {
                 countPenalty++;
                 isRisk = true;
-                riskLevel = "CRITICAL";
-                reasons.add("Task is overdue by " + eval.overdueDays() + " day(s) and qualifies for penalty.");
-                recommendedAction = "Escalate this task and request recovery action.";
             } else if (eval.categories().contains(TaskSlaCategory.BLOCKED)) {
                 countBlocked++;
                 isRisk = true;
-                if (riskLevel.equals("NORMAL")) { riskLevel = "HIGH"; }
-                reasons.add("Task is blocked.");
-                if (recommendedAction.isEmpty()) recommendedAction = "Ask assignee to clarify blocker and unblock with leader support.";
             } else if (eval.categories().contains(TaskSlaCategory.MISSING_EVIDENCE)) {
                 countMissingEvidence++;
                 isRisk = true;
-                if (riskLevel.equals("NORMAL")) { riskLevel = "HIGH"; }
-                reasons.add("Task is done or late but has no accepted evidence.");
-                if (recommendedAction.isEmpty()) recommendedAction = "Request accepted evidence from assignee.";
             } else if (eval.categories().contains(TaskSlaCategory.OVERDUE_SHORT)) {
                 countOverdueShort++;
                 isRisk = true;
-                if (riskLevel.equals("NORMAL")) { riskLevel = "MEDIUM"; }
-                reasons.add("Task is overdue by " + eval.overdueDays() + " day(s).");
-                if (recommendedAction.isEmpty()) recommendedAction = "Follow up before this task becomes penalized.";
             } else if (eval.categories().contains(TaskSlaCategory.DUE_SOON)) {
                 countDueSoon++;
                 isRisk = true;
-                if (riskLevel.equals("NORMAL")) { riskLevel = "LOW"; }
-                reasons.add("Task deadline is approaching soon.");
-                if (recommendedAction.isEmpty()) recommendedAction = "Remind assignee to finish or update progress.";
             }
 
             if (isRisk) {

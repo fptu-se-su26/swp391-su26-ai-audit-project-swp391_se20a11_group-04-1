@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public class DailyDigestService {
 
     private static final String DIGEST_TYPE = "DAILY_MEMBER_DIGEST";
+    private static final List<String> SENDABLE_STATUSES = List.of("PENDING", "FAILED");
 
     private final TaskRepository taskRepository;
     private final DailyDigestRepository dailyDigestRepository;
@@ -105,41 +106,10 @@ public class DailyDigestService {
     @Transactional
     public int sendPendingDailyDigestsForProject(Long projectId) {
         int sent = 0;
-        for (DailyDigest digest : dailyDigestRepository.findByProjectIdAndStatusOrderByCreatedAtAsc(projectId, "PENDING")) {
-            try {
-                String subject = "DevTrack Daily Work Reminder - " + digest.getDigestDate();
-                String body = buildEmailBody(digest);
-                emailService.sendEmail(digest.getUser().getEmail(), subject, body);
-                digest.setStatus("SENT");
-                digest.setSentAt(LocalDateTime.now());
-                emailLogRepository.save(EmailLog.builder()
-                        .recipient(digest.getUser())
-                        .recipientEmail(digest.getUser().getEmail())
-                        .emailType(DIGEST_TYPE)
-                        .subject(subject)
-                        .status("SENT")
-                        .relatedId(digest.getId())
-                        .sentAt(LocalDateTime.now())
-                        .build());
-                outboxEventService.createEvent("EMAIL_DAILY_DIGEST_SENT", "DailyDigest", digest.getId(), Map.of(
-                        "digestId", digest.getId(),
-                        "userId", digest.getUser().getId(),
-                        "email", digest.getUser().getEmail()
-                ));
+        LocalDate today = LocalDate.now(clock);
+        for (DailyDigest digest : dailyDigestRepository.findByProjectIdAndDigestDateAndStatusInOrderByCreatedAtAsc(projectId, today, SENDABLE_STATUSES)) {
+            if (sendDigest(digest)) {
                 sent++;
-            } catch (Exception ex) {
-                log.error("Failed to send digest {}", digest.getId(), ex);
-                digest.setStatus("FAILED");
-                digest.setLastError(ex.getMessage());
-                emailLogRepository.save(EmailLog.builder()
-                        .recipient(digest.getUser())
-                        .recipientEmail(digest.getUser().getEmail())
-                        .emailType(DIGEST_TYPE)
-                        .subject("DevTrack Daily Work Reminder - " + digest.getDigestDate())
-                        .status("FAILED")
-                        .relatedId(digest.getId())
-                        .errorMessage(ex.getMessage())
-                        .build());
             }
         }
         return sent;
@@ -148,44 +118,53 @@ public class DailyDigestService {
     @Transactional
     public int sendPendingDailyDigests() {
         int sent = 0;
-        for (DailyDigest digest : dailyDigestRepository.findByStatusOrderByCreatedAtAsc("PENDING")) {
-            try {
-                String subject = "DevTrack Daily Work Reminder - " + digest.getDigestDate();
-                String body = buildEmailBody(digest);
-                emailService.sendEmail(digest.getUser().getEmail(), subject, body);
-                digest.setStatus("SENT");
-                digest.setSentAt(LocalDateTime.now());
-                emailLogRepository.save(EmailLog.builder()
-                        .recipient(digest.getUser())
-                        .recipientEmail(digest.getUser().getEmail())
-                        .emailType(DIGEST_TYPE)
-                        .subject(subject)
-                        .status("SENT")
-                        .relatedId(digest.getId())
-                        .sentAt(LocalDateTime.now())
-                        .build());
-                outboxEventService.createEvent("EMAIL_DAILY_DIGEST_SENT", "DailyDigest", digest.getId(), Map.of(
-                        "digestId", digest.getId(),
-                        "userId", digest.getUser().getId(),
-                        "email", digest.getUser().getEmail()
-                ));
+        LocalDate today = LocalDate.now(clock);
+        for (DailyDigest digest : dailyDigestRepository.findByDigestDateAndStatusInOrderByCreatedAtAsc(today, SENDABLE_STATUSES)) {
+            if (sendDigest(digest)) {
                 sent++;
-            } catch (Exception ex) {
-                log.error("Failed to send digest {}", digest.getId(), ex);
-                digest.setStatus("FAILED");
-                digest.setLastError(ex.getMessage());
-                emailLogRepository.save(EmailLog.builder()
-                        .recipient(digest.getUser())
-                        .recipientEmail(digest.getUser().getEmail())
-                        .emailType(DIGEST_TYPE)
-                        .subject("DevTrack Daily Work Reminder - " + digest.getDigestDate())
-                        .status("FAILED")
-                        .relatedId(digest.getId())
-                        .errorMessage(ex.getMessage())
-                        .build());
             }
         }
         return sent;
+    }
+
+    private boolean sendDigest(DailyDigest digest) {
+        String subject = "DevTrack Daily Work Reminder - " + digest.getDigestDate();
+        try {
+            String body = buildEmailBody(digest);
+            emailService.sendEmail(digest.getUser().getEmail(), subject, body);
+            digest.setStatus("SENT");
+            digest.setSentAt(LocalDateTime.now(clock));
+            digest.setLastError(null);
+            emailLogRepository.save(EmailLog.builder()
+                    .recipient(digest.getUser())
+                    .recipientEmail(digest.getUser().getEmail())
+                    .emailType(DIGEST_TYPE)
+                    .subject(subject)
+                    .status("SENT")
+                    .relatedId(digest.getId())
+                    .sentAt(LocalDateTime.now(clock))
+                    .build());
+            outboxEventService.createEvent("EMAIL_DAILY_DIGEST_SENT", "DailyDigest", digest.getId(), Map.of(
+                    "digestId", digest.getId(),
+                    "userId", digest.getUser().getId(),
+                    "email", digest.getUser().getEmail()
+            ));
+            return true;
+        } catch (Exception ex) {
+            log.error("Failed to send digest {}", digest.getId(), ex);
+            digest.setStatus("FAILED");
+            digest.setLastError(ex.getMessage());
+            emailLogRepository.save(EmailLog.builder()
+                    .recipient(digest.getUser())
+                    .recipientEmail(digest.getUser().getEmail())
+                    .emailType(DIGEST_TYPE)
+                    .subject(subject)
+                    .status("FAILED")
+                    .relatedId(digest.getId())
+                    .errorMessage(ex.getMessage())
+                    .build());
+            return false;
+        }
     }
 
     private void addDigestItems(DailyDigest digest, Task task, LocalDate today) {

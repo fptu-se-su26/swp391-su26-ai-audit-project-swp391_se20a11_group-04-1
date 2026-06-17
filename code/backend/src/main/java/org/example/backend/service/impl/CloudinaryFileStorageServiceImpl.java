@@ -46,9 +46,12 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             return "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150";
         }
         
-        // Tạo UUID prefix để tránh trùng tên file
+        // Tạo UUID prefix để tránh trùng tên file, strip path separators khỏi tên file
         String originalFilename = file.getOriginalFilename();
-        String publicId = UUID.randomUUID().toString() + "_" + originalFilename;
+        String sanitizedFilename = originalFilename != null
+                ? originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_")
+                : "upload";
+        String publicId = UUID.randomUUID().toString() + "_" + sanitizedFilename;
 
         try {
             // Upload lên thư mục "evidence" trên Cloudinary
@@ -71,10 +74,15 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             return;
         }
         try {
-            // Lấy public_id từ URL (Cloudinary URL format: .../upload/v1234/folder/public_id.ext)
-            String[] parts = fileUrl.split("/");
-            String filename = parts[parts.length - 1];
-            String publicIdWithFolder = "evidence/" + filename.substring(0, filename.lastIndexOf('.'));
+            // Lấy public_id từ Cloudinary URL: .../upload/v{version}/{folder}/{public_id}.{format}
+            int uploadIdx = fileUrl.indexOf("/upload/");
+            if (uploadIdx == -1) return;
+            String pathAfterUpload = fileUrl.substring(uploadIdx + "/upload/".length());
+            if (pathAfterUpload.matches("v\\d+/.*")) {
+                pathAfterUpload = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
+            }
+            int lastDot = pathAfterUpload.lastIndexOf('.');
+            String publicIdWithFolder = lastDot > 0 ? pathAfterUpload.substring(0, lastDot) : pathAfterUpload;
             
             cloudinary.uploader().destroy(publicIdWithFolder, ObjectUtils.emptyMap());
         } catch (Exception e) {

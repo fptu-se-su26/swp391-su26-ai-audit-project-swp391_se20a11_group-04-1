@@ -77,9 +77,8 @@ public class RecoveryPlan {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "recoveryPlan", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<RecoveryPlanAction> actions = new ArrayList<>();
+    @OneToMany(mappedBy = "recoveryPlan", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
+    private List<RecoveryPlanAction> actions;
 
     @PrePersist
     protected void onCreate() {

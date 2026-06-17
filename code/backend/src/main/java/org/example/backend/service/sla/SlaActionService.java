@@ -37,7 +37,7 @@ public class SlaActionService {
         Long projectId = task.getProject().getId();
         Long taskId = task.getId();
 
-        if (task.getStatus() == TaskStatus.DONE) {
+        if (task.getStatus() == TaskStatus.DONE && !evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
             String actionKey = buildActionKey(projectId, taskId, "SYSTEM", "RESOLVE_SLA", "NORMAL");
             if (slaActionLogRepository.existsByActionKey(actionKey)) {
                 actions.add("SKIPPED_DUPLICATE_ACTION");
@@ -59,7 +59,10 @@ public class SlaActionService {
         if (task.getPrimaryAssignee() != null) {
             String category = null;
             String notificationTitle = null;
-            if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
+            if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
+                category = "OVERDUE_PENALTY";
+                notificationTitle = "SLA task quÃ¡ háº¡n";
+            } else if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
                 category = "OVERDUE_SHORT";
                 notificationTitle = "Cảnh báo task quá hạn";
             } else if (evaluation.has(TaskSlaCategory.DUE_TODAY)) {
@@ -119,24 +122,6 @@ public class SlaActionService {
                                 "FAILED", ex.getMessage());
                         throw ex;
                     }
-                }
-            }
-        }
-
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
-            String actionKey = buildActionKey(projectId, taskId, "SYSTEM", "ESCALATE_LEADER", "OVERDUE_PENALTY");
-            if (slaActionLogRepository.existsByActionKey(actionKey)) {
-                actions.add("SKIPPED_DUPLICATE_ESCALATION");
-            } else {
-                try {
-                    taskPenaltyService.escalateToLeadersIfNeeded(task, evaluation);
-                    saveActionLog(projectId, task, null, "ESCALATE_LEADER", "OVERDUE_PENALTY", actionKey,
-                            "EXECUTED", "Escalation to leaders triggered.");
-                    actions.add("ESCALATED_LEADER");
-                } catch (Exception ex) {
-                    saveActionLog(projectId, task, null, "ESCALATE_LEADER", "OVERDUE_PENALTY", actionKey,
-                            "FAILED", ex.getMessage());
-                    throw ex;
                 }
             }
         }

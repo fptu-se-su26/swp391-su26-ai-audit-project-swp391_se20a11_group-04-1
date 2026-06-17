@@ -155,6 +155,13 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
+    @Override
+    public boolean hasAlreadyNotified(Long recipientId, Long relatedId, NotificationType type,
+            NotificationEntityType entityType, String title) {
+        return notificationRepository.existsByRecipientIdAndRelatedIdAndTypeAndEntityTypeAndTitle(
+                recipientId, relatedId, type, entityType, title);
+    }
+
     private void pushToUser(Long userId, NotificationResponse response) {
         try {
             String payload = objectMapper.writeValueAsString(Map.of(

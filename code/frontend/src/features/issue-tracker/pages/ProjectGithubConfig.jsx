@@ -292,7 +292,7 @@ export function ProjectGithubConfig() {
     }
   }
 
-  const isLeader = activeProject?.role === 'Project Leader'
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
   if (!isLeader) {
     return (
       <main className="flex-1 p-6 flex items-center justify-center">

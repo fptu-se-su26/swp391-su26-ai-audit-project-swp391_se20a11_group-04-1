@@ -26,7 +26,7 @@ public class DailyDigestController {
     }
 
     @PostMapping("/api/v1/projects/{projectId}/digests/test-trigger")
-    @PreAuthorizeProjectMember
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     public ResponseEntity<Void> testTriggerProjectDigests(@PathVariable Long projectId) {
         dailyDigestService.buildDailyDigestsForProject(projectId);
         dailyDigestService.sendPendingDailyDigestsForProject(projectId);
