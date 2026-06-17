@@ -62,7 +62,7 @@ public class StreamingAiReviewServiceImpl implements StreamingAiReviewService {
                 throw new CustomException("Task does not belong to this project", HttpStatus.BAD_REQUEST);
             }
             ProjectCodeInsightSettings settings = settingsRepository.findByProjectId(projectId)
-                    .orElse(ProjectCodeInsightSettings.builder().aiReviewEnabled(false).build());
+                    .orElse(ProjectCodeInsightSettings.builder().aiReviewEnabled(true).build());
             if (!settings.isAiReviewEnabled()) {
                 throw new CustomException("AI Review is disabled for this project", HttpStatus.FORBIDDEN);
             }

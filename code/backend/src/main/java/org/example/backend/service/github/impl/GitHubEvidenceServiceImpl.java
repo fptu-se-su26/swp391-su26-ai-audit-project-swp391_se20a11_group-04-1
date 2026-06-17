@@ -2,11 +2,13 @@ package org.example.backend.service.github.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.backend.entity.*;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
 import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.GitHubWebhookEventRepository;
 import org.example.backend.service.CodeInsightEvidenceLinkService;
+import org.example.backend.service.WebSocketBroadcastService;
 import org.example.backend.service.github.core.GitHubEvidenceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,6 +31,8 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
     private final GitHubPullRequestRepository pullRequestRepository;
     private final GitHubCheckRunRepository checkRunRepository;
     private final CodeInsightEvidenceLinkService evidenceLinkService;
+    private final CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    private final WebSocketBroadcastService webSocketBroadcastService;
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -111,6 +116,24 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         commit.setUpdatedAt(LocalDateTime.now());
         commitRepository.save(commit);
         evidenceLinkService.linkCommit(commit);
+
+        // Broadcast to WebSocket to notify client that commit evidence has been linked/updated
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectIdAndEvidenceTypeAndEvidenceId(
+                integration.getProject().getId(), CodeInsightEvidenceType.COMMIT, commit.getId());
+        for (CodeInsightEvidenceLink link : links) {
+            if (link.getTask() != null) {
+                webSocketBroadcastService.broadcastEvidenceUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        "COMMIT",
+                        "PUSHED");
+                webSocketBroadcastService.broadcastGateUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        null,
+                        null);
+            }
+        }
     }
 
     @Override
@@ -144,6 +167,24 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         pullRequest.setUpdatedAt(LocalDateTime.now());
         pullRequestRepository.save(pullRequest);
         evidenceLinkService.linkPullRequest(pullRequest);
+
+        // Broadcast to WebSocket to notify client that pull request evidence has been linked/updated
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectIdAndEvidenceTypeAndEvidenceId(
+                integration.getProject().getId(), CodeInsightEvidenceType.PULL_REQUEST, pullRequest.getId());
+        for (CodeInsightEvidenceLink link : links) {
+            if (link.getTask() != null) {
+                webSocketBroadcastService.broadcastEvidenceUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        "PULL_REQUEST",
+                        pullRequest.getState());
+                webSocketBroadcastService.broadcastGateUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        null,
+                        null);
+            }
+        }
     }
 
     @Override
@@ -171,6 +212,24 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         checkRun.setUpdatedAt(LocalDateTime.now());
         checkRunRepository.save(checkRun);
         evidenceLinkService.linkCheckRun(checkRun);
+
+        // Broadcast to WebSocket to notify client that workflow/check run evidence has been linked/updated
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectIdAndEvidenceTypeAndEvidenceId(
+                integration.getProject().getId(), CodeInsightEvidenceType.CHECK_RUN, checkRun.getId());
+        for (CodeInsightEvidenceLink link : links) {
+            if (link.getTask() != null) {
+                webSocketBroadcastService.broadcastEvidenceUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        "CHECK_RUN",
+                        checkRun.getConclusion() != null ? checkRun.getConclusion() : checkRun.getStatus());
+                webSocketBroadcastService.broadcastGateUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        null,
+                        null);
+            }
+        }
     }
 
     @Override
@@ -199,6 +258,24 @@ public class GitHubEvidenceServiceImpl implements GitHubEvidenceService {
         checkRun.setUpdatedAt(LocalDateTime.now());
         checkRunRepository.save(checkRun);
         evidenceLinkService.linkCheckRun(checkRun);
+
+        // Broadcast to WebSocket to notify client that workflow/check run evidence has been linked/updated
+        List<CodeInsightEvidenceLink> links = evidenceLinkRepository.findByProjectIdAndEvidenceTypeAndEvidenceId(
+                integration.getProject().getId(), CodeInsightEvidenceType.CHECK_RUN, checkRun.getId());
+        for (CodeInsightEvidenceLink link : links) {
+            if (link.getTask() != null) {
+                webSocketBroadcastService.broadcastEvidenceUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        "CHECK_RUN",
+                        checkRun.getConclusion() != null ? checkRun.getConclusion() : checkRun.getStatus());
+                webSocketBroadcastService.broadcastGateUpdated(
+                        integration.getProject().getId(),
+                        link.getTask().getId(),
+                        null,
+                        null);
+            }
+        }
     }
 
     private void updateTerminalStatus(Long eventId, GitHubWebhookEventStatus status, String errorMessage) {
