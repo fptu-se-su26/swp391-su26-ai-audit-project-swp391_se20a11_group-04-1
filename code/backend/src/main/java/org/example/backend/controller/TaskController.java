@@ -7,6 +7,7 @@ import org.example.backend.exception.CustomException;
 import org.example.backend.service.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.DayOfWeek;
@@ -36,6 +37,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(result, "Hot tasks retrieved"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping("/projects/{projectId}/tasks")
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @PathVariable Long projectId,
@@ -52,6 +54,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.getTask(taskId, userId), "Task retrieved"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentorByTaskId(#taskId)")
     @PutMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
             @PathVariable Long taskId,
@@ -61,6 +64,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.updateTask(taskId, request, userId), "Task updated"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentorByTaskId(#taskId)")
     @DeleteMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<Void>> deleteTask(@PathVariable Long taskId, HttpSession session) {
         Long userId = requireUser(session);
@@ -77,6 +81,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.updateTaskStatus(taskId, request, userId), "Task status updated"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentorByTaskId(#taskId)")
     @PatchMapping("/tasks/{taskId}/assignee")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTaskAssignee(
             @PathVariable Long taskId,
@@ -96,6 +101,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.requestTaskReview(taskId, request, userId), "Task review requested"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentorByTaskId(#taskId)")
     @PostMapping("/tasks/{taskId}/approve")
     public ResponseEntity<ApiResponse<TaskResponse>> approveTaskReview(
             @PathVariable Long taskId,
@@ -106,6 +112,7 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.approveTaskReview(taskId, request, userId), "Task review approved"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentorByTaskId(#taskId)")
     @PostMapping("/tasks/{taskId}/reject")
     public ResponseEntity<ApiResponse<TaskResponse>> rejectTaskReview(
             @PathVariable Long taskId,

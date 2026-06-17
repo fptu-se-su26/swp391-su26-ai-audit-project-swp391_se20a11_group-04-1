@@ -25,6 +25,10 @@ public class DailyDigest {
     @JoinColumn(name = "user_id", nullable = false)
     private UserAccount user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
     @Column(name = "digest_date", nullable = false)
     private LocalDate digestDate;
 

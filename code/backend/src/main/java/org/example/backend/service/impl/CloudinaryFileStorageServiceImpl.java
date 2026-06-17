@@ -2,6 +2,8 @@ package org.example.backend.service.impl;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.example.backend.exception.BusinessException;
 import org.example.backend.service.FileStorageService;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -13,9 +15,19 @@ import java.util.UUID;
 
 @Service
 @Primary // 👈 Đánh dấu ưu tiên sử dụng class này thay vì MockFileStorageServiceImpl
+@Slf4j
 public class CloudinaryFileStorageServiceImpl implements FileStorageService {
 
     private final Cloudinary cloudinary;
+
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.cloud-name}")
+    private String cloudName;
+
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.api-key}")
+    private String apiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.api-secret}")
+    private String apiSecret;
 
     public CloudinaryFileStorageServiceImpl(Cloudinary cloudinary) {
         this.cloudinary = cloudinary;
@@ -36,30 +48,46 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         if (file == null || file.isEmpty()) {
             return null;
         }
+
+        // Tự động fallback về link ảnh mẫu nếu đang chạy bằng tài khoản "demo"
+        if ("demo".equalsIgnoreCase(cloudName) || "demo".equalsIgnoreCase(apiKey) || "demo".equalsIgnoreCase(apiSecret)) {
+            log.warn("Cloudinary is running with placeholder 'demo' credentials. Falling back to a sample mock avatar URL.");
+            // Danh sách một số ảnh avatar mẫu đẹp để trải nghiệm
+            return "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150";
+        }
         
         String originalFilename = file.getOriginalFilename();
+        String sanitizedFilename = originalFilename != null
+                ? originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_")
+                : "upload";
+                
         String ext = "";
-        String baseName = originalFilename;
-        if (originalFilename != null && originalFilename.contains(".")) {
-            int dotIdx = originalFilename.lastIndexOf('.');
-            ext = originalFilename.substring(dotIdx);
-            baseName = originalFilename.substring(0, dotIdx);
+        String baseName = sanitizedFilename;
+        if (sanitizedFilename.contains(".")) {
+            int dotIdx = sanitizedFilename.lastIndexOf('.');
+            ext = sanitizedFilename.substring(dotIdx);
+            baseName = sanitizedFilename.substring(0, dotIdx);
         }
         
         String publicIdWithoutExt = UUID.randomUUID().toString() + "_" + baseName;
         String publicIdWithExt = publicIdWithoutExt + ext;
 
-        Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                "public_id", publicIdWithoutExt,
-                "folder", "evidence",
-                "type", type
-        ));
+        try {
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                    "public_id", publicIdWithoutExt,
+                    "folder", "evidence",
+                    "type", type
+            ));
 
-        if ("private".equals(type)) {
-            // For private files, we store the full public_id (including folder and extension) in our DB
-            return "evidence/" + publicIdWithExt;
+            if ("private".equals(type)) {
+                // For private files, store the full public_id in DB
+                return "evidence/" + publicIdWithExt;
+            }
+            return uploadResult.get("secure_url").toString();
+        } catch (Exception e) {
+            log.error("Failed to upload file to Cloudinary: {}", e.getMessage(), e);
+            throw new BusinessException("Lỗi upload Cloudinary: " + e.getMessage());
         }
-        return uploadResult.get("secure_url").toString();
     }
 
     @Override
@@ -109,10 +137,16 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
                 cloudinary.uploader().destroy(fileUrl, ObjectUtils.asMap("type", "private", "invalidate", true));
                 return;
             }
-            // Lấy public_id từ URL (Cloudinary URL format: .../upload/v1234/folder/public_id.ext)
-            String[] parts = fileUrl.split("/");
-            String filename = parts[parts.length - 1];
-            String publicIdWithFolder = "evidence/" + filename.substring(0, filename.lastIndexOf('.'));
+            
+            // Lấy public_id từ Cloudinary URL cho file public
+            int uploadIdx = fileUrl.indexOf("/upload/");
+            if (uploadIdx == -1) return;
+            String pathAfterUpload = fileUrl.substring(uploadIdx + "/upload/".length());
+            if (pathAfterUpload.matches("v\\d+/.*")) {
+                pathAfterUpload = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
+            }
+            int lastDot = pathAfterUpload.lastIndexOf('.');
+            String publicIdWithFolder = lastDot > 0 ? pathAfterUpload.substring(0, lastDot) : pathAfterUpload;
             
             cloudinary.uploader().destroy(publicIdWithFolder, ObjectUtils.emptyMap());
         } catch (Exception e) {

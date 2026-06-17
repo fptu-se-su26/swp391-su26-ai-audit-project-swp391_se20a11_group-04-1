@@ -23,5 +23,16 @@ public interface EvidenceLinkRepository extends JpaRepository<EvidenceLink, Long
                                             @Param("entityId") Long entityId,
                                             @Param("status") EvidenceStatus status);
 
+    @Query("""
+            select distinct el.entityId
+            from EvidenceLink el
+            where el.entityType = :entityType
+              and el.entityId in :entityIds
+              and el.evidence.status = :status
+            """)
+    List<Long> findEntityIdsWithAcceptedEvidence(@Param("entityType") EvidenceEntityType entityType,
+                                                 @Param("entityIds") List<Long> entityIds,
+                                                 @Param("status") EvidenceStatus status);
+
     List<EvidenceLink> findByEntityTypeAndEntityId(EvidenceEntityType entityType, Long entityId);
 }

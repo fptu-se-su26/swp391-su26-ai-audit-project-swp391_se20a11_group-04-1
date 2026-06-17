@@ -185,7 +185,7 @@ export function IssueDetailView() {
     }
   }
 
-  const isLeader = activeProject?.role === 'Project Leader'
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
   const isDraft = bug.relatedTaskId === null
 
   const getSeverityBadge = (severity) => {

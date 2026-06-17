@@ -157,7 +157,7 @@ const Sidebar = () => {
             <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
             <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
             <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
-            <NavItem to={`/projects/${activeProject.id}/sprint-reports`} icon="campaign" label="Sprint Reports" />
+            {/* Sprint Reports entry point moved to SprintPage → "View Sprint Report" button */}
             <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
             <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
@@ -204,7 +204,11 @@ const Sidebar = () => {
 
       {/* PERSISTENT USER STATUS & LOGOUT */}
       <div className="pt-5 border-t border-outline-variant mt-auto flex flex-col gap-3">
-        <div className="flex items-center gap-3 p-1 rounded-lg">
+        <div 
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-surface-container-high transition-colors"
+          title="Xem trang cá nhân"
+        >
           <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
             {getInitials(fullName)}
           </div>
