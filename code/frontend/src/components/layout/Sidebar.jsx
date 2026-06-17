@@ -194,7 +194,11 @@ const Sidebar = () => {
 
       {/* PERSISTENT USER STATUS & LOGOUT */}
       <div className="pt-5 border-t border-outline-variant mt-auto flex flex-col gap-3">
-        <div className="flex items-center gap-3 p-1 rounded-lg">
+        <div 
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-surface-container-high transition-colors"
+          title="Xem trang cá nhân"
+        >
           <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
             {getInitials(fullName)}
           </div>

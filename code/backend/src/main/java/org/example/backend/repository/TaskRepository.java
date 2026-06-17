@@ -151,4 +151,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile"})
     @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.primaryAssignee IS NOT NULL")
     List<Task> findAllWithAssigneeByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId")
+    long countTotalAssignedTasks(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE' AND t.deadline IS NOT NULL AND t.deadline < CURRENT_DATE")
+    long countOverdueTasks(@Param("userId") Long userId);
+
+    @Query("SELECT t FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status = 'DONE'")
+    List<Task> findCompletedTasksByUserId(@Param("userId") Long userId);
 }

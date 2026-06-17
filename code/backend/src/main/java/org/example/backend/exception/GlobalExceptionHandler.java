@@ -156,6 +156,12 @@ public class GlobalExceptionHandler {
         return buildErrorResponse("Invalid request body. Please check the JSON format.", HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        log.warn("Max upload size exceeded: {}", ex.getMessage());
+        return buildErrorResponse("Kích thước file vượt quá giới hạn cho phép (tối đa 10MB).", HttpStatus.BAD_REQUEST);
+    }
+
     // ─── 5. Handle Security Exceptions ──────────────────────────────────────────
 
     /**

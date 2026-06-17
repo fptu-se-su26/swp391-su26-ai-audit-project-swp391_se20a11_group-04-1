@@ -35,6 +35,7 @@ import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
 
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
+import ProfilePage from '@features/profile/pages/ProfilePage'
 
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
@@ -66,6 +67,7 @@ export function AppRoutes() {
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
 
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
