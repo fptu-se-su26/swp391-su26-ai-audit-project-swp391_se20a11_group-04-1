@@ -262,8 +262,7 @@ export function DashboardPage() {
     const payload = {
       ...formData,
       repoOwner,
-      repoName,
-      webhookUrl: shouldLinkGithub ? `${window.location.origin}/api/v1/github/webhook` : null
+      repoName
     }
 
     const success = await createProject(payload)

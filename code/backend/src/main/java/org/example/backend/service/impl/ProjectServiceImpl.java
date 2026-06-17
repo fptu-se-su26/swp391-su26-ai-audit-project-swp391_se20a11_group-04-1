@@ -64,6 +64,9 @@ public class ProjectServiceImpl implements ProjectService {
     @PersistenceContext
     private EntityManager entityManager;
 
+    @org.springframework.beans.factory.annotation.Value("${github.webhook-url}")
+    private String githubWebhookUrl;
+
     @Override
     @Transactional(readOnly = true)
     public PaginatedResponse<ProjectResponse> getProjectsForUser(
@@ -299,13 +302,33 @@ public class ProjectServiceImpl implements ProjectService {
                 // Save integration configuration
                 gitHubApiService.saveIntegration(project.getId(), configRequest, userId);
 
-                // If webhookUrl is provided, auto configure webhook on GitHub
-                if (request.getWebhookUrl() != null && !request.getWebhookUrl().trim().isEmpty()) {
-                    List<String> events = List.of("issues", "push", "pull_request", "workflow_run", "check_run");
-                    gitHubApiService.autoConfigureWebhook(project.getId(), userId, request.getWebhookUrl().trim(), events, webhookSecret);
+                // Auto configure webhook on GitHub post-commit using the backend-configured webhook URL
+                if (githubWebhookUrl != null && !githubWebhookUrl.trim().isEmpty()) {
+                    final Long projectId = project.getId();
+                    final String webhookUrl = githubWebhookUrl.trim();
+                    final String finalSecret = webhookSecret;
+                    final List<String> events = List.of("issues", "push", "pull_request", "workflow_run", "check_run");
+                    
+                    if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override
+                                public void afterCommit() {
+                                    try {
+                                        log.info("🚀 Transaction committed. Registering GitHub webhook post-commit for project: {}", projectId);
+                                        gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, finalSecret);
+                                    } catch (Exception e) {
+                                        log.error("❌ Failed to automatically configure GitHub webhook post-commit", e);
+                                    }
+                                }
+                            }
+                        );
+                    } else {
+                        gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, finalSecret);
+                    }
                 }
             } catch (Exception e) {
-                log.error("❌ Failed to automatically configure GitHub webhook during project creation", e);
+                log.error("❌ Failed to automatically configure GitHub integration during project creation", e);
             }
         }
 
