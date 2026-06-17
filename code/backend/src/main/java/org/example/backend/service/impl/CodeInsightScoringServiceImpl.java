@@ -296,6 +296,7 @@ public class CodeInsightScoringServiceImpl implements CodeInsightScoringService 
             List<GitHubPullRequest> pullRequests,
             List<GitHubCommit> commits) {
         Set<String> currentShas = pullRequests.stream()
+                .filter(pr -> pr.getState() == null || "open".equalsIgnoreCase(pr.getState()))
                 .map(GitHubPullRequest::getHeadSha)
                 .filter(this::hasText)
                 .map(this::normalizeSha)
