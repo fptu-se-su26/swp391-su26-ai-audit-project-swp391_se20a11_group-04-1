@@ -39,6 +39,33 @@ public class ClassroomController {
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy danh sách lớp học thành công!"));
     }
 
+    @GetMapping("/{id}/invite-link")
+    public ResponseEntity<ApiResponse<String>> generateInviteLink(@PathVariable Long id, HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        String token = classroomService.generateInviteLink(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(token, "Tạo link mời thành công!"));
+    }
+
+    @PostMapping("/join")
+    public ResponseEntity<ApiResponse<Void>> joinClassroom(@RequestParam String token, HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        classroomService.joinClassroom(token, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Tham gia lớp học thành công!"));
+    }
+
+    @GetMapping("/join")
+    public ResponseEntity<ApiResponse<ClassroomResponse>> getClassroomFromToken(@RequestParam String token) {
+        ClassroomResponse response = classroomService.getClassroomFromToken(token);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin lớp học thành công!"));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ClassroomResponse>> getClassroomById(@PathVariable Long id, HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        ClassroomResponse response = classroomService.getClassroomById(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin lớp học thành công!"));
+    }
+
     private Long getUserIdFromSession(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

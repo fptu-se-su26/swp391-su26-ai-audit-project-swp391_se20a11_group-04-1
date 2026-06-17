@@ -46,4 +46,13 @@ public class AcademicContext {
     @Column(name = "max_members", nullable = false)
     @Builder.Default
     private Integer maxMembers = 50;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "classroom_members",
+            joinColumns = @JoinColumn(name = "classroom_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @Builder.Default
+    private java.util.List<UserAccount> enrolledStudents = new java.util.ArrayList<>();
 }
