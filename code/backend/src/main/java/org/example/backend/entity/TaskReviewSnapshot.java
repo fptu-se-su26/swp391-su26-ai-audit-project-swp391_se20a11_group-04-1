@@ -6,13 +6,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "code_insight_reviews")
+@Table(name = "task_review_snapshots")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightReview {
+public class TaskReviewSnapshot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
