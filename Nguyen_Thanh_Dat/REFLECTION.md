@@ -194,17 +194,43 @@ Ghi lại ít nhất một ví dụ nếu có.
 
 | Nội dung | Mô tả |
 |---|---|
-| AI đã gợi ý gì? |  |
-| Vì sao gợi ý đó sai/chưa phù hợp? |  |
-| Em/nhóm phát hiện bằng cách nào? |  |
-| Em/nhóm đã sửa như thế nào? |  |
-| Bài học rút ra |  |
+| AI đã gợi ý gì? | AI đề xuất dùng IP Blocking để chống Brute-force. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Vì sẽ chặn nhầm toàn bộ người dùng hợp lệ trong mạng LAN/NAT của công ty nếu có một người gõ sai. Hơn nữa, truy vấn DB liên tục sẽ gây DoS. |
+| Em/nhóm phát hiện bằng cách nào? | Dựa vào kiến thức về kiến trúc mạng thực tế và hiệu năng DB. |
+| Em/nhóm đã sửa như thế nào? | Phản biện AI và yêu cầu chuyển sang Account-based Blocking sử dụng Redis, kết hợp Fast-Fail. |
+| Bài học rút ra | Luôn phải đối chiếu giải pháp của AI với môi trường thực tế (Production), không áp dụng máy móc. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI cung cấp bộ phân tích User-Agent nhận diện thiết bị nhưng lại nhận diện iPhone là Macbook. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Tưởng chừng thư viện bị lỗi, nhưng thực chất là do tính năng "Request Desktop Website" mặc định của Apple iOS 13+ làm sai lệch thông tin User-Agent gửi lên server. |
+| Em/nhóm phát hiện bằng cách nào? | Test thực tế việc đăng nhập sai trên điện thoại iPhone và kiểm tra email cảnh báo trả về. |
+| Em/nhóm đã sửa như thế nào? | Hỏi lại AI về hiện tượng lạ này. Sau khi AI giải thích, nhóm đã tắt tính năng giả lập máy tính trên Safari/Chrome điện thoại và nhận diện lại thành công. |
+| Bài học rút ra | Không phải lúc nào code hoặc thư viện cũng lỗi, đôi khi nguyên nhân đến từ đặc tả kỹ thuật ẩn của các nền tảng thiết bị đầu cuối (như Apple). Kiến thức sâu rộng của AI về các ngoại lệ này rất hữu ích. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI ban đầu gợi ý logic xóa toàn bộ Key đếm lỗi trên Redis khi người dùng đăng nhập thành công. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Vì việc xóa toàn bộ Key sẽ vô tình "ân xá" (mở khóa) cho cả các địa chỉ IP của Hacker đang bị khóa. |
+| Em/nhóm phát hiện bằng cách nào? | Đặt câu hỏi phản biện sắc bén: "Tức là ở đây là máy hacker có xóa không hay xóa hết?" |
+| Em/nhóm đã sửa như thế nào? | Cùng AI thống nhất chuyển cấu trúc lưu trữ sang Redis Hash để xóa chính xác đếm lỗi của IP chính chủ, cô lập hoàn toàn IP độc hại. |
+| Bài học rút ra | Khi xử lý dữ liệu chung của một tài khoản nhưng có nhiều tác nhân (nhiều IP), cần cấu trúc dữ liệu dạng Hash/Map để cô lập thao tác. Không nên mù quáng xóa toàn cục (Global Reset). |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | Ban đầu AI tạo ra API update trạng thái Task hoàn toàn tự do (CRUD cơ bản), cho phép đổi trạng thái trực tiếp thành DONE. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Vi phạm nghiệp vụ kinh doanh (Business Logic) cốt lõi của dự án là "Review Gate" - Mentor phải duyệt trước khi DONE. |
+| Em/nhóm phát hiện bằng cách nào? | Đánh giá luồng đi của Task và thử dùng Postman bắn API cập nhật láo trạng thái. |
+| Em/nhóm đã sửa như thế nào? | Cung cấp lại định nghĩa quy trình duyệt cho AI và yêu cầu viết một State Machine (máy trạng thái) ràng buộc HTTP 400 nếu vượt rào. |
+| Bài học rút ra | Các mô hình ngôn ngữ lớn (LLM) thường bỏ qua Business Logic đặc thù và chỉ làm theo chuẩn RESTful CRUD. Dev phải đóng vai trò là Domain Expert để thiết lập các rào cản nghiệp vụ (Guardrails) ngay tại Controller/Service. |
 
 Nếu không có trường hợp AI gợi ý sai, hãy ghi rõ:
-
-```text
-Trong quá trình thực hiện, em/nhóm chưa ghi nhận trường hợp AI gợi ý sai nghiêm trọng. Tuy nhiên, em/nhóm vẫn kiểm tra lại kết quả AI trước khi sử dụng.
-```
 
 ---
 
@@ -249,7 +275,7 @@ Gợi ý:
 Sau bài tập/project này, em/nhóm học được gì về kiến thức môn học?
 
 ```text
-Viết tại đây...
+Hiểu sâu sắc về sự khác biệt giữa "Code chạy được" và "Kiến trúc hệ thống". Việc tối ưu hiệu năng (tránh gọi DB liên tục) và bảo mật (chống Brute-force nhưng không làm chết UX) là cực kỳ quan trọng. Cơ chế Ngắt mạch sớm (Fast-Fail) là một kỹ thuật tuyệt vời.
 ```
 
 Gợi ý:

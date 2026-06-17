@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface EvidenceLinkRepository extends JpaRepository<EvidenceLink, Long> {
     @Query("""
@@ -20,4 +22,6 @@ public interface EvidenceLinkRepository extends JpaRepository<EvidenceLink, Long
     boolean existsAcceptedEvidenceForEntity(@Param("entityType") EvidenceEntityType entityType,
                                             @Param("entityId") Long entityId,
                                             @Param("status") EvidenceStatus status);
+
+    List<EvidenceLink> findByEntityTypeAndEntityId(EvidenceEntityType entityType, Long entityId);
 }

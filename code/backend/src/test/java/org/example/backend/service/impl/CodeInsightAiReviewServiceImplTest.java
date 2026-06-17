@@ -15,7 +15,14 @@ class CodeInsightAiReviewServiceImplTest {
             null,
             null,
             null,
-            new ObjectMapper());
+            null,
+            null,
+            null,
+            null,
+            new ObjectMapper(),
+            null,
+            null,
+            null);
 
     @Test
     void legacyReviewMapsToStructuredResponse() {

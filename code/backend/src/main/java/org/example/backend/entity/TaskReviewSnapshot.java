@@ -6,13 +6,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "code_insight_reviews")
+@Table(name = "task_review_snapshots")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CodeInsightReview {
+public class TaskReviewSnapshot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +38,15 @@ public class CodeInsightReview {
 
     @Column(name = "risk_level", length = 40)
     private String riskLevel;
+
+    @Column(name = "gate_result", length = 30)
+    private String gateResult;
+
+    @Column(name = "evidence_confidence", length = 20)
+    private String evidenceConfidence;
+
+    @Column(name = "code_risk_level", length = 20)
+    private String codeRiskLevel;
 
     @Column(name = "score_reasons_json", columnDefinition = "TEXT")
     private String scoreReasonsJson;

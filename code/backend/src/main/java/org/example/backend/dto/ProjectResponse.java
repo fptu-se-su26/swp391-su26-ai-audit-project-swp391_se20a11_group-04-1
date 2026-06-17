@@ -52,5 +52,8 @@ public class ProjectResponse {
         private LocalDate deadline;
         
         private String major; // Sẽ được maps vào subject của AcademicContext
+        private String repoOwner;
+        private String repoName;
+        private String webhookUrl;
     }
 }
