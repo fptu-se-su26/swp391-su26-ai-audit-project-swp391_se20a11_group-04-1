@@ -123,6 +123,24 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskService.rejectTaskReview(taskId, request, userId), "Task review rejected"));
     }
 
+    @PostMapping("/tasks/{taskId}/reopen-review")
+    public ResponseEntity<ApiResponse<TaskResponse>> reopenTaskReview(
+            @PathVariable Long taskId,
+            @RequestBody TaskReviewRequest request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(taskService.reopenTaskReview(taskId, request, userId), "Task review reopened"));
+    }
+
+    @PostMapping("/tasks/{taskId}/request-rework")
+    public ResponseEntity<ApiResponse<TaskResponse>> requestTaskRework(
+            @PathVariable Long taskId,
+            @RequestBody TaskReviewRequest request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(taskService.requestTaskRework(taskId, request, userId), "Task rework requested"));
+    }
+
     @GetMapping("/my-tasks")
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getMyTasks(HttpSession session) {
         Long userId = requireUser(session);

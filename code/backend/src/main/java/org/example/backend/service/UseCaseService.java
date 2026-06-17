@@ -7,11 +7,13 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface UseCaseService {
-    UseCaseResponse createUseCase(UseCaseRequest request, String username);
+    UseCaseResponse createUseCase(UseCaseRequest request, Long userId);
     UseCaseResponse getUseCaseById(Long id);
     List<UseCaseResponse> getAllUseCases(Long projectId);
-    UseCaseResponse updateUseCase(Long id, UseCaseRequest request);
-    UseCaseResponse updateUseCaseStatus(Long id, String status);
-    void deleteUseCase(Long id);
-    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Pageable pageable);
+    UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request);
+    UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status);
+    void deleteUseCase(Long id, Long projectId);
+    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable);
+
+    UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId);
 }

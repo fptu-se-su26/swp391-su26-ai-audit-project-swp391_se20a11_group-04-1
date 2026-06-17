@@ -70,6 +70,11 @@ cloudinary:
   api-key: "YOUR_API_KEY_HERE"
   api-secret: "YOUR_API_SECRET_HERE"
 
+gemini:
+  api:
+    key: "YOUR_GEMINI_API_KEY_HERE" # 👈 Điền Google Gemini API Key vào đây
+    url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
 # GitHub OAuth & Integration Settings
 github:
   client-id: "YOUR_GITHUB_OAUTH_CLIENT_ID"
@@ -85,3 +90,11 @@ app:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: local
     outbox-publish-delay-ms: 30000
+
+code-insight:
+  ai:
+    # gemini = real Gemini provider. AI Review returns provider errors when the API cannot produce a review.
+    provider: ${CODE_INSIGHT_AI_PROVIDER:gemini}
+    api-key: ${CODE_INSIGHT_AI_API_KEY:}
+    model: ${CODE_INSIGHT_AI_MODEL:gemini-2.5-flash}
+    timeout-seconds: ${CODE_INSIGHT_AI_TIMEOUT_SECONDS:30}

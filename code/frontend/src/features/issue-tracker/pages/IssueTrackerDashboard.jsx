@@ -687,7 +687,7 @@ export function IssueTrackerDashboard() {
         if (item.isBug) {
           return item.relatedTaskId != null && item.displayStatus !== 'DRAFT' && item.status !== 'DRAFT';
         }
-        return item.status !== 'DRAFT' && item.displayStatus !== 'DRAFT';
+        return item.githubIssueNumber != null;
       }
       
       const aApproved = isApproved(a);
@@ -951,7 +951,7 @@ export function IssueTrackerDashboard() {
       // Feature tasks (không phải từ GitHub)
       if (!b.isBug && b.githubIssueNumber == null) {
         // Nếu là Task thông thường chưa được approve (ví dụ: tạo offline chưa sync)
-        if (b.status === 'DRAFT' || b.displayStatus === 'DRAFT') return;
+        return;
       }
 
       list.push(b);
@@ -1359,9 +1359,11 @@ export function IssueTrackerDashboard() {
                     : (bug.githubIssueNumber != null);
                   const isBlankGit = isBlankGitHubIssue(bug);
                   const isBlankDr = isBlankDraft(bug);
-                  const isDiscussApproved = isBlankGit 
-                    ? !isBlankDr 
-                    : (hasGitHubNumber || stats.isAllApproved || (bug.status !== 'DRAFT' && bug.displayStatus !== 'DRAFT'));
+                  const isDiscussApproved = bug.isBug 
+                    ? (bug.displayStatus !== 'DRAFT')
+                    : (isBlankGit 
+                      ? !isBlankDr 
+                      : (hasGitHubNumber || stats.isAllApproved));
 
                   return (
                     <div

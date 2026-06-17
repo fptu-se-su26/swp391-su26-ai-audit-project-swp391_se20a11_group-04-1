@@ -456,8 +456,7 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         String normalized = roleName == null
                 ? ""
                 : roleName.trim().toUpperCase(Locale.ROOT).replace(" ", "_");
-        return "LEADER".equals(normalized)
-                || "PROJECT_LEADER".equals(normalized)
+        return normalized.contains("LEADER")
                 || "MENTOR".equals(normalized);
     }
 

@@ -67,6 +67,8 @@ export function ApprovedTaskTab({
 
   const approvedProposals = Array.isArray(proposals) ? proposals.filter((p) => p.status === 'APPROVED') : []
 
+  const hasRequirement = !!task?.requirementId || (task?.requirement && !task.requirement.includes('No Requirement') && task.requirement !== 'Chưa gắn Requirement');
+
   if (!approvedProposals.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
@@ -101,7 +103,7 @@ export function ApprovedTaskTab({
                 <div className="flex flex-col items-end shrink-0">
                   <button
                     onClick={onApproveAndSync}
-                    disabled={!task?.requirementId}
+                    disabled={!hasRequirement}
                     className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-emerald-100 shrink-0 disabled:shadow-none"
                   >
                     <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -109,7 +111,7 @@ export function ApprovedTaskTab({
                     </svg>
                     Đồng bộ đề xuất mới lên GitHub
                   </button>
-                  {!task?.requirementId && (
+                  {!hasRequirement && (
                     <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
                       ⚠️ Cần liên kết & lưu Requirement để đồng bộ
                     </span>
@@ -119,38 +121,40 @@ export function ApprovedTaskTab({
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 shadow-sm shrink-0">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold tracking-wide uppercase">
-                  Xác nhận & Đồng bộ
-                </span>
-                <p className="text-xs text-slate-600 leading-relaxed font-semibold">
-                  Nếu bạn xác nhận các đề xuất này đã giải quyết được issue của bạn, hãy bấm vào nút bên cạnh để chuyển chúng thành các task chính thức, đồng bộ lên hệ thống và đẩy lên GitHub.
-                </p>
-              </div>
-              {onApproveAndSync && (
-                <div className="flex flex-col items-end shrink-0">
-                  <button
-                    onClick={onApproveAndSync}
-                    disabled={!task?.requirementId}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100 disabled:shadow-none"
-                  >
-                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                    Chuyển đề xuất thành task & Đồng bộ
-                  </button>
-                  {!task?.requirementId && (
-                    <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
-                      ⚠️ Cần liên kết & lưu Requirement để đồng bộ
-                    </span>
-                  )}
+          isLeader && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 shadow-sm shrink-0">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold tracking-wide uppercase">
+                    Xác nhận & Đồng bộ
+                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                    Nếu bạn xác nhận các đề xuất này đã giải quyết được issue của bạn, hãy bấm vào nút bên cạnh để chuyển chúng thành các task chính thức, đồng bộ lên hệ thống và đẩy lên GitHub.
+                  </p>
                 </div>
-              )}
+                {onApproveAndSync && (
+                  <div className="flex flex-col items-end shrink-0">
+                    <button
+                      onClick={onApproveAndSync}
+                      disabled={!hasRequirement}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100 disabled:shadow-none"
+                    >
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                      Chuyển đề xuất thành task & Đồng bộ
+                    </button>
+                    {!hasRequirement && (
+                      <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                        ⚠️ Cần liên kết & lưu Requirement để đồng bộ
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        ) }
         {approvedProposals.map((p) => {
           const isChecklistExpanded = expandedChecklists[p.id] !== false
           const { plainText, checklist: propChecklist } = parseChecklist(p.content)

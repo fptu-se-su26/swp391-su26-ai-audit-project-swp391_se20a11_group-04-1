@@ -31,6 +31,9 @@ public class BugReportController {
     private final BugReportService bugReportService;
     private final GitHubApiService gitHubApiService;
 
+    @org.springframework.beans.factory.annotation.Value("${github.webhook-url}")
+    private String githubWebhookUrl;
+
     @GetMapping("/projects/{projectId}/bugs")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getProjectBugs(
             @PathVariable Long projectId,
@@ -151,6 +154,10 @@ public class BugReportController {
         
         response.put("webhookStatus", statusMap != null ? statusMap.get("webhookStatus") : "PENDING");
         response.put("lastWebhookReceivedAt", statusMap != null ? statusMap.get("lastWebhookReceivedAt") : null);
+        response.put("webhookUrl", config.getWebhookUrl());
+        response.put("configuredWebhookUrl", githubWebhookUrl);
+        response.put("webhookEventsJson", config.getWebhookEventsJson());
+        response.put("webhookLastSyncedAt", config.getWebhookLastSyncedAt());
         
         return ResponseEntity.ok(ApiResponse.success(response, "GitHub integration retrieved"));
     }
@@ -183,6 +190,9 @@ public class BugReportController {
         
         response.put("webhookStatus", statusMap != null ? statusMap.get("webhookStatus") : "PENDING");
         response.put("lastWebhookReceivedAt", statusMap != null ? statusMap.get("lastWebhookReceivedAt") : null);
+        response.put("webhookUrl", config.getWebhookUrl());
+        response.put("webhookEventsJson", config.getWebhookEventsJson());
+        response.put("webhookLastSyncedAt", config.getWebhookLastSyncedAt());
         
         return ResponseEntity.ok(ApiResponse.success(response, "GitHub integration saved successfully"));
     }
@@ -200,9 +210,9 @@ public class BugReportController {
             @RequestBody Map<String, Object> payload,
             HttpSession session) {
         Long userId = requireUser(session);
-        String webhookUrl = (String) payload.get("webhookUrl");
+        String webhookUrl = githubWebhookUrl;
         if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
-            throw new CustomException("Webhook URL is required", HttpStatus.BAD_REQUEST);
+            throw new CustomException("Webhook URL is not configured on the server", HttpStatus.BAD_REQUEST);
         }
         
         List<String> events = null;
@@ -215,6 +225,15 @@ public class BugReportController {
         
         gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, webhookSecret);
         return ResponseEntity.ok(ApiResponse.success(null, "Webhook auto-configured successfully"));
+    }
+
+    @PostMapping("/projects/{projectId}/github-integration/webhook/refresh")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> refreshWebhookConfig(
+            @PathVariable Long projectId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        Map<String, Object> status = gitHubApiService.refreshWebhookConfig(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(status, "Webhook configuration refreshed"));
     }
 
     @GetMapping("/projects/{projectId}/github-integration/deliveries")
