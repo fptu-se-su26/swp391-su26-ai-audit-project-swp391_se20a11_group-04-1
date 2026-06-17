@@ -26,6 +26,7 @@ const TaskFormModal = ({
   requirementOptions = [],
   sprintOptions = [],
   columnOptions = TASK_STATUSES,
+  isLeaderRole = true,
   onClose,
   onSubmit,
 }) => {
@@ -248,19 +249,21 @@ const TaskFormModal = ({
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
-              <input
-                type="date"
-                value={formData.deadline}
-                onChange={(event) => updateField('deadline', event.target.value)}
-                aria-invalid={Boolean(errors.deadline)}
-                className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                  errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
-                }`}
-              />
-              {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
-            </div>
+            {isLeaderRole && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Deadline</label>
+                <input
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(event) => updateField('deadline', event.target.value)}
+                  aria-invalid={Boolean(errors.deadline)}
+                  className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
+                    errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                  }`}
+                />
+                {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-xs font-bold text-on-surface-variant uppercase">Weight</label>
               <input
@@ -277,18 +280,20 @@ const TaskFormModal = ({
               />
               {errors.weight && <p className="text-xs font-semibold text-error">{errors.weight}</p>}
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={formData.estimatedHours}
-                onChange={(event) => updateField('estimatedHours', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="4"
-              />
-            </div>
+            {isLeaderRole && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Estimated hours</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={formData.estimatedHours}
+                  onChange={(event) => updateField('estimatedHours', event.target.value)}
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="4"
+                />
+              </div>
+            )}
           </div>
 
           {formData.status === 'BLOCKED' && (

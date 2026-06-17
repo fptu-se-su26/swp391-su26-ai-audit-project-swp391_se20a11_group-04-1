@@ -100,9 +100,8 @@ export default function FeatureDiscussionPage() {
 
   // Check if current user is Project Leader
   const isLeader = useMemo(() => {
-    if (!activeProject?.role) return false
-    const r = activeProject.role.toUpperCase().replace(/\s+/g, '_')
-    return r === 'PROJECT_LEADER' || r === 'LEADER'
+    const role = activeProject?.role
+    return ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(role)
   }, [activeProject?.role])
 
   // Load task

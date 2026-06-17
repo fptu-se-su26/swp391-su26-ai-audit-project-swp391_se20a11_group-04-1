@@ -40,7 +40,6 @@ export default function SprintReportPage() {
   const [tasksLoading, setTasksLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDetailLoading, setReportDetailLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const exportRef = useRef(null)
@@ -158,34 +157,32 @@ export default function SprintReportPage() {
     loadReportDetail()
   }, [activeProject?.id, selectedReportId])
 
-  const handleGenerateReport = async () => {
-    if (!activeProject?.id || !selectedSprintId) return
-    if (!canGenerate) {
-      toast.error('Only Leader/Mentor can generate reports')
-      return
-    }
-    setGenerating(true)
-    try {
-      const report = await sprintReportService.generate(activeProject.id, selectedSprintId)
-      toast.success('Sprint report generated')
-      setSelectedReportDetail(report || null)
-      await loadReports()
-      if (report?.id) setSelectedReportId(report.id)
-      window.setTimeout(() => {
-        reportResultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Only Leader/Mentor can generate reports')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   const handleExportPdf = async () => {
     if (!exportRef.current || !selectedSprintId) return
     setIsExporting(true)
-    const toastId = toast.loading('Exporting PDF...')
+    const toastId = toast.loading(canGenerate ? 'Generating report and exporting PDF...' : 'Exporting PDF...')
     try {
+      if (canGenerate) {
+        try {
+          const report = await sprintReportService.generate(activeProject.id, selectedSprintId)
+          setSelectedReportDetail(report || null)
+          await loadReports()
+          if (report?.id) setSelectedReportId(report.id)
+          // Wait a tick (300ms) for React to re-render the template with the new report details
+          await new Promise((resolve) => setTimeout(resolve, 300))
+        } catch (genError) {
+          console.error('Failed to generate report in background:', genError)
+          toast.error(
+            genError.response?.data?.message || 'Could not save new report snapshot, exporting live data instead.',
+            { id: toastId }
+          )
+          // Pause briefly so the user sees the error before the PDF exports
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+          // Re-create the loading toast
+          toast.loading('Exporting PDF...', { id: toastId })
+        }
+      }
+
       const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
       const imgData = canvas.toDataURL('image/png')
       // Create PDF with custom dimensions matching the canvas to avoid cutting
@@ -332,13 +329,10 @@ export default function SprintReportPage() {
       <div className="mx-auto max-w-7xl space-y-5">
         <SprintReportHeader
           activeProject={activeProject}
-          canGenerate={canGenerate}
-          generating={generating}
           onRefresh={() => {
             loadSprints()
             if (selectedSprintId) loadReports()
           }}
-          onGenerate={handleGenerateReport}
           onExportPdf={handleExportPdf}
           isExporting={isExporting}
           canExport={!!selectedSprintId && (!!selectedReportId || sprintTasks.length > 0)}
@@ -349,7 +343,7 @@ export default function SprintReportPage() {
         <div className="space-y-5 rounded-lg bg-background">
           {!canGenerate && (
             <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
-              Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports.
+              Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
             </div>
           )}
 

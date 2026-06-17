@@ -10,6 +10,7 @@ import org.example.backend.exception.CustomException;
 import org.example.backend.service.sla.RecoveryPlanService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class RecoveryPlanController {
 
     private final RecoveryPlanService recoveryPlanService;
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping("/projects/{projectId}/tasks/{taskId}/recovery-plans/generate")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> generateRecoveryPlan(
             @PathVariable Long projectId,
@@ -47,6 +49,7 @@ public class RecoveryPlanController {
         return ResponseEntity.ok(ApiResponse.success(response, "Latest recovery plan retrieved successfully"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/approve")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> approveRecoveryPlan(
             @PathVariable Long projectId,
@@ -59,6 +62,7 @@ public class RecoveryPlanController {
         return ResponseEntity.ok(ApiResponse.success(response, "Recovery plan approved successfully"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/reject")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> rejectRecoveryPlan(
             @PathVariable Long projectId,
@@ -73,6 +77,7 @@ public class RecoveryPlanController {
         return ResponseEntity.ok(ApiResponse.success(response, "Recovery plan rejected successfully"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/execute")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> executeRecoveryPlan(
             @PathVariable Long projectId,

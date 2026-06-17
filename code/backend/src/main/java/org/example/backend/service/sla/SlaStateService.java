@@ -29,6 +29,7 @@ public class SlaStateService {
     private final SlaDecisionLogRepository slaDecisionLogRepository;
     private final TaskSlaRuleService taskSlaRuleService;
     private final SlaActionService slaActionService;
+    private final SlaRiskAssessmentService slaRiskAssessmentService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -47,93 +48,11 @@ public class SlaStateService {
 
         TaskSlaEvaluation evaluation = taskSlaRuleService.evaluate(task);
 
-        // Calculate score
-        int baseScore = 100;
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
-            baseScore = 0;
-        } else if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
-            if (evaluation.overdueDays() == 1) {
-                baseScore = 30;
-            } else if (evaluation.overdueDays() == 2) {
-                baseScore = 15;
-            } else {
-                baseScore = 30;
-            }
-        } else if (evaluation.has(TaskSlaCategory.DUE_TODAY)) {
-            baseScore = 45;
-        } else if (evaluation.has(TaskSlaCategory.DUE_TOMORROW)) {
-            baseScore = 60;
-        } else if (evaluation.has(TaskSlaCategory.DUE_IN_2_DAYS)) {
-            baseScore = 75;
-        } else if (evaluation.has(TaskSlaCategory.DUE_IN_3_DAYS)) {
-            baseScore = 85;
-        }
-
-        int score = baseScore;
-        if (evaluation.has(TaskSlaCategory.BLOCKED)) {
-            score -= 20;
-        }
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-            score -= 25;
-        }
-        score = Math.max(0, Math.min(100, score));
-
-        // Calculate riskLevel
-        String riskLevel = "LOW";
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) || score <= 20) {
-            riskLevel = "CRITICAL";
-        } else if (score <= 45) {
-            riskLevel = "HIGH";
-        } else if (score <= 75) {
-            riskLevel = "MEDIUM";
-        } else if (score < 100) {
-            riskLevel = "LOW";
-        } else if (score == 100) {
-            if (evaluation.categories().size() == 1 && evaluation.has(TaskSlaCategory.NORMAL)) {
-                riskLevel = "NORMAL";
-            } else {
-                riskLevel = "LOW";
-            }
-        }
-
-        // Calculate reasons
-        List<String> reasons = new ArrayList<>();
-        if (evaluation.has(TaskSlaCategory.DUE_IN_3_DAYS)) reasons.add("Task deadline is in 3 days.");
-        if (evaluation.has(TaskSlaCategory.DUE_IN_2_DAYS)) reasons.add("Task deadline is in 2 days.");
-        if (evaluation.has(TaskSlaCategory.DUE_TOMORROW)) reasons.add("Task deadline is tomorrow.");
-        if (evaluation.has(TaskSlaCategory.DUE_TODAY)) reasons.add("Task deadline is today.");
-        if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
-            reasons.add("Task is overdue by " + evaluation.overdueDays() + " day(s), still in warning period.");
-        }
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) {
-            reasons.add("Task is overdue by " + evaluation.overdueDays() + " day(s) and qualifies for penalty.");
-        }
-        if (evaluation.has(TaskSlaCategory.BLOCKED)) reasons.add("Task is blocked.");
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) reasons.add("Task is missing accepted evidence.");
-        if (reasons.isEmpty() && evaluation.has(TaskSlaCategory.NORMAL)) {
-            reasons.add("Task SLA is normal.");
-        }
-
-        // Calculate recommended action
-        List<String> actions = new ArrayList<>();
-        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) actions.add("Escalate this task and request recovery action.");
-        else if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) actions.add("Follow up before this task becomes penalized.");
-        else if (evaluation.has(TaskSlaCategory.DUE_TODAY)) actions.add("Finish or update this task before the end of today.");
-        else if (evaluation.has(TaskSlaCategory.DUE_TOMORROW)) actions.add("Prepare to complete this task by tomorrow.");
-        else if (evaluation.has(TaskSlaCategory.DUE_IN_2_DAYS) || evaluation.has(TaskSlaCategory.DUE_IN_3_DAYS)) {
-            actions.add("Plan remaining work before the deadline.");
-        }
-        if (evaluation.has(TaskSlaCategory.BLOCKED)) actions.add("Clarify blocker and request leader support.");
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) actions.add("Upload or request accepted evidence.");
-        String recommendedAction = actions.isEmpty() ? "No action required." : String.join(" ", actions);
-
-        // Override SLA metrics for completed tasks to resolve SLA properly
-        if (task.getStatus() == TaskStatus.DONE) {
-            score = 100;
-            riskLevel = "NORMAL";
-            reasons = List.of("Task is resolved (DONE).");
-            recommendedAction = "No action required.";
-        }
+        SlaRiskAssessmentService.AssessmentResult assessment = slaRiskAssessmentService.assess(task, evaluation);
+        int score = assessment.getScore();
+        String riskLevel = assessment.getRiskLevel();
+        List<String> reasons = assessment.getReasons();
+        String recommendedAction = assessment.getRecommendedAction();
 
         LocalDate today = LocalDate.now(clock);
         Long daysUntilDeadline = task.getDeadline() != null ? ChronoUnit.DAYS.between(today, task.getDeadline()) : null;

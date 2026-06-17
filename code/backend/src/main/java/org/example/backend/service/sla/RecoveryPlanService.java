@@ -23,12 +23,16 @@ import org.example.backend.repository.TaskSlaStateRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import org.example.backend.service.sla.executor.RecoveryActionExecutor;
 
 @Slf4j
 @Service
@@ -45,6 +49,19 @@ public class RecoveryPlanService {
     private final SlaStateService slaStateService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final List<RecoveryActionExecutor> executorList;
+
+    private Map<RecoveryActionType, RecoveryActionExecutor> actionExecutors;
+
+    @PostConstruct
+    private void initExecutors() {
+        actionExecutors = new HashMap<>();
+        for (RecoveryActionExecutor executor : executorList) {
+            for (RecoveryActionType type : executor.supports()) {
+                actionExecutors.put(type, executor);
+            }
+        }
+    }
 
     @Transactional
     public RecoveryPlanResponse generateForTask(Long projectId, Long taskId, Long currentUserId) {
@@ -75,23 +92,41 @@ public class RecoveryPlanService {
 
         TaskSlaState slaState = taskSlaStateRepository.findById(taskId).orElse(null);
         if (slaState == null) {
-            slaStateService.evaluateAndPersist(taskId, "RECOVERY_PLAN_GENERATE");
+            try {
+                slaStateService.evaluateAndPersist(taskId, "RECOVERY_PLAN_GENERATE");
+            } catch (Exception e) {
+                log.warn("SLA evaluation failed for task {}, will try to proceed if state was partially saved: {}", taskId, e.getMessage());
+            }
             slaState = taskSlaStateRepository.findById(taskId).orElse(null);
             if (slaState == null) {
-                throw new BusinessException("Failed to generate SLA state for task");
+                throw new BusinessException("Failed to generate SLA state for task. Please try again.");
             }
         }
 
+        log.info("[RecoveryPlan] Task {} SLA state: riskLevel={}, categoriesJson={}",
+                taskId, slaState.getCurrentRiskLevel(), slaState.getCategoriesJson());
+
         List<String> categories;
         try {
-            categories = objectMapper.readValue(slaState.getCategoriesJson(), new TypeReference<List<String>>() {});
+            String json = slaState.getCategoriesJson();
+            if (json == null || json.isBlank()) {
+                categories = new ArrayList<>();
+            } else {
+                categories = objectMapper.readValue(json, new TypeReference<List<String>>() {});
+            }
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse categories JSON for task {}", taskId, e);
-            categories = new ArrayList<>();
+            log.error("Failed to parse categories JSON for task {}: {}", taskId, slaState.getCategoriesJson(), e);
+            throw new BusinessException("Corrupted SLA state data for task " + taskId + ": invalid categories JSON");
         }
 
-        if (categories.isEmpty() || (categories.size() == 1 && categories.contains("NORMAL"))) {
-            throw new BusinessException("Task has no SLA risk");
+        // Remove NORMAL from categories — it's just a placeholder meaning "no issue"
+        categories.removeIf(c -> "NORMAL".equalsIgnoreCase(c));
+
+        String riskLevel = slaState.getCurrentRiskLevel();
+        boolean isHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+
+        if (!isHighRisk && categories.isEmpty()) {
+            throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only HIGH or CRITICAL tasks can have recovery plans.");
         }
 
         String summary = String.format("Task is %s risk because of %s. The system recommends recovery actions for leader approval.",
@@ -149,7 +184,6 @@ public class RecoveryPlanService {
         }
 
         recoveryPlanActionRepository.saveAll(actions);
-        plan.setActions(actions);
         
         // Update summary with action count
         plan.setSummary(String.format("Task is %s risk because of %s. The system recommends %d recovery actions for leader approval.",
@@ -332,7 +366,7 @@ public class RecoveryPlanService {
             throw new BusinessException("Only approved recovery plans can be executed");
         }
 
-        Task task = taskRepository.findById(plan.getTaskId())
+        Task task = taskRepository.findWithDetailsById(plan.getTaskId())
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
         if (!task.getProject().getId().equals(projectId)) {
@@ -406,129 +440,14 @@ public class RecoveryPlanService {
     }
 
     private void executeSingleAction(RecoveryPlanAction action, Task task) {
-        RecoveryActionType type = action.getActionType();
-        Project project = task.getProject();
-
-        switch (type) {
-            case NOTIFY_ASSIGNEE:
-                notifyAssignee(action, task, project, "Recovery action required");
-                break;
-            case REQUEST_EVIDENCE:
-                notifyAssignee(action, task, project, "Evidence required");
-                break;
-            case ASK_BLOCKER_UPDATE:
-                notifyAssignee(action, task, project, "Blocker update required");
-                break;
-            case ESCALATE_LEADER:
-                escalateToLeaders(action, task, project);
-                break;
-            case CREATE_RECOVERY_CHECKLIST:
-                createRecoveryChecklist(action, task);
-                break;
-            case SCHEDULE_FOLLOW_UP:
-            case SUGGEST_SPLIT_TASK:
-            case SUGGEST_REASSIGN:
-                action.setStatus(RecoveryPlanActionStatus.SKIPPED);
-                action.setExecutedAt(LocalDateTime.now());
-                action.setResultMessage("Manual action required: " + type.name() + " is not executed automatically yet");
-                break;
-            default:
-                action.setStatus(RecoveryPlanActionStatus.SKIPPED);
-                action.setExecutedAt(LocalDateTime.now());
-                action.setResultMessage("Action type not recognized or not supported for automatic execution");
-        }
-    }
-
-    private void notifyAssignee(RecoveryPlanAction action, Task task, Project project, String defaultTitle) {
-        UserAccount recipient = null;
-        if (action.getTargetUserId() != null) {
-            recipient = userAccountRepository.findById(action.getTargetUserId()).orElse(null);
-        }
-        if (recipient == null) {
-            recipient = task.getPrimaryAssignee();
-        }
-
-        if (recipient == null) {
-            action.setStatus(RecoveryPlanActionStatus.FAILED);
-            action.setExecutedAt(LocalDateTime.now());
-            action.setResultMessage("No recipient found to notify");
-            return;
-        }
-
-        String message = action.getMessage() != null ? action.getMessage() : "Please take action on your task.";
-        notificationService.createAndPush(recipient, project, NotificationEntityType.TASK, task.getId(),
-                NotificationType.SYSTEM, defaultTitle, message);
-
-        action.setStatus(RecoveryPlanActionStatus.EXECUTED);
-        action.setExecutedAt(LocalDateTime.now());
-        action.setResultMessage("Notification sent to " + recipient.getUsername());
-    }
-
-    private void escalateToLeaders(RecoveryPlanAction action, Task task, Project project) {
-        List<ProjectMember> allMembers = projectMemberRepository.findByProjectId(project.getId());
-        int notifiedCount = 0;
-
-        String message = action.getMessage() != null ? action.getMessage() : "Task requires leader attention.";
-
-        for (ProjectMember pm : allMembers) {
-            if (pm.getRole() != null && pm.getRole().getName() != null) {
-                String roleName = pm.getRole().getName().trim().toUpperCase().replace(" ", "_");
-                if (Arrays.asList("LEADER", "PROJECT_LEADER", "MENTOR").contains(roleName)) {
-                    UserAccount leader = pm.getUser();
-                    if (leader != null) {
-                        notificationService.createAndPush(leader, project, NotificationEntityType.TASK, task.getId(),
-                                NotificationType.SYSTEM, "Escalation: Task at risk", message);
-                        notifiedCount++;
-                    }
-                }
-            }
-        }
-
-        if (notifiedCount > 0) {
-            action.setStatus(RecoveryPlanActionStatus.EXECUTED);
-            action.setExecutedAt(LocalDateTime.now());
-            action.setResultMessage("Escalated to " + notifiedCount + " leaders/mentors");
+        RecoveryActionExecutor executor = actionExecutors.get(action.getActionType());
+        if (executor != null) {
+            executor.execute(action, task, task.getProject());
         } else {
-            action.setStatus(RecoveryPlanActionStatus.FAILED);
+            action.setStatus(RecoveryPlanActionStatus.SKIPPED);
             action.setExecutedAt(LocalDateTime.now());
-            action.setResultMessage("No leaders or mentors found to escalate to");
+            action.setResultMessage("Action type not recognized or not supported for automatic execution");
         }
-    }
-
-    private void createRecoveryChecklist(RecoveryPlanAction action, Task task) {
-        String content = "[Recovery] " + (action.getMessage() != null ? action.getMessage() : "Review remaining work and update progress today.");
-
-        boolean exists = task.getChecklist() != null && task.getChecklist().stream()
-                .anyMatch(c -> c.getContent().equals(content));
-
-        if (exists) {
-            action.setStatus(RecoveryPlanActionStatus.EXECUTED);
-            action.setExecutedAt(LocalDateTime.now());
-            action.setResultMessage("Checklist already exists");
-            return;
-        }
-
-        int maxOrder = 0;
-        if (task.getChecklist() != null && !task.getChecklist().isEmpty()) {
-            maxOrder = task.getChecklist().stream().mapToInt(TaskChecklist::getOrderIndex).max().orElse(0);
-        }
-
-        TaskChecklist newItem = TaskChecklist.builder()
-                .task(task)
-                .content(content)
-                .done(false)
-                .orderIndex(maxOrder + 1)
-                .build();
-
-        if (task.getChecklist() == null) {
-            task.setChecklist(new ArrayList<>());
-        }
-        task.getChecklist().add(newItem);
-        taskRepository.save(task);
-
-        action.setStatus(RecoveryPlanActionStatus.EXECUTED);
-        action.setExecutedAt(LocalDateTime.now());
-        action.setResultMessage("Checklist created successfully");
     }
 
     private void ensureLeaderOrMentor(Long projectId, Long userId) {

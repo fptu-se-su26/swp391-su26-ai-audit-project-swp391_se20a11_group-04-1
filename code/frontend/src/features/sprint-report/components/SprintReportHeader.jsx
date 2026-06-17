@@ -1,9 +1,6 @@
 export default function SprintReportHeader({
   activeProject,
-  canGenerate,
-  generating,
   onRefresh,
-  onGenerate,
   onExportPdf,
   isExporting,
   canExport,
@@ -49,16 +46,6 @@ export default function SprintReportHeader({
         >
           <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
           {isExporting ? 'Exporting...' : 'Export PDF'}
-        </button>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={generating || !canGenerate}
-          title={canGenerate ? 'Generate report for the selected sprint' : 'Only Leader/Mentor can generate reports'}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:bg-primary/90 disabled:opacity-50"
-        >
-          <span className="material-symbols-outlined text-lg">summarize</span>
-          {generating ? 'Generating...' : 'Generate Sprint Report'}
         </button>
       </div>
     </header>

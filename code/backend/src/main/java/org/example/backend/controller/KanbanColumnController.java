@@ -7,6 +7,7 @@ import org.example.backend.dto.KanbanColumnRequest;
 import org.example.backend.dto.KanbanColumnResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.KanbanColumnService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,7 @@ public class KanbanColumnController {
         return ResponseEntity.ok(ApiResponse.success(kanbanColumnService.getProjectColumns(projectId, userId), "Kanban columns retrieved"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping
     public ResponseEntity<ApiResponse<KanbanColumnResponse>> createColumn(
             @PathVariable Long projectId,
@@ -38,6 +40,7 @@ public class KanbanColumnController {
                 .body(ApiResponse.success(kanbanColumnService.createColumn(projectId, request, userId), "Kanban column created"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PutMapping("/{columnId}")
     public ResponseEntity<ApiResponse<KanbanColumnResponse>> updateColumn(
             @PathVariable Long projectId,
@@ -48,6 +51,7 @@ public class KanbanColumnController {
         return ResponseEntity.ok(ApiResponse.success(kanbanColumnService.updateColumn(projectId, columnId, request, userId), "Kanban column updated"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @DeleteMapping("/{columnId}")
     public ResponseEntity<ApiResponse<Void>> archiveColumn(
             @PathVariable Long projectId,

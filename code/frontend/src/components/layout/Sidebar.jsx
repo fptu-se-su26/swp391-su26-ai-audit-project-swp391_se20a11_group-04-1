@@ -147,7 +147,7 @@ const Sidebar = () => {
             <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
             <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
             <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
-            <NavItem to={`/projects/${activeProject.id}/sprint-reports`} icon="campaign" label="Sprint Reports" />
+            {/* Sprint Reports entry point moved to SprintPage → "View Sprint Report" button */}
             <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
             <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
             <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />

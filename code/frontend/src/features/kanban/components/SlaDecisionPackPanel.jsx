@@ -11,8 +11,18 @@ const getRiskBadgeClass = (riskLevel = '') => {
   return 'bg-slate-50 text-slate-700 border-slate-200'
 }
 
+const formatDuration = (minutes) => {
+  if (minutes < 60) {
+    return `${minutes}m`
+  }
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`
+}
+
 const SlaDecisionPackPanel = ({ projectId, taskId }) => {
   const [data, setData] = useState(null)
+  const [pauseData, setPauseData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -21,11 +31,19 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await taskService.getSlaDecisionPack(projectId, taskId)
+      const [res, pauseRes] = await Promise.all([
+        taskService.getSlaDecisionPack(projectId, taskId),
+        taskService.getSlaPauseLogs(projectId, taskId).catch(err => {
+          console.error("Failed to load SLA pause logs:", err)
+          return null
+        })
+      ])
       setData(res)
+      setPauseData(pauseRes)
     } catch (err) {
       if (err?.response?.status === 404) {
         setData(null)
+        setPauseData(null)
       } else {
         setError(err?.response?.data?.message || err?.message || 'Failed to load SLA decision pack.')
       }
@@ -112,6 +130,29 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
           </span>
         </div>
       </div>
+
+      {pauseData && (pauseData.totalPausedMinutes > 0 || pauseData.currentlyPaused) && (
+        <div className={`p-3 rounded border text-xs flex items-center gap-2 ${
+          pauseData.currentlyPaused
+            ? 'bg-amber-50 border-amber-200 text-amber-800'
+            : 'bg-slate-50 border-slate-200 text-slate-700'
+        }`}>
+          <span className="material-symbols-outlined text-[18px]">
+            {pauseData.currentlyPaused ? 'pause_circle' : 'info'}
+          </span>
+          <div className="flex-1">
+            {pauseData.currentlyPaused ? (
+              <div>
+                <span className="font-semibold">Đang tạm dừng SLA</span> từ {new Date(pauseData.currentPauseStartedAt).toLocaleString()}
+              </div>
+            ) : (
+              <div>
+                Đã tạm dừng <span className="font-semibold">{formatDuration(pauseData.totalPausedMinutes)}</span> vì Blocked
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {slaCategories.length > 0 && (
         <div>

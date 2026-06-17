@@ -18,10 +18,12 @@ import org.example.backend.service.digest.DailyDigestService;
 import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.event.OutboxPublisherService;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
-import org.example.backend.service.sla.TaskPenaltyService;
+import org.example.backend.service.sla.SlaStateService;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +32,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.function.Function;
+import org.springframework.data.domain.Pageable;
 
 @Component
 @RequiredArgsConstructor
@@ -40,7 +44,6 @@ public class TaskSlaScheduler {
 
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
-    private final TaskPenaltyService taskPenaltyService;
     private final DailyDigestService dailyDigestService;
     private final WeeklyReportService weeklyReportService;
     private final OutboxPublisherService outboxPublisherService;
@@ -49,49 +52,46 @@ public class TaskSlaScheduler {
     private final TaskService taskService;
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final SlaStateService slaStateService;
     private final Clock clock;
 
-    @Scheduled(cron = "0 45 7 * * *", zone = "Asia/Ho_Chi_Minh")
-    public void scanSlaAndApplyPenalties() {
-        SchedulerRunLog runLog = schedulerRunLogService.start("TASK_SLA_SCAN");
+    @EventListener(ApplicationReadyEvent.class)
+    public void recheckSlaOnStartup() {
+        SchedulerRunLog runLog = schedulerRunLogService.start("STARTUP_SLA_RECHECK");
         try {
             int scanned = 0;
-            int published = 0;
+            int evaluated = 0;
             int pageNumber = 0;
             Page<Task> page;
             do {
-                page = taskRepository.findSlaSafetyNetCandidates(
+                page = taskRepository.findSlaRecheckCandidates(
                         ProjectStatus.ACTIVE,
                         TaskStatus.DONE,
                         PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
 
                 for (Task task : page.getContent()) {
                     scanned++;
-
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("taskId", task.getId());
-                    payload.put("projectId", task.getProject().getId());
-                    payload.put("sprintId", task.getSprintId());
-                    payload.put("assigneeId", task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null);
-                    payload.put("deadline", task.getDeadline() != null ? task.getDeadline().toString() : null);
-                    payload.put("eventType", "SLA_SAFETY_NET");
-                    payload.put("occurredAt", LocalDateTime.now().toString());
-
-                    outboxEventService.createEvent("SLA_SAFETY_NET", "Task", task.getId(), payload);
-                    published++;
+                    slaStateService.evaluateAndPersist(task.getId(), "SLA_STARTUP_RECHECK");
+                    evaluated++;
                 }
                 pageNumber++;
             } while (page.hasNext());
 
-            schedulerRunLogService.finish(runLog, scanned, 0, published);
-            log.info("Published SLA_SAFETY_NET events. Scanned: {}, Published: {}", scanned, published);
+            schedulerRunLogService.finish(runLog, scanned, evaluated, 0);
+            log.info("Startup SLA recheck completed. Scanned: {}, Evaluated: {}", scanned, evaluated);
         } catch (Exception ex) {
-            log.error("TASK_SLA_SCAN failed", ex);
+            log.error("STARTUP_SLA_RECHECK failed", ex);
             schedulerRunLogService.fail(runLog, ex);
         }
     }
 
-    @Scheduled(cron = "0 55 7 * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "${app.sla.safety-net-cron:0 45 7 * * *}", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
+    public void scanSlaAndApplyPenalties() {
+        publishSlaEventsInBatches("TASK_SLA_SCAN", "SLA_SAFETY_NET",
+                pageable -> taskRepository.findSlaSafetyNetCandidates(ProjectStatus.ACTIVE, TaskStatus.DONE, pageable));
+    }
+
+    @Scheduled(cron = "0 55 7 * * *", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
     public void buildDailyDigests() {
         SchedulerRunLog runLog = schedulerRunLogService.start("DAILY_DIGEST_BUILD");
         try {
@@ -104,7 +104,7 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 8 * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 0 8 * * *", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
     public void sendDailyDigests() {
         SchedulerRunLog runLog = schedulerRunLogService.start("DAILY_DIGEST_SEND");
         try {
@@ -116,7 +116,7 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 20 * * SUN", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 0 20 * * SUN", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
     public void generateWeeklyReports() {
         SchedulerRunLog runLog = schedulerRunLogService.start("WEEKLY_REPORT_GENERATE");
         try {
@@ -137,7 +137,7 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "0 0 * * * *", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
     public void autoApproveReviewTasks() {
         SchedulerRunLog runLog = schedulerRunLogService.start("AUTO_APPROVE_REVIEW_TASKS");
         try {
@@ -149,85 +149,58 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(cron = "0 30 7 * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "${app.sla.daily-recheck-cron:0 30 7 * * *}", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
     public void publishDailySlaRecheckEvents() {
-        SchedulerRunLog runLog = schedulerRunLogService.start("DAILY_SLA_RECHECK_PUBLISH");
+        publishSlaEventsInBatches("DAILY_SLA_RECHECK_PUBLISH", "SLA_DAILY_RECHECK",
+                pageable -> taskRepository.findSlaRecheckCandidates(ProjectStatus.ACTIVE, TaskStatus.DONE, pageable));
+    }
+
+    @Scheduled(cron = "${app.sla.afternoon-reminder-cron:0 0 17 * * *}", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
+    public void sendAfternoonDeadlineReminder() {
+        LocalDate today = LocalDate.now(clock);
+        publishSlaEventsInBatches("AFTERNOON_DEADLINE_REMINDER", "SLA_URGENT_RECHECK",
+                pageable -> taskRepository.findAfternoonDeadlineReminderCandidates(
+                        ProjectStatus.ACTIVE, today, TaskStatus.DONE, pageable));
+    }
+
+    // --- Private helpers ---
+
+    private void publishSlaEventsInBatches(String jobName, String eventType,
+            Function<Pageable, Page<Task>> queryFn) {
+        SchedulerRunLog runLog = schedulerRunLogService.start(jobName);
         try {
-            int scanned = 0;
-            int published = 0;
-            int pageNumber = 0;
+            int scanned = 0, published = 0, pageNumber = 0;
             Page<Task> page;
             do {
-                page = taskRepository.findSlaRecheckCandidates(
-                        ProjectStatus.ACTIVE,
-                        TaskStatus.DONE,
-                        PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
-
+                page = queryFn.apply(PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
                 for (Task task : page.getContent()) {
                     scanned++;
-
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("taskId", task.getId());
-                    payload.put("projectId", task.getProject().getId());
-                    payload.put("sprintId", task.getSprintId());
-                    payload.put("assigneeId", task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null);
-                    payload.put("deadline", task.getDeadline() != null ? task.getDeadline().toString() : null);
-                    payload.put("eventType", "SLA_DAILY_RECHECK");
-                    payload.put("occurredAt", LocalDateTime.now().toString());
-
-                    outboxEventService.createEvent("SLA_DAILY_RECHECK", "Task", task.getId(), payload);
+                    outboxEventService.createEvent(eventType, "Task", task.getId(), buildSlaPayload(task, eventType));
                     published++;
                 }
                 pageNumber++;
             } while (page.hasNext());
-
             schedulerRunLogService.finish(runLog, scanned, 0, published);
-            log.info("Published SLA_DAILY_RECHECK events. Scanned: {}, Published: {}", scanned, published);
+            log.info("Published {} events. Scanned: {}, Published: {}", eventType, scanned, published);
         } catch (Exception ex) {
-            log.error("DAILY_SLA_RECHECK_PUBLISH failed", ex);
+            log.error("{} failed", jobName, ex);
             schedulerRunLogService.fail(runLog, ex);
         }
     }
 
-    @Scheduled(cron = "0 0 17 * * *", zone = "Asia/Ho_Chi_Minh")
-    public void sendAfternoonDeadlineReminder() {
-        SchedulerRunLog runLog = schedulerRunLogService.start("AFTERNOON_DEADLINE_REMINDER");
-        try {
-            LocalDate today = LocalDate.now(clock);
-            int scanned = 0;
-            int sent = 0;
-            int pageNumber = 0;
-            Page<Task> page;
-            do {
-                page = taskRepository.findAfternoonDeadlineReminderCandidates(
-                        ProjectStatus.ACTIVE,
-                        today,
-                        TaskStatus.DONE,
-                        PageRequest.of(pageNumber, SLA_BATCH_SIZE, Sort.by("id").ascending()));
-
-                for (Task task : page.getContent()) {
-                    scanned++;
-
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("taskId", task.getId());
-                    payload.put("projectId", task.getProject().getId());
-                    payload.put("sprintId", task.getSprintId());
-                    payload.put("assigneeId", task.getPrimaryAssignee().getId());
-                    payload.put("deadline", task.getDeadline().toString());
-                    payload.put("eventType", "SLA_URGENT_RECHECK");
-                    payload.put("occurredAt", LocalDateTime.now().toString());
-
-                    outboxEventService.createEvent("SLA_URGENT_RECHECK", "Task", task.getId(), payload);
-                    sent++;
-                }
-                pageNumber++;
-            } while (page.hasNext());
-
-            schedulerRunLogService.finish(runLog, scanned, 0, sent);
-            log.info("Published SLA_URGENT_RECHECK events. Scanned: {}, Published: {}", scanned, sent);
-        } catch (Exception ex) {
-            log.error("AFTERNOON_DEADLINE_REMINDER failed", ex);
-            schedulerRunLogService.fail(runLog, ex);
+    private Map<String, Object> buildSlaPayload(Task task, String eventType) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("taskId", task.getId());
+        payload.put("projectId", task.getProject().getId());
+        payload.put("sprintId", task.getSprintId());
+        if (task.getPrimaryAssignee() != null) {
+            payload.put("assigneeId", task.getPrimaryAssignee().getId());
         }
+        if (task.getDeadline() != null) {
+            payload.put("deadline", task.getDeadline().toString());
+        }
+        payload.put("eventType", eventType);
+        payload.put("occurredAt", LocalDateTime.now(clock).toString());
+        return payload;
     }
 }

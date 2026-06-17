@@ -29,6 +29,7 @@ import org.example.backend.entity.TaskComment;
 import org.example.backend.entity.TaskProposal;
 import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.sla.TaskSlaRuleService;
+import org.example.backend.service.sla.TaskSlaPauseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +72,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskCommentRepository taskCommentRepository;
     private final TaskProposalRepository taskProposalRepository;
     private final TaskSlaRuleService taskSlaRuleService;
+    private final TaskSlaPauseService taskSlaPauseService;
     private final NotificationService notificationService;
     private final OutboxEventService outboxEventService;
 
@@ -283,9 +285,22 @@ public class TaskServiceImpl implements TaskService {
             nextStatus = parseEnum(request.getStatus(), TaskStatus.class, task.getStatus());
         }
 
+        if (!isProjectLeader(projectId, userId)) {
+            Long assigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+            if (assigneeId == null || !assigneeId.equals(userId)) {
+                throw new BadRequestException("Bạn không có quyền kéo thả hoặc thay đổi trạng thái task của người khác.");
+            }
+        }
+
         if (nextStatus != null) {
             validateStatusTransition(task, nextStatus);
             ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
+        }
+
+        if (request.getBlockedReason() != null) {
+            task.setBlockedReason(request.getBlockedReason().trim());
+        } else if (nextStatus != null && oldStatus == TaskStatus.BLOCKED && nextStatus != TaskStatus.BLOCKED) {
+            task.setBlockedReason(null);
         }
 
         if (request.getColumnId() != null) {
@@ -297,9 +312,6 @@ public class TaskServiceImpl implements TaskService {
             setColumn(task, request.getColumnId(), projectId, userId);
         } else if (request.getStatus() != null) {
             changeTaskStatus(task, nextStatus, userId);
-        }
-        if (request.getBlockedReason() != null) {
-            task.setBlockedReason(request.getBlockedReason().trim());
         }
         Task savedTask = taskRepository.save(task);
 
@@ -391,11 +403,13 @@ public class TaskServiceImpl implements TaskService {
         if (task.getStatus() == TaskStatus.IN_REVIEW) {
             throw new BadRequestException("Task is already in review");
         }
+        ensureAcceptedEvidenceBeforeReview(task);
 
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.IN_REVIEW);
         task.setCompletedAt(null);
         setColumnFromStatus(task, task.getProject().getId(), TaskStatus.IN_REVIEW);
+        syncSlaPauseForStatusChange(task, fromStatus, TaskStatus.IN_REVIEW);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         syncGitHubIssueStatus(savedTask, userId);
@@ -427,6 +441,7 @@ public class TaskServiceImpl implements TaskService {
         if (task.getStatus() != TaskStatus.IN_REVIEW) {
             throw new BadRequestException("Only tasks in review can be approved");
         }
+        ensureAcceptedEvidenceBeforeReview(task);
 
         TaskStatus fromStatus = task.getStatus();
         task.setStatus(TaskStatus.DONE);
@@ -434,6 +449,7 @@ public class TaskServiceImpl implements TaskService {
             task.setCompletedAt(LocalDateTime.now());
         }
         setColumnFromStatus(task, task.getProject().getId(), TaskStatus.DONE);
+        syncSlaPauseForStatusChange(task, fromStatus, TaskStatus.DONE);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         if (savedTask.getParent() != null) {
@@ -482,6 +498,7 @@ public class TaskServiceImpl implements TaskService {
             task.setBlockedReason(reason);
         }
         setColumnFromStatus(task, task.getProject().getId(), targetStatus);
+        syncSlaPauseForStatusChange(task, fromStatus, targetStatus);
         Task savedTask = taskRepository.save(task);
         syncWithBugReport(savedTask, userId);
         syncGitHubIssueStatus(savedTask, userId);
@@ -1067,6 +1084,8 @@ public class TaskServiceImpl implements TaskService {
             ensureRegularStatusUpdateAllowed(task, nextStatus, userId);
         }
 
+        if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
+
         if (request.getColumnId() != null) {
             if (isTightlyBoundToIssue(task)) {
                 if (!isProjectLeader(projectId, userId)) {
@@ -1077,7 +1096,6 @@ public class TaskServiceImpl implements TaskService {
         } else if (request.getStatus() != null) {
             changeTaskStatus(task, nextStatus, userId);
         }
-        if (request.getBlockedReason() != null) task.setBlockedReason(request.getBlockedReason().trim());
         if (request.getPrimaryAssigneeId() != null) setAssignee(task, request.getPrimaryAssigneeId(), projectId, userId);
         if (request.getChecklist() != null) {
             boolean isLeader = isProjectLeader(projectId, userId);
@@ -1114,6 +1132,10 @@ public class TaskServiceImpl implements TaskService {
         }
 
         if (nextStatus == TaskStatus.IN_REVIEW || nextStatus == TaskStatus.DONE) {
+            if (nextStatus == TaskStatus.IN_REVIEW) {
+                ensureAcceptedEvidenceBeforeReview(task);
+            }
+
             if (hasSubTasks) {
                 boolean allSubTasksDone = task.getSubTasks().stream().allMatch(sub -> sub.getStatus() == TaskStatus.DONE);
                 if (!allSubTasksDone) {
@@ -1127,6 +1149,20 @@ public class TaskServiceImpl implements TaskService {
                     throw new BadRequestException("Không thể chuyển trạng thái do các yêu cầu (checklist) chưa hoàn thành.");
                 }
             }
+        }
+    }
+
+    private void ensureAcceptedEvidenceBeforeReview(Task task) {
+        if (task == null || task.getId() == null) {
+            throw new BadRequestException("Task must have accepted evidence before review");
+        }
+        boolean hasAcceptedEvidence = evidenceLinkRepository.existsAcceptedEvidenceForEntity(
+                EvidenceEntityType.TASK,
+                task.getId(),
+                EvidenceStatus.ACCEPTED
+        );
+        if (!hasAcceptedEvidence) {
+            throw new BadRequestException("Task must have accepted evidence before review");
         }
     }
 
@@ -1150,7 +1186,7 @@ public class TaskServiceImpl implements TaskService {
 
     private void setAssignee(Task task, Long assigneeId, Long projectId, Long assignerId) {
         if (!isProjectLeader(projectId, assignerId)) {
-            throw new BadRequestException("Chỉ có Project Leader mới có quyền gán hoặc gỡ người thực hiện task.");
+            throw new BadRequestException("Chỉ có Project Leader hoặc Mentor mới có quyền gán hoặc gỡ người thực hiện task.");
         }
 
         UserAccount oldAssignee = task.getPrimaryAssignee();
@@ -1159,8 +1195,10 @@ public class TaskServiceImpl implements TaskService {
             task.setPrimaryAssignee(null);
             task.getAssignees().clear();
             if (task.getStatus() != TaskStatus.TODO) {
+                TaskStatus oldStatus = task.getStatus();
                 task.setStatus(TaskStatus.TODO);
                 setColumnFromStatus(task, projectId, TaskStatus.TODO);
+                syncSlaPauseForStatusChange(task, oldStatus, TaskStatus.TODO);
             }
             return;
         }
@@ -1179,8 +1217,10 @@ public class TaskServiceImpl implements TaskService {
         task.getAssignees().add(assignee);
 
         if (task.getStatus() == TaskStatus.TODO) {
+            TaskStatus oldStatus = task.getStatus();
             task.setStatus(TaskStatus.IN_PROGRESS);
             setColumnFromStatus(task, projectId, TaskStatus.IN_PROGRESS);
+            syncSlaPauseForStatusChange(task, oldStatus, TaskStatus.IN_PROGRESS);
         }
 
         // Gửi thông báo real-time khi gán task
@@ -1214,6 +1254,7 @@ public class TaskServiceImpl implements TaskService {
 
         task.setStatus(nextStatus);
         setColumnFromStatus(task, task.getProject().getId(), nextStatus);
+        syncSlaPauseForStatusChange(task, oldStatus, nextStatus);
 
         if (nextStatus == TaskStatus.DONE) {
             if (task.getCompletedAt() == null) {
@@ -1319,8 +1360,8 @@ public class TaskServiceImpl implements TaskService {
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
         String roleName = member.getRole() != null ? member.getRole().getName() : "";
-        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName)) {
-            throw new CustomException("Only project leader can approve or reject task reviews", HttpStatus.FORBIDDEN);
+        if (!"PROJECT_LEADER".equalsIgnoreCase(roleName) && !"LEADER".equalsIgnoreCase(roleName) && !"MENTOR".equalsIgnoreCase(roleName)) {
+            throw new CustomException("Only project leader or mentor can perform this action", HttpStatus.FORBIDDEN);
         }
     }
 
@@ -1383,7 +1424,8 @@ public class TaskServiceImpl implements TaskService {
         return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .map(m -> m.getRole() != null &&
                         m.getRole().getName() != null &&
-                        m.getRole().getName().toLowerCase().contains("leader"))
+                        (m.getRole().getName().toLowerCase().contains("leader") || 
+                         m.getRole().getName().toLowerCase().contains("mentor")))
                 .orElse(false);
     }
 
@@ -1403,11 +1445,13 @@ public class TaskServiceImpl implements TaskService {
                 .allMatch(child -> child.getStatus() == TaskStatus.DONE);
 
         if (allDone) {
+            TaskStatus oldStatus = parent.getStatus();
             parent.setStatus(TaskStatus.DONE);
             if (parent.getCompletedAt() == null) {
                 parent.setCompletedAt(LocalDateTime.now());
             }
             setColumnFromStatus(parent, parent.getProject().getId(), TaskStatus.DONE);
+            syncSlaPauseForStatusChange(parent, oldStatus, TaskStatus.DONE);
             Task savedParent = taskRepository.save(parent);
 
             // Sync parent task GitHub issue state (non-blocking)
@@ -1682,6 +1726,12 @@ public class TaskServiceImpl implements TaskService {
 
             LocalDateTime timestamp = task.getUpdatedAt() != null ? task.getUpdatedAt() : task.getCreatedAt();
             if (timestamp != null && timestamp.isBefore(threshold)) {
+                try {
+                    ensureAcceptedEvidenceBeforeReview(task);
+                } catch (BadRequestException ex) {
+                    log.info("Skipping auto-approval for Task ID {} because accepted evidence is missing", task.getId());
+                    continue;
+                }
                 log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}",
                         task.getId(), task.getTitle(), timestamp);
                 try {
@@ -1712,6 +1762,18 @@ public class TaskServiceImpl implements TaskService {
         }
         if (approvedCount > 0) {
             log.info("Completed background auto-approval. Total tasks approved: {}", approvedCount);
+        }
+    }
+
+    private void syncSlaPauseForStatusChange(Task task, TaskStatus oldStatus, TaskStatus newStatus) {
+        if (oldStatus == newStatus) {
+            return;
+        }
+        if (oldStatus != TaskStatus.BLOCKED && newStatus == TaskStatus.BLOCKED) {
+            String reason = task.getBlockedReason();
+            taskSlaPauseService.openPauseIfNeeded(task, reason);
+        } else if (oldStatus == TaskStatus.BLOCKED && newStatus != TaskStatus.BLOCKED) {
+            taskSlaPauseService.resumeOpenPauseIfNeeded(task);
         }
     }
 }

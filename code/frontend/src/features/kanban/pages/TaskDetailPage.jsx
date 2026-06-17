@@ -8,7 +8,7 @@ import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 const isLeaderRole = (role = '') => {
   // Normalize project role labels so leader-only review actions show correctly.
   const normalized = role.toUpperCase().replace(/\s+/g, '_')
-  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER'
+  return normalized === 'PROJECT_LEADER' || normalized === 'LEADER' || normalized === 'MENTOR'
 }
 
 const TaskDetailPage = () => {
@@ -457,6 +457,7 @@ const TaskDetailPage = () => {
         </div>
       </div>
       <TaskFormModal
+        isLeaderRole={isLeader}
         isOpen={isEditOpen}
         task={task}
         assigneeOptions={activeProject?.members || []}
