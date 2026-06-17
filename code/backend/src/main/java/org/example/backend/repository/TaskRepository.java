@@ -89,7 +89,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     long countBySprintId(Long sprintId);
 
-    List<Task> findByRequirementId(Long requirementId);
+
 
     List<Task> findByUseCaseId(Long useCaseId);
 
