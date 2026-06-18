@@ -169,6 +169,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId")
     long countTotalAssignedTasks(@Param("userId") Long userId);
 
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE'")
+    long countActiveTasksByAssignee(@Param("userId") Long userId);
+
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE' AND t.deadline IS NOT NULL AND t.deadline < CURRENT_DATE")
     long countOverdueTasks(@Param("userId") Long userId);
 

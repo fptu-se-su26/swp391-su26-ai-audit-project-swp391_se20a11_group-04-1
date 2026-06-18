@@ -56,6 +56,8 @@ public class SlaDecisionPackService {
 
         List<String> slaCategories = new ArrayList<>();
         List<String> reasons = new ArrayList<>();
+        List<String> predictionReasons = new ArrayList<>();
+        SlaDecisionPackResponse.ScoreBreakdown scoreBreakdown = null;
 
         if (state != null) {
             try {
@@ -72,6 +74,22 @@ public class SlaDecisionPackService {
                 }
             } catch (Exception ex) {
                 log.error("Failed to parse reasonsJson for taskId {}", taskId, ex);
+            }
+
+            try {
+                if (state.getPredictionReasonsJson() != null) {
+                    predictionReasons = objectMapper.readValue(state.getPredictionReasonsJson(), new TypeReference<List<String>>() {});
+                }
+            } catch (Exception ex) {
+                log.error("Failed to parse predictionReasonsJson for taskId {}", taskId, ex);
+            }
+
+            try {
+                if (state.getScoreBreakdownJson() != null) {
+                    scoreBreakdown = objectMapper.readValue(state.getScoreBreakdownJson(), SlaDecisionPackResponse.ScoreBreakdown.class);
+                }
+            } catch (Exception ex) {
+                log.error("Failed to parse scoreBreakdownJson for taskId {}", taskId, ex);
             }
         }
 
@@ -106,6 +124,9 @@ public class SlaDecisionPackService {
                     .projectId(projectId)
                     .currentScore(100)
                     .currentRiskLevel("NORMAL")
+                    .burnRateLevel("LOW")
+                    .predictedRiskLevel("NORMAL")
+                    .predictionReasons(List.of())
                     .slaCategories(List.of("NORMAL"))
                     .reasons(List.of("SLA has not been evaluated yet."))
                     .recommendedAction("No action required.")
@@ -128,6 +149,12 @@ public class SlaDecisionPackService {
                 .daysUntilDeadline(state.getDaysUntilDeadline())
                 .hasAcceptedEvidence(state.isHasAcceptedEvidence())
                 .penaltyApplied(state.isPenaltyApplied())
+                .burnGap(state.getBurnGap() != null ? state.getBurnGap() : 0.0)
+                .burnRateLevel(state.getBurnRateLevel())
+                .spi(state.getSpi() != null ? state.getSpi() : 1.0)
+                .predictedRiskLevel(state.getPredictedRiskLevel())
+                .predictionReasons(predictionReasons)
+                .scoreBreakdown(scoreBreakdown)
                 .evaluatedAt(state.getEvaluatedAt())
                 .latestEventType(latestEventType)
                 .latestActionTaken(latestActionTaken)

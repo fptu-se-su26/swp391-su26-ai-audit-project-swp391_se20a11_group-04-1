@@ -66,6 +66,24 @@ public class TaskSlaState {
     @Builder.Default
     private boolean penaltyApplied = false;
 
+    @Column(name = "burn_gap")
+    private Double burnGap;
+
+    @Column(name = "burn_rate_level", length = 20)
+    private String burnRateLevel;
+
+    @Column(name = "spi")
+    private Double spi;
+
+    @Column(name = "predicted_risk_level", length = 20)
+    private String predictedRiskLevel;
+
+    @Column(name = "prediction_reasons_json", columnDefinition = "TEXT")
+    private String predictionReasonsJson;
+
+    @Column(name = "score_breakdown_json", columnDefinition = "TEXT")
+    private String scoreBreakdownJson;
+
     @Column(name = "evaluated_at", nullable = false)
     @Builder.Default
     private LocalDateTime evaluatedAt = LocalDateTime.now();
