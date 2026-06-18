@@ -171,7 +171,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
                 </button>
               )
             ) : (
-              <div className={`flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border 
+              <div className={`flex items-center justify-center min-w-[150px] gap-2 px-4 h-9 rounded-md font-medium text-sm border 
                   ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
                   ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
                   ${saveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}

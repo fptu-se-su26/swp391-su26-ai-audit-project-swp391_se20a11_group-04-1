@@ -808,6 +808,8 @@ public class AiGenerationService {
             "\nMain Flow: " + formatFlowForPrompt(uc.getMainFlow()) + 
             "\nAlternative Flow: " + formatFlowForPrompt(uc.getAlternativeFlow());
         
+        // Prompt AI: Cập nhật một Use Case đơn lẻ dựa trên sự thay đổi của Requirement cha.
+        // Hướng dẫn AI giữ nguyên các luồng logic cũ nếu không mâu thuẫn, và bổ sung luồng mới nếu Requirement có thêm tính năng.
         String prompt = "You are an expert Business Analyst. Below is an existing Use Case and its updated parent Requirement.\n" +
             "Your task is to analyze the changes in the Requirement and intelligently update the Use Case to match the new Requirement.\n" +
             "CRITICAL RULES:\n" +
@@ -898,6 +900,8 @@ public class AiGenerationService {
             }
         }
         
+        // Prompt AI: Cập nhật HÀNG LOẠT Use Case dựa trên sự thay đổi của Requirement cha.
+        // Hướng dẫn AI tự động sửa các Use Case cũ và đề xuất tạo thêm Use Case mới nếu Requirement mở rộng quy mô.
         String prompt = "You are an expert Business Analyst. Below is an updated Requirement and its existing Use Cases.\n" +
             "Your task is to analyze the new Requirement and update the existing Use Cases to match it, AND generate new Use Cases if the Requirement has added new flows not covered by the existing ones.\n" +
             "CRITICAL RULES:\n" +
@@ -1205,6 +1209,8 @@ public class AiGenerationService {
         String actorsStr = uc.getActors() != null ? 
             uc.getActors().stream().map(a -> a.getActorName()).collect(java.util.stream.Collectors.joining(", ")) : "";
 
+        // Prompt AI: Gợi ý các Requirement phù hợp nhất cho một Use Case nháp vừa được tạo trên biểu đồ.
+        // Hướng dẫn AI đọc danh sách Requirement hiện có và trả về mảng ID của các Requirement khớp với Use Case này nhất.
         StringBuilder prompt = new StringBuilder();
         prompt.append("You are an expert System Analyst. I have a draft Use Case and a list of existing Requirements in the system.\n");
         prompt.append("Use Case Name: ").append(uc.getName()).append("\n");
