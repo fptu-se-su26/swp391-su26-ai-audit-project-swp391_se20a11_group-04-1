@@ -4,6 +4,10 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* CSS Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -127,3 +131,70 @@ a:hover { color: var(--color-primary); }
 .btn-secondary:hover {
   background: rgba(255,255,255,0.1);
 }
+
+/* Kanban Custom Scrollbar */
+.kanban-scroll::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+    background-color: #c3c6d5;
+    border-radius: 4px;
+}
+.kanban-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c3c6d5 transparent;
+}
+
+/* =====================================================
+   Weekly View - Custom Classes
+   ===================================================== */
+
+/* Cột hôm nay trong weekly grid */
+.today-col {
+  background-color: #EEF4FF;
+  border-left: 1.5px solid #93C5FD !important;
+  border-right: 1.5px solid #93C5FD !important;
+}
+
+/* Cột ngày nhiều task */
+.heavy-day {
+  background-color: #FFFBEB !important;
+}
+
+/* Cột cuối tuần */
+.weekend-bg {
+  background-color: #FAFAFA !important;
+}
+
+/* Material Symbols fill variant */
+.icon-fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* =====================================================
+   Stitch AI High-End UI Classes
+   ===================================================== */
+.bezel-shadow {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.01);
+}
+
+.fade-up {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeUpAnim 0.5s cubic-bezier(0.32,0.72,0,1) forwards;
+}
+
+@keyframes fadeUpAnim {
+  to {
+      opacity: 1;
+      transform: translateY(0);
+  }
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }

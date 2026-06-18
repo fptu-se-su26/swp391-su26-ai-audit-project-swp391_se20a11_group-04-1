@@ -1,0 +1,1 @@
+ALTER TABLE use_cases ADD COLUMN added_from_diagram BOOLEAN DEFAULT FALSE;

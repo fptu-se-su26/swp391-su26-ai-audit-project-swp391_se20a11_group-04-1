@@ -8,26 +8,18 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // ✅ Quan trọng: Tự động gửi và nhận Session Cookie (JSESSIONID) giữa client và server
 })
 
-// ✅ Request Interceptor: đính kèm JWT token
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
-
-// ✅ Response Interceptor: xử lý 401
+// ✅ Response Interceptor: xử lý khi phiên hết hạn hoặc lỗi 401 Unauthorized
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken')
+    const isLoginRequest = error.config?.url?.endsWith('/v1/auth/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
+      // Khi phiên đăng nhập hết hạn hoặc bị từ chối, chuyển hướng về trang login
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userRole')
       window.location.href = '/login'
     }
     return Promise.reject(error)

@@ -1,0 +1,12 @@
+# Dùng image Playwright chính thức — đã có Chromium, Firefox, WebKit sẵn
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
+WORKDIR /app
+
+# Node 24 đã có trong image, cài dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY . .
+
+# Worker không expose port, chỉ connect Kafka
+CMD ["npm", "run", "worker"]

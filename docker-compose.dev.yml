@@ -1,0 +1,106 @@
+
+networks:
+  devtrack-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  playwright-temp:
+
+services:
+
+  # ─── 1. POSTGRESQL ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: devtrack-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dev_track_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-devtrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - devtrack-net
+
+  # ─── 2. REDIS ────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: devtrack-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - devtrack-net
+
+  # ─── 3. KAFKA ────────────────────────────────────────────
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: devtrack-kafka-dev
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:29092,PLAINTEXT_HOST://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 10
+    ports:
+      - "9092:9092"
+    networks:
+      - devtrack-net
+
+  # ─── 4. PLAYWRIGHT SERVER ────────────────────────────────
+  playwright-server:
+    build:
+      context: ./code/playwright-service
+      dockerfile: Dockerfile
+    container_name: devtrack-playwright-server-dev
+    restart: unless-stopped
+    environment:
+      PORT: 4001
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+    ports:
+      - "4001:4001"
+    networks:
+      - devtrack-net
+
+  # ─── 5. PLAYWRIGHT WORKER ────────────────────────────────
+  playwright-worker:
+    build:
+      context: ./code/playwright-service
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    depends_on:
+      - playwright-server
+      - kafka
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      # QUAN TRỌNG: Trỏ về host.docker.internal để Worker trong Docker gọi ra Backend đang chạy ở Windows (IntelliJ)
+      BACKEND_URL: http://host.docker.internal:8080
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-1234567890abcdef}
+      WS_URL: ws://playwright-server:4001
+      MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - devtrack-net
+    deploy:
+      replicas: 3
