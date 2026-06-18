@@ -7,7 +7,7 @@ import { getInitials } from '@utils/avatarHelper'
 /**
  * NavItem Component - Mục điều hướng đơn lẻ dùng NavLink cho active state tự động
  */
-const NavItem = ({ to, icon, label, defaultIconClass = '' }) => (
+const NavItem = ({ to, icon, label, defaultIconClass = '', badge = null }) => (
   <NavLink 
     to={to} 
     className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-in-out group ${
@@ -25,11 +25,19 @@ const NavItem = ({ to, icon, label, defaultIconClass = '' }) => (
         }`}>
           {icon}
         </span>
-        <span className="font-body-md text-body-md">{label}</span>
+        <span className="font-body-md text-body-md flex-1">{label}</span>
+        {badge !== null && badge > 0 && (
+          <span className="bg-error text-on-error text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </>
     )}
   </NavLink>
 )
+
+import { useState, useEffect } from 'react'
+import { recoveryPlanService } from '@features/sla/services/recoveryPlanService'
 
 /**
  * Sidebar Component - Thanh điều hướng dùng chung chứa danh sách các Module của DevTrackAI
@@ -47,6 +55,22 @@ const Sidebar = () => {
   // Đọc trạng thái dự án hiện tại từ useProjectStore
   const activeProject = useProjectStore((state) => state.activeProject)
   const clearActiveProject = useProjectStore((state) => state.clearActiveProject)
+
+  const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0)
+
+  useEffect(() => {
+    if (activeProject?.id && (activeProject?.role === 'LEADER' || activeProject?.role === 'PROJECT_LEADER' || userRole === 'MENTOR')) {
+      recoveryPlanService.getProjectRecoveryPlans(activeProject.id, { status: 'PENDING_APPROVAL' })
+        .then(plans => {
+          if (Array.isArray(plans)) {
+            setPendingRecoveryCount(plans.length)
+          }
+        })
+        .catch(() => setPendingRecoveryCount(0))
+    } else {
+      setPendingRecoveryCount(0)
+    }
+  }, [activeProject?.id, userRole])
 
   const handleLogout = () => {
     logout()
@@ -178,6 +202,8 @@ const Sidebar = () => {
             />
             <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
             <NavItem to={`/projects/${activeProject.id}/task-reviews`} icon="fact_check" label="Task Review" />
+            <NavItem to={`/projects/${activeProject.id}/reliability`} icon="monitor_heart" label="Reliability" />
+            <NavItem to={`/projects/${activeProject.id}/recovery-plans`} icon="shield" label="Recovery Plans" badge={pendingRecoveryCount} />
 
             {/* Team Section */}
             <div className="pt-4 pb-2">
@@ -192,6 +218,12 @@ const Sidebar = () => {
             {userRole === 'MENTOR' && (
               <div className="mt-2">
                 <NavItem to={`/projects/${activeProject.id}/mentor`} icon="supervisor_account" label="Mentor Dashboard" />
+              </div>
+            )}
+
+            {(activeProject?.role === 'LEADER' || activeProject?.role === 'PROJECT_LEADER' || userRole === 'MENTOR') && (
+              <div className="mt-2">
+                <NavItem to={`/projects/${activeProject.id}/scheduler-logs`} icon="schedule" label="Scheduler Logs" />
               </div>
             )}
 

@@ -89,6 +89,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     long countBySprintId(Long sprintId);
 
+    @Query("select count(t) from Task t where t.project.id = :projectId and t.sprintId = :sprintId")
+    long countByProjectIdAndSprintId(@Param("projectId") Long projectId,
+                                     @Param("sprintId") Long sprintId);
+
 
 
     List<Task> findByUseCaseId(Long useCaseId);
