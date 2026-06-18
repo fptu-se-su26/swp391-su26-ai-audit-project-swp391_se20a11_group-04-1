@@ -1,9 +1,11 @@
 package org.example.backend.repository;
 
+import jakarta.persistence.LockModeType;
 import org.example.backend.entity.RecoveryPlan;
 import org.example.backend.entity.RecoveryPlanSource;
 import org.example.backend.entity.RecoveryPlanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,6 +17,10 @@ import java.time.LocalDateTime;
 
 @Repository
 public interface RecoveryPlanRepository extends JpaRepository<RecoveryPlan, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rp FROM RecoveryPlan rp WHERE rp.id = :id")
+    Optional<RecoveryPlan> findByIdForUpdate(@Param("id") Long id);
 
     Optional<RecoveryPlan> findTopByProjectIdAndTaskIdOrderByCreatedAtDesc(Long projectId, Long taskId);
 
@@ -60,4 +66,8 @@ public interface RecoveryPlanRepository extends JpaRepository<RecoveryPlan, Long
             AND rp.effectivenessCheckedAt IS NULL
             """)
     List<RecoveryPlan> findExecutedWithoutEffectivenessCheck(@Param("cutoff") LocalDateTime cutoff);
+
+    List<RecoveryPlan> findByProjectIdAndStatusInOrderByCreatedAtDesc(Long projectId, Collection<RecoveryPlanStatus> statuses);
+
+    List<RecoveryPlan> findByProjectIdAndSprintIdAndStatusInOrderByCreatedAtDesc(Long projectId, Long sprintId, Collection<RecoveryPlanStatus> statuses);
 }

@@ -24,6 +24,9 @@ public class RecoveryPlanResponse {
     private String rejectReason;
     private String priority;
     private boolean followUp;
+    private Long evidenceSnapshotId;
+    private String gateResult;
+    private String gateReason;
     private Integer scoreBeforeExecution;
     private Integer scoreAfterExecution;
     private LocalDateTime effectivenessCheckedAt;

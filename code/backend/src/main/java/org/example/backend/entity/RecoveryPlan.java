@@ -81,6 +81,15 @@ public class RecoveryPlan {
     @Column(name = "effectiveness_checked_at")
     private LocalDateTime effectivenessCheckedAt;
 
+    @Column(name = "evidence_snapshot_id")
+    private Long evidenceSnapshotId;
+
+    @Column(name = "gate_result", length = 30)
+    private String gateResult;
+
+    @Column(name = "gate_reason", columnDefinition = "TEXT")
+    private String gateReason;
+
     @Column(name = "is_follow_up", nullable = false)
     @Builder.Default
     private boolean followUp = false;
