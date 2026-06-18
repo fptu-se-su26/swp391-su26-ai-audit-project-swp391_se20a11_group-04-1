@@ -31,8 +31,14 @@ const computeFlowLabels = (flows, totalMainSteps) => {
 };
 
 const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowChange }) => {
-  const flows = alternativeFlow?.flows || [];
+  const flows = Array.isArray(alternativeFlow?.flows) ? alternativeFlow.flows : [];
   const totalMainSteps = mainFlow?.steps?.length || 0;
+
+  // Helper to remove markdown bold and leading bullet asterisks
+  const stripMarkdown = (text) => {
+    if (typeof text !== 'string') return text;
+    return text.replace(/\*\*/g, '').replace(/^\s*\*\s*/, '').trim();
+  };
 
   const flowLabels = useMemo(
     () => computeFlowLabels(flows, totalMainSteps),
@@ -139,12 +145,12 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   </div>
                   
                   <div className="pl-4 border-l-2 border-outline-variant ml-2 space-y-2 mt-3">
-                    {flow.steps?.map((step, stepIndex) => (
+                    {(Array.isArray(flow.steps) ? flow.steps : []).map((step, stepIndex) => (
                       <div key={stepIndex} className="flex gap-2 items-start">
                         <span className="text-on-surface-variant text-sm mt-1 shrink-0">•</span>
                         <input
                           type="text"
-                          value={step}
+                          value={stripMarkdown(step)}
                           onChange={(e) => handleStepChange(index, stepIndex, e.target.value)}
                           placeholder="Step description"
                           className="flex-1 px-3 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-sm transition-all"
@@ -172,11 +178,11 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   <h3 className="font-body-lg text-body-lg text-on-surface font-semibold mb-2">
                     {flowLabels[index]?.label || `${index + 1}a`}. {flow.condition || 'Alternative Condition'}
                   </h3>
-                  <ul className="list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface ml-2">
-                    {flow.steps?.map((step, idx) => (
-                      <li key={idx} className="whitespace-pre-wrap">{step}</li>
+                  <div className="space-y-1 font-body-md text-body-md text-on-surface ml-2">
+                    {(Array.isArray(flow.steps) ? flow.steps : []).map((step, idx) => (
+                      <div key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</div>
                     ))}
-                  </ul>
+                  </div>
                 </>
               )}
             </div>

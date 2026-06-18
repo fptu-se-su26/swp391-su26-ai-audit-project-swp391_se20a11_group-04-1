@@ -17,4 +17,7 @@ public interface TaskReviewDecisionRepository extends JpaRepository<TaskReviewDe
 
     // Used by the review queue to show the latest request/reject/approve reason for a task.
     Optional<TaskReviewDecision> findTopByTaskIdOrderByCreatedAtDesc(Long taskId);
+
+    @EntityGraph(attributePaths = {"task", "task.primaryAssignee", "reviewer", "reviewer.profile"})
+    List<TaskReviewDecision> findByTaskIdOrderByCreatedAtDesc(Long taskId);
 }

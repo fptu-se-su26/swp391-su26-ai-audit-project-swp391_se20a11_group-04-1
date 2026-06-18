@@ -41,5 +41,37 @@ export const useCaseService = {
   deleteUseCase: async (useCaseId, projectId) => {
     const response = await axiosInstance.delete(`/v1/use-cases/${useCaseId}`, { params: { projectId } });
     return response.data;
+  },
+
+  // Approve Use Case từ Diagram
+  approveUseCase: async (useCaseId, projectId, requirementId) => {
+    const params = { projectId };
+    if (requirementId) params.requirementId = requirementId;
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params });
+    return response.data.data;
+  },
+
+  // Lấy danh sách Requirement đề xuất từ AI cho Use Case
+  suggestRequirements: async (useCaseId) => {
+    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`);
+    return response.data;
+  },
+
+  // AI: Generate Use Cases
+  generateUseCases: async (projectId, payload, config = {}) => {
+    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000, ...config });
+    return response.data;
+  },
+
+  // AI: Lấy dữ liệu staging theo generationId
+  getGenerationById: async (generationId) => {
+    const response = await axiosInstance.get(`/ai/staging/generation/${generationId}`);
+    return response.data;
+  },
+
+  // AI: Approve Use Cases
+  approveUseCases: async (generationId, payload) => {
+    const response = await axiosInstance.post(`/ai/approve-use-cases/${generationId}`, payload);
+    return response.data;
   }
 };

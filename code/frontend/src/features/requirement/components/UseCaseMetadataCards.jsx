@@ -1,12 +1,25 @@
 import React from 'react';
+import { useParams, Link } from 'react-router-dom';
 
 const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
-  const actorsText = useCase.actors ? useCase.actors.join(', ') : '';
+  const { projectId } = useParams();
+  const [inputValue, setInputValue] = React.useState('');
 
-  const handleActorsChange = (e) => {
-    const value = e.target.value;
-    const actors = value.split(',').map(a => a.trim()).filter(a => a);
-    onFieldChange('actors', actors);
+  const handleAddActor = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = inputValue.trim();
+      if (val) {
+        const newActors = [...(useCase.actors || []), val];
+        onFieldChange('actors', newActors);
+        setInputValue('');
+      }
+    }
+  };
+
+  const handleRemoveActor = (indexToRemove) => {
+    const newActors = (useCase.actors || []).filter((_, i) => i !== indexToRemove);
+    onFieldChange('actors', newActors);
   };
 
   return (
@@ -18,9 +31,9 @@ const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
         </div>
         <div>
           <p className="font-label-md text-label-md text-secondary uppercase mb-1">Linked Requirement</p>
-          <a className="font-body-lg text-body-lg text-primary hover:underline font-semibold flex items-center gap-1" href="#">
+          <Link to={`/projects/${projectId}/requirements/${useCase.requirementId}`} className="font-body-lg text-body-lg text-primary hover:underline font-semibold flex items-center gap-1">
             {useCase.reqCode || `REQ-${useCase.requirementId}`} <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-          </a>
+          </Link>
         </div>
       </div>
       
@@ -29,22 +42,51 @@ const UseCaseMetadataCards = ({ useCase, isEditing, onFieldChange }) => {
         <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary-container shrink-0">
           <span className="material-symbols-outlined">person</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-label-md text-label-md text-secondary uppercase mb-1">Primary Actor</p>
-          {isEditing ? (
-            <input
-              type="text"
-              value={actorsText}
-              onChange={handleActorsChange}
-              placeholder="Admin, Student"
-              className="w-full px-2 py-1 font-body-lg text-body-lg text-on-surface font-semibold border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-            />
-          ) : (
-            <p className="font-body-lg text-body-lg text-on-surface font-semibold truncate">
-              {useCase.actors && useCase.actors.length > 0 ? useCase.actors.join(', ') : 'None'}
-            </p>
-          )}
-        </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-label-md text-label-md text-secondary uppercase mb-1">Actors</p>
+            {isEditing ? (
+              <div className="w-full flex flex-wrap gap-1 p-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+                {(useCase.actors || []).map((actor, idx) => (
+                  <span key={idx} className="flex items-center gap-1 bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full text-sm">
+                    {actor}
+                    <button 
+                      onClick={() => handleRemoveActor(idx)}
+                      className="text-on-secondary-container hover:text-error rounded-full"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleAddActor}
+                  onBlur={() => {
+                    const val = inputValue.trim();
+                    if (val) {
+                      onFieldChange('actors', [...(useCase.actors || []), val]);
+                      setInputValue('');
+                    }
+                  }}
+                  placeholder="Type & press Enter"
+                  className="flex-1 min-w-[100px] px-1 py-1 font-body-sm text-body-sm text-on-surface bg-transparent border-none outline-none"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {useCase.actors && useCase.actors.length > 0 ? (
+                  useCase.actors.map((actor, idx) => (
+                    <span key={idx} className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full text-sm">
+                      {actor}
+                    </span>
+                  ))
+                ) : (
+                  <span className="font-body-lg text-body-lg text-on-surface font-semibold truncate">None</span>
+                )}
+              </div>
+            )}
+          </div>
       </div>
       
       {/* AI Confidence */}

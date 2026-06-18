@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:80}")
@@ -38,14 +40,16 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/classrooms/join").permitAll()
                         .requestMatchers("/api/v1/github/webhook").permitAll()
                         .requestMatchers("/api/v1/evidence/test-evidence").permitAll()
+                        .requestMatchers("/api/v1/test-cases/**", "/api/v1/test-runs/**").permitAll()
                         .requestMatchers("/internal/test-runs/**").permitAll()
                         .requestMatchers("/internal/agent-tasks/**").permitAll()
                         .requestMatchers("/api/v1/agent-tasks/**").permitAll()
-                        .requestMatchers("/api/ws/**").permitAll()
+                        .requestMatchers("/api/ws/**", "/ws/notifications/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/v1/test-cases/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

@@ -3,15 +3,20 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // Feature Pages - Auth
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
+import VerificationPage from '@features/auth/pages/VerificationPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
+import ClassroomsPage from '@features/workspace/pages/ClassroomsPage'
+import ClassroomDetailPage from '@features/workspace/pages/ClassroomDetailPage'
+import JoinClassroomPage from '@features/workspace/pages/JoinClassroomPage'
 import ContributionPage from '@features/workspace/pages/ContributionPage'
 import AcceptInvitePage from '@features/workspace/pages/AcceptInvitePage'
 
 // Feature Pages - Requirements
 import RequirementsPage from '@features/requirement/pages/RequirementsPage'
 import RequirementDetailPage from '@features/requirement/pages/RequirementDetailPage'
+import AiStagingReviewPage from '@features/requirement/pages/AiStagingReviewPage'
 
 // Feature Pages - Use Cases
 import UseCasePage from '@features/requirement/pages/UseCasePage'
@@ -31,10 +36,15 @@ import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 import RtmPage from '@features/rtm/pages/RtmPage'
 
 // Feature Pages - Code Insight
-import CodeInsightPage from '@features/code-insight/pages/CodeInsightPage'
+import TaskReviewDashboardPage from '@features/code-insight/pages/TaskReviewDashboardPage'
+import TaskReviewWorkspacePage from '@features/code-insight/pages/TaskReviewWorkspacePage'
+
+// Feature Pages - AI Engine
+import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
+import ProfilePage from '@features/profile/pages/ProfilePage'
 
 // Feature Pages - Issue Tracker
-import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage } from '@features/issue-tracker'
+import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
 
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
@@ -56,23 +66,27 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/classrooms/join" element={<JoinClassroomPage />} />
 
       {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/classrooms" element={<ClassroomsPage />} />
+          <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
+          <Route path="/verify" element={<VerificationPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
 
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
 
-            <Route path="dashboard" element={<DashboardPage />} />
-
             {/* Module 1: Requirements Management */}
             <Route path="requirements" element={<RequirementsPage />} />
+            <Route path="requirements/staging" element={<AiStagingReviewPage />} />
             <Route path="requirements/:id" element={<RequirementDetailPage />} />
 
             {/* Module 2: Use Case Management */}
@@ -101,11 +115,17 @@ export function AppRoutes() {
             <Route path="issues/:bugId" element={<IssueDetailView />} />
             <Route path="bugs" element={<NotFoundPage />} />
             <Route path="bugs/:bugId" element={<IssueDetailView />} />
+            <Route path="features/:id/discuss" element={<FeatureDiscussionPage />} />
             <Route path="github-config" element={<ProjectGithubConfig />} />
 
             {/* Module 8: Traceability Matrix */}
             <Route path="traceability-matrix" element={<RtmPage />} />
-            <Route path="code-insight" element={<CodeInsightPage />} />
+            <Route path="task-reviews" element={<TaskReviewDashboardPage />} />
+            <Route path="task-reviews/:taskId" element={<TaskReviewWorkspacePage />} />
+
+            {/* Module 9: AI Engine */}
+            <Route path="sprint-reports" element={<SprintReportPage />} />
+            <Route path="weekly-reports" element={<Navigate to="sprint-reports" replace />} />
 
           </Route>
         </Route>
@@ -119,4 +139,3 @@ export function AppRoutes() {
 }
 
 export default AppRoutes
-

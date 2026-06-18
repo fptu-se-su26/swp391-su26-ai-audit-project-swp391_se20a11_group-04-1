@@ -46,8 +46,8 @@ public class UseCaseServiceImpl implements UseCaseService {
     private org.example.backend.repository.ProjectRepository projectRepository;
 
     @Override
-    public UseCaseResponse createUseCase(UseCaseRequest request, String username) {
-        UserAccount user = userAccountRepository.findByUsername(username)
+    public UseCaseResponse createUseCase(UseCaseRequest request, Long userId) {
+        UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         UseCase useCase = new UseCase();
@@ -61,7 +61,7 @@ public class UseCaseServiceImpl implements UseCaseService {
         Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         useCase.setProjectSubId(nextSubId);
-        useCase.setCode("P" + project.getId() + "-UC-" + nextSubId);
+        useCase.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
 
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
@@ -82,9 +82,12 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse updateUseCaseStatus(Long id, String status) {
+    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         
         useCase.setStatus(status);
         UseCase saved = useCaseRepository.save(useCase);
@@ -92,24 +95,40 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse updateUseCase(Long id, UseCaseRequest request) {
+    @Transactional(rollbackFor = Exception.class)
+    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         
         mapRequestToEntity(request, useCase);
+        
+        // Clear 'Outdated Req' flag by syncing the hash
+        if (useCase.getRequirement() != null) {
+            org.example.backend.entity.Requirement req = useCase.getRequirement();
+            String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+            String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            useCase.setReqVersionHash(currentHash);
+        }
+
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
 
     @Override
-    public void deleteUseCase(Long id) {
+    public void deleteUseCase(Long id, Long projectId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
         useCaseRepository.delete(useCase);
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -125,7 +144,19 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             if (status != null && !status.trim().isEmpty()) {
-                predicates.add(cb.equal(root.get("status"), status));
+                try {
+                    org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(status.toUpperCase());
+                    predicates.add(cb.equal(root.get("status"), enumStatus));
+                } catch (IllegalArgumentException e) {
+                    // Ignore invalid status format in search
+                }
+            }
+
+            if (isDraft != null) {
+                predicates.add(cb.equal(root.get("addedFromDiagram"), isDraft));
+            } else {
+                // By default, hide drafted UCs in list view unless explicitly requested
+                predicates.add(cb.equal(root.get("addedFromDiagram"), false));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -135,10 +166,45 @@ public class UseCaseServiceImpl implements UseCaseService {
                 .map(this::mapEntityToResponse);
     }
 
+    @Override
+    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId) {
+        UseCase useCase = useCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
+        
+        if (!useCase.getProjectId().equals(projectId)) {
+            throw new BadRequestException("Use case does not belong to the specified project");
+        }
+        
+        if (requirementId != null) {
+            org.example.backend.entity.Requirement req = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + requirementId));
+                
+            if (!req.getProject().getId().equals(useCase.getProjectId())) {
+                throw new org.example.backend.exception.BusinessException("Requirement does not belong to the same project");
+            }
+            
+            useCase.setRequirement(req);
+            
+            String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+            String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            useCase.setReqVersionHash(currentHash);
+        }
+        
+        useCase.setAddedFromDiagram(false);
+        UseCase saved = useCaseRepository.save(useCase);
+        return mapEntityToResponse(saved);
+    }
+
     private void mapRequestToEntity(UseCaseRequest request, UseCase useCase) {
         if (request.getRequirementId() != null) {
             org.example.backend.entity.Requirement req = requirementRepository.findById(request.getRequirementId())
                     .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+            
+            // Validate requirement belongs to the same project
+            if (useCase.getProjectId() != null && !req.getProject().getId().equals(useCase.getProjectId())) {
+                throw new BadRequestException("Requirement must belong to the same project as the Use Case");
+            }
+
             useCase.setRequirement(req);
             useCase.setProjectId(req.getProject().getId());
             
@@ -158,16 +224,23 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (request.getAlternativeFlow() != null) {
             try { useCase.setAlternativeFlow(objectMapper.writeValueAsString(request.getAlternativeFlow())); } catch (Exception e) { throw new BadRequestException("Invalid alternative flow data format: " + e.getMessage()); }
         }
+        if (request.getIncludesList() != null) {
+            useCase.setIncludesList(request.getIncludesList());
+        }
+        if (request.getExtendsList() != null) {
+            useCase.setExtendsList(request.getExtendsList());
+        }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
-        if (request.getCompletenessScore() != null) useCase.setCompletenessScore(request.getCompletenessScore());
+        // Remove completeness score update here, it will be auto-calculated
 
-        if (request.getActors() != null && !request.getActors().isEmpty()) {
+        if (request.getActors() != null) {
             useCase.getActors().clear();
             for (String actorName : request.getActors()) {
                 UseCaseActor actor = new UseCaseActor();
+                actor.setUseCase(useCase);
                 actor.setActorName(actorName);
-                useCase.addActor(actor);
+                useCase.getActors().add(actor);
             }
         }
     }
@@ -176,6 +249,23 @@ public class UseCaseServiceImpl implements UseCaseService {
         UseCaseResponse res = new UseCaseResponse();
         res.setId(useCase.getId());
         res.setRequirementId(useCase.getRequirement() != null ? useCase.getRequirement().getId() : null);
+        if (useCase.getRequirement() != null) {
+            org.example.backend.entity.Requirement req = useCase.getRequirement();
+            org.example.backend.dto.RequirementResponseDTO reqDto = org.example.backend.dto.RequirementResponseDTO.builder()
+                    .id(req.getId())
+                    .reqCode(req.getReqCode())
+                    .title(req.getTitle())
+                    .build();
+            res.setRequirement(reqDto);
+            
+            if (useCase.getReqVersionHash() != null) {
+                String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                String currentHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                res.setOutdated(!useCase.getReqVersionHash().equals(currentHash));
+            } else {
+                res.setOutdated(false);
+            }
+        }
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());
         res.setPrecondition(useCase.getPrecondition());
@@ -187,6 +277,9 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (useCase.getAlternativeFlow() != null) {
             try { res.setAlternativeFlow(objectMapper.readValue(useCase.getAlternativeFlow(), new TypeReference<Map<String, Object>>() {})); } catch (Exception e) { /* ignore */ }
         }
+        
+        res.setIncludesList(useCase.getIncludesList());
+        res.setExtendsList(useCase.getExtendsList());
         
         if (useCase.getActors() != null) {
             res.setActors(useCase.getActors().stream()
@@ -200,6 +293,10 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setCreatedById(useCase.getCreatedBy() != null ? useCase.getCreatedBy().getId() : null);
         res.setCreatedAt(useCase.getCreatedAt());
         res.setUpdatedAt(useCase.getUpdatedAt());
+        res.setAddedFromDiagram(useCase.isAddedFromDiagram());
+        res.setShowInDiagram(useCase.isShowInDiagram());
+        res.setAiGenerated(useCase.isAiGenerated());
+        res.setSourceGenerationId(useCase.getSourceGenerationId());
         return res;
     }
 }

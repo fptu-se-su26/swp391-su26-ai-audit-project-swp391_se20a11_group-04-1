@@ -1,21 +1,53 @@
-const backendToUiType = {
-  DEVELOPMENT: 'DEV',
-  TESTING: 'QA',
-  DOCUMENTATION: 'DOCS',
-  UI_UX: 'UI/UX',
-  RESEARCH: 'DOCS',
-  DEPLOYMENT: 'DEV',
-  BUG_FIX: 'BUG',
-  REVIEW: 'QA',
-}
+export const TASK_TYPES = [
+  'DEVELOPMENT',
+  'TESTING',
+  'DOCUMENTATION',
+  'UI_UX',
+  'RESEARCH',
+  'DEPLOYMENT',
+  'BUG_FIX',
+  'REVIEW',
+]
 
-const uiToBackendType = {
+const legacyUiToBackendType = {
   DEV: 'DEVELOPMENT',
   QA: 'TESTING',
   DOCS: 'DOCUMENTATION',
   'UI/UX': 'UI_UX',
   BUG: 'BUG_FIX',
 }
+
+export const taskTypeLabels = {
+  DEVELOPMENT: 'Development',
+  TESTING: 'Testing',
+  DOCUMENTATION: 'Documentation',
+  UI_UX: 'UI/UX',
+  RESEARCH: 'Research',
+  DEPLOYMENT: 'Deployment',
+  BUG_FIX: 'Bug Fix',
+  REVIEW: 'Review',
+}
+
+export const taskTypeShortLabels = {
+  DEVELOPMENT: 'DEV',
+  TESTING: 'QA',
+  DOCUMENTATION: 'DOCS',
+  UI_UX: 'UI/UX',
+  RESEARCH: 'R&D',
+  DEPLOYMENT: 'DEPLOY',
+  BUG_FIX: 'BUG',
+  REVIEW: 'REVIEW',
+}
+
+export const normalizeTaskType = (value) => {
+  if (!value) return 'DEVELOPMENT'
+  if (TASK_TYPES.includes(value)) return value
+  return legacyUiToBackendType[value] || 'DEVELOPMENT'
+}
+
+export const formatTaskType = (value) => taskTypeLabels[normalizeTaskType(value)] || taskTypeLabels.DEVELOPMENT
+
+export const shortTaskType = (value) => taskTypeShortLabels[normalizeTaskType(value)] || taskTypeShortLabels.DEVELOPMENT
 
 const getInitials = (name = 'Unassigned') =>
   name
@@ -30,54 +62,68 @@ const buildAssignee = (assignee) => {
   const name = assignee?.fullName || assignee?.name || assignee?.email || 'Unassigned'
 
   return {
-    id: assignee?.id ? String(assignee.id) : null,  // luôn là string để so sánh nhất quán
+    id: assignee?.id ? String(assignee.id) : null,
     name,
-    fullName: name,  // thêm fullName để AiInsightPanel dùng
+    fullName: name,
     email: assignee?.email || '',
     initials: getInitials(name),
     color: 'bg-surface-container-highest text-on-surface-variant',
   }
 }
 
-export const mapTaskFromApi = (task) => ({
-  id: String(task.id),
-  title: task.title || 'Untitled task',
-  description: task.description || '',
-  type: backendToUiType[task.type] || 'DEV',
-  priority: task.priority || 'MEDIUM',
-  status: task.status || 'TODO',
-  columnId: task.columnId ? String(task.columnId) : null,
-  columnName: task.columnName || '',
-  sprint: task.sprintName || (task.sprintId ? `Sprint ${task.sprintId}` : 'No Sprint'),
-  sprintId: task.sprintId || null,
-  startDate: task.startDate || '',
-  deadline: task.deadline || '',
-  weight: task.weight ?? 1,
-  estimatedHours: task.estimatedHours ?? '',
-  overduePenaltyApplied: Boolean(task.overduePenaltyApplied),
-  overduePenaltyAppliedAt: task.overduePenaltyAppliedAt || '',
-  sprintPlanDate: task.sprintPlanDate || null,
-  assignee: buildAssignee(task.primaryAssignee),
-  requirement: task.requirementCode || (task.requirementId ? `REQ-${String(task.requirementId).padStart(2, '0')}` : 'No Requirement'),
-  requirementId: task.requirementId || null,
-  evidenceStatus: 'Not Uploaded',
-  testStatus: 'Not Run',
-  blockedReason: task.blockedReason || '',
-  // Thêm các field cần cho Daily/Weekly view
-  deadline: task.deadline || null,
-  estimatedHours: task.estimatedHours || null,
-  updatedAt: task.updatedAt || null,
-  createdAt: task.createdAt || null,
-  evidenceCount: task.evidenceCount || 0,
-  // sprintId giữ nguyên number để match với activeSprint.id
-  sprintId: task.sprintId ? Number(task.sprintId) : null,
-  checklist: (task.checklist || []).map((item) => ({
-    id: String(item.id),
-    text: item.content,
-    done: item.done,
-  })),
-  parentId: task.parentId ? String(task.parentId) : null,
-})
+export const mapTaskFromApi = (task) => {
+  const normalizedType = normalizeTaskType(task.type)
+  const normalizedSprintId = task.sprintId ? Number(task.sprintId) : null
+
+  return {
+    id: String(task.id),
+    title: task.title || 'Untitled task',
+    backendType: normalizedType,
+    description: task.description || '',
+    type: normalizedType,
+    priority: task.priority || 'MEDIUM',
+    status: task.status || 'TODO',
+    columnId: task.columnId ? String(task.columnId) : null,
+    columnName: task.columnName || '',
+    sprint: task.sprintName || (task.sprintId ? `Sprint ${task.sprintId}` : 'No Sprint'),
+    sprintId: normalizedSprintId,
+    startDate: task.startDate || '',
+    deadline: task.deadline || null,
+    weight: task.weight ?? 1,
+    estimatedHours: task.estimatedHours ?? null,
+    overduePenaltyApplied: Boolean(task.overduePenaltyApplied),
+    overduePenaltyAppliedAt: task.overduePenaltyAppliedAt || '',
+    hasAcceptedEvidence: Boolean(task.hasAcceptedEvidence),
+    sprintPlanDate: task.sprintPlanDate || null,
+    assignee: buildAssignee(task.primaryAssignee),
+    requirement: task.requirementCode || (task.requirementId ? `REQ-${String(task.requirementId).padStart(2, '0')}` : 'No Requirement'),
+    requirementId: task.requirementId || null,
+    evidenceStatus: task.evidenceCount > 0 ? `Uploaded (${task.evidenceCount})` : 'Not Uploaded',
+    testStatus: 'Not Run',
+    blockedReason: task.blockedReason || '',
+    updatedAt: task.updatedAt || null,
+    createdAt: task.createdAt || null,
+    evidenceCount: task.evidenceCount || 0,
+    checklist: (task.checklist || []).map((item) => ({
+      id: String(item.id),
+      text: item.content,
+      done: item.done,
+    })),
+    parentId: task.parentId ? String(task.parentId) : null,
+    createdById: task.createdById ? String(task.createdById) : null,
+    createdByName: task.createdByName || null,
+    githubIssueNumber: task.githubIssueNumber || null,
+    githubIssueUrl: task.githubIssueUrl || null,
+    latestReviewDecision: task.latestReviewDecision || null,
+    latestReviewReason: task.latestReviewReason || '',
+    latestReviewDecisionAt: task.latestReviewDecisionAt || null,
+  }
+}
+
+export const isIssueOwnedTask = (task) => {
+  if (!task) return false
+  return normalizeTaskType(task.backendType || task.type) === 'BUG_FIX'
+}
 
 const parseRequirementId = (value) => {
   if (!value) return null
@@ -90,7 +136,7 @@ export const mapTaskToApi = (payload) => ({
   description: payload.description?.trim() || '',
   requirementId: payload.requirementId ? Number(payload.requirementId) : parseRequirementId(payload.requirement),
   sprintId: payload.sprintId ? Number(payload.sprintId) : null,
-  type: uiToBackendType[payload.type] || 'DEVELOPMENT',
+  type: normalizeTaskType(payload.type),
   primaryAssigneeId: payload.assigneeId ? Number(payload.assigneeId) : null,
   priority: payload.priority || 'MEDIUM',
   startDate: payload.startDate || null,

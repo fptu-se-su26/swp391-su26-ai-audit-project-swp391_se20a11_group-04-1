@@ -1,0 +1,12 @@
+package org.example.backend.entity;
+
+public enum RecoveryActionType {
+    NOTIFY_ASSIGNEE,
+    REQUEST_EVIDENCE,
+    ASK_BLOCKER_UPDATE,
+    ESCALATE_LEADER,
+    CREATE_RECOVERY_CHECKLIST,
+    SCHEDULE_FOLLOW_UP,
+    SUGGEST_SPLIT_TASK,
+    SUGGEST_REASSIGN
+}

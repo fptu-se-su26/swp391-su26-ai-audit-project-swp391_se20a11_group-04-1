@@ -25,6 +25,10 @@ public class WeeklyReport {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
+
     @Column(name = "report_week_start", nullable = false)
     private LocalDate reportWeekStart;
 
