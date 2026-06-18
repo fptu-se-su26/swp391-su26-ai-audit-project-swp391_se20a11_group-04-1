@@ -82,6 +82,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskSlaPauseService taskSlaPauseService;
     private final NotificationService notificationService;
     private final OutboxEventService outboxEventService;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Override
     @Transactional
@@ -2009,7 +2010,7 @@ public class TaskServiceImpl implements TaskService {
                     Long systemUserId = task.getCreatedBy() != null ? task.getCreatedBy().getId() : null;
                     syncWithBugReport(task, systemUserId);
 
-                    // Recursive parent completion if this task is a sub-task
+                    // Recursive completion if this task is a sub-task
                     if (task.getParent() != null) {
                         checkAndCompleteParentTask(task.getParent());
                     }

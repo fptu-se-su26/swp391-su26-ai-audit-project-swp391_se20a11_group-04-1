@@ -10,10 +10,10 @@ import org.springframework.http.HttpStatus;
 public class BusinessException extends CustomException {
 
     public BusinessException(String message) {
-        super(message, HttpStatus.UNPROCESSABLE_ENTITY);
+        super(message, HttpStatus.valueOf(422));
     }
 
     public BusinessException(String message, String errorCode) {
-        super(message, HttpStatus.UNPROCESSABLE_ENTITY, errorCode);
+        super(message, HttpStatus.valueOf(422), errorCode);
     }
 }

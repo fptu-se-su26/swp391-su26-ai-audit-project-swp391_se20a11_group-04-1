@@ -8,7 +8,7 @@
 | Class | SE20A11 |
 | Semester | SU26 |
 | Group | 4 |
-| Topic | An AI-Integrated Project Workspace for IT Student Teams |
+| Topic | Software Project Management System for IT Student Teams |
 | Repository |  |
 
 ---
@@ -105,9 +105,46 @@ feat, fix, docs, test, refactor, style, chore
 
 ## 8. How to Run
 
-```text
-Students write project running instructions here.
+### Yêu cầu cài đặt
+- Docker >= 24.0
+- Docker Compose >= 2.20
+- Git
+- RAM tối thiểu: 8GB (16GB recommended)
+- Disk: 5GB free
+
+### Cách chạy lần đầu
+
+**1. Clone repo**
+```bash
+git clone <repo-url>
+cd swp391-su26-ai-audit-project-swp391_se20a11_group-04-1
 ```
+
+**2. Tạo file .env**
+```bash
+cp .env.example .env
+# Điền các giá trị thật vào .env (xem hướng dẫn bên dưới)
+```
+
+**3. Khởi động toàn bộ hệ thống**
+```bash
+docker compose up -d
+```
+
+**4. Chờ backend sẵn sàng (~3-4 phút lần đầu)**
+```bash
+docker compose logs -f backend
+# Khi thấy: "Started BackendApplication in X.XXX seconds" → OK
+```
+
+**5. Truy cập**
+- Frontend: http://localhost
+- Backend API: http://localhost:8080
+- Health check: http://localhost:8080/actuator/health
+
+**6. Đăng nhập**
+- Admin: admin / Admin@123
+- Demo: demo / User@123
 
 ---
 

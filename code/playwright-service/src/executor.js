@@ -5,8 +5,9 @@ const { promisify } = require('util');
 
 const execAsync = promisify(exec);
 
-async function executeScript(script, runId, baseUrl) {
-    const tempDir = path.join(process.cwd(), 'temp', runId);
+async function executeScript(script, baseRunId, baseUrl) {
+    const uniqueRunId = `${baseRunId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const tempDir = path.join(process.cwd(), 'temp', uniqueRunId);
     const scriptPath = path.join(tempDir, 'test.spec.js');
     const screenshotDir = path.join(tempDir, 'screenshots');
 
@@ -16,7 +17,8 @@ async function executeScript(script, runId, baseUrl) {
     const scriptWithAbsPath = script.replace(
         /path:\s*['"]([^'"]+\.png)['"]/g,
         (_, filename) => {
-            const absPath = path.join(screenshotDir, filename).replace(/\\/g, '\\\\');
+            // Chuẩn hóa path thành gạch chéo xuôi để js trong script sinh ra không bị lỗi escape (\t, \n...)
+            const absPath = path.join(screenshotDir, filename).replace(/\\/g, '/');
             return `path: '${absPath}'`;
         }
     );
@@ -64,6 +66,11 @@ async function executeScript(script, runId, baseUrl) {
 function parseOutput(stdout, screenshotDir) {
     let report;
     try {
+        const jsonStart = stdout.indexOf('{');
+        const jsonEnd = stdout.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+            stdout = stdout.substring(jsonStart, jsonEnd + 1);
+        }
         report = JSON.parse(stdout);
     } catch {
         console.error('[Executor] Playwright output parse error. Raw stdout:', stdout);
@@ -113,12 +120,15 @@ function parseOutput(stdout, screenshotDir) {
         : [];
 
     const rawError = testResult.results?.[0]?.error;
+    const failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
+    
     const error = passed
         ? null
         : {
             message: (rawError?.message || 'Test thất bại').replace(/\x1b\[[0-9;]*m/g, ''),
             stack: (rawError?.stack || '').replace(/\x1b\[[0-9;]*m/g, ''),
             failedStep: steps.find(s => s.status === 'FAIL')?.title || null,
+            failedStepIndex: failedStepIndex >= 0 ? failedStepIndex : null
         };
 
     return { status: passed ? 'PASS' : 'FAIL', steps, screenshots, error };

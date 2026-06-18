@@ -41,7 +41,7 @@ Sinh viên/nhóm cần ghi lại:
 - [ ] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
-- [ ] Antigravity
+- [x] Antigravity
 - [ ] Microsoft Copilot
 - [ ] Perplexity
 - [ ] Công cụ khác: ....................................
@@ -108,7 +108,7 @@ Viết tại đây...
 Mô tả phần nào từ kết quả AI đã được sử dụng vào bài tập/project.
 
 ```text
-Viết tại đây...
+Kiến trúc CDP (Chrome DevTools Protocol) stream qua WebSocket được áp dụng vào Playwright để truyền hình ảnh real-time về Frontend thay vì phải chờ test chạy xong.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
@@ -116,7 +116,9 @@ Viết tại đây...
 Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với kết quả AI trả về.
 
 ```text
-Viết tại đây...
+- Tự fix lỗi AI ghi đè tham số `envOverrides` trong Node.js.
+- Tự định tuyến lại WebSocket URL trong backend config (`application.yaml`) do AI tạo block duplicate.
+- Sửa logic ghép roomId để tránh đụng độ giữa các Test Execution trong tương lai (`testRunId-executionId`).
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -164,31 +166,31 @@ Viết tại đây...
 #### 5.1. Prompt nguyên văn
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+"tôi cần implement tính năng async test execution cho DevTrackAI chuyển từ synchronous sang fully async với Kafka + WebSocket realtime, xử lý race condition, semantic lỗi, và multi-instance issues"
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Viết tại đây...
+Chuyển đổi luồng thực thi Test từ đồng bộ sang bất đồng bộ để tránh bị block request HTTP khi Playwright chạy quá lâu.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-Viết tại đây...
+Gợi ý sử dụng Kafka, ShedLock và Outbox pattern để phân tán message, sử dụng WebSocket stream đẩy kết quả ngược lại. Đã code sẵn entity State Machine TestRunStatus.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Viết tại đây...
+Áp dụng ShedLock, Kafka vào module AgentTaskServiceImpl và EventPublisher. State machine (PENDING, RUNNING, COMPLETED) được dùng luôn.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Viết tại đây...
+Tự review code và quyết định làm mỏng Kafka Payload bằng cách chỉ gửi ID thay vì toàn bộ object. Xử lý update DB Atomic JPQL.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -234,31 +236,31 @@ Viết tại đây...
 #### 5.1. Prompt nguyên văn
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+"Tôi cần chuẩn hóa luồng Database Migration dùng Flyway cho dự án DevTrackAI, hãy gợi ý cấu trúc bảng Test Run, Execution và naming convention tốt nhất cho PostgreSQL."
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Viết tại đây...
+Chuẩn hóa lại script DB migration cho dự án, yêu cầu thiết kế Index và Foreign Keys chuẩn cho bảng lưu history test run.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-Viết tại đây...
+Đề xuất các file migration mẫu như V1__init.sql, V2__async_flow.sql. Sinh ra các file SQL định nghĩa bảng test_runs, test_executions với các ràng buộc.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Viết tại đây...
+Sử dụng cấu trúc thư mục DB migration và naming convention versioning. Tạo 2 bảng chính test_runs và test_executions.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Viết tại đây...
+Sửa đổi các Index (thêm partial Index cho Watchdog tối ưu truy vấn), chỉnh IdempotencyKey cho Unique Constraints tránh lỗi NULL.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt

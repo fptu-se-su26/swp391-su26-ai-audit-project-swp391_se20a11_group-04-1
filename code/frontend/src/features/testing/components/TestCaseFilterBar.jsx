@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { testCaseService } from '../services/testCaseService'
 
 /**
  * TestCaseFilterBar — Bar bộ lọc (Search, Status, Type)

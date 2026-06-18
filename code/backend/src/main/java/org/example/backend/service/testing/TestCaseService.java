@@ -9,7 +9,6 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
-import org.example.backend.exception.BusinessException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.mapper.testing.TestCaseMapper;
 import org.example.backend.repository.TestCaseRepository;
@@ -36,22 +35,22 @@ public class TestCaseService {
         // TODO: Validate member of project (skipped to avoid conflict with project module)
         // TODO: Validate requirement exists in project (skipped to avoid conflict with requirement module)
 
+        // Pessimistic Lock on Project FIRST to avoid building unsaved relationships before lock
+        var project = projectRepository.findByIdWithPessimisticWrite(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
         TestCase testCase = testCaseMapper.toEntity(request);
         testCase.setProjectId(projectId);
         testCase.setCreatedBy(currentUserId);
         testCase.setStatus(TestCaseStatus.NOT_RUN);
 
-        List<TestStep> steps = buildSteps(request.getSteps(), testCase);
-        testCase.setSteps(steps);
-
-        // Pessimistic Lock on Project
-        var project = projectRepository.findByIdWithPessimisticWrite(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
-
         Integer maxSubId = testCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         testCase.setProjectSubId(nextSubId);
         testCase.setTcCode("TC-" + nextSubId);
+
+        List<TestStep> steps = buildSteps(request.getSteps(), testCase);
+        testCase.setSteps(steps);
 
         TestCase saved = testCaseRepository.save(testCase);
         return testCaseMapper.toResponse(saved);
@@ -114,7 +113,7 @@ public class TestCaseService {
                 TestStepRequest req = stepRequests.get(i);
                 TestStep step = new TestStep();
                 step.setTestCase(tc);
-                step.setStepNumber(req.getStepNumber() != null ? req.getStepNumber() : i + 1);
+                step.setStepNumber(i + 1); // Unconditionally use i + 1 to guarantee unique sequencing
                 step.setDescription(req.getDescription());
                 steps.add(step);
             }
