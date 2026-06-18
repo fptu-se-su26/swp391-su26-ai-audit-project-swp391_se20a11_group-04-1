@@ -571,7 +571,6 @@ public class AiGenerationService {
                         .project(project)
                         .title(title)
                         .description(description)
-                        .tags(tagsList)
                         .type(type)
                         .priority(priority)
                         .acceptanceCriteria(acceptanceCriteria)
@@ -583,6 +582,15 @@ public class AiGenerationService {
                         .aiGenerated(true)
                         .sourceGenerationId(generationId)
                         .build();
+
+                List<org.example.backend.entity.RequirementTag> reqTags = new ArrayList<>();
+                for (String t : tagsList) {
+                    reqTags.add(org.example.backend.entity.RequirementTag.builder()
+                            .tag(t)
+                            .requirement(req)
+                            .build());
+                }
+                req.setTags(reqTags);
                 
                 nextSubId++;
                 requirementsToSave.add(req);
@@ -675,7 +683,7 @@ public class AiGenerationService {
                 uc.setPostcondition(postcondition);
                 uc.setMainFlow(mainFlowJson);
                 uc.setAlternativeFlow(altFlowJson);
-                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
+                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT.name());
                 uc.setProjectSubId(nextSubId);
                 uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
                 uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);

@@ -28,4 +28,9 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
                    "AND EXISTS (SELECT 1 FROM tasks t WHERE t.requirement_id = r.id)",
            nativeQuery = true)
     long countRequirementsWithTasksByProjectId(@Param("projectId") Long projectId);
+
+    java.util.List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
+
+    @Query(value = "SELECT title FROM requirements WHERE project_id = :projectId AND is_deleted = false", nativeQuery = true)
+    java.util.List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
 }

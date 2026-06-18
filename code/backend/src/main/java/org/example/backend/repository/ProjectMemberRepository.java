@@ -15,4 +15,16 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
 
     @Query("select pm from ProjectMember pm join pm.role r where pm.project.id = :projectId and upper(r.name) = upper(:roleName)")
     List<ProjectMember> findByProjectIdAndRoleName(@Param("projectId") Long projectId, @Param("roleName") String roleName);
+
+    @Query("select pm from ProjectMember pm join fetch pm.project join fetch pm.role where pm.user.id = :userId")
+    List<ProjectMember> findByUserIdWithProjectAndRole(@Param("userId") Long userId);
+
+    @Query("SELECT u.id, u.username, u.email, p.fullName, p.avatarUrl, COUNT(DISTINCT pm.project.id) " +
+           "FROM ProjectMember pm " +
+           "JOIN pm.user u " +
+           "LEFT JOIN u.profile p " +
+           "WHERE pm.project.id IN (SELECT pm2.project.id FROM ProjectMember pm2 WHERE pm2.user.id = :userId) " +
+           "AND u.id != :userId " +
+           "GROUP BY u.id, u.username, u.email, p.fullName, p.avatarUrl")
+    List<Object[]> findCoWorkersByUserId(@Param("userId") Long userId);
 }

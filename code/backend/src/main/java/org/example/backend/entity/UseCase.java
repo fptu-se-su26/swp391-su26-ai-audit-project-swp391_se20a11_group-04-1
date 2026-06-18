@@ -76,6 +76,23 @@ public class UseCase {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
+    @Column(name = "ai_generated", nullable = false)
+    private boolean aiGenerated = false;
+
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
+
+    @Column(name = "req_version_hash", length = 32)
+    private String reqVersionHash;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "includes_list", columnDefinition = "jsonb")
+    private List<String> includesList = new ArrayList<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extends_list", columnDefinition = "jsonb")
+    private List<String> extendsList = new ArrayList<>();
+
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();
     

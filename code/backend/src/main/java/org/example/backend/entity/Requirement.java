@@ -92,6 +92,13 @@ public class Requirement {
     @Builder.Default
     private boolean isDeleted = false;
 
+    @Column(name = "ai_generated", nullable = false)
+    @Builder.Default
+    private boolean aiGenerated = false;
+
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
+
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
