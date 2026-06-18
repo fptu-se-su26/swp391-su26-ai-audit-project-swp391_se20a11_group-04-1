@@ -248,6 +248,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       if (action === 'delete') {
           removeRelation(rawRelId);
           setEdges(eds => eds.filter(e => e.id !== edgeId));
+          if (onUnsavedChanges) onUnsavedChanges();
       } else if (action === 'changeType') {
           const newType = payload;
           const existingRel = relations.find(r => r.id.toString() === rawRelId);
@@ -255,6 +256,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               updateRelation(rawRelId, { type: newType });
           }
           setEdges(eds => eds.map(edge => edge.id === edgeId ? { ...edge, data: { ...edge.data, relType: newType }, label: `<<${newType}>>` } : edge));
+          if (onUnsavedChanges) onUnsavedChanges();
       } else if (action === 'reverse') {
           const existingRel = relations.find(r => r.id.toString() === rawRelId);
           if (existingRel) {
@@ -280,6 +282,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               }
               return e;
           }));
+          if (onUnsavedChanges) onUnsavedChanges();
       }
   };
 
@@ -369,19 +372,22 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         const restoredNodes = layoutedNodes.map(node => {
            if (savedPositions[node.id]) {
                const posData = savedPositions[node.id];
-               const newNode = { ...node, position: { x: posData.x, y: posData.y } };
+               const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
                if (posData.width !== undefined && posData.height !== undefined) {
                    newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
                }
                return newNode;
            }
-           return node;
+           return { ...node, zIndex: node.id === 'system_boundary' ? 0 : 2 };
         });
         setNodes(restoredNodes);
-        setEdges(calculateDynamicHandles(layoutedEdges, restoredNodes));
+        
+        const restoredEdges = calculateDynamicHandles(layoutedEdges, restoredNodes).map(e => ({ ...e, zIndex: 1 }));
+        setEdges(restoredEdges);
       } else {
-        setNodes(layoutedNodes);
-        setEdges(calculateDynamicHandles(layoutedEdges, layoutedNodes));
+        const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+        setNodes(enhancedNodes);
+        setEdges(calculateDynamicHandles(layoutedEdges, enhancedNodes).map(e => ({ ...e, zIndex: 1 })));
       }
 
       setTimeout(() => {
@@ -663,8 +669,10 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               },
               label: '<<include>>',
               markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
+              zIndex: 1,
           };
           setEdges(eds => addEdge(newEdge, eds));
+          if (onUnsavedChanges) onUnsavedChanges();
       } else if ((isSourceActor && isTargetUc) || (isSourceUc && isTargetActor)) {
           const existingEdge = edges.find(e => 
               (e.source === source && e.target === target) || 
@@ -706,9 +714,11 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               data: {
                   relType: 'actor-uc',
                   onEdgeAction: handleEdgeAction
-              }
+              },
+              zIndex: 1,
           };
           setEdges(eds => addEdge(newEdge, eds));
+          if (onUnsavedChanges) onUnsavedChanges();
       }
   }, [edges, nodes, addRelation, saveHistory, handleEdgeAction]);
 
@@ -810,6 +820,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         zoomOnScroll={true}
         deleteKeyCode={['Backspace', 'Delete']}
         connectionMode={ConnectionMode.Loose}
+        elevateNodesOnSelect={false}
       >
         {actors.length === 0 && useCases.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
