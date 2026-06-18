@@ -101,14 +101,17 @@ public class Requirement {
     @Column(name = "source_generation_id")
     private UUID sourceGenerationId;
 
-    @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "tags", columnDefinition = "text[]")
     @Builder.Default
     @ToString.Exclude
-    private List<RequirementTag> tags = new ArrayList<>();
+    private List<String> tags = new ArrayList<>();
 
-    public void addTag(RequirementTag tag) {
+    public void addTag(String tag) {
+        if (tags == null) {
+            tags = new ArrayList<>();
+        }
         tags.add(tag);
-        tag.setRequirement(this);
     }
 
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)

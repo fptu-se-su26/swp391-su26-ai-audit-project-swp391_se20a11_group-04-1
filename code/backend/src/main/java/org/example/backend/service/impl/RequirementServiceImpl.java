@@ -8,7 +8,7 @@ import org.example.backend.dto.RequirementResponseDTO;
 import org.example.backend.entity.Priority;
 import org.example.backend.entity.Requirement;
 import org.example.backend.entity.RequirementStatus;
-import org.example.backend.entity.RequirementTag;
+
 import org.example.backend.entity.ProjectStatus;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.exception.BadRequestException;
@@ -90,8 +90,7 @@ public class RequirementServiceImpl implements RequirementService {
 
         if (requestDTO.getTags() != null) {
             for (String tagName : requestDTO.getTags()) {
-                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
-                requirement.addTag(tag);
+                requirement.addTag(tagName);
             }
         }
 
@@ -187,8 +186,7 @@ public class RequirementServiceImpl implements RequirementService {
         requirement.getTags().clear();
         if (requestDTO.getTags() != null) {
             for (String tagName : requestDTO.getTags()) {
-                RequirementTag tag = RequirementTag.builder().tag(tagName).build();
-                requirement.addTag(tag);
+                requirement.addTag(tagName);
             }
         }
 
@@ -207,9 +205,7 @@ public class RequirementServiceImpl implements RequirementService {
     }
 
     private RequirementResponseDTO mapToDTO(Requirement req) {
-        List<String> tags = req.getTags().stream()
-                .map(RequirementTag::getTag)
-                .collect(Collectors.toList());
+        List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
 
         return RequirementResponseDTO.builder()
                 .id(req.getId())
@@ -250,9 +246,13 @@ public class RequirementServiceImpl implements RequirementService {
             }
 
             if (tag != null && !tag.isBlank()) {
-                query.distinct(true);
-                Join<Requirement, RequirementTag> tagsJoin = root.join("tags", JoinType.LEFT);
-                predicates.add(criteriaBuilder.equal(criteriaBuilder.lower(tagsJoin.get("tag")), tag.trim().toLowerCase(Locale.ROOT)));
+                predicates.add(
+                    criteriaBuilder.isTrue(
+                        criteriaBuilder.function(
+                            "array_contains", Boolean.class, root.get("tags"), criteriaBuilder.literal(tag.trim())
+                        )
+                    )
+                );
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

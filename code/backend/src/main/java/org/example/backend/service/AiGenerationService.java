@@ -586,11 +586,9 @@ public class AiGenerationService {
                         .sourceGenerationId(generationId)
                         .build();
 
-                // Add string tags as RequirementTag entities
+                // Add string tags
                 for (String tagText : tagsList) {
-                    org.example.backend.entity.RequirementTag tag = new org.example.backend.entity.RequirementTag();
-                    tag.setTag(tagText);
-                    req.addTag(tag);
+                    req.addTag(tagText);
                 }
 
                 nextSubId++;
