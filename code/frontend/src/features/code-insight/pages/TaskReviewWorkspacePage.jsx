@@ -453,7 +453,7 @@ export function TaskReviewWorkspacePage() {
     if (!projectId) return;
 
     const isDev = window.location.host.includes('localhost:5173');
-    const wsHost = isDev ? 'localhost:8080' : window.location.host;
+    const wsHost = isDev ? 'localhost:8081' : window.location.host;
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProto}//${wsHost}/ws`;
     
@@ -522,7 +522,7 @@ export function TaskReviewWorkspacePage() {
     setStreamingMarkdown('')
 
     const isDev = window.location.host.includes('localhost:5173');
-    const baseUrl = isDev ? 'http://localhost:8080/api/v1' : '/api/v1';
+    const baseUrl = isDev ? 'http://localhost:8081/api/v1' : '/api/v1';
     const sseUrl = `${baseUrl}/projects/${projectId}/task-reviews/${taskId}/ai-stream`;
 
     console.log("Subscribing to AI review SSE stream:", sseUrl);

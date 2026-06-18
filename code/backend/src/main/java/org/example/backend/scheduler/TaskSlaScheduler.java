@@ -18,6 +18,7 @@ import org.example.backend.service.digest.DailyDigestService;
 import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.event.OutboxPublisherService;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
+import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaStateService;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.data.domain.Page;
@@ -53,6 +54,7 @@ public class TaskSlaScheduler {
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
     private final SlaStateService slaStateService;
+    private final RecoveryPlanService recoveryPlanService;
     private final Clock clock;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -161,6 +163,19 @@ public class TaskSlaScheduler {
         publishSlaEventsInBatches("AFTERNOON_DEADLINE_REMINDER", "SLA_URGENT_RECHECK",
                 pageable -> taskRepository.findAfternoonDeadlineReminderCandidates(
                         ProjectStatus.ACTIVE, today, TaskStatus.DONE, pageable));
+    }
+
+    @Scheduled(cron = "${app.sla.effectiveness-check-cron:0 0 * * * *}", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
+    public void checkRecoveryPlanEffectiveness() {
+        SchedulerRunLog runLog = schedulerRunLogService.start("RECOVERY_PLAN_EFFECTIVENESS_CHECK");
+        try {
+            LocalDateTime cutoff = LocalDateTime.now(clock).minusHours(24);
+            int checked = recoveryPlanService.checkEffectivenessForExecutedPlans(cutoff);
+            schedulerRunLogService.finish(runLog, checked, checked, 0);
+        } catch (Exception ex) {
+            log.error("RECOVERY_PLAN_EFFECTIVENESS_CHECK failed", ex);
+            schedulerRunLogService.fail(runLog, ex);
+        }
     }
 
     // --- Private helpers ---

@@ -99,7 +99,13 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
     evaluatedAt,
     latestEventType,
     latestActionTaken,
-    recentDecisions = []
+    recentDecisions = [],
+    burnGap,
+    burnRateLevel,
+    spi,
+    predictedRiskLevel,
+    predictionReasons = [],
+    scoreBreakdown,
   } = data
 
   const formattedDate = evaluatedAt ? new Date(evaluatedAt).toLocaleString() : 'Not evaluated'
@@ -130,6 +136,53 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
           </span>
         </div>
       </div>
+
+      {burnRateLevel && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-surface-container-low border border-outline-variant p-2 rounded text-center">
+            <span className="text-[10px] text-on-surface-variant uppercase block mb-0.5">Burn Rate</span>
+            <span className={`text-xs font-bold uppercase ${
+              burnRateLevel === 'CRITICAL' ? 'text-rose-600' :
+              burnRateLevel === 'HIGH'     ? 'text-orange-600' :
+              burnRateLevel === 'MEDIUM'   ? 'text-yellow-700' : 'text-emerald-600'
+            }`}>{burnRateLevel}</span>
+            {burnGap != null && (
+              <span className="text-[9px] text-on-surface-variant block mt-0.5">gap: {Number(burnGap).toFixed(1)}%</span>
+            )}
+          </div>
+          <div className="bg-surface-container-low border border-outline-variant p-2 rounded text-center">
+            <span className="text-[10px] text-on-surface-variant uppercase block mb-0.5">SPI</span>
+            <span className={`text-sm font-bold ${
+              spi >= 0.9 ? 'text-emerald-600' :
+              spi >= 0.7 ? 'text-yellow-700' :
+              spi >= 0.5 ? 'text-orange-600' : 'text-rose-600'
+            }`}>{spi != null ? Number(spi).toFixed(2) : '—'}</span>
+          </div>
+        </div>
+      )}
+
+      {predictedRiskLevel && predictedRiskLevel !== currentRiskLevel && (
+        <div className="p-2 bg-orange-50 border border-orange-200 rounded flex items-start gap-2">
+          <span className="material-symbols-outlined text-orange-600 text-[16px] mt-0.5 shrink-0">trending_up</span>
+          <div className="text-xs">
+            <span className="font-bold text-orange-700">Dự báo rủi ro tăng: </span>
+            <span className={`font-bold uppercase ${getRiskBadgeClass(predictedRiskLevel)} px-1.5 py-0.5 rounded-full border`}>
+              {predictedRiskLevel}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {predictionReasons.length > 0 && (
+        <div>
+          <span className="text-xs text-on-surface-variant uppercase block mb-1">Prediction</span>
+          <ul className="list-disc list-inside text-xs text-on-surface-variant space-y-0.5 pl-1">
+            {predictionReasons.map((r, idx) => (
+              <li key={idx} className="leading-relaxed">{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {pauseData && (pauseData.totalPausedMinutes > 0 || pauseData.currentlyPaused) && (
         <div className={`p-3 rounded border text-xs flex items-center gap-2 ${
@@ -183,6 +236,24 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
           <span className="text-xs font-bold text-primary block mb-0.5">Recommended Action</span>
           <p className="text-xs text-on-surface leading-relaxed">{recommendedAction}</p>
         </div>
+      )}
+
+      {scoreBreakdown && (
+        <details className="text-xs">
+          <summary className="text-on-surface-variant cursor-pointer font-medium select-none">
+            Score breakdown
+          </summary>
+          <div className="mt-2 space-y-1 pl-1 border-l-2 border-outline-variant">
+            {Object.entries(scoreBreakdown)
+              .filter(([, v]) => v > 0)
+              .map(([k, v]) => (
+                <div key={k} className="flex justify-between text-on-surface-variant">
+                  <span className="capitalize">{k.replace('Penalty', '').replace(/([A-Z])/g, ' $1').trim()}</span>
+                  <span className="text-error font-semibold">-{v}</span>
+                </div>
+              ))}
+          </div>
+        </details>
       )}
 
       <div className="text-[10px] text-on-surface-variant flex flex-col gap-1 border-t border-outline-variant pt-3">

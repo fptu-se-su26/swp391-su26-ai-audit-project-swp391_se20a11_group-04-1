@@ -22,6 +22,12 @@ public class RecoveryPlanResponse {
     private String summary;
     private String generatedSource;
     private String rejectReason;
+    private String priority;
+    private boolean followUp;
+    private Integer scoreBeforeExecution;
+    private Integer scoreAfterExecution;
+    private LocalDateTime effectivenessCheckedAt;
+    private String effectivenessStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<RecoveryPlanActionResponse> actions;
