@@ -20,4 +20,6 @@ public interface EvidenceLinkRepository extends JpaRepository<EvidenceLink, Long
     boolean existsAcceptedEvidenceForEntity(@Param("entityType") EvidenceEntityType entityType,
                                             @Param("entityId") Long entityId,
                                             @Param("status") EvidenceStatus status);
+
+    java.util.List<EvidenceLink> findByEntityTypeAndEntityId(EvidenceEntityType entityType, Long entityId);
 }

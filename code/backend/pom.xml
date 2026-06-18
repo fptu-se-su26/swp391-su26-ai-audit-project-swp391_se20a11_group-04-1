@@ -128,11 +128,28 @@
             <artifactId>shedlock-provider-jdbc-template</artifactId>
             <version>5.13.0</version>
         </dependency>
-        <!-- JSON Path for API test assertions -->
+        <!-- Ho tro JSON Path for API test assertions -->
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
             <version>2.9.0</version>
+        </dependency>
+        <!-- MongoDB cho TaskComment va TaskVote (luu tru comment, reaction theo document model) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <!-- Apache PDFBox - doc file PDF (DocumentParserService) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+        <!-- Apache POI - doc file DOCX/Word (DocumentParserService) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
         </dependency>
     </dependencies>
 

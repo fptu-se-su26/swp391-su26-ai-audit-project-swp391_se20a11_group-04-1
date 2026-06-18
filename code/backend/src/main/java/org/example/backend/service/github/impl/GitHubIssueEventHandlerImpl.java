@@ -38,6 +38,7 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
     private final TaskRepository taskRepository;
     private final UserAccountRepository userAccountRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Override
     public void handleIssueEvent(String action, Map<String, Object> issue, Map<String, Object> payload, GitHubIntegration integration) {
@@ -453,7 +454,7 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
     private void broadcastRefresh(Long projectId) {
         try {
             String wsMessage = String.format("{\"type\":\"REFRESH_BUGS\",\"projectId\":%d}", projectId);
-            NotificationWebSocketHandler.broadcast(wsMessage);
+            notificationWebSocketHandler.broadcast(wsMessage);
             log.info("Broadcasted REFRESH_BUGS WebSocket event for Project ID: {}", projectId);
         } catch (Exception e) {
             log.error("Failed to broadcast REFRESH_BUGS event for Project ID: {}", projectId, e);

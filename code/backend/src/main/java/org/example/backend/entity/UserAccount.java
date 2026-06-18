@@ -37,6 +37,11 @@ public class UserAccount {
     @Builder.Default
     private boolean isActive = true;
 
+    @Column(name = "verify_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private VerifyStatus verifyStatus = VerifyStatus.UNVERIFIED;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

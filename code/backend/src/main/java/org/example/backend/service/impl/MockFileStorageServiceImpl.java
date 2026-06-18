@@ -26,4 +26,18 @@ public class MockFileStorageServiceImpl implements FileStorageService {
         // TODO: Replace with actual Cloudinary/S3 delete logic
         System.out.println("Mock deleting file: " + fileUrl);
     }
+
+    @Override
+    public String storePrivateFile(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        return "https://mock-storage.com/private/" + filename;
+    }
+
+    @Override
+    public java.io.InputStream downloadPrivateFileStream(String fileUrlOrId) throws IOException {
+        return new java.io.ByteArrayInputStream("mock private image content".getBytes());
+    }
 }

@@ -23,6 +23,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
     private final org.example.backend.service.FileStorageService fileStorageService;
     private final org.example.backend.repository.SystemRoleRepository systemRoleRepository;
     private final org.example.backend.service.NotificationService notificationService;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Override
     @Transactional
@@ -104,7 +105,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
 
         try {
             String wsMessage = "{\"type\":\"VERIFICATION_UPDATE\",\"data\":{\"status\":\"VERIFIED\",\"message\":\"Hồ sơ của bạn đã được duyệt!\"}}";
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(user.getId(), wsMessage);
+            notificationWebSocketHandler.sendToUser(user.getId(), wsMessage);
         } catch (Exception e) {
             System.err.println("Failed to send WebSocket message: " + e.getMessage());
         }
@@ -148,7 +149,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
 
         try {
             String wsMessage = "{\"type\":\"VERIFICATION_UPDATE\",\"data\":{\"status\":\"REJECTED\",\"message\":\"Hồ sơ của bạn đã bị từ chối!\"}}";
-            org.example.backend.config.NotificationWebSocketHandler.sendToUser(user.getId(), wsMessage);
+            notificationWebSocketHandler.sendToUser(user.getId(), wsMessage);
         } catch (Exception e) {
             System.err.println("Failed to send WebSocket message: " + e.getMessage());
         }

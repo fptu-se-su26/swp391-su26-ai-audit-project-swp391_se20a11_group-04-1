@@ -58,4 +58,39 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public String storePrivateFile(org.springframework.web.multipart.MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        String originalFilename = file.getOriginalFilename();
+        String publicId = UUID.randomUUID().toString() + "_" + originalFilename;
+
+        Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                "public_id", publicId,
+                "folder", "private_evidence",
+                "type", "private"
+        ));
+        return uploadResult.get("public_id").toString();
+    }
+
+    @Override
+    public java.io.InputStream downloadPrivateFileStream(String publicId) throws IOException {
+        if (publicId == null || publicId.isEmpty()) {
+            return null;
+        }
+        try {
+            String downloadUrl = cloudinary.url()
+                    .type("private")
+                    .signed(true)
+                    .generate(publicId);
+            return new java.net.URL(downloadUrl).openStream();
+        } catch (Exception e) {
+            if (publicId.startsWith("http")) {
+                return new java.net.URL(publicId).openStream();
+            }
+            throw new IOException("Failed to download private file: " + publicId, e);
+        }
+    }
 }
