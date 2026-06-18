@@ -33,6 +33,9 @@ public class Task {
     @Column(name = "requirement_id")
     private Long requirementId;
 
+    @Column(name = "use_case_id")
+    private Long useCaseId;
+
     @Column(name = "sprint_id")
     private Long sprintId;
 

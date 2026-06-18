@@ -1,4 +1,5 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 
 const RequirementDetailDescription = ({ requirement }) => {
   if (!requirement) return null;
@@ -9,7 +10,7 @@ const RequirementDetailDescription = ({ requirement }) => {
       {requirement.description ? (
         <div 
           className="prose prose-sm max-w-none font-body-md text-body-md text-on-surface-variant"
-          dangerouslySetInnerHTML={{ __html: requirement.description }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(requirement.description) }}
         />
       ) : (
         <div className="text-secondary italic text-sm">Chưa có mô tả chi tiết.</div>

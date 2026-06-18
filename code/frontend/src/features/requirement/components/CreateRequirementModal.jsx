@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import RequirementFormHeader from './RequirementFormHeader';
 import RequirementFormDetails from './RequirementFormDetails';
 import RequirementFormCriteria from './RequirementFormCriteria';
 import RequirementFormProperties from './RequirementFormProperties';
-import AIAcceleratorsCard from './AIAcceleratorsCard';
 import RequirementFormActionBar from './RequirementFormActionBar';
 import { requirementApi } from '../services/requirementApi';
 
@@ -12,7 +12,6 @@ const emptyForm = (projectId) => ({
   description: '',
   type: 'FUNCTIONAL',
   priority: 'MEDIUM',
-  evidenceRequired: false,
   tags: [],
   acceptanceCriteria: [],
   ownerId: null,
@@ -88,13 +87,14 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
         status: targetStatus || 'IN_PROGRESS'
       };
 
+      let result;
       if (editingData?.id) {
-        await requirementApi.updateRequirement(editingData.id, payload);
+        result = await requirementApi.updateRequirement(editingData.id, payload);
       } else {
-        await requirementApi.createRequirement(payload);
+        result = await requirementApi.createRequirement(payload);
       }
 
-      onSuccess();
+      onSuccess(result?.data || result);
       onClose();
     } catch (error) {
       console.error('Error saving requirement:', error);
@@ -104,7 +104,7 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-6 overflow-hidden">
       <div
         className="w-full max-w-7xl max-h-full flex flex-col bg-surface rounded-xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95 duration-200"
@@ -122,7 +122,6 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
 
             <div className="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
               <RequirementFormProperties formData={formData} onChange={handleChange} />
-              <AIAcceleratorsCard />
             </div>
           </div>
         </div>
@@ -134,7 +133,8 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
           loading={loading}
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

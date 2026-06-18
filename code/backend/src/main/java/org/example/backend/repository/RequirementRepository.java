@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +15,16 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
 
     @Query(value = "SELECT MAX(project_sub_id) FROM requirements WHERE project_id = :projectId", nativeQuery = true)
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
+
+    @Query(value = "SELECT DISTINCT unnest(tags) FROM requirements WHERE project_id = :projectId", nativeQuery = true)
+    List<String> findAllDistinctTagsByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId AND r.isDeleted = false")
+    List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
+
+    List<Requirement> findByProjectId(Long projectId);
+
+    List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
 
     boolean existsByIdAndProjectId(Long id, Long projectId);
 

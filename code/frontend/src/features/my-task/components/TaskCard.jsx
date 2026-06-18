@@ -1,3 +1,5 @@
+import { shortTaskType } from '../../kanban/utils/taskMapper'
+
 /**
  * TaskCard - Hiển thị 1 card task trong Daily View
  * Nhận data trực tiếp từ TaskCalendarItemResponse (backend đã tính sẵn displayStatus)
@@ -94,7 +96,7 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
       <div className="flex flex-wrap gap-2 mb-3">
         {task.type && (
           <span className="bg-[#F3F4F6] text-[#374151] text-[10px] px-2 py-0.5 rounded font-medium">
-            {task.type}
+            {shortTaskType(task.type)}
           </span>
         )}
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${STATUS_STYLE[displayStatus] || 'bg-gray-400 text-white'}`}>
@@ -108,8 +110,8 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] text-white font-bold">
             {assigneeInitials}
           </div>
-          <span className="text-[11px] text-[#6B7280]">
-            {task.evidenceCount > 0 ? 'Evidence Logged' : 'No Evidence'}
+          <span className={`text-[11px] font-bold flex items-center gap-1 ${task.evidenceCount > 0 ? 'text-purple-600' : 'text-[#6B7280]'}`}>
+            {task.evidenceCount > 0 ? `Uploaded (${task.evidenceCount})` : 'Not Uploaded'}
           </span>
         </div>
 

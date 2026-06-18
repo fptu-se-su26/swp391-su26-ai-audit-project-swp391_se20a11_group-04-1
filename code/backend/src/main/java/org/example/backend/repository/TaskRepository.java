@@ -1,6 +1,10 @@
 package org.example.backend.repository;
 
 import org.example.backend.entity.Task;
+import org.example.backend.entity.ProjectStatus;
+import org.example.backend.entity.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,21 +18,31 @@ import java.util.Optional;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
     List<Task> findByParentId(Long parentId);
 
+    List<Task> findByRequirementId(Long requirementId);
+
     List<Task> findByStatus(org.example.backend.entity.TaskStatus status);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     @Query("select t from Task t where t.id = :id")
     Optional<Task> findWithDetailsById(@Param("id") Long id);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
+    @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByPrimaryAssigneeIdOrderByUpdatedAtDesc(Long assigneeId);
 
-    @EntityGraph(attributePaths = {"primaryAssignee", "project", "kanbanColumn"})
+    Optional<Task> findByProjectIdAndTaskCodeIgnoreCase(Long projectId, String taskCode);
+
+    Optional<Task> findByProjectIdAndProjectSubId(Long projectId, Integer projectSubId);
+
+    Optional<Task> findByProjectIdAndId(Long projectId, Long id);
+
+    List<Task> findByProjectIdAndGithubIssueNumber(Long projectId, Integer githubIssueNumber);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
     // Code Insight review queue reads live IN_REVIEW tasks with enough data for display.
     List<Task> findByProjectIdAndStatusOrderByUpdatedAtDesc(Long projectId, org.example.backend.entity.TaskStatus status);
 
@@ -36,10 +50,48 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("select t from Task t where t.primaryAssignee is not null")
     List<Task> findAllSlaCandidates();
 
+    @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project", "kanbanColumn"})
+    @Query("select t from Task t where t.project.id = :projectId and t.primaryAssignee is not null")
+    List<Task> findSlaCandidatesByProjectId(@Param("projectId") Long projectId);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.status <> :excludedStatus")
+    Page<Task> findSlaRecheckCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                        @Param("excludedStatus") TaskStatus excludedStatus,
+                                        Pageable pageable);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.status <> :excludedStatus " +
+           "and not exists (select 1 from TaskSlaState s where s.task = t)")
+    Page<Task> findSlaSafetyNetCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                          @Param("excludedStatus") TaskStatus excludedStatus,
+                                          Pageable pageable);
+
+    @EntityGraph(attributePaths = {"primaryAssignee", "project"})
+    @Query("select t from Task t " +
+           "where t.project.status = :projectStatus " +
+           "and t.primaryAssignee is not null " +
+           "and t.deadline = :deadline " +
+           "and t.status <> :excludedStatus")
+    Page<Task> findAfternoonDeadlineReminderCandidates(@Param("projectStatus") ProjectStatus projectStatus,
+                                                       @Param("deadline") LocalDate deadline,
+                                                       @Param("excludedStatus") TaskStatus excludedStatus,
+                                                       Pageable pageable);
+
     @EntityGraph(attributePaths = {"primaryAssignee", "checklist", "project"})
     List<Task> findByProjectIdAndSprintIdOrderBySprintPlanDateAscUpdatedAtDesc(Long projectId, Long sprintId);
 
     long countBySprintId(Long sprintId);
+
+
+
+    List<Task> findByUseCaseId(Long useCaseId);
 
     // ── Daily View queries ────────────────────────────────────────────────────
 
@@ -113,4 +165,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile"})
     @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.primaryAssignee IS NOT NULL")
     List<Task> findAllWithAssigneeByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId")
+    long countTotalAssignedTasks(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE' AND t.deadline IS NOT NULL AND t.deadline < CURRENT_DATE")
+    long countOverdueTasks(@Param("userId") Long userId);
+
+    @Query("SELECT t FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status = 'DONE'")
+    List<Task> findCompletedTasksByUserId(@Param("userId") Long userId);
 }

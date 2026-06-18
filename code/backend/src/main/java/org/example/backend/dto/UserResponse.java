@@ -17,5 +17,6 @@ public class UserResponse {
     private String phone;
     private String systemRole;
     private boolean isActive;
+    private String verifyStatus;
     private LocalDateTime createdAt;
 }

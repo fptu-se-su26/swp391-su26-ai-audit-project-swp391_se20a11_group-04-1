@@ -11,8 +11,8 @@ const RequirementList = ({
   onPageChange
 }) => {
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-      <div className="grid grid-cols-12 gap-3 bg-surface-container-low px-stack_md py-2.5 border-b border-outline-variant font-label-md text-label-md text-secondary uppercase tracking-wider">
+    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-visible">
+      <div className="grid grid-cols-12 gap-3 bg-surface-container-low px-stack_md py-2.5 border-b border-outline-variant font-label-md text-label-md text-secondary uppercase tracking-wider rounded-t-xl">
         <div className="col-span-4 sm:col-span-3 lg:col-span-4">ID & Title</div>
         <div className="col-span-3 sm:col-span-2 hidden sm:block">Status & Priority</div>
         <div className="col-span-2 hidden lg:block">Tags</div>

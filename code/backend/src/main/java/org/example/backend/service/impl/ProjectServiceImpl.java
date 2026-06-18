@@ -56,6 +56,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.service.github.GitHubApiService gitHubApiService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
@@ -66,6 +67,9 @@ public class ProjectServiceImpl implements ProjectService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @org.springframework.beans.factory.annotation.Value("${github.webhook-url}")
+    private String githubWebhookUrl;
 
     @Override
     @Transactional(readOnly = true)
@@ -204,31 +208,38 @@ public class ProjectServiceImpl implements ProjectService {
         // Evict cache ngay khi có mutation
         evictUserProjectsCache(userId);
 
-        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject)
-        String semester = "Summer 2026";
-        String academicYear = "2026";
-        String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
-
-        TypedQuery<AcademicContext> query = entityManager.createQuery(
-                "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
-                AcademicContext.class
-        );
-        query.setParameter("subject", subject);
-        query.setParameter("semester", semester);
-        query.setParameter("academicYear", academicYear);
-
-        List<AcademicContext> academicContexts = query.getResultList();
-        AcademicContext academicContext;
-        if (academicContexts.isEmpty()) {
-            academicContext = AcademicContext.builder()
-                    .subject(subject)
-                    .semester(semester)
-                    .academicYear(academicYear)
-                    .build();
-            entityManager.persist(academicContext);
-            log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+        // 2. Tìm hoặc tự động tạo mới AcademicContext dựa trên major (subject) cho Personal Project
+        AcademicContext academicContext = null;
+        if (request.getClassroomId() != null) {
+            academicContext = entityManager.find(AcademicContext.class, request.getClassroomId());
+            if (academicContext == null) {
+                throw new ResourceNotFoundException("Lớp học không tồn tại.");
+            }
         } else {
-            academicContext = academicContexts.get(0);
+            AcademicSeason semester = AcademicSeason.PERSONAL;
+            String academicYear = String.valueOf(java.time.LocalDate.now().getYear());
+            String subject = request.getMajor() != null ? request.getMajor().trim() : "Software Engineering";
+
+            TypedQuery<AcademicContext> query = entityManager.createQuery(
+                    "SELECT ac FROM AcademicContext ac WHERE ac.subject = :subject AND ac.semester = :semester AND ac.academicYear = :academicYear",
+                    AcademicContext.class
+            );
+            query.setParameter("subject", subject);
+            query.setParameter("semester", semester);
+            query.setParameter("academicYear", academicYear);
+
+            List<AcademicContext> academicContexts = query.getResultList();
+            if (academicContexts.isEmpty()) {
+                academicContext = AcademicContext.builder()
+                        .subject(subject)
+                        .semester(semester)
+                        .academicYear(academicYear)
+                        .build();
+                entityManager.persist(academicContext);
+                log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+            } else {
+                academicContext = academicContexts.get(0);
+            }
         }
 
         // 3. Phân tích loại dự án (ProjectType)
@@ -241,10 +252,10 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        LocalDate deadline = request.getDeadline() != null ? request.getDeadline() : LocalDate.now().plusMonths(3);
-        if (deadline.isBefore(LocalDate.now())) {
-            throw new BadRequestException("Hạn chót dự án không được ở trong quá khứ.");
-        }
+        LocalDate deadline = request.getDeadline();
+        LocalDate startDate = request.getStartDate();
+        
+        org.example.backend.util.DateValidationUtils.validateDateRange(startDate, deadline, "Project");
 
         // 4. Tạo và lưu thực thể Project
         Project project = Project.builder()
@@ -252,7 +263,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")
                 .type(projectType)
                 .academicContext(academicContext)
-                .startDate(LocalDate.now())
+                .startDate(java.time.LocalDate.now())
                 .deadline(deadline)
                 .status(ProjectStatus.PLANNING)
                 .createdBy(creator)
@@ -277,6 +288,60 @@ public class ProjectServiceImpl implements ProjectService {
 
         projectMemberRepository.save(leaderMember);
         log.info("👑 Assigned user ID: {} as PROJECT_LEADER for project ID: {}", userId, project.getId());
+
+        // Auto configure GitHub Integration if provided
+        if (request.getRepoOwner() != null && !request.getRepoOwner().trim().isEmpty()
+                && request.getRepoName() != null && !request.getRepoName().trim().isEmpty()) {
+            try {
+                log.info("⚙️ Automatically configuring GitHub Integration for project {} with repo: {}/{}", 
+                        project.getId(), request.getRepoOwner(), request.getRepoName());
+                
+                Map<String, Object> configRequest = new java.util.HashMap<>();
+                configRequest.put("repoOwner", request.getRepoOwner().trim());
+                configRequest.put("repoName", request.getRepoName().trim());
+                
+                // Generate a random 24-char webhook secret
+                String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                java.security.SecureRandom random = new java.security.SecureRandom();
+                StringBuilder secretSb = new StringBuilder();
+                for (int i = 0; i < 24; i++) {
+                    secretSb.append(chars.charAt(random.nextInt(chars.length())));
+                }
+                String webhookSecret = secretSb.toString();
+                configRequest.put("webhookSecret", webhookSecret);
+
+                // Save integration configuration
+                gitHubApiService.saveIntegration(project.getId(), configRequest, userId);
+
+                // Auto configure webhook on GitHub post-commit using the backend-configured webhook URL
+                if (githubWebhookUrl != null && !githubWebhookUrl.trim().isEmpty()) {
+                    final Long projectId = project.getId();
+                    final String webhookUrl = githubWebhookUrl.trim();
+                    final String finalSecret = webhookSecret;
+                    final List<String> events = List.of("issues", "push", "pull_request", "workflow_run", "check_run");
+                    
+                    if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                            new org.springframework.transaction.support.TransactionSynchronization() {
+                                @Override
+                                public void afterCommit() {
+                                    try {
+                                        log.info("🚀 Transaction committed. Registering GitHub webhook post-commit for project: {}", projectId);
+                                        gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, finalSecret);
+                                    } catch (Exception e) {
+                                        log.error("❌ Failed to automatically configure GitHub webhook post-commit", e);
+                                    }
+                                }
+                            }
+                        );
+                    } else {
+                        gitHubApiService.autoConfigureWebhook(projectId, userId, webhookUrl, events, finalSecret);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("❌ Failed to automatically configure GitHub integration during project creation", e);
+            }
+        }
 
         // Do project được query lại hoặc refresh để lấy members list đầy đủ cho việc mapping
         project.setMembers(List.of(leaderMember));
@@ -645,7 +710,7 @@ public class ProjectServiceImpl implements ProjectService {
      * so the system works correctly without requiring a DB migration.
      */
     private boolean isLeaderRole(String roleName) {
-        return "LEADER".equalsIgnoreCase(roleName) || "PROJECT_LEADER".equalsIgnoreCase(roleName);
+        return roleName != null && roleName.toUpperCase().contains("LEADER");
     }
 
     /**
@@ -689,21 +754,6 @@ public class ProjectServiceImpl implements ProjectService {
         String localRole = "Member";
         List<ProjectResponse.MemberDto> memberDtos = new ArrayList<>();
 
-        Long creatorId = project.getCreatedBy() != null ? project.getCreatedBy().getId() : null;
-        boolean hasLeader = false;
-        boolean creatorFound = false;
-
-        if (project.getMembers() != null) {
-            for (ProjectMember member : project.getMembers()) {
-                if (isLeaderRole(member.getRole().getName())) {
-                    hasLeader = true;
-                }
-                if (creatorId != null && member.getUser().getId().equals(creatorId)) {
-                    creatorFound = true;
-                }
-            }
-        }
-
         if (project.getMembers() != null) {
             for (ProjectMember member : project.getMembers()) {
                 String name = member.getUser().getUsername();
@@ -712,11 +762,6 @@ public class ProjectServiceImpl implements ProjectService {
                 }
 
                 String roleName = member.getRole().getName();
-                boolean isCreator = creatorId != null && member.getUser().getId().equals(creatorId);
-
-                if (!hasLeader && isCreator) {
-                    roleName = "PROJECT_LEADER";
-                }
 
                 if (member.getUser().getId().equals(userId)) {
                     if (isLeaderRole(roleName)) {
@@ -734,30 +779,12 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        if (!hasLeader && !creatorFound && project.getCreatedBy() != null) {
-            UserAccount creator = project.getCreatedBy();
-            String name = creator.getUsername();
-            if (creator.getProfile() != null && creator.getProfile().getFullName() != null) {
-                name = creator.getProfile().getFullName();
-            }
-
-            if (creator.getId().equals(userId)) {
-                localRole = "Project Leader";
-            }
-
-            memberDtos.add(ProjectResponse.MemberDto.builder()
-                    .id(creator.getId())
-                    .name(name)
-                    .role("PROJECT_LEADER")
-                    .build());
-        }
-
         return ProjectResponse.builder()
                 .id(project.getId().toString())
                 .title(project.getName())
                 .major(project.getAcademicContext() != null ? project.getAcademicContext().getSubject() : project.getType().name())
                 .status(project.getStatus().name())
-                .semester(project.getAcademicContext() != null ? project.getAcademicContext().getSemester() : "Fall 2023")
+                .semester(project.getAcademicContext() != null && project.getAcademicContext().getSemester() != null ? project.getAcademicContext().getSemester().name() + " " + project.getAcademicContext().getAcademicYear() : "PERSONAL " + java.time.LocalDate.now().getYear())
                 .role(localRole)
                 .atRiskReqCount(project.getAtRiskReqCount())
                 .deadline(project.getDeadline())

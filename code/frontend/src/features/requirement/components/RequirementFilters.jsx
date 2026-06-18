@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { requirementApi } from '../services/requirementApi';
 
-const RequirementFilters = ({ onFilterChange, resultCount = 0 }) => {
+const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refreshTrigger }) => {
   const [activeDropdown, setActiveDropdown] = useState(null); // 'status', 'priority', 'tag', or null
+  const [tagOptions, setTagOptions] = useState([]);
   
   // States for selected values
   const [selectedStatus, setSelectedStatus] = useState(null);
@@ -20,6 +22,19 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0 }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (!projectId) return;
+      try {
+        const tags = await requirementApi.getTags(projectId);
+        setTagOptions(tags || []);
+      } catch (error) {
+        console.error("Failed to load tags:", error);
+      }
+    };
+    fetchTags();
+  }, [projectId, refreshTrigger]);
 
   const toggleDropdown = (dropdownName) => {
     setActiveDropdown(activeDropdown === dropdownName ? null : dropdownName);
@@ -49,9 +64,8 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0 }) => {
     }
   };
 
-  const statusOptions = ['Draft', 'In Progress', 'Done', 'Deprecated'];
+  const statusOptions = ['Draft', 'In Progress', 'In Review', 'Done'];
   const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
-  const tagOptions = ['Auth', 'Event', 'Database', 'UI', 'Backend'];
 
   return (
     <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack_sm mb-stack_lg flex flex-wrap items-center gap-3" ref={containerRef}>
@@ -147,16 +161,20 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0 }) => {
           )}
         </div>
         {activeDropdown === 'tag' && (
-          <div className="absolute top-full left-0 mt-1 w-full min-w-[110px] bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-20">
-            {tagOptions.map(option => (
-              <button 
-                key={option} 
-                onClick={() => handleSelect('tag', option)}
-                className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedTag === option ? 'text-primary bg-surface-container font-medium' : 'text-on-surface'}`}
-              >
-                {option}
-              </button>
-            ))}
+          <div className="absolute top-full left-0 mt-1 w-full min-w-[110px] bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-20 max-h-[200px] overflow-y-auto">
+            {tagOptions.length === 0 ? (
+               <div className="px-3 py-2 text-on-surface-variant text-body-md font-body-md italic">No tags</div>
+            ) : (
+              tagOptions.map(option => (
+                <button 
+                  key={option} 
+                  onClick={() => handleSelect('tag', option)}
+                  className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedTag === option ? 'text-primary bg-surface-container font-medium' : 'text-on-surface'}`}
+                >
+                  {option}
+                </button>
+              ))
+            )}
           </div>
         )}
       </div>
