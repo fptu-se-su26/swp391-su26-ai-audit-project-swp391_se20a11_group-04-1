@@ -7,10 +7,17 @@ import UseCaseMainFlow from '../components/UseCaseMainFlow';
 import UseCaseAlternativeFlows from '../components/UseCaseAlternativeFlows';
 import UseCaseConditions from '../components/UseCaseConditions';
 import UseCaseAIAnalysis from '../components/UseCaseAIAnalysis';
+import AiSyncUseCaseModal from '../components/AiSyncUseCaseModal';
+import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 const UseCaseDetailPage = () => {
   const { projectId, id } = useParams();
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const { userId } = useAuthStore();
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
+  
   const [useCase, setUseCase] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,6 +26,9 @@ const UseCaseDetailPage = () => {
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // AI Sync Modal
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const fetchUseCase = useCallback(async () => {
     try {
@@ -36,6 +46,18 @@ const UseCaseDetailPage = () => {
     fetchUseCase();
   }, [fetchUseCase]);
 
+  // Unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isEditing) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isEditing]);
+
   // Enter edit mode — clone current useCase data
   const handleEdit = () => {
     setEditData({
@@ -50,12 +72,34 @@ const UseCaseDetailPage = () => {
       mainFlow: useCase.mainFlow ? JSON.parse(JSON.stringify(useCase.mainFlow)) : { steps: [] },
       alternativeFlow: useCase.alternativeFlow ? JSON.parse(JSON.stringify(useCase.alternativeFlow)) : { flows: [] },
       completenessScore: useCase.completenessScore || 0,
+      includesList: useCase.includesList ? [...useCase.includesList] : [],
+      extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
     });
     setIsEditing(true);
   };
 
-  // Cancel edit — discard changes
   const handleCancel = () => {
+    const originalData = {
+      name: useCase.name || '',
+      code: useCase.code || '',
+      status: useCase.status || 'DRAFT',
+      version: useCase.version || 'v1.0',
+      requirementId: useCase.requirementId,
+      actors: useCase.actors ? [...useCase.actors] : [],
+      precondition: useCase.precondition || '',
+      postcondition: useCase.postcondition || '',
+      mainFlow: useCase.mainFlow ? JSON.parse(JSON.stringify(useCase.mainFlow)) : { steps: [] },
+      alternativeFlow: useCase.alternativeFlow ? JSON.parse(JSON.stringify(useCase.alternativeFlow)) : { flows: [] },
+      completenessScore: useCase.completenessScore || 0,
+      includesList: useCase.includesList ? [...useCase.includesList] : [],
+      extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
+    };
+
+    if (JSON.stringify(editData) !== JSON.stringify(originalData)) {
+      if (!window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+        return;
+      }
+    }
     setIsEditing(false);
     setEditData(null);
   };
@@ -99,6 +143,8 @@ const UseCaseDetailPage = () => {
         mainFlow: editData.mainFlow,
         alternativeFlow: editData.alternativeFlow,
         completenessScore: editData.completenessScore,
+        includesList: editData.includesList,
+        extendsList: editData.extendsList,
       };
 
       await useCaseService.updateUseCase(id, payload, projectId);
@@ -139,17 +185,32 @@ const UseCaseDetailPage = () => {
 
   return (
     <div className="p-6 md:p-10 z-10 h-full">
+      {showSyncModal && (
+        <AiSyncUseCaseModal
+          useCase={displayData}
+          useCaseId={id}
+          projectId={projectId}
+          onClose={() => setShowSyncModal(false)}
+          onApprove={() => {
+            setShowSyncModal(false);
+            fetchUseCase();
+          }}
+        />
+      )}
       <div className="max-w-7xl mx-auto">
+
         <UseCaseDetailHeader 
           useCase={displayData} 
           isEditing={isEditing}
           saving={saving}
           updatingStatus={updatingStatus}
+          isLeader={isLeader}
           onEdit={handleEdit}
           onSave={handleSave}
           onCancel={handleCancel}
           onFieldChange={handleFieldChange}
           onStatusChange={handleStatusChange}
+          onAiSync={() => setShowSyncModal(true)}
         />
         <UseCaseMetadataCards 
           useCase={displayData}

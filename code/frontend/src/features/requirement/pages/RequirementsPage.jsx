@@ -24,6 +24,7 @@ const RequirementsPage = () => {
   const [loading, setLoading] = useState(true);
   const [editingReq, setEditingReq] = useState(null);
   const [filters, setFilters] = useState({ status: null, priority: null, tag: null });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [reqToDelete, setReqToDelete] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -115,6 +116,7 @@ const RequirementsPage = () => {
     const nextPage = editingReq ? currentPage : 0;
     setCurrentPage(nextPage);
     fetchRequirements(nextPage);
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleFilterChange = (nextFilters) => {
@@ -130,7 +132,12 @@ const RequirementsPage = () => {
   return (
     <>
       <RequirementHeader onOpenCreateModal={() => { setEditingReq(null); setIsCreateModalOpen(true); }} />
-      <RequirementFilters onFilterChange={handleFilterChange} resultCount={pagination.totalItems} />
+      <RequirementFilters 
+         onFilterChange={handleFilterChange} 
+         resultCount={pagination.totalItems} 
+         projectId={activeProjectId} 
+         refreshTrigger={refreshTrigger} 
+      />
 
       {loading ? (
         <div className="flex justify-center items-center py-10 text-secondary">

@@ -15,4 +15,6 @@ public class CodeInsightConfigRequest {
     private Boolean requireCiPass;
     private Boolean aiReviewEnabled;
     private Integer minScoreWarningThreshold;
+    private Integer warningScoreThreshold;
+    private Integer blockScoreThreshold;
 }

@@ -17,6 +17,8 @@ public class TaskResponse {
     private Long projectId;
     private Long requirementId;
     private String requirementCode;
+    private Long useCaseId;
+    private String useCaseCode;
     private Long sprintId;
     private String sprintName;
     private String title;
@@ -33,15 +35,25 @@ public class TaskResponse {
     private Long columnId;
     private String columnName;
     private String blockedReason;
+    private String latestReviewDecision;
+    private String latestReviewReason;
+    private LocalDateTime latestReviewDecisionAt;
     private boolean overduePenaltyApplied;
     private LocalDateTime overduePenaltyAppliedAt;
+    private List<String> slaCategories;
+    private long overdueDays;
+    private boolean hasAcceptedEvidence;
+    private int evidenceCount;
     private Long createdById;
+    private String createdByName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ChecklistItem> checklist;
     private Long parentId;
     private String parentTitle;
     private String githubIssueUrl;
+    private Integer githubIssueNumber;
+
 
     @Getter
     @Setter

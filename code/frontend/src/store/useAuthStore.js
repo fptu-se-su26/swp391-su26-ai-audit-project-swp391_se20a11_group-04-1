@@ -13,6 +13,7 @@ export const useAuthStore = create((set) => {
     username: localStorage.getItem('username') || null,
     email: localStorage.getItem('email') || null,
     fullName: localStorage.getItem('fullName') || null,
+    verifyStatus: localStorage.getItem('verifyStatus') || 'UNVERIFIED',
     isAuthenticated: !!userId,
 
   /**
@@ -22,14 +23,16 @@ export const useAuthStore = create((set) => {
    * @param {string} username - Tên tài khoản người dùng
    * @param {string} email - Địa chỉ email người dùng
    * @param {string} fullName - Họ và tên người dùng
+   * @param {string} verifyStatus - Trạng thái xác minh giảng viên/doanh nghiệp
    */
-  login: (userId, userRole, username, email, fullName) => {
+  login: (userId, userRole, username, email, fullName, verifyStatus) => {
     const strId = userId ? String(userId) : null
     if (strId) localStorage.setItem('userId', strId)
     if (userRole) localStorage.setItem('userRole', userRole)
     if (username) localStorage.setItem('username', username)
     if (email) localStorage.setItem('email', email)
     if (fullName) localStorage.setItem('fullName', fullName)
+    localStorage.setItem('verifyStatus', verifyStatus || 'UNVERIFIED')
     // Reset project state khi user mới đăng nhập
     localStorage.removeItem('devtrack-project-storage')
     set({
@@ -38,6 +41,7 @@ export const useAuthStore = create((set) => {
       username: username || null,
       email: email || null,
       fullName: fullName || null,
+      verifyStatus: verifyStatus || 'UNVERIFIED',
       isAuthenticated: !!strId,
     })
   },
@@ -49,7 +53,7 @@ export const useAuthStore = create((set) => {
     try {
       const response = await authService.getMe()
       if (response.data?.success) {
-        const { id, systemRole, username, email, fullName } = response.data?.data || {}
+        const { id, systemRole, username, email, fullName, verifyStatus } = response.data?.data || {}
         const strId = id ? String(id) : null
         
         if (strId) localStorage.setItem('userId', strId)
@@ -57,6 +61,7 @@ export const useAuthStore = create((set) => {
         if (username) localStorage.setItem('username', username)
         if (email) localStorage.setItem('email', email)
         if (fullName) localStorage.setItem('fullName', fullName)
+        localStorage.setItem('verifyStatus', verifyStatus || 'UNVERIFIED')
 
         set({
           userId: strId,
@@ -64,6 +69,7 @@ export const useAuthStore = create((set) => {
           username: username || null,
           email: email || null,
           fullName: fullName || null,
+          verifyStatus: verifyStatus || 'UNVERIFIED',
           isAuthenticated: !!strId,
         })
         return response.data?.data
@@ -76,12 +82,14 @@ export const useAuthStore = create((set) => {
       localStorage.removeItem('username')
       localStorage.removeItem('email')
       localStorage.removeItem('fullName')
+      localStorage.removeItem('verifyStatus')
       set({
         userId: null,
         userRole: null,
         username: null,
         email: null,
         fullName: null,
+        verifyStatus: 'UNVERIFIED',
         isAuthenticated: false,
       })
     }
@@ -96,6 +104,7 @@ export const useAuthStore = create((set) => {
     localStorage.removeItem('username')
     localStorage.removeItem('email')
     localStorage.removeItem('fullName')
+    localStorage.removeItem('verifyStatus')
     // Xóa project state của user cũ
     localStorage.removeItem('devtrack-project-storage')
 
@@ -110,6 +119,7 @@ export const useAuthStore = create((set) => {
       username: null,
       email: null,
       fullName: null,
+      verifyStatus: 'UNVERIFIED',
       isAuthenticated: false,
     })
   }

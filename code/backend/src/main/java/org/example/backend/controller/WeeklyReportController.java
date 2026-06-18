@@ -8,12 +8,16 @@ import org.example.backend.exception.CustomException;
 import org.example.backend.service.WeeklyReportService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/projects/{projectId}/weekly-reports")
+@RequestMapping({
+        "/api/v1/projects/{projectId}/weekly-reports",
+        "/api/v1/projects/{projectId}/sprint-reports"
+})
 @RequiredArgsConstructor
 public class WeeklyReportController {
 
@@ -22,11 +26,15 @@ public class WeeklyReportController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<WeeklyReportResponse>>> getProjectReports(
             @PathVariable Long projectId,
+            @RequestParam(required = false) Long sprintId,
             HttpSession session) {
         Long userId = requireUser(session);
+        List<WeeklyReportResponse> reports = sprintId != null
+                ? weeklyReportService.getSprintReports(projectId, sprintId, userId)
+                : weeklyReportService.getProjectReports(projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(
-                weeklyReportService.getProjectReports(projectId, userId),
-                "Weekly reports retrieved"
+                reports,
+                sprintId != null ? "Sprint reports retrieved" : "Sprint reports retrieved"
         ));
     }
 
@@ -38,18 +46,23 @@ public class WeeklyReportController {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(
                 weeklyReportService.getProjectReport(projectId, reportId, userId),
-                "Weekly report retrieved"
+                "Sprint report retrieved"
         ));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<WeeklyReportResponse>> generateProjectReport(
             @PathVariable Long projectId,
+            @RequestParam(required = false) Long sprintId,
             HttpSession session) {
         Long userId = requireUser(session);
+        WeeklyReportResponse report = sprintId != null
+                ? weeklyReportService.generateSprintReport(projectId, sprintId, userId)
+                : weeklyReportService.generateProjectReport(projectId, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
-                weeklyReportService.generateProjectReport(projectId, userId),
-                "Weekly report generated"
+                report,
+                sprintId != null ? "Sprint report generated" : "Sprint report generated"
         ));
     }
 

@@ -18,12 +18,16 @@ import java.util.EnumSet;
 public class TaskSlaRuleService {
 
     private final EvidenceLinkRepository evidenceLinkRepository;
+    private final TaskSlaPauseService taskSlaPauseService;
     private final Clock clock;
 
     public TaskSlaEvaluation evaluate(Task task) {
+        return evaluate(task, hasAcceptedEvidence(task));
+    }
+
+    public TaskSlaEvaluation evaluate(Task task, boolean hasAcceptedEvidence) {
         EnumSet<TaskSlaCategory> categories = EnumSet.noneOf(TaskSlaCategory.class);
         LocalDate today = LocalDate.now(clock);
-        boolean hasAcceptedEvidence = hasAcceptedEvidence(task);
         long overdueDays = calculateOverdueDays(task, today);
 
         if (task.getStatus() == TaskStatus.BLOCKED) {
@@ -36,19 +40,25 @@ public class TaskSlaRuleService {
 
         if (task.getDeadline() != null && task.getStatus() != TaskStatus.DONE) {
             long daysUntilDeadline = ChronoUnit.DAYS.between(today, task.getDeadline());
-            if (daysUntilDeadline >= 0 && daysUntilDeadline <= 1) {
-                categories.add(TaskSlaCategory.DUE_SOON);
+            if (daysUntilDeadline >= 0 && daysUntilDeadline <= 3) {
+                categories.add(TaskSlaCategory.DUE_SOON); // Backward compatibility
+                if (daysUntilDeadline == 0) {
+                    categories.add(TaskSlaCategory.DUE_TODAY);
+                } else if (daysUntilDeadline == 1) {
+                    categories.add(TaskSlaCategory.DUE_TOMORROW);
+                } else if (daysUntilDeadline == 2) {
+                    categories.add(TaskSlaCategory.DUE_IN_2_DAYS);
+                } else if (daysUntilDeadline == 3) {
+                    categories.add(TaskSlaCategory.DUE_IN_3_DAYS);
+                }
             }
-            if (overdueDays > 0 && overdueDays < 3) {
+            if (overdueDays >= 1 && overdueDays <= 2) {
                 categories.add(TaskSlaCategory.OVERDUE_SHORT);
-            }
-            if (overdueDays >= 3) {
-                categories.add(TaskSlaCategory.OVERDUE_FROZEN);
             }
         }
 
         boolean penaltyDeadlineBreached = task.getDeadline() != null
-                && today.isAfter(task.getDeadline().plusDays(1));
+                && overdueDays >= 3;
         boolean incompleteOrMissingEvidence = task.getStatus() != TaskStatus.DONE || !hasAcceptedEvidence;
         if (penaltyDeadlineBreached && incompleteOrMissingEvidence) {
             categories.add(TaskSlaCategory.OVERDUE_PENALTY);
@@ -73,9 +83,6 @@ public class TaskSlaRuleService {
     }
 
     private long calculateOverdueDays(Task task, LocalDate today) {
-        if (task.getDeadline() == null || !today.isAfter(task.getDeadline())) {
-            return 0;
-        }
-        return ChronoUnit.DAYS.between(task.getDeadline(), today);
+        return taskSlaPauseService.calculateEffectiveOverdueDays(task, today);
     }
 }
