@@ -63,4 +63,7 @@ public interface SprintRepository extends JpaRepository<Sprint, Long> {
     /** Tìm sprint ACTIVE của project */
     Optional<Sprint> findFirstByProjectIdAndStatus(Long projectId,
                                                     org.example.backend.entity.SprintStatus status);
+
+    @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.endDate = :date")
+    List<Sprint> findSprintsEndingOn(@Param("date") LocalDate date);
 }

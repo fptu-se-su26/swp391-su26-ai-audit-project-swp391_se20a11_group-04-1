@@ -18,7 +18,10 @@ import org.example.backend.service.digest.DailyDigestService;
 import org.example.backend.service.event.OutboxEventService;
 import org.example.backend.service.event.OutboxPublisherService;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
+import org.example.backend.entity.Sprint;
+import org.example.backend.repository.SprintRepository;
 import org.example.backend.service.sla.RecoveryPlanService;
+import org.example.backend.service.sla.SlaReliabilityMetricsService;
 import org.example.backend.service.sla.SlaStateService;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.data.domain.Page;
@@ -55,6 +58,8 @@ public class TaskSlaScheduler {
     private final NotificationService notificationService;
     private final SlaStateService slaStateService;
     private final RecoveryPlanService recoveryPlanService;
+    private final SprintRepository sprintRepository;
+    private final SlaReliabilityMetricsService slaReliabilityMetricsService;
     private final Clock clock;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -199,6 +204,34 @@ public class TaskSlaScheduler {
             log.info("Published {} events. Scanned: {}, Published: {}", eventType, scanned, published);
         } catch (Exception ex) {
             log.error("{} failed", jobName, ex);
+            schedulerRunLogService.fail(runLog, ex);
+        }
+    }
+
+    @Scheduled(cron = "${app.reliability.snapshot-cron:0 30 0 * * *}",
+               zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
+    public void computeReliabilitySnapshotsForEndedSprints() {
+        SchedulerRunLog runLog = schedulerRunLogService.start("RELIABILITY_SNAPSHOT_COMPUTE");
+        try {
+            LocalDate yesterday = LocalDate.now(clock).minusDays(1);
+            java.util.List<Sprint> endedSprints = sprintRepository.findSprintsEndingOn(yesterday);
+
+            int computed = 0;
+            for (Sprint sprint : endedSprints) {
+                try {
+                    slaReliabilityMetricsService.computeAndPersist(
+                            sprint.getProject().getId(), sprint.getId());
+                    computed++;
+                } catch (Exception ex) {
+                    log.warn("Failed to compute reliability snapshot for sprint {}: {}",
+                            sprint.getId(), ex.getMessage());
+                }
+            }
+            schedulerRunLogService.finish(runLog, endedSprints.size(), computed, endedSprints.size() - computed);
+            log.info("Reliability snapshots computed for {}/{} sprints ending on {}",
+                    computed, endedSprints.size(), yesterday);
+        } catch (Exception ex) {
+            log.error("RELIABILITY_SNAPSHOT_COMPUTE failed", ex);
             schedulerRunLogService.fail(runLog, ex);
         }
     }
