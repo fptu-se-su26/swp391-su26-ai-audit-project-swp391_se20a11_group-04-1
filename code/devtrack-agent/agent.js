@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const path = require('path');
+const { startWsRelay } = require('./wsRelay');
 
 async function startAgent({ token, backendUrl }) {
     console.log('✅ DevTrack Local Agent đang chạy...');
@@ -10,22 +11,38 @@ async function startAgent({ token, backendUrl }) {
         console.log('📦 Cài đặt dependencies...');
         execSync('npm install', { stdio: 'inherit', cwd: __dirname });
         console.log('📦 Cài đặt Playwright browser...');
-        // Dùng đường dẫn trực tiếp đến playwright trong node_modules thay vì npx
         const ext = process.platform === 'win32' ? '.cmd' : '';
         const playwrightCli = path.join(__dirname, 'node_modules', '.bin', `playwright${ext}`);
         execSync(`"${playwrightCli}" install chromium`, { stdio: 'inherit', cwd: __dirname });
         console.log('ℹ️ Playwright đã sẵn sàng.');
-    } catch (e) { 
+    } catch (e) {
         console.log('ℹ️ Playwright đã sẵn sàng.');
     }
 
+    // ── Start embedded WebSocket relay ──────────────────────────────────────
+    // Agent tự host WS relay để script Playwright có thể push CDP frames
+    // mà không cần playwright-service chạy riêng trên máy local.
+    // Nếu port 4001 bị chiếm (thường bởi Docker), relay tự tìm port trống.
+    let relayPort = 4001;
+    try {
+        const relay = await startWsRelay(4001);
+        relayPort = relay.port;
+    } catch (e) {
+        console.warn('[WsRelay] Không thể start WS relay:', e.message);
+        console.warn('[WsRelay] Live stream sẽ không hoạt động, nhưng test vẫn chạy bình thường.');
+    }
+
+    const localWsUrl = `ws://localhost:${relayPort}`;
+    console.log(`🎥 Live stream relay: ${localWsUrl}\n`);
+    // ────────────────────────────────────────────────────────────────────────
+
     const { executeScript, executeApiTest } = require('./executor');
 
-    // Issue 10 FIX: isRunning guard ngăn chạy đồng thời 2 task
+    // isRunning guard ngăn chạy đồng thời 2 task
     let isRunning = false;
 
     setInterval(async () => {
-        if (isRunning) return; // Đang chạy task khác → bỏ qua tick này
+        if (isRunning) return;
 
         try {
             const res = await fetch(`${backendUrl}/api/v1/agent-tasks/pending?token=${token}`);
@@ -41,9 +58,12 @@ async function startAgent({ token, backendUrl }) {
 
             isRunning = true;
             console.log(`\n▶ Nhận task ${task.taskId} — ${task.baseUrl}`);
-            if (task.wsUrl && task.runId) {
-                console.log(`🎥 Live stream: ${task.wsUrl}/?runId=${task.runId}&role=provider`);
-            }
+
+            // Luôn dùng WS URL của embedded relay (chạy ngay trên máy user),
+            // bỏ qua wsUrl từ server vì nó trỏ tới playwright-service cloud.
+            const wsUrl = localWsUrl;
+            const runId = task.runId || task.taskId;
+            console.log(`🎥 Live stream: ${wsUrl}/?runId=${runId}&role=provider`);
 
             let result;
             let apiResultPayload = null;
@@ -55,11 +75,11 @@ async function startAgent({ token, backendUrl }) {
                 apiResultPayload = apiResult.apiResult;
             } else {
                 result = await executeScript(task.script, task.taskId, task.baseUrl, {
-                    WS_URL: task.wsUrl || 'ws://localhost:4001'
+                    WS_URL: wsUrl
                 });
             }
-            
-            // Log chi tiết cho cả FAIL và ERROR
+
+            // Log chi tiết cho FAIL và ERROR
             if (result.status !== 'PASS') {
                 console.error(`🚨 Test ${result.status}:`, result.error?.message || apiResultPayload?.error || 'Unknown error');
                 if (result.error?.stack) {
@@ -69,6 +89,7 @@ async function startAgent({ token, backendUrl }) {
                     console.error(`   Failed at step: "${result.error.failedStep}" (index: ${result.error.failedStepIndex})`);
                 }
             }
+
             // Log tóm tắt từng step
             if (result.steps && result.steps.length > 0) {
                 console.log('📋 Steps:');
@@ -83,12 +104,12 @@ async function startAgent({ token, backendUrl }) {
                 outcome: result.status === 'PASS' ? 'PASSED' : 'FAILED',
                 notes: result.error?.message || null,
                 durationMs: result.duration,
-                failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null ? result.error.failedStepIndex : null,
+                failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null
+                    ? result.error.failedStepIndex : null,
                 steps: result.steps || [],
                 evidenceUrls: result.screenshots || []
             };
 
-            // Nếu có kết quả từ API test, gộp chung vào payload
             if (apiResultPayload) {
                 Object.assign(payloadBody, apiResultPayload);
             }
