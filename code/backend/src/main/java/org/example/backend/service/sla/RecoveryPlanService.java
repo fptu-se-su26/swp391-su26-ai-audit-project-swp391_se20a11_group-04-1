@@ -72,6 +72,10 @@ public class RecoveryPlanService {
     private final List<RecoveryActionExecutor> executorList;
     private final GeminiRecoveryService geminiRecoveryService;
 
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private SlaReliabilityMetricsService slaReliabilityMetricsService;
+
     private Map<RecoveryActionType, RecoveryActionExecutor> actionExecutors;
 
     @PostConstruct
@@ -588,7 +592,7 @@ public class RecoveryPlanService {
     public RecoveryPlanResponse approvePlan(Long projectId, Long planId, Long currentUserId) {
         ensureLeaderOrMentor(projectId, currentUserId);
 
-        RecoveryPlan plan = recoveryPlanRepository.findById(planId)
+        RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
 
         if (!plan.getProjectId().equals(projectId)) {
@@ -631,7 +635,7 @@ public class RecoveryPlanService {
         
         String trimmedReason = reason.trim();
 
-        RecoveryPlan plan = recoveryPlanRepository.findById(planId)
+        RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
 
         if (!plan.getProjectId().equals(projectId)) {
@@ -670,7 +674,7 @@ public class RecoveryPlanService {
     public RecoveryPlanResponse executePlan(Long projectId, Long planId, Long currentUserId) {
         ensureLeaderOrMentor(projectId, currentUserId);
 
-        RecoveryPlan plan = recoveryPlanRepository.findById(planId)
+        RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
 
         if (!plan.getProjectId().equals(projectId)) {
@@ -796,14 +800,27 @@ public class RecoveryPlanService {
                 plan.setScoreAfterExecution(currentState.getCurrentScore());
                 plan.setEffectivenessCheckedAt(LocalDateTime.now());
 
-                if (plan.getScoreBeforeExecution() != null
-                        && plan.getScoreAfterExecution() < plan.getScoreBeforeExecution() - 5) {
+                if (plan.getSprintId() != null) {
+                    try {
+                        org.example.backend.entity.SlaReliabilitySnapshot snapshot =
+                                slaReliabilityMetricsService.computeAndPersist(plan.getProjectId(), plan.getSprintId());
+                        if (snapshot != null) {
+                            plan.setEvidenceSnapshotId(snapshot.getId());
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Failed to capture reliability snapshot for recovery plan {}", plan.getId(), ex);
+                    }
+                }
+
+                GateVerdict verdict = evaluateGate(plan, currentState);
+                plan.setGateResult(verdict.result());
+                plan.setGateReason(verdict.reason());
+
+                if ("FAILED".equals(verdict.result())) {
                     plan.setStatus(RecoveryPlanStatus.DECLINED);
                     recordAuditLog(plan, null, null, RecoveryPlanAuditEventType.PLAN_FAILED,
                             RecoveryPlanStatus.EXECUTED.name(), RecoveryPlanStatus.DECLINED.name(),
-                            "Recovery plan effectiveness declined: score changed from "
-                                    + plan.getScoreBeforeExecution() + " to " + plan.getScoreAfterExecution(),
-                            null);
+                            verdict.reason(), null);
                     recoveryPlanRepository.save(plan);
                     notifyLeadersPlanIneffective(task, plan);
                     autoGenerateFollowUpPlan(plan.getProjectId(), plan.getTaskId(), plan.getId());
@@ -964,6 +981,9 @@ public class RecoveryPlanService {
                 .scoreBeforeExecution(plan.getScoreBeforeExecution())
                 .scoreAfterExecution(plan.getScoreAfterExecution())
                 .effectivenessCheckedAt(plan.getEffectivenessCheckedAt())
+                .evidenceSnapshotId(plan.getEvidenceSnapshotId())
+                .gateResult(plan.getGateResult())
+                .gateReason(plan.getGateReason())
                 .effectivenessStatus(resolveEffectivenessStatus(plan))
                 .createdAt(plan.getCreatedAt())
                 .updatedAt(plan.getUpdatedAt())
@@ -973,20 +993,7 @@ public class RecoveryPlanService {
     }
 
     private String resolveEffectivenessStatus(RecoveryPlan plan) {
-        if (plan.getScoreBeforeExecution() == null
-                || (plan.getStatus() != RecoveryPlanStatus.EXECUTED && plan.getStatus() != RecoveryPlanStatus.DECLINED)) {
-            return null;
-        }
-        if (plan.getScoreAfterExecution() == null) {
-            return "PENDING";
-        }
-        if (plan.getScoreAfterExecution() > plan.getScoreBeforeExecution()) {
-            return "IMPROVED";
-        }
-        if (plan.getScoreAfterExecution() < plan.getScoreBeforeExecution()) {
-            return "DECLINED";
-        }
-        return "UNCHANGED";
+        return plan.getGateResult();
     }
 
     private String resolvePlanPriority(List<RecoveryPlanAction> actions) {
@@ -1008,5 +1015,39 @@ public class RecoveryPlanService {
             case HIGH -> 3;
             case CRITICAL -> 4;
         };
+    }
+
+    private record GateVerdict(String result, String reason) {}
+
+    private GateVerdict evaluateGate(RecoveryPlan plan, TaskSlaState currentState) {
+        if (plan.getScoreBeforeExecution() == null || plan.getScoreAfterExecution() == null) {
+            return new GateVerdict("INSUFFICIENT_DATA",
+                    "Cannot evaluate gate: score data missing before or after execution.");
+        }
+        if (plan.getEvidenceSnapshotId() == null) {
+            return new GateVerdict("INSUFFICIENT_DATA",
+                    "Cannot evaluate gate: reliability snapshot evidence not captured.");
+        }
+
+        int before = plan.getScoreBeforeExecution();
+        int after = plan.getScoreAfterExecution();
+        String riskLevel = currentState.getCurrentRiskLevel();
+        boolean stillHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+
+        if (after > before && !stillHighRisk) {
+            return new GateVerdict("PASSED",
+                    String.format("Score improved from %d to %d and task risk level is now %s.", before, after, riskLevel));
+        }
+        if (after < before) {
+            return new GateVerdict("FAILED",
+                    String.format("Score decreased from %d to %d after recovery execution.", before, after));
+        }
+        if (stillHighRisk) {
+            return new GateVerdict("FAILED",
+                    String.format("Score unchanged at %d but task is still %s risk.", after, riskLevel));
+        }
+        // score same, not high risk
+        return new GateVerdict("PASSED",
+                String.format("Score held at %d and task risk level is now %s.", after, riskLevel));
     }
 }
