@@ -27,6 +27,7 @@ public class TaskCommentService {
     private final UserAccountRepository userRepo;
     private final TaskVoteRepository taskVoteRepo;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskCommentService.class);
 
@@ -38,7 +39,7 @@ public class TaskCommentService {
                 "comment", response
             );
             String json = objectMapper.writeValueAsString(payload);
-            org.example.backend.config.NotificationWebSocketHandler.broadcast(json);
+            notificationWebSocketHandler.broadcast(json);
         } catch (Exception e) {
             log.error("Failed to broadcast comment event via WebSocket: {}", e.getMessage(), e);
         }
@@ -108,7 +109,7 @@ public class TaskCommentService {
                 "taskId", taskId
             );
             String json = objectMapper.writeValueAsString(payload);
-            org.example.backend.config.NotificationWebSocketHandler.broadcast(json);
+            notificationWebSocketHandler.broadcast(json);
         } catch (Exception e) {
             log.error("Failed to broadcast task vote event via WebSocket", e);
         }

@@ -190,4 +190,94 @@ public class DailyDigestService {
         }
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
+
+    @Transactional
+    public int buildDailyDigestsForProject(Long projectId) {
+        LocalDate today = LocalDate.now(clock);
+        Map<UserAccount, List<Task>> tasksByUser = taskRepository.findAllSlaCandidates().stream()
+                .filter(task -> task.getPrimaryAssignee() != null && task.getProject() != null && projectId.equals(task.getProject().getId()))
+                .collect(Collectors.groupingBy(Task::getPrimaryAssignee));
+
+        int created = 0;
+        for (Map.Entry<UserAccount, List<Task>> entry : tasksByUser.entrySet()) {
+            UserAccount user = entry.getKey();
+            if (dailyDigestRepository.existsByUserIdAndDigestDateAndDigestType(user.getId(), today, DIGEST_TYPE)) {
+                continue;
+            }
+
+            DailyDigest digest = DailyDigest.builder()
+                    .user(user)
+                    .digestDate(today)
+                    .digestType(DIGEST_TYPE)
+                    .build();
+
+            entry.getValue().stream()
+                    .sorted(Comparator.comparing(Task::getDeadline, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .forEach(task -> addDigestItems(digest, task));
+
+            if (digest.getItems().isEmpty()) {
+                continue;
+            }
+
+            DailyDigest saved = dailyDigestRepository.save(digest);
+            outboxEventService.createEvent("DAILY_DIGEST_BUILT", "DailyDigest", saved.getId(), Map.of(
+                    "digestId", saved.getId(),
+                    "userId", user.getId(),
+                    "digestDate", today.toString(),
+                    "itemCount", saved.getItemCount()
+            ));
+            created++;
+        }
+        log.info("Built {} daily digests for project {}", created, projectId);
+        return created;
+    }
+
+    @Transactional
+    public int sendPendingDailyDigestsForProject(Long projectId) {
+        int sent = 0;
+        List<DailyDigest> pending = dailyDigestRepository.findByStatusOrderByCreatedAtAsc("PENDING");
+        for (DailyDigest digest : pending) {
+            boolean hasProjectItem = digest.getItems().stream()
+                    .anyMatch(item -> item.getTask() != null && item.getTask().getProject() != null && projectId.equals(item.getTask().getProject().getId()));
+            if (!hasProjectItem) {
+                continue;
+            }
+            try {
+                String subject = "DevTrack Daily Digest - " + digest.getDigestDate();
+                String body = buildEmailBody(digest);
+                emailService.sendEmail(digest.getUser().getEmail(), subject, body);
+                digest.setStatus("SENT");
+                digest.setSentAt(LocalDateTime.now());
+                emailLogRepository.save(EmailLog.builder()
+                        .recipient(digest.getUser())
+                        .recipientEmail(digest.getUser().getEmail())
+                        .emailType(DIGEST_TYPE)
+                        .subject(subject)
+                        .status("SENT")
+                        .relatedId(digest.getId())
+                        .sentAt(LocalDateTime.now())
+                        .build());
+                outboxEventService.createEvent("EMAIL_DAILY_DIGEST_SENT", "DailyDigest", digest.getId(), Map.of(
+                        "digestId", digest.getId(),
+                        "userId", digest.getUser().getId(),
+                        "email", digest.getUser().getEmail()
+                ));
+                sent++;
+            } catch (Exception ex) {
+                log.error("Failed to send digest {}", digest.getId(), ex);
+                digest.setStatus("FAILED");
+                digest.setLastError(ex.getMessage());
+                emailLogRepository.save(EmailLog.builder()
+                        .recipient(digest.getUser())
+                        .recipientEmail(digest.getUser().getEmail())
+                        .emailType(DIGEST_TYPE)
+                        .subject("DevTrack Daily Digest - " + digest.getDigestDate())
+                        .status("FAILED")
+                        .relatedId(digest.getId())
+                        .errorMessage(ex.getMessage())
+                        .build());
+            }
+        }
+        return sent;
+    }
 }

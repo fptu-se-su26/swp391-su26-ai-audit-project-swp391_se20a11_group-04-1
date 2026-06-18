@@ -114,14 +114,33 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT t FROM Task t WHERE t.project.id = :projectId AND t.primaryAssignee IS NOT NULL")
     List<Task> findAllWithAssigneeByProjectId(@Param("projectId") Long projectId);
 
+<<<<<<< HEAD
+=======
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId " +
+           "AND t.deadline < CURRENT_DATE AND t.status <> 'DONE' AND t.status <> 'BLOCKED'")
+    long countOverdueTasks(@Param("userId") Long userId);
+
+    List<Task> findByRequirementId(Long requirementId);
+
+>>>>>>> fix/backend-compilation-migration
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId")
     long countTotalAssignedTasks(@Param("userId") Long userId);
 
     @Query("SELECT t FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status = 'DONE'")
     List<Task> findCompletedTasksByUserId(@Param("userId") Long userId);
 
+<<<<<<< HEAD
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.deadline < CURRENT_DATE AND t.status != 'DONE'")
     long countOverdueTasks(@Param("userId") Long userId);
 
     List<Task> findByRequirementId(Long requirementId);
+=======
+    List<Task> findByProjectIdAndGithubIssueNumber(Long projectId, Integer githubIssueNumber);
+
+    Optional<Task> findByProjectIdAndTaskCodeIgnoreCase(Long projectId, String taskCode);
+
+    Optional<Task> findByProjectIdAndProjectSubId(Long projectId, Integer projectSubId);
+
+    Optional<Task> findByProjectIdAndId(Long projectId, Long id);
+>>>>>>> fix/backend-compilation-migration
 }

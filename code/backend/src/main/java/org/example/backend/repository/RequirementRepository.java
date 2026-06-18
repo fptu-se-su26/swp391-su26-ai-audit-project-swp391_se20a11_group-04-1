@@ -29,8 +29,18 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
            nativeQuery = true)
     long countRequirementsWithTasksByProjectId(@Param("projectId") Long projectId);
 
-    java.util.List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
+    /** Lấy 10 requirement gần nhất của project (dùng làm context cho AI generation). */
+    @Query("SELECT r FROM Requirement r WHERE r.project.id = :projectId AND r.isDeleted = false ORDER BY r.createdAt DESC")
+    java.util.List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(@Param("projectId") Long projectId, org.springframework.data.domain.Pageable pageable);
 
-    @Query(value = "SELECT title FROM requirements WHERE project_id = :projectId AND is_deleted = false", nativeQuery = true)
+    default java.util.List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId) {
+        return findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(projectId, org.springframework.data.domain.PageRequest.of(0, 10));
+    }
+
+    /** Lấy danh sách title của requirements trong project (dùng để kiểm tra duplicate). */
+    @Query("SELECT r.title FROM Requirement r WHERE r.project.id = :projectId AND r.isDeleted = false")
     java.util.List<String> findTitlesByProjectId(@Param("projectId") Long projectId);
+
+    /** Lấy requirements theo requirementId (dùng cho UseCase sync). */
+    java.util.List<Requirement> findByProjectId(Long projectId);
 }

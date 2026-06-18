@@ -13,6 +13,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "requirements")
@@ -92,21 +93,25 @@ public class Requirement {
     @Builder.Default
     private boolean isDeleted = false;
 
+    // AI generation tracking
     @Column(name = "ai_generated", nullable = false)
     @Builder.Default
     private boolean aiGenerated = false;
 
     @Column(name = "source_generation_id")
-    private java.util.UUID sourceGenerationId;
+    private UUID sourceGenerationId;
 
-    @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "tags", columnDefinition = "text[]")
     @Builder.Default
     @ToString.Exclude
-    private List<RequirementTag> tags = new ArrayList<>();
+    private List<String> tags = new ArrayList<>();
 
-    public void addTag(RequirementTag tag) {
+    public void addTag(String tag) {
+        if (tags == null) {
+            tags = new ArrayList<>();
+        }
         tags.add(tag);
-        tag.setRequirement(this);
     }
 
     @OneToMany(mappedBy = "requirement", cascade = CascadeType.ALL, orphanRemoval = true)

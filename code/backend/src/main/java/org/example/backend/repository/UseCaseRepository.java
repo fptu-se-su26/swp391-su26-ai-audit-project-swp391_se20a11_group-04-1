@@ -16,4 +16,5 @@ public interface UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpec
 
     boolean existsByRequirementIdAndStatusNot(Long requirementId, String status);
     java.util.List<UseCase> findByProjectId(Long projectId);
+    java.util.List<UseCase> findByRequirementId(Long requirementId);
 }

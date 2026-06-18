@@ -32,8 +32,11 @@ public class TaskReviewDecisionResponse {
         private String title;
         private String status;
         private String priority;
+        private String type;
         private String requirementCode;
         private String assigneeName;
+        private ReviewEvidenceSummary evidenceSummary;
+        private CodeInsightApprovalGateResponse approvalGate;
     }
 
     @Getter
@@ -54,6 +57,7 @@ public class TaskReviewDecisionResponse {
     @AllArgsConstructor
     @Builder
     public static class ReviewEvidenceSummary {
+        // Computed evidence score and signals shown on the Task Review panel.
         private int score;
         private String riskLevel;
         private String evidenceMode;

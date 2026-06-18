@@ -67,4 +67,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
         @Param("search") String search, 
         Pageable pageable
     );
+
+    java.util.List<Project> findByAcademicContextId(Long academicContextId);
 }

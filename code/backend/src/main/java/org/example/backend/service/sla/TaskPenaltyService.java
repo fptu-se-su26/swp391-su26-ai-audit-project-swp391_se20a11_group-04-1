@@ -45,6 +45,13 @@ public class TaskPenaltyService {
         return changed;
     }
 
+    @Transactional
+    public void applyPenaltyIfNeeded(Task task, TaskSlaEvaluation evaluation) {
+        if (!task.isOverduePenaltyApplied()) {
+            applyPenalty(task, evaluation);
+        }
+    }
+
     private void applyPenalty(Task task, TaskSlaEvaluation evaluation) {
         task.setOverduePenaltyApplied(true);
         task.setOverduePenaltyAppliedAt(LocalDateTime.now());

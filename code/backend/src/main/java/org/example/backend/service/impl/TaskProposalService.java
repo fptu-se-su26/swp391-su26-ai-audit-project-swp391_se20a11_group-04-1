@@ -32,6 +32,7 @@ public class TaskProposalService {
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final BugReportRepository bugReportRepo;
     private final TaskVoteRepository taskVoteRepo;
+    private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskProposalService.class);
 
@@ -70,7 +71,7 @@ public class TaskProposalService {
                 "taskId", taskId
             );
             String json = objectMapper.writeValueAsString(payload);
-            org.example.backend.config.NotificationWebSocketHandler.broadcast(json);
+            notificationWebSocketHandler.broadcast(json);
             log.info("📢 Broadcasted TASK_PROPOSAL_UPDATE for Task ID: {}", taskId);
         } catch (Exception e) {
             log.error("Failed to broadcast TASK_PROPOSAL_UPDATE via WebSocket: {}", e.getMessage(), e);
@@ -439,7 +440,7 @@ public class TaskProposalService {
         
         try {
             String wsMessage = String.format("{\"type\":\"REFRESH_BUGS\",\"projectId\":%d}", task.getProject().getId());
-            org.example.backend.config.NotificationWebSocketHandler.broadcast(wsMessage);
+            notificationWebSocketHandler.broadcast(wsMessage);
             log.info("📢 Broadcasted REFRESH_BUGS via WS for task conversion. Project ID: {}", task.getProject().getId());
         } catch (Exception e) {
             log.error("Failed to broadcast REFRESH_BUGS event for Project ID: {}", task.getProject().getId(), e);

@@ -2,8 +2,13 @@ package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.config.NotificationWebSocketHandler;
 import org.example.backend.dto.NotificationResponse;
 import org.example.backend.entity.Notification;
+import org.example.backend.entity.UserAccount;
+import org.example.backend.entity.Project;
+import org.example.backend.entity.NotificationEntityType;
+import org.example.backend.entity.NotificationType;
 import org.example.backend.exception.CustomException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.NotificationRepository;
@@ -12,6 +17,7 @@ import org.example.backend.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,6 +28,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final ProjectInvitationRepository projectInvitationRepository;
+    private final NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Override
     public List<NotificationResponse> getMyNotifications(Long userId) {
@@ -80,5 +87,62 @@ public class NotificationServiceImpl implements NotificationService {
                 .createdAt(notification.getCreatedAt())
                 .invitationStatus(invitationStatus)
                 .build();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void createAndPush(
+            UserAccount recipient,
+            Project project,
+            NotificationEntityType entityType,
+            Long relatedId,
+            NotificationType type,
+            String title,
+            String message
+    ) {
+        Notification notification = Notification.builder()
+                .recipient(recipient)
+                .project(project)
+                .entityType(entityType)
+                .relatedId(relatedId)
+                .type(type)
+                .title(title)
+                .message(message)
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        Notification saved = notificationRepository.save(notification);
+
+        String jsonPayload = String.format(
+            "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"%s\",\"relatedId\":%s,\"projectId\":%s,\"entityType\":\"%s\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+            saved.getId(),
+            saved.getTitle().replace("\"", "\\\""),
+            saved.getMessage().replace("\"", "\\\""),
+            saved.getType().name(),
+            saved.getRelatedId() != null ? String.valueOf(saved.getRelatedId()) : "null",
+            saved.getProject() != null ? String.valueOf(saved.getProject().getId()) : "null",
+            saved.getEntityType() != null ? saved.getEntityType().name() : "null",
+            saved.getCreatedAt().toString()
+        );
+
+        try {
+            notificationWebSocketHandler.sendToUser(recipient.getId(), jsonPayload);
+        } catch (Exception e) {
+            log.warn("Failed to send WebSocket notification to user ID: {}", recipient.getId(), e);
+        }
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public boolean hasAlreadyNotified(
+            Long userId,
+            Long entityId,
+            NotificationType type,
+            NotificationEntityType entityType,
+            String title
+    ) {
+        return notificationRepository.existsByRecipientIdAndRelatedIdAndTypeAndEntityTypeAndTitle(
+                userId, entityId, type, entityType, title);
     }
 }

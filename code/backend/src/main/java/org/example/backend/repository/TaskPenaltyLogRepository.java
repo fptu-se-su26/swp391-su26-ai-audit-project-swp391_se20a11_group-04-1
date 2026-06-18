@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TaskPenaltyLogRepository extends JpaRepository<TaskPenaltyLog, Long> {
     boolean existsByTaskIdAndReason(Long taskId, String reason);
+    long countByUserId(Long userId);
 }

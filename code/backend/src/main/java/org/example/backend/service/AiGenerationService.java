@@ -42,6 +42,7 @@ public class AiGenerationService {
     private final UserAccountRepository userRepository;
     private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationWebSocketHandler notificationWebSocketHandler;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -52,7 +53,8 @@ public class AiGenerationService {
                                org.example.backend.repository.UseCaseRepository useCaseRepository,
                                UserAccountRepository userRepository,
                                org.example.backend.repository.ProjectActorRepository projectActorRepository,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               NotificationWebSocketHandler notificationWebSocketHandler) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.stagingRepository = stagingRepository;
@@ -62,6 +64,7 @@ public class AiGenerationService {
         this.userRepository = userRepository;
         this.projectActorRepository = projectActorRepository;
         this.objectMapper = objectMapper;
+        this.notificationWebSocketHandler = notificationWebSocketHandler;
     }
 
     @Transactional
@@ -417,7 +420,7 @@ public class AiGenerationService {
         if (userId == null) return;
         try {
             String payload = String.format("{\"type\":\"AI_PROGRESS\",\"data\":{\"step\":%d,\"message\":\"%s\"}}", step, message);
-            NotificationWebSocketHandler.sendToUser(userId, payload);
+            notificationWebSocketHandler.sendToUser(userId, payload);
         } catch (Exception e) {
             // Ignore websocket errors to not break the flow
         }
@@ -583,15 +586,11 @@ public class AiGenerationService {
                         .sourceGenerationId(generationId)
                         .build();
 
-                List<org.example.backend.entity.RequirementTag> reqTags = new ArrayList<>();
-                for (String t : tagsList) {
-                    reqTags.add(org.example.backend.entity.RequirementTag.builder()
-                            .tag(t)
-                            .requirement(req)
-                            .build());
+                // Add string tags
+                for (String tagText : tagsList) {
+                    req.addTag(tagText);
                 }
-                req.setTags(reqTags);
-                
+
                 nextSubId++;
                 requirementsToSave.add(req);
             }
@@ -1088,7 +1087,7 @@ public class AiGenerationService {
                 uc.setName(newNode.has("name") ? newNode.get("name").asText() : "New AI Use Case");
                 uc.setPrecondition(newNode.has("precondition") ? newNode.get("precondition").asText() : "");
                 uc.setPostcondition(newNode.has("postcondition") ? newNode.get("postcondition").asText() : "");
-                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
+                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT.name());
                 uc.setProjectSubId(nextSubId);
                 uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
                 uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);

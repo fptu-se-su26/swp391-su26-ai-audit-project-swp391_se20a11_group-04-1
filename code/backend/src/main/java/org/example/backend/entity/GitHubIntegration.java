@@ -40,4 +40,13 @@ public class GitHubIntegration {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connected_by", nullable = false)
     private UserAccount connectedBy;
+
+    @Column(name = "webhook_url", length = 500)
+    private String webhookUrl;
+
+    @Column(name = "webhook_events_json", columnDefinition = "TEXT")
+    private String webhookEventsJson;
+
+    @Column(name = "webhook_last_synced_at")
+    private LocalDateTime webhookLastSyncedAt;
 }

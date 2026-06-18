@@ -11,6 +11,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "use_cases")
@@ -76,15 +77,24 @@ public class UseCase {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
+    // AI generation tracking fields
     @Column(name = "ai_generated", nullable = false)
     private boolean aiGenerated = false;
 
     @Column(name = "source_generation_id")
-    private java.util.UUID sourceGenerationId;
+    private UUID sourceGenerationId;
 
-    @Column(name = "req_version_hash", length = 32)
+    @Column(name = "show_in_diagram", nullable = false)
+    private boolean showInDiagram = true;
+
+    @Column(name = "added_from_diagram", nullable = false)
+    private boolean addedFromDiagram = false;
+
+    // Hash of the parent requirement content at time of generation (for staleness detection)
+    @Column(name = "req_version_hash", length = 64)
     private String reqVersionHash;
 
+    // UML relationship fields stored as JSON arrays of use case names/codes
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "includes_list", columnDefinition = "jsonb")
     private List<String> includesList = new ArrayList<>();
@@ -95,10 +105,11 @@ public class UseCase {
 
     @OneToMany(mappedBy = "useCase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UseCaseActor> actors = new ArrayList<>();
-    
+
     // Helper method để thêm actor đồng bộ 2 chiều
     public void addActor(UseCaseActor actor) {
         actors.add(actor);
         actor.setUseCase(this);
     }
 }
+

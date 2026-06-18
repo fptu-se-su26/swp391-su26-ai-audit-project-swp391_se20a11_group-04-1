@@ -37,8 +37,13 @@ public class UserAccount {
     @Builder.Default
     private boolean isActive = true;
 
+<<<<<<< HEAD
     @Enumerated(EnumType.STRING)
     @Column(name = "verify_status", length = 20)
+=======
+    @Column(name = "verify_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+>>>>>>> fix/backend-compilation-migration
     @Builder.Default
     private VerifyStatus verifyStatus = VerifyStatus.UNVERIFIED;
 
