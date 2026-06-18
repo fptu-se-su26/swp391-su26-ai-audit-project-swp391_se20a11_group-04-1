@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: '0.0.0.0', // Lắng nghe trên tất cả địa chỉ mạng (tương đương --host)
+    allowedHosts: true, // Cho phép truy cập từ mọi tên miền (rất tiện khi dùng ngrok dev)
     proxy: {
       // Proxy API calls đến Spring Boot backend (tránh CORS khi dev)
       '/api': {

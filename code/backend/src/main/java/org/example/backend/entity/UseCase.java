@@ -62,7 +62,7 @@ public class UseCase {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
-    private UseCaseStatus status = UseCaseStatus.DRAFT;
+    private     UseCaseStatus status = UseCaseStatus.DRAFT;
 
     @Column(length = 20)
     private String version = org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION;

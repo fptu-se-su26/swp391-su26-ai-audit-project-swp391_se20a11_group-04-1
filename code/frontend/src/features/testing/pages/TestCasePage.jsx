@@ -32,23 +32,21 @@ export default function TestCasePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [formError, setFormError] = useState(null)
+  
+  // Custom states for pre-filling create modal via AI
+  const [generatedData, setGeneratedData] = useState(null)
 
   // Initial fetch
   useEffect(() => {
     if (projectId) {
-      console.log('[TestCasePage] Fetching for project:', projectId);
       fetchTestCases(projectId, 0)
     }
   }, [projectId, fetchTestCases, filters])
 
-  console.log('[TestCasePage] Render State:', { testCases, isLoading, error, projectId });
-
   const handleSearch = (searchTerm) => {
-    // Basic search simulation - backend typically handles this via another filter parameter.
-    // For now, if your backend supports title search, add it to filters.
-    // Assuming backend filters only by what's in the store.
-    fetchTestCases(projectId, 0)
+    setFilters({ search: searchTerm })
   }
 
   const handlePageChange = (newPage) => {
@@ -81,6 +79,22 @@ export default function TestCasePage() {
     }
   }
 
+  const handleGenerateApiTest = async () => {
+    const description = window.prompt("Enter API description or curl command:")
+    if (!description) return
+
+    setIsGenerating(true)
+    try {
+      const payload = await useTestCaseStore.getState().generateApiTest(projectId, description)
+      setGeneratedData(payload)
+      openCreateForm()
+    } catch (err) {
+      alert("Failed to generate API test: " + (err.response?.data?.message || err.message))
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <div className="flex-1 p-margin_desktop">
       {/* Page Header & Actions */}
@@ -90,12 +104,20 @@ export default function TestCasePage() {
           <p className="font-body-lg text-body-lg text-secondary mt-1">Manage and track manual and automated tests.</p>
         </div>
         <div className="flex items-center gap-stack_md">
-          <button className="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-on-surface border border-outline-variant rounded hover:bg-surface-container transition-colors active:scale-95 duration-150">
-            <span className="material-symbols-outlined text-[18px] text-primary">smart_toy</span>
-            <span className="font-label-md text-label-md uppercase">AI Suggest Test Cases</span>
+          <button 
+            onClick={handleGenerateApiTest}
+            disabled={isGenerating}
+            className="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-on-surface border border-outline-variant rounded hover:bg-surface-container transition-colors active:scale-95 duration-150 disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <span className="material-symbols-outlined text-[18px] text-primary animate-spin">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-[18px] text-primary">smart_toy</span>
+            )}
+            <span className="font-label-md text-label-md uppercase">Generate API Test</span>
           </button>
           <button
-            onClick={openCreateForm}
+            onClick={() => { setGeneratedData(null); openCreateForm(); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded hover:bg-primary-fixed-variant transition-colors active:scale-95 duration-150 shadow-[0_4px_12px_rgba(0,60,144,0.1)]"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
@@ -124,8 +146,8 @@ export default function TestCasePage() {
       {/* Modals */}
       <TestCaseFormModal
         isOpen={isFormOpen}
-        testCase={editingTestCase}
-        onClose={() => { closeForm(); setFormError(null) }}
+        testCase={editingTestCase || generatedData}
+        onClose={() => { closeForm(); setFormError(null); setGeneratedData(null) }}
         onSubmit={handleFormSubmit}
         isSubmitting={isSubmitting}
         error={formError}

@@ -32,6 +32,7 @@ public class ProjectActor {
     private String description;
 
     @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
     private boolean isDeleted = false;
 
     @CreatedDate

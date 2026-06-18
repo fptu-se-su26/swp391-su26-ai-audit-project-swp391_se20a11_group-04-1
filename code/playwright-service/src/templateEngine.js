@@ -5,7 +5,7 @@
 function generateFromTemplate(testCase, runId) {
     const { title, base_url, steps_structured } = testCase;
 
-    const stepCode = steps_structured
+    const stepCode = [...steps_structured]
         .sort((a, b) => a.order - b.order)
         .map((step, index) => {
             const stepNum = index + 1;
@@ -29,7 +29,10 @@ function generateFromTemplate(testCase, runId) {
 
             switch (step.action) {
                 case 'goto':
-                    code = `await page.goto("${base_url}${pth}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
+                    // Fix docker networking to access localhost on host machine
+                    const isDockerGoto = process.env.RUNNING_IN_DOCKER === 'true';
+                    const dockerSafeUrl = isDockerGoto ? (base_url + pth).replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal') : (base_url + pth);
+                    code = `await page.goto("${dockerSafeUrl}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
                     break;
                 case 'fill':
                     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
@@ -48,7 +51,9 @@ function generateFromTemplate(testCase, runId) {
                     code = `await highlight("${sel}", "Chọn: ${val}");\n    await page.selectOption("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
                     break;
                 case 'expect_url':
-                    code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${base_url}${exp}", { timeout: 5000 });`;
+                    const isDockerExpect = process.env.RUNNING_IN_DOCKER === 'true';
+                    const dockerSafeExpectUrl = isDockerExpect ? (base_url + exp).replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal') : (base_url + exp);
+                    code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${dockerSafeExpectUrl}", { timeout: 5000 });`;
                     break;
                 case 'expect_text':
                     code = `await highlight("${sel}", "Check Text: ${exp}");\n    await expect(page.locator("${sel}"), "Lỗi Text: Không tìm thấy nội dung. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toContainText("${exp}", { timeout: 5000 });`;
@@ -70,6 +75,9 @@ function generateFromTemplate(testCase, runId) {
             const stepDesc = (step.description || step.action).replace(/"/g, '\\"');
             return `  // Step ${stepNum}
   await test.step("${stepDesc}", async () => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'step_started', stepIndex: ${index} })); } catch(e){}
+    }
     ${code}${autoScreenshot}
   });`;
         })
@@ -84,14 +92,15 @@ test("${title}", async ({ page }) => {
   // Generated at: ${new Date().toISOString()}
 
   // Setup CDP Screencast WebSocket Stream
-  const ws = new WebSocket("ws://localhost:4000/?runId=${runId}&role=provider");
+  const wsUrl = process.env.WS_URL || "ws://localhost:4001";
+  const ws = new WebSocket(\`\${wsUrl}/?runId=${runId}&role=provider\`);
   
   // Wait for WebSocket to be fully connected before starting CDP screencast
   // This prevents early frames from being silently dropped
-  await new Promise((resolve, reject) => {
+  await new Promise((resolve) => {
     if (ws.readyState === WebSocket.OPEN) return resolve();
     ws.on('open', resolve);
-    ws.on('error', reject);
+    ws.on('error', (e) => { console.warn('[WS] Screencast connection failed, continuing without live stream:', e.message); resolve(); });
     setTimeout(resolve, 3000); // Safety timeout
   });
 

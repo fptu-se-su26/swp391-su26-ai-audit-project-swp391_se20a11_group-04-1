@@ -26,7 +26,7 @@
 - [ ] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
-- [ ] Antigravity
+- [x] Antigravity
 - [ ] Perplexity
 - [ ] Microsoft Copilot
 - [ ] Công cụ khác: ....................................
@@ -55,7 +55,10 @@ Ví dụ:
 ### Mô tả mục tiêu sử dụng AI
 
 ```text
-Viết tại đây...
+- Hỗ trợ phân tích luồng chạy (execution flow) giữa Cloud Worker và Local Agent.
+- Đề xuất kiến trúc tích hợp CDP Screencast qua WebSocket.
+- Viết script nhúng kết nối WebSocket cho LocalTestRunWorker (Spring Boot).
+- Cấu hình YAML và debug lỗi Idempotency key.
 
 ## 4. Nhật ký sử dụng AI chi tiết
 
@@ -85,7 +88,7 @@ Dán nguyên văn prompt đã hỏi AI tại đây.
 Tóm tắt nội dung AI đã trả lời hoặc gợi ý.
 
 ```text
-Viết tại đây...
+AI đã đề xuất kiến trúc CDP Screencast sử dụng WebSocket Stream: Local Agent sẽ chạy Playwright, gọi CDP protocol bắt frame và truyền qua WebSocket về Backend. Backend sẽ broadcast frame cho giao diện LiveTestRunner của người dùng.
 ```
 
 #### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
@@ -93,7 +96,9 @@ Viết tại đây...
 Mô tả rõ phần nào được sử dụng lại từ gợi ý của AI.
 
 ```text
-Viết tại đây...
+- Kiến trúc Stream qua WebSocket.
+- Logic kết nối WebSocket phía Client (LiveTestRunner.jsx).
+- Các logic xử lý base cho Playwright CDP (Page.startScreencast).
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
@@ -101,7 +106,10 @@ Viết tại đây...
 Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với gợi ý ban đầu của AI.
 
 ```text
-Viết tại đây...
+- Phát hiện và fix bug thiếu tham số envOverrides trong executor.js khiến toàn bộ Local Agent bị crash.
+- Phát hiện AI thêm key YAML bị duplicate (`app:`) khiến Spring Boot override mất public-ws-url, tự sửa lại cấu trúc.
+- Phát hiện lỗi conflict thư viện Lombok (`@RequiredArgsConstructor` với `@Value` non-final) và tự đưa ra quyết định refactor cấu trúc class.
+- Tự fix lại mapping UX/UI logic cho `RunTestCase.jsx` khi Index của các Test case cũ không khớp với mảng Execution.
 ```
 
 #### 4.5. Minh chứng
@@ -120,7 +128,7 @@ Viết tại đây...
 Sinh viên/nhóm học được gì sau lần sử dụng AI này?
 
 ```text
-Viết tại đây...
+Học được cách làm việc như một Peer-programmer với AI: AI có thể đưa ra kiến trúc rất tốt và code nền tảng tuyệt vời, nhưng người kỹ sư phải là người review code, phát hiện các "hidden bugs" (như duplicate config, lombok conflict, runtime param missing) để hệ thống thực sự chạy được trên production. Việc chủ động phân tích log và tự fix code giúp tôi làm chủ hệ thống hoàn toàn.
 ```
 
 ---
@@ -138,25 +146,28 @@ Viết tại đây...
 #### 4.1. Prompt đã sử dụng
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+"tôi cần implement tính năng async test execution cho DevTrackAI chuyển từ synchronous sang fully async với Kafka + WebSocket realtime, xử lý race condition, semantic lỗi, và multi-instance issues"
 ```
 
 #### 4.2. Kết quả AI gợi ý
 
 ```text
-Viết tại đây...
+AI đề xuất kiến trúc gồm: dùng Kafka làm Event Bus, Outbox pattern để lưu event, WebSocket đẩy realtime data về Frontend, và ShedLock cho việc quản lý distributed watchdog scheduler.
 ```
 
 #### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
 
 ```text
-Viết tại đây...
+- Tích hợp cấu hình thư viện ShedLock, Kafka vào Spring Boot.
+- Toàn bộ State Machine cho TestRunStatus và TestExecutionStatus (RUNNING, CANCELLED, COMPLETED).
+- Cấu trúc thư mục DB Migration.
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
 
 ```text
-Viết tại đây...
+- Tự thiết kế lại Kafka Event Payload: Yêu cầu AI làm "Thin Event" (chỉ chứa correlationId, testRunId) thay vì truyền toàn bộ `testSteps` nặng nề vào Kafka.
+- Tự fix logic tính toán `completedCount` trên DB bằng Query Update Atomic để tránh Race Condition thay vì đọc-ghi qua code Java theo hướng dẫn cũ của AI.
 ```
 
 #### 4.5. Minh chứng
@@ -173,7 +184,7 @@ Viết tại đây...
 #### 4.6. Nhận xét cá nhân/nhóm
 
 ```text
-Viết tại đây...
+Lần sử dụng này rất giá trị vì hệ thống phân tán có quá nhiều edge cases. Việc thảo luận kiến trúc (Architecture review) với AI giúp tiết kiệm hàng tuần debug. Tuy nhiên, AI không hiểu rõ luồng data size nên tôi phải tự quyết định việc làm mỏng Kafka Payload.
 ```
 
 ---
@@ -191,25 +202,27 @@ Viết tại đây...
 #### 4.1. Prompt đã sử dụng
 
 ```text
-Dán nguyên văn prompt đã hỏi AI tại đây.
+"Tôi cần chuẩn hóa luồng Database Migration dùng Flyway cho dự án DevTrackAI, hãy gợi ý cấu trúc bảng Test Run, Execution và naming convention tốt nhất cho PostgreSQL."
 ```
 
 #### 4.2. Kết quả AI gợi ý
 
 ```text
-Viết tại đây...
+Gợi ý thiết lập cấu trúc V1__init.sql, V2__async_flow.sql. Tạo bảng test_runs, test_executions, bổ sung foreign keys, indices, và cột idempotency_key.
 ```
 
 #### 4.3. Phần sinh viên/nhóm đã sử dụng từ AI
 
 ```text
-Viết tại đây...
+- Quy tắc naming convention V{version}__{description}.sql
+- Các Data type map sang PostgreSQL (VARCHAR, TIMESTAMP, BIGINT).
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
 
 ```text
-Viết tại đây...
+- Tự viết thêm Partial Index cho cột status để tối ưu Watchdog Query (VD: `CREATE INDEX ON test_runs(updated_at) WHERE status = 'RUNNING'`).
+- Tự thêm constraints Unique Partial cho `idempotency_key` thay vì Unique hoàn toàn, tránh crash khi key bị null.
 ```
 
 #### 4.5. Minh chứng
@@ -226,7 +239,7 @@ Viết tại đây...
 #### 4.6. Nhận xét cá nhân/nhóm
 
 ```text
-Viết tại đây...
+AI cung cấp syntax SQL rất chuẩn và nhanh, nhưng thiết kế Index cho DB phải dựa vào business query thực tế (như Watchdog cần query RUNNING state) thì sinh viên phải tự tư duy và optimize.
 ```
 
 ---
@@ -237,19 +250,19 @@ Viết tại đây...
 
 | Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
 |---|:---:|:---:|:---:|:---:|---|
-| Phân tích yêu cầu |  |  |  |  |  |
-| Viết user story/use case |  |  |  |  |  |
-| Thiết kế database |  |  |  |  |  |
-| Thiết kế kiến trúc hệ thống |  |  |  |  |  |
-| Thiết kế giao diện |  |  |  |  |  |
-| Code frontend |  |  |  |  |  |
-| Code backend |  |  |  |  |  |
-| Debug lỗi |  |  |  |  |  |
-| Viết test case |  |  |  |  |  |
-| Kiểm thử sản phẩm |  |  |  |  |  |
-| Tối ưu code |  |  |  |  |  |
-| Viết báo cáo |  |  |  |  |  |
-| Làm slide thuyết trình |  |  |  |  |  |
+| Phân tích yêu cầu | X |  |  |  | Tự phân tích luồng |
+| Viết user story/use case | X |  |  |  |  |
+| Thiết kế database |  |  | X |  | Dùng AI hỗ trợ Flyway |
+| Thiết kế kiến trúc hệ thống |  |  | X |  | Dùng AI thảo luận Kafka |
+| Thiết kế giao diện | X |  |  |  |  |
+| Code frontend | X |  |  |  |  |
+| Code backend |  | X |  |  | AI tạo code cơ bản, sinh viên tự debug lỗi hệ thống |
+| Debug lỗi |  | X |  |  | Tự tìm ra bug qua log |
+| Viết test case | X |  |  |  |  |
+| Kiểm thử sản phẩm | X |  |  |  |  |
+| Tối ưu code |  | X |  |  | Tự tối ưu lại Payload |
+| Viết báo cáo | X |  |  |  |  |
+| Làm slide thuyết trình | X |  |  |  |  |
 
 ---
 
@@ -259,9 +272,9 @@ Ghi lại các trường hợp AI trả lời sai, thiếu, chưa phù hợp ho�
 
 | STT | Lỗi/hạn chế từ AI | Cách phát hiện | Cách xử lý/cải tiến |
 |---:|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
+| 1 | AI quên khai báo biến `envOverrides` trong hàm `executeScript` NodeJS | Đọc log báo ReferenceError | Chủ động sửa hàm và truyền biến môi trường vào Playwright |
+| 2 | AI merge file application.yaml bị duplicate key `app:` | Nhận thấy endpoint backend không ăn cấu hình WS_URL | Xóa key duplicate, gộp lại thành 1 block YAML hợp lệ |
+| 3 | AI dùng đọc-ghi dữ liệu Java để tăng `completedCount` | Nhận ra race condition nếu có nhiều worker | Chuyển sang dùng Atomic JPQL query |
 
 ---
 
@@ -285,7 +298,10 @@ Có thể bao gồm:
 ### Nội dung kiểm chứng
 
 ```text
-Viết tại đây...
+- Chạy thử chương trình Local Agent và quan sát WebSocket Frame kết nối tới LiveTestRunner.
+- Mở DevTools để xem Network tab có bị overload bởi Playwright frames hay không.
+- Chạy giả lập Multi-instance Backend và xem ShedLock có khóa chuẩn xác một instance cho Watchdog không.
+- Phân tích Log lỗi khi Playwright fail để trace bug từ `envOverrides`.
 ```
 
 ---
