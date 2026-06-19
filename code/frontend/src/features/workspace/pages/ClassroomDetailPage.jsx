@@ -4,8 +4,7 @@ import { getInitials } from '@utils/avatarHelper'
 import toast from 'react-hot-toast'
 import axiosClient from '@api/axiosConfig'
 import useAuthStore from '@store/useAuthStore'
-
-
+import AnnouncementCarousel from '../components/AnnouncementCarousel'
 
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
@@ -45,6 +44,11 @@ export default function ClassroomDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Random Group state
+  const [isRandomGroupModalOpen, setIsRandomGroupModalOpen] = useState(false)
+  const [membersPerGroup, setMembersPerGroup] = useState(5)
+  const [isRandomizing, setIsRandomizing] = useState(false)
+
   const fetchClassroom = async () => {
     try {
       setLoading(true)
@@ -77,6 +81,24 @@ export default function ClassroomDetailPage() {
       fetchClassroom()
     }
   }, [classroomId])
+
+  const handleRandomGroups = async () => {
+    if (membersPerGroup < 1) {
+      toast.error('Số thành viên mỗi nhóm phải lớn hơn 0.');
+      return;
+    }
+    try {
+      setIsRandomizing(true);
+      await axiosClient.post(`/v1/classrooms/${classroomId}/random-groups`, { membersPerGroup });
+      toast.success('Phân nhóm ngẫu nhiên thành công!');
+      setIsRandomGroupModalOpen(false);
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi phân nhóm.');
+    } finally {
+      setIsRandomizing(false);
+    }
+  }
 
   const handleShareInviteLink = async () => {
     try {
@@ -114,55 +136,11 @@ export default function ClassroomDetailPage() {
 
   return (
     <div className="-mt-margin_mobile -mx-margin_mobile md:-mt-margin_desktop md:-mx-margin_desktop flex-1 overflow-y-auto bg-[#f8fafc] select-none">
-      {/* Top Banner Area */}
-      <div className="bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#38bdf8] w-full px-8 py-8 relative overflow-hidden">
-        {/* Subtle grid pattern overlay for modern look */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-        
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-white/80 tracking-widest uppercase bg-white/10 px-2.5 py-1 rounded-full border border-white/10">
-                ACTIVE SEMESTER
-              </span>
-              <span className="text-sm font-semibold text-white/90 bg-white/20 px-3 py-0.5 rounded-full backdrop-blur-sm">
-                {data.semester}
-              </span>
-            </div>
-            <h1 className="text-4xl font-extrabold text-white tracking-tight flex items-baseline gap-3">
-              {data.subject}
-            </h1>
-            <div className="flex items-center gap-8 mt-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white/80 text-sm">person</span>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Mentor</p>
-                  <p className="text-sm font-medium text-white">{data.owner?.fullName || data.owner?.email}</p>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-white/20"></div>
-              <div>
-                <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Project Teams</p>
-                <p className="text-sm font-medium text-white">{data.stats.teams} Teams</p>
-              </div>
-              <div className="w-px h-8 bg-white/20"></div>
-              <div>
-                <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Students Enrolled</p>
-                <p className="text-sm font-medium text-white">{data.stats.students} Students</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <button onClick={handleShareInviteLink} className="bg-white text-[#0284c7] hover:bg-sky-50 px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-xl shadow-sky-900/20 flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">link</span>
-              Share Invite Link
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Top Banner Area - Now handled by AnnouncementCarousel */}
+      <AnnouncementCarousel 
+        classroomData={data} 
+        onShare={handleShareInviteLink} 
+      />
 
       {/* Tabs Navigation */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
@@ -277,6 +255,15 @@ export default function ClassroomDetailPage() {
                 <h2 className="text-xl font-bold text-slate-800">Class Members</h2>
                 <p className="text-sm text-slate-500 mt-1">{data.members?.length || 0} students enrolled</p>
               </div>
+              {String(data.owner?.id) === String(userId) && (
+                <button
+                  onClick={() => setIsRandomGroupModalOpen(true)}
+                  className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">shuffle</span>
+                  Phân lớp ngẫu nhiên
+                </button>
+              )}
             </div>
 
             <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm">
@@ -428,6 +415,74 @@ export default function ClassroomDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Random Group Modal */}
+      {isRandomGroupModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div 
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-[slideUp_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600">shuffle</span>
+                Phân lớp ngẫu nhiên
+              </h3>
+              <button 
+                onClick={() => setIsRandomGroupModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                Nhập số thành viên cho mỗi nhóm. Hệ thống sẽ tự động ghép những sinh viên chưa có nhóm vào các nhóm chưa đủ người, sau đó tạo thêm nhóm mới cho những bạn còn lại.
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Số lượng thành viên / nhóm
+                </label>
+                <input 
+                  type="number" 
+                  min="1"
+                  value={membersPerGroup}
+                  onChange={(e) => setMembersPerGroup(parseInt(e.target.value) || 1)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setIsRandomGroupModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+                disabled={isRandomizing}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleRandomGroups}
+                disabled={isRandomizing}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2"
+              >
+                {isRandomizing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Đang phân nhóm...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">magic_button</span>
+                    Tiến hành phân nhóm
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

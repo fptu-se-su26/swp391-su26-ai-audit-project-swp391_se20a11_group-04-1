@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@store/useAuthStore';
+import useLayoutStore from '@store/useLayoutStore';
 import { getInitials, getAvatarColor } from '@utils/avatarHelper';
 import toast from 'react-hot-toast';
 
@@ -9,6 +10,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 const TopNavBar = () => {
   const fullName = useAuthStore((state) => state.fullName);
   const logout = useAuthStore((state) => state.logout);
+  const isSidebarCollapsed = useLayoutStore((state) => state.isSidebarCollapsed);
   const initials = getInitials(fullName);
   const avatarColor = getAvatarColor(fullName);
 
@@ -39,7 +41,7 @@ const TopNavBar = () => {
   };
 
   return (
-    <header className="bg-surface-container-lowest dark:bg-surface-dim text-primary dark:text-primary-fixed font-body-lg text-body-lg fixed top-0 w-full h-topbar_height border-b border-outline-variant dark:border-outline flex justify-between items-center px-margin_desktop z-50 md:w-[calc(100%-280px)]">
+    <header className={`bg-surface-container-lowest dark:bg-surface-dim text-primary dark:text-primary-fixed font-body-lg text-body-lg fixed top-0 right-0 h-topbar_height border-b border-outline-variant dark:border-outline flex justify-between items-center px-margin_desktop z-50 transition-all duration-300 ease-in-out w-full ${isSidebarCollapsed ? 'md:w-[calc(100%-80px)]' : 'md:w-[calc(100%-280px)]'}`}>
       <div className="flex items-center gap-4">
         <button className="md:hidden text-on-surface-variant p-2 -ml-2">
           <span className="material-symbols-outlined">menu</span>

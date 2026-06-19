@@ -17,4 +17,6 @@ public interface ClassroomService {
     void joinClassroom(String token, Long userId);
     
     void removeStudent(Long classroomId, Long studentId, Long requesterId);
+    
+    void randomGroups(Long classroomId, org.example.backend.dto.request.RandomGroupRequest request, Long userId);
 }
