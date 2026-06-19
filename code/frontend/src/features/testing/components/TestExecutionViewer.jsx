@@ -1,4 +1,4 @@
-import { Play, CheckCircle, XCircle, Loader, AlertTriangle, Save, MousePointer2, MonitorPlay, Image, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Loader, AlertTriangle, Save, MonitorPlay, Image, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import AiAnalyzeButton from './AiAnalyzeButton';
 
@@ -145,7 +145,7 @@ export default function TestExecutionViewer({
             {(stepsArr || []).map((step, i) => {
                 const effectiveFailedStepIndex = (error && error.failedStepIndex !== undefined && error.failedStepIndex !== null)
                   ? error.failedStepIndex
-                  : (status === 'FAIL' ? lastRunningStepIndex : null);
+                  : ((status === 'FAIL' || status === 'FAILED' || status === 'ERROR') ? lastRunningStepIndex : null);
 
                 let stepStatus = null;
                 if (status === 'RUNNING') {
@@ -153,14 +153,12 @@ export default function TestExecutionViewer({
                     if (i < currentStepIndex) stepStatus = 'PASS';
                     else if (i === currentStepIndex) stepStatus = 'RUNNING';
                   }
-                } else if (status === 'PASS') {
+                } else if (status === 'PASS' || status === 'PASSED') {
                   stepStatus = 'PASS';
-                } else if (status === 'FAIL' || status === 'ERROR') {
+                } else if (status === 'FAIL' || status === 'FAILED' || status === 'ERROR') {
                   if (effectiveFailedStepIndex !== null) {
                     if (i < effectiveFailedStepIndex) stepStatus = 'PASS';
                     else if (i === effectiveFailedStepIndex) stepStatus = 'FAIL';
-                  } else {
-                    if (i === 0) stepStatus = 'FAIL';
                   }
                 }
 
@@ -248,13 +246,13 @@ export default function TestExecutionViewer({
               })}
 
             {/* Overall Status OVERVIEW at bottom */}
-            {!isRunning && status === 'PASS' && (
+            {!isRunning && (status === 'PASS' || status === 'PASSED') && (
               <div className="mt-5 p-3 bg-green-100 border border-green-300 rounded-md text-green-800 font-bold text-[14px]">
                 🟢 TEST CASE PASSED
               </div>
             )}
 
-            {!isRunning && (status === 'FAIL' || status === 'ERROR') && (() => {
+            {!isRunning && (status === 'FAIL' || status === 'FAILED' || status === 'ERROR') && (() => {
               const effectiveFailedStepIndex = (error && error.failedStepIndex !== undefined && error.failedStepIndex !== null)
                 ? error.failedStepIndex
                 : lastRunningStepIndex;
@@ -478,7 +476,7 @@ export default function TestExecutionViewer({
           </button>
         )}
         
-        {!isReadOnly && ['PASS', 'FAIL'].includes(status) && !isSaved && (
+        {!isReadOnly && ['PASS', 'PASSED', 'FAIL', 'FAILED'].includes(status) && !isSaved && (
           <button
             onClick={onSaveRun}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium transition-colors bg-teal-600 text-white hover:bg-teal-700 shadow-sm ml-2"
@@ -522,10 +520,10 @@ export function StatusChip({ status, durationMs }) {
   if (status === 'RUNNING') {
     return <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold tracking-wider">RUNNING</div>;
   }
-  if (status === 'PASS' || status === 'COMPLETED') {
+  if (status === 'PASS' || status === 'PASSED' || status === 'COMPLETED') {
     return <div className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-semibold tracking-wider">PASS • {durationMs}ms</div>;
   }
-  if (status === 'FAIL') {
+  if (status === 'FAIL' || status === 'FAILED') {
     return <div className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-semibold tracking-wider">FAIL • {durationMs}ms</div>;
   }
   return <div className="px-3 py-1 rounded-full bg-gray-200 text-gray-700 text-[10px] font-semibold tracking-wider">{status}</div>;
