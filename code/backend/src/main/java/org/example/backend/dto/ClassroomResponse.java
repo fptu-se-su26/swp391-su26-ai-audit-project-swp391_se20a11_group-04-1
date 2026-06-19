@@ -90,5 +90,11 @@ public class ClassroomResponse {
         private Long id;
         private String fullName;
         private String email;
+        private String username;
+        private String systemRole;
+        private String avatarUrl;
+        private String projectName;
+        private Long projectId;
+        private String projectRole;
     }
 }
