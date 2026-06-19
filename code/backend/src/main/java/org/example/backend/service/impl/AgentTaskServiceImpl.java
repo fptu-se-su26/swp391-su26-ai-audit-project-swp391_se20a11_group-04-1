@@ -1,6 +1,5 @@
 package org.example.backend.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,14 +63,7 @@ public class AgentTaskServiceImpl implements AgentTaskService {
         AgentTask task = agentTaskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("AgentTask not found"));
 
-        com.fasterxml.jackson.databind.JsonNode resultNode = null;
-        if (task.getResult() != null) {
-            try {
-                resultNode = objectMapper.readTree(task.getResult());
-            } catch (JsonProcessingException e) {
-                log.error("Failed to parse agent task result JSON", e);
-            }
-        }
+        com.fasterxml.jackson.databind.JsonNode resultNode = task.getResult();
 
         return AgentTaskStatusResponseDTO.builder()
                 .status(task.getStatus())
@@ -122,7 +114,7 @@ public class AgentTaskServiceImpl implements AgentTaskService {
         }
 
         if (task.getStatus() == AgentTaskStatus.TIMEOUT) {
-            throw new IllegalStateException("Task already timed out, result rejected");
+            log.warn("AgentTask {} already timed out, but accepting late result from agent", taskId);
         }
 
         if (task.getStatus() != AgentTaskStatus.CLAIMED) {
@@ -133,16 +125,14 @@ public class AgentTaskServiceImpl implements AgentTaskService {
         task.setCompletedAt(LocalDateTime.now());
 
         try {
-            String payload = objectMapper.writeValueAsString(resultDTO);
+            com.fasterxml.jackson.databind.JsonNode payload = objectMapper.valueToTree(resultDTO);
             task.setResult(payload);
             
             // Nếu là API_TEST_JOB, bắn event để ApiTestExecutorService xử lý
             if ("API_TEST_JOB".equals(task.getTaskType())) {
-                // Chúng ta sẽ cần tạo class org.example.backend.service.event.ApiTestJobCompletedEvent
-                // Tạm thời gọi instance
-                eventPublisher.publishEvent(new org.example.backend.service.event.ApiTestJobCompletedEvent(taskId, payload));
+                eventPublisher.publishEvent(new org.example.backend.service.event.ApiTestJobCompletedEvent(taskId, payload.toString()));
             }
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             log.error("Failed to serialize agent task result", e);
             throw new RuntimeException("Failed to serialize agent task result", e);
         }

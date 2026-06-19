@@ -22,18 +22,31 @@ async function startAgent({ token, backendUrl }) {
     // ── Start embedded WebSocket relay ──────────────────────────────────────
     // Agent tự host WS relay để script Playwright có thể push CDP frames
     // mà không cần playwright-service chạy riêng trên máy local.
-    // Nếu port 4001 bị chiếm (thường bởi Docker), relay tự tìm port trống.
+    // Nếu port 4001 bị chiếm (thường bởi Docker Playwright), Agent tự động
+    // chuyển sang chế độ Central Relay (dùng chung Relay đang chạy trên Docker).
     let relayPort = 4001;
+    let localRelayActive = false;
     try {
         const relay = await startWsRelay(4001);
         relayPort = relay.port;
+        localRelayActive = true;
     } catch (e) {
-        console.warn('[WsRelay] Không thể start WS relay:', e.message);
-        console.warn('[WsRelay] Live stream sẽ không hoạt động, nhưng test vẫn chạy bình thường.');
+        if (e.code === 'EADDRINUSE') {
+            console.log('[WsRelay] ⚡ Phát hiện cổng 4001 đang bận (Docker Playwright hoặc dịch vụ khác).');
+            console.log('[WsRelay] 🔄 Tự động chuyển sang chế độ Central Relay — Agent sẽ dùng Relay Server đang chạy.');
+            console.log('[WsRelay] ℹ️  Live stream vẫn hoạt động bình thường thông qua Central Relay.\n');
+        } else {
+            console.warn('[WsRelay] Không thể start WS relay:', e.message);
+            console.warn('[WsRelay] Live stream có thể không hoạt động, nhưng test vẫn chạy bình thường.');
+        }
     }
 
     const localWsUrl = `ws://localhost:${relayPort}`;
-    console.log(`🎥 Live stream relay: ${localWsUrl}\n`);
+    if (localRelayActive) {
+        console.log(`🎥 Chế độ: Local Relay — Live stream relay: ${localWsUrl}\n`);
+    } else {
+        console.log(`🎥 Chế độ: Central Relay — Sử dụng Relay Server tại ${localWsUrl} (hoặc URL từ server)\n`);
+    }
     // ────────────────────────────────────────────────────────────────────────
 
     const { executeScript, executeApiTest } = require('./executor');
@@ -59,9 +72,13 @@ async function startAgent({ token, backendUrl }) {
             isRunning = true;
             console.log(`\n▶ Nhận task ${task.taskId} — ${task.baseUrl}`);
 
-            // Luôn dùng WS URL của embedded relay (chạy ngay trên máy user),
-            // bỏ qua wsUrl từ server vì nó trỏ tới playwright-service cloud.
-            const wsUrl = localWsUrl;
+            // Ưu tiên dùng wsUrl từ server (Central Relay / Cloud) nếu có,
+            // fallback về localWsUrl (embedded relay) khi server không chỉ định.
+            // Điều này cho phép Agent hoạt động linh hoạt trong mọi môi trường:
+            //   - Local only (không Docker): dùng embedded relay
+            //   - Local + Docker: dùng Docker Playwright làm Central Relay
+            //   - Production/Cloud: dùng wsUrl từ server (vd: wss://domain.com/relay)
+            const wsUrl = task.wsUrl || localWsUrl;
             const runId = task.runId || task.taskId;
             console.log(`🎥 Live stream: ${wsUrl}/?runId=${runId}&role=provider`);
 
@@ -114,13 +131,33 @@ async function startAgent({ token, backendUrl }) {
                 Object.assign(payloadBody, apiResultPayload);
             }
 
-            await fetch(`${backendUrl}/api/v1/agent-tasks/${task.taskId}/result?token=${token}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadBody)
-            });
+            // Submit result to backend with retry logic
+            const submitUrl = `${backendUrl}/api/v1/agent-tasks/${task.taskId}/result?token=${token}`;
+            let submitted = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const submitRes = await fetch(submitUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payloadBody)
+                    });
+                    if (submitRes.ok) {
+                        submitted = true;
+                        break;
+                    }
+                    const errBody = await submitRes.text().catch(() => '');
+                    console.error(`⚠️ Submit attempt ${attempt}/3 failed: HTTP ${submitRes.status} — ${errBody.substring(0, 300)}`);
+                } catch (fetchErr) {
+                    console.error(`⚠️ Submit attempt ${attempt}/3 network error: ${fetchErr.message}`);
+                }
+                if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+            }
 
-            console.log(`✓ Task ${task.taskId} hoàn thành với kết quả: ${result.status}`);
+            if (submitted) {
+                console.log(`✓ Task ${task.taskId} hoàn thành với kết quả: ${result.status}`);
+            } else {
+                console.error(`❌ Task ${task.taskId} kết quả ${result.status} nhưng KHÔNG gửi được về server sau 3 lần thử!`);
+            }
         } catch (err) {
             console.error('⚠️ Agent poll error:', err.message);
         } finally {

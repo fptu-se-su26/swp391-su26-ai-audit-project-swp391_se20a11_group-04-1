@@ -113,11 +113,9 @@ function startWsRelay(port = 4001) {
 
         server.on('error', (err) => {
             if (err.code === 'EADDRINUSE') {
-                // Port đã bị chiếm — thử port ngẫu nhiên trong range 4002-4099
-                const fallbackPort = 4002 + Math.floor(Math.random() * 97);
-                console.warn(`[WsRelay] Port ${port} đã bị chiếm, thử port ${fallbackPort}...`);
-                server.close();
-                startWsRelay(fallbackPort).then(resolve).catch(reject);
+                console.error(`[WsRelay] 🚨 Port ${port} đã bị chiếm. Hãy tắt ứng dụng khác đang dùng port này (hoặc cấu hình WS_PORT) để Live Screencast hoạt động.`);
+                // Fallback bị bỏ để tránh lỗi lệch port giữa Agent và Frontend
+                reject(err);
             } else {
                 reject(err);
             }
