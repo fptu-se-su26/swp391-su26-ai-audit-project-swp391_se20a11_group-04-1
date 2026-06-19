@@ -178,6 +178,7 @@ const Sidebar = () => {
             />
             <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
             <NavItem to={`/projects/${activeProject.id}/task-reviews`} icon="fact_check" label="Task Review" />
+            <NavItem to={`/projects/${activeProject.id}/architecture`} icon="schema" label="Kiến trúc hệ thống" />
 
             {/* Team Section */}
             <div className="pt-4 pb-2">
