@@ -73,6 +73,16 @@ public class ClassroomController {
         return ResponseEntity.ok(ApiResponse.success(null, "Đã xóa học sinh khỏi lớp học thành công."));
     }
 
+    @PostMapping("/{id}/random-groups")
+    public ResponseEntity<ApiResponse<Void>> randomGroups(
+            @PathVariable Long id,
+            @RequestBody org.example.backend.dto.request.RandomGroupRequest request,
+            HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        classroomService.randomGroups(id, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Phân nhóm ngẫu nhiên thành công!"));
+    }
+
     private Long getUserIdFromSession(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

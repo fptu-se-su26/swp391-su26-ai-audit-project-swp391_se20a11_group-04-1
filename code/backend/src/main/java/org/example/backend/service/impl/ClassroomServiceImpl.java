@@ -36,6 +36,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final AcademicContextRepository academicContextRepository;
     private final UserAccountRepository userAccountRepository;
     private final org.example.backend.repository.ProjectRepository projectRepository;
+    private final org.example.backend.repository.ProjectRoleRepository projectRoleRepository;
     private final org.example.backend.util.ClassroomTokenUtil classroomTokenUtil;
     private final StringRedisTemplate stringRedisTemplate;
     private final TransactionTemplate transactionTemplate;
@@ -273,6 +274,15 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     private ClassroomResponse mapToResponse(AcademicContext ac) {
+        java.util.List<ClassroomResponse.ClassroomMemberDto> previewMembers = ac.getEnrolledStudents().stream()
+            .limit(3)
+            .map(u -> ClassroomResponse.ClassroomMemberDto.builder()
+                .id(u.getId())
+                .fullName(u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername())
+                .avatarUrl(u.getProfile() != null ? u.getProfile().getAvatarUrl() : null)
+                .build())
+            .collect(Collectors.toList());
+
         return ClassroomResponse.builder()
                 .id(ac.getId())
                 .subject(ac.getSubject())
@@ -284,6 +294,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .endDate(ac.getEndDate())
                 .memberCount(ac.getEnrolledStudents().size()) // Count actual members
                 .projectCount(0) // Logic to count projects if needed later
+                .members(previewMembers)
                 .owner(ClassroomResponse.OwnerDto.builder()
                         .id(ac.getOwner().getId())
                         .fullName(ac.getOwner().getProfile() != null ? ac.getOwner().getProfile().getFullName() : ac.getOwner().getUsername())
@@ -320,5 +331,98 @@ public class ClassroomServiceImpl implements ClassroomService {
         // Remove from classroom
         ac.getEnrolledStudents().remove(student);
         academicContextRepository.save(ac);
+    }
+
+    @Override
+    @Transactional
+    public void randomGroups(Long classroomId, org.example.backend.dto.request.RandomGroupRequest request, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+
+        if (!ac.getOwner().getId().equals(userId)) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền phân nhóm cho lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        int membersPerGroup = request.getMembersPerGroup();
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+
+        // Get unassigned students
+        List<UserAccount> unassignedStudents = new java.util.ArrayList<>();
+        for (UserAccount student : ac.getEnrolledStudents()) {
+            boolean hasProject = false;
+            for (org.example.backend.entity.Project p : projects) {
+                if (p.getMembers().stream().anyMatch(pm -> pm.getUser().getId().equals(student.getId()))) {
+                    hasProject = true;
+                    break;
+                }
+            }
+            if (!hasProject) {
+                unassignedStudents.add(student);
+            }
+        }
+
+        if (unassignedStudents.isEmpty()) {
+            return; // Nothing to do
+        }
+
+        java.util.Collections.shuffle(unassignedStudents);
+
+        org.example.backend.entity.ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role MEMBER trong hệ thống."));
+
+        int studentIndex = 0;
+
+        // Fill existing projects that are not full
+        for (org.example.backend.entity.Project project : projects) {
+            int currentSize = project.getMembers().size();
+            boolean modified = false;
+            while (currentSize < membersPerGroup && studentIndex < unassignedStudents.size()) {
+                UserAccount student = unassignedStudents.get(studentIndex++);
+                org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
+                        .project(project)
+                        .user(student)
+                        .role(memberRole)
+                        .build();
+                project.getMembers().add(pm);
+                currentSize++;
+                modified = true;
+            }
+            if (modified) {
+                projectRepository.save(project);
+            }
+            if (studentIndex >= unassignedStudents.size()) {
+                break;
+            }
+        }
+
+        // Create new projects for remaining students
+        int nextGroupNumber = projects.size() + 1;
+        while (studentIndex < unassignedStudents.size()) {
+            org.example.backend.entity.Project newProject = org.example.backend.entity.Project.builder()
+                    .name(ac.getSubject() + "-Group-" + nextGroupNumber)
+                    .description("Randomly generated group")
+                    .type(org.example.backend.entity.ProjectType.WEB_APP)
+                    .academicContext(ac)
+                    .startDate(java.time.LocalDate.now())
+                    .deadline(java.time.LocalDate.now().plusMonths(3))
+                    .status(org.example.backend.entity.ProjectStatus.PLANNING)
+                    .createdBy(ac.getOwner())
+                    .members(new java.util.ArrayList<>())
+                    .build();
+            
+            int added = 0;
+            while (added < membersPerGroup && studentIndex < unassignedStudents.size()) {
+                UserAccount student = unassignedStudents.get(studentIndex++);
+                org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
+                        .project(newProject)
+                        .user(student)
+                        .role(memberRole)
+                        .build();
+                newProject.getMembers().add(pm);
+                added++;
+            }
+            projectRepository.save(newProject);
+            nextGroupNumber++;
+        }
     }
 }
