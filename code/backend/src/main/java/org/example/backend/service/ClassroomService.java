@@ -15,4 +15,6 @@ public interface ClassroomService {
     ClassroomResponse getClassroomFromToken(String token);
     
     void joinClassroom(String token, Long userId);
+    
+    void removeStudent(Long classroomId, Long studentId, Long requesterId);
 }

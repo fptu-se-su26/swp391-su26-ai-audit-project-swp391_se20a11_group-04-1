@@ -66,6 +66,13 @@ public class ClassroomController {
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin lớp học thành công!"));
     }
 
+    @DeleteMapping("/{id}/members/{studentId}")
+    public ResponseEntity<ApiResponse<Void>> removeStudent(@PathVariable Long id, @PathVariable Long studentId, HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        classroomService.removeStudent(id, studentId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xóa học sinh khỏi lớp học thành công."));
+    }
+
     private Long getUserIdFromSession(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

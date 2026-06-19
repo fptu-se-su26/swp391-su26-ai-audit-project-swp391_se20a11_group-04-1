@@ -230,7 +230,26 @@ public class ClassroomServiceImpl implements ClassroomService {
             ClassroomResponse.ClassroomMemberDto mDto = new ClassroomResponse.ClassroomMemberDto();
             mDto.setId(u.getId());
             mDto.setFullName(u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername());
+            mDto.setUsername(u.getUsername());
             mDto.setEmail(u.getEmail());
+            mDto.setSystemRole(u.getSystemRole() != null ? u.getSystemRole().getName() : "USER");
+            mDto.setAvatarUrl(u.getProfile() != null ? u.getProfile().getAvatarUrl() : null);
+            mDto.setProjectRole("Member"); // Default
+            
+            // Find project participation
+            projects.forEach(p -> {
+                p.getMembers().stream()
+                 .filter(pm -> pm.getUser().getId().equals(u.getId()))
+                 .findFirst()
+                 .ifPresent(pm -> {
+                     mDto.setProjectName(p.getName());
+                     mDto.setProjectId(p.getId());
+                     if (pm.getRole() != null && pm.getRole().getName() != null) {
+                         mDto.setProjectRole(pm.getRole().getName());
+                     }
+                 });
+            });
+            
             return mDto;
         }).collect(Collectors.toList());
         response.setMembers(memberDtos);
@@ -271,5 +290,35 @@ public class ClassroomServiceImpl implements ClassroomService {
                         .email(ac.getOwner().getEmail())
                         .build())
                 .build();
+    }
+    @Override
+    @Transactional
+    public void removeStudent(Long classroomId, Long studentId, Long requesterId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+
+        if (!ac.getOwner().getId().equals(requesterId)) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền xóa thành viên khỏi lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        UserAccount student = userAccountRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học sinh."));
+
+        if (!ac.getEnrolledStudents().contains(student)) {
+            throw new BadRequestException("Học sinh này không nằm trong lớp học.");
+        }
+
+        // Remove from projects in this classroom
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+        for (org.example.backend.entity.Project project : projects) {
+            boolean removed = project.getMembers().removeIf(pm -> pm.getUser().getId().equals(studentId));
+            if (removed) {
+                projectRepository.save(project);
+            }
+        }
+
+        // Remove from classroom
+        ac.getEnrolledStudents().remove(student);
+        academicContextRepository.save(ac);
     }
 }

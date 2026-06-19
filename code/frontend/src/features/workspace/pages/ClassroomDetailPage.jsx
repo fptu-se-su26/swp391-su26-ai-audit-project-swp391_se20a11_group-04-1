@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getInitials } from '@utils/avatarHelper'
 import toast from 'react-hot-toast'
 import axiosClient from '@api/axiosConfig'
+import useAuthStore from '@store/useAuthStore'
 
 
 
@@ -37,29 +38,41 @@ function getStatusConfig(status) {
 export default function ClassroomDetailPage() {
   const { classroomId } = useParams()
   const navigate = useNavigate()
+  const { userId } = useAuthStore()
   
   const [activeTab, setActiveTab] = useState('projects')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const fetchClassroom = async () => {
-      try {
-        setLoading(true)
-        const response = await axiosClient.get(`/v1/classrooms/${classroomId}`)
-        if (response.data.success) {
-          setData(response.data.data)
-        } else {
-          setError(response.data.message)
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || 'Có lỗi xảy ra khi tải lớp học.')
-      } finally {
-        setLoading(false)
-      }
+  const fetchClassroom = async () => {
+    try {
+      setLoading(true)
+      const response = await axiosClient.get(`/v1/classrooms/${classroomId}`)
+      setData(response.data?.data)
+      setError(null)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load classroom details')
+    } finally {
+      setLoading(false)
     }
-    
+  }
+
+  const handleRemoveStudent = async (studentId, studentName, e) => {
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to remove ${studentName} from this class?`)) {
+      return
+    }
+    try {
+      await axiosClient.delete(`/v1/classrooms/${classroomId}/members/${studentId}`)
+      toast.success('Student removed successfully.')
+      fetchClassroom()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove student.')
+    }
+  }
+
+  useEffect(() => {
     if (classroomId) {
       fetchClassroom()
     }
@@ -159,6 +172,7 @@ export default function ClassroomDetailPage() {
             { id: 'members', label: 'Members', icon: 'groups' },
             { id: 'dashboard', label: 'Class Dashboard', icon: 'dashboard' },
             { id: 'announcements', label: 'Announcements', icon: 'campaign' },
+            { id: 'resources', label: 'Resources', icon: 'library_books' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -265,39 +279,105 @@ export default function ClassroomDetailPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm">
+              <div className="overflow-visible">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       <th className="px-6 py-4">Student</th>
                       <th className="px-6 py-4">Email</th>
                       <th className="px-6 py-4">Role</th>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Group</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {data.members && data.members.map((member, idx) => (
-                      <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
+                    {(data.members ? [...data.members].sort((a, b) => {
+                        if (a.projectName === b.projectName) return 0;
+                        if (!a.projectName) return 1;
+                        if (!b.projectName) return -1;
+                        return a.projectName.localeCompare(b.projectName);
+                      }) : []).map((member, idx) => (
+                      <tr 
+                        key={member.id} 
+                        onClick={() => navigate(`/profile/${member.id}`)}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer group/row"
+                      >
+                        <td className="px-6 py-4 relative">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-extrabold shadow-sm shrink-0 ${getAvatarColor(idx)}`}>
                               {getInitials(member.fullName)}
                             </div>
                             <span className="font-bold text-slate-700">{member.fullName}</span>
                           </div>
+
+                          {/* Hover Popover */}
+                          <div 
+                            className="absolute left-14 bottom-[60%] z-50 hidden group-hover/row:block w-80 bg-white border border-slate-200 rounded-xl shadow-xl p-5 cursor-default"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex gap-4">
+                              <div className="shrink-0">
+                                {member.avatarUrl ? (
+                                  <img src={member.avatarUrl} alt={member.fullName} className="w-16 h-16 rounded-xl object-cover border border-slate-200" />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-xl bg-[#0047AB] text-white flex items-center justify-center text-xl font-bold shadow-sm">
+                                    {getInitials(member.fullName)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-bold text-slate-800 text-lg truncate" title={member.fullName}>{member.fullName}</h3>
+                                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-600 border border-green-100">
+                                    Active
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-500 font-medium mb-2 truncate">@{member.username || member.email?.split('@')[0]}</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span className="material-symbols-outlined text-[14px]">mail</span>
+                                    <span className="truncate">{member.email}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                                    <span>System Role: {member.systemRole || 'USER'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
                           {member.email}
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-500">
-                          Student
+                        <td className="px-6 py-4 text-sm font-medium text-slate-500 capitalize">
+                          {member.projectRole || 'Member'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Active
-                          </span>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              {member.projectName ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                  <span className="material-symbols-outlined text-[12px]">workspaces</span>
+                                  {member.projectName}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                  Chưa tham gia
+                                </span>
+                              )}
+                            </div>
+                            {String(data?.owner?.id) === String(userId) && (
+                              <button 
+                                onClick={(e) => handleRemoveStudent(member.id, member.fullName, e)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-4 shrink-0"
+                                title="Xóa học sinh khỏi lớp"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -314,7 +394,33 @@ export default function ClassroomDetailPage() {
             </div>
           </div>
         )}
-        {activeTab !== 'projects' && activeTab !== 'members' && (
+        {activeTab === 'resources' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-end">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Class Resources</h2>
+                <p className="text-sm text-slate-500 mt-1">Study materials and useful links</p>
+              </div>
+              <button className="flex items-center gap-2 bg-[#0284c7] hover:bg-[#0369a1] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Add Resource
+              </button>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm overflow-hidden p-6">
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                  <span className="material-symbols-outlined text-3xl text-slate-400">library_books</span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">No resources yet</h3>
+                <p className="text-sm text-slate-500 max-w-sm">
+                  Resources such as lecture slides, reading materials, or external links will appear here once added by the instructor.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {activeTab !== 'projects' && activeTab !== 'members' && activeTab !== 'resources' && (
           <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
             <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">construction</span>
             <h3 className="font-bold text-slate-600">Tab này đang được xây dựng</h3>
