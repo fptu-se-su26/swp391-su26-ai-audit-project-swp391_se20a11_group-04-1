@@ -371,13 +371,17 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role MEMBER trong hệ thống."));
 
         int studentIndex = 0;
+        boolean anyModified = false;
+        java.util.Set<Long> affectedUserIds = new java.util.HashSet<>();
 
         // Fill existing projects that are not full
         for (org.example.backend.entity.Project project : projects) {
             int currentSize = project.getMembers().size();
             boolean modified = false;
+
             while (currentSize < membersPerGroup && studentIndex < unassignedStudents.size()) {
                 UserAccount student = unassignedStudents.get(studentIndex++);
+                affectedUserIds.add(student.getId());
                 org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
                         .project(project)
                         .user(student)
@@ -389,6 +393,7 @@ public class ClassroomServiceImpl implements ClassroomService {
             }
             if (modified) {
                 projectRepository.save(project);
+                anyModified = true;
             }
             if (studentIndex >= unassignedStudents.size()) {
                 break;
@@ -413,6 +418,7 @@ public class ClassroomServiceImpl implements ClassroomService {
             int added = 0;
             while (added < membersPerGroup && studentIndex < unassignedStudents.size()) {
                 UserAccount student = unassignedStudents.get(studentIndex++);
+                affectedUserIds.add(student.getId());
                 org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
                         .project(newProject)
                         .user(student)
@@ -422,7 +428,22 @@ public class ClassroomServiceImpl implements ClassroomService {
                 added++;
             }
             projectRepository.save(newProject);
+            anyModified = true;
             nextGroupNumber++;
+        }
+
+        if (anyModified) {
+            // Evict cache for all affected users so projects show up in My Projects immediately
+            for (Long uid : affectedUserIds) {
+                try {
+                    java.util.Set<String> keys = stringRedisTemplate.keys("projects:user:" + uid + ":*");
+                    if (keys != null && !keys.isEmpty()) {
+                        stringRedisTemplate.delete(keys);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to evict Redis cache for user ID: {}", uid, e);
+                }
+            }
         }
     }
 }
