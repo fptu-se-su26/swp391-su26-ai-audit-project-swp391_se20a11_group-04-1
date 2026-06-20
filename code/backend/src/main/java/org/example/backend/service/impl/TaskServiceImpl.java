@@ -1721,9 +1721,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskResponse toResponse(Task task, TaskResponseContext context) {
-        var sla = context != null
-                ? taskSlaRuleService.evaluate(task, context.hasAcceptedEvidence(task.getId()))
-                : taskSlaRuleService.evaluate(task);
+        var sla = taskSlaRuleService.evaluate(task);
         Optional<TaskReviewDecision> latestDecision = taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId());
         return TaskResponse.builder()
                 .id(task.getId())
@@ -1755,7 +1753,7 @@ public class TaskServiceImpl implements TaskService {
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
-                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
+                .hasAcceptedEvidence(context != null && context.hasAcceptedEvidence(task.getId()))
                 .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ?

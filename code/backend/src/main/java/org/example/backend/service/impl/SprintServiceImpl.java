@@ -346,7 +346,6 @@ public class SprintServiceImpl implements SprintService {
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
-                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ? 
                         (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null

@@ -67,8 +67,7 @@ class TaskPenaltyServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.OVERDUE_PENALTY),
-                3,
-                false
+                3
         );
 
         when(taskPenaltyLogRepository.existsByTaskIdAndReason(any(), any())).thenReturn(false);
@@ -96,8 +95,7 @@ class TaskPenaltyServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.OVERDUE_PENALTY),
-                3,
-                false
+                3
         );
 
         taskPenaltyService.applyPenaltyIfNeeded(task, evaluation);

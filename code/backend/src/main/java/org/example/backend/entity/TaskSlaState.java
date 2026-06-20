@@ -58,9 +58,7 @@ public class TaskSlaState {
     @Column(name = "days_until_deadline")
     private Long daysUntilDeadline;
 
-    @Column(name = "has_accepted_evidence", nullable = false)
-    @Builder.Default
-    private boolean hasAcceptedEvidence = false;
+    // removed from SLA logic: evidence is checked by the review/DONE gate, not SLA scoring.
 
     @Column(name = "penalty_applied", nullable = false)
     @Builder.Default

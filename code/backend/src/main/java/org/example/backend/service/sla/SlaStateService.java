@@ -70,7 +70,6 @@ public class SlaStateService {
                 || oldState.getCurrentScore() != score
                 || !Objects.equals(oldState.getCurrentRiskLevel(), riskLevel)
                 || oldState.getOverdueDays() != evaluation.overdueDays()
-                || oldState.isHasAcceptedEvidence() != evaluation.hasAcceptedEvidence()
                 || oldState.isPenaltyApplied() != task.isOverduePenaltyApplied()
                 || !Objects.equals(oldState.getCategoriesJson(), categoriesJson)
                 || !Objects.equals(oldState.getBurnGap(), assessment.getBurnGap())
@@ -100,7 +99,6 @@ public class SlaStateService {
             newState.setRecommendedAction(recommendedAction);
             newState.setOverdueDays(evaluation.overdueDays());
             newState.setDaysUntilDeadline(daysUntilDeadline);
-            newState.setHasAcceptedEvidence(evaluation.hasAcceptedEvidence());
             newState.setPenaltyApplied(task.isOverduePenaltyApplied());
             newState.setBurnGap(assessment.getBurnGap());
             newState.setBurnRateLevel(assessment.getBurnRateLevel());
@@ -114,7 +112,7 @@ public class SlaStateService {
         }
 
         // Execute actions via SlaActionService
-        String actionTaken = slaActionService.executeActions(task, evaluation);
+        String actionTaken = slaActionService.executeActions(task, evaluation, assessment);
 
         // Record log if state changed OR a significant action occurred
         if (changed || isExecutedAction(actionTaken)) {

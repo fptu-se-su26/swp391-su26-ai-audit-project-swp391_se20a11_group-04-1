@@ -102,7 +102,7 @@ class TaskServiceImplPauseIntegrationTest {
         when(projectMemberRepository.findByProjectIdAndUserId(100L, 5L))
                 .thenReturn(Optional.of(new ProjectMember()));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(taskSlaRuleService.evaluate(any())).thenReturn(new TaskSlaEvaluation(EnumSet.of(TaskSlaCategory.NORMAL), 0L, false));
+        when(taskSlaRuleService.evaluate(any())).thenReturn(new TaskSlaEvaluation(EnumSet.of(TaskSlaCategory.NORMAL), 0L));
 
         TaskStatusUpdateRequest request = new TaskStatusUpdateRequest();
         request.setStatus("BLOCKED");
@@ -124,7 +124,7 @@ class TaskServiceImplPauseIntegrationTest {
         when(projectMemberRepository.findByProjectIdAndUserId(100L, 5L))
                 .thenReturn(Optional.of(new ProjectMember()));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(taskSlaRuleService.evaluate(any())).thenReturn(new TaskSlaEvaluation(EnumSet.of(TaskSlaCategory.NORMAL), 0L, false));
+        when(taskSlaRuleService.evaluate(any())).thenReturn(new TaskSlaEvaluation(EnumSet.of(TaskSlaCategory.NORMAL), 0L));
 
         TaskStatusUpdateRequest request = new TaskStatusUpdateRequest();
         request.setStatus("IN_PROGRESS");

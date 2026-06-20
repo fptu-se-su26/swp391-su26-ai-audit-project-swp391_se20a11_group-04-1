@@ -513,7 +513,6 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
 
         int countPenalty = 0;
         int countBlocked = 0;
-        int countMissingEvidence = 0;
         int countOverdueShort = 0;
         int countDueSoon = 0;
 
@@ -535,9 +534,6 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
                 isRisk = true;
             } else if (eval.categories().contains(TaskSlaCategory.BLOCKED)) {
                 countBlocked++;
-                isRisk = true;
-            } else if (eval.categories().contains(TaskSlaCategory.MISSING_EVIDENCE)) {
-                countMissingEvidence++;
                 isRisk = true;
             } else if (eval.categories().contains(TaskSlaCategory.OVERDUE_SHORT)) {
                 countOverdueShort++;
@@ -568,7 +564,6 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
                         .requirementCode(null)
                         .slaCategories(eval.categories().stream().map(Enum::name).toList())
                         .overdueDays(eval.overdueDays())
-                        .hasAcceptedEvidence(eval.hasAcceptedEvidence())
                         .overduePenaltyApplied(isPenalty)
                         .riskLevel(riskLevel)
                         .reasons(reasons)
@@ -577,7 +572,7 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
             }
         }
 
-        int riskScore = 100 - (countPenalty * 15) - (countBlocked * 10) - (countMissingEvidence * 8) - (countOverdueShort * 6) - (countDueSoon * 3);
+        int riskScore = 100 - (countPenalty * 15) - (countBlocked * 10) - (countOverdueShort * 6) - (countDueSoon * 3);
         if (riskScore < 0) riskScore = 0;
         if (riskScore > 100) riskScore = 100;
 
@@ -597,13 +592,11 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         List<String> mainReasons = new ArrayList<>();
         if (countPenalty > 0) mainReasons.add(countPenalty + " task(s) have overdue penalty");
         if (countBlocked > 0) mainReasons.add(countBlocked + " task(s) are blocked");
-        if (countMissingEvidence > 0) mainReasons.add(countMissingEvidence + " task(s) are missing accepted evidence");
         if (countOverdueShort > 0) mainReasons.add(countOverdueShort + " task(s) are recently overdue");
         if (countDueSoon > 0) mainReasons.add(countDueSoon + " task(s) are due soon");
 
         List<String> recommendedActions = new ArrayList<>();
         if (countPenalty > 0) recommendedActions.add("Review penalized tasks first and decide whether to reassign or escalate.");
-        if (countMissingEvidence > 0) recommendedActions.add("Ask assignees to upload accepted evidence before closing the sprint.");
         if (countBlocked > 0) recommendedActions.add("Resolve blocked tasks in the next leader check-in.");
         if (countOverdueShort > 0) recommendedActions.add("Follow up recently overdue tasks before they become penalties.");
         if (countDueSoon > 0) recommendedActions.add("Remind assignees about tasks due within 24 hours.");

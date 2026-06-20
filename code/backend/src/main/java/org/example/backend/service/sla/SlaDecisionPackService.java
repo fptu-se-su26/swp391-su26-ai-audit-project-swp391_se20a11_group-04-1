@@ -147,7 +147,6 @@ public class SlaDecisionPackService {
                 .recommendedAction(state.getRecommendedAction())
                 .overdueDays(state.getOverdueDays())
                 .daysUntilDeadline(state.getDaysUntilDeadline())
-                .hasAcceptedEvidence(state.isHasAcceptedEvidence())
                 .penaltyApplied(state.isPenaltyApplied())
                 .burnGap(state.getBurnGap() != null ? state.getBurnGap() : 0.0)
                 .burnRateLevel(state.getBurnRateLevel())

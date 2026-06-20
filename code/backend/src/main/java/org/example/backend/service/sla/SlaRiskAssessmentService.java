@@ -4,13 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.example.backend.entity.EvidenceEntityType;
-import org.example.backend.entity.EvidenceLink;
-import org.example.backend.entity.EvidenceStatus;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskChecklist;
 import org.example.backend.entity.TaskStatus;
-import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +20,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SlaRiskAssessmentService {
     private final TaskRepository taskRepository;
-    private final EvidenceLinkRepository evidenceLinkRepository;
     private final Clock clock;
 
     @Getter
@@ -49,7 +44,6 @@ public class SlaRiskAssessmentService {
     public static class ScoreBreakdown {
         private final int deadlinePenalty;
         private final int burnRatePenalty;
-        private final int evidencePenalty;
         private final int blockerPenalty;
         private final int workloadPenalty;
     }
@@ -70,11 +64,10 @@ public class SlaRiskAssessmentService {
             default -> 0;
         };
         int adjustedBurnPenalty = (int) Math.round(burnRatePenalty * weightMultiplier(burnRateLevel));
-        int evidencePenalty = calculateEvidencePenalty(task, evaluation);
         int blockerPenalty = calculateBlockerPenalty(task, evaluation);
         int workloadPenalty = calculateWorkloadPenalty(task);
 
-        int rawPenalty = deadlinePenalty + adjustedBurnPenalty + evidencePenalty + blockerPenalty + workloadPenalty;
+        int rawPenalty = deadlinePenalty + adjustedBurnPenalty + blockerPenalty + workloadPenalty;
         int score = Math.max(0, 100 - rawPenalty);
 
         String riskLevel;
@@ -102,7 +95,6 @@ public class SlaRiskAssessmentService {
             reasons.add("Task is overdue by " + evaluation.overdueDays() + " day(s) and qualifies for penalty.");
         }
         if (evaluation.has(TaskSlaCategory.BLOCKED)) reasons.add("Task is blocked.");
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) reasons.add("Task is missing accepted evidence.");
         if (reasons.isEmpty() && evaluation.has(TaskSlaCategory.NORMAL)) {
             reasons.add("Task SLA is normal.");
         }
@@ -120,7 +112,6 @@ public class SlaRiskAssessmentService {
             actions.add("Plan remaining work before the deadline.");
         }
         if (evaluation.has(TaskSlaCategory.BLOCKED)) actions.add("Clarify blocker and request leader support.");
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) actions.add("Upload or request accepted evidence.");
         if ("HIGH".equals(burnRateLevel) || "CRITICAL".equals(burnRateLevel)) {
             actions.add("Review remaining work because progress is behind planned time.");
         }
@@ -142,7 +133,6 @@ public class SlaRiskAssessmentService {
         ScoreBreakdown scoreBreakdown = ScoreBreakdown.builder()
                 .deadlinePenalty(task.getStatus() == TaskStatus.DONE ? 0 : deadlinePenalty)
                 .burnRatePenalty(task.getStatus() == TaskStatus.DONE ? 0 : adjustedBurnPenalty)
-                .evidencePenalty(task.getStatus() == TaskStatus.DONE ? 0 : evidencePenalty)
                 .blockerPenalty(task.getStatus() == TaskStatus.DONE ? 0 : blockerPenalty)
                 .workloadPenalty(task.getStatus() == TaskStatus.DONE ? 0 : workloadPenalty)
                 .build();
@@ -207,23 +197,6 @@ public class SlaRiskAssessmentService {
         return 0;
     }
 
-    private int calculateEvidencePenalty(Task task, TaskSlaEvaluation evaluation) {
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) return 15;
-        return hasPendingEvidence(task) ? 8 : 0;
-    }
-
-    private boolean hasPendingEvidence(Task task) {
-        if (task.getId() == null) {
-            return false;
-        }
-        List<EvidenceLink> links = evidenceLinkRepository.findByEntityTypeAndEntityId(EvidenceEntityType.TASK, task.getId());
-        return links.stream()
-                .anyMatch(link -> link.getEvidence() != null
-                        && (link.getEvidence().getStatus() == EvidenceStatus.PENDING
-                        || link.getEvidence().getStatus() == EvidenceStatus.AUTO_CHECKED
-                        || link.getEvidence().getStatus() == EvidenceStatus.NEEDS_CLARIFICATION));
-    }
-
     private int calculateBlockerPenalty(Task task, TaskSlaEvaluation evaluation) {
         if (!evaluation.has(TaskSlaCategory.BLOCKED)) {
             return 0;
@@ -264,9 +237,6 @@ public class SlaRiskAssessmentService {
                 predictedRiskLevel = "HIGH";
             }
         }
-        if ("CRITICAL".equals(burnRateLevel) && evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-            predictedRiskLevel = "CRITICAL";
-        }
         return predictedRiskLevel;
     }
 
@@ -284,9 +254,6 @@ public class SlaRiskAssessmentService {
             if (daysLeft <= 1) {
                 predictionReasons.add("Deadline is " + (daysLeft <= 0 ? "overdue" : "tomorrow"));
             }
-        }
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-            predictionReasons.add("Missing accepted evidence");
         }
         if (evaluation.has(TaskSlaCategory.BLOCKED)) {
             predictionReasons.add("Task is currently blocked");

@@ -24,7 +24,6 @@ public class SlaDecisionPackResponse {
     private String recommendedAction;
     private long overdueDays;
     private Long daysUntilDeadline;
-    private boolean hasAcceptedEvidence;
     private boolean penaltyApplied;
     private double burnGap;
     private String burnRateLevel;
@@ -45,7 +44,6 @@ public class SlaDecisionPackResponse {
     public static class ScoreBreakdown {
         private int deadlinePenalty;
         private int burnRatePenalty;
-        private int evidencePenalty;
         private int blockerPenalty;
         private int workloadPenalty;
     }
