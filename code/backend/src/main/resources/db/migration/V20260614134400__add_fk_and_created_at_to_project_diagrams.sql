@@ -5,4 +5,5 @@ FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE;
 
 -- Add the missing created_at column
 ALTER TABLE project_diagrams 
-ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+

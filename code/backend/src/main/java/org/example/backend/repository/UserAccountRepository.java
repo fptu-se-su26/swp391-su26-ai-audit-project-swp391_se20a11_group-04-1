@@ -17,6 +17,12 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     boolean existsByEmail(String email);
 
+    long countByIsActiveTrue();
+
+    long countBySystemRole_Name(String roleName);
+
+    java.util.List<UserAccount> findTop5ByOrderByCreatedAtDesc();
+
     /**
      * Tìm kiếm tài khoản bằng Username hoặc Email bằng Named Parameter an toàn chống SQL Injection tuyệt đối.
      */

@@ -84,35 +84,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Review buttons (only show when Pending or Auto Checked) */}
-          {(status === 'PENDING' || status === 'AUTO_CHECKED') && onReview && (
-            <>
-              <button
-                onClick={() => onReview('ACCEPTED')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-[#e6f4ea] text-[#137333] hover:bg-[#d4edda] transition-colors flex items-center gap-1.5 border border-[#bbf7d0]"
-              >
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                Accept
-              </button>
-              <button
-                onClick={() => onReview('REJECTED')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-error-container text-on-error-container hover:bg-error-container/80 transition-colors flex items-center gap-1.5 border border-[#fecaca]"
-              >
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                Reject
-              </button>
-              <button
-                onClick={() => onReview('NEEDS_CLARIFICATION')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-[#fef7e0] text-[#b06000] hover:bg-[#fef0c7] transition-colors flex items-center gap-1.5 border border-[#fde68a]"
-              >
-                <span className="material-symbols-outlined text-[18px]">help</span>
-                Clarify
-              </button>
-            </>
-          )}
-
-          <button
+        <div className="flex items-center gap-2 flex-shrink-0">          <button
             onClick={onEdit}
             className="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant"
             title="Edit evidence"

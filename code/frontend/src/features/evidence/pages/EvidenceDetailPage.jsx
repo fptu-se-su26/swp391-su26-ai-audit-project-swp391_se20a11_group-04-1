@@ -4,7 +4,6 @@ import { evidenceService } from '../services/evidenceService';
 import EvidenceDetailHeader from '../components/EvidenceDetailHeader';
 import EvidencePreview from '../components/EvidencePreview';
 import EvidenceLinkedEntities from '../components/EvidenceLinkedEntities';
-import EvidenceReviewPanel from '../components/EvidenceReviewPanel';
 import EvidenceFormModal from '../components/EvidenceFormModal';
 import EvidenceDeleteConfirmModal from '../components/EvidenceDeleteConfirmModal';
 import toast from 'react-hot-toast';
@@ -171,13 +170,6 @@ const EvidenceDetailPage = () => {
 
           {/* Sidebar Column */}
           <div className="lg:col-span-1">
-            {/* Review Panel */}
-            <EvidenceReviewPanel
-              evidence={evidence}
-              onReview={handleReview}
-              isSubmitting={isReviewing}
-            />
-
             {/* Linked Entities */}
             <EvidenceLinkedEntities
               links={evidence.evidenceLinks || []}

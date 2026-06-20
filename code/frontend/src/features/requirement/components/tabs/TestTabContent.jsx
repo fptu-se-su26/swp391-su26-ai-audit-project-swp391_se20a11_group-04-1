@@ -41,11 +41,6 @@ const TestTabContent = ({ tests, requirement, onOpenTestCaseModal }) => {
     );
   };
 
-  const isUntested = (status) => {
-    const s = status?.toUpperCase();
-    return !s || s === 'NOT_RUN' || s === 'UNTESTED' || s === 'BLOCKED' || s === 'SKIPPED';
-  };
-
   const getInitials = (name) => {
     if (!name) return '?';
     return name.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -91,14 +86,16 @@ const TestTabContent = ({ tests, requirement, onOpenTestCaseModal }) => {
               </div>
               
               <div className="text-right flex items-center justify-end">
-                {isUntested(test.status) ? (
-                  <button className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded text-xs font-medium hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm">
-                    <span className="material-symbols-outlined text-[14px]">play_arrow</span>
-                    Run
-                  </button>
-                ) : (
-                  <div className="w-[68px]"></div> /* Placeholder for alignment */
-                )}
+                <button 
+                  className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded text-xs font-medium hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/projects/${projectId}/test-cases/${test.id}`);
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                  Run
+                </button>
               </div>
             </div>
           );

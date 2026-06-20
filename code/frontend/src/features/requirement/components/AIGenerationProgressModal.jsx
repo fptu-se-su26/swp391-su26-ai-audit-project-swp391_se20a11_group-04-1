@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -62,8 +63,8 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
 
   const currentDetails = activeStepDetails[currentStep] || activeStepDetails[3];
 
-  return (
-    <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0f1423]/50 p-4 font-sans animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#0f1423]/50 p-4 font-sans animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-2xl w-full max-w-[440px] flex flex-col overflow-hidden relative">
         
         {currentStep === 4 ? (
@@ -170,7 +171,8 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
         )}
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

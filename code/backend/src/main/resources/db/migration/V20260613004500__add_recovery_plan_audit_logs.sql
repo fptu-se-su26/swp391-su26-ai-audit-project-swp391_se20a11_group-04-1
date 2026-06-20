@@ -1,4 +1,4 @@
-CREATE TABLE recovery_plan_audit_logs (
+CREATE TABLE IF NOT EXISTS recovery_plan_audit_logs (
     id BIGSERIAL PRIMARY KEY,
     recovery_plan_id BIGINT NOT NULL,
     recovery_plan_action_id BIGINT,
@@ -15,7 +15,8 @@ CREATE TABLE recovery_plan_audit_logs (
     CONSTRAINT fk_recovery_plan_audit_logs_action FOREIGN KEY (recovery_plan_action_id) REFERENCES recovery_plan_actions(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_recovery_plan_audit_logs_plan_id ON recovery_plan_audit_logs(recovery_plan_id, created_at DESC);
-CREATE INDEX idx_recovery_plan_audit_logs_project_task ON recovery_plan_audit_logs(project_id, task_id, created_at DESC);
-CREATE INDEX idx_recovery_plan_audit_logs_event_type ON recovery_plan_audit_logs(event_type);
-CREATE INDEX idx_recovery_plan_audit_logs_actor ON recovery_plan_audit_logs(actor_user_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_audit_logs_plan_id ON recovery_plan_audit_logs(recovery_plan_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_audit_logs_project_task ON recovery_plan_audit_logs(project_id, task_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_audit_logs_event_type ON recovery_plan_audit_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_audit_logs_actor ON recovery_plan_audit_logs(actor_user_id);
+

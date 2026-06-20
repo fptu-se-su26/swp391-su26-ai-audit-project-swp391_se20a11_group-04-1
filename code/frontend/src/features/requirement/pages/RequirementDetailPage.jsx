@@ -65,7 +65,6 @@ const RequirementDetailPage = () => {
             return e.evidenceLinks.some(link => {
               const type = link.entityType?.toUpperCase();
               if (type === 'REQUIREMENT' && String(link.entityId) === String(data.id)) return true;
-              if (type === 'USE_CASE' && data.useCases.some(uc => String(uc.id) === String(link.entityId))) return true;
               if (type === 'TASK' && data.tasks.some(t => String(t.id) === String(link.entityId))) return true;
               if (type === 'TEST_CASE' && data.tests.some(t => String(t.id) === String(link.entityId))) return true;
               return false;

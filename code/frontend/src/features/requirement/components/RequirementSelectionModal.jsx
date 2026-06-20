@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { requirementApi } from '../services/requirementApi';
 import { useCaseService } from '../services/useCaseService';
 import useProjectStore from '../../../store/useProjectStore';
@@ -70,8 +71,8 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
     onConfirm(Array.from(selectedIds));
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f1423]/50 p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#0f1423]/50 p-4">
       <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-xl w-full max-w-[560px] max-h-[80vh] flex flex-col font-sans animate-in fade-in zoom-in-95 duration-200">
         
         {/* MODAL HEADER */}
@@ -222,7 +223,8 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
           background-color: #D1D5DB;
         }
       `}} />
-    </div>
+    </div>,
+    document.body
   );
 };
 

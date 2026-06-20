@@ -1,3 +1,4 @@
 ALTER TABLE use_cases 
-ADD COLUMN includes jsonb,
-ADD COLUMN extends jsonb;
+ADD COLUMN IF NOT EXISTS includes jsonb,
+ADD COLUMN IF NOT EXISTS extends jsonb;
+

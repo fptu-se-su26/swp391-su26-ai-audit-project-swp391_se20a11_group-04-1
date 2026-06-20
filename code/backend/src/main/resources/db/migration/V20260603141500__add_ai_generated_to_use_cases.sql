@@ -1,2 +1,3 @@
-ALTER TABLE use_cases ADD COLUMN ai_generated BOOLEAN DEFAULT FALSE;
-ALTER TABLE use_cases ADD COLUMN source_generation_id UUID;
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE;
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS source_generation_id UUID;
+

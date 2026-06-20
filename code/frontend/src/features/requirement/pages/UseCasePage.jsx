@@ -62,6 +62,7 @@ const UseCasePage = () => {
         projectId: activeProject.id,
         page: currentPage,
         size: pageSize,
+        sort: 'createdAt,desc'
       };
       if (searchTerm) params.keyword = searchTerm;
       if (statusFilter && !isDraftView) params.status = statusFilter;
