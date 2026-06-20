@@ -13,7 +13,6 @@ export function ContributionPage() {
   // Trạng thái Form & Modal
   const [inviteEmail, setInviteEmail] = useState('')
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
 
@@ -58,26 +57,6 @@ export function ContributionPage() {
     } else {
       // Dùng useProjectStore state error hoặc thông báo lỗi mặc định
       toast.error(useProjectStore.getState().error || 'Mời thành viên thất bại!')
-    }
-  }
-
-  // Xử lý mở Modal xác nhận phong cấp Mentor
-  const handlePromoteClick = (member) => {
-    setSelectedMember(member)
-    setIsRoleModalOpen(true)
-  }
-
-  // Xử lý xác nhận phong cấp Mentor
-  const handleConfirmRoleChange = async () => {
-    if (!selectedMember) return
-    
-    const success = await changeProjectMemberRole(selectedMember.id, 'MENTOR')
-    if (success) {
-      toast.success(`Đã nâng cấp vai trò ${selectedMember.name} lên Mentor!`)
-      setIsRoleModalOpen(false)
-      setSelectedMember(null)
-    } else {
-      toast.error(useProjectStore.getState().error || 'Nâng cấp vai trò thất bại!')
     }
   }
 
@@ -213,16 +192,6 @@ export function ContributionPage() {
                     {isLeader && (
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {member.role === 'MEMBER' && (
-                            <button
-                              onClick={() => handlePromoteClick(member)}
-                              className="inline-flex items-center gap-1 bg-tertiary-fixed text-on-tertiary-fixed text-xs font-bold px-3.5 py-1.5 rounded-lg border border-tertiary/10 hover:bg-tertiary/20 hover:scale-105 transition-all shadow-sm"
-                              title="Phong Mentor cho thành viên này"
-                            >
-                              <span className="material-symbols-outlined text-[16px] font-bold">arrow_upward</span>
-                              Phong Mentor
-                            </button>
-                          )}
                           {member.role !== 'PROJECT_LEADER' ? (
                             <button
                               onClick={() => handleRemoveClick(member)}
@@ -305,59 +274,7 @@ export function ContributionPage() {
         </div>
       )}
 
-      {/* 2. MODAL: XÁC NHẬN PHONG CẤP MENTOR */}
-      {isRoleModalOpen && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 relative animate-scale-up">
-            <button
-              onClick={() => {
-                setIsRoleModalOpen(false)
-                setSelectedMember(null)
-              }}
-              className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
 
-            <div className="flex gap-4 items-start">
-              <div className="w-12 h-12 bg-tertiary-fixed text-on-tertiary-fixed rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                <span className="material-symbols-outlined text-2xl font-bold">arrow_upward</span>
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="font-extrabold text-lg text-on-surface">Xác nhận phong cấp Mentor</h3>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Bạn có chắc chắn muốn nâng cấp vai trò của thành viên <strong>{selectedMember.name}</strong> lên làm <strong>Mentor</strong> của dự án?
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-tertiary/5 border border-tertiary/10 text-xs text-on-surface-variant/90 leading-relaxed">
-              <strong>Lưu ý:</strong> Hành động này sẽ thay đổi quyền truy cập của cố vấn trong dự án này, cung cấp cho họ các quyền xem xét nâng cao và đánh giá chất lượng sản phẩm.
-            </div>
-
-            <div className="flex gap-3 justify-end pt-2 border-t border-outline-variant/50">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRoleModalOpen(false)
-                  setSelectedMember(null)
-                }}
-                className="px-4.5 py-2.5 rounded-xl border border-outline-variant/60 hover:bg-surface-container text-xs font-bold transition-colors text-on-surface-variant"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                onClick={handleConfirmRoleChange}
-                disabled={loading}
-                className="flex items-center gap-2 bg-tertiary text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-tertiary/90 disabled:opacity-50 transition-colors shadow-md"
-              >
-                {loading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                Đồng ý nâng cấp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 3. MODAL: XÁC NHẬN XÓA THÀNH VIÊN */}
       {isRemoveModalOpen && selectedMember && (

@@ -76,7 +76,8 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                     "public_id", publicIdWithoutExt,
                     "folder", "evidence",
-                    "type", type
+                    "type", type,
+                    "resource_type", "auto"
             ));
 
             if ("private".equals(type)) {
@@ -96,7 +97,7 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         if (publicId.startsWith("http")) return publicId;
         // Generate a signed URL for the private resource
         return cloudinary.url()
-                .resourceType("image")
+                .resourceType("auto")
                 .type("private")
                 .signed(true)
                 .generate(publicId);
