@@ -77,13 +77,12 @@ public class GeminiRecoveryService {
                 - Last score before/after execution: %s -> %s
 
                 Choose 1 to 4 actions from this exact whitelist only:
-                [NOTIFY_ASSIGNEE, ESCALATE_LEADER, REQUEST_EVIDENCE, ASK_BLOCKER_UPDATE,
+                [NOTIFY_ASSIGNEE, ESCALATE_LEADER, ASK_BLOCKER_UPDATE,
                  CREATE_RECOVERY_CHECKLIST, SCHEDULE_FOLLOW_UP, SUGGEST_SPLIT_TASK, SUGGEST_REASSIGN]
 
                 Decision guidance:
                 - If a previous notify-only plan failed, prefer escalation/checklist/reassign instead of repeating notify only.
                 - If assignee active task count is high, consider SUGGEST_REASSIGN or SUGGEST_SPLIT_TASK.
-                - If evidence is missing, include REQUEST_EVIDENCE.
                 - If blocked, include ASK_BLOCKER_UPDATE.
                 - Keep important project changes under human approval; only propose actions.
 

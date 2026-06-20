@@ -2,7 +2,6 @@ package org.example.backend.service.sla;
 
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskStatus;
-import org.example.backend.repository.EvidenceLinkRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,9 +23,6 @@ import static org.mockito.Mockito.when;
 class TaskSlaRuleServiceTest {
 
     @Mock
-    private EvidenceLinkRepository evidenceLinkRepository;
-
-    @Mock
     private TaskSlaPauseService taskSlaPauseService;
 
     private Clock fixedClock;
@@ -35,7 +31,7 @@ class TaskSlaRuleServiceTest {
     @BeforeEach
     void setUp() {
         fixedClock = Clock.fixed(Instant.parse("2026-06-17T10:00:00Z"), ZoneId.of("UTC"));
-        taskSlaRuleService = new TaskSlaRuleService(evidenceLinkRepository, taskSlaPauseService, fixedClock);
+        taskSlaRuleService = new TaskSlaRuleService(taskSlaPauseService, fixedClock);
 
         // Default stub for calculateEffectiveOverdueDays to match unpaused behavior
         when(taskSlaPauseService.calculateEffectiveOverdueDays(any(), any()))
@@ -121,18 +117,14 @@ class TaskSlaRuleServiceTest {
     }
 
     @Test
-    @DisplayName("Should evaluate as MISSING_EVIDENCE if DONE but has no accepted evidence")
-    void testMissingEvidence() {
+    @DisplayName("Should evaluate DONE task as NORMAL")
+    void testDoneTaskIsNormal() {
         Task task = Task.builder()
                 .id(1L)
                 .status(TaskStatus.DONE)
                 .build();
 
-        // Stub evidence repository to return false
-        when(evidenceLinkRepository.existsAcceptedEvidenceForEntity(any(), any(), any()))
-                .thenReturn(false);
-
         TaskSlaEvaluation eval = taskSlaRuleService.evaluate(task);
-        assertThat(eval.has(TaskSlaCategory.MISSING_EVIDENCE)).isTrue();
+        assertThat(eval.has(TaskSlaCategory.NORMAL)).isTrue();
     }
 }

@@ -4,8 +4,7 @@ import java.util.EnumSet;
 
 public record TaskSlaEvaluation(
         EnumSet<TaskSlaCategory> categories,
-        long overdueDays,
-        boolean hasAcceptedEvidence
+        long overdueDays
 ) {
     public boolean has(TaskSlaCategory category) {
         return categories.contains(category);

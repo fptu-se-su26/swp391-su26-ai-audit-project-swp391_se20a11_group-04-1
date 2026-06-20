@@ -48,7 +48,6 @@ public class RecoveryPlanService {
     private static final Set<RecoveryActionType> ALLOWED_AI_ACTION_TYPES = Set.of(
             RecoveryActionType.NOTIFY_ASSIGNEE,
             RecoveryActionType.ESCALATE_LEADER,
-            RecoveryActionType.REQUEST_EVIDENCE,
             RecoveryActionType.ASK_BLOCKER_UPDATE,
             RecoveryActionType.CREATE_RECOVERY_CHECKLIST,
             RecoveryActionType.SCHEDULE_FOLLOW_UP,
@@ -382,11 +381,6 @@ public class RecoveryPlanService {
                 priority = RecoveryActionPriority.HIGH;
                 message = "Please clarify the blocker and what support is needed.";
                 break;
-            case "MISSING_EVIDENCE":
-                actionType = RecoveryActionType.REQUEST_EVIDENCE;
-                priority = RecoveryActionPriority.HIGH;
-                message = "Please upload or request accepted evidence for this task.";
-                break;
         }
 
         if (actionType == null) return null;
@@ -574,6 +568,39 @@ public class RecoveryPlanService {
                 .orElseThrow(() -> new BusinessException("User is not a member of this project"));
 
         return getLatestForTaskInternal(projectId, taskId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecoveryPlanResponse> getProjectPlans(Long projectId, Long sprintId, List<String> statuses, Long currentUserId) {
+        projectMemberRepository.findByProjectIdAndUserId(projectId, currentUserId)
+                .orElseThrow(() -> new BusinessException("User is not a member of this project"));
+
+        List<RecoveryPlanStatus> statusFilters = parseStatusFilters(statuses);
+        List<RecoveryPlan> plans = sprintId != null
+                ? recoveryPlanRepository.findByProjectIdAndSprintIdAndStatusInOrderByCreatedAtDesc(projectId, sprintId, statusFilters)
+                : recoveryPlanRepository.findByProjectIdAndStatusInOrderByCreatedAtDesc(projectId, statusFilters);
+
+        return plans.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private List<RecoveryPlanStatus> parseStatusFilters(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return Arrays.asList(RecoveryPlanStatus.values());
+        }
+
+        return statuses.stream()
+                .filter(status -> status != null && !status.trim().isEmpty())
+                .map(status -> {
+                    try {
+                        return RecoveryPlanStatus.valueOf(status.trim().toUpperCase());
+                    } catch (IllegalArgumentException ex) {
+                        throw new BusinessException("Invalid recovery plan status: " + status);
+                    }
+                })
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private RecoveryPlanResponse getLatestForTaskInternal(Long projectId, Long taskId) {
