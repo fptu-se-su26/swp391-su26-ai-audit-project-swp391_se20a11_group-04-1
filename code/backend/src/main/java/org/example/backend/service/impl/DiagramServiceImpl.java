@@ -383,10 +383,12 @@ public class DiagramServiceImpl implements DiagramService {
             if (!inPayload && !pa.isDeleted()) {
                 boolean wasLinked = linkedActorNames.contains(pa.getName());
                 if (wasLinked) {
-                    pa.setDeleted(true);
-                    projectActorRepository.save(pa);
+                    // Temporarily disable soft deletion to prevent data loss
+                    // pa.setDeleted(true);
+                    // projectActorRepository.save(pa);
                 } else {
-                    projectActorRepository.delete(pa);
+                    // Temporarily disable hard deletion to prevent data loss
+                    // projectActorRepository.delete(pa);
                 }
             }
         }

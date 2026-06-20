@@ -3,4 +3,5 @@
 -- Author: AI Assistant
 -- Description: Add source_generation_id to requirements table to trace back to AI generation staging
 
-ALTER TABLE requirements ADD COLUMN source_generation_id UUID;
+ALTER TABLE requirements ADD COLUMN IF NOT EXISTS source_generation_id UUID;
+

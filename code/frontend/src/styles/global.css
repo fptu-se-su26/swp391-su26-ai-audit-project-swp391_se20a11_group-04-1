@@ -232,3 +232,34 @@ a:hover { color: var(--color-primary); }
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
+
+/* =====================================================
+   System Admin Dashboard Classes
+   ===================================================== */
+.sidebar-item-active {
+    background-color: #d0e1fb;
+    color: #54647a;
+    border-radius: 0.5rem;
+}
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.tab-active {
+    color: #003c90;
+    border-bottom: 2px solid #003c90;
+}
+.chart-line-gradient {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: dash 3s linear forwards;
+}
+@keyframes dash {
+    to { stroke-dashoffset: 0; }
+}

@@ -60,6 +60,13 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     try {
       // 1. Sync semantic data
       const currentState = useDiagramStore.getState();
+      
+      // Prevent saving empty state if unmounted (race condition fix)
+      if (currentState.actors.length === 0 && currentState.useCases.length === 0) {
+          setSaveStatus('saved');
+          return;
+      }
+
       const response = await diagramService.syncDiagramData(projectId, {
         actors: currentState.actors,
         useCases: currentState.useCases,

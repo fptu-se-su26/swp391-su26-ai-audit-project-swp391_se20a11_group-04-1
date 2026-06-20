@@ -22,6 +22,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     java.util.List<Project> findByAcademicContextId(Long academicContextId);
 
+    long countByStatus(ProjectStatus status);
+
+    java.util.List<Project> findTop5ByOrderByCreatedAtDesc();
+
     /**
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).
      */

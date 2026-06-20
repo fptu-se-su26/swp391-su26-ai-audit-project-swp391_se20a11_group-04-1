@@ -11,7 +11,7 @@ DROP INDEX IF EXISTS uq_daily_digests_user_date_type;
 
 -- Thêm cột project_id
 ALTER TABLE daily_digests
-    ADD COLUMN project_id BIGINT NOT NULL;
+    ADD COLUMN IF NOT EXISTS project_id BIGINT NOT NULL;
 
 -- Thêm khóa ngoại
 ALTER TABLE daily_digests
@@ -25,4 +25,6 @@ CREATE UNIQUE INDEX uq_daily_digests_user_project_date_type
     ON daily_digests(user_id, project_id, digest_date, digest_type);
 
 -- Tạo index phụ cho cột project_id phục vụ tìm kiếm nhanh
-CREATE INDEX idx_daily_digests_project ON daily_digests(project_id);
+CREATE INDEX IF NOT EXISTS idx_daily_digests_project ON daily_digests(project_id);
+
+

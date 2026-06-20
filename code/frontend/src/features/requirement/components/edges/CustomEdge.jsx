@@ -34,9 +34,13 @@ export default function CustomEdge({
     return null;
   }
 
+  const isDependency = data?.relType === 'include' || data?.relType === 'extends';
+  const finalStyle = isDependency ? { ...style, strokeDasharray: '5,5' } : style;
+  const finalMarkerEnd = isDependency && !markerEnd ? { type: 'arrowclosed', width: 14, height: 14 } : markerEnd;
+
   return (
     <>
-      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+      <BaseEdge path={edgePath} markerEnd={finalMarkerEnd} style={finalStyle} />
       {label && (
         <EdgeLabelRenderer>
           <div

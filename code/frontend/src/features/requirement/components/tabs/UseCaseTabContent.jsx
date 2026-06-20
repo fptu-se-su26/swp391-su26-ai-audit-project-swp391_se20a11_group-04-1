@@ -44,7 +44,7 @@ const UseCaseTabContent = ({ useCases, requirement, onOpenUseCaseModal }) => {
       <div className="flex flex-col">
         {useCases.map((uc, index) => {
           const code = uc.code || `UC-${String(uc.id).padStart(3, '0')}`;
-          const actor = (uc.actors && uc.actors.length > 0) ? uc.actors.join(', ') : 'System';
+          const actor = uc.primaryActors || 'System';
           const status = uc.status || 'DRAFT';
 
           return (

@@ -94,7 +94,11 @@ function LoginPage() {
         useAuthStore.getState().login(id, systemRole, username, email, fullName)
         
         setTimeout(() => {
-          navigate(returnUrl)
+          if (systemRole === 'ADMIN') {
+            navigate('/admin')
+          } else {
+            navigate(returnUrl)
+          }
         }, 1000)
       } else {
         toast.error(response.data?.message || 'Sai tài khoản hoặc mật khẩu!')

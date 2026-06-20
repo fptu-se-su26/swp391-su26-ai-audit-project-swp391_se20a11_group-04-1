@@ -353,6 +353,8 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
         const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
 
+        const isDependency = rel.type === 'include' || rel.type === 'extends';
+
         initialEdges.push({
           id: `edge_${rel.id}`,
           source,
@@ -363,6 +365,8 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               onEdgeAction: handleEdgeAction
           },
           label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
+          style: isDependency ? { strokeDasharray: '5,5' } : {},
+          markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
         });
       });
 

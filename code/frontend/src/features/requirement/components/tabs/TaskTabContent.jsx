@@ -60,7 +60,7 @@ const TaskTabContent = ({ tasks, requirement }) => {
       <div className="flex flex-col">
         {tasks.map((task, index) => {
           const code = task.code || `TSK-${String(task.id).padStart(3, '0')}`;
-          const isOverdue = task.isOverdue || (task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'DONE');
+          const isOverdue = task.isOverdue || (task.deadline && new Date(task.deadline) < new Date() && task.status !== 'DONE');
           const isBlocked = task.status === 'BLOCKED';
           
           let rowClass = "grid grid-cols-[100px_1fr_120px_120px_130px] gap-4 px-6 py-3 items-center hover:bg-indigo-50/40 transition-colors bg-white relative cursor-pointer";
@@ -81,9 +81,9 @@ const TaskTabContent = ({ tasks, requirement }) => {
               <div className="flex items-center gap-2 pr-4 overflow-hidden">
                 {isBlocked && <span className="material-symbols-outlined text-[14px] text-rose-500 shrink-0">block</span>}
                 <div className="text-sm font-medium text-slate-800 truncate" title={task.title}>{task.title}</div>
-                {task.dueDate && (
+                {task.deadline && (
                   <div className={`text-[10px] shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
-                    📅 {new Date(task.dueDate).toLocaleDateString('en-GB')}
+                    📅 {new Date(task.deadline).toLocaleDateString('en-GB')}
                   </div>
                 )}
               </div>
