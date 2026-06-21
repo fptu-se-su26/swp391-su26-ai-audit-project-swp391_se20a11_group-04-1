@@ -26,7 +26,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).
      */
     @Query("SELECT p FROM Project p " +
-           "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId)")
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
+           "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId)")
     Page<Project> findProjectsByUserId(
         @Param("userId") Long userId, 
         Pageable pageable
@@ -36,7 +39,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * Case 2: Chỉ lọc theo trạng thái dự án.
      */
     @Query("SELECT p FROM Project p " +
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId) " +
            "AND p.status = :status")
     Page<Project> findProjectsByUserIdAndStatus(
         @Param("userId") Long userId, 
@@ -48,7 +54,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * Case 3: Chỉ tìm kiếm theo từ khóa tên dự án.
      */
     @Query("SELECT p FROM Project p " +
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId) " +
            "AND LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Project> findProjectsByUserIdAndSearch(
         @Param("userId") Long userId, 
@@ -60,7 +69,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * Case 4: Lọc theo cả trạng thái và tìm kiếm theo từ khóa.
      */
     @Query("SELECT p FROM Project p " +
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
            "WHERE p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId) " +
            "AND p.status = :status " +
            "AND LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Project> findProjectsByUserIdAndStatusAndSearch(

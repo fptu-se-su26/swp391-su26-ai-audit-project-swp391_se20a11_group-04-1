@@ -255,7 +255,13 @@ public class ProjectServiceImpl implements ProjectService {
         LocalDate deadline = request.getDeadline();
         LocalDate startDate = request.getStartDate();
         
-        org.example.backend.util.DateValidationUtils.validateDateRange(startDate, deadline, "Project");
+        // Use academic context dates if it's a classroom
+        if (request.getClassroomId() != null && academicContext != null) {
+            startDate = academicContext.getStartDate() != null ? academicContext.getStartDate() : java.time.LocalDate.now();
+            deadline = academicContext.getEndDate() != null ? academicContext.getEndDate() : startDate.plusMonths(3);
+        } else {
+            org.example.backend.util.DateValidationUtils.validateDateRange(startDate, deadline, "Project");
+        }
 
         // 4. Tạo và lưu thực thể Project
         Project project = Project.builder()
@@ -263,7 +269,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")
                 .type(projectType)
                 .academicContext(academicContext)
-                .startDate(java.time.LocalDate.now())
+                .startDate(startDate)
                 .deadline(deadline)
                 .status(ProjectStatus.PLANNING)
                 .createdBy(creator)
@@ -274,20 +280,56 @@ public class ProjectServiceImpl implements ProjectService {
         project = projectRepository.save(project);
         log.info("📁 Saved new Project entity with ID: {}", project.getId());
 
-        // 5. Tìm vai trò PROJECT_LEADER (hỗ trợ cả 'LEADER' và 'PROJECT_LEADER')
+        // 5. Xác định và gán vai trò cho người tạo và Mentor của lớp học
+        List<ProjectMember> initialMembers = new ArrayList<>();
+
         ProjectRole leaderRole = findLeaderRole();
+        ProjectRole mentorRole = projectRoleRepository.findByName("MENTOR")
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò MENTOR không tồn tại trong hệ thống."));
 
-        // 6. Gán người tạo làm Leader của dự án
-        ProjectMember leaderMember = ProjectMember.builder()
-                .project(project)
-                .user(creator)
-                .role(leaderRole)
-                .joinedAt(LocalDateTime.now())
-                .invitedBy(creator)
-                .build();
+        boolean isCreatorMentor = academicContext != null && academicContext.getOwner() != null 
+                && academicContext.getOwner().getId().equals(creator.getId());
 
-        projectMemberRepository.save(leaderMember);
-        log.info("👑 Assigned user ID: {} as PROJECT_LEADER for project ID: {}", userId, project.getId());
+        if (isCreatorMentor) {
+            // Nếu chính mentor tạo dự án
+            ProjectMember mentorMember = ProjectMember.builder()
+                    .project(project)
+                    .user(creator)
+                    .role(mentorRole)
+                    .joinedAt(LocalDateTime.now())
+                    .invitedBy(creator)
+                    .build();
+            projectMemberRepository.save(mentorMember);
+            initialMembers.add(mentorMember);
+            log.info("👑 Assigned user ID: {} as MENTOR for project ID: {}", userId, project.getId());
+        } else {
+            // Nếu sinh viên tạo dự án -> sinh viên làm LEADER
+            ProjectMember leaderMember = ProjectMember.builder()
+                    .project(project)
+                    .user(creator)
+                    .role(leaderRole)
+                    .joinedAt(LocalDateTime.now())
+                    .invitedBy(creator)
+                    .build();
+            projectMemberRepository.save(leaderMember);
+            initialMembers.add(leaderMember);
+            log.info("👑 Assigned user ID: {} as PROJECT_LEADER for project ID: {}", userId, project.getId());
+
+            // Tự động add Mentor của lớp học vào dự án
+            if (academicContext != null && academicContext.getOwner() != null) {
+                ProjectMember mentorMember = ProjectMember.builder()
+                        .project(project)
+                        .user(academicContext.getOwner())
+                        .role(mentorRole)
+                        .joinedAt(LocalDateTime.now())
+                        .invitedBy(creator)
+                        .build();
+                projectMemberRepository.save(mentorMember);
+                initialMembers.add(mentorMember);
+                log.info("🎓 Automatically added classroom owner ID: {} as MENTOR for project ID: {}", 
+                        academicContext.getOwner().getId(), project.getId());
+            }
+        }
 
         // Auto configure GitHub Integration if provided
         if (request.getRepoOwner() != null && !request.getRepoOwner().trim().isEmpty()
@@ -344,7 +386,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         // Do project được query lại hoặc refresh để lấy members list đầy đủ cho việc mapping
-        project.setMembers(List.of(leaderMember));
+        project.setMembers(initialMembers);
 
         return mapToProjectResponse(project, userId);
     }
@@ -485,15 +527,26 @@ public class ProjectServiceImpl implements ProjectService {
             return;
         }
 
-        // Tìm vai trò MEMBER
-        ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
-                .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
+        // Xác định vai trò cho thành viên mới
+        // Nếu dự án chưa có ai khác ngoài Mentor, người đầu tiên vào sẽ là Nhóm trưởng
+        List<ProjectMember> currentMembers = projectMemberRepository.findByProjectId(invitation.getProject().getId());
+        boolean hasNonMentor = currentMembers.stream()
+                .anyMatch(pm -> !pm.getRole().getName().equalsIgnoreCase("MENTOR"));
+
+        ProjectRole assignedRole;
+        if (!hasNonMentor) {
+            assignedRole = findLeaderRole();
+            log.info("👑 First non-mentor member joined project {}. Assigned as LEADER.", invitation.getProject().getId());
+        } else {
+            assignedRole = projectRoleRepository.findByName("MEMBER")
+                    .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
+        }
 
         // Add thành viên
         ProjectMember newMember = ProjectMember.builder()
                 .project(invitation.getProject())
                 .user(invitation.getInvitee())
-                .role(memberRole)
+                .role(assignedRole)
                 .joinedAt(LocalDateTime.now())
                 .invitedBy(invitation.getInviter())
                 .build();
@@ -698,6 +751,24 @@ public class ProjectServiceImpl implements ProjectService {
 
         log.info("✨ Successfully changed member ID: {} in project ID: {} to role: {}",
                 memberUserId, projectId, newRoleName);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProject(Long projectId, Long userId) {
+        Project project = projectRepository.findByIdWithPessimisticWrite(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        // Kiểm tra quyền: Chỉ người tạo ra Classroom (Mentor) mới được phép xoá
+        if (project.getAcademicContext() == null || !project.getAcademicContext().getOwner().getId().equals(userId)) {
+            throw new CustomException("Chỉ người tạo lớp học (Mentor) mới có quyền xóa nhóm này.", HttpStatus.FORBIDDEN);
+        }
+
+        // Khóa mềm dự án (Soft delete)
+        project.setStatus(ProjectStatus.ARCHIVED);
+        projectRepository.save(project);
+        
+        log.info("🗑️ Successfully archived (soft-deleted) project ID: {} by user ID: {}", projectId, userId);
     }
 
     // ═══════════════════════════════════════════════════════════════════

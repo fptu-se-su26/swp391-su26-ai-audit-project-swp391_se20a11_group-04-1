@@ -258,4 +258,25 @@ public class ProjectController {
 
         return ResponseEntity.ok(ApiResponse.success(null, "Thay đổi vai trò thành viên thành công!"));
     }
+
+    /**
+     * DELETE /api/v1/projects/{projectId}
+     * Xóa nhóm thủ công (chỉ dành cho người tạo ra nhóm đó).
+     */
+    @DeleteMapping("/{projectId}")
+    public ResponseEntity<ApiResponse<Void>> deleteProject(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("🗑️ Request to delete project ID: {} by user ID: {}", projectId, userId);
+
+        projectService.deleteProject(projectId, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Xóa nhóm thành công!"));
+    }
 }

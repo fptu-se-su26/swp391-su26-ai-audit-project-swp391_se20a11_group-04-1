@@ -19,4 +19,6 @@ public interface ClassroomService {
     void removeStudent(Long classroomId, Long studentId, Long requesterId);
     
     void randomGroups(Long classroomId, org.example.backend.dto.request.RandomGroupRequest request, Long userId);
+
+    void clearAllGroups(Long classroomId, Long userId);
 }
