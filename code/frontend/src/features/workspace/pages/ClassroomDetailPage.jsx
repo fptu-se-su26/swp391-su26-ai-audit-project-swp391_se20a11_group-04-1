@@ -49,6 +49,7 @@ export default function ClassroomDetailPage() {
   const [isRandomGroupModalOpen, setIsRandomGroupModalOpen] = useState(false)
   const [membersPerGroup, setMembersPerGroup] = useState(5)
   const [isRandomizing, setIsRandomizing] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
 
   const fetchClassroom = async () => {
     try {
@@ -98,6 +99,22 @@ export default function ClassroomDetailPage() {
       toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi phân nhóm.');
     } finally {
       setIsRandomizing(false);
+    }
+  }
+
+  const handleClearGroups = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn giải tán toàn bộ nhóm trong lớp học này? Hành động này không thể hoàn tác.")) {
+      return;
+    }
+    try {
+      setIsClearing(true);
+      await axiosClient.delete(`/v1/classrooms/${classroomId}/groups`);
+      toast.success('Giải tán toàn bộ nhóm thành công!');
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi giải tán nhóm.');
+    } finally {
+      setIsClearing(false);
     }
   }
 
@@ -179,6 +196,24 @@ export default function ClassroomDetailPage() {
                 <h2 className="text-xl font-bold text-slate-800">Student Projects</h2>
                 <p className="text-sm text-slate-500 mt-1">{data.semester} • {data.stats?.teams || 0} teams registered</p>
               </div>
+              {String(data.owner?.id) === String(userId) && (
+                <button
+                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&isMentor=true&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Tạo dự án thủ công
+                </button>
+              )}
+              {String(data.owner?.id) !== String(userId) && !data.projects?.some(p => p.members?.some(m => String(m.id) === String(userId))) && (
+                <button
+                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">group_add</span>
+                  Tạo nhóm của bạn
+                </button>
+              )}
             </div>
 
             {/* Projects Grid */}
@@ -257,13 +292,23 @@ export default function ClassroomDetailPage() {
                 <p className="text-sm text-slate-500 mt-1">{data.members?.length || 0} students enrolled</p>
               </div>
               {String(data.owner?.id) === String(userId) && (
-                <button
-                  onClick={() => setIsRandomGroupModalOpen(true)}
-                  className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-lg">shuffle</span>
-                  Phân lớp ngẫu nhiên
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleClearGroups}
+                    disabled={isClearing || !data.projects || data.projects.length === 0}
+                    className="bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">delete_sweep</span>
+                    {isClearing ? 'Đang giải tán...' : 'Giải tán nhóm'}
+                  </button>
+                  <button
+                    onClick={() => setIsRandomGroupModalOpen(true)}
+                    className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">shuffle</span>
+                    Phân lớp ngẫu nhiên
+                  </button>
+                </div>
               )}
             </div>
 

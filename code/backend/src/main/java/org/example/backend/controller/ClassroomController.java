@@ -80,7 +80,23 @@ public class ClassroomController {
             HttpSession session) {
         Long userId = getUserIdFromSession(session);
         classroomService.randomGroups(id, request, userId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Phân nhóm ngẫu nhiên thành công!"));
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Chia nhóm ngẫu nhiên thành công!"));
+    }
+
+    /**
+     * Giải tán toàn bộ nhóm trong lớp học
+     */
+    @DeleteMapping("/{id}/groups")
+    public ResponseEntity<ApiResponse<Void>> clearAllGroups(
+            @PathVariable Long id,
+            HttpSession session) {
+            
+        Long userId = getUserIdFromSession(session);
+
+        classroomService.clearAllGroups(id, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Giải tán toàn bộ nhóm thành công!"));
     }
 
     private Long getUserIdFromSession(HttpSession session) {

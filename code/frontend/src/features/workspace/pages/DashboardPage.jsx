@@ -201,9 +201,38 @@ export function DashboardPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search)
     const classroomId = searchParams.get('createProjectForClassroom')
+    const isMentor = searchParams.get('isMentor') === 'true'
+    const semesterParam = searchParams.get('semester')
+    const subjectParam = searchParams.get('subject')
+
     if (classroomId) {
-      toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
-      setFormData(prev => ({ ...prev, classroomId: parseInt(classroomId, 10) }))
+      if (!isMentor) {
+        toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
+      }
+
+      let startDate = ''
+      let deadline = ''
+      if (semesterParam) {
+        const currentYear = new Date().getFullYear()
+        if (semesterParam.includes('SPRING') || semesterParam.startsWith('SP')) {
+          startDate = `${currentYear}-01-01`
+          deadline = `${currentYear}-04-30`
+        } else if (semesterParam.includes('SUMMER') || semesterParam.startsWith('SU')) {
+          startDate = `${currentYear}-05-01`
+          deadline = `${currentYear}-08-31`
+        } else if (semesterParam.includes('FALL') || semesterParam.startsWith('FA')) {
+          startDate = `${currentYear}-09-01`
+          deadline = `${currentYear}-12-31`
+        }
+      }
+
+      setFormData(prev => ({ 
+        ...prev, 
+        classroomId: parseInt(classroomId, 10),
+        major: subjectParam || prev.major,
+        startDate: startDate || prev.startDate,
+        deadline: deadline || prev.deadline
+      }))
       setIsModalOpen(true)
     }
   }, [location.search])
@@ -750,7 +779,12 @@ export function DashboardPage() {
                       placeholder="E.g., Software Engineering"
                       value={formData.major}
                       onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
 
@@ -786,7 +820,12 @@ export function DashboardPage() {
                       required
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -799,7 +838,12 @@ export function DashboardPage() {
                       required
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
                 </div>

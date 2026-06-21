@@ -13,4 +13,6 @@ public class RandomGroupRequest {
     @NotNull(message = "Number of members per group is required")
     @Min(value = 1, message = "Group must have at least 1 member")
     private Integer membersPerGroup;
+
+    private Boolean isOverwrite = false;
 }

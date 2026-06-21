@@ -198,8 +198,10 @@ public class ClassroomServiceImpl implements ClassroomService {
         
         ClassroomResponse response = mapToResponse(ac);
         
-        // Fetch projects
-        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+        // Fetch active projects only (hide ARCHIVED)
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId).stream()
+                .filter(p -> p.getStatus() != org.example.backend.entity.ProjectStatus.ARCHIVED)
+                .collect(Collectors.toList());
         response.setProjectCount(projects.size());
         
         // Map projects
@@ -344,7 +346,23 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
 
         int membersPerGroup = request.getMembersPerGroup();
-        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId);
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId).stream()
+                .filter(p -> p.getStatus() != org.example.backend.entity.ProjectStatus.ARCHIVED)
+                .collect(Collectors.toList());
+
+        int maxExistingMembers = 0;
+        for (org.example.backend.entity.Project p : projects) {
+            long nonMentorCount = p.getMembers().stream()
+                    .filter(pm -> pm.getRole() == null || !"MENTOR".equalsIgnoreCase(pm.getRole().getName()))
+                    .count();
+            if (nonMentorCount > maxExistingMembers) {
+                maxExistingMembers = (int) nonMentorCount;
+            }
+        }
+
+        if (maxExistingMembers > membersPerGroup) {
+            throw new org.example.backend.exception.CustomException("Kích thước nhóm yêu cầu nhỏ hơn số lượng thành viên của các nhóm hiện tại. Vui lòng bấm 'Clear' (Giải tán toàn bộ nhóm) trước khi chia lại.", org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
 
         // Get unassigned students
         List<UserAccount> unassignedStudents = new java.util.ArrayList<>();
@@ -369,34 +387,48 @@ public class ClassroomServiceImpl implements ClassroomService {
 
         org.example.backend.entity.ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role MEMBER trong hệ thống."));
+        org.example.backend.entity.ProjectRole leaderRole = projectRoleRepository.findByName("LEADER")
+                .orElse(projectRoleRepository.findByName("PROJECT_LEADER")
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role LEADER trong hệ thống.")));
+        org.example.backend.entity.ProjectRole mentorRole = projectRoleRepository.findByName("MENTOR")
+                .orElse(null);
 
         int studentIndex = 0;
         boolean anyModified = false;
         java.util.Set<Long> affectedUserIds = new java.util.HashSet<>();
 
         // Fill existing projects that are not full
-        for (org.example.backend.entity.Project project : projects) {
-            int currentSize = project.getMembers().size();
-            boolean modified = false;
+        if (request.getIsOverwrite() != null && request.getIsOverwrite()) {
+            for (org.example.backend.entity.Project project : projects) {
+                int currentSize = (int) project.getMembers().stream()
+                        .filter(pm -> pm.getRole() == null || !"MENTOR".equalsIgnoreCase(pm.getRole().getName()))
+                        .count();
+                boolean modified = false;
 
-            while (currentSize < membersPerGroup && studentIndex < unassignedStudents.size()) {
-                UserAccount student = unassignedStudents.get(studentIndex++);
-                affectedUserIds.add(student.getId());
-                org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
-                        .project(project)
-                        .user(student)
-                        .role(memberRole)
-                        .build();
-                project.getMembers().add(pm);
-                currentSize++;
-                modified = true;
-            }
-            if (modified) {
-                projectRepository.save(project);
-                anyModified = true;
-            }
-            if (studentIndex >= unassignedStudents.size()) {
-                break;
+                while (currentSize < membersPerGroup && studentIndex < unassignedStudents.size()) {
+                    UserAccount student = unassignedStudents.get(studentIndex++);
+                    affectedUserIds.add(student.getId());
+
+                    boolean hasNonMentor = project.getMembers().stream()
+                            .anyMatch(pm -> pm.getRole() != null && !pm.getRole().getName().equalsIgnoreCase("MENTOR"));
+                    org.example.backend.entity.ProjectRole assignedRole = hasNonMentor ? memberRole : leaderRole;
+
+                    org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
+                            .project(project)
+                            .user(student)
+                            .role(assignedRole)
+                            .build();
+                    project.getMembers().add(pm);
+                    currentSize++;
+                    modified = true;
+                }
+                if (modified) {
+                    projectRepository.save(project);
+                    anyModified = true;
+                }
+                if (studentIndex >= unassignedStudents.size()) {
+                    break;
+                }
             }
         }
 
@@ -414,15 +446,27 @@ public class ClassroomServiceImpl implements ClassroomService {
                     .createdBy(ac.getOwner())
                     .members(new java.util.ArrayList<>())
                     .build();
-            
+
+            if (mentorRole != null) {
+                org.example.backend.entity.ProjectMember mentorPm = org.example.backend.entity.ProjectMember.builder()
+                        .project(newProject)
+                        .user(ac.getOwner())
+                        .role(mentorRole)
+                        .build();
+                newProject.getMembers().add(mentorPm);
+            }
+
             int added = 0;
             while (added < membersPerGroup && studentIndex < unassignedStudents.size()) {
                 UserAccount student = unassignedStudents.get(studentIndex++);
                 affectedUserIds.add(student.getId());
+
+                org.example.backend.entity.ProjectRole assignedRole = (added == 0) ? leaderRole : memberRole;
+
                 org.example.backend.entity.ProjectMember pm = org.example.backend.entity.ProjectMember.builder()
                         .project(newProject)
                         .user(student)
-                        .role(memberRole)
+                        .role(assignedRole)
                         .build();
                 newProject.getMembers().add(pm);
                 added++;
@@ -433,6 +477,7 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
 
         if (anyModified) {
+            affectedUserIds.add(ac.getOwner().getId()); // Also evict Mentor's cache
             // Evict cache for all affected users so projects show up in My Projects immediately
             for (Long uid : affectedUserIds) {
                 try {
@@ -445,5 +490,51 @@ public class ClassroomServiceImpl implements ClassroomService {
                 }
             }
         }
+    }
+
+    @Override
+    @Transactional
+    public void clearAllGroups(Long classroomId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+
+        if (!ac.getOwner().getId().equals(userId)) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền giải tán nhóm trong lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId).stream()
+                .filter(p -> p.getStatus() != org.example.backend.entity.ProjectStatus.ARCHIVED)
+                .collect(Collectors.toList());
+
+        if (projects.isEmpty()) {
+            throw new org.example.backend.exception.CustomException("Hiện tại chưa có nhóm nào hoạt động để giải tán.", org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+
+        java.util.Set<Long> affectedUserIds = new java.util.HashSet<>();
+        affectedUserIds.add(ac.getOwner().getId());
+
+        for (org.example.backend.entity.Project p : projects) {
+            p.setStatus(org.example.backend.entity.ProjectStatus.ARCHIVED);
+            if (p.getMembers() != null) {
+                for (org.example.backend.entity.ProjectMember pm : p.getMembers()) {
+                    affectedUserIds.add(pm.getUser().getId());
+                }
+            }
+            projectRepository.save(p);
+        }
+        
+        // Evict cache for all affected users
+        for (Long uid : affectedUserIds) {
+            try {
+                java.util.Set<String> keys = stringRedisTemplate.keys("projects:user:" + uid + ":*");
+                if (keys != null && !keys.isEmpty()) {
+                    stringRedisTemplate.delete(keys);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to evict Redis cache for user ID: {}", uid, e);
+            }
+        }
+        
+        log.info("🗑️ Mentor ID: {} cleared all groups for classroom ID: {}", userId, classroomId);
     }
 }
