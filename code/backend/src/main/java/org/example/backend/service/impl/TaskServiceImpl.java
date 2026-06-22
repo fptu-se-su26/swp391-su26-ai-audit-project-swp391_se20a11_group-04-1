@@ -1294,15 +1294,14 @@ public class TaskServiceImpl implements TaskService {
 
     private void ensureAcceptedEvidenceBeforeReview(Task task) {
         if (task == null || task.getId() == null) {
-            throw new BadRequestException("Task must have accepted evidence before review");
+            throw new BadRequestException("Task must have evidence before review");
         }
-        boolean hasAcceptedEvidence = evidenceLinkRepository.existsAcceptedEvidenceForEntity(
+        java.util.List<org.example.backend.entity.EvidenceLink> links = evidenceLinkRepository.findByEntityTypeAndEntityId(
                 EvidenceEntityType.TASK,
-                task.getId(),
-                EvidenceStatus.ACCEPTED
+                task.getId()
         );
-        if (!hasAcceptedEvidence) {
-            throw new BadRequestException("Task must have accepted evidence before review");
+        if (links == null || links.isEmpty()) {
+            throw new BadRequestException("Task must have evidence before review");
         }
     }
 

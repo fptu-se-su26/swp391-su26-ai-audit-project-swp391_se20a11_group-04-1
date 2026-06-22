@@ -222,8 +222,8 @@ const KanbanBoardPage = () => {
         }
 
         if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
-          if (targetStatusKey === 'IN_REVIEW' && !task.hasAcceptedEvidence) {
-            toast.error('Cannot request review before accepted evidence is uploaded.')
+          if (targetStatusKey === 'IN_REVIEW' && !task.evidenceCount) {
+            toast.error('Vui lòng upload evidence trước khi chuyển sang IN REVIEW.')
             setDraggingTaskId(null)
             setDragOverStatus(null)
             return
