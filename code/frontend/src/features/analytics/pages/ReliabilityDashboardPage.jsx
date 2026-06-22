@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import { sprintService } from '@features/sprint/services/sprintService'
@@ -25,6 +26,9 @@ const ReliabilityScoreBadge = ({ score }) => {
 
 export default function ReliabilityDashboardPage() {
   const activeProject = useProjectStore((state) => state.activeProject)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const sprintIdParam = searchParams.get('sprintId')
+  const sprintIdFromQuery = /^\d+$/.test(sprintIdParam || '') ? Number(sprintIdParam) : null
 
   const [sprints, setSprints] = useState([])
   const [selectedSprintId, setSelectedSprintId] = useState(null)
@@ -41,14 +45,28 @@ export default function ReliabilityDashboardPage() {
       .then((data) => {
         const list = Array.isArray(data) ? data : []
         setSprints(list)
-        if (list.length) {
-          const active = list.find((s) => s.status === 'ACTIVE')
-          setSelectedSprintId(active?.id ?? list[0].id)
-        }
       })
       .catch(() => toast.error('Could not load sprints'))
       .finally(() => setSprintsLoading(false))
   }, [activeProject?.id])
+
+  useEffect(() => {
+    if (!sprints.length) return
+    const querySprint = sprintIdFromQuery
+      ? sprints.find((s) => s.id === sprintIdFromQuery)
+      : null
+    const active = sprints.find((s) => s.status === 'ACTIVE')
+    setSelectedSprintId(querySprint?.id ?? active?.id ?? sprints[0].id)
+  }, [sprints, sprintIdFromQuery])
+
+  const handleSprintChange = (sprintId) => {
+    setSelectedSprintId(sprintId)
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('sprintId', String(sprintId))
+      return next
+    })
+  }
 
   const loadReport = useCallback(async (sprintId) => {
     if (!activeProject?.id || !sprintId) return
@@ -127,7 +145,6 @@ export default function ReliabilityDashboardPage() {
     }
   }
 
-  const selectedSprint = sprints.find((s) => s.id === selectedSprintId)
   const isLoading = loading || sprintsLoading
 
   return (
@@ -148,7 +165,7 @@ export default function ReliabilityDashboardPage() {
           {/* Sprint selector */}
           <select
             value={selectedSprintId ?? ''}
-            onChange={(e) => setSelectedSprintId(Number(e.target.value))}
+            onChange={(e) => handleSprintChange(Number(e.target.value))}
             disabled={sprintsLoading || sprints.length === 0}
             className="text-sm border border-outline-variant rounded-lg px-3 py-2 bg-surface text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
           >

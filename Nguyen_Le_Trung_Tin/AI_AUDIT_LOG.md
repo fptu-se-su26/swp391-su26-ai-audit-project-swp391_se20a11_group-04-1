@@ -570,6 +570,227 @@ Khac ngay hoac khac category
 - Co tai lieu `SLA_ACTION_LOG_AND_PROJECT_ISOLATION.md`.
 - Build backend/frontend da duoc kiem chung.
 
+### Ngay 12-13/06/2026 - Trien khai Recovery Plan backend flow theo Human-in-the-loop
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Nang cap SLA tu decision support sang recovery plan co leader approval |
+| Phan viec lien quan | Backend, Database, Recovery Plan, Audit Log, Project Role |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Sau khi SLA Core da co state, decision log va action log, em tiep tuc hoi AI cach dua phan nay len muc cao hon. AI giai thich rang neu he thong chi canh bao thi moi dung o muc decision support; neu muon thanh Level 5 thi can co recovery plan, leader approval gate, execution an toan va audit trail.
+
+**Ket qua AI ho tro**
+
+- De xuat luong Human-in-the-loop:
+
+```text
+SLA risk detected
+-> generate recovery plan
+-> leader/mentor approve or reject
+-> execute safe actions
+-> write audit log
+```
+
+- Giai thich vi sao khong nen cho AI tu sua task truc tiep.
+- De xuat cac bang va entity can co:
+  - `recovery_plans`
+  - `recovery_plan_actions`
+  - `recovery_plan_audit_logs`
+- De xuat unique index active recovery plan de tranh tao nhieu plan dang active cho cung mot task.
+- Dinh nghia cac trang thai:
+  - `PENDING_APPROVAL`
+  - `APPROVED`
+  - `REJECTED`
+  - `EXECUTING`
+  - `EXECUTED`
+  - `FAILED`
+
+**Phan da ap dung**
+
+- Tao backend flow cho Recovery Plan:
+  - Generate plan.
+  - Approve/reject plan.
+  - Execute safe actions.
+  - Lay audit logs.
+- Them action execution an toan:
+  - Notify assignee.
+  - Request evidence.
+  - Ask blocker update.
+  - Create recovery checklist.
+  - Escalate leader.
+- Them audit log cho tung buoc generate/approve/reject/execute/action.
+- Them partial unique index `uk_active_recovery_plan_per_task` de chong race khi tao plan active.
+- Ghi tai lieu `Tin/recovery_plan_backend_flow_changes.md`.
+
+**Phan em tu quyet dinh**
+
+Em giu co che leader/mentor approval, khong cho AI hay scheduler tu dong thay doi task mot cach khong kiem soat. Nhung action nao co rui ro cao hoac can con nguoi can thiep thi chi tao recommendation/log, khong execute tuy tien.
+
+### Ngay 13/06/2026 - Dinh huong dua AI vao Recovery Plan mot cach mem hon
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Tim cach dung AI trong Recovery Plan nhung van giu rule backend an toan |
+| Phan viec lien quan | AI prompt, Recovery Plan, Notification tone, Human approval |
+| Muc do su dung | Ho tro nhieu |
+
+**Noi dung phien lam viec**
+
+Em hoi AI co nen dua AI vao Recovery Plan khong, vi flow rule-based da chay duoc nhung message va summary con cung, de tao cam giac he thong "ra lenh" hon la ho tro team.
+
+**Ket qua AI ho tro**
+
+- De xuat AI chi nen ho tro sinh noi dung theo context, khong duoc nam quyen thay doi du lieu.
+- De xuat tone nhu Agile Coach/Scrum Master:
+  - ro nguyen nhan risk,
+  - nhe nhang voi assignee,
+  - dua huong hanh dong cu the,
+  - tranh cam giac bi phat.
+- Phan biet:
+  - backend rule quyet dinh risk/action an toan,
+  - AI sinh summary/action message de giai thich tot hon,
+  - leader van la nguoi approve.
+
+**Phan da ap dung**
+
+- Tao tai lieu `Tin/SLA_LEVEL5_AI_RECOVERY_IDEA.md`.
+- Dung y tuong nay lam nen cho buoc Adaptive AI Recovery sau do.
+
+### Ngay 18/06/2026 - Adaptive AI Recovery Loop va Hybrid Rule-based Scoring
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Nang cap recovery plan va scoring de co kha nang du bao/phan hoi tot hon |
+| Phan viec lien quan | SLA Scoring, AI Recovery, Follow-up Plan, Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em tiep tuc muon phan SLA khong chi canh bao ma con co kha nang de xuat hanh dong phu hop va theo doi hieu qua sau khi execute. AI giup em tach ro phan nao la deterministic rule va phan nao la AI support.
+
+**Ket qua AI ho tro**
+
+- De xuat AI action selection nhung phai bi gioi han boi whitelist.
+- Neu Gemini tra action sai hoac thieu, backend fallback ve rule-based action cu.
+- De xuat follow-up loop:
+
+```text
+Plan EXECUTED
+-> scheduler check after 24h
+-> compare score before/after
+-> if ineffective, mark declined and generate follow-up plan
+```
+
+- De xuat Hybrid Rule-based SLA Scoring:
+  - deadline penalty,
+  - burn rate penalty,
+  - evidence penalty,
+  - blocker penalty,
+  - workload penalty.
+- Giai thich khong nen goi la AI prediction that neu chua co model hoc tu lich su; ten dung hon la Rule-based Early Risk Prediction / Predictive SLA Risk.
+
+**Phan da ap dung**
+
+- Gemini co the tra `selectedActions`, backend validate theo whitelist.
+- Them adaptive follow-up recovery plan khi plan khong cai thien sau execution.
+- Them guard an toan:
+  - khong tao follow-up neu dang co active plan,
+  - khong tao qua nhieu follow-up trong 24h,
+  - gioi han so AI plan trong cung sprint.
+- Refactor scoring sang hybrid score co burn rate, SPI, predicted risk va score breakdown.
+- Cap nhat Decision Pack API/UI de hien them burn rate, predicted risk, prediction reasons va score breakdown.
+- Them tai lieu `Tin/SLA_ADAPTIVE_AI_AND_HYBRID_SCORING_20260618.md`.
+
+**Kiem chung**
+
+Da ghi nhan cac lenh verify trong tai lieu local:
+
+```text
+mvnw compile
+mvnw test-compile
+mvnw test voi nhom SLA service tests
+mvnw test BackendApplicationTests
+```
+
+Ket qua duoc ghi nhan la pass, co warning Mongo local chua bat nhung khong lam test fail.
+
+### Ngay 19/06/2026 - Reliability Monitoring, Evidence Snapshot va Recovery Gate Result
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | Codex |
+| Muc dich | Lay code moi nhat, kiem tra prompt SLA, fix duplicate job va hoan thien evidence/gate |
+| Phan viec lien quan | Backend, Frontend, Flyway, Reliability, Recovery Plan |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI lay code moi nhat tu `develop`, doc code that sau khi co prompt moi, kiem tra phan nao da xong/chua xong va sua cac loi can thiet. Cac prompt chinh lien quan den Scheduler Logs UI, Async SLA Analysis Job, Recovery Plan Dashboard, Evidence Snapshot va Gate Result.
+
+**Ket qua AI ho tro**
+
+- Pull/merge code moi nhat tu `origin/develop` vao branch hien tai.
+- Kiem tra code that thay phan SLA reliability/recovery da gan xong nhung con mot so rui ro duplicate/race condition.
+- Giai thich cac khai niem hoc tu phan cua thanh vien khac:
+  - idempotency,
+  - DB constraint,
+  - row lock,
+  - distributed lock/Redis.
+- Ket luan khong can them Redis lock ngay; voi code hien tai nen dung DB unique index va row lock truoc.
+
+**Phan da ap dung**
+
+- Them SLA Reliability Monitoring:
+  - reliability snapshot theo project/sprint,
+  - MTTR, MTBF, Availability, Error Budget,
+  - Gemini narrative,
+  - async analysis job,
+  - reliability dashboard,
+  - scheduler logs page.
+- Fix duplicate SLA analysis job:
+  - neu da co job `PENDING/RUNNING` cung project/sprint thi tra job cu,
+  - DB unique partial index cho active job,
+  - catch duplicate race va tra job dang chay.
+- Them Evidence Snapshot cho Recovery Plan:
+  - luu `evidenceSnapshotId`,
+  - compute reliability snapshot sau effectiveness check,
+  - UI hien link sang reliability khi co evidence.
+- Them Gate Result:
+  - `PASSED`,
+  - `FAILED`,
+  - `INSUFFICIENT_DATA`,
+  - `gateReason`,
+  - UI hien score before -> after va ly do.
+- Them row lock cho approve/reject/execute recovery plan bang `PESSIMISTIC_WRITE`.
+- Fix Flyway migration idempotent de backend local khong tu dung vi duplicate table/column.
+
+**Commit lien quan**
+
+- `8d690a8` - merge `origin/develop` vao branch `feature/de190364-adaptive-sla-recovery`.
+- `8db5058` - `[DE190364] feat: add SLA reliability monitoring`.
+- `f5ec7f6` - `[DE190364] feat: add recovery plan evidence gate`.
+- `ae2dfc1` - `[DE190364] fix: make migrations idempotent`.
+
+**Kiem chung**
+
+```text
+mvnw.cmd -DskipTests compile
+```
+
+Ket qua: backend compile pass.
+
+Ghi chu: `clean compile` bi fail do file jar trong `target` dang bi process backend giu, kha nang backend dang chay tu IntelliJ/VSCode, khong phai loi compile code.
+
+**Noi dung da loc bo khoi audit**
+
+Khong dua chi tiet cac cau hoi nho nhu VSCode/IntelliJ chiem backend, hoi giai thich ngan ve file agent, hay cac trao doi ve viec anh GitHub hien so dong code. Cac noi dung do chi ho tro hieu context, khong phai thay doi chuc nang chinh.
+
 ### Cac noi dung da loc bo, khong dua vao audit chinh
 
 Nhung phien sau khong duoc ghi chi tiet vao AI Audit Log vi khong phai dong gop chinh cho module hoac chi la ho tro nho:
@@ -594,5 +815,12 @@ Sau cac phien lam viec bo sung, phan dong gop cua em khong chi dung lai o Module
 - Project-isolated Daily Digest.
 - SLA Decision Pack.
 - SLA Action Log va idempotency key.
+- Human-in-the-loop Recovery Plan.
+- Adaptive AI Recovery Loop.
+- Hybrid Rule-based SLA Scoring va burn rate prediction.
+- SLA Reliability Monitoring.
+- Evidence Snapshot cho Recovery Plan.
+- Recovery Gate Result.
+- DB constraint va row lock de chong duplicate/race condition.
 
 AI duoc su dung de phan tich, thiet ke huong lam, tao prompt trien khai, ra soat code va giai thich loi. Em khong ap dung may moc ma da lien tuc hoi lai, so sanh voi code hien co, yeu cau compile/build, va chi giu lai nhung huong phu hop voi project.
