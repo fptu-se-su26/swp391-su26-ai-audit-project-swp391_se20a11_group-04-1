@@ -1,10 +1,8 @@
 import React, { useState } from 'react'
 import { useArchitectureStore } from '../store/architectureStore'
-import { useReactFlow } from '@xyflow/react'
 
-export default function GraphToolbar({ onSearch }) {
+export default function GraphToolbar({ onSearch, onZoomIn, onZoomOut, onFitView }) {
   const { physicsEnabled, togglePhysics } = useArchitectureStore()
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
   const [searchVal, setSearchVal] = useState('')
 
   const handleSearchChange = (e) => {
@@ -43,21 +41,21 @@ export default function GraphToolbar({ onSearch }) {
         <div className="h-6 w-px bg-outline-variant/50 mx-1"></div>
 
         <button
-          onClick={() => zoomIn()}
+          onClick={() => onZoomIn?.()}
           className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Phóng to"
         >
           <span className="material-icons-outlined text-sm">add</span>
         </button>
         <button
-          onClick={() => zoomOut()}
+          onClick={() => onZoomOut?.()}
           className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Thu nhỏ"
         >
           <span className="material-icons-outlined text-sm">remove</span>
         </button>
         <button
-          onClick={() => fitView({ padding: 0.2, duration: 800 })}
+          onClick={() => onFitView?.({ padding: 0.2, duration: 800 })}
           className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Căn giữa màn hình"
         >

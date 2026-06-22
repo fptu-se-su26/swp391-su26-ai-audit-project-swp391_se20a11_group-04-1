@@ -3,30 +3,47 @@ import { useParams } from 'react-router-dom'
 import { useArchitectureStore } from '../store/architectureStore'
 import { getSyncStatus, getGraphData } from '../api/architectureApi'
 import SyncButton from '../components/SyncButton'
-import LayerTabs from '../components/LayerTabs'
 import BreadcrumbNav from '../components/BreadcrumbNav'
-import GraphToolbar from '../components/GraphToolbar'
 import GraphCanvas from '../components/GraphCanvas'
 import NodeDetailPanel from '../components/NodeDetailPanel'
+import ServiceNavigator from '../components/ServiceNavigator'
+import EmptyState from '../components/EmptyState'
+import OnboardingTooltip from '../components/OnboardingTooltip'
 import toast from 'react-hot-toast'
 import { ReactFlowProvider } from '@xyflow/react'
+import { Network } from 'lucide-react'
 
 export default function ArchitecturePage() {
   const { projectId } = useParams()
   const {
     setProjectId,
-    layer,
-    focusNodeId,
+    activeView,
+    activeServiceId,
+    selectedNode,
     syncStatus,
     setSyncStatus,
     graphData,
     setGraphData,
     isLoading,
     setIsLoading,
-    resetBreadcrumbs
+    navigateToSystem
   } = useArchitectureStore()
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [services, setServices] = useState([])
+
+  const extractServices = (systemGraph) => {
+    if (!systemGraph || !systemGraph.nodes) return []
+    return systemGraph.nodes
+      .filter(n => n.layer === 'SYSTEM')
+      .map(n => ({
+        id: n.metadata?.serviceId || n.nodeId.replace('service:', ''),
+        name: n.name,
+        tech: n.metadata?.tech,
+        port: n.metadata?.port,
+        type: n.metadata?.type || 'service'
+      }))
+  }
 
   const fetchStatus = async () => {
     try {
@@ -44,7 +61,7 @@ export default function ArchitecturePage() {
   const fetchGraph = async () => {
     setIsLoading(true)
     try {
-      const res = await getGraphData(projectId, layer, focusNodeId)
+      const res = await getGraphData(projectId, activeView, activeServiceId)
       if (res.success && res.data) {
         setGraphData(res.data)
       } else {
@@ -61,13 +78,35 @@ export default function ArchitecturePage() {
     }
   }
 
+  const loadServicesList = async () => {
+    try {
+      const res = await getGraphData(projectId, 'SYSTEM')
+      if (res.success && res.data) {
+        const extracted = extractServices(res.data)
+        setServices(extracted)
+      }
+    } catch (err) {
+      console.error('Failed to load services list', err)
+    }
+  }
+
+  const handleSyncSuccess = () => {
+    fetchStatus().then((status) => {
+      if (status && status.status === 'READY') {
+        loadServicesList()
+        fetchGraph()
+      }
+    })
+  }
+
   useEffect(() => {
     if (projectId) {
       setProjectId(Number(projectId))
-      resetBreadcrumbs()
+      navigateToSystem()
       
       fetchStatus().then((status) => {
-        if (status && (status.status === 'READY' || status.status === 'ERROR' || status.status === 'SYNCING')) {
+        if (status && status.status === 'READY') {
+          loadServicesList()
           fetchGraph()
         }
       })
@@ -75,60 +114,61 @@ export default function ArchitecturePage() {
   }, [projectId])
 
   useEffect(() => {
-    if (projectId && (syncStatus.status === 'READY' || syncStatus.status === 'ERROR')) {
+    if (projectId && syncStatus.status === 'READY') {
       fetchGraph()
     }
-  }, [layer, focusNodeId, syncStatus.status])
+  }, [activeView, activeServiceId])
 
   const hasData = graphData.nodes && graphData.nodes.length > 0
   const isSyncing = syncStatus.status === 'SYNCING'
 
   return (
     <ReactFlowProvider>
-      <div className="h-[calc(100vh-64px)] flex flex-col bg-surface-container-lowest text-on-surface">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b border-outline-variant/30 bg-surface gap-3 shrink-0">
+      <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 dark:bg-slate-950/20 text-slate-800 dark:text-slate-100">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 gap-3 shrink-0 font-sans">
           <div>
-            <h1 className="text-xl font-bold text-on-surface">Kiến trúc mã nguồn</h1>
-            <p className="text-xs text-on-surface-variant font-medium">
-              Visual mô tả cấu trúc mã nguồn theo 3 lớp: Tổng quan → Module → Luồng xử lý.
+            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">Kiến trúc mã nguồn</h1>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+              Visual mô tả cấu trúc mã nguồn theo 2 lớp: Hệ thống tổng quan và liên kết file nội bộ.
             </p>
           </div>
-          <SyncButton onSyncSuccess={fetchGraph} />
+          <SyncButton projectId={projectId} onSyncSuccess={handleSyncSuccess} />
         </div>
 
         <div className="flex-1 flex overflow-hidden">
           {syncStatus.status === 'IDLE' && !hasData && !isSyncing ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary shadow-inner">
-                <span className="material-icons-outlined text-3xl">schema</span>
-              </div>
-              <div className="max-w-md space-y-2">
-                <h2 className="text-lg font-bold text-on-surface">Sẵn sàng phân tích kiến trúc</h2>
-                <p className="text-sm text-on-surface-variant">
-                  Dự án chưa được phân tích cấu trúc mã nguồn. Bấm nút "Bắt đầu phân tích" để quét và xây dựng sơ đồ trực quan 2D theo phong cách Obsidian.
-                </p>
-              </div>
-              <SyncButton onSyncSuccess={fetchGraph} />
-            </div>
+            <EmptyState 
+              projectId={projectId} 
+              syncStatus={syncStatus} 
+              onSyncSuccess={handleSyncSuccess} 
+            />
           ) : (
             <>
+              {hasData && (
+                <ServiceNavigator 
+                  services={services} 
+                  onFocusNode={(nodeId) => {
+                    if (window.focusArchitectureNode) {
+                      window.focusArchitectureNode(nodeId)
+                    }
+                  }} 
+                />
+              )}
+
               <div className="flex-1 flex flex-col p-4 space-y-3 min-w-0">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shrink-0">
-                  <LayerTabs />
                   <BreadcrumbNav />
                 </div>
 
-                <GraphToolbar onSearch={setSearchQuery} />
-
                 <div className="flex-1 min-h-0 relative">
                   {isLoading && (
-                    <div className="absolute inset-0 bg-surface/50 flex items-center justify-center z-50 rounded-xl">
+                    <div className="absolute inset-0 bg-white/70 dark:bg-slate-905/70 flex items-center justify-center z-50 rounded-xl">
                       <div className="flex flex-col items-center space-y-2">
-                        <svg className="animate-spin h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
-                        <span className="text-xs text-on-surface-variant font-bold">Đang tải dữ liệu đồ thị...</span>
+                        <span className="text-[11px] text-slate-550 dark:text-slate-400 font-bold">Đang tải dữ liệu đồ thị...</span>
                       </div>
                     </div>
                   )}
@@ -138,23 +178,27 @@ export default function ArchitecturePage() {
                       rawNodes={graphData.nodes} 
                       rawEdges={graphData.edges} 
                       searchQuery={searchQuery}
+                      onSearch={setSearchQuery}
                     />
                   ) : (
-                    <div className="w-full h-full border border-outline-variant/30 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center p-6">
-                      <span className="material-icons-outlined text-4xl text-outline mb-2">bubble_chart</span>
-                      <p className="text-sm text-on-surface-variant font-medium">Không tìm thấy dữ liệu cấu trúc cho phần này</p>
+                    <div className="w-full h-full border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 flex flex-col items-center justify-center text-center p-6">
+                      <Network className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-2" />
+                      <p className="text-xs text-slate-450 font-medium">Không tìm thấy dữ liệu cấu trúc cho phần này</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="w-80 shrink-0 border-l border-outline-variant/30 bg-surface">
-                <NodeDetailPanel />
-              </div>
+              {selectedNode && (
+                <div className="w-80 shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <NodeDetailPanel />
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
+      <OnboardingTooltip />
     </ReactFlowProvider>
   )
 }
