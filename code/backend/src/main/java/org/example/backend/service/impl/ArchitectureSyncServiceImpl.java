@@ -145,11 +145,11 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
 
     @Override
     @Transactional(readOnly = true)
-    public ArchitectureGraph getGraphData(Long projectId, String layer, String nodeId, Long userId) {
+    public ArchitectureGraph getGraphData(Long projectId, String view, String serviceId, Long userId) {
         projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
 
-        String cacheKey = String.format("arch:graph:%d:%s:%s", projectId, layer, (nodeId != null ? nodeId : "ALL"));
+        String cacheKey = String.format("arch:graph:%d:%s:%s", projectId, view, (serviceId != null ? serviceId : "ALL"));
         String cachedGraph = redisTemplate.opsForValue().get(cacheKey);
         
         if (cachedGraph != null) {
@@ -163,7 +163,7 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
         ArchitectureGraph fullGraph = architectureGraphRepository.findByProjectId(projectId)
                 .orElseThrow(() -> new CustomException("Kiến trúc dự án chưa được phân tích. Vui lòng bấm Sync trước.", HttpStatus.NOT_FOUND));
 
-        ArchitectureGraph filteredGraph = filterGraphForLayer(fullGraph, layer, nodeId);
+        ArchitectureGraph filteredGraph = filterGraphForView(fullGraph, view, serviceId);
 
         try {
             redisTemplate.opsForValue().set(
@@ -179,7 +179,7 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
         return filteredGraph;
     }
 
-    private ArchitectureGraph filterGraphForLayer(ArchitectureGraph fullGraph, String layer, String nodeId) {
+    private ArchitectureGraph filterGraphForView(ArchitectureGraph fullGraph, String view, String serviceId) {
         if (fullGraph == null) return null;
         
         List<GraphNode> allNodes = fullGraph.getNodes();
@@ -188,109 +188,45 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
         List<GraphNode> filteredNodes = new ArrayList<>();
         List<GraphEdge> filteredEdges = new ArrayList<>();
         
-        if ("OVERVIEW".equalsIgnoreCase(layer)) {
+        if ("SYSTEM".equalsIgnoreCase(view)) {
             for (GraphNode node : allNodes) {
-                if ("OVERVIEW".equalsIgnoreCase(node.getLayer())) {
+                if ("SYSTEM".equalsIgnoreCase(node.getLayer())) {
                     filteredNodes.add(node);
                 }
             }
             for (GraphEdge edge : allEdges) {
-                if ("OVERVIEW".equalsIgnoreCase(edge.getLayer())) {
+                if ("SYSTEM".equalsIgnoreCase(edge.getLayer())) {
                     filteredEdges.add(edge);
                 }
             }
         } 
-        else if ("MODULE".equalsIgnoreCase(layer)) {
-            if (nodeId == null || nodeId.trim().isEmpty() || "ALL".equalsIgnoreCase(nodeId)) {
+        else if ("INTERNAL".equalsIgnoreCase(view)) {
+            if (serviceId == null || serviceId.trim().isEmpty() || "ALL".equalsIgnoreCase(serviceId)) {
                 for (GraphNode node : allNodes) {
-                    if ("MODULE".equalsIgnoreCase(node.getLayer())) {
+                    if ("INTERNAL".equalsIgnoreCase(node.getLayer())) {
                         filteredNodes.add(node);
                     }
                 }
                 for (GraphEdge edge : allEdges) {
-                    if ("MODULE".equalsIgnoreCase(edge.getLayer())) {
+                    if ("INTERNAL".equalsIgnoreCase(edge.getLayer())) {
                         filteredEdges.add(edge);
                     }
                 }
             } else {
-                Set<String> moduleNodeIds = new HashSet<>();
+                Set<String> includedNodeIds = new HashSet<>();
                 for (GraphNode node : allNodes) {
-                    if ("MODULE".equalsIgnoreCase(node.getLayer()) && nodeId.equals(node.getParentId())) {
-                        filteredNodes.add(node);
-                        moduleNodeIds.add(node.getNodeId());
-                    }
-                }
-                for (GraphEdge edge : allEdges) {
-                    if ("MODULE".equalsIgnoreCase(edge.getLayer()) && 
-                        (moduleNodeIds.contains(edge.getSource()) || moduleNodeIds.contains(edge.getTarget()))) {
-                        filteredEdges.add(edge);
-                    }
-                }
-            }
-        } 
-        else if ("FLOW".equalsIgnoreCase(layer)) {
-            if (nodeId == null || nodeId.trim().isEmpty() || "ALL".equalsIgnoreCase(nodeId)) {
-                for (GraphNode node : allNodes) {
-                    if (("CLASS".equals(node.getType()) || "INTERFACE".equals(node.getType())) && "MODULE".equals(node.getLayer())) {
-                        nodeId = node.getNodeId();
-                        break;
-                    }
-                }
-            }
-            
-            if (nodeId != null) {
-                Set<String> classIdsToInclude = new HashSet<>();
-                Set<String> methodIdsToInclude = new HashSet<>();
-                
-                classIdsToInclude.add(nodeId);
-                
-                for (GraphNode node : allNodes) {
-                    if ("METHOD".equals(node.getType()) && nodeId.equals(node.getParentId())) {
-                        methodIdsToInclude.add(node.getNodeId());
-                    }
-                }
-                
-                List<GraphEdge> callsEdges = new ArrayList<>();
-                for (GraphEdge edge : allEdges) {
-                    if ("FLOW".equalsIgnoreCase(edge.getLayer()) && "CALLS".equals(edge.getType())) {
-                        if (methodIdsToInclude.contains(edge.getSource()) || methodIdsToInclude.contains(edge.getTarget())) {
-                            callsEdges.add(edge);
-                            methodIdsToInclude.add(edge.getSource());
-                            methodIdsToInclude.add(edge.getTarget());
+                    if ("INTERNAL".equalsIgnoreCase(node.getLayer()) && node.getMetadata() != null) {
+                        String nodeSvcId = (String) node.getMetadata().get("serviceId");
+                        if (serviceId.equalsIgnoreCase(nodeSvcId)) {
+                            filteredNodes.add(node);
+                            includedNodeIds.add(node.getNodeId());
                         }
                     }
                 }
-                filteredEdges.addAll(callsEdges);
-                
-                Map<String, GraphNode> allNodeMap = new HashMap<>();
-                for (GraphNode node : allNodes) {
-                    allNodeMap.put(node.getNodeId(), node);
-                }
-                
-                for (String mid : methodIdsToInclude) {
-                    GraphNode mNode = allNodeMap.get(mid);
-                    if (mNode != null && mNode.getParentId() != null) {
-                        classIdsToInclude.add(mNode.getParentId());
-                    }
-                }
-                
-                for (String cid : classIdsToInclude) {
-                    GraphNode cNode = allNodeMap.get(cid);
-                    if (cNode != null) {
-                        filteredNodes.add(cNode);
-                    }
-                }
-                for (String mid : methodIdsToInclude) {
-                    GraphNode mNode = allNodeMap.get(mid);
-                    if (mNode != null) {
-                        filteredNodes.add(mNode);
-                    }
-                }
-                
                 for (GraphEdge edge : allEdges) {
-                    if ("CONTAINS".equals(edge.getType()) && 
-                        classIdsToInclude.contains(edge.getSource()) && 
-                        methodIdsToInclude.contains(edge.getTarget())) {
+                    if ("INTERNAL".equalsIgnoreCase(edge.getLayer()) && 
+                        includedNodeIds.contains(edge.getSource()) && 
+                        includedNodeIds.contains(edge.getTarget())) {
                         filteredEdges.add(edge);
                     }
                 }

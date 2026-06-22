@@ -30,6 +30,7 @@ class GenericParser:
             "lineEnd": max(1, len(code_content.splitlines())),
             "metadata": {
                 "imports": list(set(imports)),
+                "annotations": [],
                 "sizeBytes": len(code_content)
             },
             "childrenIds": []
