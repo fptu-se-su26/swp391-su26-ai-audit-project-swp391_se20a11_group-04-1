@@ -4,6 +4,8 @@ import org.example.backend.dto.ClassroomResponse;
 import org.example.backend.dto.CreateClassroomRequest;
 import org.example.backend.dto.PaginatedResponse;
 
+import org.example.backend.dto.ClassroomDashboardResponse;
+
 public interface ClassroomService {
     ClassroomResponse createClassroom(CreateClassroomRequest request, Long userId);
     PaginatedResponse<ClassroomResponse> getMyClassrooms(Long userId, int page, int size, String semester, String search);
@@ -21,4 +23,6 @@ public interface ClassroomService {
     void randomGroups(Long classroomId, org.example.backend.dto.request.RandomGroupRequest request, Long userId);
 
     void clearAllGroups(Long classroomId, Long userId);
+
+    ClassroomDashboardResponse getClassroomDashboard(Long classroomId, Long projectId, Long userId);
 }

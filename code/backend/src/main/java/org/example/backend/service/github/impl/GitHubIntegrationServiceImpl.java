@@ -74,6 +74,9 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
 
         if (webhookSecret != null && !webhookSecret.trim().isEmpty()) {
             integration.setWebhookSecretEncrypted(encryptToken(webhookSecret.trim()));
+        } else if (integration.getWebhookSecretEncrypted() == null) {
+            String randomSecret = java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            integration.setWebhookSecretEncrypted(encryptToken(randomSecret));
         }
 
         if (!hasUserToken(userId)) {

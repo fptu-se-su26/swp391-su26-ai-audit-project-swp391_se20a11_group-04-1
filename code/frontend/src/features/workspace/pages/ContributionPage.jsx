@@ -30,7 +30,7 @@ export function ContributionPage() {
       </main>
     )
   }
-  const currentRole = activeProject?.role?.toUpperCase() || ''
+  const currentRole = activeProject?.role?.toUpperCase()?.replace(/\s+/g, '_') || ''
   const isLeader = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
 
   // Xử lý gửi lời mời thành viên
