@@ -29,6 +29,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,9 +56,13 @@ public class ProjectServiceImpl implements ProjectService {
     private final NotificationRepository notificationRepository;
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
+    private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final org.example.backend.service.github.GitHubApiService gitHubApiService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
+
+    @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
+    private String projectJoinLockPrefix;
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
     private String appBaseUrl;
@@ -184,12 +189,21 @@ public class ProjectServiceImpl implements ProjectService {
             }
         }
 
-        // Nếu người tạo gọi thì cũng cho phép (trường hợp chưa có member)
-        if (!isMember && project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId)) {
-            isMember = true;
+        // Cho phép truy cập nếu là Mentor (Owner) của lớp học chứa dự án này
+        boolean isClassroomOwner = false;
+        if (project.getAcademicContext() != null && project.getAcademicContext().getOwner() != null) {
+            if (project.getAcademicContext().getOwner().getId().equals(userId)) {
+                isClassroomOwner = true;
+            }
         }
 
-        if (!isMember) {
+        // Cho phép truy cập nếu là Người tạo dự án (createdBy)
+        boolean isCreator = false;
+        if (project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId)) {
+            isCreator = true;
+        }
+
+        if (!isMember && !isClassroomOwner && !isCreator) {
             throw new CustomException("Bạn không có quyền truy cập dự án này.", HttpStatus.FORBIDDEN);
         }
 
@@ -656,9 +670,9 @@ public class ProjectServiceImpl implements ProjectService {
         ProjectMember callingMember = projectMemberRepository.findByProjectIdAndUserId(projectId, callingUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bạn không thuộc dự án này."));
 
-        // Chỉ cho phép PROJECT_LEADER xoá
-        if (!isLeaderRole(callingMember.getRole().getName())) {
-            throw new CustomException("Chỉ Trưởng dự án mới có quyền xóa thành viên.", HttpStatus.FORBIDDEN);
+        // Chỉ cho phép PROJECT_LEADER hoặc MENTOR xoá
+        if (!isLeaderRole(callingMember.getRole().getName()) && !"MENTOR".equalsIgnoreCase(callingMember.getRole().getName())) {
+            throw new CustomException("Chỉ Trưởng dự án hoặc Mentor mới có quyền xóa thành viên.", HttpStatus.FORBIDDEN);
         }
 
         // Không được phép tự xóa chính mình nếu mình là Leader (phải chuyển quyền trước)
@@ -669,6 +683,11 @@ public class ProjectServiceImpl implements ProjectService {
         // Không xóa ai đang là PROJECT_LEADER
         if (isLeaderRole(targetMember.getRole().getName())) {
             throw new BadRequestException("Không thể xóa người đang giữ vai trò Trưởng dự án.");
+        }
+
+        // Không xóa MENTOR
+        if ("MENTOR".equalsIgnoreCase(targetMember.getRole().getName())) {
+            throw new BadRequestException("Không thể xóa Mentor khỏi dự án.");
         }
 
         projectMemberRepository.delete(targetMember);
@@ -769,6 +788,74 @@ public class ProjectServiceImpl implements ProjectService {
         projectRepository.save(project);
         
         log.info("🗑️ Successfully archived (soft-deleted) project ID: {} by user ID: {}", projectId, userId);
+    }
+
+    @Override
+    public void joinProject(Long projectId, Long userId) {
+        String lockKey = projectJoinLockPrefix + projectId;
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", 1, TimeUnit.SECONDS);
+
+        if (Boolean.FALSE.equals(acquired)) {
+            throw new BadRequestException("Hệ thống đang có nhiều người tham gia dự án cùng lúc, vui lòng thử lại sau 1 giây!");
+        }
+
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                Project project = projectRepository.findById(projectId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+                AcademicContext ac = project.getAcademicContext();
+                if (ac == null) {
+                    throw new BadRequestException("Dự án này không thuộc bất kỳ lớp học nào.");
+                }
+
+                // Kiểm tra xem user có thuộc lớp học này không
+                boolean isEnrolled = ac.getEnrolledStudents().stream()
+                        .anyMatch(u -> u.getId().equals(userId));
+                if (!isEnrolled) {
+                    throw new CustomException("Bạn không phải thành viên của lớp học này.", HttpStatus.FORBIDDEN);
+                }
+
+                // Kiểm tra xem user đã ở trong nhóm nào của lớp này chưa
+                java.util.List<Project> classProjects = projectRepository.findByAcademicContextIdAndStatusNot(ac.getId(), ProjectStatus.ARCHIVED);
+                for (Project cp : classProjects) {
+                    if (cp.getMembers() != null && cp.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(userId))) {
+                        throw new BadRequestException("Bạn đã tham gia một nhóm khác trong lớp học này rồi.");
+                    }
+                }
+
+                long currentSize = project.getMembers() != null ? project.getMembers().stream()
+                        .filter(m -> m.getRole() != null && !"MENTOR".equalsIgnoreCase(m.getRole().getName()))
+                        .count() : 0;
+
+                if (project.getMaxMembers() != null && currentSize >= project.getMaxMembers()) {
+                    throw new BadRequestException("Nhóm này đã đủ số lượng thành viên tối đa (" + project.getMaxMembers() + " người).");
+                }
+
+                UserAccount user = userAccountRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng."));
+
+                ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
+                        .orElseThrow(() -> new ResourceNotFoundException("Vai trò MEMBER không tồn tại trong hệ thống."));
+
+                ProjectMember pm = ProjectMember.builder()
+                        .project(project)
+                        .user(user)
+                        .role(memberRole)
+                        .build();
+
+                if (project.getMembers() == null) {
+                    project.setMembers(new java.util.ArrayList<>());
+                }
+                project.getMembers().add(pm);
+                projectRepository.save(project);
+
+                evictUserProjectsCache(userId);
+                log.info("✅ User {} successfully joined project {}", userId, projectId);
+            });
+        } finally {
+            redisTemplate.delete(lockKey);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════

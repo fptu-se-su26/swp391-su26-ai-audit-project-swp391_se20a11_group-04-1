@@ -204,6 +204,13 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .collect(Collectors.toList());
         response.setProjectCount(projects.size());
         
+        // Lấy số lượng thành viên tối đa của nhóm từ cấu hình lần phân nhóm trước (mặc định là 5 nếu chưa có nhóm nào)
+        Integer maxMembersPerGroup = 5;
+        if (!projects.isEmpty() && projects.get(0).getMaxMembers() != null) {
+            maxMembersPerGroup = projects.get(0).getMaxMembers();
+        }
+        response.setMaxMembersPerGroup(maxMembersPerGroup);
+        
         // Map projects
         List<ClassroomResponse.ProjectSummaryDto> projectDtos = projects.stream().map(p -> {
             ClassroomResponse.ProjectSummaryDto dto = new ClassroomResponse.ProjectSummaryDto();
@@ -405,6 +412,11 @@ public class ClassroomServiceImpl implements ClassroomService {
                         .count();
                 boolean modified = false;
 
+                if (project.getMaxMembers() == null || project.getMaxMembers() != membersPerGroup) {
+                    project.setMaxMembers(membersPerGroup);
+                    modified = true;
+                }
+
                 while (currentSize < membersPerGroup && studentIndex < unassignedStudents.size()) {
                     UserAccount student = unassignedStudents.get(studentIndex++);
                     affectedUserIds.add(student.getId());
@@ -444,6 +456,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                     .deadline(java.time.LocalDate.now().plusMonths(3))
                     .status(org.example.backend.entity.ProjectStatus.PLANNING)
                     .createdBy(ac.getOwner())
+                    .maxMembers(membersPerGroup)
                     .members(new java.util.ArrayList<>())
                     .build();
 

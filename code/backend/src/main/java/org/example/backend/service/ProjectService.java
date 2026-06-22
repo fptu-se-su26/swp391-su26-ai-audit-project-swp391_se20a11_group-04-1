@@ -61,5 +61,10 @@ public interface ProjectService {
      * Xóa nhóm thủ công (chỉ dành cho người tạo ra nhóm đó)
      */
     void deleteProject(Long projectId, Long userId);
+
+    /**
+     * Cho phép một sinh viên tự tham gia vào dự án
+     */
+    void joinProject(Long projectId, Long userId);
 }
 

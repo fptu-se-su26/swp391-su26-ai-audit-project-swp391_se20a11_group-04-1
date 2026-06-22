@@ -22,6 +22,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     java.util.List<Project> findByAcademicContextId(Long academicContextId);
 
+    java.util.List<Project> findByAcademicContextIdAndStatusNot(Long academicContextId, ProjectStatus status);
+
     /**
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).
      */

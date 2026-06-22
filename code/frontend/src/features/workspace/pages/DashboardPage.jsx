@@ -205,8 +205,10 @@ export function DashboardPage() {
     const semesterParam = searchParams.get('semester')
     const subjectParam = searchParams.get('subject')
 
+    const hideToast = searchParams.get('hideToast') === 'true'
+
     if (classroomId) {
-      if (!isMentor) {
+      if (!isMentor && !hideToast) {
         toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
       }
 
@@ -234,6 +236,7 @@ export function DashboardPage() {
         deadline: deadline || prev.deadline
       }))
       setIsModalOpen(true)
+      checkGithubStatus()
     }
   }, [location.search])
 
@@ -1130,6 +1133,40 @@ export function DashboardPage() {
     )
   }
 
+  const uniqueMembers = []
+  const seenIds = new Set()
+  if (activeProject && activeProject.members) {
+    activeProject.members.forEach((member) => {
+      if (!seenIds.has(member.id)) {
+        seenIds.add(member.id)
+        uniqueMembers.push(member)
+      }
+    })
+  }
+
+  const renderRoleBadge = (role) => {
+    const upper = (role || '').toUpperCase()
+    if (upper === 'PROJECT_LEADER' || upper === 'LEADER') {
+      return (
+        <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Leader
+        </span>
+      )
+    }
+    if (upper === 'MENTOR') {
+      return (
+        <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Mentor
+        </span>
+      )
+    }
+    return (
+      <span className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded font-semibold uppercase tracking-wider">
+        Developer
+      </span>
+    )
+  }
+
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
 
@@ -1262,10 +1299,10 @@ export function DashboardPage() {
 
           {/* Cột 3: Quản lý thành viên nhóm */}
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({activeProject.members?.length || 0})</h3>
+            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({uniqueMembers.length})</h3>
             <div className="space-y-3">
-              {(activeProject.members || []).map((member, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
+              {uniqueMembers.map((member, idx) => (
+                <div key={member.id || idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${member.bg}`}>
                       {member.initials}
@@ -1275,9 +1312,7 @@ export function DashboardPage() {
                       <p className="text-[10px] text-on-surface-variant mt-0.5">Active</p>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded font-semibold">
-                    {idx === 0 ? 'Leader' : 'Developer'}
-                  </span>
+                  {renderRoleBadge(member.role)}
                 </div>
               ))}
             </div>
