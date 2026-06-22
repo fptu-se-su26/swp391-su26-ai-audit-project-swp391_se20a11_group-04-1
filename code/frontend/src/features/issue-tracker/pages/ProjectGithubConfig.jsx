@@ -175,7 +175,7 @@ export function ProjectGithubConfig() {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e?.preventDefault()
     if (!repoOwner.trim() || !repoName.trim()) {
       toast.error('Please select a repository!')
       return
@@ -191,7 +191,14 @@ export function ProjectGithubConfig() {
       toast.success('GitHub configuration saved successfully!')
       setWebhookStatus(config.webhookStatus || 'PENDING')
       setLastWebhookReceivedAt(config.lastWebhookReceivedAt || null)
-      setWebhookSecretInput(webhookSecret) // sync to modal
+      
+      if (config.webhookSecret) {
+        setWebhookSecret(config.webhookSecret)
+        setWebhookSecretInput(config.webhookSecret)
+      } else {
+        setWebhookSecretInput(webhookSecret) // sync to modal
+      }
+      
       setIsEditingConfig(false)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save configuration')
@@ -300,9 +307,10 @@ export function ProjectGithubConfig() {
     }
   }
 
-  const currentRole = activeProject?.role?.toUpperCase() || ''
+  const currentRole = activeProject?.role?.toUpperCase()?.replace(/\s+/g, '_') || ''
   const canView = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
   const canEdit = ['PROJECT_LEADER', 'LEADER'].includes(currentRole)
+  const isInitialSetup = !repoOwner || !repoName
   
   if (!canView) {
     return (
@@ -356,6 +364,97 @@ export function ProjectGithubConfig() {
             We only request access to read/write repositories for issue syncing.
           </div>
         </div>
+      ) : isInitialSetup ? (
+        // INITIAL SETUP VIEW (Must add a repository first)
+        <div className="bg-surface-container-lowest rounded-3xl p-10 text-center shadow-lg border border-outline-variant/50 flex flex-col items-center">
+          <div className="text-center mb-8 max-w-lg">
+            <h2 className="text-2xl font-black mb-3">Connect Repository</h2>
+            <p className="text-on-surface-variant text-sm leading-relaxed">
+              To start syncing issues and commits, please link an existing GitHub repository or create a new one. This is required before configuring webhook settings.
+            </p>
+          </div>
+          
+          <div className="w-full max-w-xl text-left bg-surface-container p-6 rounded-2xl border border-outline-variant/40">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-on-surface-variant">Select Repository</label>
+                {loadingRepos ? (
+                  <div className="p-2 text-xs text-on-surface-variant animate-pulse bg-surface-container rounded-lg">Loading repositories...</div>
+                ) : (
+                  <div className="flex gap-2 relative">
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-primary disabled:opacity-50"
+                      placeholder="-- Type to search a Repository --"
+                      value={searchRepo}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchRepo(val)
+                        setIsDropdownOpen(true)
+                        if (!val) {
+                          setRepoOwner('')
+                          setRepoName('')
+                        } else if (val.includes('/')) {
+                          const [owner, name] = val.split('/')
+                          if (owner && name) {
+                            setRepoOwner(owner.trim())
+                            setRepoName(name.trim())
+                          }
+                        } else {
+                          setRepoOwner('')
+                          setRepoName('')
+                        }
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                      required={!repoOwner || !repoName}
+                      disabled={!isEditingConfig}
+                    />
+                    {isEditingConfig && (
+                      <button type="button" onClick={() => setShowCreateModal(true)} className="px-3 bg-primary hover:bg-primary/90 text-on-primary rounded-lg flex items-center justify-center transition-colors shadow-sm" title="Create new repository">
+                        <span className="material-symbols-outlined">add</span>
+                      </button>
+                    )}
+                    {isDropdownOpen && isEditingConfig && (
+                      <ul className="absolute top-10 left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-lg bg-surface-container-lowest border border-outline-variant shadow-lg">
+                        {userRepos
+                          .filter(repo => repo.full_name.toLowerCase().includes(searchRepo.toLowerCase()))
+                          .map(repo => (
+                            <li
+                              key={repo.id}
+                              className="px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-high text-on-surface"
+                              onMouseDown={() => {
+                                const [owner, name] = repo.full_name.split('/')
+                                setRepoOwner(owner)
+                                setRepoName(name)
+                                setSearchRepo(repo.full_name)
+                                setIsDropdownOpen(false)
+                              }}
+                            >
+                              {repo.full_name}
+                            </li>
+                        ))}
+                        {userRepos.filter(repo => repo.full_name.toLowerCase().includes(searchRepo.toLowerCase())).length === 0 && (
+                          <li className="px-3 py-2 text-sm text-on-surface-variant">No repositories found.</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="pt-2">
+                <button 
+                  type="submit" 
+                  disabled={saving || !repoOwner || !repoName}
+                  className="w-full py-2.5 bg-primary text-on-primary font-bold rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {saving ? <span className="material-symbols-outlined animate-spin text-sm">refresh</span> : <span className="material-symbols-outlined text-sm">save</span>}
+                  Save Repository
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : (
         // CONNECTED VIEW - Grouped Dashboard
         <div className="space-y-6">
@@ -389,7 +488,7 @@ export function ProjectGithubConfig() {
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-1">Linked Repository</label>
-                  {repoOwner && repoName ? (
+                  {repoOwner && repoName && !isEditingConfig ? (
                     <a 
                       href={`https://github.com/${repoOwner}/${repoName}`} 
                       target="_blank" 
@@ -401,7 +500,65 @@ export function ProjectGithubConfig() {
                       <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                     </a>
                   ) : (
-                    <span className="text-sm font-medium text-on-surface-variant italic">No repository linked yet</span>
+                    <div className="flex gap-2 relative mt-1">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-primary disabled:opacity-50"
+                        placeholder="-- Type to search a Repository --"
+                        value={searchRepo}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSearchRepo(val)
+                          setIsDropdownOpen(true)
+                          if (!val) {
+                            setRepoOwner('')
+                            setRepoName('')
+                          } else if (val.includes('/')) {
+                            const [owner, name] = val.split('/')
+                            if (owner && name) {
+                              setRepoOwner(owner.trim())
+                              setRepoName(name.trim())
+                            }
+                          } else {
+                            setRepoOwner('')
+                            setRepoName('')
+                          }
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                        required={!repoOwner || !repoName}
+                        disabled={!canEdit}
+                      />
+                      {canEdit && (
+                        <button type="button" onClick={(e) => { handleSubmit(e) }} disabled={saving || !repoOwner || !repoName} className="px-3 bg-primary hover:bg-primary/90 text-on-primary rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50" title="Save Repository">
+                          <span className="material-symbols-outlined text-[18px]">save</span>
+                        </button>
+                      )}
+                      {isDropdownOpen && canEdit && (
+                        <ul className="absolute top-10 left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-lg bg-surface-container-lowest border border-outline-variant shadow-lg">
+                          {userRepos
+                            .filter(repo => repo.full_name.toLowerCase().includes(searchRepo.toLowerCase()))
+                            .map(repo => (
+                              <li
+                                key={repo.id}
+                                className="px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-high text-on-surface"
+                                onMouseDown={() => {
+                                  const [owner, name] = repo.full_name.split('/')
+                                  setRepoOwner(owner)
+                                  setRepoName(name)
+                                  setSearchRepo(repo.full_name)
+                                  setIsDropdownOpen(false)
+                                }}
+                              >
+                                {repo.full_name}
+                              </li>
+                          ))}
+                          {userRepos.filter(repo => repo.full_name.toLowerCase().includes(searchRepo.toLowerCase())).length === 0 && (
+                            <li className="px-3 py-2 text-sm text-on-surface-variant">No repositories found.</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -587,9 +744,19 @@ export function ProjectGithubConfig() {
                           placeholder="-- Type to search a Repository --"
                           value={searchRepo}
                           onChange={(e) => {
-                            setSearchRepo(e.target.value)
+                            const val = e.target.value;
+                            setSearchRepo(val)
                             setIsDropdownOpen(true)
-                            if (!e.target.value) {
+                            if (!val) {
+                              setRepoOwner('')
+                              setRepoName('')
+                            } else if (val.includes('/')) {
+                              const [owner, name] = val.split('/')
+                              if (owner && name) {
+                                setRepoOwner(owner.trim())
+                                setRepoName(name.trim())
+                              }
+                            } else {
                               setRepoOwner('')
                               setRepoName('')
                             }

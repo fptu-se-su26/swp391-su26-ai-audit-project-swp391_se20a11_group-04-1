@@ -6,6 +6,7 @@ import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.ClassroomResponse;
 import org.example.backend.dto.CreateClassroomRequest;
 import org.example.backend.dto.PaginatedResponse;
+import org.example.backend.dto.ClassroomDashboardResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.ClassroomService;
 import org.springframework.http.HttpStatus;
@@ -97,6 +98,16 @@ public class ClassroomController {
         classroomService.clearAllGroups(id, userId);
 
         return ResponseEntity.ok(ApiResponse.success(null, "Giải tán toàn bộ nhóm thành công!"));
+    }
+
+    @GetMapping("/{id}/dashboard-stats")
+    public ResponseEntity<ApiResponse<ClassroomDashboardResponse>> getClassroomDashboard(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long projectId,
+            HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        ClassroomDashboardResponse response = classroomService.getClassroomDashboard(id, projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thống kê dashboard lớp học thành công!"));
     }
 
     private Long getUserIdFromSession(HttpSession session) {

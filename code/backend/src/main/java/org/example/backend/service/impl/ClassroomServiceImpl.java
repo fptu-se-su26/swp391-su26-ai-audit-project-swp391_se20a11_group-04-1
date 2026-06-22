@@ -5,6 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.ClassroomResponse;
 import org.example.backend.dto.CreateClassroomRequest;
 import org.example.backend.dto.PaginatedResponse;
+import org.example.backend.dto.ClassroomDashboardResponse;
+import org.example.backend.entity.GitHubCommit;
+import java.util.Map;
+import java.util.Optional;
 import org.example.backend.entity.AcademicContext;
 import org.example.backend.entity.AcademicSeason;
 import org.example.backend.entity.UserAccount;
@@ -40,6 +44,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final org.example.backend.util.ClassroomTokenUtil classroomTokenUtil;
     private final StringRedisTemplate stringRedisTemplate;
     private final TransactionTemplate transactionTemplate;
+    private final org.example.backend.repository.TaskRepository taskRepository;
+    private final org.example.backend.repository.GitHubCommitRepository commitRepository;
 
     @Value("${app.redis.lock.classroom-join-prefix:lock:classroom_join:}")
     private String classroomJoinLockPrefix;
@@ -549,5 +555,159 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
         
         log.info("🗑️ Mentor ID: {} cleared all groups for classroom ID: {}", userId, classroomId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomDashboardResponse getClassroomDashboard(Long classroomId, Long projectId, Long userId) {
+        AcademicContext ac = academicContextRepository.findById(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp học không tồn tại."));
+
+        boolean isOwner = ac.getOwner().getId().equals(userId);
+        boolean isEnrolled = ac.getEnrolledStudents().stream().anyMatch(u -> u.getId().equals(userId));
+
+        if (!isOwner && !isEnrolled) {
+            throw new org.example.backend.exception.CustomException("Bạn không có quyền xem thông tin lớp học này.", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        // Fetch active projects only (hide ARCHIVED)
+        List<org.example.backend.entity.Project> projects = projectRepository.findByAcademicContextId(classroomId).stream()
+                .filter(p -> p.getStatus() != org.example.backend.entity.ProjectStatus.ARCHIVED)
+                .collect(Collectors.toList());
+
+        // Prepare groups dropdown list
+        List<ClassroomDashboardResponse.GroupSelectItemDto> groupSelectItems = new java.util.ArrayList<>();
+        for (int i = 0; i < projects.size(); i++) {
+            org.example.backend.entity.Project p = projects.get(i);
+            groupSelectItems.add(ClassroomDashboardResponse.GroupSelectItemDto.builder()
+                    .id(p.getId())
+                    .name(p.getName())
+                    .groupNo(i + 1)
+                    .build());
+        }
+
+        // If no projects created yet
+        if (projects.isEmpty()) {
+            return ClassroomDashboardResponse.builder()
+                    .groups(java.util.Collections.emptyList())
+                    .build();
+        }
+
+        // Determine which project is selected (default to the first one)
+        org.example.backend.entity.Project selectedProject = null;
+        if (projectId != null) {
+            selectedProject = projects.stream()
+                    .filter(p -> p.getId().equals(projectId))
+                    .findFirst()
+                    .orElse(projects.get(0));
+        } else {
+            selectedProject = projects.get(0);
+        }
+        final Long evalProjectId = selectedProject.getId();
+        final String evalProjectName = selectedProject.getName();
+
+        // 1. Stats cards (Overall Classroom averages/totals)
+        int totalMembers = ac.getEnrolledStudents().size();
+        
+        long tasksCompleted = 0;
+        long pendingIssues = 0;
+        long totalCommits = 0;
+        for (org.example.backend.entity.Project p : projects) {
+            tasksCompleted += taskRepository.countCompletedTasksByProjectId(p.getId());
+            pendingIssues += taskRepository.countPendingTasksByProjectId(p.getId());
+            totalCommits += commitRepository.countCommitsByProjectId(p.getId());
+        }
+
+        // 2. Team Contribution Box (Lists all active teams in classroom, comparing their progress)
+        List<ClassroomDashboardResponse.TeamContributionDto> teamContributions = new java.util.ArrayList<>();
+        for (org.example.backend.entity.Project p : projects) {
+            long pCompletedTasks = taskRepository.countCompletedTasksByProjectId(p.getId());
+            long pCommits = commitRepository.countCommitsByProjectId(p.getId());
+            teamContributions.add(ClassroomDashboardResponse.TeamContributionDto.builder()
+                    .name(p.getName())
+                    .tasks((int) pCompletedTasks)
+                    .commits((int) pCommits)
+                    .build());
+        }
+
+        // Sort contributions descending by commits
+        teamContributions.sort((a, b) -> b.getCommits() - a.getCommits());
+
+        // 3. Activity Frequency Line Chart (recent commits for top 5 active projects in last 7 days)
+        List<org.example.backend.entity.Project> activeTopProjects = projects.stream()
+                .sorted((p1, p2) -> {
+                    long c1 = commitRepository.countCommitsByProjectId(p1.getId());
+                    long c2 = commitRepository.countCommitsByProjectId(p2.getId());
+                    return Long.compare(c2, c1);
+                })
+                .limit(5)
+                .collect(Collectors.toList());
+
+        String[] weekDays = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"};
+        List<ClassroomDashboardResponse.DayActivityDto> activityFrequency = new java.util.ArrayList<>();
+        for (String day : weekDays) {
+            activityFrequency.add(ClassroomDashboardResponse.DayActivityDto.builder()
+                    .name(day)
+                    .groupActivities(new java.util.HashMap<>())
+                    .build());
+        }
+
+        // Query commits of last 7 days for the classroom
+        java.time.LocalDateTime sevenDaysAgo = java.time.LocalDateTime.now().minusDays(7);
+        List<GitHubCommit> recentCommits = commitRepository.findRecentCommitsByClassroom(classroomId, sevenDaysAgo);
+
+        for (GitHubCommit commit : recentCommits) {
+            // Find which top project it belongs to
+            Optional<org.example.backend.entity.Project> prjOpt = activeTopProjects.stream()
+                    .filter(p -> p.getId().equals(commit.getProject().getId()))
+                    .findFirst();
+            if (prjOpt.isPresent()) {
+                String prjName = prjOpt.get().getName();
+                java.time.DayOfWeek dow = commit.getCommittedAt().getDayOfWeek();
+                int dayIndex = 0; // Monday=0, ..., Sunday=6 in our array
+                switch (dow) {
+                    case MONDAY: dayIndex = 0; break;
+                    case TUESDAY: dayIndex = 1; break;
+                    case WEDNESDAY: dayIndex = 2; break;
+                    case THURSDAY: dayIndex = 3; break;
+                    case FRIDAY: dayIndex = 4; break;
+                    case SATURDAY: dayIndex = 5; break;
+                    case SUNDAY: dayIndex = 6; break;
+                }
+                Map<String, Integer> groupActs = activityFrequency.get(dayIndex).getGroupActivities();
+                groupActs.put(prjName, groupActs.getOrDefault(prjName, 0) + 1);
+            }
+        }
+
+        // Fill zeros for projects that had no commits on some days to prevent empty slots in frontend charts
+        for (ClassroomDashboardResponse.DayActivityDto dayAct : activityFrequency) {
+            for (org.example.backend.entity.Project p : activeTopProjects) {
+                dayAct.getGroupActivities().putIfAbsent(p.getName(), 0);
+            }
+        }
+
+        // 4. Activity Heatmap for the selected project in last 365 days
+        java.time.LocalDateTime oneYearAgo = java.time.LocalDateTime.now().minusDays(365);
+        List<java.time.LocalDateTime> commitTimes = commitRepository.findCommitDatesByProject(evalProjectId, oneYearAgo);
+
+        Map<String, Long> activityHeatmap = new java.util.HashMap<>();
+        for (java.time.LocalDateTime dt : commitTimes) {
+            String dateStr = dt.toLocalDate().toString();
+            activityHeatmap.put(dateStr, activityHeatmap.getOrDefault(dateStr, 0L) + 1);
+        }
+
+        return ClassroomDashboardResponse.builder()
+                .selectedProjectId(evalProjectId)
+                .selectedProjectName(evalProjectName)
+                .totalMembers(totalMembers)
+                .tasksCompleted((int) tasksCompleted)
+                .pendingIssues((int) pendingIssues)
+                .totalCommits((int) totalCommits)
+                .groups(groupSelectItems)
+                .teamContributions(teamContributions)
+                .activityFrequency(activityFrequency)
+                .activityHeatmap(activityHeatmap)
+                .totalHeatmapCommits(commitTimes.size())
+                .build();
     }
 }
