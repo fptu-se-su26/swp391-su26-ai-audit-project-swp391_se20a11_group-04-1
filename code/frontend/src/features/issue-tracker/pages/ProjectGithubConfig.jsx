@@ -309,7 +309,7 @@ export function ProjectGithubConfig() {
 
   const currentRole = activeProject?.role?.toUpperCase()?.replace(/\s+/g, '_') || ''
   const canView = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
-  const canEdit = ['PROJECT_LEADER', 'LEADER'].includes(currentRole)
+  const canEdit = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
   const isInitialSetup = !repoOwner || !repoName
   
   if (!canView) {

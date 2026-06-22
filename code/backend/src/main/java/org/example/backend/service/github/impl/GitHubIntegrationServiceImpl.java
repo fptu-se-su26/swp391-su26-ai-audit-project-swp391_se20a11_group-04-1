@@ -109,6 +109,8 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
     }
 
     private boolean isLeaderRole(String roleName) {
-        return roleName != null && roleName.toUpperCase().contains("LEADER");
+        if (roleName == null) return false;
+        String upper = roleName.toUpperCase();
+        return upper.contains("LEADER") || upper.equals("MENTOR");
     }
 }

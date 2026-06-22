@@ -331,7 +331,10 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
           </div>
 
           <div className="space-y-5">
-            {activeStats.teamContributions.map((member, idx) => {
+            {[...activeStats.teamContributions]
+              .sort((a, b) => (b.commits + b.tasks) - (a.commits + a.tasks))
+              .slice(0, 5)
+              .map((member, idx) => {
               const commitPercent = Math.min((member.commits / maxCommits) * 65, 75)
               const taskPercent = Math.min((member.tasks / 30) * 20, 20)
 
