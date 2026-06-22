@@ -6,6 +6,7 @@ import axiosClient from '@api/axiosConfig'
 import useAuthStore from '@store/useAuthStore'
 import AnnouncementCarousel from '../components/AnnouncementCarousel'
 import AnnouncementTab from '../components/AnnouncementTab'
+import ClassroomDashboardTab from '../components/ClassroomDashboardTab'
 
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
@@ -500,7 +501,10 @@ export default function ClassroomDetailPage() {
         {activeTab === 'announcements' && (
           <AnnouncementTab classroomId={classroomId} classroomData={data} />
         )}
-        {activeTab !== 'projects' && activeTab !== 'members' && activeTab !== 'resources' && activeTab !== 'announcements' && (
+        {activeTab === 'dashboard' && (
+          <ClassroomDashboardTab data={data} setActiveTab={setActiveTab} />
+        )}
+        {activeTab !== 'projects' && activeTab !== 'members' && activeTab !== 'resources' && activeTab !== 'announcements' && activeTab !== 'dashboard' && (
           <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
             <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">construction</span>
             <h3 className="font-bold text-slate-600">Tab này đang được xây dựng</h3>
