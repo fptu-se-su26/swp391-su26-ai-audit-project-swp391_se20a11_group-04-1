@@ -300,13 +300,16 @@ export function ProjectGithubConfig() {
     }
   }
 
-  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
-  if (!isLeader) {
+  const currentRole = activeProject?.role?.toUpperCase() || ''
+  const canView = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
+  const canEdit = ['PROJECT_LEADER', 'LEADER'].includes(currentRole)
+  
+  if (!canView) {
     return (
       <main className="flex-1 p-6 flex items-center justify-center">
         <div className="max-w-md w-full text-center bg-surface-container-lowest p-8 rounded-2xl shadow-lg">
           <h3 className="font-extrabold text-xl text-on-surface">Access Denied</h3>
-          <p className="text-sm text-on-surface-variant">Only Project Leaders can edit GitHub configurations.</p>
+          <p className="text-sm text-on-surface-variant">Only Project Leaders and Mentors can view GitHub configurations.</p>
         </div>
       </main>
     )
@@ -498,7 +501,9 @@ export function ProjectGithubConfig() {
                 <button
                   type="button"
                   onClick={() => setShowWebhookModal(true)}
-                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm text-sm"
+                  disabled={!canEdit}
+                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm text-sm disabled:opacity-50"
+                  title={!canEdit ? "View-only mode. Only Leader can configure." : ""}
                 >
                   <span className="material-symbols-outlined text-sm">settings</span>
                   Sync / Re-configure Webhook
@@ -506,8 +511,9 @@ export function ProjectGithubConfig() {
                 <button 
                   type="button"
                   onClick={handlePingWebhook} 
-                  disabled={pinging || !repoOwner}
+                  disabled={pinging || !repoOwner || !canEdit}
                   className="flex-1 py-2.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                  title={!canEdit ? "View-only mode. Only Leader can ping." : ""}
                 >
                   {pinging ? (
                     <>
@@ -681,10 +687,12 @@ export function ProjectGithubConfig() {
                     <button 
                       type="button" 
                       onClick={() => { setIsEditingConfig(true); fetchRepos() }}
-                      className="w-full py-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant/65 text-on-surface font-bold rounded-lg flex items-center justify-center gap-2 text-xs transition-all"
+                      disabled={!canEdit}
+                      className="w-full py-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant/65 text-on-surface font-bold rounded-lg flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-50"
+                      title={!canEdit ? "View-only mode. Only Leader can edit." : ""}
                     >
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                      Unlock & Edit Configuration
+                      <span className="material-symbols-outlined text-sm">{canEdit ? 'edit' : 'visibility'}</span>
+                      {canEdit ? 'Unlock & Edit Configuration' : 'View-Only Mode'}
                     </button>
                   )}
                 </form>
@@ -737,8 +745,9 @@ export function ProjectGithubConfig() {
                     <button
                       type="button"
                       onClick={() => handleRedeliver(d.id)}
-                      disabled={redelivering === d.id}
+                      disabled={redelivering === d.id || !canEdit}
                       className="shrink-0 px-3 py-1.5 text-xs font-bold border border-outline-variant rounded-lg hover:bg-surface-container transition-colors disabled:opacity-50 flex items-center gap-1 bg-surface-container-lowest"
+                      title={!canEdit ? "View-only mode" : ""}
                     >
                       <span className={`material-symbols-outlined text-[14px] ${redelivering === d.id ? 'animate-spin' : ''}`}>replay</span>
                       {redelivering === d.id ? 'Redelivering...' : 'Redeliver'}

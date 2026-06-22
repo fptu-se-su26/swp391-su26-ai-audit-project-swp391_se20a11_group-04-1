@@ -279,4 +279,25 @@ public class ProjectController {
 
         return ResponseEntity.ok(ApiResponse.success(null, "Xóa nhóm thành công!"));
     }
+
+    /**
+     * POST /api/v1/projects/{projectId}/join
+     * Tham gia nhóm trực tiếp (dành cho sinh viên chưa có nhóm trong lớp)
+     */
+    @PostMapping("/{projectId}/join")
+    public ResponseEntity<ApiResponse<Void>> joinProject(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("🤝 Request to join project ID: {} from user ID: {}", projectId, userId);
+
+        projectService.joinProject(projectId, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Tham gia nhóm thành công!"));
+    }
 }

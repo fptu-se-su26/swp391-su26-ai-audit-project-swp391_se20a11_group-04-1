@@ -1,4 +1,4 @@
-package org.example.backend.dto;
+    package org.example.backend.dto;
 
 import lombok.*;
 
@@ -21,6 +21,7 @@ public class ClassroomResponse {
     private OwnerDto owner;
     private int memberCount;
     private int projectCount;
+    private Integer maxMembersPerGroup;
     
     // Detailed stats
     private ClassroomStatsDto stats;

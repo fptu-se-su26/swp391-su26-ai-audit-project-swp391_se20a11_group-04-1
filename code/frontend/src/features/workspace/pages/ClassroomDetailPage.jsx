@@ -49,13 +49,18 @@ export default function ClassroomDetailPage() {
   const [isRandomGroupModalOpen, setIsRandomGroupModalOpen] = useState(false)
   const [membersPerGroup, setMembersPerGroup] = useState(5)
   const [isRandomizing, setIsRandomizing] = useState(false)
+  const [isOverwrite, setIsOverwrite] = useState(true)
   const [isClearing, setIsClearing] = useState(false)
 
   const fetchClassroom = async () => {
     try {
       setLoading(true)
       const response = await axiosClient.get(`/v1/classrooms/${classroomId}`)
-      setData(response.data?.data)
+      const classroomData = response.data?.data
+      setData(classroomData)
+      if (classroomData && classroomData.maxMembersPerGroup) {
+        setMembersPerGroup(classroomData.maxMembersPerGroup)
+      }
       setError(null)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load classroom details')
@@ -84,14 +89,30 @@ export default function ClassroomDetailPage() {
     }
   }, [classroomId])
 
+  const hasJoinedAnyProject = data?.projects?.some(p => p.members?.some(m => String(m.id) === String(userId)));
+  const isStudentWithoutGroup = String(data?.owner?.id) !== String(userId) && !hasJoinedAnyProject;
+
   const handleRandomGroups = async () => {
     if (membersPerGroup < 1) {
       toast.error('Số thành viên mỗi nhóm phải lớn hơn 0.');
       return;
     }
+
+    if (data.projects && data.projects.length > 0) {
+      if (isOverwrite) {
+        if (!window.confirm("CẢNH BÁO: Bạn đã chọn 'Ghi đè nhóm hiện tại'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?")) {
+          return;
+        }
+      } else {
+        if (!window.confirm("Bạn KHÔNG chọn 'Ghi đè'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?")) {
+          return;
+        }
+      }
+    }
+
     try {
       setIsRandomizing(true);
-      await axiosClient.post(`/v1/classrooms/${classroomId}/random-groups`, { membersPerGroup });
+      await axiosClient.post(`/v1/classrooms/${classroomId}/random-groups`, { membersPerGroup, isOverwrite });
       toast.success('Phân nhóm ngẫu nhiên thành công!');
       setIsRandomGroupModalOpen(false);
       fetchClassroom();
@@ -124,10 +145,21 @@ export default function ClassroomDetailPage() {
       if (data.success && data.data) {
         const inviteLink = `${window.location.origin}/classrooms/join?token=${data.data}`;
         await navigator.clipboard.writeText(inviteLink);
-        toast.success('Đã sao chép link mời lớp học vào clipboard!');
+        toast.success('Đã copy link mời vào clipboard!');
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Chỉ người tạo lớp học mới có quyền tạo link mời.');
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi lấy link mời.');
+    }
+  }
+
+  const handleJoinProject = async (projectId, e) => {
+    e.stopPropagation();
+    try {
+      await axiosClient.post(`/v1/projects/${projectId}/join`);
+      toast.success('Đã tham gia nhóm thành công!');
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tham gia nhóm.');
     }
   }
 
@@ -205,13 +237,13 @@ export default function ClassroomDetailPage() {
                   Tạo dự án thủ công
                 </button>
               )}
-              {String(data.owner?.id) !== String(userId) && !data.projects?.some(p => p.members?.some(m => String(m.id) === String(userId))) && (
+              {isStudentWithoutGroup && (
                 <button
-                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}`)}
+                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}&hideToast=true`)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
                 >
-                  <span className="material-symbols-outlined text-[18px]">group_add</span>
-                  Tạo nhóm của bạn
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Tạo dự án thủ công
                 </button>
               )}
             </div>
@@ -274,9 +306,21 @@ export default function ClassroomDetailPage() {
                             </div>
                           )}
                         </div>
-                        <span className="text-[11px] font-medium text-slate-500 ml-3">{project.members?.length || 0} members</span>
+                        <span className="text-[11px] font-bold text-slate-500 ml-3">
+                          {project.members.length} members
+                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-medium">Updated recently</span>
+                      
+                      {isStudentWithoutGroup ? (
+                        <button 
+                          onClick={(e) => handleJoinProject(project.id, e)}
+                          className="px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white text-xs font-bold rounded-lg transition-colors border border-indigo-100"
+                        >
+                          Tham gia
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Updated recently</span>
+                      )}
                     </div>
                   </div>
                 )
@@ -500,6 +544,26 @@ export default function ClassroomDetailPage() {
                   onChange={(e) => setMembersPerGroup(parseInt(e.target.value) || 1)}
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
+              </div>
+
+              <div className="flex items-start gap-3 mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                <div className="flex items-center h-5 mt-0.5">
+                  <input
+                    id="isOverwrite"
+                    type="checkbox"
+                    checked={isOverwrite}
+                    onChange={(e) => setIsOverwrite(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 bg-white border-indigo-300 rounded focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="text-sm">
+                  <label htmlFor="isOverwrite" className="font-semibold text-indigo-900 cursor-pointer">
+                    Ghi đè nhóm hiện tại
+                  </label>
+                  <p className="text-indigo-700/80 mt-0.5">
+                    Nếu chọn, hệ thống sẽ thêm sinh viên vào các nhóm chưa đủ người trước khi tạo nhóm mới. Nếu không chọn, hệ thống sẽ bỏ qua các nhóm cũ và chỉ tạo nhóm mới cho sinh viên.
+                  </p>
+                </div>
               </div>
             </div>
             

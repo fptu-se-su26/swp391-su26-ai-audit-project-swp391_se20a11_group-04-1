@@ -30,9 +30,8 @@ export function ContributionPage() {
       </main>
     )
   }
-
-  // Xác định vai trò của user hiện tại trong dự án
-  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(activeProject?.role)
+  const currentRole = activeProject?.role?.toUpperCase() || ''
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
 
   // Xử lý gửi lời mời thành viên
   const handleInviteSubmit = async (e) => {
@@ -87,6 +86,8 @@ export function ContributionPage() {
   const getRoleBadge = (role) => {
     switch (role) {
       case 'PROJECT_LEADER':
+      case 'LEADER':
+      case 'Project Leader':
         return (
           <span className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wide rounded-full">
             <span className="material-symbols-outlined text-[14px]">shield_person</span>
@@ -192,7 +193,7 @@ export function ContributionPage() {
                     {isLeader && (
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {member.role !== 'PROJECT_LEADER' ? (
+                          {member.role?.toUpperCase() !== 'PROJECT_LEADER' && member.role?.toUpperCase() !== 'LEADER' && member.role?.toUpperCase() !== 'MENTOR' ? (
                             <button
                               onClick={() => handleRemoveClick(member)}
                               className="inline-flex items-center gap-1 bg-error/15 text-error text-xs font-bold px-3.5 py-1.5 rounded-lg border border-error/25 hover:bg-error/25 hover:scale-105 transition-all shadow-sm"
