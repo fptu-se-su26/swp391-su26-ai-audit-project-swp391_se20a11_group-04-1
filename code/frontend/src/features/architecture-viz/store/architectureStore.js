@@ -2,11 +2,12 @@ import { create } from 'zustand'
 
 export const useArchitectureStore = create((set, get) => ({
   projectId: null,
-  layer: 'OVERVIEW',
+  activeView: 'SYSTEM',            // 'SYSTEM' | 'INTERNAL'
+  activeServiceId: null,           // e.g. 'backend'
   selectedNode: null,
   hoveredNode: null,
-  focusNodeId: null,
-  breadcrumbs: [{ layer: 'OVERVIEW', label: 'Tổng quan', id: null }],
+  expandedFolders: new Set(),      // Set of folder IDs that are expanded
+  breadcrumbs: [{ view: 'SYSTEM', label: 'Hệ thống', serviceId: null }],
   syncStatus: {
     status: 'IDLE',
     progress: 0,
@@ -15,41 +16,60 @@ export const useArchitectureStore = create((set, get) => ({
   },
   graphData: { nodes: [], edges: [], stats: {} },
   isLoading: false,
-  physicsEnabled: false,
 
   setProjectId: (projectId) => set({ projectId }),
-  setLayer: (layer) => set({ layer }),
+  setActiveView: (activeView) => set({ activeView }),
+  setActiveServiceId: (activeServiceId) => set({ activeServiceId }),
   setSelectedNode: (selectedNode) => set({ selectedNode }),
   setHoveredNode: (hoveredNode) => set({ hoveredNode }),
-  setFocusNodeId: (focusNodeId) => set({ focusNodeId }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   setGraphData: (graphData) => set({ graphData }),
   setIsLoading: (isLoading) => set({ isLoading }),
-  togglePhysics: () => set((state) => ({ physicsEnabled: !state.physicsEnabled })),
 
-  setDrillDown: (layer, label, id) => {
-    const { breadcrumbs } = get()
-    const newBreadcrumbs = [...breadcrumbs, { layer, label, id }]
-    set({ layer, focusNodeId: id, breadcrumbs: newBreadcrumbs, selectedNode: null })
+  toggleFolder: (folderId) => set((state) => {
+    const next = new Set(state.expandedFolders)
+    if (next.has(folderId)) {
+      next.delete(folderId)
+    } else {
+      next.add(folderId)
+    }
+    return { expandedFolders: next }
+  }),
+
+  expandAllFolders: (folderIds) => set({ expandedFolders: new Set(folderIds) }),
+  collapseAllFolders: () => set({ expandedFolders: new Set() }),
+
+  navigateToService: (serviceId, serviceName) => {
+    set({
+      activeView: 'INTERNAL',
+      activeServiceId: serviceId,
+      selectedNode: null,
+      expandedFolders: new Set(),
+      breadcrumbs: [
+        { view: 'SYSTEM', label: 'Hệ thống', serviceId: null },
+        { view: 'INTERNAL', label: serviceName || serviceId, serviceId }
+      ]
+    })
+  },
+
+  navigateToSystem: () => {
+    set({
+      activeView: 'SYSTEM',
+      activeServiceId: null,
+      selectedNode: null,
+      expandedFolders: new Set(),
+      breadcrumbs: [{ view: 'SYSTEM', label: 'Hệ thống', serviceId: null }]
+    })
   },
 
   popBreadcrumb: (index) => {
     const { breadcrumbs } = get()
-    if (index < 0 || index >= breadcrumbs.length) return
-    const newBreadcrumbs = breadcrumbs.slice(0, index + 1)
-    const target = newBreadcrumbs[index]
-    set({
-      layer: target.layer,
-      focusNodeId: target.id,
-      breadcrumbs: newBreadcrumbs,
-      selectedNode: null
-    })
-  },
-
-  resetBreadcrumbs: () => set({
-    layer: 'OVERVIEW',
-    focusNodeId: null,
-    breadcrumbs: [{ layer: 'OVERVIEW', label: 'Tổng quan', id: null }],
-    selectedNode: null
-  })
+    if (index === 0) {
+      get().navigateToSystem()
+    } else if (index === 1) {
+      const target = breadcrumbs[1]
+      get().navigateToService(target.serviceId, target.label)
+    }
+  }
 }))
+
