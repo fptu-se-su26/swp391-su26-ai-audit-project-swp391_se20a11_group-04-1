@@ -3,6 +3,7 @@ package org.example.backend.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.config.GeminiProperties;
 import org.example.backend.entity.ArchitectureSync;
 import org.example.backend.entity.mongo.ArchitectureGraph;
 import org.example.backend.repository.ArchitectureSyncRepository;
@@ -30,9 +31,19 @@ public class ArchitectureSyncExecutor {
     private final StringRedisTemplate redisTemplate;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final GeminiProperties geminiProperties;
 
     @Value("${architecture-parser.url:http://localhost:4002}")
     private String parserUrl;
+
+    @Value("${code-insight.ai.api-key:}")
+    private String codeInsightAiApiKey;
+
+    @Value("${code-insight.ai.model:gemini-1.5-flash}")
+    private String codeInsightAiModel;
+
+    @Value("${gemini.api-key:}")
+    private String geminiApiKeyFromEnv;
 
     @Async
     public void executeSync(Long projectId, Long syncRecordId, String repoUrl, String token, String branch) {
@@ -40,11 +51,36 @@ public class ArchitectureSyncExecutor {
         String progressKey = "arch:progress:" + projectId;
         
         try {
+            String geminiApiKey = null;
+            if (geminiProperties.getKeys() != null && !geminiProperties.getKeys().isEmpty()
+                    && !geminiProperties.getKeys().get(0).contains("YOUR_GEMINI_API_KEY")) {
+                geminiApiKey = geminiProperties.getKeys().get(0);
+            }
+            if (geminiApiKey == null || geminiApiKey.trim().isEmpty()) {
+                if (codeInsightAiApiKey != null && !codeInsightAiApiKey.trim().isEmpty()) {
+                    geminiApiKey = codeInsightAiApiKey;
+                } else if (geminiApiKeyFromEnv != null && !geminiApiKeyFromEnv.trim().isEmpty()) {
+                    geminiApiKey = geminiApiKeyFromEnv;
+                }
+            }
+
+            String geminiApiUrl = geminiProperties.getUrl();
+            if (geminiApiUrl == null || geminiApiUrl.trim().isEmpty() || geminiApiUrl.contains("YOUR_GEMINI_API_KEY")) {
+                String modelName = codeInsightAiModel != null && !codeInsightAiModel.trim().isEmpty() ? codeInsightAiModel : "gemini-1.5-flash";
+                geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent";
+            }
+
             Map<String, Object> request = new HashMap<>();
             request.put("repoUrl", repoUrl);
             request.put("token", token);
             request.put("branch", branch);
             request.put("projectId", projectId);
+            if (geminiApiKey != null) {
+                request.put("geminiApiKey", geminiApiKey);
+            }
+            if (geminiApiUrl != null) {
+                request.put("geminiApiUrl", geminiApiUrl);
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

@@ -1,5 +1,6 @@
 package org.example.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ public class ArchitectureSync {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false, unique = true)
+    @JsonIgnore
     private Project project;
 
     @Column(nullable = false, length = 20)
@@ -44,6 +46,7 @@ public class ArchitectureSync {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "synced_by")
+    @JsonIgnore
     private UserAccount syncedBy;
 
     @Column(name = "mongo_graph_id", length = 100)

@@ -16,6 +16,8 @@ class ParseRequest(BaseModel):
     token: str = None
     branch: str = None
     projectId: int
+    geminiApiKey: str = None
+    geminiApiUrl: str = None
 
 @app.post("/parse")
 async def parse_repository(request: ParseRequest):
@@ -33,7 +35,10 @@ async def parse_repository(request: ParseRequest):
         raw_nodes, raw_edges, stats = ParserService.parse_repo(clone_dir, reporter)
         
         reporter.report(85, "SYNCING", "Đang phân tích liên kết đồ thị và tối ưu hóa...")
-        nodes, edges, final_stats = GraphBuilder.build_graph(raw_nodes, raw_edges, stats)
+        nodes, edges, final_stats = GraphBuilder.build_graph(
+            raw_nodes, raw_edges, stats, clone_dir, 
+            request.geminiApiKey, request.geminiApiUrl
+        )
         
         reporter.report(95, "SYNCING", "Đang dọn dẹp các tệp tạm thời...")
         CloneService.cleanup(clone_dir)
