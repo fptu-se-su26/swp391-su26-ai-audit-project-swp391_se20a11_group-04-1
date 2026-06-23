@@ -228,9 +228,30 @@ public class TestRunServiceImpl implements TestRunService {
         Optional<TestExecution> existingOpt =
             testExecutionRepository.findByIdempotencyKey(request.idempotencyKey());
 
+        // ─── DIAGNOSTIC LOG — xóa sau khi debug xong ───
+        log.info("▶▶▶ receiveExecutionResult called: testRunId={}, idempotencyKey={}, outcome={}",
+            testRunId, request.idempotencyKey(), request.outcome());
+        if (existingOpt.isPresent()) {
+            TestExecution ex = existingOpt.get();
+            TestRun tr = ex.getTestRun();
+            log.info("▶▶▶ Execution found: id={}, currentStatus={}, isTerminal={}",
+                ex.getId(), ex.getStatus(), ex.getStatus().isTerminal());
+            log.info("▶▶▶ TestRun status: id={}, status={}, isTerminal={}",
+                tr.getId(), tr.getStatus(), tr.getStatus().isTerminal());
+        } else {
+            log.warn("▶▶▶ Execution NOT FOUND for idempotencyKey={}", request.idempotencyKey());
+        }
+        // ─── END DIAGNOSTIC ───
+
         if (existingOpt.isPresent() && existingOpt.get().getStatus().isTerminal()) {
-            log.info("Duplicate callback idempotencyKey={}, skipping", request.idempotencyKey());
-            return;
+            TestExecution existingExec = existingOpt.get();
+            // Cho phép PASSED ghi đè FAILED (Race condition giữa poller timeout và kết quả thực tế)
+            if (existingExec.getStatus() == org.example.backend.entity.enums.TestExecutionStatus.FAILED && "PASSED".equals(request.outcome())) {
+                log.info("▶▶▶ Overriding existing FAILED status with new PASSED status for execution {}", existingExec.getId());
+            } else {
+                log.info("Duplicate callback idempotencyKey={}, skipping", request.idempotencyKey());
+                return;
+            }
         }
 
         TestExecution exec = existingOpt

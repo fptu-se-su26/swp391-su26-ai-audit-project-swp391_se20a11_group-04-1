@@ -3,5 +3,6 @@ package org.example.backend.entity;
 public enum NotificationType {
     INVITATION,
     SYSTEM,
-    MENTION
+    MENTION,
+    MENTOR_ANNOUNCEMENT
 }

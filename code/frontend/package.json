@@ -16,6 +16,7 @@
     "d3-force": "^3.0.0",
     "dagre": "^0.8.5",
     "dompurify": "^3.4.11",
+    "framer-motion": "^11.18.2",
     "elkjs": "^0.11.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

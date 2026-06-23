@@ -11,10 +11,11 @@ function generateFromTemplate(testCase, runId) {
             const stepNum = index + 1;
             let code = '';
 
-            const sel = (step.selector || '').replace(/"/g, '\\"');
-            let val = (step.value || '').replace(/"/g, '\\"');
-            let exp = (step.expected || '').replace(/"/g, '\\"');
-            const pth = (step.path || '').replace(/"/g, '\\"');
+            const escapeJs = (s) => (s || '').replace(/\\"/g, '"').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+            const sel = escapeJs(step.selector);
+            let val = escapeJs(step.value);
+            let exp = escapeJs(step.expected);
+            const pth = escapeJs(step.path);
 
             // Xử lý Macro Variables cho Data Dependency
             const timestamp = Date.now();
@@ -72,7 +73,7 @@ function generateFromTemplate(testCase, runId) {
                 ? `\n    await page.screenshot({ path: 'step-${stepNum}-after.png' });`
                 : '';
 
-            const stepDesc = (step.description || step.action).replace(/"/g, '\\"');
+            const stepDesc = escapeJs(step.description || step.action);
             return `  // Step ${stepNum}
   await test.step("${stepDesc}", async () => {
     if (ws.readyState === WebSocket.OPEN) {

@@ -201,10 +201,42 @@ export function DashboardPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search)
     const classroomId = searchParams.get('createProjectForClassroom')
+    const isMentor = searchParams.get('isMentor') === 'true'
+    const semesterParam = searchParams.get('semester')
+    const subjectParam = searchParams.get('subject')
+
+    const hideToast = searchParams.get('hideToast') === 'true'
+
     if (classroomId) {
-      toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
-      setFormData(prev => ({ ...prev, classroomId: parseInt(classroomId, 10) }))
+      if (!isMentor && !hideToast) {
+        toast.success('Đã xác nhận tham gia lớp học! Vui lòng tạo dự án cho nhóm của bạn.')
+      }
+
+      let startDate = ''
+      let deadline = ''
+      if (semesterParam) {
+        const currentYear = new Date().getFullYear()
+        if (semesterParam.includes('SPRING') || semesterParam.startsWith('SP')) {
+          startDate = `${currentYear}-01-01`
+          deadline = `${currentYear}-04-30`
+        } else if (semesterParam.includes('SUMMER') || semesterParam.startsWith('SU')) {
+          startDate = `${currentYear}-05-01`
+          deadline = `${currentYear}-08-31`
+        } else if (semesterParam.includes('FALL') || semesterParam.startsWith('FA')) {
+          startDate = `${currentYear}-09-01`
+          deadline = `${currentYear}-12-31`
+        }
+      }
+
+      setFormData(prev => ({ 
+        ...prev, 
+        classroomId: parseInt(classroomId, 10),
+        major: subjectParam || prev.major,
+        startDate: startDate || prev.startDate,
+        deadline: deadline || prev.deadline
+      }))
       setIsModalOpen(true)
+      checkGithubStatus()
     }
   }, [location.search])
 
@@ -387,7 +419,7 @@ export function DashboardPage() {
     if (loading && projects.length === 0) {
       return (
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-          <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+          <div className="relative z-10 w-full space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-pulse">
               <div className="space-y-2">
                 <div className="h-8 w-48 bg-surface-container-high rounded-xl"></div>
@@ -437,7 +469,7 @@ export function DashboardPage() {
           <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.15] blur-[100px]"></div>
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+        <div className="relative z-10 w-full space-y-8">
 
           {/* A. Dòng Tiêu Đề & Nút Thêm Mới */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -750,7 +782,12 @@ export function DashboardPage() {
                       placeholder="E.g., Software Engineering"
                       value={formData.major}
                       onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
 
@@ -786,7 +823,12 @@ export function DashboardPage() {
                       required
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -799,7 +841,12 @@ export function DashboardPage() {
                       required
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      disabled={!!formData.classroomId}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
+                        formData.classroomId 
+                          ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                      }`}
                     />
                   </div>
                 </div>
@@ -1074,7 +1121,7 @@ export function DashboardPage() {
   if (!activeProject?.members) {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+        <div className="w-full space-y-6 animate-pulse">
           <div className="h-32 rounded-2xl bg-surface-container-high"></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((n) => (
@@ -1086,6 +1133,40 @@ export function DashboardPage() {
     )
   }
 
+  const uniqueMembers = []
+  const seenIds = new Set()
+  if (activeProject && activeProject.members) {
+    activeProject.members.forEach((member) => {
+      if (!seenIds.has(member.id)) {
+        seenIds.add(member.id)
+        uniqueMembers.push(member)
+      }
+    })
+  }
+
+  const renderRoleBadge = (role) => {
+    const upper = (role || '').toUpperCase()
+    if (upper === 'PROJECT_LEADER' || upper === 'LEADER') {
+      return (
+        <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Leader
+        </span>
+      )
+    }
+    if (upper === 'MENTOR') {
+      return (
+        <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+          Mentor
+        </span>
+      )
+    }
+    return (
+      <span className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded font-semibold uppercase tracking-wider">
+        Developer
+      </span>
+    )
+  }
+
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
 
@@ -1094,7 +1175,7 @@ export function DashboardPage() {
         <div className="absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full bg-tertiary-fixed opacity-[0.08] blur-[120px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+      <div className="relative z-10 w-full space-y-8">
 
         {/* Banner Dự án đầu trang */}
         <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -1218,10 +1299,10 @@ export function DashboardPage() {
 
           {/* Cột 3: Quản lý thành viên nhóm */}
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({activeProject.members?.length || 0})</h3>
+            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({uniqueMembers.length})</h3>
             <div className="space-y-3">
-              {(activeProject.members || []).map((member, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
+              {uniqueMembers.map((member, idx) => (
+                <div key={member.id || idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${member.bg}`}>
                       {member.initials}
@@ -1231,9 +1312,7 @@ export function DashboardPage() {
                       <p className="text-[10px] text-on-surface-variant mt-0.5">Active</p>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-surface-container text-on-surface-variant px-2 py-0.5 rounded font-semibold">
-                    {idx === 0 ? 'Leader' : 'Developer'}
-                  </span>
+                  {renderRoleBadge(member.role)}
                 </div>
               ))}
             </div>
