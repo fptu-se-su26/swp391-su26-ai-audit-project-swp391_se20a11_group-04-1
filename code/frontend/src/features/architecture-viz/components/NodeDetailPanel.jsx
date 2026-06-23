@@ -1,81 +1,75 @@
-import React, { useMemo } from 'react'
-import { useArchitectureStore } from '../store/architectureStore'
-import { FileText, Folder, Cpu, Sparkles, Box, Settings2, Info, X } from 'lucide-react'
-
-const getThemeIcon = (type, annotations = [], language = '') => {
-  if (type === 'PACKAGE') return Folder
-  
-  const annos = annotations || []
-  if (annos.includes('RestController') || annos.includes('Controller')) return Cpu
-  if (annos.includes('Service')) return Sparkles
-  if (annos.includes('Repository')) return Box
-  if (language === 'tsx' || language === 'jsx' || annos.includes('Component')) return Settings2
-  
-  return FileText
-}
+import React, { useMemo } from 'react';
+import { useArchitectureStore } from '../store/architectureStore';
+import { X, Info, HelpCircle } from 'lucide-react';
+import { TechIcon } from './nodes/TechIcon';
 
 export default function NodeDetailPanel() {
-  const { selectedNode, setSelectedNode, graphData } = useArchitectureStore()
+  const { selectedNode, setSelectedNode, graphData } = useArchitectureStore();
 
   const { incoming, outgoing } = useMemo(() => {
-    if (!selectedNode || !graphData.edges) return { incoming: [], outgoing: [] }
+    if (!selectedNode || !graphData.edges) return { incoming: [], outgoing: [] };
     
-    const nid = selectedNode.nodeId
+    const nid = selectedNode.nodeId;
+    const inEdges = graphData.edges.filter(e => e.target === nid);
+    const outEdges = graphData.edges.filter(e => e.source === nid);
     
-    // Find all imports relationships
-    const inEdges = graphData.edges.filter(e => e.target === nid && e.type !== 'CONTAINS' && !(e.edgeId || e.id || '').includes('contains'))
-    const outEdges = graphData.edges.filter(e => e.source === nid && e.type !== 'CONTAINS' && !(e.edgeId || e.id || '').includes('contains'))
-    
-    const nodesMap = {}
+    const nodesMap = {};
     if (graphData.nodes) {
       graphData.nodes.forEach(n => {
-        nodesMap[n.nodeId] = n
-      })
+        nodesMap[n.id || n.nodeId] = n;
+      });
     }
 
-    const mapEdgesToNodes = (edges, key) => {
+    const mapEdgesToConnections = (edges, targetKey) => {
       return edges.map(e => {
-        const targetId = e[key]
-        const targetNode = nodesMap[targetId]
+        const nodeId = e[targetKey];
+        const node = nodesMap[nodeId];
+        const protocol = e.label || e.metadata?.label || 'depends_on';
         return {
-          id: targetId,
-          name: targetNode ? targetNode.name : targetId.split('/').pop().split(':').pop(),
-          filePath: targetNode ? targetNode.filePath : '',
-          type: targetNode ? targetNode.type : 'FILE'
-        }
-      })
-    }
+          id: nodeId,
+          name: node ? (node.data?.name || node.name) : nodeId.split(':').pop(),
+          protocol
+        };
+      });
+    };
 
     return {
-      incoming: mapEdgesToNodes(inEdges, 'source'),
-      outgoing: mapEdgesToNodes(outEdges, 'target')
-    }
-  }, [selectedNode, graphData])
+      incoming: mapEdgesToConnections(inEdges, 'source'),
+      outgoing: mapEdgesToConnections(outEdges, 'target')
+    };
+  }, [selectedNode, graphData]);
+
+  const groupNode = useMemo(() => {
+    if (!selectedNode || !graphData.nodes) return null;
+    const parentId = selectedNode.parentId;
+    if (!parentId) return null;
+    return graphData.nodes.find(n => n.nodeId === parentId || n.id === parentId);
+  }, [selectedNode, graphData]);
 
   if (!selectedNode) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200 dark:border-slate-800 font-sans">
         <Info className="w-10 h-10 mb-3 text-slate-300 dark:text-slate-700" />
-        <p className="text-xs font-semibold">Chọn một thành phần trên đồ thị để xem thông tin chi tiết</p>
+        <p className="text-xs font-semibold font-vietnamese">Chọn một dịch vụ trên sơ đồ để xem thông tin chi tiết</p>
       </div>
-    )
+    );
   }
 
-  const annotations = selectedNode.metadata?.annotations || []
-  const Icon = getThemeIcon(selectedNode.type, annotations, selectedNode.language)
+  const groupName = groupNode ? groupNode.name : 'N/A';
+  const icon = selectedNode.metadata?.icon || '';
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-xl w-full transition-all duration-300 font-sans">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
-            <Icon className="w-4.5 h-4.5" />
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
+            {icon ? <TechIcon iconKey={icon} size={18} /> : <HelpCircle className="w-4.5 h-4.5 text-slate-400" />}
           </div>
           <div className="min-w-0 flex flex-col">
-            <span className="font-bold text-xs text-slate-850 dark:text-slate-100 truncate">{selectedNode.name}</span>
-            <span className="text-[9px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              {selectedNode.type}
+            <span className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{selectedNode.name}</span>
+            <span className="text-[9px] font-semibold text-slate-400 dark:text-slate-550 uppercase tracking-wider font-vietnamese">
+              Dịch vụ hệ thống
             </span>
           </div>
         </div>
@@ -89,95 +83,72 @@ export default function NodeDetailPanel() {
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Core Stats */}
+        {/* Tech and Env Info */}
         <div className="p-3.5 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-850 rounded-xl space-y-2 text-xs">
           <div className="flex justify-between items-center">
-            <span className="text-slate-400 dark:text-slate-500 font-medium">Ngôn ngữ:</span>
-            <span className="font-bold text-slate-700 dark:text-slate-200 uppercase">{selectedNode.language || 'folder'}</span>
+            <span className="text-slate-400 dark:text-slate-500 font-medium font-vietnamese">Công nghệ (Stack):</span>
+            <span className="font-bold text-slate-700 dark:text-slate-200">{selectedNode.metadata?.tech || 'N/A'}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-400 dark:text-slate-500 font-medium">Mức độ rủi ro:</span>
-            <span className={`font-bold border px-1.5 py-0.5 rounded text-[10px] uppercase
-              ${selectedNode.riskLevel === 'CRITICAL' ? 'bg-red-50 text-red-650 border-red-200 dark:bg-red-950/20 dark:text-red-405 dark:border-red-800/40' :
-                selectedNode.riskLevel === 'HIGH' ? 'bg-orange-50 text-orange-655 border-orange-200 dark:bg-orange-950/20 dark:text-orange-405 dark:border-orange-800/40' :
-                selectedNode.riskLevel === 'MEDIUM' ? 'bg-amber-50 text-amber-650 border-amber-200 dark:bg-amber-950/20 dark:text-amber-405 dark:border-amber-800/40' :
-                'bg-emerald-50 text-emerald-650 border-emerald-250 dark:bg-emerald-950/10 dark:text-emerald-405 dark:border-emerald-800/20'}`}>
-              {selectedNode.riskLevel || 'LOW'}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-400 dark:text-slate-500 font-medium">Số lượng liên kết:</span>
-            <span className="font-bold text-slate-700 dark:text-slate-200">{selectedNode.connectionCount || 0}</span>
-          </div>
-          {selectedNode.metadata?.sizeBytes !== undefined && (
+          {selectedNode.metadata?.port && (
             <div className="flex justify-between items-center">
-              <span className="text-slate-400 dark:text-slate-500 font-medium">Kích thước tệp:</span>
-              <span className="font-bold text-slate-700 dark:text-slate-200">
-                {(selectedNode.metadata.sizeBytes / 1024).toFixed(2)} KB
+              <span className="text-slate-400 dark:text-slate-500 font-medium font-vietnamese">Cổng (Port):</span>
+              <span className="px-1.5 py-0.5 font-mono text-[11px] bg-slate-100 dark:bg-slate-800 rounded text-slate-850 dark:text-slate-200 font-semibold border border-slate-200/40">
+                {selectedNode.metadata.port}
               </span>
+            </div>
+          )}
+          <div className="flex justify-between items-center">
+            <span className="text-slate-400 dark:text-slate-500 font-medium font-vietnamese">Hạ tầng (Infra Group):</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{groupName}</span>
+          </div>
+        </div>
+
+        {/* Description */}
+        {selectedNode.metadata?.description && (
+          <div className="p-3 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-850 space-y-1">
+            <span className="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold font-vietnamese">Mô tả vai trò</span>
+            <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-vietnamese">{selectedNode.metadata.description}</p>
+          </div>
+        )}
+
+        {/* Connections Outgoing */}
+        <div className="space-y-2">
+          <h4 className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider font-vietnamese">Kết nối gửi đi (Call Out / {outgoing.length})</h4>
+          {outgoing.length === 0 ? (
+            <p className="text-[11px] text-slate-400 italic font-vietnamese">Không có kết nối gửi đi nào được phát hiện.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto border border-slate-100 dark:border-slate-800/60 rounded-xl p-1.5 bg-slate-50/30">
+              {outgoing.map((out, idx) => (
+                <div key={idx} className="flex justify-between items-center px-2.5 py-1.5 text-[11px] hover:bg-slate-50 dark:hover:bg-slate-800 rounded border border-slate-100/40 dark:border-slate-800/20">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[140px]">{out.name}</span>
+                  <span className="px-1.5 py-0.5 font-mono text-[9px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded border border-blue-200/30">
+                    {out.protocol}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Path Info */}
-        {selectedNode.filePath && (
-          <div className="p-3 bg-slate-50/50 dark:bg-slate-800/20 rounded-xl border border-slate-100 dark:border-slate-850 space-y-1">
-            <span className="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold">Đường dẫn tệp</span>
-            <p className="text-xs text-slate-700 dark:text-slate-300 font-mono break-all leading-normal">{selectedNode.filePath}</p>
-          </div>
-        )}
-
-        {/* Technical Annotations */}
-        {annotations.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Đặc tả / Annotations</h4>
-            <div className="flex flex-wrap gap-1">
-              {annotations.map((anno, idx) => (
-                <span key={idx} className="text-[10px] font-semibold font-mono bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded border border-blue-200/50 dark:border-blue-800/40">
-                  @{anno}
-                </span>
+        {/* Connections Incoming */}
+        <div className="space-y-2">
+          <h4 className="text-[10px] font-bold text-slate-455 dark:text-slate-500 uppercase tracking-wider font-vietnamese">Được gọi từ (Call In / {incoming.length})</h4>
+          {incoming.length === 0 ? (
+            <p className="text-[11px] text-slate-400 italic font-vietnamese">Không có kết nối gọi vào nào được phát hiện.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto border border-slate-100 dark:border-slate-800/60 rounded-xl p-1.5 bg-slate-50/30">
+              {incoming.map((inc, idx) => (
+                <div key={idx} className="flex justify-between items-center px-2.5 py-1.5 text-[11px] hover:bg-slate-50 dark:hover:bg-slate-800 rounded border border-slate-100/40 dark:border-slate-800/20">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[140px]">{inc.name}</span>
+                  <span className="px-1.5 py-0.5 font-mono text-[9px] bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded border border-blue-200/30">
+                    {inc.protocol}
+                  </span>
+                </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Imports list (Outgoing) */}
-        {selectedNode.type === 'FILE' && (
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">Imports tệp khác ({outgoing.length})</h4>
-            {outgoing.length === 0 ? (
-              <p className="text-[11px] text-slate-450 italic">Không import tệp nào trong cùng service.</p>
-            ) : (
-              <div className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-slate-100 dark:border-slate-800/60 rounded-xl p-1.5 bg-slate-50/30">
-                {outgoing.map((out, idx) => (
-                  <div key={idx} className="px-2.5 py-1.5 text-[11px] text-slate-650 dark:text-slate-350 truncate hover:bg-slate-50 dark:hover:bg-slate-800 rounded font-medium">
-                    {out.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Imported By list (Incoming) */}
-        {selectedNode.type === 'FILE' && (
-          <div className="space-y-2">
-            <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider font-semibold">Được tệp khác import ({incoming.length})</h4>
-            {incoming.length === 0 ? (
-              <p className="text-[11px] text-slate-450 italic">Chưa được tệp nào import trong cùng service.</p>
-            ) : (
-              <div className="flex flex-col gap-1 max-h-36 overflow-y-auto border border-slate-100 dark:border-slate-800/60 rounded-xl p-1.5 bg-slate-50/30">
-                {incoming.map((inc, idx) => (
-                  <div key={idx} className="px-2.5 py-1.5 text-[11px] text-slate-650 dark:text-slate-350 truncate hover:bg-slate-50 dark:hover:bg-slate-800 rounded font-medium">
-                    {inc.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
-  )
+  );
 }
-
