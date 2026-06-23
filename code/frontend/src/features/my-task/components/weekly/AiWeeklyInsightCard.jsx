@@ -21,7 +21,7 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
   const hasContent = velocityWarning || overloadedMember || suggestions.length > 0 || alerts.length > 0
 
   return (
-    <div className="bg-[#1E3A5F] text-white rounded-xl p-4 shadow-xl relative overflow-hidden">
+    <div className="bg-[#1E707D] text-white rounded-xl p-4 shadow-xl relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
 
@@ -29,12 +29,12 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           <span
-            className="material-symbols-outlined text-primary-fixed text-[20px]"
+            className="material-symbols-outlined text-[#1E707D]-fixed text-[20px]"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
             auto_awesome
           </span>
-          <span className="text-xs font-bold tracking-widest uppercase text-primary-fixed-dim">
+          <span className="text-xs font-bold tracking-widest uppercase text-[#1E707D]-fixed-dim">
             AI PREDICTIVE ANALYSIS
           </span>
         </div>
@@ -42,7 +42,7 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
         {/* Main insight text */}
         {hasContent ? (
           <>
-            <p className="text-sm leading-relaxed mb-4 text-primary-fixed">
+            <p className="text-sm leading-relaxed mb-4 text-[#1E707D]-fixed">
               {velocityWarning && <span>{velocityWarning} </span>}
               {overloadedMember && <span>{overloadedMember}</span>}
               {!velocityWarning && !overloadedMember && (
@@ -55,7 +55,7 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
               <ul className="text-[11px] space-y-2 text-surface-container-highest mb-6">
                 {suggestions.map((s, i) => (
                   <li key={`s-${i}`} className="flex gap-2">
-                    <span className="text-primary-fixed-dim shrink-0">●</span>
+                    <span className="text-[#1E707D]-fixed-dim shrink-0">●</span>
                     <span>Suggestion: {s}</span>
                   </li>
                 ))}
@@ -69,7 +69,7 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
             )}
           </>
         ) : (
-          <p className="text-sm leading-relaxed mb-6 text-primary-fixed">
+          <p className="text-sm leading-relaxed mb-6 text-[#1E707D]-fixed">
             Chưa đủ dữ liệu để phân tích. Hãy thêm task và deadline vào sprint.
           </p>
         )}
@@ -77,7 +77,7 @@ const AiWeeklyInsightCard = ({ insight = {}, onViewReport }) => {
         {/* CTA button */}
         <button
           onClick={onViewReport}
-          className="w-full py-2.5 bg-primary-container text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+          className="w-full py-2.5 bg-[#1E707D]-container text-white rounded-lg text-xs font-bold hover:bg-[#1E707D] transition-colors"
         >
           View Full Report
         </button>

@@ -12,7 +12,7 @@ import ResourceTab from '../components/ResourceTab'
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
   'bg-teal-500 text-white',
-  'bg-indigo-500 text-white',
+  'bg-[#1E707D] text-white',
   'bg-rose-500 text-white',
   'bg-amber-500 text-white',
   'bg-emerald-500 text-white',
@@ -237,7 +237,7 @@ export default function ClassroomDetailPage() {
               {String(data.owner?.id) === String(userId) && (
                 <button
                   onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&isMentor=true&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}`)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1E707D] hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
                   Tạo dự án thủ công
@@ -246,7 +246,7 @@ export default function ClassroomDetailPage() {
               {isStudentWithoutGroup && (
                 <button
                   onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}&hideToast=true`)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1E707D] hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
                   Tạo dự án thủ công
@@ -320,7 +320,7 @@ export default function ClassroomDetailPage() {
                       {isStudentWithoutGroup ? (
                         <button 
                           onClick={(e) => handleJoinProject(project.id, e)}
-                          className="px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white text-xs font-bold rounded-lg transition-colors border border-indigo-100"
+                          className="px-3 py-1 bg-[#1E707D]/10 hover:bg-[#1E707D] text-[#1E707D] hover:text-white text-xs font-bold rounded-lg transition-colors border border-indigo-100"
                         >
                           Tham gia
                         </button>
@@ -353,7 +353,7 @@ export default function ClassroomDetailPage() {
                   </button>
                   <button
                     onClick={() => setIsRandomGroupModalOpen(true)}
-                    className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                    className="bg-[#1E707D]/10 text-[#1E707D] hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-lg">shuffle</span>
                     Phân lớp ngẫu nhiên
@@ -440,7 +440,7 @@ export default function ClassroomDetailPage() {
                           <div className="flex justify-between items-center">
                             <div>
                               {member.projectName ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#1E707D]/10 text-[#1E707D] border border-indigo-100">
                                   <span className="material-symbols-outlined text-[12px]">workspaces</span>
                                   {member.projectName}
                                 </span>
@@ -504,7 +504,7 @@ export default function ClassroomDetailPage() {
           >
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <span className="material-symbols-outlined text-indigo-600">shuffle</span>
+                <span className="material-symbols-outlined text-[#1E707D]">shuffle</span>
                 Phân lớp ngẫu nhiên
               </h3>
               <button 
@@ -532,21 +532,21 @@ export default function ClassroomDetailPage() {
                 />
               </div>
 
-              <div className="flex items-start gap-3 mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+              <div className="flex items-start gap-3 mt-4 p-3 bg-[#1E707D]/10 rounded-xl border border-indigo-100">
                 <div className="flex items-center h-5 mt-0.5">
                   <input
                     id="isOverwrite"
                     type="checkbox"
                     checked={isOverwrite}
                     onChange={(e) => setIsOverwrite(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 bg-white border-indigo-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-[#1E707D] bg-white border-indigo-300 rounded focus:ring-indigo-500"
                   />
                 </div>
                 <div className="text-sm">
                   <label htmlFor="isOverwrite" className="font-semibold text-indigo-900 cursor-pointer">
                     Ghi đè nhóm hiện tại
                   </label>
-                  <p className="text-indigo-700/80 mt-0.5">
+                  <p className="text-[#1E707D]/80 mt-0.5">
                     Nếu chọn, hệ thống sẽ thêm sinh viên vào các nhóm chưa đủ người trước khi tạo nhóm mới. Nếu không chọn, hệ thống sẽ bỏ qua các nhóm cũ và chỉ tạo nhóm mới cho sinh viên.
                   </p>
                 </div>
@@ -564,7 +564,7 @@ export default function ClassroomDetailPage() {
               <button 
                 onClick={handleRandomGroups}
                 disabled={isRandomizing}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2"
+                className="bg-[#1E707D] hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2"
               >
                 {isRandomizing ? (
                   <>

@@ -36,14 +36,14 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
   };
 
   return (
-    <div className="flex flex-col gap-3 w-full bg-blue-50/30 p-3 rounded-lg border border-blue-100" onClick={(e) => e.stopPropagation()}>
+    <div className="flex flex-col gap-3 w-full bg-[#1E707D]/10/30 p-3 rounded-lg border border-[#1E707D]/20" onClick={(e) => e.stopPropagation()}>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] font-medium text-gray-500 uppercase">Title</label>
         <input 
           type="text" 
           value={editedReq.title}
           onChange={(e) => handleChange('title', e.target.value)}
-          className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none"
+          className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none"
         />
       </div>
 
@@ -53,7 +53,7 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
           <select 
             value={editedReq.priority}
             onChange={(e) => handleChange('priority', e.target.value)}
-            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none bg-white"
+            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none bg-white"
           >
             <option value="High">High</option>
             <option value="Medium">Medium</option>
@@ -65,7 +65,7 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
           <select 
             value={editedReq.type}
             onChange={(e) => handleChange('type', e.target.value)}
-            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none bg-white"
+            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none bg-white"
           >
             <option value="FUNCTIONAL">Functional</option>
             <option value="NON_FUNCTIONAL">Non-Functional</option>
@@ -80,7 +80,7 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
           value={editedReq.description}
           onChange={(e) => handleChange('description', e.target.value)}
           rows={3}
-          className="w-full p-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none resize-y"
+          className="w-full p-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none resize-y"
         />
       </div>
 
@@ -91,14 +91,14 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
           value={editedReq.tags.join(', ')}
           onChange={handleTagChange}
           placeholder="e.g. Frontend, Auth"
-          className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none"
+          className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none"
         />
       </div>
 
       <div className="flex flex-col gap-2 mt-2">
         <label className="text-[11px] font-medium text-gray-500 uppercase flex justify-between items-center">
           <span>Acceptance Criteria</span>
-          <button onClick={handleAddAc} className="text-[#185FA5] hover:underline flex items-center gap-1 text-[11px]">
+          <button onClick={handleAddAc} className="text-[#1E707D] hover:underline flex items-center gap-1 text-[11px]">
             <FiPlus size={12} /> Add
           </button>
         </label>
@@ -108,7 +108,7 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
               value={ac}
               onChange={(e) => handleAcChange(idx, e.target.value)}
               rows={2}
-              className="flex-1 p-2 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-[#185FA5] focus:outline-none"
+              className="flex-1 p-2 text-[12px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none"
             />
             <button onClick={() => handleRemoveAc(idx)} className="mt-1 p-1.5 text-red-500 hover:bg-red-50 rounded">
               <FiTrash2 size={14} />
@@ -124,7 +124,7 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
         <button onClick={onCancel} className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded">
           Cancel
         </button>
-        <button onClick={() => onSave(editedReq)} className="px-3 py-1.5 text-[12px] font-medium bg-[#185FA5] text-white hover:bg-[#124d87] rounded flex items-center gap-1">
+        <button onClick={() => onSave(editedReq)} className="px-3 py-1.5 text-[12px] font-medium bg-[#1E707D] text-white hover:bg-[#155762] rounded flex items-center gap-1">
           <FiSave size={12} /> Save
         </button>
       </div>

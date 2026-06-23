@@ -81,7 +81,7 @@ const AlertCard = ({ priorityLabel, timeLabel, title, desc, details, btnText, le
           {details.length > 2 && (
             <button 
               onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-[11px] font-bold text-primary mt-2 ml-1 hover:underline focus:outline-none transition-all"
+              className="flex items-center gap-1 text-[11px] font-bold text-[#1E707D] mt-2 ml-1 hover:underline focus:outline-none transition-all"
             >
               <span className="material-symbols-outlined text-[14px]">
                 {isExpanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}

@@ -458,7 +458,7 @@ const KanbanBoardPage = () => {
             <button
               type="button"
               onClick={handleCreateColumn}
-              className="group flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-outline-variant bg-surface-container-lowest text-on-surface-variant shadow-sm transition-all hover:border-primary hover:bg-primary-fixed hover:text-primary hover:shadow-md"
+              className="group flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-outline-variant bg-surface-container-lowest text-on-surface-variant shadow-sm transition-all hover:border-[#1E707D] hover:bg-[#D7EEF1] hover:text-[#1E707D] hover:shadow-md"
               aria-label="Add board column"
               title="Add column"
             >
@@ -503,7 +503,7 @@ const KanbanBoardPage = () => {
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
           <form onSubmit={handleSubmitReviewMove} className="w-full max-w-lg rounded-lg border border-outline-variant bg-surface-container-lowest shadow-2xl">
             <div className="border-b border-outline-variant px-5 py-4">
-              <p className="font-label-md text-label-md uppercase text-primary">{reviewMoveModal.targetLabel}</p>
+              <p className="font-label-md text-label-md uppercase text-[#1E707D]">{reviewMoveModal.targetLabel}</p>
               <h2 className="mt-1 text-lg font-bold text-on-surface">{reviewMoveModal.taskTitle}</h2>
             </div>
             <div className="space-y-4 p-5">
@@ -528,7 +528,7 @@ const KanbanBoardPage = () => {
                     onClick={() => setSelectedTargetStatus('IN_REVIEW')}
                     className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
                       selectedTargetStatus === 'IN_REVIEW'
-                        ? 'bg-primary-container/20 text-primary border-primary'
+                        ? 'bg-[#D7EEF1]/20 text-[#1E707D] border-[#1E707D]'
                         : 'bg-surface border-outline-variant hover:bg-surface-container-high text-on-surface-variant'
                     }`}
                   >
@@ -563,7 +563,7 @@ const KanbanBoardPage = () => {
                   onChange={(event) => setReviewMoveReason(event.target.value)}
                   rows={4}
                   required
-                  className="mt-2 w-full resize-none rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  className="mt-2 w-full resize-none rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-[#1E707D]"
                   placeholder="Explain why this Done task needs another review or rework."
                 />
               </label>
@@ -582,7 +582,7 @@ const KanbanBoardPage = () => {
               <button
                 type="submit"
                 disabled={!reviewMoveReason.trim()}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-[#1E707D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D7EEF1] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Confirm
               </button>

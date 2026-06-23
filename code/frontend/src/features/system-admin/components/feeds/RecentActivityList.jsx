@@ -49,7 +49,7 @@ const RecentActivityList = () => {
               iconType = 'school';
             } else if (act.type === 'person_add' || act.type === 'how_to_reg') {
               bgColor = 'bg-transparent';
-              textColor = 'text-blue-500';
+              textColor = 'text-[#1E707D]';
               titleHTML = act.message;
               iconType = 'person';
             }
@@ -91,7 +91,7 @@ const RecentActivityList = () => {
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3 py-1 text-[11px] font-label-md rounded-md transition-colors ${activeTab === tab ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
+                className={`px-3 py-1 text-[11px] font-label-md rounded-md transition-colors ${activeTab === tab ? 'bg-surface-container-lowest text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-[#1E707D]'}`}
               >
                 {tab}
               </button>
@@ -117,7 +117,7 @@ const RecentActivityList = () => {
         <span className="text-[13px] text-on-surface-variant">
           Hiển thị {filteredActivities.length} trên {totalActivities[activeTab]} hoạt động
         </span>
-        <Link to="/admin/audit-logs" className="text-[13px] text-primary font-medium hover:underline">
+        <Link to="/admin/audit-logs" className="text-[13px] text-[#1E707D] font-medium hover:underline">
           Xem toàn bộ log &rarr;
         </Link>
       </div>

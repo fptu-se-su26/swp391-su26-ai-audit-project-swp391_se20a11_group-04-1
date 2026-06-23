@@ -70,7 +70,7 @@ const SprintOverviewCard = ({ sprintProgress = {}, activeSprint = null }) => {
               stroke="currentColor" strokeWidth="8"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
-              className="text-blue-600 transition-all duration-1000 ease-out"
+              className="text-[#1E707D] transition-all duration-1000 ease-out"
               strokeLinecap="round" />
           </svg>
           <span className="absolute inset-0 flex items-center justify-center text-[13px] font-black text-gray-800 tracking-tight">
@@ -112,7 +112,7 @@ const SprintOverviewCard = ({ sprintProgress = {}, activeSprint = null }) => {
                 <div
                   className={`w-full rounded-t-[4px] transition-all duration-700 ease-out ${
                     val > 0
-                      ? isToday ? 'bg-blue-600' : 'bg-blue-300'
+                      ? isToday ? 'bg-[#1E707D]' : 'bg-[#1E707D]/10'
                       : 'bg-gray-100'
                   }`}
                   style={{ height: `${Math.max(heightPct, 5)}%` }}
@@ -125,7 +125,7 @@ const SprintOverviewCard = ({ sprintProgress = {}, activeSprint = null }) => {
           {DAY_SHORT.map((d, i) => (
             <span 
               key={i} 
-              className={`flex-1 text-center text-[10px] font-bold ${i === todayIdx ? 'text-blue-600' : 'text-gray-400'}`}
+              className={`flex-1 text-center text-[10px] font-bold ${i === todayIdx ? 'text-[#1E707D]' : 'text-gray-400'}`}
             >
               {d}
             </span>

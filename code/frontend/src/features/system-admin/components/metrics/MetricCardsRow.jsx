@@ -38,8 +38,8 @@ const MetricCardsRow = () => {
         label="Total Users" 
         value={metrics.totalUsers?.toLocaleString() || '0'} 
         icon="group" 
-        iconColor="text-blue-500"
-        iconBg="bg-blue-500/10"
+        iconColor="text-[#1E707D]"
+        iconBg="bg-[#1E707D]/10"
       >
         <div className="mt-5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">

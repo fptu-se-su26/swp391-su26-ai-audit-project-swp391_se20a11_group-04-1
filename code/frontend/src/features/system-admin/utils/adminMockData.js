@@ -1,6 +1,6 @@
 export const MOCK_METRICS = [
     { id: 1, label: 'Total Users', value: '1,284', trend: '+86 this month', trendUp: true, icon: 'trending_up', iconColor: 'text-green-600' },
-    { id: 2, label: 'Active Projects', value: '142', trend: '18 need review', trendUp: true, icon: 'assignment_late', iconColor: 'text-primary' },
+    { id: 2, label: 'Active Projects', value: '142', trend: '18 need review', trendUp: true, icon: 'assignment_late', iconColor: 'text-[#1E707D]' },
     { id: 3, label: 'Active Mentors', value: '32', trend: '24 assigned', trendUp: true, icon: 'group', iconColor: 'text-on-surface-variant' },
     { id: 4, label: 'AI Requests', value: '24.8K', trend: '+12% this week', trendUp: true, icon: 'auto_awesome', iconColor: 'text-green-600' },
     { id: 5, label: 'Storage Used', value: '320 GB', trend: '68% of 500 GB', trendUp: true, icon: 'cloud', iconColor: 'text-on-surface-variant' },
@@ -23,8 +23,8 @@ export const MOCK_RECENT_ACTIVITY = [
         rawType: 'school',
         titleHTML: 'Context SWP391 - Summer 2026 created successfully',
         time: 'Just now',
-        bgColor: 'bg-primary-container/10',
-        textColor: 'text-primary'
+        bgColor: 'bg-[#D7EEF1]/10',
+        textColor: 'text-[#1E707D]'
     },
     {
         id: 2,
@@ -50,8 +50,8 @@ export const MOCK_RECENT_ACTIVITY = [
         rawType: 'school',
         titleHTML: 'Project Mobile App - Group 3 passed review',
         time: 'Yesterday',
-        bgColor: 'bg-primary-container/10',
-        textColor: 'text-primary'
+        bgColor: 'bg-[#D7EEF1]/10',
+        textColor: 'text-[#1E707D]'
     }
 ];
 

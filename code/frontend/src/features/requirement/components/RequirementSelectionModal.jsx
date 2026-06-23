@@ -48,11 +48,10 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   const toggleSelectAll = () => {
-    const reqsWithoutUcs = requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id)));
-    if (selectedIds.size === reqsWithoutUcs.length) {
+    if (selectedIds.size === requirements.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(reqsWithoutUcs.map(r => r.id)));
+      setSelectedIds(new Set(requirements.map(r => r.id)));
     }
   };
 
@@ -78,8 +77,8 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
         {/* MODAL HEADER */}
         <div className="flex justify-between items-start px-[24px] pt-[20px] pb-0">
           <div className="flex items-center gap-3">
-            <div className="w-[38px] h-[38px] rounded-[10px] bg-[#EEEDFE] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[#3C3489]" style={{ fontSize: '20px' }}>auto_awesome</span>
+            <div className="w-[38px] h-[38px] rounded-[10px] bg-[#1E707D]/10 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[#1E707D]" style={{ fontSize: '20px' }}>auto_awesome</span>
             </div>
             <div>
               <h2 className="text-[16px] font-medium text-[#111827] leading-tight">Generate Use Cases (AI)</h2>
@@ -101,18 +100,18 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
                 type="checkbox" 
-                checked={selectedIds.size > 0 && selectedIds.size === requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length}
+                checked={selectedIds.size > 0 && selectedIds.size === requirements.length}
                 ref={input => {
                   if (input) {
-                    const max = requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length;
+                    const max = requirements.length;
                     input.indeterminate = selectedIds.size > 0 && selectedIds.size < max;
                   }
                 }}
                 onChange={toggleSelectAll}
-                className="w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] cursor-pointer"
+                className="w-4 h-4 rounded border-[#E5E7EB] accent-[#1E707D] cursor-pointer"
               />
               <span className="text-[13px] font-medium text-[#111827]">
-                Select All ({selectedIds.size} / {requirements.filter(req => !useCases.some(uc => String(uc.requirementId) === String(req.id))).length} valid)
+                Select All ({selectedIds.size} / {requirements.length} valid)
               </span>
             </label>
             <span className="text-[11px] text-[#9CA3AF] italic">
@@ -125,7 +124,7 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
         <div className="overflow-y-auto max-h-[360px] px-[24px] pb-[16px] custom-scrollbar">
           {loading ? (
             <div className="flex justify-center items-center py-10">
-              <span className="material-symbols-outlined animate-spin text-[#185FA5] text-3xl">progress_activity</span>
+              <span className="material-symbols-outlined animate-spin text-[#1E707D] text-3xl">progress_activity</span>
             </div>
           ) : requirements.length === 0 ? (
             <div className="text-center py-10 text-[#6B7280] text-[13px]">
@@ -141,24 +140,16 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
                 return (
                   <label 
                     key={req.id} 
-                    className={`flex items-center justify-between py-[10px] px-[14px] border-b border-[#F3F4F6] gap-[12px] 
-                      ${hasUcs ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-[#F8FAFC]'} 
-                      ${!isSelected && !hasUcs ? 'opacity-75' : ''}`}
-                    onClick={(e) => {
-                      if (hasUcs) e.preventDefault();
-                    }}
+                    className={`flex items-center justify-between py-[10px] px-[14px] border-b border-[#F3F4F6] gap-[12px] cursor-pointer hover:bg-[#F8FAFC] ${!isSelected ? 'opacity-90' : ''}`}
                   >
                     <div className="flex items-center gap-[12px] flex-1 min-w-0">
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        disabled={hasUcs}
-                        onChange={() => {
-                          if (!hasUcs) toggleSelect(req.id);
-                        }}
-                        className={`w-4 h-4 rounded border-[#E5E7EB] accent-[#185FA5] shrink-0 ${hasUcs ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                      />
-                      <span className="bg-[#185FA5] text-white text-[11px] rounded-[6px] px-[8px] py-[2px] font-mono shrink-0">
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => toggleSelect(req.id)}
+                          className="w-4 h-4 rounded border-[#E5E7EB] accent-[#1E707D] shrink-0 cursor-pointer"
+                        />
+                      <span className="bg-[#1E707D] text-white text-[11px] rounded-[6px] px-[8px] py-[2px] font-mono shrink-0">
                         {req.reqCode || `REQ-${req.id}`}
                       </span>
                       <span className="text-[13px] font-medium text-[#111827] truncate">
@@ -199,7 +190,7 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
             type="button" 
             onClick={handleConfirm} 
             disabled={loading || selectedIds.size === 0}
-            className="bg-[#185FA5] text-white rounded-[8px] px-[20px] py-[8px] text-[14px] font-medium flex items-center gap-2 hover:bg-[#134e8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-[#1E707D] text-white rounded-[8px] px-[20px] py-[8px] text-[14px] font-medium flex items-center gap-2 hover:bg-[#1E707D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>smart_toy</span>
             Generate for {selectedIds.size} Requirement(s)

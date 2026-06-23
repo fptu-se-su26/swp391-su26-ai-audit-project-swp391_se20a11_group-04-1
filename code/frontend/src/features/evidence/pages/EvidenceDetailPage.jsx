@@ -106,7 +106,7 @@ const EvidenceDetailPage = () => {
     return (
       <div className="p-6 md:p-10 h-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <span className="material-symbols-outlined text-primary text-[36px] animate-spin">progress_activity</span>
+          <span className="material-symbols-outlined text-[#1E707D] text-[36px] animate-spin">progress_activity</span>
           <span className="text-secondary font-medium font-body-md text-body-md">Loading evidence details...</span>
         </div>
       </div>
@@ -125,7 +125,7 @@ const EvidenceDetailPage = () => {
           </span>
           <button
             onClick={() => navigate(`/projects/${projectId}/evidence`)}
-            className="mt-2 px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors font-body-md text-body-md flex items-center gap-2"
+            className="mt-2 px-4 py-2 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors font-body-md text-body-md flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Back to Evidence Vault
@@ -189,7 +189,7 @@ const EvidenceDetailPage = () => {
                   <MetaRow
                     label="File URL"
                     value={
-                      <a href={evidence.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[13px] break-all">
+                      <a href={evidence.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[#1E707D] hover:underline text-[13px] break-all">
                         {evidence.fileUrl.length > 40 ? evidence.fileUrl.slice(0, 40) + '...' : evidence.fileUrl}
                       </a>
                     }
@@ -199,7 +199,7 @@ const EvidenceDetailPage = () => {
                   <MetaRow
                     label="External URL"
                     value={
-                      <a href={evidence.externalUrl || evidence.external_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[13px] break-all">
+                      <a href={evidence.externalUrl || evidence.external_url} target="_blank" rel="noopener noreferrer" className="text-[#1E707D] hover:underline text-[13px] break-all">
                         {(evidence.externalUrl || evidence.external_url).length > 40
                           ? (evidence.externalUrl || evidence.external_url).slice(0, 40) + '...'
                           : evidence.externalUrl || evidence.external_url}

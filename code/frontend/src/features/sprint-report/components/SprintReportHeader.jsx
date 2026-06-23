@@ -14,7 +14,7 @@ export default function SprintReportHeader({
           {activeProject.title || activeProject.name}
         </p>
         <h1 className="mt-1 flex items-center gap-2 text-2xl font-black text-on-surface">
-          <span className="material-symbols-outlined text-primary">monitoring</span>
+          <span className="material-symbols-outlined text-[#1E707D]">monitoring</span>
           Sprint Reports
         </h1>
       </div>

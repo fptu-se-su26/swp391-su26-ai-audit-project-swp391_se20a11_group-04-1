@@ -80,7 +80,7 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
   let icon, themeColor;
   switch (level) {
     case 'Requirement':
-      icon = 'content_paste'; themeColor = { borderLeft: 'border-l-indigo-400', text: 'text-indigo-600' }; break;
+      icon = 'content_paste'; themeColor = { borderLeft: 'border-l-indigo-400', text: 'text-[#1E707D]' }; break;
     case 'Use Cases':
       icon = 'route'; themeColor = { borderLeft: 'border-l-amber-400', text: 'text-amber-600' }; break;
     case 'Tasks':
@@ -88,7 +88,7 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
     case 'Tests':
       icon = 'science'; themeColor = { borderLeft: 'border-l-emerald-500', text: 'text-emerald-600' }; break;
     case 'Evidence':
-      icon = 'inventory_2'; themeColor = { borderLeft: 'border-l-purple-500', text: 'text-purple-600' }; break;
+      icon = 'inventory_2'; themeColor = { borderLeft: 'border-l-purple-500', text: 'text-[#1E707D]' }; break;
     default:
       icon = 'article'; themeColor = { borderLeft: 'border-l-slate-400', text: 'text-slate-600' };
   }
@@ -98,7 +98,7 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
     if (s === 'PASS' || s === 'DONE' || s === 'VERIFIED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     if (s === 'FAIL' || s === 'BLOCKED') return 'bg-red-50 text-red-700 border-red-200';
     if (s === 'IN_PROGRESS' || s === 'IN PROGRESS') return 'bg-amber-50 text-amber-700 border-amber-200';
-    if (s === 'IN_REVIEW' || s === 'IN REVIEW') return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (s === 'IN_REVIEW' || s === 'IN REVIEW') return 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/20';
     return 'bg-slate-50 text-slate-600 border-slate-200'; // DRAFT / DEFAULT
   };
 
@@ -178,7 +178,7 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
           </div>
           <div className="relative" ref={dropdownRef}>
             <div 
-              className={`flex items-center gap-1 shrink-0 ${taskEvidences?.length ? 'text-purple-600 hover:bg-purple-50 px-1.5 py-0.5 rounded cursor-pointer font-medium transition-colors -mr-1' : 'italic text-slate-400'}`}
+              className={`flex items-center gap-1 shrink-0 ${taskEvidences?.length ? 'text-[#1E707D] hover:bg-purple-50 px-1.5 py-0.5 rounded cursor-pointer font-medium transition-colors -mr-1' : 'italic text-slate-400'}`}
               onClick={taskEvidences?.length ? (e) => { e.stopPropagation(); setShowEvidence(!showEvidence); } : undefined}
             >
               <span className="material-symbols-outlined text-[14px]">attach_file</span>
@@ -209,13 +209,13 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
                           navigate(`/projects/${projectId}/evidence/${ev.id}`);
                         }
                       }}
-                      className="flex items-center justify-between bg-white border border-transparent rounded p-1.5 hover:bg-purple-50 hover:border-purple-100 transition-all cursor-pointer group"
+                      className="flex items-center justify-between bg-white border border-transparent rounded p-1.5 hover:bg-purple-50 hover:border-[#1E707D]/20 transition-all cursor-pointer group"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-purple-600 transition-colors">
+                        <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-[#1E707D] transition-colors">
                           {ev.fileUrl || ev.externalUrl ? 'image' : 'description'}
                         </span>
-                        <span className="font-medium text-[11px] text-slate-700 truncate group-hover:text-purple-700" title={ev.title || ev.name}>{ev.title || ev.name || 'Untitled'}</span>
+                        <span className="font-medium text-[11px] text-slate-700 truncate group-hover:text-[#1E707D]" title={ev.title || ev.name}>{ev.title || ev.name || 'Untitled'}</span>
                       </div>
                     </div>
                   ))}
@@ -237,7 +237,7 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
           <span className="truncate">Run: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</span>
         </div>
         {linkedTask && (
-          <div className="flex items-center gap-1.5 shrink-0 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer" 
+          <div className="flex items-center gap-1.5 shrink-0 text-slate-500 hover:text-[#1E707D] transition-colors cursor-pointer" 
                onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/tasks/${linkedTask.entityId}`); }}>
             <span className="material-symbols-outlined text-[14px]">arrow_back</span>
             TSK-{linkedTask.entityId}

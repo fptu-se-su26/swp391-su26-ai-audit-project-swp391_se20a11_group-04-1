@@ -206,7 +206,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
           <button
             onClick={handleGenerate}
             disabled={actionLoading}
-            className="flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-[#1E707D] hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
           >
             <Wand2 className="w-4 h-4" />
             Generate Recovery Plan
@@ -276,7 +276,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
 
           {plan.status === 'APPROVED' && (
             <>
-              <p className="text-xs text-blue-700 bg-blue-50 p-2 rounded border border-blue-100 mb-2">
+              <p className="text-xs text-[#1E707D] bg-[#1E707D]/10 p-2 rounded border border-blue-100 mb-2">
                 Approved and ready to execute.
               </p>
               {renderActionsList(plan.actions, 2)}
@@ -305,7 +305,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
                 <button
                   onClick={handleGenerate}
                   disabled={actionLoading}
-                  className="mt-3 flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
+                  className="mt-3 flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-[#1E707D] hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
                 >
                   <Wand2 className="w-4 h-4" />
                   Generate New Plan
@@ -324,7 +324,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
                 <button
                   onClick={handleGenerate}
                   disabled={actionLoading}
-                  className="mt-2 flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
+                  className="mt-2 flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-[#1E707D] hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
                 >
                   <Wand2 className="w-4 h-4" />
                   Generate New Plan

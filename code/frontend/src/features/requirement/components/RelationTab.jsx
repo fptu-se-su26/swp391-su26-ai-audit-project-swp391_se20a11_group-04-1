@@ -64,7 +64,7 @@ const RelationTab = () => {
               setSourceId(e.target.value);
               setTargetId('');
             }}
-            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
           >
             <option value="">Select Source...</option>
             <optgroup label="Actors">
@@ -84,7 +84,7 @@ const RelationTab = () => {
               setType(e.target.value);
               setTargetId('');
             }}
-            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
           >
             <option value="actor-uc">Association (Actor ↔ UC)</option>
             <option value="include">Include (UC → UC)</option>
@@ -99,7 +99,7 @@ const RelationTab = () => {
             value={targetId} 
             onChange={(e) => setTargetId(e.target.value)}
             disabled={!sourceId || availableTargets.length === 0}
-            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-100"
+            className="px-2 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E707D] disabled:opacity-50 disabled:bg-gray-100"
           >
             <option value="">Select Target...</option>
             {availableTargets.map(t => (
@@ -140,7 +140,7 @@ const RelationTab = () => {
                   </span>
                 </div>
                 {rel.type === 'include' && (
-                  <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded w-fit mt-1 border border-blue-200">
+                  <span className="text-[11px] font-bold text-[#1E707D] bg-[#1E707D]/10 px-2 py-0.5 rounded w-fit mt-1 border border-[#1E707D]/20">
                     &lt;&lt;include&gt;&gt;
                   </span>
                 )}
@@ -150,7 +150,7 @@ const RelationTab = () => {
                   </span>
                 )}
                 {rel.type === 'generalization' && (
-                  <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded w-fit mt-1 border border-purple-200">
+                  <span className="text-[11px] font-bold text-[#1E707D] bg-[#1E707D]/10 px-2 py-0.5 rounded w-fit mt-1 border border-[#1E707D]/20">
                     Generalization
                   </span>
                 )}

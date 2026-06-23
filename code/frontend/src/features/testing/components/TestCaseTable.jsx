@@ -31,7 +31,7 @@ export default function TestCaseTable({ testCases, pagination, onPageChange, onE
           {pages.map((p) => (
             <button
               key={p}
-              className={`w-8 h-8 flex items-center justify-center rounded text-sm ${p === page ? 'bg-primary-container text-on-primary-container font-medium' : 'border border-outline-variant text-secondary hover:bg-surface-container-low'}`}
+              className={`w-8 h-8 flex items-center justify-center rounded text-sm ${p === page ? 'bg-[#D7EEF1] text-[#1E707D] font-medium' : 'border border-outline-variant text-secondary hover:bg-surface-container-low'}`}
               onClick={() => onPageChange(p)}
             >
               {p + 1}
@@ -70,7 +70,7 @@ export default function TestCaseTable({ testCases, pagination, onPageChange, onE
             {isLoading ? (
               <tr>
                 <td colSpan="8" className="py-12 text-center text-secondary">
-                  <span className="material-symbols-outlined animate-spin text-primary mr-2">progress_activity</span>
+                  <span className="material-symbols-outlined animate-spin text-[#1E707D] mr-2">progress_activity</span>
                   Loading test cases...
                 </td>
               </tr>

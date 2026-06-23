@@ -105,7 +105,7 @@ const RunResultBanner = ({ runData }) => {
           <p className="mt-1 text-sm text-orange-600">One or more steps failed during execution.</p>
         </div>
         {runData.bugReportId && (
-          <a href={`/bugs/${runData.bugReportId}`} className="text-sm font-medium text-indigo-600 hover:text-indigo-500 bg-white px-3 py-1.5 rounded-md border border-gray-200 shadow-sm whitespace-nowrap flex-shrink-0 transition-colors">
+          <a href={`/bugs/${runData.bugReportId}`} className="text-sm font-medium text-[#1E707D] hover:text-[#1E707D] bg-white px-3 py-1.5 rounded-md border border-gray-200 shadow-sm whitespace-nowrap flex-shrink-0 transition-colors">
             Bug created #{runData.bugReportId} — view report
           </a>
         )}
@@ -231,7 +231,7 @@ const RunTestCase = ({ testCase }) => {
           <div>
             <h2 className="text-lg font-medium text-gray-900">{testCase.title}</h2>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500">
-              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-100">{testCase.type}</span>
+              <span className="px-2 py-0.5 bg-[#1E707D]/10 text-[#1E707D] rounded text-xs font-medium border border-blue-100">{testCase.type}</span>
               <span className="flex items-center gap-1.5">
                 Base URL: <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 shadow-sm">{testCase.baseUrl}</code>
               </span>
@@ -333,7 +333,7 @@ const RunTestCase = ({ testCase }) => {
             className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors
               ${(isRunning || !testCase.stepsStructured?.length) 
                 ? 'bg-indigo-400 cursor-not-allowed' 
-                : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+                : 'bg-[#1E707D] hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
               }`}
           >
             {isRunning ? (

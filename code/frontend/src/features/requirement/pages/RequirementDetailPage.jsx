@@ -56,7 +56,7 @@ const RequirementDetailPage = () => {
           
           const tests = testRes?.content || testRes?.data || testRes || [];
           data.tests = (Array.isArray(tests) ? tests : []).filter(t => 
-            String(t.requirement?.id) === String(data.id) || String(t.requirementId) === String(data.id)
+            String(t.requirement?.id) === String(data.id) || String(t.requirementId) === String(data.id) || String(t.requirementCode) === String(data.reqCode)
           );
 
           const evidences = evRes?.content || evRes?.data || evRes || [];
@@ -111,9 +111,9 @@ const RequirementDetailPage = () => {
 
       <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mt-stack_md">
-        {/* Left Column: Details */}
-        <div className="lg:col-span-8 flex flex-col gap-gutter">
+      <div className="grid grid-cols-1 gap-gutter mt-stack_md">
+        {/* Main Content */}
+        <div className="flex flex-col gap-gutter">
           <RequirementDetailDescription requirement={requirement} />
           <RequirementDetailCriteria requirement={requirement} />
           <RequirementDetailRelationships 
@@ -121,12 +121,6 @@ const RequirementDetailPage = () => {
             onOpenUseCaseModal={() => setIsUseCaseModalOpen(true)}
             onOpenTestCaseModal={() => setIsTestCaseModalOpen(true)}
           />
-        </div>
-
-        {/* Right Column: Sidebar Panels */}
-        <div className="lg:col-span-4 flex flex-col gap-gutter">
-          <RequirementDetailAIActions requirement={requirement} />
-          <RequirementDetailTraceability requirement={requirement} />
         </div>
       </div>
 

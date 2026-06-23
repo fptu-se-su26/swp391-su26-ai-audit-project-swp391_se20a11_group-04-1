@@ -36,7 +36,7 @@ const PlatformGrowthChart = () => {
     <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-headline-sm text-body-lg flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">trending_up</span> Platform Growth
+          <span className="material-symbols-outlined text-[#1E707D]">trending_up</span> Platform Growth
         </h3>
         <div className="relative">
           <button 
@@ -56,7 +56,7 @@ const PlatformGrowthChart = () => {
                     setYear(y);
                     setIsDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-primary/10 transition-colors ${year === y ? 'text-primary font-medium bg-primary/5' : 'text-on-surface'}`}
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-[#1E707D]/10 transition-colors ${year === y ? 'text-[#1E707D] font-medium bg-[#1E707D]/5' : 'text-on-surface'}`}
                 >
                   Year {y}
                 </button>

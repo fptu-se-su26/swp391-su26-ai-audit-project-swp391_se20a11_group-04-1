@@ -62,7 +62,7 @@ const EvidencePreview = ({ evidence }) => {
               href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto text-primary hover:underline font-body-md text-[13px] flex items-center gap-1"
+              className="ml-auto text-[#1E707D] hover:underline font-body-md text-[13px] flex items-center gap-1"
             >
               Open URL <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             </a>
@@ -91,7 +91,7 @@ const EvidencePreview = ({ evidence }) => {
             {metadata.commitSha && (
               <div className="flex items-center gap-2">
                 <span className="font-label-md text-label-md text-on-surface-variant w-20">SHA</span>
-                <code className="font-label-md text-[13px] text-primary bg-primary-fixed/20 px-2 py-0.5 rounded-md">
+                <code className="font-label-md text-[13px] text-[#1E707D] bg-[#D7EEF1]/20 px-2 py-0.5 rounded-md">
                   {metadata.commitSha?.slice(0, 7)}
                 </code>
               </div>
@@ -114,7 +114,7 @@ const EvidencePreview = ({ evidence }) => {
                   href={externalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline font-body-md text-body-md flex items-center gap-1"
+                  className="text-[#1E707D] hover:underline font-body-md text-body-md flex items-center gap-1"
                 >
                   View on GitHub <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                 </a>
@@ -147,7 +147,7 @@ const EvidencePreview = ({ evidence }) => {
               href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 font-body-md text-body-md shadow-sm"
+              className="px-5 py-2.5 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors flex items-center gap-2 font-body-md text-body-md shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">open_in_new</span>
               {type === 'FIGMA_LINK' ? 'Open in Figma' : 'Open Live URL'}
@@ -180,7 +180,7 @@ const EvidencePreview = ({ evidence }) => {
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 font-body-md text-body-md shadow-sm"
+              className="px-5 py-2.5 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors flex items-center gap-2 font-body-md text-body-md shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">download</span>
               Download File
@@ -191,7 +191,7 @@ const EvidencePreview = ({ evidence }) => {
               href={externalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:underline font-body-md text-[13px] flex items-center gap-1"
+              className="text-[#1E707D] hover:underline font-body-md text-[13px] flex items-center gap-1"
             >
               Open External Link <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             </a>
@@ -218,7 +218,7 @@ const EvidencePreview = ({ evidence }) => {
             href={fileUrl || externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline font-body-md text-body-md flex items-center gap-1"
+            className="text-[#1E707D] hover:underline font-body-md text-body-md flex items-center gap-1"
           >
             Open resource <span className="material-symbols-outlined text-[16px]">open_in_new</span>
           </a>

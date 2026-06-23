@@ -4,7 +4,7 @@ import React from 'react';
  * Map entity type → icon + color
  */
 const ENTITY_CONFIG = {
-  REQUIREMENT: { icon: 'description', label: 'Requirement', prefix: 'REQ', color: 'text-primary', bg: 'bg-primary-fixed/20' },
+  REQUIREMENT: { icon: 'description', label: 'Requirement', prefix: 'REQ', color: 'text-[#1E707D]', bg: 'bg-[#D7EEF1]/20' },
   TASK: { icon: 'assignment', label: 'Task', prefix: 'TASK', color: 'text-[#7c3aed]', bg: 'bg-[#ede9fe]' },
   TEST_CASE: { icon: 'checklist_rtl', label: 'Test Case', prefix: 'TC', color: 'text-[#0891b2]', bg: 'bg-[#ecfeff]' },
   BUG_REPORT: { icon: 'bug_report', label: 'Bug Report', prefix: 'BUG', color: 'text-error', bg: 'bg-error-container/30' },

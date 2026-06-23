@@ -87,7 +87,7 @@ const EvidenceTabContent = ({ evidences, requirement }) => {
         return renderCompactCard(gitContent, `${prIcon} ${ev.title}`, ev.metadata?.branch || ev.description, false);
 
       default:
-        const linkContent = <span className="material-symbols-outlined text-blue-500 text-xl">link</span>;
+        const linkContent = <span className="material-symbols-outlined text-[#1E707D] text-xl">link</span>;
         return renderCompactCard(linkContent, `🌐 ${ev.title}`, ev.externalUrl || ev.fileUrl || 'No URL', false);
     }
   };
@@ -99,7 +99,7 @@ const EvidenceTabContent = ({ evidences, requirement }) => {
         <div>
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             Evidence 
-            <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-md text-xs font-bold">{evidences.length}</span>
+            <span className="bg-[#1E707D]/10 text-[#1E707D] py-0.5 px-2 rounded-md text-xs font-bold">{evidences.length}</span>
           </h3>
           <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-600 font-medium bg-emerald-50 w-fit px-2 py-0.5 rounded border border-emerald-100">
             <span className="material-symbols-outlined text-[14px]">shield</span>
@@ -123,7 +123,7 @@ const EvidenceTabContent = ({ evidences, requirement }) => {
               <div key={ev.id} className="mb-4 relative">
                 {/* Header Line */}
                 <div className="flex items-center gap-3 relative z-10 bg-white py-1">
-                  <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)] border border-white shrink-0"></div>
+                  <div className="w-3 h-3 rounded-full bg-[#1E707D] shadow-[0_0_6px_rgba(59,130,246,0.6)] border border-white shrink-0"></div>
                   <div className="flex items-center gap-2 text-xs text-slate-500">
                     <span className="font-mono">{timeString} {dateString}</span>
                     <span>&middot;</span>
@@ -136,7 +136,7 @@ const EvidenceTabContent = ({ evidences, requirement }) => {
                     {linkedTask && (
                       <>
                         <span>&middot;</span>
-                        <span className="text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">TSK-{linkedTask.entityId}</span>
+                        <span className="text-[#1E707D] font-medium bg-[#1E707D]/10 px-1.5 py-0.5 rounded border border-[#1E707D]/20">TSK-{linkedTask.entityId}</span>
                       </>
                     )}
                   </div>

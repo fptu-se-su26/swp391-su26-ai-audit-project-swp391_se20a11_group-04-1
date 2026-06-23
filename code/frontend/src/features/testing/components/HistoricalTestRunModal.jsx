@@ -87,7 +87,7 @@ export default function HistoricalTestRunModal({ runId, testCase, onClose }) {
         <div className="flex-1 overflow-auto p-4 md:p-6 bg-gray-100">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-3">
-              <Loader size={32} className="animate-spin text-indigo-500" />
+              <Loader size={32} className="animate-spin text-[#1E707D]" />
               <p className="font-medium">Đang tải dữ liệu lịch sử...</p>
             </div>
           ) : error && status === 'ERROR' && !steps.length ? (

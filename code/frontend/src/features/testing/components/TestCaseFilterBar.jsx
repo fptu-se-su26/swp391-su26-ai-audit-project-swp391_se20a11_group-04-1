@@ -20,7 +20,7 @@ export default function TestCaseFilterBar({ filters, onFilterChange, onSearch })
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-transparent focus:border-primary focus:ring-2 focus:ring-primary-container rounded font-body-md text-body-md text-on-surface placeholder:text-outline transition-all outline-none"
+          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-transparent focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container rounded font-body-md text-body-md text-on-surface placeholder:text-outline transition-all outline-none"
           placeholder="Search test cases..."
         />
       </form>

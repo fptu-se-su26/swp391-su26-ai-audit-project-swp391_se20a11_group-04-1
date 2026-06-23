@@ -92,7 +92,7 @@ const AuditLogsPage = () => {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
             <div>
               <div className="flex items-center gap-3 text-[13px] text-on-surface-variant mb-2">
-                <Link to="/admin" className="hover:text-primary transition-colors">Admin Dashboard</Link>
+                <Link to="/admin" className="hover:text-[#1E707D] transition-colors">Admin Dashboard</Link>
                 <span>/</span>
                 <span className="text-on-surface font-medium">Audit Logs</span>
               </div>
@@ -104,7 +104,7 @@ const AuditLogsPage = () => {
             <button 
               onClick={handleExportCSV}
               disabled={exporting}
-              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg text-[13px] font-medium shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-2 bg-[#1E707D] text-white px-4 py-2 rounded-lg text-[13px] font-medium shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {exporting ? (
                 <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
@@ -124,14 +124,14 @@ const AuditLogsPage = () => {
                 placeholder="Tìm kiếm log..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-[13px] text-on-surface focus:border-primary focus:outline-none transition-colors"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-[13px] text-on-surface focus:border-[#1E707D] focus:outline-none transition-colors"
               />
             </div>
             <div className="flex gap-4">
               <select 
                 value={typeFilter} 
                 onChange={(e) => handleFilterChange(setTypeFilter, e.target.value)}
-                className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface focus:border-primary focus:outline-none cursor-pointer"
+                className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface focus:border-[#1E707D] focus:outline-none cursor-pointer"
               >
                 <option value="All">All Types</option>
                 <option value="Users">Users</option>
@@ -140,7 +140,7 @@ const AuditLogsPage = () => {
               <select 
                 value={timeFilter} 
                 onChange={(e) => handleFilterChange(setTimeFilter, e.target.value)}
-                className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface focus:border-primary focus:outline-none cursor-pointer"
+                className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface focus:border-[#1E707D] focus:outline-none cursor-pointer"
               >
                 <option value="All Time">All Time</option>
                 <option value="Last 7 Days">Last 7 Days</option>
@@ -166,7 +166,7 @@ const AuditLogsPage = () => {
                   {loading ? (
                     <tr>
                       <td colSpan="4" className="px-6 py-12 text-center text-on-surface-variant text-[14px]">
-                        <span className="material-symbols-outlined animate-spin text-primary text-[24px]">progress_activity</span>
+                        <span className="material-symbols-outlined animate-spin text-[#1E707D] text-[24px]">progress_activity</span>
                       </td>
                     </tr>
                   ) : logs.length === 0 ? (
@@ -179,11 +179,11 @@ const AuditLogsPage = () => {
                     logs.map(log => (
                       <tr key={log.id} className="hover:bg-surface-container-lowest/50 transition-colors group">
                         <td className="px-6 py-4">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${log.type === 'school' ? 'bg-purple-500/10 text-purple-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${log.type === 'school' ? 'bg-purple-500/10 text-purple-500' : 'bg-[#1E707D]/10 text-[#1E707D]'}`}>
                             <span className="material-symbols-outlined text-[16px]">{log.type}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-[14px] text-on-surface group-hover:text-primary transition-colors">
+                        <td className="px-6 py-4 text-[14px] text-on-surface group-hover:text-[#1E707D] transition-colors">
                           {log.message}
                         </td>
                         <td className="px-6 py-4">
@@ -210,7 +210,7 @@ const AuditLogsPage = () => {
                 <button 
                   disabled={page === 0}
                   onClick={() => setPage(p => p - 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:text-[#1E707D] hover:border-[#1E707D] disabled:opacity-50 disabled:pointer-events-none transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                 </button>
@@ -227,7 +227,7 @@ const AuditLogsPage = () => {
                       <button 
                         key={i}
                         onClick={() => setPage(i)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-md text-[13px] transition-colors ${page === i ? 'bg-primary text-on-primary font-medium shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                        className={`w-8 h-8 flex items-center justify-center rounded-md text-[13px] transition-colors ${page === i ? 'bg-[#1E707D] text-white font-medium shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
                       >
                         {i + 1}
                       </button>
@@ -237,7 +237,7 @@ const AuditLogsPage = () => {
                 <button 
                   disabled={page >= totalPages - 1}
                   onClick={() => setPage(p => p + 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:text-[#1E707D] hover:border-[#1E707D] disabled:opacity-50 disabled:pointer-events-none transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                 </button>

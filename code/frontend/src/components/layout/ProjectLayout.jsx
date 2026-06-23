@@ -84,7 +84,7 @@ const ProjectLayout = () => {
                 clearActiveProject();
                 navigate('/dashboard');
               }}
-              className="flex-1 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-primary/95 transition-all shadow-md"
+              className="flex-1 bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-[#1E707D]/95 transition-all shadow-md"
             >
               Về Trang chủ
             </button>

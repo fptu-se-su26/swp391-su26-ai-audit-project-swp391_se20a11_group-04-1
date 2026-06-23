@@ -25,7 +25,7 @@ const RequirementDetailCriteria = ({ requirement }) => {
             return (
               <li key={index} className="flex items-start gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
                 <input 
-                  className="mt-1 border-outline-variant text-primary focus:ring-primary rounded" 
+                  className="mt-1 border-outline-variant text-[#1E707D] focus:ring-[#1E707D] rounded" 
                   type="checkbox" 
                   checked={isChecked || false} 
                   readOnly 

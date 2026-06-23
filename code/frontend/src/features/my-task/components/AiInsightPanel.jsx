@@ -24,7 +24,7 @@ const AiInsightPanel = ({ stats = {}, lastUpdated = 'just now' }) => {
   const hasContent = velocityWarning || overloadedMember || alerts.length > 0
 
   return (
-    <div className="bg-[#1E3A5F] p-5 rounded-xl text-white shadow-lg relative overflow-hidden h-[160px] shrink-0">
+    <div className="bg-[#1E707D] p-5 rounded-xl text-white shadow-lg relative overflow-hidden h-[160px] shrink-0">
       {/* Background icon */}
       <div className="absolute -right-4 -top-4 opacity-10">
         <span

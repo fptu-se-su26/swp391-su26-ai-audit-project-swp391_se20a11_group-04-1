@@ -79,7 +79,7 @@ const EvidenceReviewPanel = ({ evidence, onReview, isSubmitting }) => {
             onChange={(e) => setComment(e.target.value)}
             placeholder="Add a comment about this evidence..."
             rows={3}
-            className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all resize-none"
+            className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all resize-none"
           />
         </div>
 

@@ -73,7 +73,7 @@ const SprintFormModal = ({ open, sprint, onClose, onSubmit, saving }) => {
       >
         <div className="px-6 py-5 border-b border-outline-variant flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-primary">Sprint Planning</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-[#1E707D]">Sprint Planning</p>
             <h2 className="text-xl font-black text-on-surface">{sprint ? 'Edit Sprint' : 'Create Sprint'}</h2>
           </div>
           <button type="button" className="p-2 rounded-lg hover:bg-surface-container-high" onClick={onClose}>
@@ -146,7 +146,7 @@ const SprintFormModal = ({ open, sprint, onClose, onSubmit, saving }) => {
           <button type="button" className="px-4 py-2 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container-high font-bold" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-black disabled:opacity-60">
+          <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-[#1E707D] text-white hover:bg-[#D7EEF1] font-black disabled:opacity-60">
             {saving ? 'Saving...' : 'Save Sprint'}
           </button>
         </div>

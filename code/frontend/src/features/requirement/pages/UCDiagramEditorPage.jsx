@@ -5,6 +5,7 @@ import { UCDiagram } from '../components/UCDiagram';
 import { diagramService } from '../services/diagramService';
 import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
+import Button from '../../../components/ui/Button';
 
 const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
   const { actors, useCases, relations, loadData, reset } = useDiagramStore();
@@ -122,7 +123,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     return (
       <div className="flex h-[calc(100vh-100px)] overflow-hidden bg-gray-50 relative items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-10 h-10 border-4 border-[#1E707D] border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="mt-4 text-gray-600 font-medium">Loading Diagram Editor...</p>
         </div>
       </div>
@@ -153,40 +154,42 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600">
+              <span className="material-symbols-outlined text-[#1E707D]">
                 {isViewMode ? 'visibility' : 'edit_document'}
               </span>
               Use Case Diagram {isViewMode ? '(View Only)' : 'Editor'}
             </h1>
           </div>
           <div className="flex items-center gap-4">
-              <button
+              <Button
+                variant="outline"
                 onClick={() => window.exportDiagramDrawio?.(systemName)}
-                className="flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 transition-colors"
+                className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 h-9"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export Draw.io
-              </button>
+              </Button>
               {isViewMode ? (
               onEdit && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={onEdit}
-                  className="flex items-center gap-2 px-4 h-9 rounded-md font-medium text-sm border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 transition-colors"
+                  className="h-9"
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span>
                   Edit Diagram
-                </button>
+                </Button>
               )
             ) : (
               <div className={`flex items-center justify-center min-w-[150px] gap-2 px-4 h-9 rounded-md font-medium text-sm border 
                   ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
                   ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
-                  ${saveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
+                  ${saveStatus === 'saving' ? 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/20' : ''}
                   ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : ''}
               `}>
                 {saveStatus === 'saving' && (
                   <>
-                    <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                    <span className="w-4 h-4 border-2 border-[#1E707D] border-t-transparent rounded-full animate-spin"></span>
                     Saving...
                   </>
                 )}

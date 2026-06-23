@@ -34,7 +34,7 @@ const UseCasePagination = ({ currentPage, totalPages, totalElements, onPageChang
             onClick={() => onPageChange(page)}
             className={`w-8 h-8 rounded flex items-center justify-center font-label-md text-label-md ${
               currentPage === page 
-                ? 'bg-primary text-on-primary' 
+                ? 'bg-[#1E707D] text-white' 
                 : 'border border-outline-variant text-on-surface hover:bg-surface-container-low transition-colors'
             }`}
           >

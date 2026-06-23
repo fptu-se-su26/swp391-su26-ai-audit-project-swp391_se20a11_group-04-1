@@ -16,8 +16,8 @@ const EvidenceStats = ({ stats = {} }) => {
       label: 'Total Evidence',
       value: total,
       icon: 'inventory_2',
-      color: 'text-primary',
-      bg: 'bg-primary-fixed/20',
+      color: 'text-[#1E707D]',
+      bg: 'bg-[#D7EEF1]/20',
     },
     {
       label: 'Pending Review',

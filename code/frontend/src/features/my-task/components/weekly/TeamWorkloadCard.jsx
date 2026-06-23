@@ -7,7 +7,7 @@
  *     { userId, name, initials, projectRole, totalTasks, doneTasks, inProgressTasks, lateTasks, workloadPercent }
  */
 
-const AVATAR_COLORS = ['#1E3A5F', '#732900', '#505f76', '#16A34A', '#7C3AED', '#DC2626']
+const AVATAR_COLORS = ['#1E707D', '#732900', '#505f76', '#16A34A', '#7C3AED', '#DC2626']
 
 const TeamWorkloadCard = ({ members = [] }) => {
   return (

@@ -4,17 +4,17 @@ const SideNavBar = () => {
   return (
     <aside className="fixed left-0 top-0 w-sidebar_width h-full bg-surface-container-low border-r border-outline-variant flex flex-col z-50">
       <div className="h-topbar_height flex items-center px-stack_lg border-b border-outline-variant">
-        <span className="text-headline-sm font-headline-md text-primary">DevTrack AI</span>
+        <span className="text-headline-sm font-headline-md text-[#1E707D]">DevTrack AI</span>
       </div>
       
       <div className="flex-1 overflow-y-auto p-stack_md flex flex-col gap-stack_sm custom-scrollbar">
         <div className="mb-stack_lg px-stack_sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary">
+            <div className="w-10 h-10 rounded-lg bg-[#D7EEF1] flex items-center justify-center text-white">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>admin_panel_settings</span>
             </div>
             <div>
-              <div className="font-headline-sm text-label-md text-primary">System Admin</div>
+              <div className="font-headline-sm text-label-md text-[#1E707D]">System Admin</div>
               <div className="text-on-surface-variant font-label-md text-[10px] uppercase">Global Control</div>
             </div>
           </div>
@@ -72,7 +72,7 @@ const SideNavBar = () => {
             <div className="font-label-md text-body-md truncate">Admin User</div>
             <div className="text-on-surface-variant font-label-md text-[10px] truncate">admin@devtrack.ai</div>
           </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-primary transition-colors">logout</span>
+          <span className="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-[#1E707D] transition-colors">logout</span>
         </div>
       </div>
     </aside>

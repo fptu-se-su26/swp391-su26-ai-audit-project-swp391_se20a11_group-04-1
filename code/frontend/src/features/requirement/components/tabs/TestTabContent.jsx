@@ -11,9 +11,6 @@ const TestTabContent = ({ tests, requirement, onOpenTestCaseModal }) => {
           <span className="material-symbols-outlined text-[24px]">science</span>
         </div>
         <p className="text-slate-600 text-sm mb-4">No test cases created for this requirement yet</p>
-        <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-md font-medium text-sm hover:bg-slate-50 transition-colors shadow-sm" onClick={onOpenTestCaseModal || (() => console.log('Generate Test Cases clicked'))}>
-          Generate Test Cases
-        </button>
       </div>
     );
   }
@@ -66,9 +63,9 @@ const TestTabContent = ({ tests, requirement, onOpenTestCaseModal }) => {
             <div 
               key={test.id} 
               onClick={() => navigate(`/projects/${projectId}/test-cases/${test.id}`)}
-              className={`grid grid-cols-[100px_1fr_150px_130px_100px] gap-4 px-6 py-3 items-center hover:bg-indigo-50/40 transition-colors cursor-pointer bg-white ${index !== tests.length - 1 ? 'border-b border-slate-100' : ''}`}
+              className={`grid grid-cols-[100px_1fr_150px_130px_100px] gap-4 px-6 py-3 items-center hover:bg-[#1E707D]/10/40 transition-colors cursor-pointer bg-white ${index !== tests.length - 1 ? 'border-b border-slate-100' : ''}`}
             >
-              <div className="text-sm font-medium text-slate-500">{code}</div>
+              <div className="text-sm font-medium text-[#1E707D]">{code}</div>
               
               <div className="text-sm font-medium text-slate-800 truncate pr-4" title={test.title}>{test.title}</div>
               
@@ -87,7 +84,7 @@ const TestTabContent = ({ tests, requirement, onOpenTestCaseModal }) => {
               
               <div className="text-right flex items-center justify-end">
                 <button 
-                  className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded text-xs font-medium hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors shadow-sm"
+                  className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 text-slate-700 rounded text-xs font-medium hover:bg-[#1E707D]/10 hover:text-[#1E707D] hover:border-[#1E707D]/20 transition-colors shadow-sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     navigate(`/projects/${projectId}/test-cases/${test.id}`);
