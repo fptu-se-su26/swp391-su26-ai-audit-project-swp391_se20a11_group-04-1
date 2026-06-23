@@ -20,7 +20,13 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        toast.error('Kích thước file đính kèm không được vượt quá 10MB');
+        clearFile();
+        return;
+      }
+      setFile(selectedFile);
     }
   };
 

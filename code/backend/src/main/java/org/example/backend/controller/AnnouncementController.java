@@ -55,6 +55,13 @@ public class AnnouncementController {
         return announcementService.subscribeToAnnouncements(classroomId);
     }
 
+    @GetMapping("/{announcementId}/download")
+    public void downloadAnnouncementAttachment(
+            @PathVariable Long announcementId,
+            jakarta.servlet.http.HttpServletResponse response) {
+        announcementService.downloadAnnouncementAttachment(announcementId, response);
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<AnnouncementResponse>>> getAnnouncements(
             @PathVariable Long classroomId,

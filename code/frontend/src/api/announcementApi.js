@@ -8,6 +8,12 @@ export const announcementApi = {
       params: { page, size }
     }).then(unwrap)
   },
+
+  downloadAnnouncementAttachment: (classroomId, announcementId) => {
+    return axiosInstance.get(`/v1/classrooms/${classroomId}/announcements/${announcementId}/download`, {
+      responseType: 'blob'
+    })
+  },
   
   createAnnouncement: (classroomId, title, content, file) => {
     const formData = new FormData()
