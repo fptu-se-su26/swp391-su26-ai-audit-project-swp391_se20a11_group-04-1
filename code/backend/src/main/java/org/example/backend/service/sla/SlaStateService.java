@@ -113,6 +113,9 @@ public class SlaStateService {
 
         // Execute actions via SlaActionService
         String actionTaken = slaActionService.executeActions(task, evaluation, assessment);
+        if (actionTaken != null && actionTaken.length() > 100) {
+            actionTaken = actionTaken.substring(0, 97) + "...";
+        }
 
         // Record log if state changed OR a significant action occurred
         if (changed || isExecutedAction(actionTaken)) {

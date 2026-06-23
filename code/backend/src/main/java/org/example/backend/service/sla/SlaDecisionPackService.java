@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.SlaDecisionPackResponse;
+import org.example.backend.dto.SprintHealthTaskResponse;
 import org.example.backend.entity.SlaActionLog;
 import org.example.backend.entity.SlaDecisionLog;
 import org.example.backend.entity.Task;
@@ -160,5 +161,51 @@ public class SlaDecisionPackService {
                 .recentDecisions(recentDecisions)
                 .recentActions(recentActions)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SprintHealthTaskResponse> getSprintHealth(Long projectId, Long sprintId) {
+        List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
+        
+        return states.stream()
+                .filter(state -> !"NORMAL".equals(state.getCurrentRiskLevel()))
+                .map(state -> {
+                    Task task = state.getTask();
+                    long daysUntilDeadline = -1;
+                    long overdueDays = 0;
+                    
+                    if (task.getDeadline() != null) {
+                        java.time.LocalDate today = java.time.LocalDate.now();
+                        java.time.LocalDate deadline = task.getDeadline();
+                        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(today, deadline);
+                        daysUntilDeadline = daysBetween;
+                        if (daysBetween < 0) {
+                            overdueDays = Math.abs(daysBetween);
+                        }
+                    }
+                    
+                    String assigneeName = "Unassigned";
+                    if (task.getPrimaryAssignee() != null) {
+                        if (task.getPrimaryAssignee().getProfile() != null && 
+                            task.getPrimaryAssignee().getProfile().getFullName() != null && 
+                            !task.getPrimaryAssignee().getProfile().getFullName().trim().isEmpty()) {
+                            assigneeName = task.getPrimaryAssignee().getProfile().getFullName();
+                        } else {
+                            assigneeName = task.getPrimaryAssignee().getUsername();
+                        }
+                    }
+
+                    return SprintHealthTaskResponse.builder()
+                            .taskId(task.getId())
+                            .taskTitle(task.getTitle())
+                            .assigneeName(assigneeName)
+                            .currentRiskLevel(state.getCurrentRiskLevel())
+                            .predictedRiskLevel(state.getPredictedRiskLevel())
+                            .overdueDays(overdueDays)
+                            .daysUntilDeadline(daysUntilDeadline)
+                            .penaltyApplied(state.isPenaltyApplied())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }
