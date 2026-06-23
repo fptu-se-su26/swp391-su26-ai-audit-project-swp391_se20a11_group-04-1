@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@store/useAuthStore';
+import useLayoutStore from '@store/useLayoutStore';
 import { getInitials } from '@utils/avatarHelper';
 import toast from 'react-hot-toast';
 import { NotificationDropdown } from './NotificationDropdown';
@@ -24,9 +25,10 @@ const C = {
 const AVATAR_BG = `linear-gradient(135deg, ${C.primaryHov} 0%, ${C.primary} 55%, ${C.primaryDark} 100%)`
 
 const TopNavBar = () => {
-  const fullName = useAuthStore((state) => state.fullName);
-  const logout   = useAuthStore((state) => state.logout);
-  const initials = getInitials(fullName);
+  const fullName           = useAuthStore((state) => state.fullName);
+  const logout             = useAuthStore((state) => state.logout);
+  const initials           = getInitials(fullName);
+  const isSidebarCollapsed = useLayoutStore((state) => state.isSidebarCollapsed);
 
   const [menuOpen, setMenuOpen]     = useState(false);
   const [avatarActive, setAvatarActive] = useState(false);
