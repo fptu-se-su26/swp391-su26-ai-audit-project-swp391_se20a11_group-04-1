@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useAuthStore from '@store/useAuthStore'
 import { getInitials } from '@utils/avatarHelper'
 import profileService from '../services/profileService'
 
 export default function ProfilePage() {
+  const { userId } = useParams()
+  const isPublicView = !!userId
   const fetchMe = useAuthStore((state) => state.fetchMe)
   
   const [profile, setProfile] = useState(null)
@@ -53,7 +56,7 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     setProfileLoading(true)
     try {
-      const data = await profileService.getProfile()
+      const data = await profileService.getProfile(userId)
       setProfile(data)
       setFullName(data?.fullName || '')
       setPhone(data?.phone || '')
@@ -70,7 +73,7 @@ export default function ProfilePage() {
   const loadStats = async () => {
     setStatsLoading(true)
     try {
-      const data = await profileService.getProfileStatistics()
+      const data = await profileService.getProfileStatistics(userId)
       setStats(data)
     } catch (error) {
       console.error(error)
@@ -83,7 +86,7 @@ export default function ProfilePage() {
   const loadCoworkers = async () => {
     setCoworkersLoading(true)
     try {
-      const data = await profileService.getCoWorkers()
+      const data = await profileService.getCoWorkers(userId)
       setCoworkers(data || [])
     } catch (error) {
       console.error(error)
@@ -97,7 +100,7 @@ export default function ProfilePage() {
     loadProfile()
     loadStats()
     loadCoworkers()
-  }, [])
+  }, [userId])
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault()

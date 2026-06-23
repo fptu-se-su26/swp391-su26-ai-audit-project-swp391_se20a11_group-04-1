@@ -103,9 +103,11 @@ public class GitHubController {
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signatureHeader,
             @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
             @RequestHeader(value = "X-GitHub-Event", required = false) String eventType,
-            @RequestBody byte[] payloadBytes) {
+            jakarta.servlet.http.HttpServletRequest request) throws java.io.IOException {
         
         log.info("Received incoming GitHub Webhook event: {}", eventType);
+        
+        byte[] payloadBytes = org.springframework.util.StreamUtils.copyToByteArray(request.getInputStream());
         
         // Delegate verification and two-way sync processing to the Service layer
         gitHubApiService.handleWebhook(signatureHeader, deliveryId, eventType, payloadBytes);
