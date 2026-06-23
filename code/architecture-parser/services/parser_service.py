@@ -1,8 +1,4 @@
 import os
-from parsers.java_parser import JavaParser
-from parsers.typescript_parser import TypeScriptParser
-from parsers.python_parser import PythonParser
-from parsers.generic_parser import GenericParser
 
 class ParserService:
     EXCLUDED_DIRS = {
@@ -51,7 +47,7 @@ class ParserService:
         
         total_files = len(files_to_parse)
         stats["totalFiles"] = total_files
-        print(f"Found {total_files} files to parse.")
+        print(f"Found {total_files} files to count.")
         
         if total_files == 0:
             return [], [], stats
@@ -60,29 +56,10 @@ class ParserService:
         for full_path, rel_path in files_to_parse:
             ext = rel_path.split(".")[-1].lower() if "." in rel_path else "unknown"
             stats["languages"][ext] = stats["languages"].get(ext, 0) + 1
-            
-            try:
-                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-            except Exception as e:
-                print(f"Failed to read file {rel_path}: {e}")
-                processed += 1
-                continue
-
-            if ext == "java":
-                n, e = JavaParser.parse_file(full_path, rel_path, content)
-            elif ext in ("ts", "tsx", "js", "jsx"):
-                n, e = TypeScriptParser.parse_file(full_path, rel_path, content)
-            elif ext == "py":
-                n, e = PythonParser.parse_file(full_path, rel_path, content)
-            else:
-                n, e = GenericParser.parse_file(full_path, rel_path, content)
-
-            raw_nodes.extend(n)
-            raw_edges.extend(e)
-            
             processed += 1
-            progress = int(20 + 60 * (processed / total_files))
-            reporter.report(progress, "SYNCING", f"Đang phân tích cú pháp AST file ({processed}/{total_files}): {rel_path}")
+            
+            if processed % max(1, total_files // 10) == 0 or processed == total_files:
+                progress = int(20 + 60 * (processed / total_files))
+                reporter.report(progress, "SYNCING", f"Đang quét tập tin ({processed}/{total_files})...")
 
         return raw_nodes, raw_edges, stats

@@ -19,6 +19,7 @@ import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.mongo.ArchitectureGraphRepository;
 import org.example.backend.service.ArchitectureSyncService;
+import org.example.backend.service.ManualArchitectureService;
 import org.example.backend.service.github.core.GitHubIntegrationService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,7 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
     private final ArchitectureSyncExecutor architectureSyncExecutor;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ManualArchitectureService manualArchitectureService;
 
     @Override
     @Transactional(readOnly = true)
@@ -145,11 +147,11 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
 
     @Override
     @Transactional(readOnly = true)
-    public ArchitectureGraph getGraphData(Long projectId, String view, String serviceId, Long userId) {
+    public ArchitectureGraph getGraphData(Long projectId, Long userId) {
         projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
 
-        String cacheKey = String.format("arch:graph:%d:%s:%s", projectId, view, (serviceId != null ? serviceId : "ALL"));
+        String cacheKey = String.format("arch:graph:%d:all", projectId);
         String cachedGraph = redisTemplate.opsForValue().get(cacheKey);
         
         if (cachedGraph != null) {
@@ -163,85 +165,19 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
         ArchitectureGraph fullGraph = architectureGraphRepository.findByProjectId(projectId)
                 .orElseThrow(() -> new CustomException("Kiến trúc dự án chưa được phân tích. Vui lòng bấm Sync trước.", HttpStatus.NOT_FOUND));
 
-        ArchitectureGraph filteredGraph = filterGraphForView(fullGraph, view, serviceId);
+        fullGraph = manualArchitectureService.mergeManualOverrides(projectId, fullGraph);
 
         try {
             redisTemplate.opsForValue().set(
                     cacheKey, 
-                    objectMapper.writeValueAsString(filteredGraph), 
+                    objectMapper.writeValueAsString(fullGraph), 
                     12, 
                     TimeUnit.HOURS
             );
         } catch (Exception e) {
-            log.error("Failed to cache filtered graph to Redis", e);
+            log.error("Failed to cache graph to Redis", e);
         }
 
-        return filteredGraph;
-    }
-
-    private ArchitectureGraph filterGraphForView(ArchitectureGraph fullGraph, String view, String serviceId) {
-        if (fullGraph == null) return null;
-        
-        List<GraphNode> allNodes = fullGraph.getNodes();
-        List<GraphEdge> allEdges = fullGraph.getEdges();
-        
-        List<GraphNode> filteredNodes = new ArrayList<>();
-        List<GraphEdge> filteredEdges = new ArrayList<>();
-        
-        if ("SYSTEM".equalsIgnoreCase(view)) {
-            for (GraphNode node : allNodes) {
-                if ("SYSTEM".equalsIgnoreCase(node.getLayer())) {
-                    filteredNodes.add(node);
-                }
-            }
-            for (GraphEdge edge : allEdges) {
-                if ("SYSTEM".equalsIgnoreCase(edge.getLayer())) {
-                    filteredEdges.add(edge);
-                }
-            }
-        } 
-        else if ("INTERNAL".equalsIgnoreCase(view)) {
-            if (serviceId == null || serviceId.trim().isEmpty() || "ALL".equalsIgnoreCase(serviceId)) {
-                for (GraphNode node : allNodes) {
-                    if ("INTERNAL".equalsIgnoreCase(node.getLayer())) {
-                        filteredNodes.add(node);
-                    }
-                }
-                for (GraphEdge edge : allEdges) {
-                    if ("INTERNAL".equalsIgnoreCase(edge.getLayer())) {
-                        filteredEdges.add(edge);
-                    }
-                }
-            } else {
-                Set<String> includedNodeIds = new HashSet<>();
-                for (GraphNode node : allNodes) {
-                    if ("INTERNAL".equalsIgnoreCase(node.getLayer()) && node.getMetadata() != null) {
-                        String nodeSvcId = (String) node.getMetadata().get("serviceId");
-                        if (serviceId.equalsIgnoreCase(nodeSvcId)) {
-                            filteredNodes.add(node);
-                            includedNodeIds.add(node.getNodeId());
-                        }
-                    }
-                }
-                for (GraphEdge edge : allEdges) {
-                    if ("INTERNAL".equalsIgnoreCase(edge.getLayer()) && 
-                        includedNodeIds.contains(edge.getSource()) && 
-                        includedNodeIds.contains(edge.getTarget())) {
-                        filteredEdges.add(edge);
-                    }
-                }
-            }
-        }
-        
-        return ArchitectureGraph.builder()
-                .id(fullGraph.getId())
-                .projectId(fullGraph.getProjectId())
-                .syncedAt(fullGraph.getSyncedAt())
-                .commitSha(fullGraph.getCommitSha())
-                .branch(fullGraph.getBranch())
-                .stats(fullGraph.getStats())
-                .nodes(filteredNodes)
-                .edges(filteredEdges)
-                .build();
+        return fullGraph;
     }
 }
