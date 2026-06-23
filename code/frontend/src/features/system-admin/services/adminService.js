@@ -20,6 +20,11 @@ const adminService = {
     return await axiosInstance.get('/v1/admin/dashboard/audit-logs', {
       params: { page, size, search, type, timeFilter }
     });
+  },
+  exportAuditLogs: async (search = '', type = 'All', timeFilter = 'All time') => {
+    return await axiosInstance.get('/v1/admin/dashboard/audit-logs', {
+      params: { page: 0, size: -1, search, type, timeFilter }
+    });
   }
 };
 

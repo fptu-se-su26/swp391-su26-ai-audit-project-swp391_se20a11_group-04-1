@@ -268,13 +268,13 @@ public class SystemAdminService {
 
     public Map<String, Object> getAuditLogs(int page, int size, String search, String type, String timeFilter) {
         java.time.LocalDateTime fromDate = null;
-        if (timeFilter != null && !timeFilter.equals("All time")) {
-            if (timeFilter.equals("Today")) {
-                fromDate = java.time.LocalDateTime.now().minusDays(1);
-            } else if (timeFilter.equals("Last 7 days")) {
+        if (timeFilter != null && !timeFilter.equalsIgnoreCase("All Time")) {
+            if (timeFilter.equalsIgnoreCase("Last 7 Days")) {
                 fromDate = java.time.LocalDateTime.now().minusDays(7);
-            } else if (timeFilter.equals("Last 30 days")) {
+            } else if (timeFilter.equalsIgnoreCase("Last 30 Days")) {
                 fromDate = java.time.LocalDateTime.now().minusDays(30);
+            } else if (timeFilter.equalsIgnoreCase("Last 1 Year")) {
+                fromDate = java.time.LocalDateTime.now().minusDays(365);
             }
         }
 
@@ -338,8 +338,10 @@ public class SystemAdminService {
             dataQuery.setParameter("fromDate", fromDate);
         }
         
-        dataQuery.setFirstResult(page * size);
-        dataQuery.setMaxResults(size);
+        if (size > 0) {
+            dataQuery.setFirstResult(page * size);
+            dataQuery.setMaxResults(size);
+        }
 
         @SuppressWarnings("unchecked")
         List<Object[]> rows = dataQuery.getResultList();
@@ -363,7 +365,7 @@ public class SystemAdminService {
             ));
         }
 
-        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 1;
 
         Map<String, Object> response = new HashMap<>();
         response.put("content", content);
