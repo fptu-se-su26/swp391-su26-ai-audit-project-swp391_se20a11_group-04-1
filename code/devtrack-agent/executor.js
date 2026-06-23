@@ -33,8 +33,11 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     const scriptWithAbsPath = cleanScript.replace(
         /path:\s*['"]([^'"]+\.png)['"]/g,
         (_, filename) => {
-            const absPath = path.join(screenshotDir, filename).replace(/\\/g, '/');
-            return `path: '${absPath}'`;
+            // Dùng relative path từ __dirname (cwd của Playwright process)
+            // để screenshot được lưu trong đúng screenshotDir
+            const absPath = path.join(screenshotDir, filename);
+            const relPath = path.relative(__dirname, absPath).replace(/\\/g, '/');
+            return `path: '${relPath}'`;
         }
     );
 
@@ -46,16 +49,19 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     let result;
 
     try {
-        const safeScriptPath = scriptPath.replace(/\\/g, '/');
+        // Playwright resolves test file paths relative to testDir (= __dirname / cwd).
+        // Passing an absolute Windows path like "C:/Users/..." doesn't match the
+        // testMatch glob "**/*.spec.js", so Playwright reports suites:[].
+        // Fix: pass a RELATIVE path from cwd (__dirname) so the glob matches.
+        const relativeScriptPath = path.relative(__dirname, scriptPath).replace(/\\/g, '/');
         const liveStatusFile = path.join(tempDir, 'live_status.json');
-        const reporterPath = path.join(__dirname, 'reporter.js').replace(/\\/g, '/');
         const ext = process.platform === 'win32' ? '.cmd' : '';
         const playwrightBin = path.join(__dirname, 'node_modules', '.bin', `playwright${ext}`).replace(/\\/g, '/');
 
-        console.log('[Executor] Running:', `"${playwrightBin}" test "${safeScriptPath}" --reporter=json --timeout=120000 --workers=1`);
+        console.log('[Executor] Running:', `"${playwrightBin}" test "${relativeScriptPath}" --reporter=json --timeout=120000 --workers=1`);
 
         const { stdout, stderr } = await execAsync(
-            `"${playwrightBin}" test "${safeScriptPath}" --reporter=json --timeout=120000 --workers=1`,
+            `"${playwrightBin}" test "${relativeScriptPath}" --reporter=json --timeout=120000 --workers=1`,
             {
                 cwd: __dirname,
                 timeout: 180000,

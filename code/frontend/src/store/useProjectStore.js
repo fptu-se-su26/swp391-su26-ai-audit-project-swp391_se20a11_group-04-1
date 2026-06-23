@@ -31,6 +31,7 @@ export const useProjectStore = create(
   // ── Trạng thái UI ─────────────────────────────────────────────────────────
   loading: false,
   error: null,
+  isForbidden: false,
 
   // ── Dự án đang xem (Workspace) ────────────────────────────────────────────
   activeProject: null,    // null = đang ở Portfolio toàn cục
@@ -85,7 +86,7 @@ export const useProjectStore = create(
    * Dùng khi reload lại trang project details mà chưa có activeProject hoàn chỉnh.
    */
   fetchProjectById: async (projectId) => {
-    set({ loading: true, error: null })
+    set({ loading: true, error: null, isForbidden: false })
     try {
       const response = await axiosInstance.get(`/v1/projects/${projectId}`)
       const rawProject = response.data?.data
@@ -106,8 +107,10 @@ export const useProjectStore = create(
       }
     } catch (err) {
       console.error('Error fetching project by id:', err)
+      const is403 = err.response?.status === 403
       set({
         error: err.response?.data?.message || err.message || 'Failed to fetch project detail',
+        isForbidden: is403,
         loading: false,
       })
     }
@@ -175,10 +178,10 @@ export const useProjectStore = create(
   // ── Dự án ─────────────────────────────────────────────────────────────────
 
   /** Chọn dự án để truy cập Workspace chi tiết */
-  selectProject: (project) => set({ activeProject: project }),
+  selectProject: (project) => set({ activeProject: project, isForbidden: false, error: null }),
 
   /** Thoát khỏi Workspace chi tiết, quay lại Portfolio */
-  clearActiveProject: () => set({ activeProject: null }),
+  clearActiveProject: () => set({ activeProject: null, isForbidden: false, error: null }),
 
   // ── Bộ lọc ────────────────────────────────────────────────────────────────
 

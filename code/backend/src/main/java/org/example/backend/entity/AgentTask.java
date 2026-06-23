@@ -52,7 +52,7 @@ public class AgentTask {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result", columnDefinition = "JSONB")
-    private String result;
+    private com.fasterxml.jackson.databind.JsonNode result;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

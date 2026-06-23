@@ -74,6 +74,9 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
 
         if (webhookSecret != null && !webhookSecret.trim().isEmpty()) {
             integration.setWebhookSecretEncrypted(encryptToken(webhookSecret.trim()));
+        } else if (integration.getWebhookSecretEncrypted() == null) {
+            String randomSecret = java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            integration.setWebhookSecretEncrypted(encryptToken(randomSecret));
         }
 
         if (!hasUserToken(userId)) {
@@ -106,6 +109,8 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
     }
 
     private boolean isLeaderRole(String roleName) {
-        return roleName != null && roleName.toUpperCase().contains("LEADER");
+        if (roleName == null) return false;
+        String upper = roleName.toUpperCase();
+        return upper.contains("LEADER") || upper.equals("MENTOR");
     }
 }

@@ -339,8 +339,8 @@ export default function SprintReportPage() {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <main className="flex-1 overflow-y-auto bg-background p-6">
+      <div className="w-full space-y-5">
         <SprintReportHeader
           activeProject={activeProject}
           onRefresh={() => {

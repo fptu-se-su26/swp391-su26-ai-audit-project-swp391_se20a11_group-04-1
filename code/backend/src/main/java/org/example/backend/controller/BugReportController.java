@@ -141,6 +141,7 @@ public class BugReportController {
         if (config == null) {
             Map<String, Object> emptyConfig = new HashMap<>();
             emptyConfig.put("hasToken", gitHubApiService.hasUserToken(userId));
+            emptyConfig.put("configuredWebhookUrl", githubWebhookUrl);
             return ResponseEntity.ok(ApiResponse.success(emptyConfig, "No GitHub integration found"));
         }
         
@@ -210,7 +211,10 @@ public class BugReportController {
             @RequestBody Map<String, Object> payload,
             HttpSession session) {
         Long userId = requireUser(session);
-        String webhookUrl = githubWebhookUrl;
+        String webhookUrl = (String) payload.get("webhookUrl");
+        if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
+            webhookUrl = githubWebhookUrl;
+        }
         if (webhookUrl == null || webhookUrl.trim().isEmpty()) {
             throw new CustomException("Webhook URL is not configured on the server", HttpStatus.BAD_REQUEST);
         }
