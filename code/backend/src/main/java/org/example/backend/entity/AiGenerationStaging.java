@@ -41,6 +41,9 @@ public class AiGenerationStaging {
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     private JsonNode payload;
 
+    @Column(name = "requirement_id")
+    private Long requirementId;
+
     @Column(name = "file_hash", length = 64)
     private String fileHash;
 
