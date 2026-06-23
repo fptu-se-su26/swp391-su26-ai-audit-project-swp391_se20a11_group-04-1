@@ -14,7 +14,7 @@ const MyTasksPage = () => {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-surface-bright">
-      <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
+      <div className="p-6 md:p-8 w-full space-y-6">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
           <div>
             <h2 className="font-headline-md text-headline-md text-on-surface">My Tasks</h2>

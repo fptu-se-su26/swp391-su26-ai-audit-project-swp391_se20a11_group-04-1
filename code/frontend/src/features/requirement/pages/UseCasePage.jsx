@@ -198,7 +198,7 @@ const UseCasePage = () => {
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 z-10 h-full relative">
       <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
           <div>
             <h1 className="text-[28px] font-[700] text-[#111827]">Use Cases</h1>
@@ -206,17 +206,19 @@ const UseCasePage = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* View Mode toggle */}
-            <div className="flex items-center bg-white border border-[#E5E7EB] rounded-[10px] p-[3px]">
+            <div className="flex items-center bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
               <button
                 onClick={() => setViewMode('diagram-view')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-[#1E707D]'}`}
+                style={viewMode.startsWith('diagram') ? { background: 'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)' } : {}}
               >
                 <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
                 Diagram
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'bg-[#185FA5] text-white' : 'bg-transparent text-[#6B7280] hover:text-[#111827]'}`}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-[#1E707D]'}`}
+                style={viewMode === 'list' ? { background: 'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)' } : {}}
               >
                 <span className="material-symbols-outlined text-[18px] mr-1">list</span>
                 List View
@@ -224,32 +226,29 @@ const UseCasePage = () => {
             </div>
 
             {/* Group 2: Filter button */}
-            <button className="flex items-center justify-center h-[36px] px-[14px] bg-white border border-[#E5E7EB] rounded-[10px] text-[13px] font-medium text-[#374151] hover:bg-gray-50 transition-colors">
+            <button className="flex items-center justify-center h-[36px] px-[14px] bg-white border border-[#D9E7E4] rounded-[10px] text-[13px] font-medium text-[#374151] hover:bg-[#D7EEF1] hover:text-[#1E707D] hover:border-[#1E707D] transition-colors">
               <span className="material-symbols-outlined text-[14px] mr-1">filter_list</span>
               Filter
             </button>
 
             {/* Group 3: Generate Usecase */}
             {isLeader && (
-            <button 
+            <Button
               onClick={() => setIsSelectionModalOpen(true)}
-              className="flex items-center justify-center h-[36px] px-[16px] rounded-[10px] text-[13px] font-[500] text-white transition-all duration-300 shadow-sm hover:brightness-110 hover:shadow-[0_0_12px_rgba(83,74,183,0.35)]"
-              style={{ background: 'linear-gradient(135deg, #3C3489 0%, #185FA5 100%)' }}
             >
-              <span className="material-symbols-outlined text-[14px] mr-1">auto_awesome</span>
+              <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
               Generate Usecase
-            </button>
+            </Button>
             )}
 
             {/* Group 4: Add Use Case */}
             {isLeader && (
-            <button 
+            <Button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center justify-center h-[36px] px-[16px] bg-[#185FA5] hover:bg-[#0C447C] rounded-[10px] text-[13px] font-[500] text-white transition-colors"
             >
-              <span className="material-symbols-outlined text-[14px] mr-1">add</span>
+              <span className="material-symbols-outlined text-[14px]">add</span>
               Add Use Case
-            </button>
+            </Button>
             )}
           </div>
         </div>

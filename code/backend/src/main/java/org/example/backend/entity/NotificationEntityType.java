@@ -10,5 +10,6 @@ public enum NotificationEntityType {
     BUG_REPORT,
     REQUIREMENT,
     WEEKLY_REPORT,
-    MENTOR_VERIFICATION
+    MENTOR_VERIFICATION,
+    ANNOUNCEMENT
 }

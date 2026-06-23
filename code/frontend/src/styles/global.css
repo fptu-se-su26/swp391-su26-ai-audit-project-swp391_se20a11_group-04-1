@@ -1,5 +1,6 @@
 /* =====================================================
    Global CSS - SWP391 AI Audit Project
+   Premium Deep Teal — Modern Enterprise SaaS
    ===================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -16,52 +17,76 @@
 }
 
 :root {
-  /* Color Palette */
-  --color-primary:       #0ea5e9;
-  --color-primary-dark:  #0284c7;
-  --color-primary-light: #38bdf8;
-  --color-secondary:     #0ea5e9;
-  --color-success:       #10b981;
-  --color-warning:       #f59e0b;
-  --color-danger:        #ef4444;
+  /* ── Sidebar layout offset (updated by Sidebar.jsx on collapse/expand) ── */
+  --sidebar-offset: 296px;   /* W_FULL(272) + left(12) + gap(12) */
 
-  /* Backgrounds */
-  --bg-base:     #f8fafc;
-  --bg-surface:  #ffffff;
-  --bg-elevated: #f1f5f9;
-  --bg-overlay:  rgba(0, 0, 0, 0.02);
+  /* ── Primary Teal Palette ── */
+  --color-primary:       #1E707D;
+  --color-primary-hover: #278A99;
+  --color-primary-dark:  #165964;
+  --color-primary-light: #D7EEF1;
+  --color-secondary:     #4EC6D8;
+  --accent-glow:         #4EC6D8;
 
-  /* Text */
-  --text-primary:   #0f172a;
-  --text-secondary: #475569;
-  --text-muted:     #94a3b8;
+  /* ── Semantic Colors ── */
+  --color-success:        #22C55E;
+  --color-success-bg:     #F0FDF4;
+  --color-success-border: #BBF7D0;
+  --color-warning:        #F59E0B;
+  --color-warning-bg:     #FFFBEB;
+  --color-warning-border: #FDE68A;
+  --color-danger:         #EF4444;
+  --color-danger-bg:      #FEF2F2;
+  --color-danger-border:  #FECACA;
+  --color-info:           #3B82F6;
+  --color-info-bg:        #EFF6FF;
+  --color-info-border:    #BFDBFE;
 
-  /* Border */
-  --border-color: #e2e8f0;
-  --border-radius: 12px;
-  --border-radius-sm: 8px;
-  --border-radius-lg: 20px;
+  /* ── Surface & Background ── */
+  --bg-base:      #F8FAFC;
+  --bg-surface:   #FFFFFF;
+  --bg-elevated:  #EBF5F7;
+  --bg-surface-low: #F0F9FA;
+  --bg-overlay:   rgba(0, 0, 0, 0.02);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.12);
-  
-  /* Spacing */
+  /* ── Text ── */
+  --text-primary:   #1F2937;
+  --text-secondary: #6B7280;
+  --text-muted:     #9CA3AF;
+  --text-mid:       #374151;
+
+  /* ── Border ── */
+  --border-color:       #D9E7E4;
+  --border-color-light: #EBF5F7;
+  --border-radius:      12px;
+  --border-radius-sm:   8px;
+  --border-radius-lg:   20px;
+
+  /* ── Shadows ── */
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md:    0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-card:  0 12px 30px rgba(0,0,0,0.06), 0 2px 6px rgba(30,112,125,0.04);
+  --shadow-card-hover: 0 20px 48px rgba(30,112,125,0.12);
+  --shadow-glow:  0 0 20px rgba(30,112,125,0.20);
+  --shadow-btn-primary: 0 8px 20px rgba(30,112,125,0.25), 0 16px 40px rgba(30,112,125,0.15),
+                        inset 0 1px 0 rgba(255,255,255,0.35);
+
+  /* ── Spacing ── */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 40px;
 
-  /* Transitions */
+  /* ── Transitions ── */
   --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+  --spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 html, body {
   height: 100%;
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-base);
+  background-color: #F8FAFC;
   color: var(--text-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -112,24 +137,44 @@ a:hover { color: var(--color-primary); }
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%);
   color: #fff;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-btn-primary);
+  border-radius: 16px;
+  animation: btnIdle 4.5s ease-in-out infinite;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(99,102,241,0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 20px 48px rgba(30,112,125,0.20),
+              0 0 20px rgba(78,198,216,0.25);
+  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%);
+}
+
+.btn-primary:active {
+  transform: translateY(2px);
+  background: linear-gradient(180deg, #1E707D 0%, #165964 100%);
+  box-shadow: 0 4px 10px rgba(30,112,125,0.20);
 }
 
 .btn-secondary {
-  background: var(--bg-overlay);
+  background: #FFFFFF;
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid #D9E7E4;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: 12px;
 }
 
 .btn-secondary:hover {
-  background: rgba(255,255,255,0.1);
+  background: #D7EEF1;
+  border-color: #1E707D;
+  color: #1E707D;
+  transform: translateY(-1px);
+}
+
+@keyframes btnIdle {
+  0%, 100% { box-shadow: var(--shadow-btn-primary); }
+  50% { box-shadow: var(--shadow-btn-primary), 0 0 12px rgba(78,198,216,0.15); }
 }
 
 /* Kanban Custom Scrollbar */
@@ -262,4 +307,97 @@ a:hover { color: var(--color-primary); }
 }
 @keyframes dash {
     to { stroke-dashoffset: 0; }
+}
+
+/* =====================================================
+
+/*
+  Target: buttons using old indigo/blue/navy hardcoded colors.
+  We use [class*=] attribute selectors so we don't need to touch
+  every individual component file.
+*/
+
+/* bg-primary on buttons → teal gradient */
+button.bg-primary,
+button[class~="bg-primary"] {
+  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(30,112,125,0.25), 0 4px 10px rgba(30,112,125,0.15),
+              inset 0 1px 0 rgba(255,255,255,0.30) !important;
+  border: none !important;
+  transition: transform 150ms cubic-bezier(0.4,0,0.2,1),
+              box-shadow 150ms cubic-bezier(0.4,0,0.2,1),
+              background 150ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+button.bg-primary:hover,
+button[class~="bg-primary"]:hover {
+  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
+  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 0 16px rgba(78,198,216,0.20),
+              inset 0 1px 0 rgba(255,255,255,0.25) !important;
+  transform: translateY(-2px) !important;
+}
+
+button.bg-primary:active,
+button[class~="bg-primary"]:active {
+  background: linear-gradient(180deg, #1E707D 0%, #165964 100%) !important;
+  box-shadow: 0 4px 10px rgba(30,112,125,0.20) !important;
+  transform: translateY(1px) !important;
+}
+
+/* bg-indigo-600, bg-indigo-500, bg-blue-600, bg-[#185FA5], bg-[#3C3489] → teal */
+button[class*="bg-indigo-6"],
+button[class*="bg-indigo-5"],
+button[class*="bg-blue-6"],
+button[class*="bg-blue-5"],
+button[class*="bg-\\[\\#185FA5\\]"],
+button[class*="bg-\\[\\#3C3489\\]"] {
+  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(30,112,125,0.25), 0 4px 10px rgba(30,112,125,0.15),
+              inset 0 1px 0 rgba(255,255,255,0.30) !important;
+  border: none !important;
+  transition: transform 150ms cubic-bezier(0.4,0,0.2,1),
+              box-shadow 150ms cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+button[class*="bg-indigo-6"]:hover,
+button[class*="bg-indigo-5"]:hover,
+button[class*="bg-blue-6"]:hover,
+button[class*="bg-blue-5"]:hover,
+button[class*="bg-\\[\\#185FA5\\]"]:hover,
+button[class*="bg-\\[\\#3C3489\\]"]:hover {
+  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
+  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 0 16px rgba(78,198,216,0.20),
+              inset 0 1px 0 rgba(255,255,255,0.25) !important;
+  transform: translateY(-2px) !important;
+}
+
+button[class*="bg-indigo-6"]:active,
+button[class*="bg-indigo-5"]:active,
+button[class*="bg-blue-6"]:active,
+button[class*="bg-blue-5"]:active {
+  background: linear-gradient(180deg, #1E707D 0%, #165964 100%) !important;
+  box-shadow: 0 4px 10px rgba(30,112,125,0.20) !important;
+  transform: translateY(1px) !important;
+}
+
+/* hover:bg-indigo-700 / hover:bg-blue-700 overrides — neutralize old hover bg */
+button[class*="hover\\:bg-indigo-7"]:hover,
+button[class*="hover\\:bg-blue-7"]:hover,
+button[class*="hover\\:bg-\\[\\#0C447C\\]"]:hover {
+  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
+}
+
+/* Disabled state — keep muted regardless */
+button:disabled[class*="bg-primary"],
+button:disabled[class*="bg-indigo-"],
+button:disabled[class*="bg-blue-"] {
+  background: #D9E7E4 !important;
+  color: #9CA3AF !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+  opacity: 0.6 !important;
 }
