@@ -1,62 +1,63 @@
 import React, { useState, useEffect } from 'react';
-
-const mockAnnouncements = [
-  {
-    id: 1,
-    type: 'success',
-    title: 'Nhóm được phân công',
-    description: 'Bạn đã được phân vào Nhóm A cho dự án cuối kỳ.',
-    time: '2 ngày trước',
-    icon: 'check',
-  },
-  {
-    id: 2,
-    type: 'info',
-    title: 'Lịch học thay đổi',
-    description: 'Buổi học ngày 20/06 được dời sang 21/06 lúc 14:00.',
-    time: '3 ngày trước',
-    icon: 'notifications',
-  },
-  {
-    id: 3,
-    type: 'warning',
-    title: 'Hạn nộp sắp đến',
-    description: 'Bài tập Tuần 3 hết hạn vào 23:59 ngày 22/06/2026.',
-    time: 'Hôm nay, 08:00',
-    icon: 'error_outline',
-  },
-  {
-    id: 4,
-    type: 'info',
-    title: 'Thành viên mới tham gia',
-    description: 'Bui Thi Lan đã tham gia lớp học với vai trò Instructor.',
-    time: 'Hôm qua',
-    icon: 'notifications',
-  }
-];
+import announcementApi from '@api/announcementApi';
 
 const typeStyles = {
-  success: 'bg-[#10b981]',
-  info: 'bg-[#3b82f6]',
-  warning: 'bg-[#f59e0b]',
+  success: 'bg-gradient-to-r from-[#059669] via-[#10b981] to-[#34d399]',
+  info: 'bg-gradient-to-r from-[#4f46e5] via-[#6366f1] to-[#8b5cf6]',
+  warning: 'bg-gradient-to-r from-[#ea580c] via-[#f59e0b] to-[#fbbf24]',
   classroom_info: 'bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#38bdf8]'
 };
 
 const iconBgStyles = {
-  success: 'bg-white/20',
-  info: 'bg-white/20',
-  warning: 'bg-white/20',
+  success: 'bg-white/20 backdrop-blur-md border border-white/20',
+  info: 'bg-white/20 backdrop-blur-md border border-white/20',
+  warning: 'bg-white/20 backdrop-blur-md border border-white/20',
 };
 
-export default function AnnouncementCarousel({ classroomData, onShare }) {
+export default function AnnouncementCarousel({ classroomData, onShare, onAnnouncementClick }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [realAnnouncements, setRealAnnouncements] = useState([]);
+
+  useEffect(() => {
+    if (classroomData?.id) {
+      announcementApi.getAnnouncements(classroomData.id, 0, 10)
+        .then(data => {
+          if (data && data.content) {
+            // Lọc ra các thông báo trong 7 ngày gần nhất
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
+            const recentAnnouncements = data.content.filter(ann => {
+              const annDate = new Date(ann.createdAt);
+              return annDate >= sevenDaysAgo;
+            });
+
+            const formattedAnns = recentAnnouncements.map((ann, index) => {
+              // Alternate colors based on index for visual variety, but keep icon uniform
+              const types = ['info', 'warning', 'success'];
+              return {
+                id: ann.id,
+                type: types[index % types.length],
+                title: ann.title,
+                description: ann.content,
+                senderName: ann.senderName,
+                time: new Date(ann.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                icon: 'campaign'
+              };
+            });
+            setRealAnnouncements(formattedAnns);
+          }
+        })
+        .catch(err => console.error("Failed to load announcements for carousel:", err));
+    }
+  }, [classroomData?.id]);
 
   // Combine classroom info as the first slide if provided
   const slides = classroomData 
-    ? [{ id: 'classroom_info', type: 'classroom_info' }, ...mockAnnouncements]
-    : mockAnnouncements;
+    ? [{ id: 'classroom_info', type: 'classroom_info' }, ...realAnnouncements]
+    : realAnnouncements;
 
   useEffect(() => {
     if (isHovered || !isVisible || slides.length <= 1) return;
@@ -78,11 +79,18 @@ export default function AnnouncementCarousel({ classroomData, onShare }) {
     setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
+  const handleBannerClick = () => {
+    if (currentAnnouncement.type !== 'classroom_info' && onAnnouncementClick) {
+      onAnnouncementClick(currentAnnouncement.id);
+    }
+  };
+
   return (
     <div 
-      className={`relative w-full h-[240px] md:h-[210px] overflow-hidden transition-colors duration-500 ease-in-out ${typeStyles[currentAnnouncement.type]}`}
+      className={`relative w-full h-[240px] md:h-[210px] overflow-hidden transition-colors duration-500 ease-in-out ${typeStyles[currentAnnouncement.type]} ${currentAnnouncement.type !== 'classroom_info' ? 'cursor-pointer' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleBannerClick}
     >
       {currentAnnouncement.type === 'classroom_info' ? (
         <div key="classroom_info" className="relative animate-[fadeIn_0.5s_ease-out] px-8 h-full max-w-7xl mx-auto flex flex-col md:flex-row justify-center md:justify-between items-start md:items-center gap-4 md:gap-6">
@@ -131,22 +139,27 @@ export default function AnnouncementCarousel({ classroomData, onShare }) {
           </div>
         </div>
       ) : (
-        <div className="flex items-center h-full px-8 max-w-7xl mx-auto relative">
+        <div className="flex items-center h-full px-8 max-w-7xl mx-auto relative group">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+          
           {/* Left Icon */}
-          <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shrink-0 mr-4 md:mr-5 transition-colors duration-500 ${iconBgStyles[currentAnnouncement.type]}`}>
+          <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shrink-0 mr-4 md:mr-6 transition-all duration-500 shadow-xl shadow-black/10 group-hover:scale-110 ${iconBgStyles[currentAnnouncement.type]}`}>
             <span className="material-symbols-outlined text-white text-2xl md:text-3xl">
               {currentAnnouncement.icon}
             </span>
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0 pr-4">
+          <div className="flex-1 min-w-0 pr-4 z-10 relative">
             {/* We use key={currentAnnouncement.id} to trigger simple fade animation on content change */}
             <div key={currentAnnouncement.id} className="animate-[fadeIn_0.5s_ease-out]">
-              <h3 className="text-white font-bold text-lg md:text-xl leading-tight mb-1 md:mb-2 truncate">
+              <p className="text-[10px] md:text-[11px] font-extrabold text-white/80 uppercase tracking-[0.15em] mb-1.5 md:mb-2">
+                Thông báo từ Mentor {currentAnnouncement.senderName ? ` - ${currentAnnouncement.senderName}` : ''}
+              </p>
+              <h3 className="text-white font-bold text-xl md:text-2xl leading-tight mb-1.5 md:mb-2 truncate">
                 {currentAnnouncement.title}
               </h3>
-              <p className="text-white/90 text-sm md:text-base truncate">
+              <p className="text-white/90 text-base md:text-lg truncate">
                 {currentAnnouncement.description}
               </p>
             </div>
