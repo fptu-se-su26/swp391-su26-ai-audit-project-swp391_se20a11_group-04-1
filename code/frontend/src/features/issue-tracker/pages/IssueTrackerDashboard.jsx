@@ -1153,7 +1153,7 @@ export function IssueTrackerDashboard() {
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-3.5 animate-fade-in">
+      <div className="relative z-10 w-full space-y-3.5 animate-fade-in">
         {/* Header toolbar */}
         <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>

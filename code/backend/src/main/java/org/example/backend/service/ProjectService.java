@@ -56,5 +56,15 @@ public interface ProjectService {
      * Thay đổi vai trò của thành viên trong dự án (ví dụ lên MENTOR)
      */
     void changeMemberRole(Long projectId, Long memberUserId, String newRoleName, Long callingUserId);
+
+    /**
+     * Xóa nhóm thủ công (chỉ dành cho người tạo ra nhóm đó)
+     */
+    void deleteProject(Long projectId, Long userId);
+
+    /**
+     * Cho phép một sinh viên tự tham gia vào dự án
+     */
+    void joinProject(Long projectId, Long userId);
 }
 

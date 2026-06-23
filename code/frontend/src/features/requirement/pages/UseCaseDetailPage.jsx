@@ -197,7 +197,7 @@ const UseCaseDetailPage = () => {
           }}
         />
       )}
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
 
         <UseCaseDetailHeader 
           useCase={displayData} 

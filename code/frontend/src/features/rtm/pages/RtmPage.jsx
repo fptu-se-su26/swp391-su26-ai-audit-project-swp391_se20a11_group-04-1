@@ -107,7 +107,7 @@ export function RtmPage() {
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <div className="relative z-10 w-full space-y-6 animate-fade-in">
         <section className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-5">
           <div>
             <div className="flex items-center gap-2 mb-2">

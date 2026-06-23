@@ -287,7 +287,7 @@ const SprintPage = () => {
 
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-      <div className="relative z-10 max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <div className="relative z-10 w-full space-y-6 animate-fade-in">
         <section className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-5">
           <div>
             <div className="flex items-center gap-2 mb-2">
