@@ -39,6 +39,9 @@ import RtmPage from '@features/rtm/pages/RtmPage'
 import TaskReviewDashboardPage from '@features/code-insight/pages/TaskReviewDashboardPage'
 import TaskReviewWorkspacePage from '@features/code-insight/pages/TaskReviewWorkspacePage'
 
+// Feature Pages - Architecture Viz
+import ArchitecturePage from '@features/architecture-viz/pages/ArchitecturePage'
+
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
 import ProfilePage from '@features/profile/pages/ProfilePage'
@@ -123,6 +126,7 @@ export function AppRoutes() {
             <Route path="traceability-matrix" element={<RtmPage />} />
             <Route path="task-reviews" element={<TaskReviewDashboardPage />} />
             <Route path="task-reviews/:taskId" element={<TaskReviewWorkspacePage />} />
+            <Route path="architecture" element={<ArchitecturePage />} />
 
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />

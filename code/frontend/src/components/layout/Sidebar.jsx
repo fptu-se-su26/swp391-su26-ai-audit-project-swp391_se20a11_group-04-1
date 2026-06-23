@@ -205,6 +205,7 @@ export default function Sidebar() {
     { key: 'ai-assistant',  icon: 'smart_toy',  label: 'AI Assistant',  path: `/projects/${pid}/ai-assistant` },
     { key: 'github-config', icon: 'hub',        label: 'GitHub Config', path: `/projects/${pid}/github-config` },
     { key: 'task-reviews',  icon: 'fact_check', label: 'Task Review',   path: `/projects/${pid}/task-reviews` },
+    { key: 'architecture',  icon: 'schema',     label: 'Kiến trúc hệ thống', path: `/projects/${pid}/architecture` },
   ]
   const buildTeamItems = (pid, role) => {
     const base = [
