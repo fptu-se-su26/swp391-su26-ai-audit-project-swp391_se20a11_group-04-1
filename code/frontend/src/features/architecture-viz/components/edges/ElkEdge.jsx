@@ -1,5 +1,11 @@
 import React from 'react';
-import { EdgeLabelRenderer } from '@xyflow/react';
+import { EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react';
+
+/**
+ * Distance threshold (px) beyond which we assume a node has been dragged
+ * and the pre-computed ELK pathPoints are stale.
+ */
+const DRIFT_THRESHOLD = 6;
 
 function getPolylineCenter(points) {
   if (!points || points.length === 0) return { x: 0, y: 0 };
@@ -81,23 +87,51 @@ export function ElkEdge({
   sourceY,
   targetX,
   targetY,
+  sourcePosition,
+  targetPosition,
   style = {},
   markerEnd,
   data = {},
 }) {
   const points = data.pathPoints;
 
+  // ── Detect if a node has been manually dragged ────────────────────────────
+  // React Flow always gives us the live handle positions (sourceX/Y, targetX/Y).
+  // ELK pathPoints store the positions computed at layout time.
+  // If they diverge by more than DRIFT_THRESHOLD px, the user has moved a node
+  // and the pre-computed path is stale → fall back to React Flow's smoothstep.
+  const hasDrifted =
+    points &&
+    points.length >= 2 &&
+    (Math.abs(points[0].x - sourceX) > DRIFT_THRESHOLD ||
+      Math.abs(points[0].y - sourceY) > DRIFT_THRESHOLD ||
+      Math.abs(points[points.length - 1].x - targetX) > DRIFT_THRESHOLD ||
+      Math.abs(points[points.length - 1].y - targetY) > DRIFT_THRESHOLD);
+
   let path = '';
-  if (points && points.length >= 2) {
+  let labelCenter;
+
+  if (points && points.length >= 2 && !hasDrifted) {
+    // ── Use ELK's pre-computed orthogonal path ──────────────────────────────
     path = getRoundedPath(points, 8);
+    labelCenter = getPolylineCenter(points);
   } else {
-    // Fallback if layout path points are not loaded yet
-    path = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
+    // ── Fallback: React Flow's smoothstep that always tracks node positions ──
+    const [smoothPath, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      borderRadius: 8,
+    });
+    path = smoothPath;
+    labelCenter = { x: labelX, y: labelY };
   }
 
   const label = data.protocol || '';
   const labelColor = style.stroke || '#94a3b8';
-  const center = points && points.length >= 2 ? getPolylineCenter(points) : { x: (sourceX + targetX) / 2, y: (sourceY + targetY) / 2 };
 
   return (
     <>
@@ -113,7 +147,7 @@ export function ElkEdge({
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${center.x}px,${center.y}px)`,
+              transform: `translate(-50%, -50%) translate(${labelCenter.x}px,${labelCenter.y}px)`,
               fontSize: 9,
               fontFamily: 'monospace',
               fontWeight: 600,
