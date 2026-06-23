@@ -246,7 +246,7 @@ export default function ClassroomsPage() {
         <div className="absolute bottom-[10%] right-[5%] w-[450px] h-[450px] rounded-full bg-secondary-fixed opacity-[0.12] blur-[110px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+      <div className="relative z-10 w-full space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>

@@ -139,7 +139,7 @@ export function ContributionPage() {
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8 animate-fade-in">
+      <div className="relative z-10 w-full space-y-8 animate-fade-in">
         {/* Banner tiêu đề trang */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg">
           <div className="space-y-2">

@@ -17,6 +17,9 @@
 }
 
 :root {
+  /* ── Sidebar layout offset (updated by Sidebar.jsx on collapse/expand) ── */
+  --sidebar-offset: 296px;   /* W_FULL(272) + left(12) + gap(12) */
+
   /* ── Primary Teal Palette ── */
   --color-primary:       #1E707D;
   --color-primary-hover: #278A99;

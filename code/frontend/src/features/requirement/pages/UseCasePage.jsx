@@ -197,7 +197,7 @@ const UseCasePage = () => {
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 z-10 h-full relative">
       <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
           <div>
             <h1 className="text-[28px] font-[700] text-[#111827]">Use Cases</h1>
