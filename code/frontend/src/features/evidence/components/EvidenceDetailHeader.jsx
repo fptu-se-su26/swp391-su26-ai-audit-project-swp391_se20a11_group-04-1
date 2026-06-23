@@ -30,7 +30,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => navigate(`/projects/${projectId}/evidence`)}
-          className="flex items-center gap-1 font-body-md text-[13px] text-primary hover:text-primary/80 transition-colors"
+          className="flex items-center gap-1 font-body-md text-[13px] text-[#1E707D] hover:text-[#1E707D]/80 transition-colors"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Evidence Vault
@@ -46,7 +46,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
         <div className="flex-1">
           {/* Status + Type + ID Row */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="font-label-md text-label-md text-primary bg-primary-fixed/30 px-2 py-0.5 rounded-md">
+            <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1]/30 px-2 py-0.5 rounded-md">
               EV-{String(evidence.id).padStart(3, '0')}
             </span>
             <span

@@ -112,7 +112,7 @@ const ApiEnvironmentModal = ({ onClose, projectId }) => {
                   onClick={() => handleSelectEnv(env)}
                   className={`px-3 py-2 cursor-pointer rounded-sm text-sm font-mono transition-colors ${
                     activeEnv?.id === env.id 
-                      ? 'bg-primary/10 text-primary font-bold' 
+                      ? 'bg-[#1E707D]/10 text-[#1E707D] font-bold' 
                       : 'hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
@@ -135,11 +135,11 @@ const ApiEnvironmentModal = ({ onClose, projectId }) => {
                 value={envName}
                 onChange={(e) => setEnvName(e.target.value)}
                 placeholder="Environment Name"
-                className="flex-1 bg-surface-container-highest border border-outline-variant rounded-sm px-3 py-1.5 text-sm font-mono outline-none focus:border-primary"
+                className="flex-1 bg-surface-container-highest border border-outline-variant rounded-sm px-3 py-1.5 text-sm font-mono outline-none focus:border-[#1E707D]"
               />
               <button 
                 onClick={handleSave}
-                className="px-4 py-1.5 bg-primary text-on-primary font-mono text-xs font-bold rounded-sm hover:bg-primary/90 transition-colors"
+                className="px-4 py-1.5 bg-[#1E707D] text-white font-mono text-xs font-bold rounded-sm hover:bg-[#1E707D]/90 transition-colors"
               >
                 Save
               </button>
@@ -168,7 +168,7 @@ const ApiEnvironmentModal = ({ onClose, projectId }) => {
                       value={v.key}
                       onChange={(e) => updateVar(i, 'key', e.target.value)}
                       placeholder="e.g. baseUrl"
-                      className="w-full bg-surface-container-highest border border-outline-variant/50 focus:border-primary rounded-sm px-2 py-1.5 font-mono text-xs outline-none"
+                      className="w-full bg-surface-container-highest border border-outline-variant/50 focus:border-[#1E707D] rounded-sm px-2 py-1.5 font-mono text-xs outline-none"
                     />
                   </div>
                   <div className="col-span-6">
@@ -177,7 +177,7 @@ const ApiEnvironmentModal = ({ onClose, projectId }) => {
                       value={v.value}
                       onChange={(e) => updateVar(i, 'value', e.target.value)}
                       placeholder="e.g. http://localhost:8080"
-                      className="w-full bg-surface-container-highest border border-outline-variant/50 focus:border-primary rounded-sm px-2 py-1.5 font-mono text-xs outline-none"
+                      className="w-full bg-surface-container-highest border border-outline-variant/50 focus:border-[#1E707D] rounded-sm px-2 py-1.5 font-mono text-xs outline-none"
                     />
                   </div>
                   <div className="col-span-1 flex justify-center">
@@ -193,7 +193,7 @@ const ApiEnvironmentModal = ({ onClose, projectId }) => {
 
               <button 
                 onClick={addVarRow}
-                className="mt-2 text-xs font-mono text-primary hover:underline px-2"
+                className="mt-2 text-xs font-mono text-[#1E707D] hover:underline px-2"
               >
                 + Add Variable
               </button>

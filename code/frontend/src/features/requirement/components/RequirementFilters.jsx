@@ -74,7 +74,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
       <div className="relative">
         <div 
           onClick={() => toggleDropdown('status')}
-          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedStatus || activeDropdown === 'status') ? 'border-primary bg-primary-fixed/20 text-primary' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[130px] justify-between`}
+          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedStatus || activeDropdown === 'status') ? 'border-[#1E707D] bg-[#1E707D]-fixed/20 text-[#1E707D]' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[130px] justify-between`}
         >
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">filter_list</span>
@@ -97,7 +97,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
               <button 
                 key={option} 
                 onClick={() => handleSelect('status', option)}
-                className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedStatus === option ? 'text-primary bg-surface-container font-medium' : 'text-on-surface'}`}
+                className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedStatus === option ? 'text-[#1E707D] bg-surface-container font-medium' : 'text-on-surface'}`}
               >
                 {option}
               </button>
@@ -110,7 +110,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
       <div className="relative">
         <div 
           onClick={() => toggleDropdown('priority')}
-          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedPriority || activeDropdown === 'priority') ? 'border-primary bg-primary-fixed/20 text-primary' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[120px] justify-between`}
+          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedPriority || activeDropdown === 'priority') ? 'border-[#1E707D] bg-[#1E707D]-fixed/20 text-[#1E707D]' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[120px] justify-between`}
         >
           <span className="truncate">{selectedPriority ? `Priority: ${selectedPriority}` : 'Priority'}</span>
           {selectedPriority ? (
@@ -130,7 +130,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
               <button 
                 key={option} 
                 onClick={() => handleSelect('priority', option)}
-                className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedPriority === option ? 'text-primary bg-surface-container font-medium' : 'text-on-surface'}`}
+                className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedPriority === option ? 'text-[#1E707D] bg-surface-container font-medium' : 'text-on-surface'}`}
               >
                 {option}
               </button>
@@ -143,7 +143,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
       <div className="relative">
         <div 
           onClick={() => toggleDropdown('tag')}
-          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedTag || activeDropdown === 'tag') ? 'border-primary bg-primary-fixed/20 text-primary' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[110px] justify-between`}
+          className={`flex items-center gap-2 px-3 py-1.5 border ${(selectedTag || activeDropdown === 'tag') ? 'border-[#1E707D] bg-[#1E707D]-fixed/20 text-[#1E707D]' : 'border-outline-variant bg-surface hover:bg-surface-container-low text-on-surface-variant'} rounded-lg cursor-pointer transition-colors text-body-md font-body-md min-w-[110px] justify-between`}
         >
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">sell</span>
@@ -161,7 +161,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
           )}
         </div>
         {activeDropdown === 'tag' && (
-          <div className="absolute top-full left-0 mt-1 w-full min-w-[110px] bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-20 max-h-[200px] overflow-y-auto">
+          <div className="absolute top-full left-0 mt-1 w-full min-w-[110px] bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-20 max-h-[200px] overflow-y-auto overflow-x-hidden">
             {tagOptions.length === 0 ? (
                <div className="px-3 py-2 text-on-surface-variant text-body-md font-body-md italic">No tags</div>
             ) : (
@@ -169,7 +169,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
                 <button 
                   key={option} 
                   onClick={() => handleSelect('tag', option)}
-                  className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedTag === option ? 'text-primary bg-surface-container font-medium' : 'text-on-surface'}`}
+                  className={`w-full text-left px-3 py-2 hover:bg-surface-container-low text-body-md font-body-md transition-colors ${selectedTag === option ? 'text-[#1E707D] bg-surface-container font-medium' : 'text-on-surface'}`}
                 >
                   {option}
                 </button>

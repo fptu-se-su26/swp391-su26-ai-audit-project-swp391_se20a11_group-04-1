@@ -52,14 +52,14 @@ const EvidenceTable = ({ evidences = [] }) => {
               >
                 {/* ID */}
                 <td className="px-4 py-3">
-                  <span className="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-md">
+                  <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1]/30 px-1.5 py-0.5 rounded-md">
                     EV-{String(ev.id).padStart(3, '0')}
                   </span>
                 </td>
 
                 {/* Title */}
                 <td className="px-4 py-3">
-                  <span className="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors line-clamp-1 max-w-[280px] inline-block">
+                  <span className="font-body-md text-body-md text-on-surface group-hover:text-[#1E707D] transition-colors line-clamp-1 max-w-[280px] inline-block">
                     {ev.title}
                   </span>
                 </td>

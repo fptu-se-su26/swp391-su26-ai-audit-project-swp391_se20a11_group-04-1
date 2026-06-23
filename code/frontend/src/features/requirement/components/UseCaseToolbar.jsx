@@ -39,14 +39,6 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
             <option value="IN_REVIEW">In Review</option>
             <option value="DONE">Done</option>
           </select>
-          <button className="h-[32px] px-3 flex items-center justify-center gap-1.5 bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] hover:bg-gray-50 transition-colors">
-            <span className="material-symbols-outlined text-[16px]">sort</span>
-            Sort
-          </button>
-          <button className="h-[32px] px-3 flex items-center justify-center gap-1.5 bg-transparent border border-[#E5E7EB] rounded-[8px] text-[12px] text-[#374151] hover:bg-gray-50 transition-colors">
-            <span className="material-symbols-outlined text-[16px]">view_column</span>
-            Columns
-          </button>
         </div>
 
       </div>

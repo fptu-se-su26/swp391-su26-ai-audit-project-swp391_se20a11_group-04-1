@@ -166,7 +166,7 @@ const AiStagingReviewPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-64px)] bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#185FA5]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E707D]"></div>
       </div>
     );
   }
@@ -179,7 +179,7 @@ const AiStagingReviewPage = () => {
         <p className="text-[14px]">No pending generations to review.</p>
         <button 
           onClick={() => navigate(`/projects/${activeProject.id}/requirements`)}
-          className="mt-4 px-4 py-2 bg-[#185FA5] text-white text-[13px] rounded-[6px] hover:bg-[#124d87]"
+          className="mt-4 px-4 py-2 bg-[#1E707D] text-white text-[13px] rounded-[6px] hover:bg-[#155762]"
         >
           Back to list
         </button>
@@ -281,8 +281,8 @@ const AiStagingReviewPage = () => {
       {selectedActor && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedActor(null)}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-blue-50/30">
-              <h3 className="font-bold text-[16px] text-[#185FA5] flex items-center gap-2">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-[#1E707D]/10/30">
+              <h3 className="font-bold text-[16px] text-[#1E707D] flex items-center gap-2">
                 <span>👤</span> Actor: {selectedActor.name}
               </h3>
               <button onClick={() => setSelectedActor(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -310,13 +310,13 @@ const AiStagingReviewPage = () => {
       {/* HEADER (Full Width) */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-[#E5E7EB] bg-white flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#EFF6FF] rounded-lg flex items-center justify-center">
-            <BsStars size={20} className="text-[#185FA5]" />
+          <div className="w-10 h-10 bg-[#1E707D/10] rounded-lg flex items-center justify-center">
+            <BsStars size={20} className="text-[#1E707D]" />
           </div>
           <div>
             <h1 className="text-[18px] font-semibold text-gray-900 leading-tight">AI Gen Requirement — Review & Confirm</h1>
             <p className="text-[13px] text-gray-500 mt-0.5">
-              Found <span className="font-bold text-[#185FA5]">{countAll} requirements</span>. Review and confirm to save.
+              Found <span className="font-bold text-[#1E707D]">{countAll} requirements</span>. Review and confirm to save.
             </p>
           </div>
         </div>
@@ -337,7 +337,7 @@ const AiStagingReviewPage = () => {
           <button 
             onClick={() => handleApprove(currentGen.generationId)}
             disabled={approving || selectedIndices.size === 0}
-            className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#185FA5] hover:bg-[#124d87] rounded-[6px] flex items-center gap-[6px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#1E707D] hover:bg-[#155762] rounded-[6px] flex items-center gap-[6px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
             <FiCheck size={14} /> {approving ? 'Approving...' : `Confirm Selected ↗`}
           </button>
@@ -375,7 +375,7 @@ const AiStagingReviewPage = () => {
 
          {/* RESIZER DRAG HANDLE */}
          <div 
-           className={`w-1 cursor-col-resize flex-shrink-0 transition-colors z-20 hover:bg-[#185FA5] ${isDragging ? 'bg-[#185FA5]' : 'bg-[#E5E7EB]'}`}
+           className={`w-1 cursor-col-resize flex-shrink-0 transition-colors z-20 hover:bg-[#1E707D] ${isDragging ? 'bg-[#1E707D]' : 'bg-[#E5E7EB]'}`}
            onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
          />
 
@@ -395,7 +395,7 @@ const AiStagingReviewPage = () => {
 
             {/* ALL DUPLICATES BANNER */}
             {allDuplicates && (
-              <div className="mx-4 mt-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-md flex items-start gap-2 shadow-sm z-10">
+              <div className="mx-4 mt-4 p-3 bg-[#1E707D]/10 border border-[#1E707D]/20 text-[#1E707D] rounded-md flex items-start gap-2 shadow-sm z-10">
                 <span className="text-xl">ℹ️</span>
                 <div>
                   <h3 className="font-semibold text-[13px]">No New Requirements Found</h3>
@@ -406,12 +406,12 @@ const AiStagingReviewPage = () => {
 
             {/* PROJECT ACTORS PANEL */}
             {projectActors && projectActors.length > 0 && (
-              <div className="p-[10px_16px] border-b border-[#E5E7EB] bg-blue-50/50 flex flex-col gap-2 flex-shrink-0">
-                <div className="flex items-center justify-between text-blue-800 font-semibold text-[13px]">
+              <div className="p-[10px_16px] border-b border-[#E5E7EB] bg-[#1E707D]/10/50 flex flex-col gap-2 flex-shrink-0">
+                <div className="flex items-center justify-between text-[#1E707D] font-semibold text-[13px]">
                   <div className="flex items-center gap-2">
                     <span className="text-base">👥</span> AI Detected Roles (Actors)
                   </div>
-                  <div className="text-[10px] text-blue-600 font-normal opacity-80">
+                  <div className="text-[10px] text-[#1E707D] font-normal opacity-80">
                     * Saved automatically upon approval
                   </div>
                 </div>
@@ -420,7 +420,7 @@ const AiStagingReviewPage = () => {
                     <div 
                       key={idx} 
                       onClick={() => setSelectedActor(actor)}
-                      className="bg-white border border-blue-200 hover:border-[#185FA5] px-3 py-1.5 rounded-lg shadow-sm text-[12px] flex flex-col min-w-[180px] max-w-[220px] flex-shrink-0 cursor-pointer transition-colors"
+                      className="bg-white border border-[#1E707D]/20 hover:border-[#1E707D] px-3 py-1.5 rounded-lg shadow-sm text-[12px] flex flex-col min-w-[180px] max-w-[220px] flex-shrink-0 cursor-pointer transition-colors"
                     >
                       <span className="font-bold text-gray-800">{actor.name}</span>
                       <span className="text-gray-500 text-[11px] truncate" title={actor.description}>{actor.description}</span>
@@ -435,7 +435,7 @@ const AiStagingReviewPage = () => {
               <div className="flex items-center gap-[8px]">
                 <button 
                   onClick={() => setFilter('ALL')}
-                  className={`h-[28px] px-[12px] text-[12px] font-medium rounded-full border-[0.5px] transition-colors ${filter === 'ALL' ? 'bg-[#185FA5] text-white border-[#185FA5]' : 'bg-[#FFFFFF] text-gray-600 border-[#E5E7EB] hover:bg-gray-50 shadow-sm'}`}
+                  className={`h-[28px] px-[12px] text-[12px] font-medium rounded-full border-[0.5px] transition-colors ${filter === 'ALL' ? 'bg-[#1E707D] text-white border-[#1E707D]' : 'bg-[#FFFFFF] text-gray-600 border-[#E5E7EB] hover:bg-gray-50 shadow-sm'}`}
                 >
                   All ({countAll})
                 </button>
@@ -466,7 +466,7 @@ const AiStagingReviewPage = () => {
                     type="checkbox" 
                     checked={isAllVisibleSelected}
                     onChange={handleSelectAll}
-                    className="w-4 h-4 text-[#185FA5] border-gray-300 rounded focus:ring-[#185FA5] accent-[#185FA5] cursor-pointer"
+                    className="w-4 h-4 text-[#1E707D] border-gray-300 rounded focus:ring-[#1E707D] accent-[#1E707D] cursor-pointer"
                   />
                   <span className="text-[13px] text-gray-600 group-hover:text-gray-900 select-none font-medium">Select all</span>
                 </label>
@@ -549,13 +549,13 @@ const AiStagingReviewPage = () => {
                             checked={isSelected}
                             disabled={req.isDuplicate}
                             onChange={() => !req.isDuplicate && toggleSelection(req._idx)}
-                            className="mt-[2px] w-[18px] h-[18px] text-[#185FA5] border-gray-300 rounded focus:ring-[#185FA5] accent-[#185FA5] cursor-pointer shrink-0 disabled:cursor-not-allowed"
+                            className="mt-[2px] w-[18px] h-[18px] text-[#1E707D] border-gray-300 rounded focus:ring-[#1E707D] accent-[#1E707D] cursor-pointer shrink-0 disabled:cursor-not-allowed"
                           />
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-[8px] min-w-0">
-                                <span className="bg-[#EEEDFE] text-[#6366F1] px-[6px] py-[2px] rounded-[4px] text-[11px] font-bold shrink-0">
+                                <span className="bg-[#1E707D]/10 text-[#1E707D] px-[6px] py-[2px] rounded-[4px] text-[11px] font-bold shrink-0">
                                   REQ-{(req._idx + 1).toString().padStart(3, '0')}
                                 </span>
                                 {req.isDuplicate && (
@@ -569,7 +569,7 @@ const AiStagingReviewPage = () => {
                                 {diffBadge}
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setEditingIndex(req._idx); }}
-                                  className="text-gray-400 hover:text-[#185FA5] transition-colors p-1 flex items-center justify-center rounded hover:bg-blue-50"
+                                  className="text-gray-400 hover:text-[#1E707D] transition-colors p-1 flex items-center justify-center rounded hover:bg-[#1E707D]/10"
                                   title="Edit Requirement"
                                 >
                                   <FiEdit2 size={13} />
@@ -582,7 +582,7 @@ const AiStagingReviewPage = () => {
                             </p>
 
                             <div className="flex flex-wrap items-center gap-2 mb-3">
-                              <span className={`px-[8px] py-[2px] rounded-[6px] text-[11px] font-bold uppercase ${req.type === 'NON_FUNCTIONAL' ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#EFF6FF] text-[#2563EB]'}`}>
+                              <span className={`px-[8px] py-[2px] rounded-[6px] text-[11px] font-bold uppercase ${req.type === 'NON_FUNCTIONAL' ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#1E707D/10] text-[#1E707D]'}`}>
                                 {req.type === 'NON_FUNCTIONAL' ? 'Non-Functional' : 'Functional'}
                               </span>
                               
@@ -591,7 +591,7 @@ const AiStagingReviewPage = () => {
                                 const p = (req.priority || '').toUpperCase();
                                 if (p === 'CRITICAL' || p === 'HIGH') prioColor = 'bg-[#FEF2F2] text-[#DC2626]';
                                 else if (p === 'MEDIUM') prioColor = 'bg-[#FFFBEB] text-[#D97706]';
-                                else if (p === 'LOW') prioColor = 'bg-[#EFF6FF] text-[#2563EB]';
+                                else if (p === 'LOW') prioColor = 'bg-[#1E707D/10] text-[#1E707D]';
                                 
                                 return (
                                   <span className={`px-[8px] py-[2px] rounded-[6px] text-[11px] font-bold uppercase ${prioColor}`}>
@@ -637,7 +637,7 @@ const AiStagingReviewPage = () => {
                               <div className="mt-3 inline-flex">
                                 <button
                                   type="button"
-                                  className="group flex items-center gap-[6px] bg-white text-[#185FA5] px-[12px] py-[6px] rounded-[6px] text-[12px] font-medium hover:bg-[#EFF6FF] transition-colors border border-[#BFDBFE] shadow-sm"
+                                  className="group flex items-center gap-[6px] bg-white text-[#1E707D] px-[12px] py-[6px] rounded-[6px] text-[12px] font-medium hover:bg-[#1E707D/10] transition-colors border border-[#1E707D/20] shadow-sm"
                                   onMouseEnter={(e) => {
                                     e.stopPropagation();
                                     setHoveredExcerpt(req.source_excerpt);
@@ -717,7 +717,7 @@ const AiStagingReviewPage = () => {
                   <span className="text-[12px] text-gray-500">AI quality score</span>
                   <div className="w-[80px] h-[6px] bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-[#185FA5] transition-all duration-1000 ease-out"
+                      className="h-full bg-[#1E707D] transition-all duration-1000 ease-out"
                       style={{ width: `${avgScore}%` }}
                     ></div>
                   </div>
@@ -736,8 +736,8 @@ const AiStagingReviewPage = () => {
             
             {/* Header */}
             <div className="p-[24px_24px_0] flex items-center gap-[12px]">
-              <div className="w-[38px] h-[38px] bg-[#EFF6FF] rounded-[10px] flex items-center justify-center shrink-0">
-                <BsStars size={18} className="text-[#185FA5]" />
+              <div className="w-[38px] h-[38px] bg-[#1E707D/10] rounded-[10px] flex items-center justify-center shrink-0">
+                <BsStars size={18} className="text-[#1E707D]" />
               </div>
               <div className="flex flex-col">
                 <h2 className="text-[16px] font-medium text-gray-900 leading-snug">Re-generating Requirements</h2>
@@ -749,38 +749,38 @@ const AiStagingReviewPage = () => {
             <div className="p-[24px] flex items-center justify-between relative">
               {/* Step 1: Extract Text */}
               <div className="flex flex-col items-center relative z-10 w-[60px]">
-                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 1 ? 'bg-[#1D9E75] text-white' : progressStep === 0 ? 'bg-[#185FA5] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
+                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 1 ? 'bg-[#1D9E75] text-white' : progressStep === 0 ? 'bg-[#1E707D] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
                   {progressStep >= 1 ? <FiCheck size={16} /> : '1'}
                 </div>
-                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 0 ? 'text-[#185FA5] font-medium' : 'text-[#9CA3AF]'}`}>Extract Text</span>
+                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 0 ? 'text-[#1E707D] font-medium' : 'text-[#9CA3AF]'}`}>Extract Text</span>
               </div>
 
               {/* Line 1-2 */}
               <div className="flex-1 h-[2px] mx-2 relative top-[-10px]">
                 <div className="w-full h-full border-t-[2px] border-dashed border-[#E5E7EB] absolute top-0 left-0"></div>
-                <div className="h-full bg-[#185FA5] absolute top-0 left-0 transition-all duration-500" style={{ width: progressStep >= 1 ? '100%' : '0%' }}></div>
+                <div className="h-full bg-[#1E707D] absolute top-0 left-0 transition-all duration-500" style={{ width: progressStep >= 1 ? '100%' : '0%' }}></div>
               </div>
 
               {/* Step 2: Generate */}
               <div className="flex flex-col items-center relative z-10 w-[60px]">
-                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 2 ? 'bg-[#1D9E75] text-white' : progressStep === 1 ? 'bg-[#185FA5] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
+                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 2 ? 'bg-[#1D9E75] text-white' : progressStep === 1 ? 'bg-[#1E707D] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
                   {progressStep >= 2 ? <FiCheck size={16} /> : '2'}
                 </div>
-                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 1 ? 'text-[#185FA5] font-medium' : 'text-[#9CA3AF]'}`}>Generate</span>
+                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 1 ? 'text-[#1E707D] font-medium' : 'text-[#9CA3AF]'}`}>Generate</span>
               </div>
 
               {/* Line 2-3 */}
               <div className="flex-1 h-[2px] mx-2 relative top-[-10px]">
                 <div className="w-full h-full border-t-[2px] border-dashed border-[#E5E7EB] absolute top-0 left-0"></div>
-                <div className="h-full bg-[#185FA5] absolute top-0 left-0 transition-all duration-500" style={{ width: progressStep >= 2 ? '100%' : '0%' }}></div>
+                <div className="h-full bg-[#1E707D] absolute top-0 left-0 transition-all duration-500" style={{ width: progressStep >= 2 ? '100%' : '0%' }}></div>
               </div>
 
               {/* Step 3: Critic Review */}
               <div className="flex flex-col items-center relative z-10 w-[60px]">
-                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 3 ? 'bg-[#1D9E75] text-white' : progressStep === 2 ? 'bg-[#185FA5] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
+                <div className={`w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-medium transition-colors duration-300 ${progressStep >= 3 ? 'bg-[#1D9E75] text-white' : progressStep === 2 ? 'bg-[#1E707D] text-white' : 'bg-white border-[1.5px] border-[#D1D5DB] text-[#9CA3AF]'}`}>
                   {progressStep >= 3 ? <FiCheck size={16} /> : '3'}
                 </div>
-                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 2 ? 'text-[#185FA5] font-medium' : 'text-[#9CA3AF]'}`}>Critic Review</span>
+                <span className={`text-[12px] mt-2 text-center whitespace-nowrap transition-colors duration-300 ${progressStep >= 2 ? 'text-[#1E707D] font-medium' : 'text-[#9CA3AF]'}`}>Critic Review</span>
               </div>
             </div>
 
@@ -795,7 +795,7 @@ const AiStagingReviewPage = () => {
                 </div>
               ) : (
                 <div className="bg-[#F8FAFC] border-[0.5px] border-[#E5E7EB] rounded-[10px] p-[14px_16px] flex items-center gap-[12px]">
-                  <FiRefreshCw size={16} className="text-[#185FA5] animate-spin shrink-0" />
+                  <FiRefreshCw size={16} className="text-[#1E707D] animate-spin shrink-0" />
                   <span className="text-[13px] text-[#374151]">
                     {progressStep === 0 && 'Reading and extracting text from your document...'}
                     {progressStep === 1 && 'AI is generating requirements from extracted content...'}

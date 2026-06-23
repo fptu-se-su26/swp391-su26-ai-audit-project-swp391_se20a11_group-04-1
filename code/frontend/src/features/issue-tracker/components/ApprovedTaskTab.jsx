@@ -122,10 +122,10 @@ export function ApprovedTaskTab({
           </div>
         ) : (
           isLeader && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 shadow-sm shrink-0">
+            <div className="rounded-xl border border-indigo-100 bg-[#1E707D]/10/30 p-4 shadow-sm shrink-0">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold tracking-wide uppercase">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-[#1E707D] font-extrabold tracking-wide uppercase">
                     Xác nhận & Đồng bộ
                   </span>
                   <p className="text-xs text-slate-600 leading-relaxed font-semibold">
@@ -137,7 +137,7 @@ export function ApprovedTaskTab({
                     <button
                       onClick={onApproveAndSync}
                       disabled={!hasRequirement}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100 disabled:shadow-none"
+                      className="px-4 py-2.5 bg-[#1E707D] hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer hover:shadow-indigo-100 disabled:shadow-none"
                     >
                       <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />

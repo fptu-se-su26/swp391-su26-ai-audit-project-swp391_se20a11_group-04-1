@@ -82,8 +82,8 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
             {/* HEADER */}
             <div className="flex items-start justify-between px-[24px] pt-[24px] pb-0">
               <div className="flex items-center gap-3">
-                <div className="w-[38px] h-[38px] rounded-[10px] bg-[#EEEDFE] flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[#3C3489]" style={{ fontSize: '20px' }}>auto_awesome</span>
+                <div className="w-[38px] h-[38px] rounded-[10px] bg-[#1E707D]/10 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[#1E707D]" style={{ fontSize: '20px' }}>auto_awesome</span>
                 </div>
                 <div>
                   <h2 className="text-[16px] font-medium text-[#111827] leading-tight">Generating Use Cases...</h2>
@@ -109,20 +109,20 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
                   <div key={step.id} className="flex flex-col items-center relative z-10 w-[80px]">
                     <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center transition-all duration-300 ${
                       status === 'completed' ? 'bg-[#E1F5EE]' :
-                      status === 'active' ? 'bg-[#EFF6FF] border-2 border-[#185FA5]' :
+                      status === 'active' ? 'bg-[#1E707D/10] border-2 border-[#1E707D]' :
                       'bg-white border-[1.5px] border-[#E5E7EB]'
                     }`}>
                       {status === 'completed' ? (
                         <span className="material-symbols-outlined text-[#1D9E75]" style={{ fontSize: '18px' }}>check</span>
                       ) : status === 'active' ? (
-                        <span className="material-symbols-outlined text-[#185FA5] animate-spin" style={{ fontSize: '18px' }}>sync</span>
+                        <span className="material-symbols-outlined text-[#1E707D] animate-spin" style={{ fontSize: '18px' }}>sync</span>
                       ) : (
                         <span className="text-[#9CA3AF] text-[13px] font-medium">{step.id}</span>
                       )}
                     </div>
                     <span className={`text-[11px] text-center mt-2 ${
                       status === 'completed' ? 'text-[#1D9E75] font-medium' :
-                      status === 'active' ? 'text-[#185FA5] font-medium' :
+                      status === 'active' ? 'text-[#1E707D] font-medium' :
                       'text-[#9CA3AF]'
                     }`}>
                       {step.title}
@@ -141,7 +141,7 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
             {/* CURRENT STEP STATUS BOX */}
             <div className="px-[24px] pb-[20px]">
               <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-[16px] py-[14px] flex items-center gap-3">
-                <span className="material-symbols-outlined text-[#185FA5] animate-spin shrink-0" style={{ fontSize: '24px' }}>sync</span>
+                <span className="material-symbols-outlined text-[#1E707D] animate-spin shrink-0" style={{ fontSize: '24px' }}>sync</span>
                 <div>
                   <h3 className="text-[13px] font-bold text-[#111827]">{currentDetails.title}</h3>
                   <p className="text-[12px] text-[#6B7280] mt-0.5">{currentDetails.detail}</p>
@@ -157,7 +157,7 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
               </div>
               <div className="w-full bg-[#E5E7EB] h-[6px] rounded-[3px] overflow-hidden">
                 <div 
-                  className="h-full rounded-[3px] bg-gradient-to-r from-[#185FA5] to-[#3C3489] transition-all duration-300 ease-out" 
+                  className="h-full rounded-[3px] bg-gradient-to-r from-[#1E707D] to-[#1E707D] transition-all duration-300 ease-out" 
                   style={{ width: `${progressWidth}%` }}
                 ></div>
               </div>

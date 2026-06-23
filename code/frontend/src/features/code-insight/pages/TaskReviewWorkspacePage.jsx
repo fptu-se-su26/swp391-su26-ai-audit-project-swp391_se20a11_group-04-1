@@ -94,7 +94,7 @@ const CodePatchAnalyzer = ({ changedFiles }) => {
   return (
     <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm mt-4">
       <h3 className="font-bold text-on-surface mb-3 flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary">data_object</span>
+        <span className="material-symbols-outlined text-[#1E707D]">data_object</span>
         Component A: Code Patch Analyzer (Physical Changes)
       </h3>
       {changedFiles && changedFiles.length > 0 ? (
@@ -145,7 +145,7 @@ const renderMarkdown = (text) => {
       
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    html = html.replace(/`(.*?)`/g, '<code class="bg-surface-container-high text-primary px-1.5 py-0.5 rounded font-mono text-xs border border-outline-variant/30">$1</code>');
+    html = html.replace(/`(.*?)`/g, '<code class="bg-surface-container-high text-[#1E707D] px-1.5 py-0.5 rounded font-mono text-xs border border-outline-variant/30">$1</code>');
     
     return <span dangerouslySetInnerHTML={{ __html: html }} />;
   };
@@ -171,7 +171,7 @@ const renderMarkdown = (text) => {
         );
       } else if (trimmed.startsWith('### ')) {
         renderedElements.push(
-          <h4 key={`h3-${idx}`} className="text-base font-bold text-primary mt-4 mb-2 text-left">
+          <h4 key={`h3-${idx}`} className="text-base font-bold text-[#1E707D] mt-4 mb-2 text-left">
             {parseInline(trimmed.substring(4))}
           </h4>
         );
@@ -222,7 +222,7 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
       {streamingMarkdown && (
         <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant leading-relaxed shadow-sm">
           <div className="font-bold text-xs uppercase text-neutral-500 mb-2 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-primary animate-pulse">chat</span>
+            <span className="material-symbols-outlined text-sm text-[#1E707D] animate-pulse">chat</span>
             Live AI Audit Commentary
           </div>
           <div className="text-left">{renderMarkdown(streamingMarkdown)}</div>
@@ -314,7 +314,7 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
                   className="w-full flex justify-between items-center py-2 px-3 hover:bg-surface-container-low rounded-lg transition-all text-left"
                 >
                   <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
+                    <span className="material-symbols-outlined text-[#1E707D] text-[18px]">rule</span>
                     Requirement Progress Context (Tiến độ chung)
                   </span>
                   <span className="flex items-center gap-1">
@@ -345,7 +345,7 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
                                   {ac.acText}
                                 </p>
                                 {(isFullyCovered || isPartial) && (
-                                  <p className="text-[10px] text-primary font-bold">
+                                  <p className="text-[10px] text-[#1E707D] font-bold">
                                     {isCoveredHere 
                                       ? '✓ Được xử lý trong task hiện tại' 
                                       : `✓ Đã duyệt hoàn thành ở task ${ac.coveredByTaskCode || 'TSK-' + ac.coveredByTaskId}`}
@@ -742,7 +742,7 @@ export function TaskReviewWorkspacePage() {
       <aside className="w-[320px] shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full overflow-y-auto z-10 shadow-sm">
         <div className="sticky top-0 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant p-4 z-20">
           <h2 className="font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">list_alt</span>
+            <span className="material-symbols-outlined text-[#1E707D]">list_alt</span>
             Review Queue ({queue.length})
           </h2>
         </div>
@@ -756,10 +756,10 @@ export function TaskReviewWorkspacePage() {
                 <Link
                   key={item.id}
                   to={`/projects/${projectId}/task-reviews/${item.task?.id}`}
-                  className={`block p-3 rounded-lg border transition-all ${isSelected ? 'bg-primary-container/20 border-primary shadow-sm' : 'bg-surface border-outline-variant hover:border-primary/50'}`}
+                  className={`block p-3 rounded-lg border transition-all ${isSelected ? 'bg-[#D7EEF1]/20 border-[#1E707D] shadow-sm' : 'bg-surface border-outline-variant hover:border-[#1E707D]/50'}`}
                 >
-                  <div className="text-xs font-bold text-primary mb-1">{item.task?.requirementCode || 'NO-REQ'}</div>
-                  <div className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-on-surface'}`}>{item.task?.title}</div>
+                  <div className="text-xs font-bold text-[#1E707D] mb-1">{item.task?.requirementCode || 'NO-REQ'}</div>
+                  <div className={`font-bold text-sm ${isSelected ? 'text-[#1E707D]' : 'text-on-surface'}`}>{item.task?.title}</div>
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-xs text-on-surface-variant flex items-center gap-1">
                        <span className="material-symbols-outlined text-[14px]">person</span>
@@ -776,7 +776,7 @@ export function TaskReviewWorkspacePage() {
       {/* Main Content Area */}
       {detailLoading ? (
          <div className="flex-1 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1E707D]"></div>
          </div>
       ) : error ? (
          <div className="flex-1 flex items-center justify-center">
@@ -830,7 +830,7 @@ export function TaskReviewWorkspacePage() {
                 <div className="bg-neutral-950 text-green-400 font-mono text-xs rounded-xl p-5 shadow-inner border border-neutral-800 space-y-2 max-h-[200px] overflow-y-auto">
                   <div className="flex justify-between items-center text-neutral-400 border-b border-neutral-800 pb-2 mb-2">
                     <span className="font-bold flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-primary">terminal</span>
+                      <span className="material-symbols-outlined text-sm text-[#1E707D]">terminal</span>
                       AI Audit Stream Console
                     </span>
                     <span className="animate-pulse flex items-center gap-1.5 font-bold">
@@ -860,7 +860,7 @@ export function TaskReviewWorkspacePage() {
               {/* A. Gate Checklist */}
               <div>
                 <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-[18px]">rule</span>
                   Gate Checklist
                 </h3>
                 <div className="space-y-2">
@@ -885,7 +885,7 @@ export function TaskReviewWorkspacePage() {
               {/* B. Evidence Confidence (Đã chỉnh lại format đồng bộ & đặt ở vị trí mới) */}
               <div>
                 <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-[18px]">verified_user</span>
                   Evidence Confidence
                 </h3>
                 <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface">
@@ -911,7 +911,7 @@ export function TaskReviewWorkspacePage() {
               {/* C. Evidence Vault */}
               <div>
                 <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">inventory_2</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-[18px]">inventory_2</span>
                   Evidence Vault
                 </h3>
                 {isCodeTask(task.type) ? (
@@ -945,7 +945,7 @@ export function TaskReviewWorkspacePage() {
                           {evidence.generalEvidences.map((ge) => (
                             <div key={ge.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex items-center justify-between gap-2 hover:shadow-sm transition-all">
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                <span className="material-symbols-outlined text-[#1E707D] text-[18px] shrink-0">
                                   {ge.type === 'SCREENSHOT' ? 'image' :
                                    ge.type === 'SCREEN_RECORDING' ? 'movie' :
                                    ge.type === 'FIGMA_LINK' ? 'link' :
@@ -967,7 +967,7 @@ export function TaskReviewWorkspacePage() {
                                     href={ge.fileUrl || ge.externalUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-primary hover:text-primary-hover flex items-center"
+                                    className="text-[#1E707D] hover:text-[#165964] flex items-center"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                                   </a>
@@ -988,7 +988,7 @@ export function TaskReviewWorkspacePage() {
                           <button
                             type="button"
                             onClick={() => setIsSuggestModalOpen(true)}
-                            className="px-2 py-1 bg-surface-container-low text-[10px] font-bold text-primary border border-outline-variant hover:bg-surface-container-high rounded-lg flex items-center gap-1 transition-all"
+                            className="px-2 py-1 bg-surface-container-low text-[10px] font-bold text-[#1E707D] border border-outline-variant hover:bg-surface-container-high rounded-lg flex items-center gap-1 transition-all"
                           >
                             <span className="material-symbols-outlined text-[12px]">add</span>
                             Suggest Link
@@ -1001,7 +1001,7 @@ export function TaskReviewWorkspacePage() {
                               <div key={ml.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex flex-col gap-1.5 hover:shadow-sm transition-all">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2 overflow-hidden">
-                                    <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                    <span className="material-symbols-outlined text-[#1E707D] text-[18px] shrink-0">
                                       {ml.evidenceType === 'COMMIT' ? 'history' :
                                        ml.evidenceType === 'PULL_REQUEST' ? 'description' : 'published_with_changes'}
                                     </span>
@@ -1070,7 +1070,7 @@ export function TaskReviewWorkspacePage() {
                           href={evidence.githubIssue.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-bold text-primary hover:underline"
+                          className="text-sm font-bold text-[#1E707D] hover:underline"
                         >
                           Issue #{evidence.githubIssue.number}
                         </a>
@@ -1086,7 +1086,7 @@ export function TaskReviewWorkspacePage() {
                           {evidence.generalEvidences.map((ge) => (
                             <div key={ge.id} className="p-2.5 border border-outline-variant rounded-lg bg-surface flex items-center justify-between gap-2 hover:shadow-sm transition-all">
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                <span className="material-symbols-outlined text-[#1E707D] text-[18px] shrink-0">
                                   {ge.type === 'SCREENSHOT' ? 'image' :
                                    ge.type === 'SCREEN_RECORDING' ? 'movie' :
                                    ge.type === 'FIGMA_LINK' ? 'link' :
@@ -1108,7 +1108,7 @@ export function TaskReviewWorkspacePage() {
                                     href={ge.fileUrl || ge.externalUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-primary hover:text-primary-hover flex items-center"
+                                    className="text-[#1E707D] hover:text-[#165964] flex items-center"
                                   >
                                     <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                                   </a>
@@ -1136,7 +1136,7 @@ export function TaskReviewWorkspacePage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 disabled={decisionLoading}
-                className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-3"
+                className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] resize-none mb-3"
                 rows="2"
                 placeholder="Write your review comments here..."
               ></textarea>
@@ -1152,7 +1152,7 @@ export function TaskReviewWorkspacePage() {
                 <button 
                   onClick={handleApprove} 
                   disabled={decisionLoading}
-                  className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                  className="flex-1 bg-[#1E707D] text-white font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[18px]">check</span>
                   {decisionLoading ? 'Processing...' : 'Approve Task'}
@@ -1168,7 +1168,7 @@ export function TaskReviewWorkspacePage() {
                 {/* Modal Header */}
                 <div className="p-5 border-b border-outline-variant flex items-center justify-between">
                   <h3 className="font-bold text-on-surface flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">link</span>
+                    <span className="material-symbols-outlined text-[#1E707D]">link</span>
                     Suggest Manual Git Evidence Link
                   </h3>
                   <button
@@ -1195,7 +1195,7 @@ export function TaskReviewWorkspacePage() {
                           onClick={() => setSuggestType(t)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             suggestType === t
-                              ? 'bg-primary text-on-primary border-primary shadow-sm'
+                              ? 'bg-[#1E707D] text-white border-[#1E707D] shadow-sm'
                               : 'bg-surface text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                           }`}
                         >
@@ -1216,7 +1216,7 @@ export function TaskReviewWorkspacePage() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Enter keywords to search..."
-                        className="flex-1 bg-surface border border-outline-variant rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        className="flex-1 bg-surface border border-outline-variant rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]"
                       />
                       <button
                         type="button"
@@ -1247,10 +1247,10 @@ export function TaskReviewWorkspacePage() {
                               type="button"
                               onClick={() => setSelectedEvidence(item)}
                               className={`w-full p-3 text-left flex items-start gap-2.5 transition-colors ${
-                                isSelected ? 'bg-primary-container/20 border-l-4 border-primary' : 'hover:bg-surface-container-low'
+                                isSelected ? 'bg-[#D7EEF1]/20 border-l-4 border-[#1E707D]' : 'hover:bg-surface-container-low'
                               }`}
                             >
-                              <span className="material-symbols-outlined text-primary text-[18px] mt-0.5 shrink-0">
+                              <span className="material-symbols-outlined text-[#1E707D] text-[18px] mt-0.5 shrink-0">
                                 {suggestType === 'COMMIT' ? 'history' :
                                  suggestType === 'PULL_REQUEST' ? 'description' : 'published_with_changes'}
                               </span>
@@ -1280,7 +1280,7 @@ export function TaskReviewWorkspacePage() {
                       onChange={(e) => setSuggestReason(e.target.value)}
                       placeholder="Explain why this evidence belongs to this task..."
                       rows="2"
-                      className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+                      className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] resize-none"
                     ></textarea>
                   </div>
 
@@ -1308,7 +1308,7 @@ export function TaskReviewWorkspacePage() {
                     type="button"
                     onClick={handleSuggestManualLink}
                     disabled={suggestSubmitLoading || !selectedEvidence}
-                    className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-xl hover:opacity-90 transition-all shadow-sm disabled:opacity-50"
+                    className="px-4 py-2 bg-[#1E707D] text-white font-bold text-sm rounded-xl hover:opacity-90 transition-all shadow-sm disabled:opacity-50"
                   >
                     {suggestSubmitLoading ? 'Submitting...' : 'Link Evidence'}
                   </button>

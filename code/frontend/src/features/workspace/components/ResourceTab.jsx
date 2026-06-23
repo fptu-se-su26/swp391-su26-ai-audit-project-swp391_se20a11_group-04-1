@@ -172,7 +172,7 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {resources.map((resource) => (
               <div key={resource.id} className="border border-slate-200 rounded-xl p-4 flex items-start gap-4 hover:border-sky-300 transition-colors">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${resource.type === 'FILE' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}>
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${resource.type === 'FILE' ? 'bg-orange-50 text-orange-500' : 'bg-[#1E707D]/10 text-[#1E707D]'}`}>
                   <span className="material-symbols-outlined text-2xl">
                     {resource.type === 'FILE' ? 'folder_zip' : 'link'}
                   </span>

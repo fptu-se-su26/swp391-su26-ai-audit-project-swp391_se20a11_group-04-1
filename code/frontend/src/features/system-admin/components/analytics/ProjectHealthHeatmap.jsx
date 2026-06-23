@@ -66,7 +66,7 @@ const ProjectHealthHeatmap = () => {
       {/* Header */}
       <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
         <h3 className="font-headline-sm text-body-lg flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">donut_large</span> Project Health
+          <span className="material-symbols-outlined text-[#1E707D]">donut_large</span> Project Health
         </h3>
         
         <div className="relative">
@@ -86,7 +86,7 @@ const ProjectHealthHeatmap = () => {
                     setYear(y);
                     setIsDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-4 py-3 text-sm hover:bg-primary/10 transition-colors ${year === y ? 'text-primary font-medium bg-primary/5' : 'text-on-surface'}`}
+                  className={`w-full text-left px-4 py-3 text-sm hover:bg-[#1E707D]/10 transition-colors ${year === y ? 'text-[#1E707D] font-medium bg-[#1E707D]/5' : 'text-on-surface'}`}
                 >
                   Year {y}
                 </button>
@@ -175,7 +175,7 @@ const ProjectHealthHeatmap = () => {
                 <button 
                   key={tab}
                   onClick={() => setStatusFilter(tab)}
-                  className={`px-1.5 py-0.5 tracking-wide font-medium rounded transition-colors ${statusFilter === tab ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
+                  className={`px-1.5 py-0.5 tracking-wide font-medium rounded transition-colors ${statusFilter === tab ? 'bg-surface-container-lowest text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}
                 >
                   {tab}
                 </button>
@@ -216,7 +216,7 @@ const ProjectHealthHeatmap = () => {
                           <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">group</span> {proj.membersCount} members</span>
                         </div>
                       </div>
-                      <button className="text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-label-sm text-[11px] hover:underline whitespace-nowrap mt-1">
+                      <button className="text-[#1E707D] opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-label-sm text-[11px] hover:underline whitespace-nowrap mt-1">
                         View <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                       </button>
                     </div>

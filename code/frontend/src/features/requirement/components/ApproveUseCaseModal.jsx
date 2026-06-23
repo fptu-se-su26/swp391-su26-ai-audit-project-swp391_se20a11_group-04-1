@@ -94,9 +94,9 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
       <div className="bg-surface rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-primary/5">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-[#1E707D]/5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+            <div className="p-2 bg-[#1E707D]/10 rounded-lg text-[#1E707D]">
               <FiCheck className="w-5 h-5" />
             </div>
             <div>
@@ -113,7 +113,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
         <div className="p-6 flex flex-col gap-6">
           
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-8 text-primary">
+            <div className="flex flex-col items-center justify-center py-8 text-[#1E707D]">
               <FiLoader className="w-8 h-8 animate-spin mb-4" />
               <p className="text-sm font-medium animate-pulse">AI đang phân tích và tìm Requirement phù hợp...</p>
             </div>
@@ -122,7 +122,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
               {/* AI Suggestions */}
               {suggestions.length > 0 && (
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[#1E707D]">
                     <FiCpu className="w-4 h-4" />
                     <span>Đề xuất thông minh từ AI</span>
                   </div>
@@ -132,7 +132,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
                         key={req.id}
                         className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                           selectedReqId === req.id 
-                            ? 'border-primary bg-primary/5 shadow-sm' 
+                            ? 'border-[#1E707D] bg-[#1E707D]/5 shadow-sm' 
                             : 'border-border hover:bg-black/5'
                         }`}
                         onClick={() => setSelectedReqId(req.id)}
@@ -160,7 +160,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-text">Hoặc chọn Requirement khác trong dự án</label>
                 <select 
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D]"
                   value={selectedReqId}
                   onChange={(e) => setSelectedReqId(e.target.value ? Number(e.target.value) : '')}
                 >
@@ -184,7 +184,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
               {/* Create New Button */}
               <button 
                 onClick={() => setShowCreateModal(true)}
-                className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-primary/50 rounded-lg text-primary hover:bg-primary/5 transition-colors font-medium"
+                className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-[#1E707D]/50 rounded-lg text-[#1E707D] hover:bg-[#1E707D]/5 transition-colors font-medium"
               >
                 <FiPlus className="w-4 h-4" />
                 Tạo Requirement Mới
@@ -206,7 +206,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
           <button 
             onClick={handleApprove}
             disabled={loading || submitting || !selectedReqId}
-            className="px-4 py-2 rounded-lg font-medium text-white bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-lg font-medium text-white bg-[#1E707D] hover:bg-[#1E707D]-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {submitting && <FiLoader className="w-4 h-4 animate-spin" />}
             Xác nhận Duyệt

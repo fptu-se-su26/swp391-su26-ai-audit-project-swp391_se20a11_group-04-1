@@ -133,7 +133,7 @@ const TaskFormModal = ({
       <div className="h-full w-full md:w-[420px] xl:w-[30vw] xl:min-w-[420px] bg-surface-container-lowest border-l border-outline-variant shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
         <div className="px-5 py-3 border-b border-outline-variant flex items-center justify-between bg-surface">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">{isEditMode ? 'edit' : 'add_task'}</span>
+            <span className="material-symbols-outlined text-[#1E707D]">{isEditMode ? 'edit' : 'add_task'}</span>
             <h3 className="font-bold text-on-surface">{isEditMode ? `Edit ${task.id}` : 'New Task'}</h3>
           </div>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high" aria-label="Close task form">
@@ -149,7 +149,7 @@ const TaskFormModal = ({
               onChange={(event) => updateField('title', event.target.value)}
               aria-invalid={Boolean(errors.title)}
               className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                errors.title ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                errors.title ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-[#1E707D]'
               }`}
               placeholder="Implement task feature"
               autoFocus
@@ -164,7 +164,7 @@ const TaskFormModal = ({
             <textarea
               value={formData.description}
               onChange={(event) => updateField('description', event.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary resize-none h-20"
+              className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D] resize-none h-20"
               placeholder="What should be done?"
             />
           </div>
@@ -175,7 +175,7 @@ const TaskFormModal = ({
               <select
                 value={formData.requirementId}
                 onChange={(event) => updateField('requirementId', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 <option value="">No requirement</option>
                 {requirementOptions.map((requirement) => (
@@ -195,7 +195,7 @@ const TaskFormModal = ({
                     updateField('assigneeId', event.target.value)
                     updateField('assigneeName', member?.name || '')
                   }}
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
                 >
                   <option value="">Unassigned</option>
                   {assigneeOptions.map((member) => (
@@ -208,7 +208,7 @@ const TaskFormModal = ({
                 <input
                   value={formData.assigneeName}
                   onChange={(event) => updateField('assigneeName', event.target.value)}
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
                   placeholder="Member name"
                 />
               )}
@@ -218,7 +218,7 @@ const TaskFormModal = ({
               <select
                 value={formData.type}
                 onChange={(event) => updateField('type', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 {typeOptions.map((type) => <option key={type} value={type}>{formatTaskType(type)}</option>)}
               </select>
@@ -228,7 +228,7 @@ const TaskFormModal = ({
               <select
                 value={formData.priority}
                 onChange={(event) => updateField('priority', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 {priorityOptions.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
               </select>
@@ -238,7 +238,7 @@ const TaskFormModal = ({
               <select
                 value={formData.sprintId}
                 onChange={(event) => updateField('sprintId', event.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 <option value="">No sprint</option>
                 {sprintOptions.map((sprint) => (
@@ -257,7 +257,7 @@ const TaskFormModal = ({
                   updateField('columnId', event.target.value)
                   updateField('status', column?.statusKey || formData.status)
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 {columnOptions.map((column) => <option key={column.id} value={column.id}>{column.title}</option>)}
               </select>
@@ -270,7 +270,7 @@ const TaskFormModal = ({
                 onChange={(event) => updateField('startDate', event.target.value)}
                 aria-invalid={Boolean(errors.startDate)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                  errors.startDate ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                  errors.startDate ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-[#1E707D]'
                 }`}
               />
               {errors.startDate && <p className="text-xs font-semibold text-error">{errors.startDate}</p>}
@@ -284,7 +284,7 @@ const TaskFormModal = ({
                   onChange={(event) => updateField('deadline', event.target.value)}
                   aria-invalid={Boolean(errors.deadline)}
                   className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                    errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                    errors.deadline ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-[#1E707D]'
                   }`}
                 />
                 {errors.deadline && <p className="text-xs font-semibold text-error">{errors.deadline}</p>}
@@ -301,7 +301,7 @@ const TaskFormModal = ({
                 onChange={(event) => updateField('weight', event.target.value)}
                 aria-invalid={Boolean(errors.weight)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                  errors.weight ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                  errors.weight ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-[#1E707D]'
                 }`}
               />
               {errors.weight && <p className="text-xs font-semibold text-error">{errors.weight}</p>}
@@ -315,7 +315,7 @@ const TaskFormModal = ({
                   step="0.5"
                   value={formData.estimatedHours}
                   onChange={(event) => updateField('estimatedHours', event.target.value)}
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
                   placeholder="4"
                 />
               </div>
@@ -330,7 +330,7 @@ const TaskFormModal = ({
                 onChange={(event) => updateField('blockedReason', event.target.value)}
                 aria-invalid={Boolean(errors.blockedReason)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
-                  errors.blockedReason ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-primary'
+                  errors.blockedReason ? 'border-error focus:ring-error' : 'border-outline-variant focus:ring-[#1E707D]'
                 }`}
                 placeholder="Waiting for..."
               />
@@ -341,7 +341,7 @@ const TaskFormModal = ({
           )}
 
           <div className="sticky bottom-0 -mx-5 -mb-4 flex justify-end border-t border-outline-variant bg-surface-container-lowest px-5 py-3">
-            <button type="submit" className="h-9 px-4 rounded-lg bg-primary text-on-primary hover:bg-surface-tint text-sm font-semibold flex items-center gap-2">
+            <button type="submit" className="h-9 px-4 rounded-lg bg-[#1E707D] text-white hover:bg-surface-tint text-sm font-semibold flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px]">{isEditMode ? 'save' : 'add_task'}</span>
               <span>{isEditMode ? 'Save' : 'Create Task'}</span>
             </button>

@@ -36,7 +36,7 @@ const ActorTab = () => {
           value={newActorName}
           onChange={(e) => setNewActorName(e.target.value)}
           placeholder="New Actor Name"
-          className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
         <Button onClick={handleAdd} size="sm" variant="primary">Add</Button>
@@ -54,7 +54,7 @@ const ActorTab = () => {
                     type="text" 
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && handleSave(actor.id)}
                   />
@@ -67,7 +67,7 @@ const ActorTab = () => {
                   <div className="flex gap-1">
                     <button 
                       onClick={() => handleEdit(actor)}
-                      className="p-1 text-gray-500 hover:text-blue-600 rounded transition-colors"
+                      className="p-1 text-gray-500 hover:text-[#1E707D] rounded transition-colors"
                       title="Edit Actor"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>

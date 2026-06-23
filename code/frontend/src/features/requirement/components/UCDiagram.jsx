@@ -759,7 +759,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full w-full min-h-[500px]">
-         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+         <div className="w-8 h-8 border-4 border-[#1E707D] border-t-transparent rounded-full animate-spin"></div>
          <p className="mt-4 text-gray-600 font-medium">Đang tính toán sơ đồ...</p>
       </div>
     );

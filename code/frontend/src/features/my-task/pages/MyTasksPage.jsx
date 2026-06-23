@@ -99,7 +99,7 @@ const MyTasksPage = () => {
         {/* Header + Toggle */}
         <div className="flex justify-between items-end">
           <div>
-            <h2 className="font-headline-md text-headline-md text-[#1E3A5F] mb-1">
+            <h2 className="font-headline-md text-headline-md text-[#1E707D] mb-1">
               {view === 'daily' ? 'Daily View' : 'Weekly View'}
             </h2>
             <p className="text-on-surface-variant font-body-md">
@@ -115,7 +115,7 @@ const MyTasksPage = () => {
               onClick={() => setView('daily')}
               className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 view === 'daily'
-                  ? 'bg-white shadow-sm text-primary'
+                  ? 'bg-white shadow-sm text-[#1E707D]'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
@@ -125,7 +125,7 @@ const MyTasksPage = () => {
               onClick={() => setView('weekly')}
               className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 view === 'weekly'
-                  ? 'bg-white shadow-sm text-primary'
+                  ? 'bg-white shadow-sm text-[#1E707D]'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >

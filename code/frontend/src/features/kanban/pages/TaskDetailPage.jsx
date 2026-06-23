@@ -54,7 +54,7 @@ const TaskDetailPage = () => {
           <p className="text-sm text-on-surface-variant mb-5">
             {loading ? 'Please wait while the task detail is loaded.' : <>The task id <strong>{id}</strong> does not exist in the current board data.</>}
           </p>
-          <Link to={taskBoardPath} className="inline-flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg font-semibold">
+          <Link to={taskBoardPath} className="inline-flex items-center gap-2 bg-[#1E707D] text-white px-4 py-2 rounded-lg font-semibold">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Back to Task Board
           </Link>
@@ -121,7 +121,7 @@ const TaskDetailPage = () => {
       <div className="max-w-[1200px] w-full mx-auto px-6 py-6 md:py-8">
         <div className="flex flex-col gap-2 mb-6">
           <div className="flex items-center text-label-md font-label-md text-on-surface-variant">
-            <Link className="hover:text-primary transition-colors" to={taskBoardPath}>Task Board</Link>
+            <Link className="hover:text-[#1E707D] transition-colors" to={taskBoardPath}>Task Board</Link>
             <span className="material-symbols-outlined text-[16px] mx-1">chevron_right</span>
             <span className="text-on-surface">{task.id}</span>
           </div>
@@ -130,7 +130,7 @@ const TaskDetailPage = () => {
             return parentTask ? (
               <Link
                 to={`/projects/${projectId}/tasks/${parentTask.id}`}
-                className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs text-[#1E707D] font-bold hover:underline"
               >
                 <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                 <span>Quay lại task cha: #{parentTask.id} - {parentTask.title}</span>
@@ -145,13 +145,13 @@ const TaskDetailPage = () => {
               <button
                 type="button"
                 onClick={handleCollapseToPanel}
-                className="w-9 h-9 shrink-0 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-primary-fixed transition-colors"
+                className="w-9 h-9 shrink-0 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-[#1E707D] hover:bg-[#D7EEF1] transition-colors"
                 aria-label="Collapse to task panel"
                 title="Collapse to panel"
               >
                 <span className="material-symbols-outlined text-[22px]">keyboard_return</span>
               </button>
-              <span className="bg-primary-fixed text-on-primary-fixed px-2 py-1 rounded text-label-md font-label-md uppercase">
+              <span className="bg-[#D7EEF1] text-[#1E707D] px-2 py-1 rounded text-label-md font-label-md uppercase">
                 {task.id}
               </span>
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">{task.title}</h1>
@@ -186,7 +186,7 @@ const TaskDetailPage = () => {
               <button
                 type="button"
                 onClick={() => navigate(codeInsightPath)}
-                className="h-[36px] px-4 flex items-center gap-2 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded transition-colors text-body-md font-body-md shadow-sm"
+                className="h-[36px] px-4 flex items-center gap-2 bg-[#1E707D] text-white hover:bg-[#165964] rounded transition-colors text-body-md font-body-md shadow-sm"
               >
                 <span className="material-symbols-outlined text-[18px]">smart_toy</span>
                 Code Insight
@@ -218,7 +218,7 @@ const TaskDetailPage = () => {
                     type="button"
                     onClick={handleRequestReview}
                     disabled={!isReviewActionEnabled}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E707D] text-white px-3 py-2 text-sm font-semibold hover:bg-[#D7EEF1] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="material-symbols-outlined text-[18px]">rate_review</span>
                     {isLeader ? 'Request Peer Review' : 'Request Review'}
@@ -243,7 +243,7 @@ const TaskDetailPage = () => {
                   <button
                     type="button"
                     onClick={handleApproveReview}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-sm font-semibold hover:bg-primary-container"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E707D] text-white px-3 py-2 text-sm font-semibold hover:bg-[#D7EEF1]"
                   >
                     <span className="material-symbols-outlined text-[18px]">check</span>
                     Approve Done
@@ -259,7 +259,7 @@ const TaskDetailPage = () => {
               <select
                 value={task.status}
                 onChange={(event) => updateTaskStatus(task.id, event.target.value)}
-                className="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-label-md font-label-md border border-transparent focus:outline-none focus:ring-1 focus:ring-primary"
+                className="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-label-md font-label-md border border-transparent focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 {TASK_STATUSES.map((status) => (
                   <option key={status.id} value={status.id}>
@@ -283,7 +283,7 @@ const TaskDetailPage = () => {
               {task.requirementId ? (
                 <Link
                   to={`/projects/${projectId}/requirements/${task.requirementId}`}
-                  className="text-primary text-body-md font-body-md hover:underline hover:text-surface-tint"
+                  className="text-[#1E707D] text-body-md font-body-md hover:underline hover:text-surface-tint"
                 >
                   {task.requirement}
                 </Link>
@@ -349,7 +349,7 @@ const TaskDetailPage = () => {
                       <input
                         checked={item.done}
                         onChange={() => toggleChecklistItem(task.id, item.id)}
-                        className="w-4 h-4 text-primary border-outline-variant rounded focus:ring-primary"
+                        className="w-4 h-4 text-[#1E707D] border-outline-variant rounded focus:ring-[#1E707D]"
                         type="checkbox"
                       />
                       <span className={`text-body-md font-body-md ${item.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
@@ -376,10 +376,10 @@ const TaskDetailPage = () => {
                       <Link
                         key={sub.id}
                         to={`/projects/${projectId}/tasks/${sub.id}`}
-                        className="flex items-center justify-between p-2.5 rounded border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-all group"
+                        className="flex items-center justify-between p-2.5 rounded border border-outline-variant hover:border-[#1E707D] hover:bg-surface-container-low transition-all group"
                       >
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          <span className="material-symbols-outlined text-[16px] text-primary">subdirectory_arrow_right</span>
+                          <span className="material-symbols-outlined text-[16px] text-[#1E707D]">subdirectory_arrow_right</span>
                           <span className={`text-sm font-semibold truncate ${isSubDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
                             {sub.title}
                           </span>
@@ -387,7 +387,7 @@ const TaskDetailPage = () => {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 uppercase border ${
                           sub.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
                           sub.status === 'IN_REVIEW' ? 'bg-purple-50 text-purple-600 border-purple-200' :
-                          sub.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                          sub.status === 'IN_PROGRESS' ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-200' :
                           'bg-slate-50 text-slate-600 border-slate-200'
                         }`}>
                           {sub.status.replaceAll('_', ' ')}
@@ -402,13 +402,13 @@ const TaskDetailPage = () => {
             <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-4 pb-2 border-b border-outline-variant">Comments</h3>
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary-fixed flex-shrink-0 flex items-center justify-center">
-                  <span className="text-on-primary-fixed font-label-md">ME</span>
+                <div className="w-8 h-8 rounded-full bg-[#D7EEF1] flex-shrink-0 flex items-center justify-center">
+                  <span className="text-[#1E707D] font-label-md">ME</span>
                 </div>
                 <div className="flex-1">
-                  <textarea className="w-full border border-outline-variant rounded p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-transparent resize-none h-[80px]" placeholder="Add a comment..." />
+                  <textarea className="w-full border border-outline-variant rounded p-2 text-body-md focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] bg-transparent resize-none h-[80px]" placeholder="Add a comment..." />
                   <div className="flex justify-end mt-2">
-                    <button className="h-[32px] px-4 bg-primary text-on-primary hover:bg-on-primary-fixed-variant rounded text-body-md font-body-md transition-colors">
+                    <button className="h-[32px] px-4 bg-[#1E707D] text-white hover:bg-[#165964] rounded text-body-md font-body-md transition-colors">
                       Post
                     </button>
                   </div>
@@ -425,7 +425,7 @@ const TaskDetailPage = () => {
               <span className="text-label-md text-on-surface-variant uppercase mb-1 block">Commit Prefix</span>
               <div className="flex items-center bg-surface-container-low rounded border border-outline-variant p-2">
                 <code className="font-label-md text-on-surface flex-1">feat(PRJ{projectId}-{task.id}): </code>
-                <button className="text-on-surface-variant hover:text-primary transition-colors" title="Copy to clipboard">
+                <button className="text-on-surface-variant hover:text-[#1E707D] transition-colors" title="Copy to clipboard">
                   <span className="material-symbols-outlined text-[18px]">content_copy</span>
                 </button>
               </div>

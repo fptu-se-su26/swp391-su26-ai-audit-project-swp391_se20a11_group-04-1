@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 const statusTone = {
   TODO: 'bg-outline/15 text-on-surface-variant border-outline-variant',
-  IN_PROGRESS: 'bg-primary-fixed text-on-primary-fixed border-primary-fixed-dim',
+  IN_PROGRESS: 'bg-[#D7EEF1] text-[#1E707D] border-[#BFDEEA]',
   IN_REVIEW: 'bg-[#f3e8ff] text-[#6b21a8] border-[#d8b4fe]',
   DONE: 'bg-[#dcfce7] text-[#166534] border-[#86efac]',
   BLOCKED: 'bg-error-container text-on-error-container border-error/30',
@@ -39,11 +39,11 @@ const TaskMiniCard = ({ task, onDragStart, onRemove }) => (
   <div
     draggable
     onDragStart={(event) => onDragStart(event, task.id)}
-    className="group rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-primary/40 transition-colors"
+    className="group rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-3 shadow-sm cursor-grab active:cursor-grabbing hover:border-[#1E707D]/40 transition-colors"
   >
     <div className="flex items-start justify-between gap-2">
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase text-primary">{task.requirementCode || 'No Requirement'}</p>
+        <p className="text-[10px] font-black uppercase text-[#1E707D]">{task.requirementCode || 'No Requirement'}</p>
         <h4 className="text-sm font-bold text-on-surface leading-snug truncate">{task.title}</h4>
       </div>
       <button

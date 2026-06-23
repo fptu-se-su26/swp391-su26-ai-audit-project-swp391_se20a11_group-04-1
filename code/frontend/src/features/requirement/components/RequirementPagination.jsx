@@ -30,7 +30,7 @@ const RequirementPagination = ({ currentPage, totalPages, totalItems, pageSize, 
             onClick={() => onPageChange(page)}
             className={`h-8 min-w-8 rounded-md px-2 font-label-md text-label-md transition-colors ${
               currentPage === page
-                ? 'bg-primary text-on-primary shadow-sm'
+                ? 'bg-[#1E707D] text-white shadow-sm'
                 : 'border border-outline-variant bg-surface text-on-surface hover:bg-surface-container-high'
             }`}
           >

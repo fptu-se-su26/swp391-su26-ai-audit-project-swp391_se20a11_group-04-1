@@ -99,9 +99,9 @@ html, body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-surface); }
-::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #1E707D; border-radius: 99px; }
 
 /* Links */
 a { color: var(--color-primary-light); text-decoration: none; transition: color var(--transition); }

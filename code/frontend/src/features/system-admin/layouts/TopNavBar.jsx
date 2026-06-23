@@ -40,7 +40,7 @@ const TopNavBar = () => {
       <div className="relative w-96">
         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
         <input 
-          className="w-full bg-surface-container-low border-none rounded-lg pl-10 py-2 font-body-md text-sm focus:ring-1 focus:ring-primary focus:outline-none" 
+          className="w-full bg-surface-container-low border-none rounded-lg pl-10 py-2 font-body-md text-sm focus:ring-1 focus:ring-[#1E707D] focus:outline-none" 
           placeholder="Search users, projects, mentors, resources..." 
           type="text" 
         />
@@ -62,7 +62,7 @@ const TopNavBar = () => {
           <div className="relative" ref={menuRef}>
             <div 
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0 cursor-pointer border border-outline-variant/40 hover:opacity-90 transition-opacity"
+              className="w-10 h-10 rounded-full bg-[#1E707D] text-white flex items-center justify-center font-bold text-sm shadow-inner shrink-0 cursor-pointer border border-outline-variant/40 hover:opacity-90 transition-opacity"
             >
               {initials}
             </div>

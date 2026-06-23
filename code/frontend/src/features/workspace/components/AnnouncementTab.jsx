@@ -153,7 +153,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
                 {groupAnns.map((ann) => (
                   <div key={ann.id} className="bg-white border border-slate-200 rounded-[20px] shadow-sm p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-full bg-indigo-500 text-white flex items-center justify-center text-lg font-extrabold shadow-sm shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-[#1E707D] text-white flex items-center justify-center text-lg font-extrabold shadow-sm shrink-0">
                         {getInitials(ann.senderName || 'Mentor')}
                       </div>
                       <div className="flex-1 min-w-0">
