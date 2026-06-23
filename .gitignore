@@ -92,3 +92,13 @@ GEMINI.md
 diff_dashboard.txt
 ERRORS.md
 /.env
+
+# --- PYTHON ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
