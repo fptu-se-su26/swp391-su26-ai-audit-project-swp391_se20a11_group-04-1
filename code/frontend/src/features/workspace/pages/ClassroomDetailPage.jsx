@@ -192,6 +192,10 @@ export default function ClassroomDetailPage() {
       <AnnouncementCarousel 
         classroomData={data} 
         onShare={handleShareInviteLink} 
+        onAnnouncementClick={(annId) => {
+          setActiveTab('announcements');
+          // Optional: we can scroll to the announcement if needed, but switching tabs is the main goal
+        }}
       />
 
       {/* Tabs Navigation */}
