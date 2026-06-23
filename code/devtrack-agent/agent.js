@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const path = require('path');
+const { startWsRelay } = require('./wsRelay');
 
 async function startAgent({ token, backendUrl }) {
     console.log('✅ DevTrack Local Agent đang chạy...');
@@ -10,22 +11,51 @@ async function startAgent({ token, backendUrl }) {
         console.log('📦 Cài đặt dependencies...');
         execSync('npm install', { stdio: 'inherit', cwd: __dirname });
         console.log('📦 Cài đặt Playwright browser...');
-        // Dùng đường dẫn trực tiếp đến playwright trong node_modules thay vì npx
         const ext = process.platform === 'win32' ? '.cmd' : '';
         const playwrightCli = path.join(__dirname, 'node_modules', '.bin', `playwright${ext}`);
         execSync(`"${playwrightCli}" install chromium`, { stdio: 'inherit', cwd: __dirname });
         console.log('ℹ️ Playwright đã sẵn sàng.');
-    } catch (e) { 
+    } catch (e) {
         console.log('ℹ️ Playwright đã sẵn sàng.');
     }
 
+    // ── Start embedded WebSocket relay ──────────────────────────────────────
+    // Agent tự host WS relay để script Playwright có thể push CDP frames
+    // mà không cần playwright-service chạy riêng trên máy local.
+    // Nếu port 4001 bị chiếm (thường bởi Docker Playwright), Agent tự động
+    // chuyển sang chế độ Central Relay (dùng chung Relay đang chạy trên Docker).
+    let relayPort = 4001;
+    let localRelayActive = false;
+    try {
+        const relay = await startWsRelay(4001);
+        relayPort = relay.port;
+        localRelayActive = true;
+    } catch (e) {
+        if (e.code === 'EADDRINUSE') {
+            console.log('[WsRelay] ⚡ Phát hiện cổng 4001 đang bận (Docker Playwright hoặc dịch vụ khác).');
+            console.log('[WsRelay] 🔄 Tự động chuyển sang chế độ Central Relay — Agent sẽ dùng Relay Server đang chạy.');
+            console.log('[WsRelay] ℹ️  Live stream vẫn hoạt động bình thường thông qua Central Relay.\n');
+        } else {
+            console.warn('[WsRelay] Không thể start WS relay:', e.message);
+            console.warn('[WsRelay] Live stream có thể không hoạt động, nhưng test vẫn chạy bình thường.');
+        }
+    }
+
+    const localWsUrl = `ws://localhost:${relayPort}`;
+    if (localRelayActive) {
+        console.log(`🎥 Chế độ: Local Relay — Live stream relay: ${localWsUrl}\n`);
+    } else {
+        console.log(`🎥 Chế độ: Central Relay — Sử dụng Relay Server tại ${localWsUrl} (hoặc URL từ server)\n`);
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const { executeScript, executeApiTest } = require('./executor');
 
-    // Issue 10 FIX: isRunning guard ngăn chạy đồng thời 2 task
+    // isRunning guard ngăn chạy đồng thời 2 task
     let isRunning = false;
 
     setInterval(async () => {
-        if (isRunning) return; // Đang chạy task khác → bỏ qua tick này
+        if (isRunning) return;
 
         try {
             const res = await fetch(`${backendUrl}/api/v1/agent-tasks/pending?token=${token}`);
@@ -41,9 +71,16 @@ async function startAgent({ token, backendUrl }) {
 
             isRunning = true;
             console.log(`\n▶ Nhận task ${task.taskId} — ${task.baseUrl}`);
-            if (task.wsUrl && task.runId) {
-                console.log(`🎥 Live stream: ${task.wsUrl}/?runId=${task.runId}&role=provider`);
-            }
+
+            // Ưu tiên dùng wsUrl từ server (Central Relay / Cloud) nếu có,
+            // fallback về localWsUrl (embedded relay) khi server không chỉ định.
+            // Điều này cho phép Agent hoạt động linh hoạt trong mọi môi trường:
+            //   - Local only (không Docker): dùng embedded relay
+            //   - Local + Docker: dùng Docker Playwright làm Central Relay
+            //   - Production/Cloud: dùng wsUrl từ server (vd: wss://domain.com/relay)
+            const wsUrl = task.wsUrl || localWsUrl;
+            const runId = task.runId || task.taskId;
+            console.log(`🎥 Live stream: ${wsUrl}/?runId=${runId}&role=provider`);
 
             let result;
             let apiResultPayload = null;
@@ -55,11 +92,11 @@ async function startAgent({ token, backendUrl }) {
                 apiResultPayload = apiResult.apiResult;
             } else {
                 result = await executeScript(task.script, task.taskId, task.baseUrl, {
-                    WS_URL: task.wsUrl || 'ws://localhost:4001'
+                    WS_URL: wsUrl
                 });
             }
-            
-            // Log chi tiết cho cả FAIL và ERROR
+
+            // Log chi tiết cho FAIL và ERROR
             if (result.status !== 'PASS') {
                 console.error(`🚨 Test ${result.status}:`, result.error?.message || apiResultPayload?.error || 'Unknown error');
                 if (result.error?.stack) {
@@ -69,6 +106,7 @@ async function startAgent({ token, backendUrl }) {
                     console.error(`   Failed at step: "${result.error.failedStep}" (index: ${result.error.failedStepIndex})`);
                 }
             }
+
             // Log tóm tắt từng step
             if (result.steps && result.steps.length > 0) {
                 console.log('📋 Steps:');
@@ -83,23 +121,43 @@ async function startAgent({ token, backendUrl }) {
                 outcome: result.status === 'PASS' ? 'PASSED' : 'FAILED',
                 notes: result.error?.message || null,
                 durationMs: result.duration,
-                failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null ? result.error.failedStepIndex : null,
+                failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null
+                    ? result.error.failedStepIndex : null,
                 steps: result.steps || [],
                 evidenceUrls: result.screenshots || []
             };
 
-            // Nếu có kết quả từ API test, gộp chung vào payload
             if (apiResultPayload) {
                 Object.assign(payloadBody, apiResultPayload);
             }
 
-            await fetch(`${backendUrl}/api/v1/agent-tasks/${task.taskId}/result?token=${token}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payloadBody)
-            });
+            // Submit result to backend with retry logic
+            const submitUrl = `${backendUrl}/api/v1/agent-tasks/${task.taskId}/result?token=${token}`;
+            let submitted = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const submitRes = await fetch(submitUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payloadBody)
+                    });
+                    if (submitRes.ok) {
+                        submitted = true;
+                        break;
+                    }
+                    const errBody = await submitRes.text().catch(() => '');
+                    console.error(`⚠️ Submit attempt ${attempt}/3 failed: HTTP ${submitRes.status} — ${errBody.substring(0, 300)}`);
+                } catch (fetchErr) {
+                    console.error(`⚠️ Submit attempt ${attempt}/3 network error: ${fetchErr.message}`);
+                }
+                if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+            }
 
-            console.log(`✓ Task ${task.taskId} hoàn thành với kết quả: ${result.status}`);
+            if (submitted) {
+                console.log(`✓ Task ${task.taskId} hoàn thành với kết quả: ${result.status}`);
+            } else {
+                console.error(`❌ Task ${task.taskId} kết quả ${result.status} nhưng KHÔNG gửi được về server sau 3 lần thử!`);
+            }
         } catch (err) {
             console.error('⚠️ Agent poll error:', err.message);
         } finally {

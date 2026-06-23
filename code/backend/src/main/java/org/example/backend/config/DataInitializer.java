@@ -39,7 +39,7 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // 2. Seed Project Roles
-        List<String> defaultProjectRoles = List.of("PROJECT_LEADER", "LEADER", "MEMBER", "MENTOR");
+        List<String> defaultProjectRoles = List.of("LEADER", "MEMBER", "MENTOR");
 
         for (String roleName : defaultProjectRoles) {
             if (projectRoleRepository.findByName(roleName).isEmpty()) {

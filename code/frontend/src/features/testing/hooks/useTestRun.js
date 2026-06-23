@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import api from '@/api/axiosConfig';
 
 /**
@@ -24,39 +24,88 @@ export function useTestRun(testCaseId) {
   });
 
   const pollingRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const isStartingRef = useRef(false);
+  const runIdRef = useRef(null);
 
-  const saveRun = async () => {
-    if (!state.runId) return;
+  // Keep runIdRef in sync with state.runId
+  useEffect(() => {
+    runIdRef.current = state.runId;
+  }, [state.runId]);
+
+  const saveRun = useCallback(async () => {
+    const currentRunId = runIdRef.current;
+    if (!currentRunId) return;
     try {
-      await api.post(`/v1/test-runs/${state.runId}/save`);
-      setState(s => ({ ...s, isSaved: true }));
+      await api.post(`/v1/test-runs/${currentRunId}/save`);
+      if (isMountedRef.current) setState(s => ({ ...s, isSaved: true }));
     } catch (err) {
       console.error('Failed to save run:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      isMountedRef.current = false;
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     };
   }, []);
 
-  const startRun = async () => {
+  const startRun = useCallback(async () => {
+    if (!isMountedRef.current) return;
+    
+    // Guard against double clicks / parallel starts
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
+    
+    // Ensure no orphaned interval
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
     setState(s => ({ ...s, status: 'RUNNING', steps: [], screenshots: [], error: null }));
 
     try {
       // Gọi API bắt đầu run
       const { data } = await api.post(`/v1/test-cases/${testCaseId}/run`);
+
+      // Guard: component có thể đã unmount trong khi await
+      if (!isMountedRef.current) return;
+
       const testRunId = data.data.testRunId; // Backend returns testRunId, not runId
 
-      setState(s => ({ ...s, runId: testRunId }));
+      // Đồng bộ runIdRef ngay lập tức tránh độ trễ 1 tick của useEffect
+      setState(s => {
+        runIdRef.current = testRunId;
+        return { ...s, runId: testRunId };
+      });
 
       let errorCount = 0;
 
       // Bắt đầu polling
       pollingRef.current = setInterval(async () => {
+        // Guard: nếu đã unmount, dọn interval và thoát
+        if (!isMountedRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          return;
+        }
+
         try {
           const { data: statusData } = await api.get(`/v1/test-runs/${testRunId}`);
+
+          // Guard sau mỗi await
+          if (!isMountedRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            return;
+          }
+
           errorCount = 0;
           const result = statusData.data;
 
@@ -123,35 +172,48 @@ export function useTestRun(testCaseId) {
 
           // Dừng polling khi đã terminal
           if (TERMINAL_STATUSES.includes(result.status)) {
+            isStartingRef.current = false;
             clearInterval(pollingRef.current);
+            pollingRef.current = null;
           }
         } catch (e) {
           console.error('Polling error:', e);
           errorCount++;
           if (errorCount >= 5) {
+            isStartingRef.current = false;
             clearInterval(pollingRef.current);
-            setState(s => ({
-              ...s,
-              status: 'ERROR',
-              error: { message: 'Mất kết nối với máy chủ (quá số lần thử lại).' }
-            }));
+            pollingRef.current = null;
+            if (isMountedRef.current) {
+              setState(s => ({
+                ...s,
+                status: 'ERROR',
+                error: { message: 'Mất kết nối với máy chủ (quá số lần thử lại).' }
+              }));
+            }
           }
         }
       }, 2000); // Poll mỗi 2 giây (giảm load)
 
     } catch (err) {
-      setState(s => ({
-        ...s,
-        status: 'ERROR',
-        error: { message: err.response?.data?.message || 'Lỗi khi gọi API' },
-      }));
+      isStartingRef.current = false;
+      if (isMountedRef.current) {
+        setState(s => ({
+          ...s,
+          status: 'ERROR',
+          error: { message: err.response?.data?.message || 'Lỗi khi gọi API' },
+        }));
+      }
     }
-  };
+  }, [testCaseId]);
 
-  const reset = () => {
-    clearInterval(pollingRef.current);
+  const reset = useCallback(() => {
+    isStartingRef.current = false;
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
     setState({ status: 'IDLE', runId: null, steps: [], screenshots: [], error: null, durationMs: null, bugReportId: null, isSaved: false });
-  };
+  }, []);
 
   return { ...state, startRun, reset, saveRun };
 }
