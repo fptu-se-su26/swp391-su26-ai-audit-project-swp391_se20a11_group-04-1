@@ -12,7 +12,7 @@ export const useTestCaseStore = create((set, get) => ({
   error: null,
   pagination: {
     page: 0,
-    size: 20,
+    size: 10,
     totalElements: 0,
     totalPages: 0,
   },
@@ -25,6 +25,10 @@ export const useTestCaseStore = create((set, get) => ({
   // Modal states
   isFormOpen: false,
   isDeleteDialogOpen: false,
+  isAiGenModalOpen: false,
+  isAiReviewOpen: false,
+  currentGenerationId: null,
+  generatedTestCases: [],
   editingTestCase: null,
   deletingTestCase: null,
 
@@ -39,6 +43,20 @@ export const useTestCaseStore = create((set, get) => ({
 
   openDeleteDialog: (testCase) => set({ isDeleteDialogOpen: true, deletingTestCase: testCase }),
   closeDeleteDialog: () => set({ isDeleteDialogOpen: false, deletingTestCase: null }),
+
+  openAiGenModal: () => set({ isAiGenModalOpen: true }),
+  closeAiGenModal: () => set({ isAiGenModalOpen: false }),
+
+  openAiReview: (generationId, testCases) => set({
+    isAiReviewOpen: true,
+    currentGenerationId: generationId,
+    generatedTestCases: testCases,
+  }),
+  closeAiReview: () => set({
+    isAiReviewOpen: false,
+    currentGenerationId: null,
+    generatedTestCases: [],
+  }),
 
   setSelectedTestCase: (testCase) => set({ selectedTestCase: testCase }),
 
@@ -160,14 +178,14 @@ export const useTestCaseStore = create((set, get) => ({
   },
 
   /**
-   * Generate API Test Case using AI
+   * Generate Test Case using AI
    */
-  generateApiTest: async (projectId, description) => {
+  generateTestCaseWithAi: async (projectId, payload) => {
     try {
-      const generatedTestCase = await testCaseService.generateApiTest(projectId, description)
+      const generatedTestCase = await testCaseService.generateTestCaseWithAi(projectId, payload)
       return generatedTestCase
     } catch (error) {
-      console.error('[TestCaseStore] generateApiTest error:', error)
+      console.error('[TestCaseStore] generateTestCaseWithAi error:', error)
       throw error
     }
   },
