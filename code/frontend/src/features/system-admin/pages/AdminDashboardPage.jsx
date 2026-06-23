@@ -1,6 +1,5 @@
 import React from 'react';
 import SystemAdminLayout from '../layouts/SystemAdminLayout';
-import QuickActions from '../components/actions/QuickActions';
 import SystemOverviewBanner from '../components/banners/SystemOverviewBanner';
 import MetricCardsRow from '../components/metrics/MetricCardsRow';
 import PlatformGrowthChart from '../components/analytics/PlatformGrowthChart';
@@ -10,7 +9,6 @@ import ActivityAndAlerts from '../components/feeds/ActivityAndAlerts';
 const AdminDashboardPage = () => {
   return (
     <SystemAdminLayout>
-      <QuickActions />
       <SystemOverviewBanner />
       <MetricCardsRow />
       

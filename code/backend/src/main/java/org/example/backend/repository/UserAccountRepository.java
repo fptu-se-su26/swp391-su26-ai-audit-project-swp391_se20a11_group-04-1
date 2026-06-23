@@ -21,6 +21,13 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     long countBySystemRole_Name(String roleName);
 
+    long countBySystemRole_NameNot(String roleName);
+
+    long countByIsActiveTrueAndSystemRole_NameNot(String roleName);
+
+    java.util.List<UserAccount> findTop5ByOrderByCreatedAtDescIdDesc();
+    
+    @Deprecated
     java.util.List<UserAccount> findTop5ByOrderByCreatedAtDesc();
 
     /**
@@ -28,4 +35,11 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
      */
     @Query("SELECT u FROM UserAccount u WHERE u.username = :usernameOrEmail OR u.email = :usernameOrEmail")
     Optional<UserAccount> findByUsernameOrEmail(@Param("usernameOrEmail") String usernameOrEmail);
+
+    @Query("SELECT u FROM UserAccount u WHERE LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) AND u.createdAt >= :fromDate")
+    org.springframework.data.domain.Page<UserAccount> findAuditLogs(
+        @Param("search") String search, 
+        @Param("fromDate") java.time.LocalDateTime fromDate, 
+        org.springframework.data.domain.Pageable pageable
+    );
 }

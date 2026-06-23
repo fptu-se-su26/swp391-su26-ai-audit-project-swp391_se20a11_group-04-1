@@ -15,6 +15,8 @@ import java.util.Optional;
 
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
+    @Query("SELECT p FROM Project p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) AND p.createdAt >= :fromDate")
+    Page<Project> findAuditLogs(@Param("search") String search, @Param("fromDate") java.time.LocalDateTime fromDate, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Project p WHERE p.id = :projectId")
@@ -22,9 +24,12 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     java.util.List<Project> findByAcademicContextId(Long academicContextId);
 
-    long countByStatus(ProjectStatus status);
-
+    java.util.List<Project> findTop5ByOrderByCreatedAtDescIdDesc();
+    
+    @Deprecated
     java.util.List<Project> findTop5ByOrderByCreatedAtDesc();
+
+    long countByStatus(ProjectStatus status);
 
     /**
      * Case 1: Lấy toàn bộ dự án (Không lọc trạng thái, không tìm kiếm).
