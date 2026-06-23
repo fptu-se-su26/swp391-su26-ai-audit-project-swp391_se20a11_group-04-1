@@ -41,7 +41,7 @@ public class TaskController {
     @PostMapping("/projects/{projectId}/tasks")
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(
             @PathVariable Long projectId,
-            @RequestBody TaskRequest request,
+            @jakarta.validation.Valid @RequestBody TaskRequest request,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -58,7 +58,7 @@ public class TaskController {
     @PutMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
             @PathVariable Long taskId,
-            @RequestBody TaskRequest request,
+            @jakarta.validation.Valid @RequestBody TaskRequest request,
             HttpSession session) {
         Long userId = requireUser(session);
         return ResponseEntity.ok(ApiResponse.success(taskService.updateTask(taskId, request, userId), "Task updated"));
