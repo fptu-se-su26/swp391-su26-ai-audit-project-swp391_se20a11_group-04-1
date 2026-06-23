@@ -89,31 +89,45 @@ class NativeStompClient {
   }
 }
 
-// Component A: Code Patch Analyzer
+// Section 2: Implementation Evidence
 const CodePatchAnalyzer = ({ changedFiles }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const fileCount = changedFiles?.length || 0;
+  
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm mt-4">
-      <h3 className="font-bold text-on-surface mb-3 flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary">data_object</span>
-        Component A: Code Patch Analyzer (Physical Changes)
-      </h3>
-      {changedFiles && changedFiles.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {changedFiles.map((file, idx) => (
-            <div key={idx} className="rounded-lg border border-outline-variant p-3 bg-surface hover:shadow-sm transition-all flex justify-between items-center">
-              <div className="overflow-hidden mr-2">
-                <p className="font-mono text-sm break-all font-semibold text-on-surface truncate" title={file.filePath}>{file.filePath}</p>
-                <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mt-1">{file.status || 'MODIFIED'}</p>
-              </div>
-              <div className="text-xs shrink-0 flex gap-2 font-bold font-mono">
-                <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{file.additions}</span>
-                <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded">-{file.deletions}</span>
-              </div>
+    <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
+      <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => setIsOpen(!isOpen)}>
+        <h3 className="font-bold text-on-surface flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">data_object</span>
+          2. Implementation Evidence (Code Changes)
+          <span className="bg-surface-container-high px-2 py-0.5 rounded-full text-xs ml-2 text-on-surface-variant font-bold">{fileCount} files</span>
+        </h3>
+        <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }}>
+          expand_more
+        </span>
+      </div>
+      
+      {isOpen && (
+        <div className="mt-4 pt-4 border-t border-outline-variant/60 animate-fade-in">
+          {fileCount > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {changedFiles.map((file, idx) => (
+                <div key={idx} className="rounded-lg border border-outline-variant p-3 bg-surface hover:shadow-sm transition-all flex justify-between items-center">
+                  <div className="overflow-hidden mr-2">
+                    <p className="font-mono text-sm break-all font-semibold text-on-surface truncate" title={file.filePath}>{file.filePath}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold mt-1">{file.status || 'MODIFIED'}</p>
+                  </div>
+                  <div className="text-xs shrink-0 flex gap-2 font-bold font-mono">
+                    <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{file.additions}</span>
+                    <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded">-{file.deletions}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <p className="text-sm text-on-surface-variant text-center italic py-2">No code changes detected or parsed yet.</p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm text-on-surface-variant">No code changes detected or parsed yet.</p>
       )}
     </div>
   )
@@ -197,9 +211,10 @@ const renderMarkdown = (text) => {
   return <div className="space-y-1">{renderedElements}</div>;
 };
 
-// Component B: Req-Diff Alignment & Risk Assessment
-const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, approvalGate }) => {
-  const [showProgressContext, setShowProgressContext] = useState(false);
+// Combined Component for Requirements, Evidence & AI Evaluation
+const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, approvalGate, changedFiles }) => {
+  const [showVulnerabilities, setShowVulnerabilities] = useState(false);
+  
   const parsedAlignment = useMemo(() => {
     if (!aiReview || !aiReview.alignmentResultJson) return null;
     try {
@@ -211,197 +226,177 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
   }, [aiReview]);
 
   const targetedCriteria = parsedAlignment?.alignmentMatrix || [];
+  
+  // Auto-expand vulnerabilities if there is a HIGH or CRITICAL risk
+  useEffect(() => {
+    if (aiReview?.riskDetails) {
+      const hasHighRisk = aiReview.riskDetails.some(r => r.severity === 'HIGH' || r.severity === 'CRITICAL');
+      if (hasHighRisk) setShowVulnerabilities(true);
+    }
+  }, [aiReview]);
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm mt-4">
-      <h3 className="font-bold text-on-surface mb-3 flex items-center gap-2">
-        <span className="material-symbols-outlined text-secondary">model_training</span>
-        Component B: Req-Diff Alignment & Risk Assessment
-      </h3>
-
-      {streamingMarkdown && (
-        <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant leading-relaxed shadow-sm">
-          <div className="font-bold text-xs uppercase text-neutral-500 mb-2 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-primary animate-pulse">chat</span>
-            Live AI Audit Commentary
-          </div>
-          <div className="text-left">{renderMarkdown(streamingMarkdown)}</div>
-        </div>
-      )}
-
-      {aiReview ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">AI Recommendation:</span>
-            <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase ${
-              aiReview.recommendation === 'LIKELY_READY' ? 'bg-green-100 text-green-800 border border-green-200' :
-              aiReview.recommendation === 'NEEDS_REVIEW' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-              'bg-red-100 text-red-800 border border-red-200'
-            }`}>{aiReview.recommendation?.replace('_', ' ')}</span>
-            <span className="text-xs text-on-surface-variant font-bold">Confidence: {Math.round((aiReview.confidence || 0) * 100)}%</span>
-            {aiReview.codeRiskLevel && (
-              <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                aiReview.codeRiskLevel === 'CRITICAL' ? 'bg-red-600 text-white animate-pulse' :
-                aiReview.codeRiskLevel === 'HIGH' ? 'bg-red-100 text-red-800' :
-                aiReview.codeRiskLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-blue-100 text-blue-800'
-              }`}>Code Risk: {aiReview.codeRiskLevel}</span>
-            )}
-            
-            {/* Overall Task status badge */}
-            {approvalGate && (
-              <span className={`ml-auto px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase flex items-center gap-1.5 border ${
-                approvalGate.approvalStatus === 'BLOCKED' ? 'bg-red-500 text-white border-red-600 animate-pulse' :
-                approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'bg-amber-500 text-white border-amber-600' :
-                'bg-emerald-600 text-white border-emerald-700'
-              }`}>
-                <span className="material-symbols-outlined text-[14px]">
-                  {approvalGate.approvalStatus === 'BLOCKED' ? 'gavel' :
-                   approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'warning' : 'verified'}
-                </span>
-                Gate Status: {
-                  approvalGate.approvalStatus === 'CAN_APPROVE' ? 'READY' :
-                  approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'WARNING' :
-                  approvalGate.approvalStatus || 'UNKNOWN'
-                }
-              </span>
-            )}
-          </div>
-          
-          <div className="p-4 bg-surface rounded-xl border border-outline-variant/60">
-            <p className="font-bold text-sm text-on-surface mb-1">Executive Summary</p>
-            <div className="text-left">{renderMarkdown(aiReview.summary)}</div>
-          </div>
-
-          {parsedAlignment && (
-            <div className="space-y-4">
-              {/* Section 1: Targeted by This Task */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-green-600 text-[18px]">verified</span>
-                    Tiêu chí của Task hiện tại (Targeted by This Task)
+    <div className="space-y-6 mt-6">
+      {/* Section 1: Task Requirements */}
+      <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
+        <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-green-600">assignment</span>
+          1. Requirements & Criteria
+        </h3>
+        
+        {/* Render the unified Requirements list using requirementAcCoverage and targetedCriteria */}
+        <div className="border border-outline-variant/60 rounded-xl overflow-hidden divide-y divide-outline-variant/60 shadow-sm bg-surface">
+          {requirementAcCoverage && requirementAcCoverage.length > 0 ? (
+            requirementAcCoverage.map((ac, idx) => {
+              const targeted = targetedCriteria.find(tc => tc.acText === ac.acText);
+              const isCoveredHere = !!targeted;
+              const isFullyCovered = ac.status === 'FULLY_COVERED';
+              const isPartial = ac.status === 'PARTIAL';
+              
+              return (
+                <div key={idx} className="p-3 flex items-start gap-3 justify-between hover:bg-surface-container-lowest transition-colors">
+                  <div className="flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0 select-none" style={{
+                      color: isCoveredHere ? '#15803d' : (isFullyCovered || isPartial ? '#0284c7' : '#94a3b8')
+                    }}>
+                      {isCoveredHere ? 'check_box' : (isFullyCovered || isPartial ? 'check_box' : 'check_box_outline_blank')}
+                    </span>
+                    <div className="space-y-0.5 text-left">
+                      <p className={`text-sm font-medium ${isFullyCovered || isPartial ? 'text-on-surface' : 'text-on-surface'}`}>
+                        {ac.acText}
+                      </p>
+                      {(isFullyCovered || isPartial) && !isCoveredHere && (
+                        <p className="text-[10px] text-primary font-bold">
+                          ✓ Đã duyệt hoàn thành ở task {ac.coveredByTaskCode || 'TSK-' + ac.coveredByTaskId}
+                        </p>
+                      )}
+                      {isCoveredHere && (
+                        <div className="mt-1.5">
+                          <span className="text-[10px] bg-green-100 text-green-800 border border-green-200 px-1.5 py-0.5 rounded font-bold uppercase mr-2">
+                            Mục tiêu Task này
+                          </span>
+                          {targeted.status && (
+                             <span className="text-[10px] uppercase font-bold text-on-surface-variant">
+                               AI Check: {targeted.status.replace('_', ' ')}
+                             </span>
+                          )}
+                          {targeted.feedback && <p className="text-xs text-on-surface-variant italic mt-1">{targeted.feedback}</p>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
+                    isFullyCovered ? 'bg-green-50 text-green-700 border border-green-200' :
+                    isPartial ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+                    'bg-slate-50 text-slate-500 border border-slate-200'
+                  }`}>
+                    {ac.status?.replace('_', ' ')}
                   </span>
                 </div>
-                
-                <div className="border border-green-200/60 rounded-xl overflow-hidden divide-y divide-green-100 shadow-sm bg-green-50/5">
-                  {targetedCriteria.length > 0 ? (
-                    targetedCriteria.map((ac, idx) => (
-                      <div key={idx} className="p-3 flex items-start gap-3 justify-between bg-green-50/5">
-                        <div className="space-y-1 text-left">
-                          <p className="text-sm font-semibold text-green-950">{ac.acText}</p>
-                          {ac.evidenceDetail && <p className="text-xs text-green-700/80 font-mono">{ac.evidenceDetail}</p>}
-                          {ac.feedback && <p className="text-xs text-green-800 italic">{ac.feedback}</p>}
-                        </div>
-                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
-                          ac.status === 'FULLY_COVERED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>{ac.status?.replace('_', ' ')}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center text-xs text-on-surface-variant italic">
-                      Task này không phủ trực tiếp tiêu chí nào (hoặc là task phi kỹ thuật, thiết kế/tài liệu chung).
-                    </div>
-                  )}
-                </div>
-              </div>
+              );
+            })
+          ) : (
+             <div className="p-4 text-center text-sm text-on-surface-variant italic">
+               Không có thông tin yêu cầu cụ thể nào được link tới task này.
+             </div>
+          )}
+        </div>
+      </div>
 
-              {/* Section 2: Requirement Progress Context (Collapsible) */}
+      {/* Section 2: Implementation Evidence */}
+      <CodePatchAnalyzer changedFiles={changedFiles} />
+
+      {/* Section 3: AI Evaluation */}
+      <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
+        <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary">model_training</span>
+          3. AI Evaluation & Risks
+        </h3>
+
+        {streamingMarkdown && (
+          <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant leading-relaxed shadow-sm">
+            <div className="font-bold text-xs uppercase text-neutral-500 mb-2 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-primary animate-pulse">chat</span>
+              Live AI Audit Commentary
+            </div>
+            <div className="text-left">{renderMarkdown(streamingMarkdown)}</div>
+          </div>
+        )}
+
+        {aiReview ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">AI Recommendation:</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase ${
+                aiReview.recommendation === 'LIKELY_READY' ? 'bg-green-100 text-green-800 border border-green-200' :
+                aiReview.recommendation === 'NEEDS_REVIEW' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                'bg-red-100 text-red-800 border border-red-200'
+              }`}>{aiReview.recommendation?.replace('_', ' ')}</span>
+              <span className="text-xs text-on-surface-variant font-bold">Confidence: {Math.round((aiReview.confidence || 0) * 100)}%</span>
+              
+              {/* Approval Gate Status */}
+              {approvalGate && (
+                <span className={`ml-auto px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase flex items-center gap-1.5 border ${
+                  approvalGate.approvalStatus === 'BLOCKED' ? 'bg-red-500 text-white border-red-600' :
+                  approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'bg-amber-500 text-white border-amber-600' :
+                  'bg-emerald-600 text-white border-emerald-700'
+                }`}>
+                  Gate Status: {
+                    approvalGate.approvalStatus === 'CAN_APPROVE' ? 'READY' :
+                    approvalGate.approvalStatus === 'CAN_APPROVE_WITH_WARNING' ? 'WARNING' :
+                    approvalGate.approvalStatus || 'UNKNOWN'
+                  }
+                </span>
+              )}
+            </div>
+            
+            <div className="p-4 bg-surface rounded-xl border border-outline-variant/60">
+              <p className="font-bold text-sm text-on-surface mb-1">Executive Summary</p>
+              <div className="text-left">{renderMarkdown(aiReview.summary)}</div>
+            </div>
+
+            {/* Vulnerabilities Accordion */}
+            {aiReview.riskDetails && aiReview.riskDetails.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-outline-variant/60">
                 <button 
-                  onClick={() => setShowProgressContext(prev => !prev)}
+                  onClick={() => setShowVulnerabilities(!showVulnerabilities)}
                   type="button"
                   className="w-full flex justify-between items-center py-2 px-3 hover:bg-surface-container-low rounded-lg transition-all text-left"
                 >
                   <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
-                    Requirement Progress Context (Tiến độ chung)
+                    <span className="material-symbols-outlined text-error text-[18px]">warning</span>
+                    Identified Vulnerabilities & Logic Risks ({aiReview.riskDetails.length})
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: showProgressContext ? 'rotate(180deg)' : 'none' }}>
-                      expand_more
-                    </span>
+                  <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: showVulnerabilities ? 'rotate(180deg)' : 'none' }}>
+                    expand_more
                   </span>
                 </button>
 
-                {showProgressContext && (
-                  <div className="border border-outline-variant/60 rounded-xl overflow-hidden divide-y divide-outline-variant/60 shadow-sm bg-surface mt-2 animate-fade-in">
-                    {requirementAcCoverage && requirementAcCoverage.length > 0 ? (
-                      requirementAcCoverage.map((ac, idx) => {
-                        const isCoveredHere = targetedCriteria.some(tc => tc.acText === ac.acText);
-                        const isFullyCovered = ac.status === 'FULLY_COVERED';
-                        const isPartial = ac.status === 'PARTIAL';
-                        
-                        return (
-                          <div key={idx} className="p-3 flex items-start gap-3 justify-between hover:bg-surface-container-lowest transition-colors">
-                            <div className="flex items-start gap-2.5">
-                              <span className="material-symbols-outlined text-[20px] mt-0.5 shrink-0 select-none" style={{
-                                color: isCoveredHere ? '#15803d' : (isFullyCovered || isPartial ? '#0284c7' : '#94a3b8')
-                              }}>
-                                {isCoveredHere ? 'check_box' : (isFullyCovered || isPartial ? 'check_box' : 'check_box_outline_blank')}
-                              </span>
-                              <div className="space-y-0.5 text-left">
-                                <p className={`text-sm font-medium ${isFullyCovered || isPartial ? 'text-on-surface line-through opacity-70' : 'text-on-surface'}`}>
-                                  {ac.acText}
-                                </p>
-                                {(isFullyCovered || isPartial) && (
-                                  <p className="text-[10px] text-primary font-bold">
-                                    {isCoveredHere 
-                                      ? '✓ Được xử lý trong task hiện tại' 
-                                      : `✓ Đã duyệt hoàn thành ở task ${ac.coveredByTaskCode || 'TSK-' + ac.coveredByTaskId}`}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
-                              isFullyCovered ? 'bg-green-50 text-green-700 border border-green-200' :
-                              isPartial ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
-                              'bg-slate-50 text-slate-500 border border-slate-200'
-                            }`}>
-                              {ac.status?.replace('_', ' ')}
-                            </span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="p-4 text-center text-xs text-on-surface-variant italic">
-                        Không có thông tin tiến độ Acceptance Criteria nào.
+                {showVulnerabilities && (
+                  <div className="space-y-2 mt-2 px-1 animate-fade-in">
+                    {aiReview.riskDetails.map((risk, idx) => (
+                      <div key={idx} className="p-3 bg-red-50/10 border border-red-100/35 rounded-xl flex gap-3">
+                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
+                          risk.severity === 'CRITICAL' ? 'bg-red-600 text-white animate-pulse' :
+                          risk.severity === 'HIGH' ? 'bg-red-100 text-red-800' :
+                          risk.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>{risk.severity}</span>
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-on-surface">{risk.title}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">{risk.detail}</p>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {aiReview.riskDetails && aiReview.riskDetails.length > 0 && (
-            <div className="space-y-3 mt-4">
-              <span className="text-sm font-bold text-on-surface flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-error text-[18px]">warning</span>
-                Identified Vulnerabilities & Logic Risks
-              </span>
-              <div className="space-y-2">
-                {aiReview.riskDetails.map((risk, idx) => (
-                  <div key={idx} className="p-3 bg-red-50/10 border border-red-100/35 rounded-xl flex gap-3">
-                    <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase ${
-                      risk.severity === 'CRITICAL' ? 'bg-red-600 text-white animate-pulse' :
-                      risk.severity === 'HIGH' ? 'bg-red-100 text-red-800' :
-                      risk.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>{risk.severity}</span>
-                    <div className="text-left">
-                      <p className="text-sm font-bold text-on-surface">{risk.title}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{risk.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        !streamingMarkdown && <p className="text-sm text-on-surface-variant">AI Review hasn't been generated to align requirements.</p>
-      )}
+            )}
+          </div>
+        ) : (
+          !streamingMarkdown && <p className="text-sm text-on-surface-variant italic text-center py-4">AI Review hasn't been generated yet.</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -426,6 +421,11 @@ export function TaskReviewWorkspacePage() {
   const [streamingMarkdown, setStreamingMarkdown] = useState('')
   const [reason, setReason] = useState('')
   const [decisionLoading, setDecisionLoading] = useState(false)
+  
+  // UI States
+  const [isQueueOpen, setIsQueueOpen] = useState(true)
+  const [showAiLogs, setShowAiLogs] = useState(false)
+  const [aiError, setAiError] = useState(false)
 
   // Manual evidence links state
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false)
@@ -520,6 +520,7 @@ export function TaskReviewWorkspacePage() {
     setAiStreaming(true)
     setAiStreamLogs('Initializing AI review pipeline...\n')
     setStreamingMarkdown('')
+    setAiError(false)
 
     const isDev = window.location.host.includes('localhost:5173');
     const baseUrl = isDev ? 'http://localhost:8080/api/v1' : '/api/v1';
@@ -612,6 +613,7 @@ export function TaskReviewWorkspacePage() {
       console.error('SSE Error:', event);
       setAiStreamLogs((prev) => prev + `[ERROR] Connection error or streaming failed. Check backend credentials and logs.\n`);
       setAiStreaming(false);
+      setAiError(true);
       eventSource.close();
     });
   };
@@ -739,14 +741,17 @@ export function TaskReviewWorkspacePage() {
     <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-surface-bright">
       
       {/* COLUMN 1: Task Navigation (Left) */}
-      <aside className="w-[320px] shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full overflow-y-auto z-10 shadow-sm">
-        <div className="sticky top-0 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant p-4 z-20">
+      <aside className={`shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full overflow-y-auto z-10 shadow-sm transition-all duration-300 ${isQueueOpen ? 'w-[320px]' : 'w-0'}`}>
+        <div className="sticky top-0 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant p-4 z-20 flex justify-between items-center whitespace-nowrap">
           <h2 className="font-bold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">list_alt</span>
             Review Queue ({queue.length})
           </h2>
+          <button onClick={() => setIsQueueOpen(false)} className="text-on-surface-variant hover:text-primary transition-colors flex items-center">
+            <span className="material-symbols-outlined text-[20px]">keyboard_double_arrow_left</span>
+          </button>
         </div>
-        <div className="p-3 space-y-2 flex-1">
+        <div className="p-3 space-y-2 flex-1 overflow-x-hidden">
           {queue.length === 0 ? (
             <p className="text-sm text-on-surface-variant text-center mt-10">No tasks waiting</p>
           ) : (
@@ -793,7 +798,16 @@ export function TaskReviewWorkspacePage() {
         <>
           {/* COLUMN 2: Main Content - Risk & Alignment (Middle) */}
           <main className="flex-1 flex flex-col h-full overflow-y-auto bg-surface-container p-6 md:p-8 relative">
-            <div className="max-w-4xl mx-auto w-full space-y-6 pb-20">
+            {!isQueueOpen && (
+              <button 
+                onClick={() => setIsQueueOpen(true)}
+                className="absolute top-4 left-4 z-20 bg-surface border border-outline-variant p-2 rounded-full shadow-md hover:bg-surface-container-low transition-all text-primary flex items-center justify-center"
+                title="Open Review Queue"
+              >
+                <span className="material-symbols-outlined text-[20px]">keyboard_double_arrow_right</span>
+              </button>
+            )}
+            <div className={`max-w-4xl mx-auto w-full space-y-6 pb-20 ${!isQueueOpen ? 'mt-4' : ''}`}>
               {/* Task Header */}
               <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/60 shadow-sm">
                 <div className="flex justify-between items-start gap-4">
@@ -805,18 +819,37 @@ export function TaskReviewWorkspacePage() {
                       <span>• Assignee: {task.assigneeName}</span>
                     </p>
                   </div>
-                  <button
-                    onClick={handleRunAiReview}
-                    disabled={aiStreaming}
-                    className={`shrink-0 flex items-center gap-2 bg-tertiary text-on-tertiary px-4 py-2 rounded-xl font-bold shadow-sm hover:opacity-90 transition-all ${
-                      aiStreaming ? 'opacity-60 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <span className={`material-symbols-outlined ${aiStreaming ? 'animate-spin' : ''}`}>
-                      {aiStreaming ? 'sync' : 'smart_toy'}
-                    </span>
-                    {aiStreaming ? 'Reviewing...' : 'Run AI Review'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {/* Status Badge */}
+                    {(aiStreaming || aiStreamLogs || aiError) && (
+                      <div className="flex items-center gap-2 border border-outline-variant/60 rounded-xl px-3 py-1.5 bg-surface shadow-sm">
+                        <span className="text-xs font-bold uppercase text-on-surface-variant">AI Status:</span>
+                        {aiError ? (
+                           <span className="text-xs font-black text-red-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">cancel</span> FAILED</span>
+                        ) : aiStreaming ? (
+                           <span className="text-xs font-black text-blue-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px] animate-spin">sync</span> RUNNING</span>
+                        ) : (
+                           <span className="text-xs font-black text-green-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">check_circle</span> FINISHED</span>
+                        )}
+                        <button onClick={() => setShowAiLogs(true)} className="ml-2 text-[10px] bg-surface-container-low border border-outline-variant hover:bg-surface-container-high px-2 py-0.5 rounded font-bold text-on-surface-variant flex items-center gap-1 transition-colors">
+                           <span className="material-symbols-outlined text-[12px]">visibility</span>
+                           Logs
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={handleRunAiReview}
+                      disabled={aiStreaming}
+                      className={`shrink-0 flex items-center gap-2 bg-tertiary text-on-tertiary px-4 py-2 rounded-xl font-bold shadow-sm hover:opacity-90 transition-all ${
+                        aiStreaming ? 'opacity-60 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined ${aiStreaming ? 'animate-spin' : ''}`}>
+                        {aiStreaming ? 'sync' : 'smart_toy'}
+                      </span>
+                      {aiStreaming ? 'Reviewing...' : 'Run AI Review'}
+                    </button>
+                  </div>
                 </div>
                 {task.description && (
                   <div className="mt-4 p-4 bg-surface rounded-lg border border-outline-variant text-sm text-on-surface">
@@ -825,28 +858,19 @@ export function TaskReviewWorkspacePage() {
                 )}
               </div>
 
-              {/* Developer Terminal logs */}
-              {(aiStreaming || aiStreamLogs) && (
-                <div className="bg-neutral-950 text-green-400 font-mono text-xs rounded-xl p-5 shadow-inner border border-neutral-800 space-y-2 max-h-[200px] overflow-y-auto">
-                  <div className="flex justify-between items-center text-neutral-400 border-b border-neutral-800 pb-2 mb-2">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-primary">terminal</span>
-                      AI Audit Stream Console
-                    </span>
-                    <span className="animate-pulse flex items-center gap-1.5 font-bold">
-                      <span className={`h-2 w-2 rounded-full ${aiStreaming ? 'bg-green-500' : 'bg-neutral-500'}`}></span>
-                      {aiStreaming ? 'LIVE' : 'FINISHED'}
-                    </span>
-                  </div>
-                  {aiStreamLogs.split('\n').map((logMsg, idx) => (
-                    <div key={idx} className="whitespace-pre-wrap">{logMsg}</div>
-                  ))}
+              {/* Error Alert */}
+              {aiError && (
+                <div className="bg-red-50/50 text-red-800 p-4 rounded-xl border border-red-200 flex items-start gap-3">
+                   <span className="material-symbols-outlined text-red-600 shrink-0">error</span>
+                   <div className="text-sm">
+                      <p className="font-bold">Tính năng AI hiện không khả dụng</p>
+                      <p className="mt-0.5 opacity-90">Có thể do lỗi kết nối hoặc hết giới hạn API (tokens). Vui lòng xem Log để biết thêm chi tiết hoặc thử lại sau.</p>
+                   </div>
                 </div>
               )}
 
-              {/* Component A & B */}
-              <CodePatchAnalyzer changedFiles={evidence.changedFiles} />
-              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} requirementAcCoverage={detail?.requirementAcCoverage} approvalGate={detail?.approvalGate} />
+              {/* Sections 1, 2, 3 */}
+              <ReqDiffAlignment aiReview={evidence.aiReview} streamingMarkdown={streamingMarkdown} requirementAcCoverage={detail?.requirementAcCoverage} approvalGate={detail?.approvalGate} changedFiles={evidence.changedFiles} />
             </div>
           </main>
 
@@ -1161,7 +1185,35 @@ export function TaskReviewWorkspacePage() {
             </div>
           </aside>
 
-          {/* Suggest Git Link Modal */}
+      {/* Modal for AI Logs */}
+      {showAiLogs && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm transition-all">
+          <div className="bg-surface rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl border border-outline-variant flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+              <h3 className="font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">terminal</span>
+                AI Audit Stream Console
+              </h3>
+              <button onClick={() => setShowAiLogs(false)} className="text-on-surface-variant hover:text-on-surface bg-surface-container hover:bg-surface-container-high rounded-full w-8 h-8 flex items-center justify-center transition-colors">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto bg-neutral-950 text-green-400 font-mono text-xs space-y-2 flex-1">
+              <div className="flex items-center gap-1.5 mb-4 text-neutral-500 border-b border-neutral-800 pb-3">
+                <span className={`h-2 w-2 rounded-full ${aiStreaming ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`}></span>
+                <span className="font-bold tracking-wider">{aiStreaming ? 'STATUS: LIVE' : 'STATUS: FINISHED'}</span>
+              </div>
+              {aiStreamLogs ? aiStreamLogs.split('\n').map((logMsg, idx) => (
+                <div key={idx} className="whitespace-pre-wrap leading-relaxed">{logMsg}</div>
+              )) : (
+                <div className="text-neutral-500 italic">No logs available. Run an AI review to see output.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Suggest Link Modal */}
           {isSuggestModalOpen && (
             <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fade-in">
