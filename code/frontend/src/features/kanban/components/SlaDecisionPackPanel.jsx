@@ -3,20 +3,20 @@ import taskService from '../services/taskService'
 
 const SCORE_BREAKDOWN_LABEL = {
   deadlinePenalty: {
-    label: 'Deadline urgency',
-    hint: 'How close or overdue the deadline is',
+    label: 'Trễ hạn (Deadline urgency)',
+    hint: 'Task sắp tới hạn hoặc đã quá hạn mà chưa hoàn thành.',
   },
   burnRatePenalty: {
-    label: 'Progress vs time used',
-    hint: 'Time elapsed is much faster than work completed',
+    label: 'Tiến độ chậm (Burn rate penalty)',
+    hint: 'Thời gian trôi qua nhiều nhưng khối lượng công việc hoàn thành quá ít.',
   },
   blockerPenalty: {
-    label: 'Task is blocked',
-    hint: 'Task cannot progress due to a blocker',
+    label: 'Bị chặn (Blocker penalty)',
+    hint: 'Task bị kẹt (blocked) không thể làm tiếp được.',
   },
   workloadPenalty: {
-    label: 'Assignee overloaded',
-    hint: 'Assignee has too many active tasks at the same time',
+    label: 'Quá tải (Workload penalty)',
+    hint: 'Người được giao (assignee) đang phải ôm đồm quá nhiều task cùng một lúc.',
   },
 }
 
@@ -330,10 +330,95 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
                 </div>
               </div>
             </div>
+          ) : finalScore < 100 ? (
+            <div className="py-2">
+              <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded px-3 py-2">
+                Penalties were applied, but a detailed breakdown is not available for this older evaluation.
+              </p>
+              <div className="pt-3 space-y-1 mt-2">
+                <div className="flex justify-between gap-3 text-xs">
+                  <span className="font-semibold text-on-surface">Final score:</span>
+                  <span className="font-bold text-on-surface tabular-nums">{finalScore} / 100</span>
+                </div>
+              </div>
+            </div>
           ) : (
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2">
               No deductions - task is on track
             </p>
+          )}
+
+          <div className="border-t border-outline-variant mt-3 pt-3">
+            <span className="text-xs font-bold text-on-surface block mb-2">Quy định trừ điểm SLA chi tiết</span>
+            <div className="text-[11px] text-on-surface-variant space-y-3">
+              <div>
+                <strong className="text-on-surface">1. Trễ hạn (Deadline urgency):</strong>
+                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                  <li>Quá hạn từ 3 ngày trở lên: <span className="text-error font-medium">-35 điểm</span></li>
+                  <li>Quá hạn 1-2 ngày: <span className="text-error font-medium">-25 điểm</span></li>
+                  <li>Tới hạn trong hôm nay: <span className="text-error font-medium">-15 điểm</span></li>
+                  <li>Tới hạn vào ngày mai: <span className="text-error font-medium">-10 điểm</span></li>
+                  <li>Tới hạn trong vòng 3 ngày tới: <span className="text-error font-medium">-5 điểm</span></li>
+                </ul>
+              </div>
+              
+              <div>
+                <strong className="text-on-surface">2. Tiến độ chậm (Burn rate penalty):</strong>
+                <p className="mt-0.5">Đánh giá qua Độ trễ (Gap) = % Thời gian đã dùng - % Tiến độ hoàn thành.</p>
+                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                  <li>Gap &gt; 45% (Mức CRITICAL): <span className="text-error font-medium">-39 điểm</span> (30 điểm gốc × 1.3)</li>
+                  <li>Gap từ 26% - 45% (Mức HIGH): <span className="text-error font-medium">-22 điểm</span> (18 điểm gốc × 1.2)</li>
+                  <li>Gap từ 11% - 25% (Mức MEDIUM): <span className="text-error font-medium">-9 điểm</span> (8 điểm gốc × 1.1)</li>
+                  <li>Gap &le; 10% (Mức LOW): Không bị trừ điểm.</li>
+                </ul>
+              </div>
+
+              <div>
+                <strong className="text-on-surface">3. Bị chặn (Blocker penalty):</strong>
+                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                  <li>Task bị kẹt và KHÔNG ghi rõ lý do chặn: <span className="text-error font-medium">-20 điểm</span></li>
+                  <li>Task bị kẹt nhưng CÓ ghi rõ lý do chặn: <span className="text-error font-medium">-15 điểm</span></li>
+                </ul>
+              </div>
+
+              <div>
+                <strong className="text-on-surface">4. Quá tải (Workload penalty):</strong>
+                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                  <li>Assignee đang ôm 6 task cùng lúc trở lên: <span className="text-error font-medium">-10 điểm</span></li>
+                  <li>Assignee đang ôm 3-5 task cùng lúc: <span className="text-error font-medium">-5 điểm</span></li>
+                  <li>Assignee xử lý dưới 3 task: Không bị trừ điểm.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {recentDecisions.length > 0 && (
+            <div className="border-t border-outline-variant mt-3 pt-3">
+              <span className="text-xs font-bold text-on-surface block mb-2">Score history</span>
+              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                {recentDecisions.map((dec, idx) => (
+                  <div key={`${dec.evaluatedAt}-${idx}`} className="text-[11px] p-2 bg-surface-container-lowest border border-outline-variant rounded flex justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] text-on-surface-variant">
+                        {formatDateTime(dec.evaluatedAt)}
+                      </div>
+                      <div className="font-semibold text-on-surface mt-0.5 tabular-nums">
+                        {dec.previousScore !== null && dec.previousScore !== undefined && dec.previousScore !== dec.newScore ? (
+                          <span>{dec.previousScore} <span className="text-on-surface-variant mx-1">&rarr;</span> {dec.newScore}</span>
+                        ) : (
+                          <span>{dec.newScore} pts</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 flex flex-col justify-center">
+                      <span className={`text-[9px] font-bold border px-1.5 py-0.5 rounded-full uppercase ${getRiskBadgeClass(dec.newRiskLevel)}`}>
+                        {dec.newRiskLevel}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </section>
       )}
@@ -439,30 +524,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
         </div>
       )}
 
-      {recentDecisions.length > 0 && (
-        <div className="border-t border-outline-variant pt-3">
-          <span className="text-xs font-bold text-on-surface block mb-2">Score history</span>
-          <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
-            {recentDecisions.map((dec, idx) => (
-              <div key={`${dec.evaluatedAt}-${idx}`} className="text-[11px] p-2 bg-surface-container-low border border-outline-variant rounded flex justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] text-on-surface-variant">
-                    {formatDateTime(dec.evaluatedAt)}
-                  </div>
-                  <div className="font-semibold text-on-surface mt-0.5 tabular-nums">
-                    {dec.previousScore !== null && dec.previousScore !== undefined ? `${dec.previousScore} -> ` : ''}{dec.newScore}
-                  </div>
-                </div>
-                <div className="text-right shrink-0 flex flex-col justify-center">
-                  <span className={`text-[9px] font-bold border px-1.5 py-0.5 rounded-full uppercase ${getRiskBadgeClass(dec.newRiskLevel)}`}>
-                    {dec.newRiskLevel}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       <div className="text-[10px] text-on-surface-variant flex flex-col gap-1 border-t border-outline-variant pt-3">
         <div><span className="font-semibold">Last evaluated:</span> {formattedDate}</div>

@@ -2,7 +2,6 @@ import { Link, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
-import SlaSummaryPanel from './SlaSummaryPanel'
 import RecoveryPlanPanel from './RecoveryPlanPanel'
 import { isIssueOwnedTask } from '../utils/taskMapper'
 
@@ -217,8 +216,6 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 </div>
               )}
             </div>
-
-            <SlaSummaryPanel projectId={projectId} taskId={task.id} />
             <RecoveryPlanPanel projectId={projectId} taskId={task.id} isLeader={isLeader} compact />
 
             <div>

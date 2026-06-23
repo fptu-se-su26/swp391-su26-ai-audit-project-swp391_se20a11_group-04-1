@@ -8,7 +8,7 @@ import { sprintReportService } from '@features/sprint-report/services/sprintRepo
 import SprintReportHeader from '@features/sprint-report/components/SprintReportHeader'
 import SprintSelector from '@features/sprint-report/components/SprintSelector'
 import SprintSummary from '@features/sprint-report/components/SprintSummary'
-import SlaRiskTable from '@features/sprint-report/components/SlaRiskTable'
+import SprintHealthSection from '@features/sprint-report/components/SprintHealthSection'
 import SprintReportResult from '@features/sprint-report/components/SprintReportResult'
 import {
   canGenerateSprintReport,
@@ -38,12 +38,26 @@ export default function SprintReportPage() {
   const [selectedReportId, setSelectedReportId] = useState(null)
   const [sprintsLoading, setSprintsLoading] = useState(false)
   const [tasksLoading, setTasksLoading] = useState(false)
+  const [sprintHealthTasks, setSprintHealthTasks] = useState([])
+  const [sprintHealthLoading, setSprintHealthLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDetailLoading, setReportDetailLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const exportRef = useRef(null)
   const canGenerate = canGenerateSprintReport(activeProject?.role)
+
+  useEffect(() => {
+    if (!activeProject?.id || !selectedSprintId) {
+      setSprintHealthTasks([])
+      return
+    }
+    setSprintHealthLoading(true)
+    sprintReportService.getSprintHealth(activeProject.id, selectedSprintId)
+      .then(data => setSprintHealthTasks(Array.isArray(data) ? data : []))
+      .catch(() => setSprintHealthTasks([]))
+      .finally(() => setSprintHealthLoading(false))
+  }, [activeProject?.id, selectedSprintId])
 
   const loadSprints = useCallback(async () => {
     if (!activeProject?.id) return
@@ -325,8 +339,8 @@ export default function SprintReportPage() {
   }
 
   return (
-    <main className="flex-1 overflow-y-auto bg-background p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
+    <main className="flex-1 overflow-y-auto bg-slate-50 p-6 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
         <SprintReportHeader
           activeProject={activeProject}
           onRefresh={() => {
@@ -340,10 +354,10 @@ export default function SprintReportPage() {
           isTestingDigest={isTestingDigest}
         />
 
-        <div className="space-y-5 rounded-lg bg-background">
+        <div className="space-y-6">
           {!canGenerate && (
-            <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
-              Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
+            <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
+              Your current project role is <span className="font-semibold text-slate-900">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
             </div>
           )}
 
@@ -373,10 +387,11 @@ export default function SprintReportPage() {
                   distributionData={distributionData}
                 />
 
-                <SlaRiskTable
+                <SprintHealthSection
+                  tasks={sprintHealthTasks}
+                  loading={sprintHealthLoading}
                   activeProject={activeProject}
-                  riskTasks={riskTasks}
-                  reportResultRef={reportResultRef}
+                  activeSprintId={selectedSprint?.id}
                   onOpenTask={(projectId, taskId) => navigate(`/projects/${projectId}/tasks/${taskId}`)}
                 />
 

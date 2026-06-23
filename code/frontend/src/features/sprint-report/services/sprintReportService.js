@@ -8,6 +8,17 @@ export const sprintReportService = {
       params: sprintId ? { sprintId } : undefined,
     }).then(unwrap),
 
+  getSprintSummary: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/reports/sprints/${sprintId}/summary`).then(unwrap),
+
+  getSprintHealth: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/sla/sprint-health`, { params: { sprintId } }).then(unwrap),
+
+  saveSprintReport: (projectId, sprintId, reportData) =>
+    axiosInstance.post(`/v1/projects/${projectId}/weekly-reports/generate`, null, {
+      params: sprintId ? { sprintId } : undefined,
+    }).then(unwrap),
+
   getReport: (projectId, reportId) =>
     axiosInstance.get(`/v1/projects/${projectId}/weekly-reports/${reportId}`).then(unwrap),
 
