@@ -71,14 +71,27 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         
         String publicIdWithoutExt = UUID.randomUUID().toString() + "_" + baseName;
         String publicIdWithExt = publicIdWithoutExt + ext;
+        
+        String finalPublicId = publicIdWithoutExt; // Do NOT append extension to bypass Cloudinary block on .zip
 
         try {
-            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
-                    "public_id", publicIdWithoutExt,
-                    "folder", "evidence",
-                    "type", type,
-                    "resource_type", "auto"
-            ));
+            Map<?, ?> uploadResult;
+            if (file.getSize() > 6000000) { // Lớn hơn 6MB thì dùng uploadLarge
+                uploadResult = cloudinary.uploader().uploadLarge(file.getInputStream(), ObjectUtils.asMap(
+                        "public_id", finalPublicId,
+                        "folder", "evidence",
+                        "type", type,
+                        "resource_type", "auto",
+                        "chunk_size", 6000000 
+                ));
+            } else { // File nhỏ thì dùng upload thường (chỉ mất 1 request mạng, siêu nhanh)
+                uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
+                        "public_id", finalPublicId,
+                        "folder", "evidence",
+                        "type", type,
+                        "resource_type", "auto"
+                ));
+            }
 
             if ("private".equals(type)) {
                 // For private files, store the full public_id in DB
@@ -95,9 +108,14 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
     public String getPrivateFileUrl(String publicId) {
         if (publicId == null || publicId.isEmpty()) return null;
         if (publicId.startsWith("http")) return publicId;
-        // Generate a signed URL for the private resource
+        boolean isRaw = publicId.endsWith(".zip") || publicId.endsWith(".pdf") || 
+                        publicId.endsWith(".doc") || publicId.endsWith(".docx") || 
+                        publicId.endsWith(".xls") || publicId.endsWith(".xlsx") || 
+                        publicId.endsWith(".ppt") || publicId.endsWith(".pptx") || 
+                        publicId.endsWith(".txt");
+                        
         return cloudinary.url()
-                .resourceType("auto")
+                .resourceType(isRaw ? "raw" : "image")
                 .type("private")
                 .signed(true)
                 .generate(publicId);
@@ -135,7 +153,16 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
         try {
             if (!fileUrl.startsWith("http")) {
                 // Nếu fileUrl không bắt đầu bằng http, đây chính là public_id của file private được lưu trong DB
-                cloudinary.uploader().destroy(fileUrl, ObjectUtils.asMap("type", "private", "invalidate", true));
+                boolean isRawPrivate = fileUrl.endsWith(".zip") || fileUrl.endsWith(".pdf") || 
+                                       fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx") || 
+                                       fileUrl.endsWith(".xls") || fileUrl.endsWith(".xlsx") || 
+                                       fileUrl.endsWith(".ppt") || fileUrl.endsWith(".pptx") || 
+                                       fileUrl.endsWith(".txt");
+                cloudinary.uploader().destroy(fileUrl, ObjectUtils.asMap(
+                        "type", "private", 
+                        "invalidate", true,
+                        "resource_type", isRawPrivate ? "raw" : "image"
+                ));
                 return;
             }
             
@@ -146,10 +173,22 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
             if (pathAfterUpload.matches("v\\d+/.*")) {
                 pathAfterUpload = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
             }
-            int lastDot = pathAfterUpload.lastIndexOf('.');
-            String publicIdWithFolder = lastDot > 0 ? pathAfterUpload.substring(0, lastDot) : pathAfterUpload;
             
-            cloudinary.uploader().destroy(publicIdWithFolder, ObjectUtils.emptyMap());
+            boolean isRaw = pathAfterUpload.endsWith(".zip") || pathAfterUpload.endsWith(".pdf") || 
+                            pathAfterUpload.endsWith(".doc") || pathAfterUpload.endsWith(".docx") || 
+                            pathAfterUpload.endsWith(".xls") || pathAfterUpload.endsWith(".xlsx") || 
+                            pathAfterUpload.endsWith(".ppt") || pathAfterUpload.endsWith(".pptx") || 
+                            pathAfterUpload.endsWith(".txt");
+                            
+            String publicIdWithFolder = pathAfterUpload;
+            if (!isRaw) {
+                int lastDot = pathAfterUpload.lastIndexOf('.');
+                publicIdWithFolder = lastDot > 0 ? pathAfterUpload.substring(0, lastDot) : pathAfterUpload;
+            }
+            
+            cloudinary.uploader().destroy(publicIdWithFolder, ObjectUtils.asMap(
+                    "resource_type", isRaw ? "raw" : "image"
+            ));
         } catch (Exception e) {
             System.err.println("Failed to delete file from Cloudinary: " + fileUrl);
             e.printStackTrace();

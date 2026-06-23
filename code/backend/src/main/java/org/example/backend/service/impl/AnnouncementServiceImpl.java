@@ -41,7 +41,17 @@ public class AnnouncementServiceImpl implements AnnouncementService {
 
         String attachmentUrl = null;
         if (file != null && !file.isEmpty()) {
+            if (file.getSize() > 10 * 1024 * 1024) {
+                throw new org.example.backend.exception.BusinessException("Kích thước file đính kèm vượt quá giới hạn 10MB");
+            }
             attachmentUrl = fileStorageService.storeFile(file);
+            
+            if (attachmentUrl != null) {
+                String originalFilename = file.getOriginalFilename();
+                if (originalFilename != null) {
+                    attachmentUrl = attachmentUrl + "?name=" + java.net.URLEncoder.encode(originalFilename, java.nio.charset.StandardCharsets.UTF_8);
+                }
+            }
         }
 
         // Security Check: Only allow Classroom Owner (Mentor)
@@ -137,6 +147,54 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         emitter.onError((e) -> onDetach.run());
 
         return emitter;
+    }
+
+    @Override
+    public void downloadAnnouncementAttachment(Long announcementId, jakarta.servlet.http.HttpServletResponse response) {
+        Announcement announcement = announcementRepository.findById(announcementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông báo"));
+
+        String attachmentUrl = announcement.getAttachmentUrl();
+        if (attachmentUrl == null || attachmentUrl.isEmpty()) {
+            throw new org.example.backend.exception.BusinessException("Thông báo không có file đính kèm");
+        }
+
+        String originalName = "attachment_" + announcementId;
+        String cloudinaryUrl = attachmentUrl;
+
+        try {
+            if (attachmentUrl.contains("?name=")) {
+                String nameParam = attachmentUrl.substring(attachmentUrl.indexOf("?name=") + 6);
+                originalName = java.net.URLDecoder.decode(nameParam, java.nio.charset.StandardCharsets.UTF_8);
+                cloudinaryUrl = attachmentUrl.substring(0, attachmentUrl.indexOf("?name="));
+            } else {
+                int lastDot = attachmentUrl.lastIndexOf('.');
+                if (lastDot > 0 && lastDot > attachmentUrl.lastIndexOf('/')) {
+                    originalName += attachmentUrl.substring(lastDot);
+                }
+            }
+
+            java.io.InputStream fileStream = fileStorageService.downloadPrivateFileStream(cloudinaryUrl);
+            if (fileStream == null) {
+                throw new org.example.backend.exception.BusinessException("Không thể tải file từ lưu trữ");
+            }
+
+            response.setContentType("application/octet-stream");
+            // Set header so frontend can extract the exact filename
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + originalName + "\"");
+            response.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            java.io.OutputStream os = response.getOutputStream();
+            while ((bytesRead = fileStream.read(buffer)) != -1) {
+                os.write(buffer, 0, bytesRead);
+            }
+            os.flush();
+
+        } catch (Exception e) {
+            throw new org.example.backend.exception.BusinessException("Lỗi tải file đính kèm: " + e.getMessage());
+        }
     }
 
     private AnnouncementResponse mapToResponse(Announcement announcement) {

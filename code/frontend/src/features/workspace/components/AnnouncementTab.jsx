@@ -65,6 +65,39 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
     }
   };
 
+  const handleDownload = async (announcement) => {
+    try {
+      const toastId = toast.loading('Đang tải file...');
+      const response = await announcementApi.downloadAnnouncementAttachment(classroomId, announcement.id);
+      
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      let fileName = `attachment_${announcement.id}`;
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        const matches = contentDisposition.match(/filename="([^"]+)"/);
+        if (matches && matches[1]) {
+          fileName = matches[1];
+        }
+      }
+      
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Tải file thành công', { id: toastId });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.dismiss();
+      toast.error('Có lỗi xảy ra khi tải file. Vui lòng thử lại sau.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-20 flex justify-center">
@@ -137,15 +170,13 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
                         </div>
                         {ann.attachmentUrl && (
                           <div className="mt-4">
-                            <a 
-                              href={ann.attachmentUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                            <button 
+                              onClick={() => handleDownload(ann)}
                               className="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
                             >
                               <span className="material-symbols-outlined text-[18px] text-rose-500">picture_as_pdf</span>
                               Xem tài liệu đính kèm
-                            </a>
+                            </button>
                           </div>
                         )}
                       </div>

@@ -7,6 +7,7 @@ import useAuthStore from '@store/useAuthStore'
 import AnnouncementCarousel from '../components/AnnouncementCarousel'
 import AnnouncementTab from '../components/AnnouncementTab'
 import ClassroomDashboardTab from '../components/ClassroomDashboardTab'
+import ResourceTab from '../components/ResourceTab'
 
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
@@ -473,30 +474,7 @@ export default function ClassroomDetailPage() {
           </div>
         )}
         {activeTab === 'resources' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-end">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Class Resources</h2>
-                <p className="text-sm text-slate-500 mt-1">Study materials and useful links</p>
-              </div>
-              <button className="flex items-center gap-2 bg-[#0284c7] hover:bg-[#0369a1] text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors">
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                Add Resource
-              </button>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm overflow-hidden p-6">
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
-                  <span className="material-symbols-outlined text-3xl text-slate-400">library_books</span>
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 mb-1">No resources yet</h3>
-                <p className="text-sm text-slate-500 max-w-sm">
-                  Resources such as lecture slides, reading materials, or external links will appear here once added by the instructor.
-                </p>
-              </div>
-            </div>
-          </div>
+          <ResourceTab classroomId={classroomId} classroomData={data} userId={userId} />
         )}
         {activeTab === 'announcements' && (
           <AnnouncementTab classroomId={classroomId} classroomData={data} />
