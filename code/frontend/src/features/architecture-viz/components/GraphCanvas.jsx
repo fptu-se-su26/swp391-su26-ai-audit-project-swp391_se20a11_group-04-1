@@ -15,7 +15,6 @@ import useFocusDim from '../hooks/useFocusDim';
 import useGraphLayout from '../hooks/useGraphLayout';
 import ServiceNode from './nodes/ServiceNode';
 import InfraGroupNode from './nodes/InfraGroupNode';
-import OrthoEdge from './edges/OrthoEdge';
 import GraphToolbar from './GraphToolbar';
 
 const nodeTypes = {
@@ -23,9 +22,6 @@ const nodeTypes = {
   INFRA_GROUP: InfraGroupNode
 };
 
-const edgeTypes = {
-  ortho: OrthoEdge,
-};
 
 export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch }) {
   const { 
@@ -161,7 +157,6 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}
