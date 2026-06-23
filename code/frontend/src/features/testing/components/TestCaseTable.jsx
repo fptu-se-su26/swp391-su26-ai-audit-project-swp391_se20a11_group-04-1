@@ -8,11 +8,20 @@ export default function TestCaseTable({ testCases, pagination, onPageChange, onE
   const { page, totalElements, totalPages, size } = pagination
 
   const renderPagination = () => {
-    if (totalPages <= 1) return null
+    if (totalElements === 0) return null
 
-    const pages = []
-    for (let i = 0; i < Math.min(totalPages, 5); i++) {
-      pages.push(i)
+    const maxPagesToShow = 5;
+    let startPage = Math.max(0, page - Math.floor(maxPagesToShow / 2));
+    let endPage = startPage + maxPagesToShow - 1;
+
+    if (endPage >= totalPages) {
+      endPage = totalPages - 1;
+      startPage = Math.max(0, endPage - maxPagesToShow + 1);
+    }
+
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
     }
 
     return (
@@ -28,6 +37,7 @@ export default function TestCaseTable({ testCases, pagination, onPageChange, onE
           >
             <span className="material-symbols-outlined text-sm">chevron_left</span>
           </button>
+          {startPage > 0 && <span className="px-2 text-outline">...</span>}
           {pages.map((p) => (
             <button
               key={p}
@@ -37,7 +47,7 @@ export default function TestCaseTable({ testCases, pagination, onPageChange, onE
               {p + 1}
             </button>
           ))}
-          {totalPages > 5 && <span className="px-2 text-outline">...</span>}
+          {endPage < totalPages - 1 && <span className="px-2 text-outline">...</span>}
           <button
             className={`w-8 h-8 flex items-center justify-center rounded border border-outline-variant ${page >= totalPages - 1 ? 'text-outline opacity-50 cursor-not-allowed' : 'text-secondary hover:bg-surface-container-low'}`}
             disabled={page >= totalPages - 1}
