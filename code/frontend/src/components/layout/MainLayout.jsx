@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import TopNavBar from './TopNavBar';
+import FloatingTopBar from './FloatingTopBar';
 import useAuthStore from '@store/useAuthStore';
 import useNotificationStore from '@store/useNotificationStore';
 
@@ -16,11 +16,13 @@ const MainLayout = () => {
   }, [userId, initWebSocket]);
 
   return (
-    <div className="flex min-h-screen bg-background text-on-background">
+    <div className="flex min-h-screen" style={{ background: '#F8FAFC', color: '#1F2937' }}>
       <Sidebar />
-      <div className="flex-1 flex flex-col md:ml-[280px] min-w-0">
-        <TopNavBar />
-        <main className="flex-1 mt-topbar_height p-margin_mobile md:p-margin_desktop overflow-x-hidden">
+      {/* Floating top-right controls (notification + avatar) */}
+      <FloatingTopBar />
+      {/* 280px sidebar + 12px left offset + 12px gap = 304px total offset */}
+      <div className="flex-1 flex flex-col min-w-0" style={{ marginLeft: '304px' }}>
+        <main className="flex-1 overflow-x-hidden" style={{ padding: '28px 32px 32px' }}>
           <Outlet />
         </main>
       </div>

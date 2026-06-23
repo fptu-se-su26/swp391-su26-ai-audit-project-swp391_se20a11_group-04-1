@@ -1,230 +1,487 @@
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '@store/useAuthStore'
 import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
-import { getInitials } from '@utils/avatarHelper'
 
-/**
- * NavItem Component - Mục điều hướng đơn lẻ dùng NavLink cho active state tự động
- */
-const NavItem = ({ to, icon, label, defaultIconClass = '' }) => (
-  <NavLink 
-    to={to} 
-    className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ease-in-out group ${
-      isActive 
-        ? 'bg-secondary-container text-on-secondary-container font-semibold shadow-sm' 
-        : 'text-secondary hover:bg-surface-container-low'
-    }`}
-  >
-    {({ isActive }) => (
-      <>
-        <span className={`material-symbols-outlined text-[20px] transition-colors ${
-          isActive 
-            ? 'icon-fill' 
-            : (defaultIconClass ? defaultIconClass : 'group-hover:text-primary')
-        }`}>
-          {icon}
-        </span>
-        <span className="font-body-md text-body-md">{label}</span>
-      </>
-    )}
-  </NavLink>
-)
+/* ─── Design tokens ─────────────────────────────────────────── */
+const S = {
+  activeBg:     'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)',
+  activeShadow: '0 8px 24px rgba(30,112,125,0.25), 0 0 20px rgba(78,198,216,0.25)',
+  activeBorder: 'rgba(78,198,216,0.20)',
+  hoverColor:   '#1E707D',
+  hoverBg:      '#D7EEF1',
+  textHi:       '#1F2937',
+  textMid:      '#374151',
+  textLo:       '#6B7280',
+  textMuted:    '#9CA3AF',
+  accent:       '#1E707D',
+  accentMuted:  '#D7EEF1',
+  glow:         '#4EC6D8',
+  surface:      '#FFFFFF',
+  bg:           '#F8FAFC',
+  border:       '#D9E7E4',
+  borderLight:  '#EBF5F7',
+}
 
-/**
- * Sidebar Component - Thanh điều hướng dùng chung chứa danh sách các Module của DevTrackAI
- * Hỗ trợ chuyển đổi động giữa cấp Portfolio và Project Workspace
- */
-const Sidebar = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const logout = useAuthStore((state) => state.logout)
-  const userRole = useAuthStore((state) => state.userRole)
-  const verifyStatus = useAuthStore((state) => state.verifyStatus) || 'UNVERIFIED'
-  const fullName = useAuthStore((state) => state.fullName) || 'Guest User'
-  const email = useAuthStore((state) => state.email) || 'guest@example.com'
+const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+const EASE   = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
-  // Đọc trạng thái dự án hiện tại từ useProjectStore
-  const activeProject = useProjectStore((state) => state.activeProject)
-  const clearActiveProject = useProjectStore((state) => state.clearActiveProject)
+/* ══════════════════════════════════════════════════════════════
+   NavGroup — ONE sliding pill, items stacked on top
+══════════════════════════════════════════════════════════════ */
+function NavGroup({ items, activeKey }) {
+  const containerRef = useRef(null)
+  const itemRefs     = useRef({})
+  const pillRef      = useRef(null)
+  const prevKeyRef   = useRef(null)
+  const mountedRef   = useRef(false)
 
-  const handleLogout = () => {
-    logout()
-    toast.success('Đăng xuất thành công!')
-    navigate('/login')
-  }
+  useEffect(() => {
+    const pill      = pillRef.current
+    const container = containerRef.current
+    const activeEl  = itemRefs.current[activeKey]
 
-  // 1. Danh sách Menu cấp Portfolio (Khi chưa mở dự án cụ thể)
-  const portfolioMenuItems = [
-    { id: 'projects', label: 'My Projects', icon: 'grid_view', path: '/dashboard' },
-    { id: 'archived', label: 'Archived', icon: 'inbox', path: '#' },
-    { id: 'settings', label: 'Global Settings', icon: 'settings', path: '#' },
-  ]
+    if (!pill) return
 
-  // Tất cả mọi người đều thấy mục Classrooms (học sinh thấy lớp đã tham gia, mentor tạo lớp)
-  portfolioMenuItems.push({ id: 'classrooms', label: 'Classrooms', icon: 'school', path: '/classrooms' })
-  
-  // Luôn hiển thị mục Verify cho người dùng bình thường để họ có thể xem lại tài liệu đã nộp
-  if (userRole !== 'ADMIN') {
-    portfolioMenuItems.push({ id: 'verify', label: 'Verify Account', icon: 'verified_user', path: '/verify' })
-  }
-
-  // Xử lý click menu cấp Portfolio
-  const handlePortfolioMenuClick = (item) => {
-    if (item.path === '#') {
-      toast.success(`Chức năng "${item.label}" đang được phát triển!`)
+    if (!activeKey || !activeEl) {
+      pill.style.opacity    = '0'
+      mountedRef.current    = false
       return
     }
-    
-    clearActiveProject()
-    navigate(item.path)
+
+    // Use offsetTop — reliable inside any overflow/scroll container
+    const top    = activeEl.offsetTop
+    const height = activeEl.offsetHeight
+
+    if (!mountedRef.current) {
+      // First appearance: jump instantly, no spring
+      pill.style.transition = 'none'
+      pill.style.transform  = `translateY(${top}px)`
+      pill.style.height     = `${height}px`
+      pill.style.opacity    = '1'
+      // Flush so next update can animate
+      void pill.offsetHeight
+      mountedRef.current = true
+      prevKeyRef.current = activeKey
+      return
+    }
+
+    if (prevKeyRef.current === activeKey) return
+
+    pill.style.transition = [
+      `transform 420ms ${SPRING}`,
+      `height 280ms ${EASE}`,
+      `opacity 150ms ${EASE}`,
+    ].join(', ')
+    pill.style.transform  = `translateY(${top}px)`
+    pill.style.height     = `${height}px`
+    pill.style.opacity    = '1'
+    prevKeyRef.current    = activeKey
+  }, [activeKey])
+
+  // Reset mount state when item list changes (portfolio ↔ project switch)
+  const itemsKey = items.map(i => i.key).join('|')
+  const prevItemsKey = useRef(null)
+  if (prevItemsKey.current !== itemsKey) {
+    prevItemsKey.current = itemsKey
+    mountedRef.current   = false
   }
 
   return (
-    <aside className="w-full md:w-[280px] md:fixed md:top-0 md:left-0 md:h-screen bg-surface-container border-b md:border-b-0 md:border-r border-outline-variant flex flex-col p-5 z-20 shrink-0 select-none">
-      
-      {/* PHẦN ĐẦU SIDEBAR: ĐỔI THEO TRẠNG THÁI ACTIVE PROJECT */}
-      {!activeProject ? (
-        // A. Cấp Portfolio: Hiển thị banner DevTrack Portfolio
-        <div className="flex items-center gap-3.5 mb-6 p-2 rounded-xl bg-surface-container-low border border-outline-variant/40 shadow-sm">
-          <div className="flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-on-primary font-display-lg text-lg font-bold shadow-md">
-            S
-          </div>
-          <div className="min-w-0">
-            <h2 className="font-semibold text-sm text-on-surface truncate leading-tight">DevTrack Portfolio</h2>
-            <span className="text-[11px] font-medium text-on-surface-variant/80">All Projects</span>
-          </div>
-        </div>
-      ) : (
-        // B. Cấp Project Workspace: Hiển thị thông tin dự án hiện tại & Nút quay lại
-        <div className="flex flex-col gap-3.5 mb-6">
-          {/* Nút quay lại Portfolio cấp cao nhất */}
-          <button
-            onClick={() => {
-              clearActiveProject()
-              navigate('/dashboard')
-            }}
-            className="flex items-center gap-2 text-xs font-semibold text-primary hover:text-on-primary-fixed-variant transition-colors self-start py-1 px-2.5 rounded-lg bg-primary-fixed hover:bg-primary-fixed-dim"
-          >
-            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-            <span>Back to Portfolio</span>
-          </button>
+    <div ref={containerRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* The one floating pill */}
+      <div
+        ref={pillRef}
+        aria-hidden="true"
+        style={{
+          position:      'absolute',
+          left:          0,
+          right:         0,
+          top:           0,
+          height:        40,
+          borderRadius:  14,
+          background:    S.activeBg,
+          boxShadow:     S.activeShadow,
+          border:        `1px solid ${S.activeBorder}`,
+          opacity:       0,
+          pointerEvents: 'none',
+          zIndex:        0,
+          willChange:    'transform, height',
+        }}
+      />
+      {items.map(({ key, icon, label, onClick }) => (
+        <NavRowItem
+          key={key}
+          navKey={key}
+          icon={icon}
+          label={label}
+          isActive={key === activeKey}
+          onClick={onClick}
+          itemRefs={itemRefs}
+        />
+      ))}
+    </div>
+  )
+}
 
-          {/* Banner Dự án cụ thể */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-lowest border border-outline-variant/60 shadow-sm">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed font-bold text-sm shrink-0">
-              {activeProject.title.charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-bold text-xs text-on-surface truncate leading-tight" title={activeProject.title}>
-                {activeProject.title}
-              </h2>
-              <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wider bg-green-500/10 px-1.5 py-0.5 rounded mt-1 inline-block">
-                {activeProject.role}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+/* ─── Single nav row ─────────────────────────────────────────── */
+function NavRowItem({ navKey, icon, label, isActive, onClick, itemRefs }) {
+  const [hovered, setHovered] = useState(false)
 
-      {/* DANH SÁCH MENU ĐIỀU HƯỚNG */}
-      <nav className="flex-1 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+  return (
+    <div
+      ref={el => { itemRefs.current[navKey] = el }}
+      onClick={onClick}
+      style={{
+        position:    'relative',
+        zIndex:      1,
+        display:     'flex',
+        alignItems:  'center',
+        gap:         10,
+        padding:     '9px 14px',
+        borderRadius: 14,
+        cursor:      'pointer',
+        color:       isActive ? '#ffffff' : (hovered ? S.hoverColor : S.textMid),
+        transform:   hovered && !isActive ? 'translateX(4px)' : 'translateX(0)',
+        transition:  `color 250ms ${EASE}, transform 200ms ${EASE}`,
+        userSelect:  'none',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Icon */}
+      <div style={{
+        width:          30,
+        height:         30,
+        borderRadius:   10,
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        flexShrink:     0,
+        background:     isActive ? 'rgba(255,255,255,0.18)' : (hovered ? 'rgba(30,112,125,0.10)' : S.bg),
+        transition:     `background 250ms ${EASE}, transform 250ms ${SPRING}`,
+        transform:      isActive ? 'scale(1.05)' : 'scale(1)',
+      }}>
+        <span
+          className="material-symbols-outlined"
+          style={{
+            fontSize:              17,
+            color:                 isActive ? '#ffffff' : (hovered ? S.hoverColor : S.textLo),
+            fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
+            transition:            `color 250ms ${EASE}, font-variation-settings 250ms ${EASE}`,
+          }}
+        >
+          {icon}
+        </span>
+      </div>
+
+      {/* Label */}
+      <span style={{
+        fontSize:      13,
+        fontWeight:    isActive ? 700 : (hovered ? 600 : 500),
+        letterSpacing: '-0.01em',
+        fontFamily:    'Inter,-apple-system,BlinkMacSystemFont,sans-serif',
+        transition:    `font-weight 150ms ${EASE}`,
+        flex:          1,
+      }}>
+        {label}
+      </span>
+
+      {/* Glow dot */}
+      <div style={{
+        width:        6,
+        height:       6,
+        borderRadius: '50%',
+        flexShrink:   0,
+        background:   isActive ? S.glow : 'transparent',
+        boxShadow:    isActive ? `0 0 8px ${S.glow}, 0 0 16px rgba(78,198,216,0.40)` : 'none',
+        transition:   `background 300ms ${EASE}, box-shadow 300ms ${EASE}`,
+      }} />
+    </div>
+  )
+}
+
+/* ─── Section divider ────────────────────────────────────────── */
+function SectionLabel({ children }) {
+  return (
+    <div style={{ padding: '16px 14px 6px' }}>
+      <div style={{ height: 1, background: S.borderLight, marginBottom: 10 }} />
+      <span style={{
+        fontSize:      10,
+        fontWeight:    700,
+        letterSpacing: '0.09em',
+        textTransform: 'uppercase',
+        color:         S.textMuted,
+        fontFamily:    'Inter,-apple-system,BlinkMacSystemFont,sans-serif',
+      }}>
+        {children}
+      </span>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════════════════════ */
+const Sidebar = () => {
+  const navigate           = useNavigate()
+  const location           = useLocation()
+  const userRole           = useAuthStore((s) => s.userRole)
+  const activeProject      = useProjectStore((s) => s.activeProject)
+  const clearActiveProject = useProjectStore((s) => s.clearActiveProject)
+
+  /* ── Build item lists ── */
+  const buildProjectItems = (pid) => [
+    { key: 'dashboard',          icon: 'dashboard',          label: 'Dashboard',          path: `/projects/${pid}/dashboard` },
+    { key: 'requirements',       icon: 'description',        label: 'Requirements',       path: `/projects/${pid}/requirements` },
+    { key: 'use-cases',          icon: 'account_tree',       label: 'Use Cases',          path: `/projects/${pid}/use-cases` },
+    { key: 'task-board',         icon: 'assignment',         label: 'Task Board',         path: `/projects/${pid}/task-board` },
+    { key: 'my-tasks',           icon: 'assignment_ind',     label: 'My Tasks',           path: `/projects/${pid}/my-tasks` },
+    { key: 'sprints',            icon: 'history_toggle_off', label: 'Sprints',            path: `/projects/${pid}/sprints` },
+    { key: 'test-cases',         icon: 'checklist_rtl',      label: 'Test Cases',         path: `/projects/${pid}/test-cases` },
+    { key: 'issues',             icon: 'crisis_alert',       label: 'Issues',             path: `/projects/${pid}/issues` },
+    { key: 'bugs',               icon: 'bug_report',         label: 'Bugs',               path: `/projects/${pid}/bugs` },
+    { key: 'evidence',           icon: 'inventory_2',        label: 'Evidence Vault',     path: `/projects/${pid}/evidence` },
+    { key: 'traceability-matrix',icon: 'reorder',            label: 'Traceability Matrix',path: `/projects/${pid}/traceability-matrix` },
+  ]
+
+  const buildIntelItems = (pid) => [
+    { key: 'ai-assistant',  icon: 'smart_toy',  label: 'AI Assistant',  path: `/projects/${pid}/ai-assistant` },
+    { key: 'github-config', icon: 'hub',        label: 'GitHub Config', path: `/projects/${pid}/github-config` },
+    { key: 'task-reviews',  icon: 'fact_check', label: 'Task Review',   path: `/projects/${pid}/task-reviews` },
+  ]
+
+  const buildTeamItems = (pid, role) => {
+    const base = [
+      { key: 'contribution',    icon: 'groups',      label: 'Contribution',     path: `/projects/${pid}/contribution` },
+      { key: 'mentor-view',     icon: 'visibility',  label: 'Mentor View',      path: `/projects/${pid}/mentor-view` },
+    ]
+    if (role === 'MENTOR') base.push({ key: 'mentor', icon: 'supervisor_account', label: 'Mentor Dashboard', path: `/projects/${pid}/mentor` })
+    base.push({ key: 'project-settings', icon: 'settings', label: 'Project Settings', path: `/projects/${pid}/project-settings` })
+    return base
+  }
+
+  /* ── Determine active key from pathname ── */
+  const getActiveKey = (items) => {
+    // Find most-specific (longest path) match to avoid prefix collisions
+    let best = null
+    let bestLen = -1
+    for (const item of items) {
+      const p = location.pathname
+      const t = item.path.replace(/\/$/, '')
+      const isMatch = p === t || p.startsWith(t + '/')
+      if (isMatch && t.length > bestLen) {
+        best    = item.key
+        bestLen = t.length
+      }
+    }
+    return best
+  }
+
+  /* ── Enrich with onClick ── */
+  const enrich = (items) => items.map(item => ({
+    ...item,
+    onClick: () => navigate(item.path),
+  }))
+
+  /* Portfolio items */
+  const portfolioRaw = [
+    { key: 'projects',   icon: 'grid_view',    label: 'My Projects',    path: '/dashboard' },
+    { key: 'classrooms', icon: 'school',       label: 'Classrooms',     path: '/classrooms' },
+    { key: 'archived',   icon: 'inbox',        label: 'Archived',       path: '#' },
+    { key: 'settings',   icon: 'settings',     label: 'Global Settings',path: '#' },
+  ]
+  if (userRole !== 'ADMIN') {
+    portfolioRaw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
+  }
+
+  const portfolioItems = portfolioRaw.map(item => ({
+    ...item,
+    onClick: () => {
+      if (item.path === '#') { toast.success(`"${item.label}" đang được phát triển!`); return }
+      clearActiveProject()
+      navigate(item.path)
+    },
+  }))
+
+  const portfolioActiveKey = (() => {
+    const p = location.pathname
+    if (p === '/dashboard') return 'projects'
+    if (p.startsWith('/classrooms')) return 'classrooms'
+    if (p.startsWith('/verify')) return 'verify'
+    return null
+  })()
+
+  return (
+    <aside style={{
+      width:         280,
+      flexShrink:    0,
+      position:      'fixed',
+      top:           16,
+      left:          16,
+      bottom:        16,
+      zIndex:        40,
+      display:       'flex',
+      flexDirection: 'column',
+    }}>
+      <div style={{
+        flex:          1,
+        display:       'flex',
+        flexDirection: 'column',
+        background:    S.surface,
+        border:        `1px solid ${S.border}`,
+        borderRadius:  24,
+        boxShadow:     '0 10px 40px rgba(30,112,125,0.10), 0 2px 8px rgba(0,0,0,0.04)',
+        overflow:      'hidden',
+        padding:       '20px 12px 16px',
+      }}>
+
+        {/* ── HEADER ── */}
         {!activeProject ? (
-          // A. Hiển thị Menu Portfolio
-          portfolioMenuItems.map((item) => {
-            const isActive = (item.id === 'projects' && location.pathname === '/dashboard') || (item.path !== '#' && location.pathname === item.path)
-            return (
-              <button
-                key={item.id}
-                onClick={() => handlePortfolioMenuClick(item)}
-                className={`w-full flex items-center gap-3.5 px-3 py-2.5 rounded-lg transition-all font-semibold text-sm ${
-                  isActive
-                    ? 'bg-primary-container text-on-primary font-bold shadow-sm'
-                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            )
-          })
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          10,
+            marginBottom: 20,
+            padding:      '10px 12px',
+            borderRadius: 18,
+            background:   S.bg,
+            border:       `1px solid ${S.border}`,
+          }}>
+            <div style={{
+              width:         38,
+              height:        38,
+              borderRadius:  14,
+              flexShrink:    0,
+              background:    'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)',
+              display:       'flex',
+              alignItems:    'center',
+              justifyContent:'center',
+              boxShadow:     '0 6px 16px rgba(30,112,125,0.30)',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#fff', fontVariationSettings: "'FILL' 1" }}>dataset</span>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: S.textHi, letterSpacing: '-0.02em', lineHeight: 1.2 }}>DevTrack Portfolio</p>
+              <p style={{ fontSize: 11, fontWeight: 500, color: S.textLo, marginTop: 1 }}>All Projects</p>
+            </div>
+          </div>
         ) : (
-          // B. Hiển thị Menu của riêng Dự Án
-          <div className="flex-1 space-y-1">
-            <NavItem to={`/projects/${activeProject.id}/dashboard`} icon="dashboard" label="Dashboard" />
-            <NavItem to={`/projects/${activeProject.id}/requirements`} icon="description" label="Requirements" />
-            <NavItem to={`/projects/${activeProject.id}/use-cases`} icon="account_tree" label="Use Cases" />
-            <NavItem to={`/projects/${activeProject.id}/task-board`} icon="assignment" label="Task Board" />
-            <NavItem to={`/projects/${activeProject.id}/my-tasks`} icon="assignment_ind" label="My Tasks" />
-            <NavItem to={`/projects/${activeProject.id}/sprints`} icon="history_toggle_off" label="Sprints" />
-            {/* Sprint Reports entry point moved to SprintPage → "View Sprint Report" button */}
-            <NavItem to={`/projects/${activeProject.id}/test-cases`} icon="checklist_rtl" label="Test Cases" />
-            <NavItem to={`/projects/${activeProject.id}/issues`} icon="crisis_alert" label="Issues" />
-            <NavItem to={`/projects/${activeProject.id}/bugs`} icon="bug_report" label="Bugs" />
-            <NavItem to={`/projects/${activeProject.id}/evidence`} icon="inventory_2" label="Evidence Vault" />
-            <NavItem to={`/projects/${activeProject.id}/traceability-matrix`} icon="reorder" label="Traceability Matrix" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+            {/* Back button */}
+            <button
+              onClick={() => { clearActiveProject(); navigate('/dashboard') }}
+              style={{
+                display:    'flex',
+                alignItems: 'center',
+                gap:        6,
+                padding:    '5px 10px',
+                borderRadius: 10,
+                background: S.accentMuted,
+                border:     '1px solid rgba(30,112,125,0.20)',
+                color:      S.accent,
+                fontSize:   12,
+                fontWeight: 600,
+                cursor:     'pointer',
+                alignSelf:  'flex-start',
+                transition: `all 250ms ${EASE}`,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#BFDEEA'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = S.accentMuted; e.currentTarget.style.transform = 'translateY(0)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 13 }}>arrow_back</span>
+              Back to Portfolio
+            </button>
 
-            {/* Intelligence Section */}
-            <div className="pt-4 pb-2">
-              <div className="h-px bg-outline-variant/50 w-full mb-2"></div>
-              <span className="px-3 font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">Intelligence</span>
-            </div>
-            
-            <NavItem 
-              to={`/projects/${activeProject.id}/ai-assistant`} 
-              icon="smart_toy" 
-              label="AI Assistant" 
-              defaultIconClass="text-primary-container"
-            />
-            <NavItem to={`/projects/${activeProject.id}/github-config`} icon="hub" label="GitHub Config" />
-            <NavItem to={`/projects/${activeProject.id}/task-reviews`} icon="fact_check" label="Task Review" />
-
-            {/* Team Section */}
-            <div className="pt-4 pb-2">
-              <div className="h-px bg-outline-variant/50 w-full mb-2"></div>
-              <span className="px-3 font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">Team</span>
-            </div>
-            
-            <NavItem to={`/projects/${activeProject.id}/contribution`} icon="groups" label="Contribution" />
-            <NavItem to={`/projects/${activeProject.id}/mentor-view`} icon="visibility" label="Mentor View" />
-
-            {/* Mentor Dashboard specific menu item */}
-            {userRole === 'MENTOR' && (
-              <div className="mt-2">
-                <NavItem to={`/projects/${activeProject.id}/mentor`} icon="supervisor_account" label="Mentor Dashboard" />
+            {/* Project badge */}
+            <div style={{
+              display:    'flex',
+              alignItems: 'center',
+              gap:        10,
+              padding:    '10px 12px',
+              borderRadius: 18,
+              background: S.bg,
+              border:     `1px solid ${S.border}`,
+            }}>
+              <div style={{
+                width:         34,
+                height:        34,
+                borderRadius:  11,
+                flexShrink:    0,
+                background:    'linear-gradient(135deg, #278A99, #1E707D)',
+                display:       'flex',
+                alignItems:    'center',
+                justifyContent:'center',
+                boxShadow:     '0 4px 10px rgba(30,112,125,0.25)',
+                fontSize:      14,
+                fontWeight:    700,
+                color:         '#fff',
+              }}>
+                {activeProject.title.charAt(0).toUpperCase()}
               </div>
-            )}
-
-            <div className="mt-2">
-              <NavItem to={`/projects/${activeProject.id}/project-settings`} icon="settings" label="Project Settings" />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: S.textHi, letterSpacing: '-0.015em', lineHeight: 1.2 }} title={activeProject.title}>
+                  {activeProject.title.length > 20 ? activeProject.title.slice(0, 18) + '…' : activeProject.title}
+                </p>
+                <span style={{
+                  display:       'inline-block',
+                  marginTop:     3,
+                  fontSize:      10,
+                  fontWeight:    600,
+                  color:         S.accent,
+                  background:    'rgba(30,112,125,0.10)',
+                  border:        '1px solid rgba(30,112,125,0.20)',
+                  padding:       '1px 6px',
+                  borderRadius:  6,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}>
+                  {activeProject.role}
+                </span>
+              </div>
             </div>
           </div>
         )}
-      </nav>
 
-      {/* PERSISTENT USER STATUS & LOGOUT */}
-      <div className="pt-5 border-t border-outline-variant mt-auto flex flex-col gap-3">
-        <div 
-          onClick={() => navigate('/profile')}
-          className="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-surface-container-high transition-colors"
-          title="Xem trang cá nhân"
-        >
-          <div className="w-10 h-10 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
-            {getInitials(fullName)}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm leading-tight text-on-surface truncate" title={fullName}>{fullName}</p>
-            <p className="text-[11px] text-on-surface-variant truncate" title={email}>{email}</p>
-          </div>
-        </div>
+        {/* ── NAV ── */}
+        <nav style={{
+          flex:            1,
+          overflowY:       'auto',
+          overflowX:       'hidden',
+          display:         'flex',
+          flexDirection:   'column',
+          gap:             2,
+          paddingRight:    2,
+          scrollbarWidth:  'none',
+          msOverflowStyle: 'none',
+        }}>
+          {!activeProject ? (
+            <NavGroup items={portfolioItems} activeKey={portfolioActiveKey} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <NavGroup
+                items={enrich(buildProjectItems(activeProject.id))}
+                activeKey={getActiveKey(buildProjectItems(activeProject.id))}
+              />
+              <SectionLabel>Intelligence</SectionLabel>
+              <NavGroup
+                items={enrich(buildIntelItems(activeProject.id))}
+                activeKey={getActiveKey(buildIntelItems(activeProject.id))}
+              />
+              <SectionLabel>Team</SectionLabel>
+              <NavGroup
+                items={enrich(buildTeamItems(activeProject.id, userRole))}
+                activeKey={getActiveKey(buildTeamItems(activeProject.id, userRole))}
+              />
+            </div>
+          )}
+        </nav>
 
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-container-highest hover:bg-error-container hover:text-on-error-container border border-outline-variant rounded-lg text-on-surface font-body-md transition-colors shadow-sm"
-        >
-          <span className="material-symbols-outlined text-[18px]">logout</span>
-          Đăng xuất
-        </button>
+        <div style={{ height: 8 }} />
+
+
+
       </div>
     </aside>
   )

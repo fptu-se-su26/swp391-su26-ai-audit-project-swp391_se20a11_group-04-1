@@ -1,25 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@store/useAuthStore';
-import { getInitials, getAvatarColor } from '@utils/avatarHelper';
+import { getInitials } from '@utils/avatarHelper';
 import toast from 'react-hot-toast';
-
 import { NotificationDropdown } from './NotificationDropdown';
+
+// ── Design tokens ──────────────────────────────────────────────
+const C = {
+  primary:      '#1E707D',
+  primaryHov:   '#278A99',
+  primaryDark:  '#165964',
+  primaryLight: '#D7EEF1',
+  accentGlow:   '#4EC6D8',
+  surface:      '#FFFFFF',
+  bg:           '#F8FAFC',
+  border:       '#D9E7E4',
+  borderLight:  '#EBF5F7',
+  textPri:      '#1F2937',
+  textSec:      '#6B7280',
+  textMuted:    '#9CA3AF',
+}
+
+const AVATAR_BG = `linear-gradient(135deg, ${C.primaryHov} 0%, ${C.primary} 55%, ${C.primaryDark} 100%)`
 
 const TopNavBar = () => {
   const fullName = useAuthStore((state) => state.fullName);
-  const logout = useAuthStore((state) => state.logout);
+  const logout   = useAuthStore((state) => state.logout);
   const initials = getInitials(fullName);
-  const avatarColor = getAvatarColor(fullName);
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen]     = useState(false);
+  const [avatarActive, setAvatarActive] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false);
+        setAvatarActive(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -28,6 +46,7 @@ const TopNavBar = () => {
 
   const handleLogout = () => {
     setMenuOpen(false);
+    setAvatarActive(false);
     logout();
     toast.success('Đăng xuất thành công!');
     navigate('/login');
@@ -35,52 +54,189 @@ const TopNavBar = () => {
 
   const handleProfileClick = () => {
     setMenuOpen(false);
+    setAvatarActive(false);
     navigate('/profile');
   };
 
+  const toggleMenu = () => {
+    setMenuOpen(!menuOpen);
+    setAvatarActive(!menuOpen);
+  };
+
   return (
-    <header className="bg-surface-container-lowest dark:bg-surface-dim text-primary dark:text-primary-fixed font-body-lg text-body-lg fixed top-0 w-full h-topbar_height border-b border-outline-variant dark:border-outline flex justify-between items-center px-margin_desktop z-50 md:w-[calc(100%-280px)]">
-      <div className="flex items-center gap-4">
-        <button className="md:hidden text-on-surface-variant p-2 -ml-2">
-          <span className="material-symbols-outlined">menu</span>
-        </button>
-        <div className="text-headline-sm font-headline-sm text-primary-container dark:text-primary-fixed-dim font-bold tracking-tight font-display">DevTrack AI</div>
+    <header style={{
+      position:       'fixed',
+      top:            0,
+      right:          0,
+      left:           '304px',   /* aligns with main content (280 + 12 + 12) */
+      height:         '64px',
+      background:     C.surface,
+      borderBottom:   `1px solid ${C.border}`,
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'space-between',
+      padding:        '0 32px',
+      zIndex:         50,
+    }}>
+
+      {/* Left — brand label */}
+      <div style={{
+        fontSize:    '18px',
+        fontWeight:  800,
+        color:       C.primary,
+        letterSpacing: '-0.03em',
+      }}>
+        DevTrack AI
       </div>
-      <div className="flex items-center gap-4">
-        <div className="relative hidden sm:block">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
-          <input className="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-body-md font-body-md text-on-surface focus:ring-2 focus:ring-primary-container w-[200px] lg:w-[300px] transition-all" placeholder="Search..." type="text" />
+
+      {/* Right — search + notifications + avatar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+
+        {/* Search */}
+        <div style={{ position: 'relative' }}>
+          <span
+            className="material-symbols-outlined"
+            style={{
+              position:  'absolute',
+              left:      '12px',
+              top:       '50%',
+              transform: 'translateY(-50%)',
+              fontSize:  '18px',
+              color:     C.textMuted,
+              pointerEvents: 'none',
+            }}
+          >
+            search
+          </span>
+          <input
+            type="text"
+            placeholder="Search..."
+            style={{
+              paddingLeft:   '38px',
+              paddingRight:  '16px',
+              paddingTop:    '8px',
+              paddingBottom: '8px',
+              background:    C.bg,
+              border:        `1px solid ${C.border}`,
+              borderRadius:  '20px',
+              fontSize:      '13px',
+              color:         C.textPri,
+              width:         '240px',
+              outline:       'none',
+              transition:    'border-color 200ms ease, box-shadow 200ms ease',
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = C.primary
+              e.target.style.boxShadow   = `0 0 0 3px ${C.primaryLight}`
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = C.border
+              e.target.style.boxShadow   = 'none'
+            }}
+          />
         </div>
+
+        {/* Notifications */}
         <NotificationDropdown />
-        
-        {/* Avatar động với dropdown menu */}
-        <div className="relative" ref={menuRef}>
-          <div 
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold text-xs shadow-inner shrink-0 cursor-pointer border border-outline-variant/40 hover:opacity-90 transition-opacity"
+
+        {/* Avatar + dropdown */}
+        <div ref={menuRef} style={{ position: 'relative' }}>
+          <button
+            onClick={toggleMenu}
+            style={{
+              width:        '36px',
+              height:       '36px',
+              borderRadius: '50%',
+              background:   AVATAR_BG,
+              border:       `2px solid ${avatarActive ? 'rgba(30,112,125,0.55)' : 'transparent'}`,
+              color:        '#fff',
+              fontSize:     '13px',
+              fontWeight:   700,
+              cursor:       'pointer',
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent:'center',
+              boxShadow:    `0 2px 10px rgba(30,112,125,0.30)`,
+              transition:   'border-color 200ms ease, box-shadow 200ms ease',
+              outline:      'none',
+            }}
+            onMouseEnter={(e) => {
+              if (!avatarActive) e.currentTarget.style.boxShadow = `0 4px 16px rgba(30,112,125,0.45)`
+            }}
+            onMouseLeave={(e) => {
+              if (!avatarActive) e.currentTarget.style.boxShadow = `0 2px 10px rgba(30,112,125,0.30)`
+            }}
           >
             {initials}
-          </div>
+          </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl bg-surface-container-lowest border border-outline-variant/60 shadow-lg py-1.5 z-[60] animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="px-4 py-2 border-b border-outline-variant/40">
-                <p className="font-semibold text-sm text-on-surface truncate">{fullName || 'User'}</p>
+            <div style={{
+              position:    'absolute',
+              right:        0,
+              top:          'calc(100% + 8px)',
+              width:        '220px',
+              background:   C.surface,
+              border:       `1px solid ${C.border}`,
+              borderRadius: '16px',
+              boxShadow:    `0 20px 50px rgba(30,112,125,0.14)`,
+              zIndex:       60,
+              overflow:     'hidden',
+              animation:    'fadeIn 0.15s ease-out',
+            }}>
+              {/* Profile header */}
+              <div style={{
+                padding:      '14px 16px',
+                borderBottom: `1px solid ${C.borderLight}`,
+                display:      'flex',
+                alignItems:   'center',
+                gap:          '12px',
+              }}>
+                <div style={{
+                  width:         '36px',
+                  height:        '36px',
+                  borderRadius:  '50%',
+                  background:    AVATAR_BG,
+                  display:       'flex',
+                  alignItems:    'center',
+                  justifyContent:'center',
+                  color:         '#fff',
+                  fontWeight:    700,
+                  fontSize:      '13px',
+                  flexShrink:    0,
+                  boxShadow:     `0 4px 12px rgba(30,112,125,0.30)`,
+                }}>
+                  {initials}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{
+                    fontSize:     '13px',
+                    fontWeight:   600,
+                    color:        C.textPri,
+                    overflow:     'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace:   'nowrap',
+                  }}>
+                    {fullName || 'User'}
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={handleProfileClick}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">account_circle</span>
-                My Profile
-              </button>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm text-error hover:bg-error-container/20 hover:text-error transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">logout</span>
-                Logout
-              </button>
+
+              {/* Menu items */}
+              <div style={{ padding: '6px' }}>
+                <DropdownItem
+                  icon="account_circle"
+                  label="My Profile"
+                  onClick={handleProfileClick}
+                />
+                <div style={{ height: '1px', background: C.borderLight, margin: '4px 0' }} />
+                <DropdownItem
+                  icon="logout"
+                  label="Logout"
+                  onClick={handleLogout}
+                  danger
+                />
+              </div>
             </div>
           )}
         </div>
@@ -88,5 +244,39 @@ const TopNavBar = () => {
     </header>
   );
 };
+
+// ── Dropdown menu item ─────────────────────────────────────────
+const DropdownItem = ({ icon, label, onClick, danger = false }) => (
+  <button
+    onClick={onClick}
+    style={{
+      display:       'flex',
+      alignItems:    'center',
+      gap:           '10px',
+      width:         '100%',
+      padding:       '9px 12px',
+      borderRadius:  '10px',
+      background:    'transparent',
+      border:        'none',
+      color:         danger ? '#EF4444' : '#374151',
+      fontSize:      '13px',
+      fontWeight:    500,
+      cursor:        'pointer',
+      textAlign:     'left',
+      transition:    'background 150ms ease, color 150ms ease',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.background = danger ? '#FEF2F2' : '#D7EEF1'
+      e.currentTarget.style.color      = danger ? '#EF4444' : '#1E707D'
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.background = 'transparent'
+      e.currentTarget.style.color      = danger ? '#EF4444' : '#374151'
+    }}
+  >
+    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>
+    {label}
+  </button>
+)
 
 export default TopNavBar;
