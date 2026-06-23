@@ -160,7 +160,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       {/* 1. Header Account Card */}
       <div className="flex flex-col gap-6 rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim md:flex-row md:items-center">
         <div className="relative shrink-0 self-center">

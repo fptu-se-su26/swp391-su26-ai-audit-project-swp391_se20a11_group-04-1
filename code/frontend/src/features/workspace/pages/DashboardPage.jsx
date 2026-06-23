@@ -387,7 +387,7 @@ export function DashboardPage() {
     if (loading && projects.length === 0) {
       return (
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-          <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+          <div className="relative z-10 w-full space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-pulse">
               <div className="space-y-2">
                 <div className="h-8 w-48 bg-surface-container-high rounded-xl"></div>
@@ -437,7 +437,7 @@ export function DashboardPage() {
           <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.15] blur-[100px]"></div>
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+        <div className="relative z-10 w-full space-y-8">
 
           {/* A. Dòng Tiêu Đề & Nút Thêm Mới */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1074,7 +1074,7 @@ export function DashboardPage() {
   if (!activeProject?.members) {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
-        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+        <div className="w-full space-y-6 animate-pulse">
           <div className="h-32 rounded-2xl bg-surface-container-high"></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((n) => (
@@ -1094,7 +1094,7 @@ export function DashboardPage() {
         <div className="absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full bg-tertiary-fixed opacity-[0.08] blur-[120px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+      <div className="relative z-10 w-full space-y-8">
 
         {/* Banner Dự án đầu trang */}
         <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">

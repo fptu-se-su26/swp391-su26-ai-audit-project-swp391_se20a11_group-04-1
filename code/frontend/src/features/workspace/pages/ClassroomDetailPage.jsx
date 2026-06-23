@@ -106,7 +106,7 @@ export default function ClassroomDetailPage() {
         {/* Subtle grid pattern overlay for modern look */}
         <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
         
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="relative z-10 w-full flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-white/80 tracking-widest uppercase bg-white/10 px-2.5 py-1 rounded-full border border-white/10">
@@ -153,7 +153,7 @@ export default function ClassroomDetailPage() {
 
       {/* Tabs Navigation */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8 flex items-center gap-8">
+        <div className="w-full px-8 flex items-center gap-8">
           {[
             { id: 'projects', label: 'Projects', icon: 'folder' },
             { id: 'members', label: 'Members', icon: 'groups' },
@@ -177,7 +177,7 @@ export default function ClassroomDetailPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <div className="w-full px-8 py-8">
         {activeTab === 'projects' && (
           <div className="space-y-6">
             {/* Header */}
