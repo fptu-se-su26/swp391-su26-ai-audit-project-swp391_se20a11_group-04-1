@@ -16,10 +16,15 @@ import useGraphLayout from '../hooks/useGraphLayout';
 import ServiceNode from './nodes/ServiceNode';
 import InfraGroupNode from './nodes/InfraGroupNode';
 import GraphToolbar from './GraphToolbar';
+import ElkEdge from './edges/ElkEdge';
 
 const nodeTypes = {
   CLASS: ServiceNode,
   INFRA_GROUP: InfraGroupNode
+};
+
+const edgeTypes = {
+  elk: ElkEdge
 };
 
 
@@ -157,6 +162,7 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={handleNodeClick}

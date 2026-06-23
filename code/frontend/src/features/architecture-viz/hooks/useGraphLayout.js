@@ -118,9 +118,9 @@ export const useGraphLayout = () => {
         elkNode.layoutOptions = {
           'elk.algorithm': 'layered',
           'elk.direction': 'DOWN',
-          'elk.padding': '[top=48,left=28,bottom=28,right=28]',
-          'elk.spacing.nodeNode': '32',
-          'elk.layered.spacing.nodeNodeBetweenLayers': '44',
+          'elk.padding': '[top=48,left=32,bottom=32,right=32]',
+          'elk.spacing.nodeNode': '48',
+          'elk.layered.spacing.nodeNodeBetweenLayers': '64',
           'elk.edgeRouting': 'ORTHOGONAL',
           'elk.layered.unnecessaryBendpoints': 'true',
         };
@@ -169,9 +169,9 @@ export const useGraphLayout = () => {
       layoutOptions: {
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': '48',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '72',
-        'elk.padding': '[top=36,left=36,bottom=36,right=36]',
+        'elk.spacing.nodeNode': '80',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '110',
+        'elk.padding': '[top=48,left=48,bottom=48,right=48]',
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.layered.unnecessaryBendpoints': 'true',
         'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
@@ -185,19 +185,82 @@ export const useGraphLayout = () => {
     try {
       const layoutedGraph = await elk.layout(rootGraph);
 
-      // 6a. Collect node absolute positions (recursive)
+      // 6a. Collect absolute offsets recursively to convert local coordinates to global
+      const absoluteOffsets = { root: { x: 0, y: 0 } };
       const layoutedNodesMap = {};
-      const collectPositions = (elkNode, parentId = null) => {
-        layoutedNodesMap[elkNode.id] = {
-          x: elkNode.x ?? 0,
-          y: elkNode.y ?? 0,
-          width:  elkNode.width,
-          height: elkNode.height,
-          parentId,
-        };
-        (elkNode.children || []).forEach(child => collectPositions(child, elkNode.id));
+
+      const collectPositions = (elkNode, parentX = 0, parentY = 0, parentId = null) => {
+        const absX = (elkNode.x ?? 0) + parentX;
+        const absY = (elkNode.y ?? 0) + parentY;
+        
+        absoluteOffsets[elkNode.id] = { x: absX, y: absY };
+        
+        if (elkNode.id !== 'root') {
+          layoutedNodesMap[elkNode.id] = {
+            x: elkNode.x ?? 0,
+            y: elkNode.y ?? 0,
+            width:  elkNode.width,
+            height: elkNode.height,
+            parentId,
+          };
+        }
+        
+        (elkNode.children || []).forEach(child => 
+          collectPositions(child, absX, absY, elkNode.id === 'root' ? null : elkNode.id)
+        );
       };
-      layoutedGraph.children.forEach(child => collectPositions(child));
+      
+      collectPositions(layoutedGraph, 0, 0, null);
+
+      // 6b. Collect all edges recursively (including nested ones inside containers)
+      const allLayoutedEdges = [];
+      const collectEdges = (elkNode) => {
+        if (elkNode.edges) {
+          elkNode.edges.forEach(edge => {
+            allLayoutedEdges.push({
+              edge,
+              containerId: elkNode.id === 'root' ? null : elkNode.id
+            });
+          });
+        }
+        (elkNode.children || []).forEach(child => collectEdges(child));
+      };
+      collectEdges(layoutedGraph);
+
+      // 6c. Extract global path points for each edge
+      const edgePathMap = {};
+      allLayoutedEdges.forEach(({ edge, containerId }) => {
+        const offset = containerId ? (absoluteOffsets[containerId] || { x: 0, y: 0 }) : { x: 0, y: 0 };
+        
+        if (edge.sections && edge.sections.length > 0) {
+          const section = edge.sections[0];
+          const pathPoints = [];
+          
+          pathPoints.push({
+            x: section.startPoint.x + offset.x,
+            y: section.startPoint.y + offset.y
+          });
+          
+          if (section.bendPoints) {
+            section.bendPoints.forEach(bp => {
+              pathPoints.push({
+                x: bp.x + offset.x,
+                y: bp.y + offset.y
+              });
+            });
+          }
+          
+          pathPoints.push({
+            x: section.endPoint.x + offset.x,
+            y: section.endPoint.y + offset.y
+          });
+          
+          const src = edge.sources[0];
+          const tgt = edge.targets[0];
+          const key = `${src}->${tgt}`;
+          edgePathMap[key] = pathPoints;
+        }
+      });
 
       // 7. Rebuild React Flow Nodes — parents MUST come before children
       const groupNodes   = [];
@@ -222,7 +285,6 @@ export const useGraphLayout = () => {
         if (isGroup) {
           updatedNode.style = { width: layout.width, height: layout.height };
           updatedNode.data  = { ...node.data, isCollapsed, childCount, onToggle: toggleZoneCollapse };
-          // Nested groups (e.g. Docker Compose inside EC2) must also be contained
           if (layout.parentId) updatedNode.extent = 'parent';
           groupNodes.push(updatedNode);
         } else {
@@ -231,12 +293,9 @@ export const useGraphLayout = () => {
         }
       });
 
-      // Parents before children (React Flow compound node requirement)
       const finalNodes = [...groupNodes, ...serviceNodes];
 
-      // 8. Rebuild React Flow Edges — ELK already positioned nodes to minimize
-      //    crossings; we let React Flow draw the actual paths (smoothstep)
-      //    because it always uses correct global sourceX/Y targetX/Y coords.
+      // 8. Rebuild React Flow Edges — using custom 'elk' edges with computed coordinates
       const finalEdges    = [];
       const addedEdgeKeys = new Set();
 
@@ -251,18 +310,20 @@ export const useGraphLayout = () => {
 
         const protocol = edge.metadata?.label || edge.label || '';
         const color    = resolveEdgeColor(protocol);
+        const pathPoints = edgePathMap[key] || [];
 
         finalEdges.push({
           ...edge,
           source: src,
           target: tgt,
-          type: 'smoothstep',
-          data: { protocol },
+          type: 'elk',
+          data: { 
+            protocol,
+            pathPoints,
+          },
           label: protocol,
           animated: false,
           style: { strokeWidth: 1.5, stroke: color },
-          labelStyle: { fontSize: 9, fontFamily: 'monospace', fill: color, fontWeight: 600 },
-          labelBgStyle: { fill: 'white', fillOpacity: 0.85 },
           markerEnd: { type: 'arrowclosed', color, width: 12, height: 12 },
           zIndex: 10,
         });
