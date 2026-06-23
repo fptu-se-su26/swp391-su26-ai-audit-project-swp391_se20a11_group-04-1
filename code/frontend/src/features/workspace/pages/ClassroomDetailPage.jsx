@@ -3,8 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getInitials } from '@utils/avatarHelper'
 import toast from 'react-hot-toast'
 import axiosClient from '@api/axiosConfig'
-
-
+import useAuthStore from '@store/useAuthStore'
+import AnnouncementCarousel from '../components/AnnouncementCarousel'
+import AnnouncementTab from '../components/AnnouncementTab'
+import ClassroomDashboardTab from '../components/ClassroomDashboardTab'
+import ResourceTab from '../components/ResourceTab'
 
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
@@ -37,33 +40,106 @@ function getStatusConfig(status) {
 export default function ClassroomDetailPage() {
   const { classroomId } = useParams()
   const navigate = useNavigate()
+  const { userId } = useAuthStore()
   
   const [activeTab, setActiveTab] = useState('projects')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const fetchClassroom = async () => {
-      try {
-        setLoading(true)
-        const response = await axiosClient.get(`/v1/classrooms/${classroomId}`)
-        if (response.data.success) {
-          setData(response.data.data)
-        } else {
-          setError(response.data.message)
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || 'Có lỗi xảy ra khi tải lớp học.')
-      } finally {
-        setLoading(false)
+  // Random Group state
+  const [isRandomGroupModalOpen, setIsRandomGroupModalOpen] = useState(false)
+  const [membersPerGroup, setMembersPerGroup] = useState(5)
+  const [isRandomizing, setIsRandomizing] = useState(false)
+  const [isOverwrite, setIsOverwrite] = useState(true)
+  const [isClearing, setIsClearing] = useState(false)
+
+  const fetchClassroom = async () => {
+    try {
+      setLoading(true)
+      const response = await axiosClient.get(`/v1/classrooms/${classroomId}`)
+      const classroomData = response.data?.data
+      setData(classroomData)
+      if (classroomData && classroomData.maxMembersPerGroup) {
+        setMembersPerGroup(classroomData.maxMembersPerGroup)
       }
+      setError(null)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load classroom details')
+    } finally {
+      setLoading(false)
     }
-    
+  }
+
+  const handleRemoveStudent = async (studentId, studentName, e) => {
+    e.stopPropagation()
+    if (!window.confirm(`Are you sure you want to remove ${studentName} from this class?`)) {
+      return
+    }
+    try {
+      await axiosClient.delete(`/v1/classrooms/${classroomId}/members/${studentId}`)
+      toast.success('Student removed successfully.')
+      fetchClassroom()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove student.')
+    }
+  }
+
+  useEffect(() => {
     if (classroomId) {
       fetchClassroom()
     }
   }, [classroomId])
+
+  const hasJoinedAnyProject = data?.projects?.some(p => p.members?.some(m => String(m.id) === String(userId)));
+  const isStudentWithoutGroup = String(data?.owner?.id) !== String(userId) && !hasJoinedAnyProject;
+
+  const handleRandomGroups = async () => {
+    if (membersPerGroup < 1) {
+      toast.error('Số thành viên mỗi nhóm phải lớn hơn 0.');
+      return;
+    }
+
+    if (data.projects && data.projects.length > 0) {
+      if (isOverwrite) {
+        if (!window.confirm("CẢNH BÁO: Bạn đã chọn 'Ghi đè nhóm hiện tại'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?")) {
+          return;
+        }
+      } else {
+        if (!window.confirm("Bạn KHÔNG chọn 'Ghi đè'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?")) {
+          return;
+        }
+      }
+    }
+
+    try {
+      setIsRandomizing(true);
+      await axiosClient.post(`/v1/classrooms/${classroomId}/random-groups`, { membersPerGroup, isOverwrite });
+      toast.success('Phân nhóm ngẫu nhiên thành công!');
+      setIsRandomGroupModalOpen(false);
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi phân nhóm.');
+    } finally {
+      setIsRandomizing(false);
+    }
+  }
+
+  const handleClearGroups = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn giải tán toàn bộ nhóm trong lớp học này? Hành động này không thể hoàn tác.")) {
+      return;
+    }
+    try {
+      setIsClearing(true);
+      await axiosClient.delete(`/v1/classrooms/${classroomId}/groups`);
+      toast.success('Giải tán toàn bộ nhóm thành công!');
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi giải tán nhóm.');
+    } finally {
+      setIsClearing(false);
+    }
+  }
 
   const handleShareInviteLink = async () => {
     try {
@@ -71,10 +147,21 @@ export default function ClassroomDetailPage() {
       if (data.success && data.data) {
         const inviteLink = `${window.location.origin}/classrooms/join?token=${data.data}`;
         await navigator.clipboard.writeText(inviteLink);
-        toast.success('Đã sao chép link mời lớp học vào clipboard!');
+        toast.success('Đã copy link mời vào clipboard!');
       }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Chỉ người tạo lớp học mới có quyền tạo link mời.');
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi lấy link mời.');
+    }
+  }
+
+  const handleJoinProject = async (projectId, e) => {
+    e.stopPropagation();
+    try {
+      await axiosClient.post(`/v1/projects/${projectId}/join`);
+      toast.success('Đã tham gia nhóm thành công!');
+      fetchClassroom();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tham gia nhóm.');
     }
   }
 
@@ -101,55 +188,15 @@ export default function ClassroomDetailPage() {
 
   return (
     <div className="-mt-margin_mobile -mx-margin_mobile md:-mt-margin_desktop md:-mx-margin_desktop flex-1 overflow-y-auto bg-[#f8fafc] select-none">
-      {/* Top Banner Area */}
-      <div className="bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#38bdf8] w-full px-8 py-8 relative overflow-hidden">
-        {/* Subtle grid pattern overlay for modern look */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-        
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-white/80 tracking-widest uppercase bg-white/10 px-2.5 py-1 rounded-full border border-white/10">
-                ACTIVE SEMESTER
-              </span>
-              <span className="text-sm font-semibold text-white/90 bg-white/20 px-3 py-0.5 rounded-full backdrop-blur-sm">
-                {data.semester}
-              </span>
-            </div>
-            <h1 className="text-4xl font-extrabold text-white tracking-tight flex items-baseline gap-3">
-              {data.subject}
-            </h1>
-            <div className="flex items-center gap-8 mt-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white/80 text-sm">person</span>
-                </div>
-                <div>
-                  <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Mentor</p>
-                  <p className="text-sm font-medium text-white">{data.owner?.fullName || data.owner?.email}</p>
-                </div>
-              </div>
-              <div className="w-px h-8 bg-white/20"></div>
-              <div>
-                <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Project Teams</p>
-                <p className="text-sm font-medium text-white">{data.stats.teams} Teams</p>
-              </div>
-              <div className="w-px h-8 bg-white/20"></div>
-              <div>
-                <p className="text-[11px] font-medium text-sky-200 uppercase tracking-wide">Students Enrolled</p>
-                <p className="text-sm font-medium text-white">{data.stats.students} Students</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <button onClick={handleShareInviteLink} className="bg-white text-[#0284c7] hover:bg-sky-50 px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-xl shadow-sky-900/20 flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">link</span>
-              Share Invite Link
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Top Banner Area - Now handled by AnnouncementCarousel */}
+      <AnnouncementCarousel 
+        classroomData={data} 
+        onShare={handleShareInviteLink} 
+        onAnnouncementClick={(annId) => {
+          setActiveTab('announcements');
+          // Optional: we can scroll to the announcement if needed, but switching tabs is the main goal
+        }}
+      />
 
       {/* Tabs Navigation */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
@@ -159,6 +206,7 @@ export default function ClassroomDetailPage() {
             { id: 'members', label: 'Members', icon: 'groups' },
             { id: 'dashboard', label: 'Class Dashboard', icon: 'dashboard' },
             { id: 'announcements', label: 'Announcements', icon: 'campaign' },
+            { id: 'resources', label: 'Resources', icon: 'library_books' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -186,6 +234,24 @@ export default function ClassroomDetailPage() {
                 <h2 className="text-xl font-bold text-slate-800">Student Projects</h2>
                 <p className="text-sm text-slate-500 mt-1">{data.semester} • {data.stats?.teams || 0} teams registered</p>
               </div>
+              {String(data.owner?.id) === String(userId) && (
+                <button
+                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&isMentor=true&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Tạo dự án thủ công
+                </button>
+              )}
+              {isStudentWithoutGroup && (
+                <button
+                  onClick={() => navigate(`/dashboard?createProjectForClassroom=${classroomId}&semester=${data.semester}&subject=${encodeURIComponent(data.subjectCode || data.subject || '')}&hideToast=true`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Tạo dự án thủ công
+                </button>
+              )}
             </div>
 
             {/* Projects Grid */}
@@ -246,9 +312,21 @@ export default function ClassroomDetailPage() {
                             </div>
                           )}
                         </div>
-                        <span className="text-[11px] font-medium text-slate-500 ml-3">{project.members?.length || 0} members</span>
+                        <span className="text-[11px] font-bold text-slate-500 ml-3">
+                          {project.members.length} members
+                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-medium">Updated recently</span>
+                      
+                      {isStudentWithoutGroup ? (
+                        <button 
+                          onClick={(e) => handleJoinProject(project.id, e)}
+                          className="px-3 py-1 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white text-xs font-bold rounded-lg transition-colors border border-indigo-100"
+                        >
+                          Tham gia
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Updated recently</span>
+                      )}
                     </div>
                   </div>
                 )
@@ -263,41 +341,126 @@ export default function ClassroomDetailPage() {
                 <h2 className="text-xl font-bold text-slate-800">Class Members</h2>
                 <p className="text-sm text-slate-500 mt-1">{data.members?.length || 0} students enrolled</p>
               </div>
+              {String(data.owner?.id) === String(userId) && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleClearGroups}
+                    disabled={isClearing || !data.projects || data.projects.length === 0}
+                    className="bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">delete_sweep</span>
+                    {isClearing ? 'Đang giải tán...' : 'Giải tán nhóm'}
+                  </button>
+                  <button
+                    onClick={() => setIsRandomGroupModalOpen(true)}
+                    className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">shuffle</span>
+                    Phân lớp ngẫu nhiên
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="bg-white border border-slate-200 rounded-[20px] shadow-sm">
+              <div className="overflow-visible">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       <th className="px-6 py-4">Student</th>
                       <th className="px-6 py-4">Email</th>
                       <th className="px-6 py-4">Role</th>
-                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Group</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {data.members && data.members.map((member, idx) => (
-                      <tr key={member.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
+                    {(data.members ? [...data.members].sort((a, b) => {
+                        if (a.projectName === b.projectName) return 0;
+                        if (!a.projectName) return 1;
+                        if (!b.projectName) return -1;
+                        return a.projectName.localeCompare(b.projectName);
+                      }) : []).map((member, idx) => (
+                      <tr 
+                        key={member.id} 
+                        onClick={() => navigate(`/profile/${member.id}`)}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer group/row"
+                      >
+                        <td className="px-6 py-4 relative">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-extrabold shadow-sm shrink-0 ${getAvatarColor(idx)}`}>
                               {getInitials(member.fullName)}
                             </div>
                             <span className="font-bold text-slate-700">{member.fullName}</span>
                           </div>
+
+                          {/* Hover Popover */}
+                          <div 
+                            className="absolute left-14 bottom-[60%] z-50 hidden group-hover/row:block w-80 bg-white border border-slate-200 rounded-xl shadow-xl p-5 cursor-default"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex gap-4">
+                              <div className="shrink-0">
+                                {member.avatarUrl ? (
+                                  <img src={member.avatarUrl} alt={member.fullName} className="w-16 h-16 rounded-xl object-cover border border-slate-200" />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-xl bg-[#0047AB] text-white flex items-center justify-center text-xl font-bold shadow-sm">
+                                    {getInitials(member.fullName)}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-bold text-slate-800 text-lg truncate" title={member.fullName}>{member.fullName}</h3>
+                                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-600 border border-green-100">
+                                    Active
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-500 font-medium mb-2 truncate">@{member.username || member.email?.split('@')[0]}</p>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span className="material-symbols-outlined text-[14px]">mail</span>
+                                    <span className="truncate">{member.email}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <span className="material-symbols-outlined text-[14px]">verified_user</span>
+                                    <span>System Role: {member.systemRole || 'USER'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
                           {member.email}
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-500">
-                          Student
+                        <td className="px-6 py-4 text-sm font-medium text-slate-500 capitalize">
+                          {member.projectRole || 'Member'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Active
-                          </span>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              {member.projectName ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                  <span className="material-symbols-outlined text-[12px]">workspaces</span>
+                                  {member.projectName}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                  Chưa tham gia
+                                </span>
+                              )}
+                            </div>
+                            {String(data?.owner?.id) === String(userId) && (
+                              <button 
+                                onClick={(e) => handleRemoveStudent(member.id, member.fullName, e)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-4 shrink-0"
+                                title="Xóa học sinh khỏi lớp"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -314,7 +477,16 @@ export default function ClassroomDetailPage() {
             </div>
           </div>
         )}
-        {activeTab !== 'projects' && activeTab !== 'members' && (
+        {activeTab === 'resources' && (
+          <ResourceTab classroomId={classroomId} classroomData={data} userId={userId} />
+        )}
+        {activeTab === 'announcements' && (
+          <AnnouncementTab classroomId={classroomId} classroomData={data} />
+        )}
+        {activeTab === 'dashboard' && (
+          <ClassroomDashboardTab data={data} setActiveTab={setActiveTab} />
+        )}
+        {activeTab !== 'projects' && activeTab !== 'members' && activeTab !== 'resources' && activeTab !== 'announcements' && activeTab !== 'dashboard' && (
           <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
             <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">construction</span>
             <h3 className="font-bold text-slate-600">Tab này đang được xây dựng</h3>
@@ -322,6 +494,94 @@ export default function ClassroomDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Random Group Modal */}
+      {isRandomGroupModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+          <div 
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-[slideUp_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600">shuffle</span>
+                Phân lớp ngẫu nhiên
+              </h3>
+              <button 
+                onClick={() => setIsRandomGroupModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                Nhập số thành viên cho mỗi nhóm. Hệ thống sẽ tự động ghép những sinh viên chưa có nhóm vào các nhóm chưa đủ người, sau đó tạo thêm nhóm mới cho những bạn còn lại.
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Số lượng thành viên / nhóm
+                </label>
+                <input 
+                  type="number" 
+                  min="1"
+                  value={membersPerGroup}
+                  onChange={(e) => setMembersPerGroup(parseInt(e.target.value) || 1)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-start gap-3 mt-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                <div className="flex items-center h-5 mt-0.5">
+                  <input
+                    id="isOverwrite"
+                    type="checkbox"
+                    checked={isOverwrite}
+                    onChange={(e) => setIsOverwrite(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 bg-white border-indigo-300 rounded focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="text-sm">
+                  <label htmlFor="isOverwrite" className="font-semibold text-indigo-900 cursor-pointer">
+                    Ghi đè nhóm hiện tại
+                  </label>
+                  <p className="text-indigo-700/80 mt-0.5">
+                    Nếu chọn, hệ thống sẽ thêm sinh viên vào các nhóm chưa đủ người trước khi tạo nhóm mới. Nếu không chọn, hệ thống sẽ bỏ qua các nhóm cũ và chỉ tạo nhóm mới cho sinh viên.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setIsRandomGroupModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+                disabled={isRandomizing}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleRandomGroups}
+                disabled={isRandomizing}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm shadow-indigo-600/20 flex items-center gap-2"
+              >
+                {isRandomizing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Đang phân nhóm...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">magic_button</span>
+                    Tiến hành phân nhóm
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.ClassroomResponse;
 import org.example.backend.dto.CreateClassroomRequest;
 import org.example.backend.dto.PaginatedResponse;
+import org.example.backend.dto.ClassroomDashboardResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.ClassroomService;
 import org.springframework.http.HttpStatus;
@@ -64,6 +65,49 @@ public class ClassroomController {
         Long userId = getUserIdFromSession(session);
         ClassroomResponse response = classroomService.getClassroomById(id, userId);
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin lớp học thành công!"));
+    }
+
+    @DeleteMapping("/{id}/members/{studentId}")
+    public ResponseEntity<ApiResponse<Void>> removeStudent(@PathVariable Long id, @PathVariable Long studentId, HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        classroomService.removeStudent(id, studentId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đã xóa học sinh khỏi lớp học thành công."));
+    }
+
+    @PostMapping("/{id}/random-groups")
+    public ResponseEntity<ApiResponse<Void>> randomGroups(
+            @PathVariable Long id,
+            @RequestBody org.example.backend.dto.request.RandomGroupRequest request,
+            HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        classroomService.randomGroups(id, request, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Chia nhóm ngẫu nhiên thành công!"));
+    }
+
+    /**
+     * Giải tán toàn bộ nhóm trong lớp học
+     */
+    @DeleteMapping("/{id}/groups")
+    public ResponseEntity<ApiResponse<Void>> clearAllGroups(
+            @PathVariable Long id,
+            HttpSession session) {
+            
+        Long userId = getUserIdFromSession(session);
+
+        classroomService.clearAllGroups(id, userId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Giải tán toàn bộ nhóm thành công!"));
+    }
+
+    @GetMapping("/{id}/dashboard-stats")
+    public ResponseEntity<ApiResponse<ClassroomDashboardResponse>> getClassroomDashboard(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long projectId,
+            HttpSession session) {
+        Long userId = getUserIdFromSession(session);
+        ClassroomDashboardResponse response = classroomService.getClassroomDashboard(id, projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thống kê dashboard lớp học thành công!"));
     }
 
     private Long getUserIdFromSession(HttpSession session) {

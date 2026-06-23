@@ -78,6 +78,7 @@ export function AppRoutes() {
           <Route path="/verify" element={<VerificationPage />} />
           <Route path="/github/callback" element={<GitHubCallbackPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
 
           {/* 3. Project Routes (Wrapped in ProjectLayout) */}
           <Route path="/projects/:projectId" element={<ProjectLayout />}>
