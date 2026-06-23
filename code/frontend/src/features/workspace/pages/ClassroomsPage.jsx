@@ -246,7 +246,7 @@ export default function ClassroomsPage() {
         <div className="absolute bottom-[10%] right-[5%] w-[450px] h-[450px] rounded-full bg-secondary-fixed opacity-[0.12] blur-[110px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+      <div className="relative z-10 w-full space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -465,7 +465,7 @@ export default function ClassroomsPage() {
 
                     {/* Member Avatars Preview */}
                     <div className="mt-auto flex items-center -space-x-2 overflow-hidden">
-                      {(classroom.members || []).slice(0, 4).map((member, idx) => (
+                      {(classroom.members || []).slice(0, 3).map((member, idx) => (
                         <div
                           key={member.id}
                           title={member.fullName}
@@ -474,31 +474,16 @@ export default function ClassroomsPage() {
                           {getInitials(member.fullName)}
                         </div>
                       ))}
-                      {classroom.memberCount > 4 && (
+                      {classroom.memberCount > 3 && (
                         <div className="w-7 h-7 rounded-full border-2 border-surface-container-lowest bg-surface-container-high text-on-surface-variant flex items-center justify-center text-[9px] font-bold shadow-sm shrink-0">
-                          +{classroom.memberCount - 4}
+                          +{classroom.memberCount - 3}
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Card Footer */}
-                  <div className="border-t border-outline-variant/40 px-5 py-3.5 flex items-center justify-between bg-surface-container-low/20">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => toast.success('Chức năng Comment sẽ được tích hợp sau!')}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:bg-surface-container hover:text-on-surface transition-all"
-                        title="Comments"
-                      >
-                        <span className="material-symbols-outlined text-base">comment</span>
-                      </button>
-                      <button
-                        onClick={() => toast.success('Chức năng xuất báo cáo sẽ được tích hợp sau!')}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-outline hover:bg-surface-container hover:text-on-surface transition-all"
-                      >
-                        <span className="material-symbols-outlined text-base">download</span>
-                      </button>
-                    </div>
+                  <div className="border-t border-outline-variant/40 px-5 py-3.5 flex items-center justify-end bg-surface-container-low/20">
                     <button
                       onClick={() => navigate(`/classrooms/${classroom.id}`)}
                       className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"

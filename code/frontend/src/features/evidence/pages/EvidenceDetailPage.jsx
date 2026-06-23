@@ -138,7 +138,7 @@ const EvidenceDetailPage = () => {
 
   return (
     <div className="p-6 md:p-10 z-10 h-full">
-      <div className="max-w-5xl mx-auto">
+      <div className="w-full">
         {/* Header */}
         <EvidenceDetailHeader
           evidence={evidence}
