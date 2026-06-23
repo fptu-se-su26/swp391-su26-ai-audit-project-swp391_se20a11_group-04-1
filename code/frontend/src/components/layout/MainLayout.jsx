@@ -15,6 +15,7 @@ import useNotificationStore from '@store/useNotificationStore';
 const MainLayout = () => {
   const userId        = useAuthStore((state) => state.userId);
   const initWebSocket = useNotificationStore((state) => state.initWebSocket);
+  const isSidebarCollapsed = useLayoutStore((state) => state.isSidebarCollapsed);
 
   useEffect(() => {
     if (userId) initWebSocket(userId);
@@ -24,7 +25,6 @@ const MainLayout = () => {
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', color: '#1F2937' }}>
       {/* Fixed sidebar — manages --sidebar-offset CSS var on collapse/expand */}
       <Sidebar />
-
       {/* Floating notification + avatar pill */}
       <FloatingTopBar />
 

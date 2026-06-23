@@ -64,6 +64,24 @@ public class ProfileController {
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy danh sách đồng nghiệp thành công!"));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProfileResponse>> getUserProfile(@PathVariable Long id) {
+        ProfileResponse response = profileService.getProfile(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin profile thành công!"));
+    }
+
+    @GetMapping("/{id}/statistics")
+    public ResponseEntity<ApiResponse<ProfileStatisticsResponse>> getUserProfileStatistics(@PathVariable Long id) {
+        ProfileStatisticsResponse response = profileService.getProfileStatistics(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy thống kê profile thành công!"));
+    }
+
+    @GetMapping("/{id}/coworkers")
+    public ResponseEntity<ApiResponse<java.util.List<org.example.backend.dto.CoWorkerResponse>>> getUserCoWorkers(@PathVariable Long id) {
+        java.util.List<org.example.backend.dto.CoWorkerResponse> response = profileService.getCoWorkers(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Lấy danh sách đồng nghiệp thành công!"));
+    }
+
     @PostMapping("/avatar")
     public ResponseEntity<ApiResponse<String>> uploadAvatar(
             @RequestParam("file") MultipartFile file,

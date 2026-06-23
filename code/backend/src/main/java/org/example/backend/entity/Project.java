@@ -62,6 +62,10 @@ public class Project {
     @JoinColumn(name = "created_by", nullable = false)
     private UserAccount createdBy;
 
+    @Column(name = "max_members")
+    @Builder.Default
+    private Integer maxMembers = 10;
+
     @Column(name = "agent_token")
     private String agentToken;
 
