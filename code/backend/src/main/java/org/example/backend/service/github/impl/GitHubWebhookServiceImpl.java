@@ -59,8 +59,9 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
                     decryptedSecret != null && decryptedSecret.length() > 4 ? decryptedSecret.substring(0, 4) + "****" : "[empty]");
 
             if (!isValidSignature(payloadBytes, signatureHeader, decryptedSecret)) {
-                log.error("Webhook signature mismatch for repo: {}/{}. Header: {}", repoOwner, repoName,
-                        signatureHeader != null ? signatureHeader.substring(0, Math.min(20, signatureHeader.length())) + "..." : "null");
+                String computed = generateSignature(payloadBytes, decryptedSecret);
+                log.error("Webhook signature mismatch for repo: {}/{}. Header: {}, Computed: {}, Secret used: '[{}]' (length: {})", 
+                        repoOwner, repoName, signatureHeader, computed, decryptedSecret, decryptedSecret != null ? decryptedSecret.length() : 0);
                 throw new CustomException("Invalid webhook signature", HttpStatus.FORBIDDEN);
             }
 
@@ -95,9 +96,7 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
                 .orElse(null);
     }
 
-    private boolean isValidSignature(byte[] payload, String signatureHeader, String secret) {
-        if (signatureHeader == null || !signatureHeader.startsWith("sha256=") || secret == null) return false;
-        String signature = signatureHeader.substring(7);
+    private String generateSignature(byte[] payload, String secret) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
@@ -109,11 +108,16 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
                 if (hex.length() == 1) hexString.append('0');
                 hexString.append(hex);
             }
-            return hexString.toString().equalsIgnoreCase(signature);
+            return "sha256=" + hexString.toString();
         } catch (Exception e) {
-            log.error("Failed to verify webhook signature: ", e);
-            return false;
+            return null;
         }
+    }
+
+    private boolean isValidSignature(byte[] payload, String signatureHeader, String secret) {
+        if (signatureHeader == null || !signatureHeader.startsWith("sha256=") || secret == null) return false;
+        String computed = generateSignature(payload, secret);
+        return computed != null && computed.equalsIgnoreCase(signatureHeader);
     }
 
     private String sha256(byte[] payload) throws Exception {
