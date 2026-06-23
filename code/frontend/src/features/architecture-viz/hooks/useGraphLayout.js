@@ -96,6 +96,36 @@ export const resolveEdgeColor = (protocol) => {
   return '#94a3b8';
 };
 
+const getNodeParentId = (nodeId, nodes) => {
+  const node = nodes.find(n => n.id === nodeId);
+  return node?.data?.parentId || node?.parentId || null;
+};
+
+const findLCA = (node1Id, node2Id, nodes) => {
+  const getAncestors = (id) => {
+    const list = [];
+    let curr = id;
+    while (curr) {
+      const parent = getNodeParentId(curr, nodes);
+      if (parent) {
+        list.push(parent);
+      }
+      curr = parent;
+    }
+    return list;
+  };
+
+  const ancestors1 = getAncestors(node1Id);
+  const ancestors2 = getAncestors(node2Id);
+
+  for (const ancestor of ancestors1) {
+    if (ancestors2.includes(ancestor)) {
+      return ancestor;
+    }
+  }
+  return null;
+};
+
 export const useGraphLayout = () => {
   const getLayoutedElements = useCallback(async (nodes, edges, collapsedZones = new Set(), toggleZoneCollapse) => {
 
@@ -112,6 +142,7 @@ export const useGraphLayout = () => {
         id: node.id,
         layoutOptions: {},
         children: [],
+        edges: [],
       };
 
       if (isGroup) {
@@ -123,6 +154,8 @@ export const useGraphLayout = () => {
           'elk.layered.spacing.nodeNodeBetweenLayers': '64',
           'elk.edgeRouting': 'ORTHOGONAL',
           'elk.layered.unnecessaryBendpoints': 'true',
+          // NOTE: do NOT set hierarchyHandling here; it is set on the root only.
+          // Setting it per-group causes ELK to mix coordinate spaces.
         };
         if (isCollapsed) {
           elkNode.width  = 220;
@@ -149,8 +182,8 @@ export const useGraphLayout = () => {
       }
     });
 
-    // 4. Build ELK edges with collapse-redirection (de-duplicated)
-    const elkEdges   = [];
+    // 4. Build ELK edges with collapse-redirection (de-duplicated) and route via their LCA container
+    const rootEdges  = [];
     const edgeKeySet = new Set();
     edges.forEach((edge, idx) => {
       const src = getRedirectTarget(edge.source, nodes, collapsedZones);
@@ -159,7 +192,15 @@ export const useGraphLayout = () => {
       const key = `${src}->${tgt}`;
       if (!edgeKeySet.has(key)) {
         edgeKeySet.add(key);
-        elkEdges.push({ id: edge.id || `elk-e-${idx}`, sources: [src], targets: [tgt] });
+        
+        const lcaId = findLCA(src, tgt, visibleNodes);
+        const elkEdge = { id: edge.id || `elk-e-${idx}`, sources: [src], targets: [tgt] };
+        
+        if (lcaId && elkNodesMap[lcaId]) {
+          elkNodesMap[lcaId].edges.push(elkEdge);
+        } else {
+          rootEdges.push(elkEdge);
+        }
       }
     });
 
@@ -176,9 +217,10 @@ export const useGraphLayout = () => {
         'elk.layered.unnecessaryBendpoints': 'true',
         'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
         'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
       },
       children: rootChildren,
-      edges: elkEdges,
+      edges: rootEdges,
     };
 
     // 6. Run ELK layout
@@ -226,38 +268,49 @@ export const useGraphLayout = () => {
         (elkNode.children || []).forEach(child => collectEdges(child));
       };
       collectEdges(layoutedGraph);
-
-      // 6c. Extract global path points for each edge
+      // 6c. Extract path points for each edge.
+      //
+      // ELK edge section coordinates (startPoint, bendPoints, endPoint) are ALWAYS
+      // relative to the edge's OWNER / CONTAINER node — even with hierarchyHandling:
+      // INCLUDE_CHILDREN. The fix is to uniformly add the container's absolute offset
+      // to ALL points (start, bends, end).
+      //
+      // • Root-owned edges  → edgeOffset = {0,0}   (already in global space)
+      // • Group-owned edges → edgeOffset = group's absolute position in flow space
       const edgePathMap = {};
       allLayoutedEdges.forEach(({ edge, containerId }) => {
-        const offset = containerId ? (absoluteOffsets[containerId] || { x: 0, y: 0 }) : { x: 0, y: 0 };
-        
+        const srcId = edge.sources[0];
+        const tgtId = edge.targets[0];
+
+        // All section points share the SAME reference frame: the container node.
+        const edgeOffset = containerId
+          ? (absoluteOffsets[containerId] || { x: 0, y: 0 })
+          : { x: 0, y: 0 };
+
         if (edge.sections && edge.sections.length > 0) {
           const section = edge.sections[0];
           const pathPoints = [];
-          
+
           pathPoints.push({
-            x: section.startPoint.x + offset.x,
-            y: section.startPoint.y + offset.y
+            x: section.startPoint.x + edgeOffset.x,
+            y: section.startPoint.y + edgeOffset.y,
           });
-          
+
           if (section.bendPoints) {
             section.bendPoints.forEach(bp => {
               pathPoints.push({
-                x: bp.x + offset.x,
-                y: bp.y + offset.y
+                x: bp.x + edgeOffset.x,
+                y: bp.y + edgeOffset.y,
               });
             });
           }
-          
+
           pathPoints.push({
-            x: section.endPoint.x + offset.x,
-            y: section.endPoint.y + offset.y
+            x: section.endPoint.x + edgeOffset.x,
+            y: section.endPoint.y + edgeOffset.y,
           });
-          
-          const src = edge.sources[0];
-          const tgt = edge.targets[0];
-          const key = `${src}->${tgt}`;
+
+          const key = `${srcId}->${tgtId}`;
           edgePathMap[key] = pathPoints;
         }
       });
