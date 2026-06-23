@@ -47,11 +47,9 @@ public class ArchitectureController {
     @GetMapping("/graph")
     public ResponseEntity<ApiResponse<ArchitectureGraph>> getGraphData(
             @PathVariable Long projectId,
-            @RequestParam(defaultValue = "SYSTEM") String view,
-            @RequestParam(required = false) String serviceId,
             HttpSession session) {
         Long userId = requireUser(session);
-        ArchitectureGraph graph = architectureSyncService.getGraphData(projectId, view, serviceId, userId);
+        ArchitectureGraph graph = architectureSyncService.getGraphData(projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(graph, "Lấy dữ liệu đồ thị kiến trúc thành công"));
     }
 }
