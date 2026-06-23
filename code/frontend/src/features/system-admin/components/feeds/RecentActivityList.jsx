@@ -1,44 +1,63 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import RecentActivityItem from './RecentActivityItem';
 import adminService from '../../services/adminService';
 import { MOCK_RECENT_ACTIVITY } from '../../utils/adminMockData';
 
 const RecentActivityList = () => {
   const [activities, setActivities] = useState(MOCK_RECENT_ACTIVITY);
+  const [totalActivities, setTotalActivities] = useState({
+    All: MOCK_RECENT_ACTIVITY.length,
+    Users: MOCK_RECENT_ACTIVITY.filter(a => a.rawType === 'person_add' || a.rawType === 'how_to_reg').length,
+    Projects: MOCK_RECENT_ACTIVITY.filter(a => a.rawType === 'school').length
+  });
+  const [activeTab, setActiveTab] = useState('All');
 
   useEffect(() => {
     const fetchActivities = async () => {
       try {
         const res = await adminService.getActivities();
         if (res.data?.success) {
-          const backendActivities = res.data.data;
+          const backendData = res.data.data;
+          const backendActivities = backendData.activities || [];
+          
+          if (backendData.totalAll !== undefined) {
+            setTotalActivities({
+              All: backendData.totalAll,
+              Users: backendData.totalUsers,
+              Projects: backendData.totalProjects
+            });
+          }
           
           const mappedActivities = backendActivities.map(act => {
             const minutesAgo = Math.floor((Date.now() - act.timestamp) / 60000);
-            const timeStr = minutesAgo < 60 ? `${minutesAgo} mins ago` : `${Math.floor(minutesAgo / 60)} hours ago`;
+            let timeStr = '';
+            if (minutesAgo < 60) timeStr = `${minutesAgo} mins ago`;
+            else if (minutesAgo < 1440) timeStr = `${Math.floor(minutesAgo / 60)} hours ago`;
+            else timeStr = `${Math.floor(minutesAgo / 1440)} days ago`;
             
             // Map types to colors
             let bgColor = 'bg-surface-container-high';
             let textColor = 'text-on-surface-variant';
-            let titleHTML = `<span>${act.message}</span>`;
+            let titleHTML = act.message;
+            let iconType = act.type;
 
             if (act.type === 'school') {
-              bgColor = 'bg-primary-container/10';
-              textColor = 'text-primary';
-              titleHTML = `<span class="font-semibold">${act.message.split('created')[0]}</span> created successfully`;
-            } else if (act.type === 'person_add') {
-              bgColor = 'bg-tertiary-fixed';
-              textColor = 'text-tertiary';
-              titleHTML = `<span class="font-semibold">New Mentor assigned</span>: ${act.message.split(':')[1] || act.message}`;
-            } else if (act.type === 'how_to_reg') {
-              bgColor = 'bg-green-500/10';
-              textColor = 'text-green-600';
-              titleHTML = `<span class="font-semibold">User approved</span>: ${act.message.split(':')[1] || act.message}`;
+              bgColor = 'bg-transparent';
+              textColor = 'text-purple-500';
+              titleHTML = act.message;
+              iconType = 'school';
+            } else if (act.type === 'person_add' || act.type === 'how_to_reg') {
+              bgColor = 'bg-transparent';
+              textColor = 'text-blue-500';
+              titleHTML = act.message;
+              iconType = 'person';
             }
 
             return {
               id: act.id,
-              type: act.type,
+              type: iconType,
+              rawType: act.type,
               titleHTML: titleHTML,
               time: timeStr,
               bgColor: bgColor,
@@ -55,24 +74,34 @@ const RecentActivityList = () => {
     fetchActivities();
   }, []);
 
+  const filteredActivities = activities.filter(activity => {
+    if (activeTab === 'All') return true;
+    if (activeTab === 'Users') return activity.rawType === 'person_add' || activity.rawType === 'how_to_reg';
+    if (activeTab === 'Projects') return activity.rawType === 'school';
+    return true;
+  });
+
   return (
     <div className="xl:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col">
       <div className="px-6 py-4 border-b border-outline-variant bg-surface-container-lowest flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h3 className="font-headline-sm text-body-lg">Recent Activity</h3>
           <div className="flex gap-2 bg-surface-container-low p-1 rounded-lg">
-            <button className="px-3 py-1 text-[11px] font-label-md bg-surface-container-lowest text-primary shadow-sm rounded-md">All</button>
-            <button className="px-3 py-1 text-[11px] font-label-md text-on-surface-variant hover:text-primary transition-colors">Users</button>
-            <button className="px-3 py-1 text-[11px] font-label-md text-on-surface-variant hover:text-primary transition-colors">Projects</button>
-            <button className="px-3 py-1 text-[11px] font-label-md text-on-surface-variant hover:text-primary transition-colors">AI</button>
-            <button className="px-3 py-1 text-[11px] font-label-md text-on-surface-variant hover:text-primary transition-colors">System</button>
+            {['All', 'Users', 'Projects'].map(tab => (
+              <button 
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1 text-[11px] font-label-md rounded-md transition-colors ${activeTab === tab ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
-        <button className="text-primary font-label-md text-[11px] hover:underline">Full History</button>
       </div>
       
       <div className="divide-y divide-outline-variant custom-scrollbar overflow-y-auto max-h-[460px]">
-        {activities.map(activity => (
+        {filteredActivities.map(activity => (
           <RecentActivityItem 
             key={activity.id}
             type={activity.type}
@@ -82,6 +111,15 @@ const RecentActivityList = () => {
             textColor={activity.textColor}
           />
         ))}
+      </div>
+
+      <div className="px-6 py-4 border-t border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+        <span className="text-[13px] text-on-surface-variant">
+          Hiển thị {filteredActivities.length} trên {totalActivities[activeTab]} hoạt động
+        </span>
+        <Link to="/admin/audit-logs" className="text-[13px] text-primary font-medium hover:underline">
+          Xem toàn bộ log &rarr;
+        </Link>
       </div>
     </div>
   );

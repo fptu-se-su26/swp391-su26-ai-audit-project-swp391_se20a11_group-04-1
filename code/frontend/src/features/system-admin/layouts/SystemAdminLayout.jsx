@@ -1,7 +1,6 @@
 import React from 'react';
 import SideNavBar from './SideNavBar';
 import TopNavBar from './TopNavBar';
-import FloatingAssistant from './FloatingAssistant';
 
 const SystemAdminLayout = ({ children }) => {
   return (
@@ -14,8 +13,6 @@ const SystemAdminLayout = ({ children }) => {
             {children}
         </div>
       </main>
-      
-      <FloatingAssistant />
     </div>
   );
 };

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import AlertCard from './AlertCard';
 import adminService from '../../services/adminService';
-import { MOCK_CRITICAL_ALERTS } from '../../utils/adminMockData';
 
 const CriticalAlertsPanel = () => {
-  const [alerts, setAlerts] = useState(MOCK_CRITICAL_ALERTS);
+  const [alerts, setAlerts] = useState([]);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -16,22 +16,18 @@ const CriticalAlertsPanel = () => {
           const mappedAlerts = backendAlerts.map(alert => {
             const minutesAgo = Math.floor((Date.now() - alert.timestamp) / 60000);
             
-            let priorityLabel = 'WARNING';
-            let title = 'System Notice';
-            if (alert.severity === 'high') {
-              priorityLabel = 'CRITICAL';
-              title = 'Security Alert';
-            } else if (alert.severity === 'ai') {
-              priorityLabel = 'AI INSIGHT';
-              title = 'AI Behavior Analysis';
-            }
+            let timeStr = '';
+            if (minutesAgo < 60) timeStr = `${minutesAgo} mins ago`;
+            else if (minutesAgo < 1440) timeStr = `${Math.floor(minutesAgo / 60)} hours ago`;
+            else timeStr = `${Math.floor(minutesAgo / 1440)} days ago`;
 
             return {
               id: alert.id,
-              priorityLabel: priorityLabel,
-              timeLabel: minutesAgo < 60 ? `${minutesAgo} mins ago` : `${Math.floor(minutesAgo / 60)} hours ago`,
-              title: title,
+              priorityLabel: String(alert.severity).toUpperCase(),
+              timeLabel: timeStr,
+              title: alert.title,
               desc: alert.message,
+              details: alert.details || [],
               btnText: 'View Details',
               level: alert.severity
             };
@@ -41,6 +37,7 @@ const CriticalAlertsPanel = () => {
         }
       } catch (err) {
         console.error("Failed to fetch alerts", err);
+        setError(true);
       }
     };
     fetchAlerts();
@@ -58,7 +55,9 @@ const CriticalAlertsPanel = () => {
       </div>
       
       <div className="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[460px]">
-        {alerts.length === 0 ? (
+        {error ? (
+          <div className="text-center text-error p-4">Failed to load critical alerts.</div>
+        ) : alerts.length === 0 ? (
           <div className="text-center text-on-surface-variant p-4">No critical alerts</div>
         ) : (
           alerts.map(alert => (
@@ -68,6 +67,7 @@ const CriticalAlertsPanel = () => {
               timeLabel={alert.timeLabel}
               title={alert.title}
               desc={alert.desc}
+              details={alert.details}
               btnText={alert.btnText}
               level={alert.level}
             />

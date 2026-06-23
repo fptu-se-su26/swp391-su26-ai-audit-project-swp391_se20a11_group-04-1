@@ -20,34 +20,38 @@ export const MOCK_RECENT_ACTIVITY = [
     {
         id: 1,
         type: 'school',
-        titleHTML: '<span class="font-semibold">Context SWP391 - Summer 2026</span> created successfully',
+        rawType: 'school',
+        titleHTML: 'Context SWP391 - Summer 2026 created successfully',
         time: 'Just now',
         bgColor: 'bg-primary-container/10',
         textColor: 'text-primary'
     },
     {
         id: 2,
-        type: 'person_add',
-        titleHTML: '<span class="font-semibold">New Mentor assigned</span>: Dr. Alan Smith to 5 projects',
+        type: 'person',
+        rawType: 'person_add',
+        titleHTML: 'New Mentor assigned: Dr. Alan Smith to 5 projects',
         time: '2 hours ago',
         bgColor: 'bg-tertiary-fixed',
         textColor: 'text-tertiary'
     },
     {
         id: 3,
-        type: 'how_to_reg',
-        titleHTML: '<span class="font-semibold">User approved</span>: sarah.j@student.edu verified',
+        type: 'person',
+        rawType: 'how_to_reg',
+        titleHTML: 'User approved: sarah.j@student.edu verified',
         time: '4 hours ago',
         bgColor: 'bg-green-100',
         textColor: 'text-green-700'
     },
     {
         id: 4,
-        type: 'warning',
-        titleHTML: '<span class="font-semibold">System Alert</span>: High token consumption detected',
+        type: 'school',
+        rawType: 'school',
+        titleHTML: 'Project Mobile App - Group 3 passed review',
         time: 'Yesterday',
-        bgColor: 'bg-error-container/20',
-        textColor: 'text-error'
+        bgColor: 'bg-primary-container/10',
+        textColor: 'text-primary'
     }
 ];
 

@@ -2,13 +2,25 @@ import React from 'react';
 
 const SystemOverviewBanner = () => {
   return (
-    <section className="mb-6">
-      <div className="h-[60px] bg-primary/5 border border-primary/10 rounded-xl px-6 flex items-center gap-4">
-        <h2 className="text-headline-sm text-primary whitespace-nowrap">System Overview</h2>
-        <div className="w-px h-6 bg-primary/20"></div>
-        <p className="text-on-surface-variant font-body-md text-sm truncate">
-          Monitor users, projects, resources, and overall platform activity across DevTrack AI.
+    <section className="mb-8 mt-2 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div>
+        <h2 className="text-[28px] font-bold text-on-surface flex items-center gap-2 tracking-tight">
+          Welcome back, Admin 👋
+        </h2>
+        <p className="text-on-surface-variant text-[15px] mt-1">
+          Here's what's happening across DevTrack AI today.
         </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <select className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface font-medium focus:border-primary focus:outline-none cursor-pointer shadow-sm hover:bg-surface-container-low transition-colors">
+          <option>Today</option>
+          <option>Last 7 days</option>
+          <option>Last 30 days</option>
+        </select>
+        <button className="bg-primary text-on-primary px-4 py-2 rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+          <span className="material-symbols-outlined text-[18px]">download</span>
+          Export Report
+        </button>
       </div>
     </section>
   );
