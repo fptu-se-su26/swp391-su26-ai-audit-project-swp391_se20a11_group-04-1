@@ -14,7 +14,7 @@ const AuditLogsPage = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
-  const [timeFilter, setTimeFilter] = useState('All time');
+  const [timeFilter, setTimeFilter] = useState('All Time');
   
   const [loading, setLoading] = useState(false);
 
@@ -52,21 +52,35 @@ const AuditLogsPage = () => {
     setPage(0); // reset page on filter change
   };
 
-  const handleExportCSV = () => {
-    // Generate simple CSV
-    let csvContent = "data:text/csv;charset=utf-8,ID,Type,Category,Message,Timestamp\n";
-    logs.forEach(row => {
-      const dateStr = new Date(row.timestamp).toLocaleString();
-      const escapedMessage = row.message.replace(/"/g, '""');
-      csvContent += `${row.id},${row.type},${row.category},"${escapedMessage}",${dateStr}\n`;
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "audit_logs.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCSV = async () => {
+    try {
+      setExporting(true);
+      const res = await adminService.exportAuditLogs(debouncedSearch, typeFilter, timeFilter);
+      if (res.data?.success) {
+        const allLogs = res.data.data.content;
+        
+        let csvContent = "data:text/csv;charset=utf-8,ID,Type,Category,Message,Timestamp\n";
+        allLogs.forEach(row => {
+          const dateStr = new Date(row.timestamp).toLocaleString();
+          const escapedMessage = row.message ? row.message.replace(/"/g, '""') : '';
+          csvContent += `${row.id},${row.type},${row.category},"${escapedMessage}",${dateStr}\n`;
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `audit_logs_${typeFilter}_${timeFilter}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      console.error("Export failed", err);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -89,10 +103,15 @@ const AuditLogsPage = () => {
             </div>
             <button 
               onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg text-[13px] font-medium shadow-sm hover:opacity-90 transition-opacity"
+              disabled={exporting}
+              className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg text-[13px] font-medium shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              Export CSV
+              {exporting ? (
+                <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-[18px]">download</span>
+              )}
+              {exporting ? 'Exporting...' : 'Export CSV'}
             </button>
           </div>
 
@@ -123,10 +142,10 @@ const AuditLogsPage = () => {
                 onChange={(e) => handleFilterChange(setTimeFilter, e.target.value)}
                 className="bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-[13px] text-on-surface focus:border-primary focus:outline-none cursor-pointer"
               >
-                <option value="All time">All Time</option>
-                <option value="Today">Today</option>
-                <option value="Last 7 days">Last 7 Days</option>
-                <option value="Last 30 days">Last 30 Days</option>
+                <option value="All Time">All Time</option>
+                <option value="Last 7 Days">Last 7 Days</option>
+                <option value="Last 30 Days">Last 30 Days</option>
+                <option value="Last 1 Year">Last 1 Year</option>
               </select>
             </div>
           </div>

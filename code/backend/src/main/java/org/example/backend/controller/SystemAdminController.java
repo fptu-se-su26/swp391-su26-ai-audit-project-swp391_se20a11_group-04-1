@@ -50,7 +50,7 @@ public class SystemAdminController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "All") String type,
-            @RequestParam(defaultValue = "All time") String timeFilter) {
+            @RequestParam(defaultValue = "All Time") String timeFilter) {
         return ResponseEntity.ok(Map.of(
             "success", true,
             "data", systemAdminService.getAuditLogs(page, size, search, type, timeFilter)
