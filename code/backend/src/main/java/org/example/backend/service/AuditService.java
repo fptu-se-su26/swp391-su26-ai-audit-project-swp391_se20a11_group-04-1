@@ -11,10 +11,15 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuditService {
+
+    private static final Pattern PROJECT_ID_PATTERN = Pattern.compile("/projects/(\\d+)");
 
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
@@ -33,6 +38,7 @@ public class AuditService {
                     .action(event.getAction())
                     .entityType(event.getEntityType())
                     .entityId(event.getEntityId())
+                    .projectId(extractProjectId(event.getRequestUri()))
                     .oldValue(oldValueStr)
                     .newValue(newValueStr)
                     .ipAddress(event.getIpAddress())
@@ -62,5 +68,11 @@ public class AuditService {
                                String errorMessage, long durationMs) {
         applicationEventPublisher.publishEvent(new AuditEvent(this, userId, username, action, entityType, entityId,
                 null, null, ipAddress, httpMethod, uri, "FAILED", errorMessage, durationMs));
+    }
+
+    private Long extractProjectId(String uri) {
+        if (uri == null) return null;
+        Matcher m = PROJECT_ID_PATTERN.matcher(uri);
+        return m.find() ? Long.parseLong(m.group(1)) : null;
     }
 }

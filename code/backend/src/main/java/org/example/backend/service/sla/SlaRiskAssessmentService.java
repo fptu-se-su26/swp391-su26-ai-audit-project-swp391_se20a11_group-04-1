@@ -36,6 +36,8 @@ public class SlaRiskAssessmentService {
         private final String predictedRiskLevel;
         private final List<String> predictionReasons;
         private final ScoreBreakdown scoreBreakdown;
+        /** Confidence (0.0–1.0) of the predicted risk level: 1.0 = certain (DONE), lower = near a zone boundary. */
+        private final double predictionConfidence;
     }
 
     @Getter
@@ -137,6 +139,8 @@ public class SlaRiskAssessmentService {
                 .workloadPenalty(task.getStatus() == TaskStatus.DONE ? 0 : workloadPenalty)
                 .build();
 
+        double predictionConfidence = computePredictionConfidence(score, evaluation);
+
         return AssessmentResult.builder()
                 .score(score)
                 .riskLevel(riskLevel)
@@ -148,6 +152,7 @@ public class SlaRiskAssessmentService {
                 .predictedRiskLevel(predictedRiskLevel)
                 .predictionReasons(predictionReasons)
                 .scoreBreakdown(scoreBreakdown)
+                .predictionConfidence(predictionConfidence)
                 .build();
     }
 
@@ -266,5 +271,21 @@ public class SlaRiskAssessmentService {
 
     private double round(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    private double computePredictionConfidence(int score, TaskSlaEvaluation evaluation) {
+        if (score == 100) return 1.0; // DONE task — certain
+        if (evaluation.has(TaskSlaCategory.OVERDUE_PENALTY)) return 0.90;
+        int distanceToBoundary;
+        if (score <= 20) {
+            distanceToBoundary = 20 - score;
+        } else if (score <= 45) {
+            distanceToBoundary = Math.min(score - 20, 45 - score);
+        } else if (score <= 75) {
+            distanceToBoundary = Math.min(score - 45, 75 - score);
+        } else {
+            distanceToBoundary = Math.min(score - 75, 100 - score);
+        }
+        return Math.min(0.88, 0.50 + distanceToBoundary * 0.02);
     }
 }

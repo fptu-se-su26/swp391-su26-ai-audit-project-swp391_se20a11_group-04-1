@@ -77,7 +77,8 @@ public class SlaStateService {
                 || !Objects.equals(oldState.getSpi(), assessment.getSpi())
                 || !Objects.equals(oldState.getPredictedRiskLevel(), assessment.getPredictedRiskLevel())
                 || !Objects.equals(oldState.getPredictionReasonsJson(), predictionReasonsJson)
-                || !Objects.equals(oldState.getScoreBreakdownJson(), scoreBreakdownJson);
+                || !Objects.equals(oldState.getScoreBreakdownJson(), scoreBreakdownJson)
+                || !Objects.equals(oldState.getPredictionConfidence(), assessment.getPredictionConfidence());
 
         String previousRiskLevel = oldState != null ? oldState.getCurrentRiskLevel() : null;
         Integer previousScore = oldState != null ? oldState.getCurrentScore() : null;
@@ -106,6 +107,7 @@ public class SlaStateService {
             newState.setPredictedRiskLevel(assessment.getPredictedRiskLevel());
             newState.setPredictionReasonsJson(predictionReasonsJson);
             newState.setScoreBreakdownJson(scoreBreakdownJson);
+            newState.setPredictionConfidence(assessment.getPredictionConfidence());
             newState.setEvaluatedAt(LocalDateTime.now());
 
             taskSlaStateRepository.save(newState);

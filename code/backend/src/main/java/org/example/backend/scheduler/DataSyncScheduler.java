@@ -10,8 +10,12 @@ import org.example.backend.entity.EntitySyncLog;
 import org.example.backend.entity.SchedulerRunLog;
 import org.example.backend.entity.Sprint;
 import org.example.backend.entity.SprintStatus;
+import org.example.backend.entity.Task;
+import org.example.backend.entity.TaskSlaState;
+import org.example.backend.entity.TaskStatus;
 import org.example.backend.repository.EntitySyncLogRepository;
 import org.example.backend.repository.SprintRepository;
+import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +34,7 @@ public class DataSyncScheduler {
 
     private final SprintRepository sprintRepository;
     private final EntitySyncLogRepository entitySyncLogRepository;
+    private final TaskSlaStateRepository taskSlaStateRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final SchedulerRunLogService schedulerRunLogService;
 
@@ -54,6 +59,7 @@ public class DataSyncScheduler {
                         sprint.getId(),
                         Map.of("projectId", sprint.getProject().getId())
                 ));
+                backfillPredictionAccurate(sprint, today);
                 sprintsFixed++;
             }
 
@@ -82,6 +88,29 @@ public class DataSyncScheduler {
         } catch (Exception e) {
             log.error("DataSyncScheduler failed", e);
             schedulerRunLogService.fail(runLog, e);
+        }
+    }
+
+    private void backfillPredictionAccurate(Sprint sprint, LocalDate today) {
+        List<TaskSlaState> states = taskSlaStateRepository
+                .findByProjectIdAndSprintIdWithTask(sprint.getProject().getId(), sprint.getId());
+        for (TaskSlaState state : states) {
+            if (state.getPredictedRiskLevel() == null || state.getPredictionAccurate() != null) {
+                continue;
+            }
+            Task task = state.getTask();
+            boolean actuallyRisky;
+            if (task.getStatus() == TaskStatus.DONE) {
+                actuallyRisky = false;
+            } else if (task.getDeadline() != null && today.isAfter(task.getDeadline())) {
+                actuallyRisky = true;
+            } else {
+                continue; // cannot determine — skip
+            }
+            boolean predictedRisky = "HIGH".equals(state.getPredictedRiskLevel())
+                    || "CRITICAL".equals(state.getPredictedRiskLevel());
+            state.setPredictionAccurate(predictedRisky == actuallyRisky);
+            taskSlaStateRepository.save(state);
         }
     }
 }

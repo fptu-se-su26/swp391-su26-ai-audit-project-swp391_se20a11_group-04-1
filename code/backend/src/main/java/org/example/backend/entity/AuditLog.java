@@ -67,6 +67,9 @@ public class AuditLog {
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "duration_ms")
     private Long durationMs;
 
