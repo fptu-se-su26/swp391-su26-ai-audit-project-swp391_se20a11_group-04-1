@@ -2,10 +2,10 @@ import React from 'react';
 
 const UseCaseStats = ({ useCases = [] }) => {
   const stats = [
-    { label: 'TOTAL ACTIVE', value: useCases.length, bg: 'bg-[#EFF6FF]', icon: 'grid_view', iconColor: 'text-[#185FA5]' },
+    { label: 'TOTAL ACTIVE', value: useCases.length, bg: 'bg-[#1E707D/10]', icon: 'grid_view', iconColor: 'text-[#1E707D]' },
     { label: 'COMPLETED', value: useCases.filter(uc => uc.status === 'COMPLETED' || uc.status === 'DONE').length, bg: 'bg-[#E1F5EE]', icon: 'check_circle', iconColor: 'text-[#1D9E75]' },
     { label: 'IN DRAFT', value: useCases.filter(uc => uc.status === 'DRAFT').length, bg: 'bg-[#F3F4F6]', icon: 'edit_document', iconColor: 'text-[#9CA3AF]' },
-    { label: 'AI REVIEWED', value: useCases.filter(uc => uc.aiGenerated).length, bg: 'bg-[#EEEDFE]', icon: 'smart_toy', iconColor: 'text-[#534AB7]' },
+    { label: 'AI REVIEWED', value: useCases.filter(uc => uc.aiGenerated).length, bg: 'bg-[#1E707D]/10', icon: 'smart_toy', iconColor: 'text-[#1E707D]' },
   ];
 
   return (

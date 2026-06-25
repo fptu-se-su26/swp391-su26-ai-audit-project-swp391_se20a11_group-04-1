@@ -175,10 +175,10 @@ export function ProposalTab({
 
         {/* Section gắn Requirement */}
         {canViewRequirementLink && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50/10 p-4 shadow-sm shrink-0 space-y-3 mb-2">
+          <div className="rounded-xl border border-blue-200 bg-[#1E707D]/10/10 p-4 shadow-sm shrink-0 space-y-3 mb-2">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 text-blue-900 font-bold text-xs uppercase tracking-wider">
-                <span className="material-symbols-outlined text-[16px] text-blue-600">link</span>
+                <span className="material-symbols-outlined text-[16px] text-[#1E707D]">link</span>
                 <span>Requirement tương ứng</span>
               </div>
               <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
@@ -207,7 +207,7 @@ export function ProposalTab({
                     [{req.reqCode || `REQ-${req.id}`}] {req.title}
                   </option>
                 ))}
-                <option value="CREATE_NEW" className="text-blue-600 font-bold bg-blue-50">
+                <option value="CREATE_NEW" className="text-[#1E707D] font-bold bg-[#1E707D]/10">
                   + Tạo mới Requirement...
                 </option>
               </select>
@@ -217,7 +217,7 @@ export function ProposalTab({
                 <button
                   onClick={handleSaveRequirement}
                   disabled={savingReq || String(selectedReqId) === String(task?.requirementId || '')}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                  className="px-4 py-2 bg-[#1E707D] hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
                 >
                   {savingReq ? (
                     <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
@@ -372,7 +372,7 @@ export function ProposalTab({
                       {isPending && isLeader && onApprove && !readOnly && (
                         <button
                           onClick={() => onApprove(p)}
-                          className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-sm cursor-pointer"
+                          className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#1E707D] hover:bg-indigo-700 text-white font-bold transition-all shadow-sm cursor-pointer"
                         >
                           <Crown size={11} /> Thông qua
                         </button>
@@ -545,7 +545,7 @@ export function ProposalTab({
                       <button
                         type="submit"
                         disabled={!(safeCommentsInputs[p.id] || '').trim()}
-                        className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-40"
+                        className="px-3 py-2 rounded-lg bg-[#1E707D] hover:bg-indigo-700 text-white font-bold transition-colors cursor-pointer disabled:opacity-40"
                       >
                         <Send size={12} />
                       </button>

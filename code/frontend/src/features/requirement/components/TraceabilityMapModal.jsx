@@ -19,13 +19,13 @@ const TraceabilityMapModal = ({ isOpen, onClose, requirement, data }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white z-20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shadow-inner">
-              <span className="material-symbols-outlined text-indigo-600 text-[22px]">account_tree</span>
+            <div className="w-10 h-10 rounded-xl bg-[#1E707D]/10 border border-[#1E707D]/20 flex items-center justify-center shadow-inner">
+              <span className="material-symbols-outlined text-[#1E707D] text-[22px]">account_tree</span>
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-800 leading-tight">Enterprise Traceability Tree</h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded uppercase tracking-wide">
+                <span className="text-xs font-semibold px-2 py-0.5 bg-[#1E707D]/10 text-[#1E707D] rounded uppercase tracking-wide">
                   {requirement?.reqCode || 'REQ'}
                 </span>
                 <span className="text-sm text-slate-500 font-medium truncate max-w-lg">

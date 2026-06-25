@@ -45,10 +45,10 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                   #{task.githubIssueNumber}
                 </span>
               )}
-              <span className="font-label-md text-label-md text-primary bg-primary-fixed px-2 py-1 rounded">
+              <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1] px-2 py-1 rounded">
                 ID: {task.id}
               </span>
-              <span className="bg-primary text-white font-label-md text-[10px] px-1.5 py-0.5 rounded">
+              <span className="bg-[#1E707D] text-white font-label-md text-[10px] px-1.5 py-0.5 rounded">
                 {(task.columnName || task.status).replaceAll('_', ' ')}
               </span>
             </div>
@@ -70,7 +70,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                   <button
                     type="button"
                     onClick={() => useKanbanStore.getState().openTask(parentTask.id)}
-                    className="inline-flex items-center gap-1.5 text-xs text-primary font-bold hover:underline"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#1E707D] font-bold hover:underline"
                   >
                     <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                     <span>Quay lại task cha: {parentTask.title}</span>
@@ -86,7 +86,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   to={taskDetailPath}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-on-primary px-3 py-2 text-xs font-bold hover:bg-surface-tint transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E707D] text-white px-3 py-2 text-xs font-bold hover:bg-surface-tint transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                   <span>Open full detail</span>
@@ -136,7 +136,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 {task.requirementId ? (
                   <Link
                     to={`/projects/${projectId}/requirements/${task.requirementId}`}
-                    className="flex items-center space-x-1 text-primary font-medium hover:underline hover:text-surface-tint"
+                    className="flex items-center space-x-1 text-[#1E707D] font-medium hover:underline hover:text-surface-tint"
                   >
                     <span className="material-symbols-outlined text-[16px]">assignment</span>
                     <span>{task.requirement}</span>
@@ -202,7 +202,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
 
                   onStatusChange(task.id, column?.statusKey || task.status, column?.id || null)
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-background focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-background focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 {columns.map((status) => (
                   <option key={status.id} value={status.id}>
@@ -258,7 +258,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                       <input
                         checked={item.done}
                         onChange={() => onToggleChecklist(task.id, item.id)}
-                        className="mt-1 rounded text-primary focus:ring-primary h-4 w-4 border-outline-variant"
+                        className="mt-1 rounded text-[#1E707D] focus:ring-[#1E707D] h-4 w-4 border-outline-variant"
                         type="checkbox"
                       />
                       <span className={`text-sm ${item.done ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
@@ -285,10 +285,10 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                       <div
                         key={sub.id}
                         onClick={() => useKanbanStore.getState().openTask(sub.id)}
-                        className="flex items-center justify-between p-2 rounded bg-surface-container-lowest border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-all cursor-pointer group"
+                        className="flex items-center justify-between p-2 rounded bg-surface-container-lowest border border-outline-variant hover:border-[#1E707D] hover:bg-surface-container-low transition-all cursor-pointer group"
                       >
                         <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          <span className="material-symbols-outlined text-[16px] text-primary">subdirectory_arrow_right</span>
+                          <span className="material-symbols-outlined text-[16px] text-[#1E707D]">subdirectory_arrow_right</span>
                           <span className={`text-xs font-semibold truncate ${isSubDone ? 'text-on-surface-variant line-through' : 'text-on-background'}`}>
                             {sub.title}
                           </span>
@@ -296,7 +296,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 uppercase border ${
                           sub.status === 'DONE' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
                           sub.status === 'IN_REVIEW' ? 'bg-purple-50 text-purple-600 border-purple-200' :
-                          sub.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                          sub.status === 'IN_PROGRESS' ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-200' :
                           'bg-slate-50 text-slate-600 border-slate-200'
                         }`}>
                           {sub.status.replaceAll('_', ' ')}
@@ -314,7 +314,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                 <code className="text-sm font-label-md text-on-background flex-1">
                   feat(PRJ{projectId}-{task.id}): 
                 </code>
-                <button type="button" className="text-on-surface-variant hover:text-primary" title="Copy prefix">
+                <button type="button" className="text-on-surface-variant hover:text-[#1E707D]" title="Copy prefix">
                   <span className="material-symbols-outlined text-[16px]">content_copy</span>
                 </button>
               </div>

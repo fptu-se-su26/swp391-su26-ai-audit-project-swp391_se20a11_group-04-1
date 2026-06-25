@@ -23,7 +23,7 @@ export function RtmToolbar({
         <select
           value={filters.status}
           onChange={(e) => onFilterChange('status', e.target.value)}
-          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D]"
         >
           <option value="ALL">All Statuses</option>
           {statusOptions.map((status) => (
@@ -34,7 +34,7 @@ export function RtmToolbar({
         <select
           value={filters.priority}
           onChange={(e) => onFilterChange('priority', e.target.value)}
-          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D]"
         >
           <option value="ALL">All Priorities</option>
           {priorityOptions.map((priority) => (
@@ -65,7 +65,7 @@ export function RtmToolbar({
           type="button"
           onClick={onSaveSnapshot}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-on-primary hover:bg-primary-container text-xs font-black uppercase tracking-wider transition-colors shadow-md disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#1E707D] text-white hover:bg-[#D7EEF1] text-xs font-black uppercase tracking-wider transition-colors shadow-md disabled:opacity-50"
         >
           <span className={`material-symbols-outlined text-[18px] ${saving ? 'animate-spin' : ''}`}>save</span>
           Save Snapshot

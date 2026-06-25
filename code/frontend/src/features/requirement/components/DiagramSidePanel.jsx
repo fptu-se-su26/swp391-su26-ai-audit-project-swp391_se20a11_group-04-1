@@ -15,7 +15,7 @@ const DiagramSidePanel = ({ projectId, systemName, setSystemName }) => {
           <label className="block text-xs font-medium text-gray-700 mb-1">System Name</label>
           <input
             type="text"
-            className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D]"
             value={systemName || ''}
             onChange={(e) => setSystemName && setSystemName(e.target.value)}
             placeholder="e.g. E-Commerce System"
@@ -26,19 +26,19 @@ const DiagramSidePanel = ({ projectId, systemName, setSystemName }) => {
       <div className="flex w-full border-b border-gray-200">
         <button 
           onClick={() => setActiveTab('actors')}
-          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'actors' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'actors' ? 'text-[#1E707D] border-b-2 border-[#1E707D] bg-[#1E707D]/10' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
         >
           Actors
         </button>
         <button 
           onClick={() => setActiveTab('usecases')}
-          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'usecases' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'usecases' ? 'text-[#1E707D] border-b-2 border-[#1E707D] bg-[#1E707D]/10' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
         >
           Use Cases
         </button>
         <button 
           onClick={() => setActiveTab('relations')}
-          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'relations' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+          className={`flex-1 py-2.5 text-sm font-medium transition-colors ${activeTab === 'relations' ? 'text-[#1E707D] border-b-2 border-[#1E707D] bg-[#1E707D]/10' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
         >
           Relations
         </button>

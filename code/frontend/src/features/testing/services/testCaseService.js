@@ -77,10 +77,26 @@ export const testCaseService = {
   },
 
   /**
-   * Generate API Test from description
+   * Generate Test Case with AI (API/UI/MANUAL)
    */
-  generateApiTest: async (projectId, description) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-api`, { description })
+  generateTestCaseWithAi: async (projectId, payload) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-ai`, payload, { timeout: 120000 })
+    return response.data.data
+  },
+
+  /**
+   * Lấy dữ liệu test case generation staging
+   */
+  getTestCaseGeneration: async (projectId, generationId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/test-cases/generate-ai/${generationId}`)
+    return response.data.data
+  },
+
+  /**
+   * Approve Test Case Generation
+   */
+  approveTestCaseGeneration: async (projectId, generationId, payload) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-ai/${generationId}/approve`, payload)
     return response.data.data
   },
 

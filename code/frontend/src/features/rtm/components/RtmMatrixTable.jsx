@@ -50,7 +50,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
   if (!rows.length) {
     return (
       <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-10 text-center shadow-sm">
-        <span className="material-symbols-outlined text-5xl text-primary">reorder</span>
+        <span className="material-symbols-outlined text-5xl text-[#1E707D]">reorder</span>
         <h3 className="mt-3 text-lg font-black text-on-surface">No requirements found</h3>
         <p className="mt-1 text-sm text-on-surface-variant">
           Once requirements are created for this project, their traceability chain will appear here.
@@ -83,11 +83,11 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                 <tr
                   key={row.requirementId}
                   onClick={() => onSelectRow(row)}
-                  className={`cursor-pointer transition-colors group hover:bg-primary-fixed/30 ${row.traceabilityStatus === 'AT_RISK' ? 'bg-error-container/10' : ''}`}
+                  className={`cursor-pointer transition-colors group hover:bg-[#D7EEF1]/30 ${row.traceabilityStatus === 'AT_RISK' ? 'bg-error-container/10' : ''}`}
                 >
                   <td className="px-4 py-4 max-w-[280px]">
                     <div className="flex flex-col">
-                      <span className="font-label-md text-[11px] text-primary font-black">{row.requirementCode}</span>
+                      <span className="font-label-md text-[11px] text-[#1E707D] font-black">{row.requirementCode}</span>
                       <span className="text-sm font-bold text-on-surface truncate">{row.title}</span>
                     </div>
                   </td>

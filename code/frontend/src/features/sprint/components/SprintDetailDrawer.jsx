@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import WeeklyPlanner from './WeeklyPlanner'
 
 const statusClasses = {
-  PLANNED: 'bg-primary-fixed text-on-primary-fixed',
+  PLANNED: 'bg-[#D7EEF1] text-[#1E707D]',
   ACTIVE: 'bg-[#dcfce7] text-[#166534]',
   COMPLETED: 'bg-surface-container-high text-on-surface-variant',
 }
 
 const taskStatusClasses = {
   TODO: 'bg-outline/15 text-on-surface-variant',
-  IN_PROGRESS: 'bg-primary-fixed text-on-primary-fixed',
+  IN_PROGRESS: 'bg-[#D7EEF1] text-[#1E707D]',
   IN_REVIEW: 'bg-[#f3e8ff] text-[#6b21a8]',
   DONE: 'bg-[#dcfce7] text-[#166534]',
   BLOCKED: 'bg-error-container text-on-error-container',
@@ -62,13 +62,13 @@ const TaskPicker = ({ tasks, onAssign, assigning }) => {
           {filtered.map((task) => (
             <div key={task.id} className="rounded-xl border border-outline-variant/60 bg-surface p-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase text-primary">{task.requirementCode || 'No Requirement'}</p>
+                <p className="text-[10px] font-black uppercase text-[#1E707D]">{task.requirementCode || 'No Requirement'}</p>
                 <h4 className="font-bold text-sm text-on-surface truncate">{task.title}</h4>
                 <p className="text-xs text-on-surface-variant">{task.estimatedHours || 0}h estimated</p>
               </div>
               <button
                 disabled={assigning}
-                className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-black hover:bg-primary-container disabled:opacity-60"
+                className="px-3 py-1.5 rounded-lg bg-[#1E707D] text-white text-xs font-black hover:bg-[#D7EEF1] disabled:opacity-60"
                 onClick={() => onAssign(task.id)}
               >
                 Add
@@ -85,7 +85,7 @@ const Metric = ({ label, value, icon }) => (
   <div className="rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4">
     <div className="flex items-center justify-between">
       <p className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant">{label}</p>
-      <span className="material-symbols-outlined text-lg text-primary">{icon}</span>
+      <span className="material-symbols-outlined text-lg text-[#1E707D]">{icon}</span>
     </div>
     <p className="mt-2 text-2xl font-black text-on-surface">{value}</p>
   </div>
@@ -175,7 +175,7 @@ const SprintDetailDrawer = ({
               <p className="text-sm font-bold text-on-surface">{estimated}h{capacity ? ` / ${capacity}h` : ''}</p>
             </div>
             <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(sprint.capacityUsagePercent || 0, 100)}%` }}></div>
+              <div className="h-full bg-[#1E707D] rounded-full" style={{ width: `${Math.min(sprint.capacityUsagePercent || 0, 100)}%` }}></div>
             </div>
           </div>
 
@@ -195,7 +195,7 @@ const SprintDetailDrawer = ({
                 {sprintTasks.map((task) => (
                   <div key={task.id} className="p-4 flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase text-primary">{task.requirementCode || 'No Requirement'}</p>
+                      <p className="text-[10px] font-black uppercase text-[#1E707D]">{task.requirementCode || 'No Requirement'}</p>
                       <h4 className="font-bold text-on-surface truncate">{task.title}</h4>
                       <p className="text-xs text-on-surface-variant">{task.sprintPlanDate ? `Planned ${task.sprintPlanDate}` : 'Unplanned'} - {task.estimatedHours || 0}h</p>
                     </div>

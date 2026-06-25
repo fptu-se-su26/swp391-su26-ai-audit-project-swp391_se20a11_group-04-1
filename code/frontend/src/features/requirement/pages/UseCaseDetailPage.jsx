@@ -165,7 +165,7 @@ const UseCaseDetailPage = () => {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
-          <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+          <span className="material-symbols-outlined animate-spin text-[#1E707D] text-[32px]">progress_activity</span>
           <span className="text-on-surface-variant font-medium">Loading Use Case details...</span>
         </div>
       </div>
@@ -184,7 +184,7 @@ const UseCaseDetailPage = () => {
   const displayData = isEditing ? { ...useCase, ...editData } : useCase;
 
   return (
-    <div className="p-6 md:p-10 z-10 h-full">
+    <div className="p-6 md:p-10 h-full relative">
       {showSyncModal && (
         <AiSyncUseCaseModal
           useCase={displayData}
@@ -240,7 +240,6 @@ const UseCaseDetailPage = () => {
               isEditing={isEditing}
               onFieldChange={handleFieldChange}
             />
-            <UseCaseAIAnalysis />
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@ export function ContributionPage() {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none flex items-center justify-center">
         <div className="max-w-md w-full text-center bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/60 shadow-lg space-y-4">
-          <span className="material-symbols-outlined text-5xl text-primary animate-bounce">folder_open</span>
+          <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-bounce">folder_open</span>
           <h3 className="font-extrabold text-xl text-on-surface">Chưa chọn dự án</h3>
           <p className="text-sm text-on-surface-variant leading-relaxed">
             Vui lòng quay lại Dashboard và chọn một dự án cụ thể để quản lý đóng góp và thành viên nhóm.
@@ -89,7 +89,7 @@ export function ContributionPage() {
       case 'LEADER':
       case 'Project Leader':
         return (
-          <span className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wide rounded-full">
+          <span className="flex items-center gap-1.5 px-3 py-1 bg-[#1E707D]/10 text-[#1E707D] border border-[#1E707D]/20 text-xs font-bold uppercase tracking-wide rounded-full">
             <span className="material-symbols-outlined text-[14px]">shield_person</span>
             Project Leader
           </span>
@@ -115,13 +115,13 @@ export function ContributionPage() {
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
       {/* Background Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-primary-fixed opacity-[0.08] blur-[120px]"></div>
+        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-[#D7EEF1] opacity-[0.08] blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
       <div className="relative z-10 w-full space-y-8 animate-fade-in">
         {/* Banner tiêu đề trang */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white shadow-lg">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
@@ -140,7 +140,7 @@ export function ContributionPage() {
           {isLeader && (
             <button
               onClick={() => setIsInviteModalOpen(true)}
-              className="flex items-center gap-2 bg-white text-primary px-5 py-2.5 rounded-xl font-black text-sm hover:bg-primary-fixed-dim hover:scale-105 transition-all shadow-md shrink-0"
+              className="flex items-center gap-2 bg-white text-[#1E707D] px-5 py-2.5 rounded-xl font-black text-sm hover:bg-[#BFDEEA] hover:scale-105 transition-all shadow-md shrink-0"
             >
               <span className="material-symbols-outlined text-lg font-bold">person_add</span>
               Mời thành viên
@@ -154,7 +154,7 @@ export function ContributionPage() {
             <div>
               <h3 className="font-extrabold text-lg text-on-surface flex items-center gap-2">
                 Danh sách thành viên
-                <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-bold">
+                <span className="bg-[#1E707D]/10 text-[#1E707D] text-xs px-2 py-0.5 rounded-full font-bold">
                   {members.length}
                 </span>
               </h3>
@@ -229,7 +229,7 @@ export function ContributionPage() {
 
             <div className="space-y-2">
               <h3 className="font-extrabold text-xl text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">person_add</span>
+                <span className="material-symbols-outlined text-[#1E707D]">person_add</span>
                 Mời thành viên mới
               </h3>
               <p className="text-xs text-on-surface-variant leading-relaxed">
@@ -247,7 +247,7 @@ export function ContributionPage() {
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="example@student.fpt.edu.vn"
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-on-surface"
+                    className="w-full bg-surface-container-low border border-outline-variant rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D] transition-all text-on-surface"
                     autoFocus
                   />
                 </div>
@@ -264,7 +264,7 @@ export function ContributionPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-on-primary-fixed-variant disabled:opacity-50 transition-colors shadow-md"
+                  className="flex items-center gap-2 bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-[#165964] disabled:opacity-50 transition-colors shadow-md"
                 >
                   {loading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
                   Gửi lời mời

@@ -1072,7 +1072,7 @@ export function IssueTrackerDashboard() {
       case 'MEDIUM': return 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20'
       case 'LOW':
       default:
-        return 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+        return 'bg-[#1E707D]/10 text-[#1E707D] border border-blue-500/20'
     }
   }
 
@@ -1083,7 +1083,7 @@ export function IssueTrackerDashboard() {
         return 'bg-red-500/10 text-red-600 border border-red-500/20'
       case 'DEVELOPMENT':
       case 'Feature / Task':
-        return 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+        return 'bg-[#1E707D]/10 text-[#1E707D] border border-blue-500/20'
       case 'TESTING':
       case 'Test Task':
         return 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
@@ -1106,7 +1106,7 @@ export function IssueTrackerDashboard() {
       case 'DONE':
         return <span className="text-[10px] font-black tracking-wider uppercase bg-green-500/10 text-green-600 border border-green-500/25 px-2.5 py-0.5 rounded-full">CLOSED</span>
       case 'IN_PROGRESS':
-        return <span className="text-[10px] font-black tracking-wider uppercase bg-blue-500/10 text-blue-600 border border-blue-500/25 px-2.5 py-0.5 rounded-full">IN PROGRESS</span>
+        return <span className="text-[10px] font-black tracking-wider uppercase bg-[#1E707D]/10 text-[#1E707D] border border-blue-500/25 px-2.5 py-0.5 rounded-full">IN PROGRESS</span>
       case 'IN_REVIEW':
         return <span className="text-[10px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-600 border border-amber-500/25 px-2.5 py-0.5 rounded-full">IN REVIEW</span>
       case 'OPEN':
@@ -1149,7 +1149,7 @@ export function IssueTrackerDashboard() {
     <main className="flex-1 p-4 md:p-6 overflow-y-auto relative bg-background select-none">
       {/* Blurred background visuals */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-primary-fixed opacity-[0.08] blur-[120px]"></div>
+        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-[#D7EEF1] opacity-[0.08] blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
@@ -1159,10 +1159,10 @@ export function IssueTrackerDashboard() {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-3xl text-primary font-bold">bug_report</span>
+                <span className="material-symbols-outlined text-3xl text-[#1E707D] font-bold">bug_report</span>
                 <span>Issue Tracker</span>
               </h1>
-              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed shrink-0">
+              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-[#D7EEF1] text-[#1E707D] shrink-0">
                 {activeProject?.title || 'DevTrack AI'}
               </span>
             </div>
@@ -1245,7 +1245,7 @@ export function IssueTrackerDashboard() {
 
             <button
               onClick={loadBugs}
-              className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-primary shrink-0 self-start md:self-auto"
+              className="flex items-center justify-center gap-1 py-2 px-3.5 border border-outline-variant hover:bg-surface-container-high rounded-xl text-xs font-bold transition-all text-[#1E707D] shrink-0 self-start md:self-auto"
             >
               <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
               <span>Refresh list</span>
@@ -1283,7 +1283,7 @@ export function IssueTrackerDashboard() {
             <button
               type="button"
               onClick={() => openNewIssueModal(quickProposalText)}
-              className="rounded-full border border-blue-500 text-blue-500 bg-white hover:bg-blue-50 px-4 py-1.5 transition-all text-[11px] font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+              className="rounded-full border border-blue-500 text-[#1E707D] bg-white hover:bg-[#1E707D]/10 px-4 py-1.5 transition-all text-[11px] font-bold shrink-0 flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-xs">add</span>
               <span>Đề xuất</span>
@@ -1297,7 +1297,7 @@ export function IssueTrackerDashboard() {
           <button
             onClick={() => setActiveListTab('discuss')}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'discuss'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-[#1E707D] text-white border-blue-600 shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
@@ -1308,7 +1308,7 @@ export function IssueTrackerDashboard() {
           <button
             onClick={() => setActiveListTab('open')}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'open'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-[#1E707D] text-white border-blue-600 shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
@@ -1321,7 +1321,7 @@ export function IssueTrackerDashboard() {
           <button
             onClick={() => setActiveListTab('closed')}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'closed'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-[#1E707D] text-white border-blue-600 shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
@@ -1335,7 +1335,7 @@ export function IssueTrackerDashboard() {
         {/* Bug Reports Grid List */}
         {loading ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-16 text-center shadow-sm">
-            <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
+            <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Scanning repository for logged issues...</p>
           </section>
         ) : activeListTab === 'discuss' ? (
@@ -1490,7 +1490,7 @@ export function IssueTrackerDashboard() {
               const isReviewActionEnabled = hasSubtasks ? (areAllSubtasksDone && isChecklistPassed) : isChecklistPassed
 
               return (
-                <div key={rowId} className="flex flex-col bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-sm overflow-hidden hover:border-primary/45 transition-colors">
+                <div key={rowId} className="flex flex-col bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-sm overflow-hidden hover:border-[#1E707D]/45 transition-colors">
                   {/* Row Header */}
                   <div
                     onClick={(e) => {
@@ -1500,7 +1500,7 @@ export function IssueTrackerDashboard() {
                     className="flex flex-wrap md:flex-nowrap items-center gap-3 p-3 cursor-pointer group"
                   >
                     {/* Left Expand Chevron */}
-                    <div className="flex-shrink-0 w-6 flex justify-center text-on-surface-variant group-hover:text-primary transition-colors">
+                    <div className="flex-shrink-0 w-6 flex justify-center text-on-surface-variant group-hover:text-[#1E707D] transition-colors">
                       {!bug.isSubTask ? (
                         <span className={`material-symbols-outlined transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                           expand_more
@@ -1511,7 +1511,7 @@ export function IssueTrackerDashboard() {
                     </div>
 
                     <div className="flex-shrink-0 flex justify-center">
-                      <span className={`material-symbols-outlined text-lg ${bug.isSubTask ? 'text-amber-500 font-bold' : (bug.isBug ? 'text-red-500' : 'text-blue-500')}`}>
+                      <span className={`material-symbols-outlined text-lg ${bug.isSubTask ? 'text-amber-500 font-bold' : (bug.isBug ? 'text-red-500' : 'text-[#1E707D]')}`}>
                         {bug.isSubTask ? 'rate_review' : (bug.isBug ? 'bug_report' : 'task')}
                       </span>
                     </div>
@@ -1528,7 +1528,7 @@ export function IssueTrackerDashboard() {
                           </span>
                         )}
                       </div>
-                      <h3 className="font-extrabold text-sm text-on-surface leading-snug truncate group-hover:text-primary transition-colors">
+                      <h3 className="font-extrabold text-sm text-on-surface leading-snug truncate group-hover:text-[#1E707D] transition-colors">
                         {bug.displayTitle}
                       </h3>
                     </div>
@@ -1582,7 +1582,7 @@ export function IssueTrackerDashboard() {
                             <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
                             {hasMultipleAssignees ? (
                               <div 
-                                className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-full border max-w-[180px] bg-blue-500/10 text-blue-600 border-blue-500/30 opacity-50 cursor-not-allowed"
+                                className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-full border max-w-[180px] bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 opacity-50 cursor-not-allowed"
                                 title="Bị khoá do các sub-task đang được giao cho nhiều người khác nhau"
                               >
                                 <span className="truncate leading-tight">{firstName}</span>
@@ -1593,11 +1593,11 @@ export function IssueTrackerDashboard() {
                                 value={displayValue}
                                 onChange={(e) => handleLeaderAssign(e, bug, e.target.value)}
                                 disabled={isSelectDisabled}
-                                className={`text-xs font-bold px-2.5 py-1 rounded-full border focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px] truncate transition-all cursor-pointer ${
+                                className={`text-xs font-bold px-2.5 py-1 rounded-full border focus:outline-none focus:ring-1 focus:ring-[#1E707D] max-w-[180px] truncate transition-all cursor-pointer ${
                                   assigningTaskId === (bug.isBug ? bug.fixTask?.id : bug.id) ? 'opacity-50 cursor-wait' : ''
                                 } ${
                                   displayValue
-                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                    ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 hover:bg-[#1E707D]/20'
                                     : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                                 }`}
                                 title="Assign to member"
@@ -1630,7 +1630,7 @@ export function IssueTrackerDashboard() {
                            const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
                            const firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
                            content = (
-                             <div className="flex flex-col justify-center text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-blue-500/10 text-blue-600 border-blue-500/30 max-w-[180px]">
+                             <div className="flex flex-col justify-center text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 max-w-[180px]">
                                <span className="truncate leading-tight">{firstName}</span>
                                <span className="text-[9px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
                              </div>
@@ -1640,7 +1640,7 @@ export function IssueTrackerDashboard() {
                            content = (
                              <span className={`text-xs font-bold px-2.5 py-1 rounded-full border max-w-[180px] truncate ${
                                currentAssigneeId
-                                 ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                 ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 hover:bg-[#1E707D]/20'
                                  : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                              }`}>
                                {assignee?.name || assignee?.fullName || assignee?.username || '-- Chưa phân công --'}
@@ -1700,7 +1700,7 @@ export function IssueTrackerDashboard() {
                             handleApproveBug(e, bug.id);
                           }}
                           disabled={approvingId === bug.id}
-                          className="py-1 px-3.5 bg-primary hover:bg-primary/95 text-on-primary text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
+                          className="py-1 px-3.5 bg-[#1E707D] hover:bg-[#1E707D]/95 text-white text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
                         >
                           {approvingId === bug.id ? (
                             <span className="material-symbols-outlined text-[10px] animate-spin">progress_activity</span>
@@ -1723,7 +1723,7 @@ export function IssueTrackerDashboard() {
                     return (
                       <div className="bg-surface-container-low border-t border-outline-variant/30 py-4 flex flex-col relative">
                         {/* Vertical line connecting children */}
-                        <div className="absolute left-7 top-0 bottom-6 w-0.5 bg-blue-600 rounded-full hidden sm:block"></div>
+                        <div className="absolute left-7 top-0 bottom-6 w-0.5 bg-[#1E707D] rounded-full hidden sm:block"></div>
 
                         {/* Parent Description */}
                         <div className="pl-14 pr-6 pb-3">
@@ -1739,7 +1739,7 @@ export function IssueTrackerDashboard() {
                             <button
                               type="button"
                               onClick={(e) => triggerCreateSubtask(e, bug)}
-                              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary-hover transition-colors py-1.5 bg-surface-container-high/65 hover:bg-surface-container-highest px-3 rounded-lg border border-outline-variant/60 shadow-sm font-bold"
+                              className="flex items-center gap-1.5 text-xs text-[#1E707D] hover:text-[#165964] transition-colors py-1.5 bg-surface-container-high/65 hover:bg-surface-container-highest px-3 rounded-lg border border-outline-variant/60 shadow-sm font-bold"
                             >
                               <span className="material-symbols-outlined text-sm font-bold">add_circle</span>
                               Create Sub-task (Full Form)
@@ -1766,7 +1766,7 @@ export function IssueTrackerDashboard() {
                               <div className="flex-1 flex items-center justify-between gap-3">
                                 <div className="flex flex-col">
                                   <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">Fix Bug Task</span>
-                                  <span className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors truncate">{bug.fixTask.displayTitle}</span>
+                                  <span className="text-xs font-bold text-on-surface group-hover:text-[#1E707D] transition-colors truncate">{bug.fixTask.displayTitle}</span>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${getSeverityColor(bug.fixTask.displaySeverity)}`}>
@@ -1793,14 +1793,14 @@ export function IssueTrackerDashboard() {
                                       }}
                                     >
                                       <div className="flex-shrink-0 flex items-center gap-1 text-outline">
-                                        <span className="material-symbols-outlined text-blue-500 text-base">subdirectory_arrow_right</span>
+                                        <span className="material-symbols-outlined text-[#1E707D] text-base">subdirectory_arrow_right</span>
                                       </div>
                                       <div className="flex-1 flex items-center justify-between gap-3">
                                         <div className="flex flex-col items-start gap-1">
                                           <span className={`text-[8px] font-black tracking-wider uppercase px-1.5 py-0.25 rounded-md ${getTaskTypeBadge(sub.displayType)}`}>
                                             {sub.displayType}
                                           </span>
-                                          <span className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors truncate">{sub.displayTitle}</span>
+                                          <span className="text-xs font-bold text-on-surface group-hover:text-[#1E707D] transition-colors truncate">{sub.displayTitle}</span>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${getSeverityColor(sub.displaySeverity)}`}>
@@ -1853,11 +1853,11 @@ export function IssueTrackerDashboard() {
                                                   value={currentAssigneeId || ''}
                                                   onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
                                                   disabled={assigningTaskId === sub.id}
-                                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
+                                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1E707D] max-w-[120px] truncate transition-all ${
                                                     assigningTaskId === sub.id ? 'opacity-50 cursor-wait' : ''
                                                   } ${
                                                     currentAssigneeId
-                                                      ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                                      ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 hover:bg-[#1E707D]/20'
                                                       : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                                                   }`}
                                                   title="Assign to member"
@@ -1877,7 +1877,7 @@ export function IssueTrackerDashboard() {
                                                 <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                                   currentAssigneeId
-                                                    ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                                    ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30'
                                                     : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
                                                 }`}>
                                                   {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
@@ -1938,7 +1938,7 @@ export function IssueTrackerDashboard() {
                                                 e.target.value = ''
                                               }
                                             }}
-                                            className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
+                                            className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-[#1E707D] text-on-surface font-semibold"
                                           />
                                           <button
                                             type="button"
@@ -1949,7 +1949,7 @@ export function IssueTrackerDashboard() {
                                                 input.value = ''
                                               }
                                             }}
-                                            className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
+                                            className="flex items-center justify-center p-1 bg-[#1E707D] text-white hover:bg-[#1E707D]/90 rounded-md shadow transition-all cursor-pointer shrink-0"
                                           >
                                             <span className="material-symbols-outlined text-xs font-bold">add</span>
                                           </button>
@@ -1979,14 +1979,14 @@ export function IssueTrackerDashboard() {
                                   }}
                                 >
                                   <div className="flex-shrink-0 flex items-center gap-1 text-outline">
-                                    <span className="material-symbols-outlined text-blue-500 text-base">subdirectory_arrow_right</span>
+                                    <span className="material-symbols-outlined text-[#1E707D] text-base">subdirectory_arrow_right</span>
                                   </div>
                                   <div className="flex-1 flex items-center justify-between gap-3">
                                     <div className="flex flex-col items-start gap-1">
                                       <span className={`text-[8px] font-black tracking-wider uppercase px-1.5 py-0.25 rounded-md ${getTaskTypeBadge(sub.displayType)}`}>
                                         {sub.displayType}
                                       </span>
-                                      <span className="text-xs font-bold text-on-surface group-hover:text-primary transition-colors truncate">{sub.displayTitle}</span>
+                                      <span className="text-xs font-bold text-on-surface group-hover:text-[#1E707D] transition-colors truncate">{sub.displayTitle}</span>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${getSeverityColor(sub.displaySeverity)}`}>
@@ -2039,11 +2039,11 @@ export function IssueTrackerDashboard() {
                                               value={currentAssigneeId || ''}
                                               onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
                                               disabled={assigningTaskId === sub.id}
-                                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary max-w-[120px] truncate transition-all ${
+                                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1E707D] max-w-[120px] truncate transition-all ${
                                                 assigningTaskId === sub.id ? 'opacity-50 cursor-wait' : ''
                                               } ${
                                                 currentAssigneeId
-                                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                                                  ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 hover:bg-[#1E707D]/20'
                                                   : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                                               }`}
                                               title="Assign to member"
@@ -2063,7 +2063,7 @@ export function IssueTrackerDashboard() {
                                             <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                               currentAssigneeId
-                                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                                ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30'
                                                 : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
                                             }`}>
                                               {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
@@ -2124,7 +2124,7 @@ export function IssueTrackerDashboard() {
                                             e.target.value = ''
                                           }
                                         }}
-                                        className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-primary text-on-surface font-semibold"
+                                        className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-[#1E707D] text-on-surface font-semibold"
                                       />
                                       <button
                                         type="button"
@@ -2135,7 +2135,7 @@ export function IssueTrackerDashboard() {
                                             input.value = ''
                                           }
                                         }}
-                                        className="flex items-center justify-center p-1 bg-primary text-on-primary hover:bg-primary/90 rounded-md shadow transition-all cursor-pointer shrink-0"
+                                        className="flex items-center justify-center p-1 bg-[#1E707D] text-white hover:bg-[#1E707D]/90 rounded-md shadow transition-all cursor-pointer shrink-0"
                                       >
                                         <span className="material-symbols-outlined text-xs font-bold">add</span>
                                       </button>
@@ -2217,7 +2217,7 @@ export function IssueTrackerDashboard() {
                     <button
                       type="button"
                       onClick={() => setNewIssue(prev => ({ ...prev, uiType: null }))}
-                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-[#1E707D] hover:underline flex items-center gap-1"
                     >
                       <span className="material-symbols-outlined text-xs">arrow_back</span>
                       Back to templates
@@ -2231,7 +2231,7 @@ export function IssueTrackerDashboard() {
                       value={newIssue.title}
                       onChange={(e) => setNewIssue(prev => ({ ...prev, title: e.target.value }))}
                       placeholder="Briefly describe the issue..."
-                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface"
+                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-[#1E707D] transition-colors text-on-surface"
                       required
                     />
                   </div>
@@ -2276,7 +2276,7 @@ export function IssueTrackerDashboard() {
                       onChange={(e) => setNewIssue(prev => ({ ...prev, description: e.target.value }))}
                       placeholder="Provide a general description of the issue or feature..."
                       rows={2.5}
-                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface resize-none"
+                      className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-[#1E707D] transition-colors text-on-surface resize-none"
                     />
                   </div>
 
@@ -2292,7 +2292,7 @@ export function IssueTrackerDashboard() {
                           onChange={(e) => setNewIssue(prev => ({ ...prev, stepsToReproduce: e.target.value }))}
                           placeholder="1. Go to...\n2. Click...\n3. Observe..."
                           rows={3}
-                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface resize-none font-mono"
+                          className="px-3.5 py-2 text-sm bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-[#1E707D] transition-colors text-on-surface resize-none font-mono"
                         />
                       </div>
 
@@ -2304,7 +2304,7 @@ export function IssueTrackerDashboard() {
                             onChange={(e) => setNewIssue(prev => ({ ...prev, expectedResult: e.target.value }))}
                             placeholder="What should have happened?"
                             rows={2}
-                            className="px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface resize-none"
+                            className="px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-[#1E707D] transition-colors text-on-surface resize-none"
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -2314,7 +2314,7 @@ export function IssueTrackerDashboard() {
                             onChange={(e) => setNewIssue(prev => ({ ...prev, actualResult: e.target.value }))}
                             placeholder="What actually went wrong?"
                             rows={2}
-                            className="px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-primary transition-colors text-on-surface resize-none"
+                            className="px-3.5 py-2 text-xs bg-surface-container-low border border-outline-variant rounded-lg focus:outline-none focus:border-[#1E707D] transition-colors text-on-surface resize-none"
                           />
                         </div>
                       </div>
@@ -2332,7 +2332,7 @@ export function IssueTrackerDashboard() {
                     <button
                       type="submit"
                       disabled={modalLoading}
-                      className="py-2 px-6 bg-primary text-on-primary hover:bg-primary/95 rounded-xl text-sm font-bold transition-all shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                      className="py-2 px-6 bg-[#1E707D] text-white hover:bg-[#1E707D]/95 rounded-xl text-sm font-bold transition-all shadow-md disabled:opacity-50 flex items-center gap-1.5"
                     >
                       {modalLoading && (
                         <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>

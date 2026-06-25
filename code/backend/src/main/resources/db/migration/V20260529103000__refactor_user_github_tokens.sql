@@ -1,5 +1,5 @@
 -- 1. Create the new user_github_tokens table
-CREATE TABLE user_github_tokens (
+CREATE TABLE IF NOT EXISTS user_github_tokens (
     user_id BIGINT PRIMARY KEY,
     access_token_encrypted TEXT NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -20,3 +20,4 @@ ORDER BY connected_by, connected_at DESC;
 -- 3. Drop the column from github_integrations to complete the refactoring
 ALTER TABLE github_integrations
 DROP COLUMN access_token_encrypted;
+

@@ -103,7 +103,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-outline-variant bg-surface-container-lowest">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#EEEDFE] text-[#6366F1] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-[#1E707D]/10 text-[#1E707D] flex items-center justify-center">
               <span className="material-symbols-outlined text-[24px]">auto_awesome</span>
             </div>
             <div>
@@ -120,7 +120,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
         <div className="overflow-y-auto flex-1 p-6 bg-surface-50">
           {loading ? (
             <div className="flex flex-col justify-center items-center h-full gap-4">
-              <span className="material-symbols-outlined animate-spin text-primary text-4xl">progress_activity</span>
+              <span className="material-symbols-outlined animate-spin text-[#1E707D] text-4xl">progress_activity</span>
               <p className="text-secondary font-medium">Loading generation results...</p>
             </div>
           ) : useCases.length === 0 ? (
@@ -139,7 +139,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                       if (input) input.indeterminate = selectedIndices.size > 0 && selectedIndices.size < useCases.filter(uc => !uc.isDuplicate).length;
                     }}
                     onChange={toggleSelectAll}
-                    className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer"
+                    className="w-5 h-5 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D] cursor-pointer"
                   />
                   <span className="font-label-lg text-label-lg text-on-surface font-semibold">
                     Select All ({selectedIndices.size} of {useCases.filter(uc => !uc.isDuplicate).length} valid use cases selected)
@@ -168,7 +168,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                   if (isError) statusColorClass = 'border-l-4 border-l-red-500';
 
                   return (
-                  <div key={index} className={`bg-surface-container-lowest border rounded-xl overflow-hidden shadow-sm transition-all ${isDuplicate ? 'opacity-50 grayscale-[50%] pointer-events-none' : ''} ${selectedIndices.has(index) ? 'border-r-primary border-t-primary border-b-primary ring-1 ring-primary/20' : 'border-outline-variant opacity-80'} ${statusColorClass}`}>
+                  <div key={index} className={`bg-surface-container-lowest border rounded-xl overflow-hidden shadow-sm transition-all ${isDuplicate ? 'opacity-50 grayscale-[50%] pointer-events-none' : ''} ${selectedIndices.has(index) ? 'border-r-primary border-t-primary border-b-primary ring-1 ring-[#1E707D]/20' : 'border-outline-variant opacity-80'} ${statusColorClass}`}>
                     <div className="flex items-center justify-between p-4 border-b border-outline-variant bg-surface-50">
                       <label className="flex items-center gap-3 flex-1 cursor-pointer">
                         <input 
@@ -176,7 +176,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           checked={selectedIndices.has(index)}
                           onChange={() => !isDuplicate && toggleSelect(index)}
                           disabled={isDuplicate}
-                          className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer mt-1 self-start disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-5 h-5 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D] cursor-pointer mt-1 self-start disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <div className="flex-1">
                           {isDuplicate && (
@@ -196,14 +196,14 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                             Requirement ID: 
                             <a 
                                href={`/projects/${projectId}/requirements/${uc.requirementCode || `REQ-${uc.requirementId}`}`} 
-                               className="font-medium text-primary hover:underline"
+                               className="font-medium text-[#1E707D] hover:underline"
                                target="_blank" rel="noreferrer"
                             >
                                 {uc.requirementCode || `REQ-${uc.requirementId}`}
                             </a>
                             <span className="mx-2">•</span>
                             <span className="material-symbols-outlined text-[14px]">group</span>
-                            Actors: <input type="text" value={uc.primaryActors || ''} onChange={(e) => handleFieldChange(index, 'primaryActors', e.target.value)} className="bg-transparent border-b border-dashed border-gray-300 outline-none w-48 text-xs focus:border-primary px-1" placeholder="Admin, User..." />
+                            Actors: <input type="text" value={uc.primaryActors || ''} onChange={(e) => handleFieldChange(index, 'primaryActors', e.target.value)} className="bg-transparent border-b border-dashed border-gray-300 outline-none w-48 text-xs focus:border-[#1E707D] px-1" placeholder="Admin, User..." />
                           </p>
                         </div>
                       </label>
@@ -265,7 +265,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           <textarea 
                             value={uc.precondition || ''} 
                             onChange={(e) => handleFieldChange(index, 'precondition', e.target.value)}
-                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none min-h-[80px]"
                             placeholder="Preconditions..."
                           />
                         </div>
@@ -276,7 +276,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           <textarea 
                             value={uc.postcondition || ''} 
                             onChange={(e) => handleFieldChange(index, 'postcondition', e.target.value)}
-                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none min-h-[80px]"
                             placeholder="Postconditions..."
                           />
                         </div>
@@ -290,7 +290,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           <textarea 
                             value={uc.mainSuccessScenario || ''} 
                             onChange={(e) => handleFieldChange(index, 'mainSuccessScenario', e.target.value)}
-                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[120px]"
+                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none min-h-[120px]"
                             placeholder="1. Step one..."
                           />
                         </div>
@@ -301,7 +301,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           <textarea 
                             value={uc.alternativeFlows || ''} 
                             onChange={(e) => handleFieldChange(index, 'alternativeFlows', e.target.value)}
-                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none min-h-[80px]"
+                            className="w-full text-sm p-3 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none min-h-[80px]"
                             placeholder="Alternatives..."
                           />
                         </div>

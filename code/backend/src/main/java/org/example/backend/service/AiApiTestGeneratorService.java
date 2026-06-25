@@ -25,6 +25,9 @@ public class AiApiTestGeneratorService {
     @Value("${gemini.api-key:}")
     private String apiKey;
 
+    @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}")
+    private String geminiApiUrl;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -40,7 +43,7 @@ public class AiApiTestGeneratorService {
             throw new BusinessException("Gemini API key is not configured.");
         }
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+        String url = geminiApiUrl + "?key=" + apiKey;
 
         String prompt = "You are an API Testing expert. I will give you a description of an API requirement or curl command. " +
                 "Generate an API test case including method, url, headers, body, and a list of assertions. " +

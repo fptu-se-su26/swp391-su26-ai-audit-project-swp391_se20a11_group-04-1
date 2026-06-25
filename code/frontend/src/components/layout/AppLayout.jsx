@@ -38,12 +38,12 @@ export function AppLayout() {
 
         {/* Logo DevTrack AI phía trái */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary-container text-on-primary-container shadow-inner">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#D7EEF1] text-[#1E707D] shadow-inner">
             <span className="material-symbols-outlined text-xl font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>
               dataset
             </span>
           </div>
-          <span className="text-lg font-bold text-primary tracking-wide">DevTrack AI</span>
+          <span className="text-lg font-bold text-[#1E707D] tracking-wide">DevTrack AI</span>
         </div>
 
         {/* Khối tìm kiếm & Tiện ích bên phải */}
@@ -59,7 +59,7 @@ export function AppLayout() {
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-[240px] pl-9 pr-4 py-1.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-on-surface"
+              className="w-[240px] pl-9 pr-4 py-1.5 rounded-lg border border-outline-variant bg-surface-container-low text-sm focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all text-on-surface"
             />
           </div>
 

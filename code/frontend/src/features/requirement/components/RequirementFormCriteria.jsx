@@ -36,7 +36,7 @@ const RequirementFormCriteria = ({ formData, onChange }) => {
         <button 
           type="button"
           onClick={addCriterion}
-          className="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant font-label-md text-label-md transition-colors"
+          className="flex items-center gap-1 text-[#1E707D] hover:text-[#165964] font-label-md text-label-md transition-colors"
         >
           <span className="material-symbols-outlined text-[18px]">add</span> Add Criterion
         </button>
@@ -44,9 +44,9 @@ const RequirementFormCriteria = ({ formData, onChange }) => {
       <div className="p-stack_lg flex flex-col gap-stack_sm">
         {formData.acceptanceCriteria.map((criterion, index) => (
           <div key={index} className="flex items-start gap-3 group">
-            <input className="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary-fixed-dim bg-surface-bright cursor-pointer" type="checkbox" />
+            <input className="mt-1 w-5 h-5 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D]-fixed-dim bg-surface-bright cursor-pointer" type="checkbox" />
             <input 
-              className="flex-1 bg-transparent border-b border-transparent hover:border-outline-variant focus:border-primary focus:outline-none font-body-md text-body-md py-1 transition-colors" 
+              className="flex-1 bg-transparent border-b border-transparent hover:border-outline-variant focus:border-[#1E707D] focus:outline-none font-body-md text-body-md py-1 transition-colors" 
               type="text" 
               value={criterion}
               onChange={(e) => updateCriterion(index, e.target.value)}
@@ -58,9 +58,9 @@ const RequirementFormCriteria = ({ formData, onChange }) => {
         ))}
         {/* New Criterion Input */}
         <div className="flex items-start gap-3 group">
-          <input className="mt-1 w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary-fixed-dim bg-surface-bright cursor-pointer" type="checkbox" disabled />
+          <input className="mt-1 w-5 h-5 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D]-fixed-dim bg-surface-bright cursor-pointer" type="checkbox" disabled />
           <input 
-            className="flex-1 bg-transparent border-b border-outline-variant focus:border-primary focus:outline-none font-body-md text-body-md py-1 transition-colors" 
+            className="flex-1 bg-transparent border-b border-outline-variant focus:border-[#1E707D] focus:outline-none font-body-md text-body-md py-1 transition-colors" 
             placeholder="Enter new criterion..." 
             type="text"
             value={newCriterion}

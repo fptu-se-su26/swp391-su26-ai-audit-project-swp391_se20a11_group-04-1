@@ -14,7 +14,7 @@ const UseCaseConditions = ({ precondition, postcondition, isEditing, onFieldChan
             onChange={(e) => onFieldChange('precondition', e.target.value)}
             rows={3}
             placeholder="What must be true before this use case begins?"
-            className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md font-body-md resize-y transition-all"
+            className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md font-body-md resize-y transition-all"
           />
         ) : precondition ? (
           <p className="font-body-md text-body-md text-on-surface-variant whitespace-pre-wrap">
@@ -36,7 +36,7 @@ const UseCaseConditions = ({ precondition, postcondition, isEditing, onFieldChan
             onChange={(e) => onFieldChange('postcondition', e.target.value)}
             rows={3}
             placeholder="What is the state of the system after this use case ends?"
-            className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md font-body-md resize-y transition-all"
+            className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md font-body-md resize-y transition-all"
           />
         ) : postcondition ? (
           <p className="font-body-md text-body-md text-on-surface-variant whitespace-pre-wrap">

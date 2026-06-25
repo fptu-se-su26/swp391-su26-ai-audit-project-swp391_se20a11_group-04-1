@@ -53,7 +53,7 @@ const UseCaseTab = () => {
               type="text" 
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleSave(uc.id)}
             />
@@ -82,7 +82,7 @@ const UseCaseTab = () => {
               )}
               <button 
                 onClick={() => handleToggleVisibility(uc)}
-                className={`p-1 rounded transition-colors ${isHidden ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                className={`p-1 rounded transition-colors ${isHidden ? 'text-[#1E707D] hover:bg-[#1E707D]/10' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                 title={isHidden ? "Show on Diagram" : "Hide from Diagram"}
               >
                 <span className="material-symbols-outlined text-[18px]">
@@ -92,7 +92,7 @@ const UseCaseTab = () => {
               {!isHidden && (
                 <button 
                   onClick={() => handleEdit(uc)}
-                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  className="p-1 text-gray-400 hover:text-[#1E707D] hover:bg-[#1E707D]/10 rounded transition-colors"
                   title="Rename (Display Name)"
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -113,7 +113,7 @@ const UseCaseTab = () => {
           value={newUseCaseName}
           onChange={(e) => setNewUseCaseName(e.target.value)}
           placeholder="New Use Case Name"
-          className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
         <Button onClick={handleAdd} size="sm" variant="primary">Add</Button>

@@ -88,7 +88,7 @@ export function TaskReviewDashboardPage() {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
         <div className="flex items-center justify-center h-full">
-           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1E707D]"></div>
         </div>
       </main>
     )
@@ -104,7 +104,7 @@ export function TaskReviewDashboardPage() {
       <div className="relative z-10 w-full space-y-8">
         
         {/* Banner */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-2">
             <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
               {activeProject?.major} • {activeProject?.semester}
@@ -116,7 +116,7 @@ export function TaskReviewDashboardPage() {
           </div>
           <button
             onClick={loadReviewQueue}
-            className="flex items-center gap-2 bg-white text-primary px-4 py-2 rounded-xl font-bold text-sm hover:bg-surface-container-lowest transition-all shadow-md shrink-0"
+            className="flex items-center gap-2 bg-white text-[#1E707D] px-4 py-2 rounded-xl font-bold text-sm hover:bg-surface-container-lowest transition-all shadow-md shrink-0"
           >
             <span className="material-symbols-outlined text-lg">refresh</span>
             Refresh Queue
@@ -128,7 +128,7 @@ export function TaskReviewDashboardPage() {
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
             <div className="flex justify-between items-center text-outline">
               <span className="text-xs font-bold uppercase tracking-wider">Pending Review</span>
-              <span className="material-symbols-outlined text-primary text-2xl">pending_actions</span>
+              <span className="material-symbols-outlined text-[#1E707D] text-2xl">pending_actions</span>
             </div>
             <p className="text-3xl font-black mt-3 text-on-surface">{metrics.total}</p>
           </div>
@@ -162,7 +162,7 @@ export function TaskReviewDashboardPage() {
             <span className="text-sm font-bold text-on-surface">Filters:</span>
           </div>
           <select 
-            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D] cursor-pointer"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
@@ -170,7 +170,7 @@ export function TaskReviewDashboardPage() {
             {typeOptions.filter(t => t !== 'ALL').map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select 
-            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D] cursor-pointer"
             value={filterAssignee}
             onChange={(e) => setFilterAssignee(e.target.value)}
           >
@@ -178,7 +178,7 @@ export function TaskReviewDashboardPage() {
             {assigneeOptions.filter(a => a !== 'ALL').map(a => <option key={a} value={a}>{a}</option>)}
           </select>
           <select 
-            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            className="bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-lg text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D] cursor-pointer"
             value={filterGate}
             onChange={(e) => setFilterGate(e.target.value)}
           >
@@ -220,7 +220,7 @@ export function TaskReviewDashboardPage() {
                     <tr key={item.id} className="hover:bg-surface-container-low/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-bold text-on-surface">{item.task?.title}</div>
-                        <div className="text-xs text-primary font-mono mt-1">{item.task?.requirementCode || 'NO-REQ'}</div>
+                        <div className="text-xs text-[#1E707D] font-mono mt-1">{item.task?.requirementCode || 'NO-REQ'}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ export function TaskReviewDashboardPage() {
                       <td className="px-6 py-4 text-right">
                         <Link
                           to={`/projects/${projectId}/task-reviews/${item.task?.id}`}
-                          className="inline-flex items-center gap-1.5 bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+                          className="inline-flex items-center gap-1.5 bg-[#1E707D] text-white hover:bg-[#D7EEF1] hover:text-[#1E707D] px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
                         >
                           Review <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                         </Link>

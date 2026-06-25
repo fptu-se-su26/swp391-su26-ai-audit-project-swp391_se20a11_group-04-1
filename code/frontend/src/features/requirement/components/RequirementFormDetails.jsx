@@ -13,7 +13,7 @@ const RequirementFormDetails = ({ formData, onChange }) => {
         <div className="flex flex-col gap-1">
           <label className="font-label-md text-label-md text-on-surface-variant uppercase">Requirement Title <span className="text-error">*</span></label>
           <input 
-            className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all" 
+            className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all" 
             placeholder="e.g., User Authentication via SSO" 
             type="text" 
             value={formData.title}

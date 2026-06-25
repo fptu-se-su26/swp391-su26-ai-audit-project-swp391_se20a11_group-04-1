@@ -30,7 +30,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => navigate(`/projects/${projectId}/evidence`)}
-          className="flex items-center gap-1 font-body-md text-[13px] text-primary hover:text-primary/80 transition-colors"
+          className="flex items-center gap-1 font-body-md text-[13px] text-[#1E707D] hover:text-[#1E707D]/80 transition-colors"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>
           Evidence Vault
@@ -46,7 +46,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
         <div className="flex-1">
           {/* Status + Type + ID Row */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="font-label-md text-label-md text-primary bg-primary-fixed/30 px-2 py-0.5 rounded-md">
+            <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1]/30 px-2 py-0.5 rounded-md">
               EV-{String(evidence.id).padStart(3, '0')}
             </span>
             <span
@@ -84,35 +84,7 @@ const EvidenceDetailHeader = ({ evidence, onEdit, onDelete, onReview }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Review buttons (only show when Pending or Auto Checked) */}
-          {(status === 'PENDING' || status === 'AUTO_CHECKED') && onReview && (
-            <>
-              <button
-                onClick={() => onReview('ACCEPTED')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-[#e6f4ea] text-[#137333] hover:bg-[#d4edda] transition-colors flex items-center gap-1.5 border border-[#bbf7d0]"
-              >
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                Accept
-              </button>
-              <button
-                onClick={() => onReview('REJECTED')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-error-container text-on-error-container hover:bg-error-container/80 transition-colors flex items-center gap-1.5 border border-[#fecaca]"
-              >
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                Reject
-              </button>
-              <button
-                onClick={() => onReview('NEEDS_CLARIFICATION')}
-                className="px-3 py-2 rounded-lg font-body-md text-[13px] bg-[#fef7e0] text-[#b06000] hover:bg-[#fef0c7] transition-colors flex items-center gap-1.5 border border-[#fde68a]"
-              >
-                <span className="material-symbols-outlined text-[18px]">help</span>
-                Clarify
-              </button>
-            </>
-          )}
-
-          <button
+        <div className="flex items-center gap-2 flex-shrink-0">          <button
             onClick={onEdit}
             className="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant"
             title="Edit evidence"

@@ -4,7 +4,7 @@
 -- Description: Refactor requirement tags from separate table to text array in requirements table
 
 -- 1. Add new column to requirements
-ALTER TABLE requirements ADD COLUMN tags text[] DEFAULT '{}';
+ALTER TABLE requirements ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}';
 
 -- 2. Migrate existing data
 UPDATE requirements r
@@ -16,3 +16,4 @@ SET tags = ARRAY(
 
 -- 3. Drop the old table
 DROP TABLE requirement_tags;
+

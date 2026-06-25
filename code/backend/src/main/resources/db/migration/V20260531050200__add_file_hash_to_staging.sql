@@ -1,1 +1,2 @@
-ALTER TABLE ai_generation_staging ADD COLUMN file_hash VARCHAR(64);
+ALTER TABLE ai_generation_staging ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64);
+

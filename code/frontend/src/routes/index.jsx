@@ -39,12 +39,19 @@ import RtmPage from '@features/rtm/pages/RtmPage'
 import TaskReviewDashboardPage from '@features/code-insight/pages/TaskReviewDashboardPage'
 import TaskReviewWorkspacePage from '@features/code-insight/pages/TaskReviewWorkspacePage'
 
+// Feature Pages - Architecture Viz
+import ArchitecturePage from '@features/architecture-viz/pages/ArchitecturePage'
+
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
 import ReliabilityDashboardPage from '@features/analytics/pages/ReliabilityDashboardPage'
 import SchedulerJobsPage from '@features/analytics/pages/SchedulerJobsPage'
 import RecoveryPlanDashboardPage from '@features/sla/pages/RecoveryPlanDashboardPage'
 import ProfilePage from '@features/profile/pages/ProfilePage'
+
+// Feature Pages - System Admin
+import AdminDashboardPage from '@features/system-admin/pages/AdminDashboardPage'
+import AuditLogsPage from '@features/system-admin/pages/AuditLogsPage'
 
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
@@ -73,6 +80,10 @@ export function AppRoutes() {
 
       {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>
+        {/* System Admin Dashboard */}
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -126,6 +137,7 @@ export function AppRoutes() {
             <Route path="traceability-matrix" element={<RtmPage />} />
             <Route path="task-reviews" element={<TaskReviewDashboardPage />} />
             <Route path="task-reviews/:taskId" element={<TaskReviewWorkspacePage />} />
+            <Route path="architecture" element={<ArchitecturePage />} />
 
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />
