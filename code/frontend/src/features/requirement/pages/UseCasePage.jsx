@@ -15,6 +15,7 @@ import ConfirmModal from '../../../components/ui/ConfirmModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useCaseService } from '../services/useCaseService';
 import { requirementApi } from '../services/requirementApi';
+import { diagramService } from '../services/diagramService';
 import useProjectStore from '../../../store/useProjectStore';
 import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
@@ -26,6 +27,7 @@ const UseCasePage = () => {
   const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
   const [useCases, setUseCases] = useState([]);
   const [allUseCases, setAllUseCases] = useState([]);
+  const [diagramData, setDiagramData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -92,9 +94,20 @@ const UseCasePage = () => {
     }
   };
 
+  const fetchDiagramData = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const data = await diagramService.getDiagramData(activeProject.id);
+      setDiagramData(data);
+    } catch (error) {
+      console.error('Failed to fetch diagram data', error);
+    }
+  };
+
   const handleRefresh = () => {
     fetchUseCases();
     fetchAllUseCases();
+    fetchDiagramData();
   };
 
   useEffect(() => {
@@ -102,6 +115,7 @@ const UseCasePage = () => {
       const delayDebounceFn = setTimeout(() => {
         fetchUseCases();
         fetchAllUseCases();
+        fetchDiagramData();
       }, 500);
 
       return () => clearTimeout(delayDebounceFn);
@@ -114,6 +128,7 @@ const UseCasePage = () => {
     setStatusFilter('');
     setUseCases([]);
     fetchAllUseCases();
+    fetchDiagramData();
   }, [activeProject?.id]);
 
   const handleSearchChange = (val) => {
@@ -258,6 +273,7 @@ const UseCasePage = () => {
               mode={viewMode === 'diagram-edit' ? 'edit' : 'view'} 
               onClose={() => setViewMode('list')} 
               onEdit={isLeader ? () => setViewMode('diagram-edit') : undefined}
+              onView={() => setViewMode('diagram-view')}
             />
           </div>
         ) : (
@@ -285,6 +301,8 @@ const UseCasePage = () => {
           ) : (
             <UseCaseTable 
               useCases={useCases} 
+              allUseCases={allUseCases}
+              diagramData={diagramData}
               onEdit={isLeader ? handleEditUseCase : undefined} 
               onDelete={isLeader ? handleDeleteUseCase : undefined} 
               onApprove={isLeader ? handleApproveUseCase : undefined}

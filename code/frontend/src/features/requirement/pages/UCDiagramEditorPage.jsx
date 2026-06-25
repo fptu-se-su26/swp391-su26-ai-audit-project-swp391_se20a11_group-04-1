@@ -7,7 +7,7 @@ import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
 import Button from '../../../components/ui/Button';
 
-const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
+const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView }) => {
   const { actors, useCases, relations, loadData, reset } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
@@ -15,6 +15,12 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
   const diagramRef = useRef(null);
   
   const isViewMode = mode === 'view';
+  
+  // Resizer states
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const sidebarRef = useRef(null);
   useEffect(() => {
     if (!projectId) return;
     
@@ -119,6 +125,50 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
       setSaveStatus('unsaved');
   }, []);
 
+  const startResizing = React.useCallback((e) => {
+    setIsDragging(true);
+    e.preventDefault(); // Prevent text selection
+  }, []);
+
+  const stopResizing = React.useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const resize = React.useCallback((e) => {
+    if (isDragging && sidebarRef.current) {
+      const sidebarRect = sidebarRef.current.getBoundingClientRect();
+      let newWidth = e.clientX - sidebarRect.left;
+      
+      if (newWidth < 150) {
+        setIsSidebarOpen(false);
+        setIsDragging(false); // Snap shut and stop dragging
+        setSidebarWidth(320); 
+      } else {
+        setIsSidebarOpen(true);
+        if (newWidth > 600) newWidth = 600; 
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, [isDragging]);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isDragging, resize, stopResizing]);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   if (loading) {
     return (
       <div className="flex h-[calc(100vh-100px)] overflow-hidden bg-gray-50 relative items-center justify-center">
@@ -134,11 +184,41 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
     <div className="flex h-[calc(100vh-100px)] overflow-hidden bg-gray-50 relative">
       {/* Sidebar - Only show in edit mode */}
       {!isViewMode && (
-        <DiagramSidePanel 
-          projectId={projectId} 
-          systemName={systemName} 
-          setSystemName={setSystemName}
-        />
+        <>
+          <div 
+            ref={sidebarRef}
+            style={{ width: isSidebarOpen ? sidebarWidth : 0 }} 
+            className={`h-full flex-shrink-0 overflow-hidden bg-white border-r border-gray-200 relative ${isDragging ? '' : 'transition-[width] duration-300 ease-in-out'}`}
+          >
+            <div style={{ width: isSidebarOpen ? sidebarWidth : 320 }} className="h-full">
+              <DiagramSidePanel 
+                projectId={projectId} 
+                systemName={systemName} 
+                setSystemName={setSystemName}
+              />
+            </div>
+          </div>
+          
+          {/* Resizer Handle */}
+          <div className="w-0 h-full relative z-10">
+            <div 
+              className="absolute top-0 bottom-0 -left-1.5 w-3 cursor-col-resize group flex flex-col justify-center items-center"
+              onMouseDown={startResizing}
+            >
+              <div className={`w-[2px] h-full transition-colors ${isDragging ? 'bg-[#1E707D]' : 'bg-transparent group-hover:bg-[#1E707D]'}`} />
+              
+              {/* Toggle Button */}
+              <button 
+                onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
+                className="absolute w-5 h-8 bg-white border border-gray-300 border-l-transparent rounded-r-md flex items-center justify-center -right-[15px] hover:bg-gray-100 shadow-sm cursor-pointer z-20"
+              >
+                <span className="material-symbols-outlined text-[16px] text-gray-600">
+                  {isSidebarOpen ? 'chevron_left' : 'chevron_right'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Main Content */}
@@ -146,9 +226,9 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
         <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
           <div className="flex items-center gap-3">
             <button 
-              onClick={onClose}
+              onClick={!isViewMode && onView ? onView : onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
-              title="Back to Map"
+              title={!isViewMode ? "View Diagram" : "Back to List"}
               disabled={saveStatus === 'saving'}
             >
               <span className="material-symbols-outlined">arrow_back</span>
@@ -157,7 +237,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit }) => {
               <span className="material-symbols-outlined text-[#1E707D]">
                 {isViewMode ? 'visibility' : 'edit_document'}
               </span>
-              Use Case Diagram {isViewMode ? '(View Only)' : 'Editor'}
+              {isViewMode ? 'Use Case Diagram (View Only)' : 'View Diagram'}
             </h1>
           </div>
           <div className="flex items-center gap-4">
