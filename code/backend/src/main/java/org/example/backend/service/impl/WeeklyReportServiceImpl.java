@@ -250,6 +250,14 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
             }
         }
 
+        int totalAssigned = tasks.size();
+        int completedOnTime = (int) tasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.DONE
+                        && t.getCompletedAt() != null
+                        && t.getDeadline() != null
+                        && !t.getCompletedAt().toLocalDate().isAfter(t.getDeadline()))
+                .count();
+
         boolean red = overdue > 3 || penalized > 0 || stale > 0;
         if (!red) {
             return null;
@@ -266,6 +274,8 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
                 .frozenTaskCount(0)
                 .penalizedTaskCount(penalized)
                 .staleExplanationCount(stale)
+                .totalAssignedCount(totalAssigned)
+                .completedOnTimeCount(completedOnTime)
                 .riskLevel("RED")
                 .reason(String.join("; ", reasons))
                 .build();
