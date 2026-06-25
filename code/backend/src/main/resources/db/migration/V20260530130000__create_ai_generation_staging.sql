@@ -3,7 +3,7 @@
 -- Author: AI Assistant
 -- Description: Create staging table for AI generation results
 
-CREATE TABLE ai_generation_staging (
+CREATE TABLE IF NOT EXISTS ai_generation_staging (
     id BIGSERIAL PRIMARY KEY,
     project_id BIGINT NOT NULL,
     stage VARCHAR(20) NOT NULL,
@@ -16,5 +16,6 @@ CREATE TABLE ai_generation_staging (
     CONSTRAINT fk_ai_staging_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_ai_staging_project_id ON ai_generation_staging(project_id);
-CREATE INDEX idx_ai_staging_generation_id ON ai_generation_staging(generation_id);
+CREATE INDEX IF NOT EXISTS idx_ai_staging_project_id ON ai_generation_staging(project_id);
+CREATE INDEX IF NOT EXISTS idx_ai_staging_generation_id ON ai_generation_staging(generation_id);
+

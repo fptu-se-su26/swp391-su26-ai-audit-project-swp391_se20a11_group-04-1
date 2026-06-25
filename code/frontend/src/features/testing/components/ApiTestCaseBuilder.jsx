@@ -127,7 +127,7 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
       {/* Request Header */}
       <div className="flex items-center gap-3 p-3 border-b border-outline-variant bg-surface-container-low">
         <select 
-          className="px-4 py-2 bg-surface-container-highest border border-outline-variant rounded-md font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow appearance-none cursor-pointer"
+          className="px-4 py-2 bg-surface-container-highest border border-outline-variant rounded-md font-semibold text-[#1E707D] focus:outline-none focus:ring-2 focus:ring-[#1E707D]/50 transition-shadow appearance-none cursor-pointer"
           value={method}
           onChange={(e) => setMethod(e.target.value)}
         >
@@ -140,14 +140,14 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
         <input 
           type="text" 
           placeholder="https://api.example.com/v1/resource"
-          className="flex-1 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+          className="flex-1 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md focus:outline-none focus:ring-2 focus:ring-[#1E707D]/50 transition-shadow"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
         <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="px-6 py-2 bg-primary text-on-primary rounded-md font-bold hover:bg-primary-fixed-variant transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-6 py-2 bg-[#1E707D] text-white rounded-md font-bold hover:bg-primary-fixed-variant transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {isSaving ? <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> : <span className="material-symbols-outlined text-[18px]">save</span>}
           {isSaving ? 'Saving...' : 'Save Config'}
@@ -155,15 +155,15 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
       </div>
 
       {isLocalUrl && (
-        <div className="mx-4 mt-5 mb-2 p-1.5 bg-primary/5 border border-primary/10 rounded-[1.5rem] shadow-sm transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
+        <div className="mx-4 mt-5 mb-2 p-1.5 bg-[#1E707D]/5 border border-[#1E707D]/10 rounded-[1.5rem] shadow-sm transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]">
           <div className="bg-surface-container-lowest rounded-[calc(1.5rem-0.375rem)] p-5 border border-outline-variant/30 relative overflow-hidden">
             {/* Ambient Glow */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[64px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#1E707D]/10 blur-[64px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6 justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <div className="w-6 h-6 rounded-full bg-[#1E707D]/10 flex items-center justify-center text-[#1E707D]">
                     <span className="material-symbols-outlined text-[14px]">terminal</span>
                   </div>
                   <h3 className="text-sm font-semibold text-on-surface tracking-tight">
@@ -185,7 +185,7 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
                     </div>
                     <button 
                       onClick={() => navigator.clipboard.writeText(`npx devtrack-agent@latest --token=${agentToken}`)}
-                      className="ml-2 flex items-center justify-center w-8 h-8 bg-surface-container-highest rounded-xl border border-outline-variant/50 text-secondary hover:text-primary hover:bg-surface-container hover:shadow-sm active:scale-[0.92] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 cursor-pointer"
+                      className="ml-2 flex items-center justify-center w-8 h-8 bg-surface-container-highest rounded-xl border border-outline-variant/50 text-secondary hover:text-[#1E707D] hover:bg-surface-container hover:shadow-sm active:scale-[0.92] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 cursor-pointer"
                       title="Copy command"
                     >
                       <span className="material-symbols-outlined text-[14px]">content_copy</span>
@@ -211,7 +211,7 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
               key={tab}
               onClick={() => setReqTab(tab)}
               className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
-                reqTab === tab ? 'border-primary text-primary' : 'border-transparent text-secondary hover:text-on-surface'
+                reqTab === tab ? 'border-[#1E707D] text-[#1E707D]' : 'border-transparent text-secondary hover:text-on-surface'
               }`}
             >
               {tab}
@@ -239,10 +239,10 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
             <div className="flex flex-col h-full flex-1">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">JSON Body</h3>
-                <button onClick={handleFormatBody} className="text-xs text-primary hover:underline font-medium">Format JSON</button>
+                <button onClick={handleFormatBody} className="text-xs text-[#1E707D] hover:underline font-medium">Format JSON</button>
               </div>
               <textarea 
-                className="flex-1 w-full p-4 bg-surface-container text-sm font-mono border border-outline-variant rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition-all"
+                className="flex-1 w-full p-4 bg-surface-container text-sm font-mono border border-outline-variant rounded focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none resize-none transition-all"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 onBlur={handleFormatBody}
@@ -313,7 +313,7 @@ function AssertionBuilder({ assertions, onChange }) {
                 placeholder={ass.type === 'HEADER' ? 'Header Name' : '$.path'}
                 value={ass.property || ''}
                 onChange={e => handleUpdate(idx, 'property', e.target.value)}
-                className="w-48 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded text-xs outline-none focus:border-primary"
+                className="w-48 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded text-xs outline-none focus:border-[#1E707D]"
               />
             )}
 
@@ -331,7 +331,7 @@ function AssertionBuilder({ assertions, onChange }) {
                 placeholder="Expected Value"
                 value={ass.expectedValue || ''}
                 onChange={e => handleUpdate(idx, 'expectedValue', e.target.value)}
-                className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded text-xs outline-none focus:border-primary"
+                className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded text-xs outline-none focus:border-[#1E707D]"
               />
             )}
 
@@ -354,7 +354,7 @@ function AssertionBuilder({ assertions, onChange }) {
 
       <button
         onClick={handleAdd}
-        className="self-start px-3 py-2 mt-2 text-xs font-bold text-on-primary bg-primary hover:bg-primary-fixed-variant rounded-md shadow-sm transition-colors flex items-center gap-1 uppercase tracking-wide"
+        className="self-start px-3 py-2 mt-2 text-xs font-bold text-white bg-[#1E707D] hover:bg-primary-fixed-variant rounded-md shadow-sm transition-colors flex items-center gap-1 uppercase tracking-wide"
       >
         <span className="material-symbols-outlined text-[16px]">add</span>
         Add Assertion

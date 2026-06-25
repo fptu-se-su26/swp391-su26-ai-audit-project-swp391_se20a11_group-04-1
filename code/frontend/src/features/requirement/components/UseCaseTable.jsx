@@ -12,7 +12,7 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
         <thead>
           <tr className="bg-[#f8fafc] border-b border-outline-variant font-label-md text-label-md text-secondary">
             <th className="py-3 px-4 font-semibold uppercase w-12 text-center">
-              <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary" />
+              <input type="checkbox" className="rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D]" />
             </th>
             <th className="py-3 px-4 font-semibold uppercase">ID & Name</th>
             <th className="py-3 px-4 font-semibold uppercase">Linked Req</th>
@@ -26,16 +26,16 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
           {useCases.map((uc) => (
             <tr 
               key={uc.id} 
-              className="hover:bg-[#f0f4fb] transition-colors group cursor-pointer"
+              className="hover:bg-[#1E707D/5] transition-colors group cursor-pointer"
               onClick={() => navigate(`/projects/${activeProject?.id}/use-cases/${uc.id}`)}
             >
               <td className="py-3 px-4 text-center">
-                <input type="checkbox" className="rounded border-outline-variant text-primary focus:ring-primary" />
+                <input type="checkbox" className="rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D]" />
               </td>
               <td className="py-3 px-4">
                 <div className="flex flex-col">
-                  <span className="font-label-md text-label-md text-primary font-bold">{uc.code || `UC-${uc.id}`}</span>
-                  <Link to={`/projects/${activeProject?.id}/use-cases/${uc.id}`} className="font-medium text-on-surface hover:text-primary transition-colors">{uc.name}</Link>
+                  <span className="font-label-md text-label-md text-[#1E707D] font-bold">{uc.code || `UC-${uc.id}`}</span>
+                  <Link to={`/projects/${activeProject?.id}/use-cases/${uc.id}`} className="font-medium text-on-surface hover:text-[#1E707D] transition-colors">{uc.name}</Link>
                 </div>
               </td>
               <td className="py-3 px-4">
@@ -45,7 +45,7 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
                     <Link 
                       to={`/projects/${activeProject?.id}/requirements/${uc.requirementId}`}
                       onClick={(e) => e.stopPropagation()} 
-                      className="text-primary hover:underline"
+                      className="text-[#1E707D] hover:underline"
                     >
                       {uc.requirement?.reqCode || `REQ-${uc.requirementId || 'X'}`}
                     </Link>
@@ -60,7 +60,7 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
               </td>
               <td className="py-3 px-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-secondary-container text-on-secondary-container">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center bg-[#1E707D]/10 text-[#1E707D]">
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>person</span>
                   </div>
                   <span>{uc.actors && uc.actors.length > 0 ? uc.actors.join(', ') : 'None'}</span>
@@ -70,7 +70,7 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
                 <span className={`px-2 py-0.5 rounded-DEFAULT font-label-sm text-label-sm uppercase tracking-wider
                   ${uc.status === 'DRAFT' ? 'bg-slate-50 text-slate-600 border border-slate-200' : 
                     uc.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 
-                    uc.status === 'IN_REVIEW' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 
+                    uc.status === 'IN_REVIEW' ? 'bg-[#1E707D]/10 text-[#1E707D] border border-[#1E707D]/20' : 
                     uc.status === 'DONE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 
                     'bg-surface-variant text-on-surface-variant'}`}>
                   {uc.status ? uc.status.replace('_', ' ') : 'DRAFT'}
@@ -80,7 +80,7 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
                 <div className="flex items-center gap-2">
                   <div className="w-full bg-surface-variant rounded-full h-1.5 max-w-[60px]">
                     <div 
-                      className={`h-1.5 rounded-full ${(uc.completenessScore || 0) < 50 ? 'bg-error' : 'bg-primary'}`} 
+                      className={`h-1.5 rounded-full ${(uc.completenessScore || 0) < 50 ? 'bg-error' : 'bg-[#1E707D]'}`} 
                       style={{ width: `${uc.completenessScore || 0}%` }}
                     ></div>
                   </div>

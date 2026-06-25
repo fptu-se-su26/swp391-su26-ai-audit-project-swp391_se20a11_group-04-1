@@ -84,13 +84,13 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
           : isDone
             ? 'bg-surface border-outline-variant opacity-80 hover:opacity-100'
             : isSelected
-              ? 'bg-surface-container-lowest border-2 border-primary shadow-[0_0_0_2px_rgba(0,60,144,0.1)] cursor-grab active:cursor-grabbing'
+              ? 'bg-surface-container-lowest border-2 border-[#1E707D] shadow-[0_0_0_2px_rgba(0,60,144,0.1)] cursor-grab active:cursor-grabbing'
               : 'bg-surface-container-lowest border-outline-variant hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'opacity-50 scale-[0.98]' : ''}`}
     >
       <div className={`flex justify-between items-start gap-2 ${isCompact ? 'mb-1' : 'mb-2'}`}>
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-primary font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
+          <span className={`min-w-0 truncate font-label-md ${isCompact ? 'text-[11px]' : 'text-label-md'} ${isSelected ? 'text-[#1E707D] font-bold' : isDone ? 'text-outline line-through' : isBlocked ? 'text-error font-bold' : 'text-on-surface-variant'}`}>
             ID: {task.id}
           </span>
           {task.githubIssueNumber && (

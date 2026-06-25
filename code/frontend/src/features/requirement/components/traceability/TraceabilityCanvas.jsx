@@ -20,7 +20,7 @@ const TaskSubTree = ({ task, allEvidence }) => {
   );
 
   return (
-    <div className="relative z-10 shrink-0 w-full">
+    <div className="shrink-0">
       <TraceabilityNodeCard level="Tasks" item={task} taskEvidences={taskEvidences} />
     </div>
   );
@@ -161,7 +161,7 @@ const TraceabilityCanvas = () => {
             
             {/* Branch 1: Use Cases (Vertical Spine) */}
             <div className="flex flex-col items-start gap-8 relative z-10 shrink-0 w-[350px]">
-              <HubNode level="Use Cases" colorClass="text-cyan-600" shadowClass="" label="Use Cases" />
+              <HubNode level="Use Cases" colorClass="text-amber-600" shadowClass="" label="Use Cases" />
               
               <div className="flex flex-col gap-6 pl-[80px] w-full">
                 {useCases.length === 0 ? (
@@ -183,7 +183,7 @@ const TraceabilityCanvas = () => {
 
             {/* Branch 2: Tasks (Vertical Spine with Nested Evidence) */}
             <div className="flex flex-col items-start gap-8 relative z-10 shrink-0 w-[400px]">
-              <HubNode level="Tasks" colorClass="text-amber-600" shadowClass="" label="Tasks" />
+              <HubNode level="Tasks" colorClass="text-orange-600" shadowClass="" label="Tasks" />
               
               <div className="flex flex-col gap-12 pl-[80px] w-full">
                 {tasks.length === 0 ? (

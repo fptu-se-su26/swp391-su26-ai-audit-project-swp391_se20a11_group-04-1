@@ -144,8 +144,8 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-lowest">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
+            <div className="w-10 h-10 rounded-xl bg-[#1E707D]-container flex items-center justify-center">
+              <span className="material-symbols-outlined text-[#1E707D] text-[20px]">auto_awesome</span>
             </div>
             <div>
               <h2 className="text-title-md font-bold text-on-surface">AI Smart Sync All Use Cases</h2>
@@ -165,7 +165,7 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
         <div className="flex-1 overflow-y-auto p-6 bg-surface custom-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <FiRefreshCw className="w-10 h-10 text-primary animate-spin mb-4" />
+              <FiRefreshCw className="w-10 h-10 text-[#1E707D] animate-spin mb-4" />
               <p className="text-title-md font-medium text-on-surface">AI is analyzing Requirement & Use Cases...</p>
               <p className="text-body-md text-secondary mt-2">This may take a minute.</p>
             </div>
@@ -189,7 +189,7 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
                         >
                           <input 
                             type="checkbox"
-                            className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-5 h-5 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D] cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             checked={selectedUpdated.has(uc.id)}
                             disabled={uc.isDuplicate}
                             onChange={(e) => {
@@ -259,22 +259,22 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
                                   <div><strong className="text-xs">Alternative Flows:</strong> <pre className="text-sm font-sans whitespace-pre-wrap p-2 bg-surface rounded border border-outline-variant">{oldUc?.alternativeFlow ? formatFlow(oldUc.alternativeFlow) : <span className="italic opacity-50">Empty</span>}</pre></div>
                                 </div>
                                 <div className="space-y-3">
-                                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">AI Proposed Version (Editable)</h4>
+                                  <h4 className="font-bold text-sm text-[#1E707D] uppercase tracking-wider mb-2">AI Proposed Version (Editable)</h4>
                                   <div>
-                                    <strong className="text-xs text-primary">Precondition:</strong> 
-                                    <textarea value={uc.precondition || ''} onChange={(e) => handleUpdatedChange(uc.id, 'precondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y" />
+                                    <strong className="text-xs text-[#1E707D]">Precondition:</strong> 
+                                    <textarea value={uc.precondition || ''} onChange={(e) => handleUpdatedChange(uc.id, 'precondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y" />
                                   </div>
                                   <div>
-                                    <strong className="text-xs text-primary">Postcondition:</strong> 
-                                    <textarea value={uc.postcondition || ''} onChange={(e) => handleUpdatedChange(uc.id, 'postcondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y" />
+                                    <strong className="text-xs text-[#1E707D]">Postcondition:</strong> 
+                                    <textarea value={uc.postcondition || ''} onChange={(e) => handleUpdatedChange(uc.id, 'postcondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y" />
                                   </div>
                                   <div>
-                                    <strong className="text-xs text-primary">Main Flows:</strong> 
-                                    <textarea value={uc.mainFlows || ''} onChange={(e) => handleUpdatedChange(uc.id, 'mainFlows', e.target.value)} rows={5} className="w-full text-sm font-sans p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y custom-scrollbar" />
+                                    <strong className="text-xs text-[#1E707D]">Main Flows:</strong> 
+                                    <textarea value={uc.mainFlows || ''} onChange={(e) => handleUpdatedChange(uc.id, 'mainFlows', e.target.value)} rows={5} className="w-full text-sm font-sans p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y custom-scrollbar" />
                                   </div>
                                   <div>
-                                    <strong className="text-xs text-primary">Alternative Flows:</strong> 
-                                    <textarea value={uc.alternativeFlows || ''} onChange={(e) => handleUpdatedChange(uc.id, 'alternativeFlows', e.target.value)} rows={4} className="w-full text-sm font-sans p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y custom-scrollbar" />
+                                    <strong className="text-xs text-[#1E707D]">Alternative Flows:</strong> 
+                                    <textarea value={uc.alternativeFlows || ''} onChange={(e) => handleUpdatedChange(uc.id, 'alternativeFlows', e.target.value)} rows={4} className="w-full text-sm font-sans p-2 bg-emerald-50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y custom-scrollbar" />
                                   </div>
                                 </div>
                               </div>
@@ -309,7 +309,7 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
                             <input 
                               value={uc.name || ''} 
                               onChange={(e) => handleNewChange(idx, 'name', e.target.value)} 
-                              className="font-bold text-lg text-emerald-900 mb-2 w-full bg-transparent border-b border-emerald-200 focus:border-primary focus:outline-none px-1 py-0.5" 
+                              className="font-bold text-lg text-emerald-900 mb-2 w-full bg-transparent border-b border-emerald-200 focus:border-[#1E707D] focus:outline-none px-1 py-0.5" 
                               placeholder="Use Case Name"
                             />
                             {/* AI Critic Section */}
@@ -349,19 +349,19 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
                             <div className="space-y-3 mt-3 text-sm">
                               <div>
                                 <strong className="text-emerald-900 block mb-1">Precondition:</strong> 
-                                <textarea value={uc.precondition || ''} onChange={(e) => handleNewChange(idx, 'precondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y" />
+                                <textarea value={uc.precondition || ''} onChange={(e) => handleNewChange(idx, 'precondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y" />
                               </div>
                               <div>
                                 <strong className="text-emerald-900 block mb-1">Postcondition:</strong> 
-                                <textarea value={uc.postcondition || ''} onChange={(e) => handleNewChange(idx, 'postcondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y" />
+                                <textarea value={uc.postcondition || ''} onChange={(e) => handleNewChange(idx, 'postcondition', e.target.value)} rows={2} className="w-full text-sm p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y" />
                               </div>
                               <div>
                                 <strong className="text-emerald-900 block mb-1">Main Flows:</strong> 
-                                <textarea value={uc.mainFlows || ''} onChange={(e) => handleNewChange(idx, 'mainFlows', e.target.value)} rows={4} className="w-full text-sm font-sans p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y custom-scrollbar" />
+                                <textarea value={uc.mainFlows || ''} onChange={(e) => handleNewChange(idx, 'mainFlows', e.target.value)} rows={4} className="w-full text-sm font-sans p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y custom-scrollbar" />
                               </div>
                               <div>
                                 <strong className="text-emerald-900 block mb-1">Alternative Flows:</strong> 
-                                <textarea value={uc.alternativeFlows || ''} onChange={(e) => handleNewChange(idx, 'alternativeFlows', e.target.value)} rows={3} className="w-full text-sm font-sans p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-y custom-scrollbar" />
+                                <textarea value={uc.alternativeFlows || ''} onChange={(e) => handleNewChange(idx, 'alternativeFlows', e.target.value)} rows={3} className="w-full text-sm font-sans p-2 bg-white/50 rounded border border-emerald-200 text-emerald-900 focus:outline-none focus:ring-1 focus:ring-[#1E707D] focus:border-[#1E707D] resize-y custom-scrollbar" />
                               </div>
                             </div>
                           </div>
@@ -396,7 +396,7 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
           <button 
             onClick={handleApprove}
             disabled={loading || submitting || (!previewData)}
-            className="px-6 py-2.5 rounded-xl font-label-lg font-medium bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
+            className="px-6 py-2.5 rounded-xl font-label-lg font-medium bg-[#1E707D] text-white hover:bg-[#165964] transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
           >
             {submitting ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : <FiCheck className="w-5 h-5" />}
             {submitting ? 'Applying...' : `Approve ${selectedUpdated.size + selectedNew.size} Use Cases`}

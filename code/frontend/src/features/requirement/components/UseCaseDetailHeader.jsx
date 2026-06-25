@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
+import Button from '../../../components/ui/Button';
 
 const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLeader, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
   const { projectId } = useParams();
@@ -8,7 +9,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
     switch (status) {
       case 'DRAFT': return 'bg-slate-50 text-slate-600 border border-slate-200';
       case 'IN_PROGRESS': return 'bg-amber-50 text-amber-700 border border-amber-200';
-      case 'IN_REVIEW': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+      case 'IN_REVIEW': return 'bg-[#1E707D]/10 text-[#1E707D] border border-[#1E707D]/20';
       case 'DONE': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       default: return 'bg-surface-variant text-on-surface-variant';
     }
@@ -18,7 +19,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
     <div className="flex flex-col md:flex-row md:items-start justify-between gap-stack_lg mb-stack_lg pb-stack_md border-b border-outline-variant">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-stack_sm mb-3 flex-wrap">
-          <Link to={`/projects/${projectId}/use-cases`} className="flex items-center gap-1 text-secondary hover:text-primary transition-colors font-body-md text-body-md mr-1">
+          <Link to={`/projects/${projectId}/use-cases`} className="flex items-center gap-1 text-secondary hover:text-[#1E707D] transition-colors font-body-md text-body-md mr-1">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Use Cases
           </Link>
@@ -28,7 +29,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
               <select
                 value={useCase.status || 'DRAFT'}
                 onChange={(e) => onFieldChange('status', e.target.value)}
-                className="px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none cursor-pointer transition-all"
+                className="px-2 py-0.5 font-label-md text-label-md rounded-DEFAULT uppercase tracking-wider border border-outline-variant bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none cursor-pointer transition-all"
               >
                 <option value="DRAFT">DRAFT</option>
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
@@ -39,7 +40,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
                 type="text"
                 value={useCase.version || ''}
                 onChange={(e) => onFieldChange('version', e.target.value)}
-                className="w-20 px-2 py-0.5 text-secondary font-label-md text-label-md border border-outline-variant rounded-DEFAULT bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                className="w-20 px-2 py-0.5 text-secondary font-label-md text-label-md border border-outline-variant rounded-DEFAULT bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none transition-all"
                 placeholder="v1.0"
               />
             </>
@@ -68,7 +69,7 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
               type="text"
               value={useCase.name || ''}
               onChange={(e) => onFieldChange('name', e.target.value)}
-              className="flex-1 font-display-lg text-display-lg text-on-surface border-b-2 border-primary bg-transparent outline-none pb-1 transition-all"
+              className="flex-1 font-display-lg text-display-lg text-on-surface border-b-2 border-[#1E707D] bg-transparent outline-none pb-1 transition-all"
               placeholder="Use Case Name"
             />
           </div>
@@ -80,17 +81,19 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
       <div className="flex gap-stack_sm shrink-0">
         {isEditing ? (
           <>
-            <button 
+            <Button 
+              variant="outline"
               onClick={onCancel}
               disabled={saving}
-              className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant disabled:opacity-50"
+              className="h-11"
             >
               <span className="material-symbols-outlined text-[18px]">close</span> Cancel
-            </button>
-            <button 
+            </Button>
+            <Button 
+              variant="primary"
               onClick={onSave}
               disabled={saving}
-              className="h-11 px-5 bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm disabled:opacity-50"
+              className="h-11"
             >
               {saving ? (
                 <>
@@ -101,27 +104,25 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
                   <span className="material-symbols-outlined text-[18px]">save</span> Save Changes
                 </>
               )}
-            </button>
+            </Button>
           </>
         ) : (
           isLeader && (
             <>
-              <button 
+              <Button 
+                variant="outline"
                 onClick={onEdit}
-                className="h-11 px-4 bg-surface-container-highest text-on-surface hover:bg-surface-container-high transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 border border-outline-variant"
+                className="h-11"
               >
                 <span className="material-symbols-outlined text-[18px]">edit</span> Edit
-              </button>
-              <button 
+              </Button>
+              <Button 
+                variant={useCase.outdated ? "danger" : "primary"}
                 onClick={onAiSync}
-                className={`h-11 px-5 transition-colors rounded-DEFAULT font-label-md text-label-md flex items-center gap-2 shadow-sm ${
-                  useCase.outdated 
-                  ? 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse-slow shadow-amber-500/30' 
-                  : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant'
-                }`}
+                className={`h-11 ${useCase.outdated ? 'animate-pulse-slow shadow-amber-500/30' : ''}`}
               >
                 🪄 AI Update Usecase
-              </button>
+              </Button>
             </>
           )
         )}

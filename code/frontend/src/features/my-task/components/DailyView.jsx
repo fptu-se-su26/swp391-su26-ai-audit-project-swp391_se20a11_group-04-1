@@ -154,17 +154,6 @@ const DailyView = ({
             onSelectDate={onSelectDate}
             tasksByDate={tasksByDate}
           />
-          <AiInsightPanel
-            stats={{
-              overdue:        aiInsight.velocityWarning ? topBarStats.overdue : 0,
-              blockedMembers: [],
-              bottleneck:     aiInsight.overloadedMember || '',
-              velocityWarning: aiInsight.velocityWarning,
-              alerts:         aiInsight.alerts || [],
-              suggestions:    aiInsight.suggestions || [],
-            }}
-            lastUpdated={aiInsight.generatedAt ? 'just now' : '5m ago'}
-          />
           <MemberProgressPanel members={memberProgress} />
         </aside>
       </div>

@@ -20,7 +20,7 @@ const MyTasksPage = () => {
             <h2 className="font-headline-md text-headline-md text-on-surface">My Tasks</h2>
             <p className="text-secondary mt-1">Manage your assigned work and deliverables.</p>
           </div>
-          <Link to={taskBoardPath} className="h-9 px-4 bg-primary text-on-primary rounded-lg font-body-md shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2">
+          <Link to={taskBoardPath} className="h-9 px-4 bg-[#1E707D] text-white rounded-lg font-body-md shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">view_kanban</span>
             Task Board
           </Link>
@@ -44,16 +44,16 @@ const MyTasksPage = () => {
               <Link
                 key={task.id}
                 to={getTaskDetailPath(task.id)}
-                className="block bg-surface-container-lowest border border-outline-variant rounded-lg p-4 shadow-sm hover:border-primary transition-colors"
+                className="block bg-surface-container-lowest border border-outline-variant rounded-lg p-4 shadow-sm hover:border-[#1E707D] transition-colors"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-label-md text-label-md text-secondary">TASK-{task.id}</span>
-                      <span className="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed font-label-md text-[10px] rounded uppercase">
+                      <span className="px-2 py-0.5 bg-[#D7EEF1] text-[#1E707D] font-label-md text-[10px] rounded uppercase">
                         {task.status.replaceAll('_', ' ')}
                       </span>
-                      <span className="text-label-md text-primary">{task.requirement}</span>
+                      <span className="text-label-md text-[#1E707D]">{task.requirement}</span>
                     </div>
                     <h3 className="font-body-md text-body-md font-semibold text-on-surface">{task.title}</h3>
                     <p className="text-secondary text-sm line-clamp-2 mt-1">{task.description || 'No description.'}</p>

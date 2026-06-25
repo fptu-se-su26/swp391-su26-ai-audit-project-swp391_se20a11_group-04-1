@@ -136,6 +136,8 @@ public class ReqDiffAlignmentServiceImpl implements ReqDiffAlignmentService {
             acText.append(String.format("AC-%d: %s\n", i + 1, acceptanceCriteria.get(i)));
         }
 
+        // Prompt AI: Đối chiếu (Align) các thay đổi mã nguồn đã phân tích với danh sách Tiêu chí chấp nhận (Acceptance Criteria).
+        // Đánh giá tỷ lệ hoàn thành (Coverage) và tính toán rủi ro (Risk Level) của các thay đổi đó.
         return """
                 You are an AI Technical Lead. Align the parsed physical/behavioral code changes (Component A) with the Acceptance Criteria (AC) of the requirement.
                 Also evaluate logic, security, and quality risks on the modified files to output a risk level (finalRiskLevel).

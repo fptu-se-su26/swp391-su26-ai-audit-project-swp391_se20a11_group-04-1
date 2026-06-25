@@ -178,7 +178,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
   if (loading && !data) {
     return (
       <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 flex flex-col items-center justify-center min-h-[150px]">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-[#1E707D] border-t-transparent rounded-full animate-spin"></div>
         <span className="text-sm text-on-surface-variant mt-2">Loading SLA data...</span>
       </div>
     )
@@ -189,7 +189,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
       <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
         <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant flex justify-between items-center">
           <span>SLA Decision Pack</span>
-          <button onClick={fetchPack} className="text-primary text-xs font-bold flex items-center gap-1 hover:underline">
+          <button onClick={fetchPack} className="text-[#1E707D] text-xs font-bold flex items-center gap-1 hover:underline">
             <span className="material-symbols-outlined text-[14px]">refresh</span> Retry
           </button>
         </h3>
@@ -250,7 +250,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
         <h3 className="font-headline-sm text-body-lg text-on-surface">SLA Decision Pack</h3>
         <button
           onClick={fetchPack}
-          className="text-primary hover:text-surface-tint p-1 rounded transition-colors"
+          className="text-[#1E707D] hover:text-surface-tint p-1 rounded transition-colors"
           title="Refresh SLA Status"
           disabled={loading}
         >
@@ -493,6 +493,30 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
         </div>
       )}
 
+
+      {reasons.length > 0 && (
+        <div>
+          <span className="text-xs text-on-surface-variant uppercase block mb-1">Reasons</span>
+          <ul className="list-disc list-inside text-xs text-on-surface-variant space-y-1 pl-1">
+            {reasons.map((r, idx) => (
+              <li key={idx} className="leading-relaxed">{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {recommendedAction && (
+        <div className="p-3 bg-[#1E707D]/5 border border-[#1E707D]/20 rounded">
+          <span className="text-xs font-bold text-[#1E707D] block mb-0.5">Recommended Action</span>
+          <p className="text-xs text-on-surface leading-relaxed">{recommendedAction}</p>
+        </div>
+      )}
+
+      <div className="text-[10px] text-on-surface-variant flex flex-col gap-1 border-t border-outline-variant pt-3">
+        <div><span className="font-semibold">Last evaluated:</span> {formattedDate}</div>
+        <div><span className="font-semibold">Latest event:</span> {latestEventType}</div>
+        <div><span className="font-semibold">Latest action:</span> {latestActionTaken}</div>
+      </div>
 
       {visibleActions.length > 0 && (
         <div className="border-t border-outline-variant pt-3">

@@ -1,1 +1,2 @@
-ALTER TABLE use_cases ADD COLUMN added_from_diagram BOOLEAN DEFAULT FALSE;
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS added_from_diagram BOOLEAN DEFAULT FALSE;
+

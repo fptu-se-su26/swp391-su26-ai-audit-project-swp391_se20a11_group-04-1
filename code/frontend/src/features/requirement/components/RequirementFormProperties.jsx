@@ -23,7 +23,7 @@ const RequirementFormProperties = ({ formData, onChange }) => {
         <label className="font-label-md text-label-md text-on-surface-variant uppercase">Type</label>
         <div className="relative">
           <select 
-            className="w-full appearance-none px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+            className="w-full appearance-none px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all cursor-pointer"
             value={formData.type}
             onChange={(e) => onChange('type', e.target.value)}
           >
@@ -41,7 +41,7 @@ const RequirementFormProperties = ({ formData, onChange }) => {
         <label className="font-label-md text-label-md text-on-surface-variant uppercase">Priority</label>
         <div className="relative">
           <select 
-            className="w-full appearance-none px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer" 
+            className="w-full appearance-none px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all cursor-pointer" 
             value={formData.priority}
             onChange={(e) => onChange('priority', e.target.value)}
           >
@@ -59,7 +59,7 @@ const RequirementFormProperties = ({ formData, onChange }) => {
         <label className="font-label-md text-label-md text-on-surface-variant uppercase">Tags (Nhấn Enter để thêm)</label>
         <div className="flex flex-wrap gap-2 mb-1">
           {formData.tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-container text-on-secondary-container font-label-md text-label-md">
+            <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#1E707D]/10 text-[#1E707D] font-label-md text-label-md">
               {tag}
               <button type="button" onClick={() => removeTag(tag)} className="hover:text-error"><span className="material-symbols-outlined text-[14px]">close</span></button>
             </span>
@@ -67,7 +67,7 @@ const RequirementFormProperties = ({ formData, onChange }) => {
         </div>
         <div className="relative">
           <input 
-            className="w-full px-4 py-2 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all" 
+            className="w-full px-4 py-2 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all" 
             placeholder="Add tag and press Enter..." 
             type="text" 
             onKeyDown={handleTagKeyDown}

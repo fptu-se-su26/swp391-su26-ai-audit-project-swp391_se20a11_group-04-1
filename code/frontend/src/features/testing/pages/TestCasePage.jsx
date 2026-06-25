@@ -4,6 +4,9 @@ import useTestCaseStore from '../stores/useTestCaseStore'
 import TestCaseTable from '../components/TestCaseTable'
 import TestCaseFormModal from '../components/TestCaseFormModal'
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog'
+import AiGenTestCaseModal from '../components/AiGenTestCaseModal'
+import AiTestCaseProgressModal from '../components/AiTestCaseProgressModal'
+import AiTestCaseReviewModal from '../components/AiTestCaseReviewModal'
 
 /* ── Design tokens ──────────────────────────────────────────── */
 const C = {
@@ -129,20 +132,25 @@ export default function TestCasePage() {
   const { projectId = '1' } = useParams()
   const {
     testCases = [], isLoading, error, pagination, filters,
-    isFormOpen, isDeleteDialogOpen, editingTestCase, deletingTestCase,
+    isFormOpen, isDeleteDialogOpen, isAiGenModalOpen,
+    editingTestCase, deletingTestCase,
     fetchTestCases, setFilters, openCreateForm, openEditForm,
     closeForm, openDeleteDialog, closeDeleteDialog,
+    openAiGenModal, closeAiGenModal, openAiReview,
     createTestCase, updateTestCase, deleteTestCase,
   } = useTestCaseStore()
 
   const [isSubmitting, setIsSubmitting]   = useState(false)
   const [isDeleting, setIsDeleting]       = useState(false)
-  const [isGenerating, setIsGenerating]   = useState(false)
   const [formError, setFormError]         = useState(null)
   const [generatedData, setGeneratedData] = useState(null)
   const [searchTerm, setSearchTerm]       = useState('')
   const [sortBy, setSortBy]               = useState('updated')
   const [priorityFilter, setPriorityFilter] = useState(null)
+
+  // Progress Modal state
+  const [isProgressOpen, setIsProgressOpen] = useState(false)
+  const [progressPayload, setProgressPayload] = useState(null)
 
   useEffect(() => {
     if (projectId) fetchTestCases(projectId, 0)
@@ -173,16 +181,19 @@ export default function TestCasePage() {
     finally { setIsDeleting(false) }
   }
 
-  const handleGenerateApiTest = async () => {
-    const description = window.prompt('Enter API description or curl command:')
-    if (!description) return
-    setIsGenerating(true)
-    try {
-      const payload = await useTestCaseStore.getState().generateApiTest(projectId, description)
-      setGeneratedData(payload); openCreateForm()
-    } catch (err) {
-      alert('Failed to generate API test: ' + (err.response?.data?.message || err.message))
-    } finally { setIsGenerating(false) }
+  const handleGenSubmit = (payload) => {
+    setProgressPayload(payload)
+    setIsProgressOpen(true)
+  }
+
+  const handleProgressComplete = (generationId, testCases) => {
+    setIsProgressOpen(false)
+    openAiReview(generationId, testCases)
+  }
+
+  const handleProgressClose = () => {
+    setIsProgressOpen(false)
+    setProgressPayload(null)
   }
 
   /* ── Stats derived from pagination + testCases ── */
@@ -220,29 +231,27 @@ export default function TestCasePage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingRight: 130 }}>
           {/* Generate API Test */}
           <button
-            onClick={handleGenerateApiTest}
-            disabled={isGenerating}
+            onClick={openAiGenModal}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
               padding: '9px 18px', borderRadius: 12,
               border: `1.5px solid ${C.border}`, background: C.surface,
-              color: C.textSec, fontSize: 13, fontWeight: 600,
-              cursor: isGenerating ? 'not-allowed' : 'pointer',
-              opacity: isGenerating ? 0.6 : 1,
+              color: C.textPri, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
               transition: 'all 150ms ease',
               fontFamily: 'Inter,-apple-system,sans-serif',
             }}
-            onMouseEnter={e => { if (!isGenerating) { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; e.currentTarget.style.background = C.primaryLt } }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; e.currentTarget.style.background = C.surface }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; e.currentTarget.style.background = C.primaryLt }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textPri; e.currentTarget.style.background = C.surface }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'inherit' }}>
-              {isGenerating ? 'progress_activity' : 'smart_toy'}
+            <span className="material-symbols-outlined" style={{ fontSize: 16, color: C.accent }}>
+              auto_awesome
             </span>
-            GENERATE API TEST
+            AI GEN TESTCASE
           </button>
 
           {/* Add Test Case — 3D teal */}
@@ -428,6 +437,22 @@ export default function TestCasePage() {
         onConfirm={handleDeleteConfirm}
         onCancel={closeDeleteDialog}
       />
+
+      <AiGenTestCaseModal
+        isOpen={isAiGenModalOpen}
+        onClose={closeAiGenModal}
+        onSubmit={handleGenSubmit}
+      />
+
+      <AiTestCaseProgressModal
+        isOpen={isProgressOpen}
+        projectId={projectId}
+        payload={progressPayload}
+        onComplete={handleProgressComplete}
+        onClose={handleProgressClose}
+      />
+
+      <AiTestCaseReviewModal />
     </div>
   )
 }

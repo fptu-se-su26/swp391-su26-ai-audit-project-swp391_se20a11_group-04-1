@@ -34,13 +34,13 @@ const DailyTopBar = ({ selectedDate, onPrevDay, onNextDay, stats }) => {
       <div className="flex items-center gap-3 shrink-0">
         <button
           onClick={onPrevDay}
-          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F3F4F6] text-[#1E3A5F] transition-all"
+          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F3F4F6] text-[#1E707D] transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">chevron_left</span>
         </button>
 
         <div className="flex flex-col cursor-default">
-          <span className="text-[14px] font-bold text-[#1E3A5F] leading-tight uppercase">
+          <span className="text-[14px] font-bold text-[#1E707D] leading-tight uppercase">
             {formatDate(selectedDate)}
           </span>
           <span className="text-[12px] text-[#6B7280] leading-none capitalize">
@@ -50,13 +50,13 @@ const DailyTopBar = ({ selectedDate, onPrevDay, onNextDay, stats }) => {
 
         <button
           onClick={onNextDay}
-          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F3F4F6] text-[#1E3A5F] transition-all"
+          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F3F4F6] text-[#1E707D] transition-all"
         >
           <span className="material-symbols-outlined text-[20px]">chevron_right</span>
         </button>
 
         {isToday() && (
-          <span className="bg-[#1E3A5F] text-white px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+          <span className="bg-[#1E707D] text-white px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
             TODAY
           </span>
         )}
@@ -95,10 +95,10 @@ const DailyTopBar = ({ selectedDate, onPrevDay, onNextDay, stats }) => {
 
         {/* Đang làm */}
         <div className="flex-1 flex items-center justify-center gap-3">
-          <span className="material-symbols-outlined text-[#3B82F6] text-[20px]">sync</span>
+          <span className="material-symbols-outlined text-[#1E707D] text-[20px]">sync</span>
           <div className="flex flex-col">
             <span className="text-[10px] text-[#6B7280] font-bold leading-none uppercase">IN PROGRESS</span>
-            <span className="text-[15px] font-bold text-[#3B82F6] leading-tight">
+            <span className="text-[15px] font-bold text-[#1E707D] leading-tight">
               {String(stats.inProgress).padStart(2, '0')} task
             </span>
           </div>

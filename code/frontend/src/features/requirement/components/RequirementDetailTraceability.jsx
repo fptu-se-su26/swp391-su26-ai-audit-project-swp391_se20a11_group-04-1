@@ -22,7 +22,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
     <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack_lg">
       <div className="flex justify-between items-center mb-4 border-b border-surface-container-highest pb-2">
         <h3 className="font-headline-sm text-headline-sm text-on-surface">Traceability Status</h3>
-        <button className="text-primary hover:text-on-primary-fixed-variant text-sm font-medium">View RTM</button>
+        <button className="text-[#1E707D] hover:text-[#165964] text-sm font-medium">View RTM</button>
       </div>
       <div className="space-y-4">
         {/* Tasks Progress */}
@@ -42,7 +42,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
             <span className="font-label-md text-label-md font-medium text-secondary">{testsCount}/{testsTotal} Pass</span>
           </div>
           <div className="w-full bg-surface-container-high rounded-full h-2">
-            <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${testsPercent}%` }}></div>
+            <div className="bg-[#1E707D] h-2 rounded-full transition-all" style={{ width: `${testsPercent}%` }}></div>
           </div>
         </div>
         {/* Evidence Progress */}
@@ -52,7 +52,7 @@ const RequirementDetailTraceability = ({ requirement }) => {
             <span className="font-label-md text-label-md font-medium text-secondary">{evidenceCount}/{evidenceTotal} Accepted</span>
           </div>
           <div className="w-full bg-surface-container-high rounded-full h-2">
-            <div className="bg-purple-500 h-2 rounded-full transition-all" style={{ width: `${evidencePercent}%` }}></div>
+            <div className="bg-[#1E707D] h-2 rounded-full transition-all" style={{ width: `${evidencePercent}%` }}></div>
           </div>
         </div>
         {/* Bugs */}

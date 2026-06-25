@@ -1,4 +1,4 @@
-CREATE TABLE api_environment (
+CREATE TABLE IF NOT EXISTS api_environment (
     id          BIGSERIAL PRIMARY KEY,
     project_id  BIGINT NOT NULL REFERENCES projects(id),
     name        VARCHAR(100) NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE api_environment (
     updated_at  TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE api_test_case (
+CREATE TABLE IF NOT EXISTS api_test_case (
     id           BIGSERIAL PRIMARY KEY,
     project_id   BIGINT NOT NULL REFERENCES projects(id),
     name         VARCHAR(255) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE api_test_case (
     updated_at   TIMESTAMP DEFAULT now()
 );
 
-CREATE TABLE api_test_result (
+CREATE TABLE IF NOT EXISTS api_test_result (
     id               BIGSERIAL PRIMARY KEY,
     api_test_case_id BIGINT NOT NULL REFERENCES api_test_case(id),
     environment_id   BIGINT REFERENCES api_environment(id),
@@ -40,4 +40,4 @@ CREATE TABLE api_test_result (
     executed_at      TIMESTAMP DEFAULT now()
 );
 
-CREATE INDEX idx_api_test_result_case ON api_test_result(api_test_case_id);
+-- CREATE INDEX IF NOT EXISTS idx_api_test_result_case ON api_test_result(api_test_case_id);

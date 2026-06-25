@@ -107,8 +107,8 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
           >
             <FiX className="w-5 h-5" />
           </button>
-          <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center animate-pulse">
-            <FiRefreshCw className="text-blue-600 text-xl animate-spin" />
+          <div className="w-12 h-12 bg-[#1E707D]/10 rounded-full flex items-center justify-center animate-pulse">
+            <FiRefreshCw className="text-[#1E707D] text-xl animate-spin" />
           </div>
           <div className="text-center">
             <h3 className="font-bold text-gray-900 text-lg">AI is syncing...</h3>
@@ -149,8 +149,8 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
         {/* Header */}
         <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-container-lowest">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-[20px] text-primary">auto_awesome</span>
+            <div className="w-10 h-10 bg-[#1E707D]-container rounded-lg flex items-center justify-center">
+              <span className="material-symbols-outlined text-[20px] text-[#1E707D]">auto_awesome</span>
             </div>
             <div>
               <h2 className="text-title-md font-bold text-on-surface leading-tight">AI Sync Preview</h2>
@@ -216,12 +216,12 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs font-bold text-primary uppercase tracking-wider">AI Proposed Version (Editable)</div>
+                    <div className="text-xs font-bold text-[#1E707D] uppercase tracking-wider">AI Proposed Version (Editable)</div>
                     <input 
                       type="text"
                       value={newName}
                       onChange={(e) => handleFieldChange('name', e.target.value)}
-                      className="w-full p-2.5 bg-primary-container/10 rounded border border-primary/30 text-sm text-on-surface font-medium focus:ring-1 focus:ring-primary focus:outline-none"
+                      className="w-full p-2.5 bg-[#1E707D]-container/10 rounded border border-[#1E707D]/30 text-sm text-on-surface font-medium focus:ring-1 focus:ring-[#1E707D] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -239,7 +239,7 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
                     </p>
                   </div>
                   <div className="flex flex-col h-full">
-                    <h4 className="text-xs font-bold text-primary mb-1">New Precondition</h4>
+                    <h4 className="text-xs font-bold text-[#1E707D] mb-1">New Precondition</h4>
                     <textarea 
                       value={newPre}
                       onChange={(e) => handleFieldChange('precondition', e.target.value)}
@@ -257,7 +257,7 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
                     </p>
                   </div>
                   <div className="flex flex-col h-full">
-                    <h4 className="text-xs font-bold text-primary mb-1">New Postcondition</h4>
+                    <h4 className="text-xs font-bold text-[#1E707D] mb-1">New Postcondition</h4>
                     <textarea 
                       value={newPost}
                       onChange={(e) => handleFieldChange('postcondition', e.target.value)}
@@ -275,7 +275,7 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
                     </pre>
                   </div>
                   <div className="flex flex-col h-full">
-                    <h4 className="text-xs font-bold text-primary mb-1">New Main Flows</h4>
+                    <h4 className="text-xs font-bold text-[#1E707D] mb-1">New Main Flows</h4>
                     <textarea 
                       value={newMain}
                       onChange={(e) => handleFieldChange('mainFlows', e.target.value)}
@@ -293,7 +293,7 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
                     </pre>
                   </div>
                   <div className="flex flex-col h-full">
-                    <h4 className="text-xs font-bold text-primary mb-1">New Alternative Flows</h4>
+                    <h4 className="text-xs font-bold text-[#1E707D] mb-1">New Alternative Flows</h4>
                     <textarea 
                       value={newAlt}
                       onChange={(e) => handleFieldChange('alternativeFlows', e.target.value)}
@@ -320,7 +320,7 @@ const AiSyncUseCaseModal = ({ useCase, useCaseId, projectId, onClose, onApprove 
           <button 
             onClick={handleApprove}
             disabled={saving}
-            className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+            className="px-5 py-2 text-sm font-medium text-white bg-[#1E707D] rounded-lg hover:bg-[#1E707D] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
           >
             {saving ? <FiRefreshCw className="animate-spin" /> : <FiCheck />}
             Approve & Update

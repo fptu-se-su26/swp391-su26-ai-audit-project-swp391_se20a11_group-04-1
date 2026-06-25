@@ -119,7 +119,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface-container-lowest">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-[#1E707D]-container text-[#1E707D] flex items-center justify-center">
               <span className="material-symbols-outlined">post_add</span>
             </div>
             <div>
@@ -138,7 +138,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
             
             {/* Section: Basic Info */}
             <div>
-              <h3 className="font-label-lg text-label-lg text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-label-lg text-label-lg text-[#1E707D] mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">info</span>
                 Basic Information
               </h3>
@@ -150,7 +150,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     <input 
                       type="text" name="name" required placeholder="e.g., User Login"
                       value={formData.name} onChange={handleChange}
-                      className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md transition-all" 
+                      className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
                     />
                   </div>
                 </div>
@@ -165,7 +165,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                   <input 
                     type="text" name="actorsText" placeholder="System User, Admin"
                     value={formData.actorsText} onChange={handleChange}
-                    className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md transition-all" 
+                    className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
                   />
                 </div>
               </div>
@@ -173,7 +173,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
 
             {/* Section: Links & State */}
             <div>
-              <h3 className="font-label-lg text-label-lg text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-label-lg text-label-lg text-[#1E707D] mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">link</span>
                 State & Links
               </h3>
@@ -185,7 +185,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     <select 
                       name="requirementId" required
                       value={formData.requirementId} onChange={handleChange}
-                      className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md appearance-none cursor-pointer transition-all"
+                      className="w-full h-11 pl-10 pr-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md appearance-none cursor-pointer transition-all"
                       disabled={loadingReqs}
                     >
                       <option value="" disabled>{loadingReqs ? 'Loading...' : 'Select Requirement'}</option>
@@ -200,7 +200,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                   <label className="block font-label-md text-label-md text-on-surface mb-1.5">Status</label>
                   <select 
                     name="status" value={formData.status} onChange={handleChange}
-                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md cursor-pointer transition-all"
+                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md cursor-pointer transition-all"
                   >
                     <option value="DRAFT">Draft</option>
                     <option value="IN_PROGRESS">In Progress</option>
@@ -213,7 +213,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                   <input 
                     type="text" name="version" placeholder="v1.0"
                     value={formData.version} onChange={handleChange}
-                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md transition-all" 
+                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
                   />
                 </div>
               </div>
@@ -221,7 +221,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
 
             {/* Section: Conditions */}
             <div>
-              <h3 className="font-label-lg text-label-lg text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-label-lg text-label-lg text-[#1E707D] mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">rule</span>
                 Conditions
               </h3>
@@ -232,7 +232,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     name="precondition" rows="3"
                     value={formData.precondition} onChange={handleChange}
                     placeholder="What must be true before this use case begins?"
-                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md resize-none transition-all" 
+                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md resize-none transition-all" 
                   ></textarea>
                 </div>
                 <div>
@@ -241,7 +241,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     name="postcondition" rows="3"
                     value={formData.postcondition} onChange={handleChange}
                     placeholder="What is the state of the system after this use case ends?"
-                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md resize-none transition-all" 
+                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md resize-none transition-all" 
                   ></textarea>
                 </div>
               </div>
@@ -249,7 +249,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
 
             {/* Section: Flows */}
             <div>
-              <h3 className="font-label-lg text-label-lg text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-label-lg text-label-lg text-[#1E707D] mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">account_tree</span>
                 Execution Flows
               </h3>
@@ -263,7 +263,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     name="mainFlowText" rows="6"
                     value={formData.mainFlowText} onChange={handleChange}
                     placeholder="1. User opens the login page&#10;2. User enters credentials&#10;3. System validates credentials"
-                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md resize-y transition-all" 
+                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md resize-y transition-all" 
                   ></textarea>
                 </div>
                 <div>
@@ -282,7 +282,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                       name="branchFromStep"
                       value={formData.branchFromStep}
                       onChange={handleChange}
-                      className="w-full h-9 px-3 bg-surface-container-lowest border border-outline-variant rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-sm cursor-pointer transition-all"
+                      className="w-full h-9 px-3 bg-surface-container-lowest border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-sm cursor-pointer transition-all"
                     >
                       <option value="">Auto (last step)</option>
                       {mainFlowSteps.map((step, idx) => (
@@ -300,7 +300,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     name="alternativeFlowText" rows="5"
                     value={formData.alternativeFlowText} onChange={handleChange}
                     placeholder="If validation fails:&#10;1. System displays error message&#10;2. User remains on login page"
-                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md resize-y transition-all" 
+                    className="w-full p-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md resize-y transition-all" 
                   ></textarea>
                 </div>
               </div>

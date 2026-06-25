@@ -40,7 +40,7 @@ const DailyFilters = ({ assignees, selectedAssignees, onAssigneesChange, selecte
                 type="checkbox" 
                 checked={selectedAssignees.length === 0}
                 onChange={() => onAssigneesChange([])}
-                className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
               />
               <span className="text-[12px] font-bold">All Members</span>
             </label>
@@ -50,7 +50,7 @@ const DailyFilters = ({ assignees, selectedAssignees, onAssigneesChange, selecte
                   type="checkbox" 
                   checked={selectedAssignees.includes(a.id)}
                   onChange={() => handleAssigneeToggle(a.id)}
-                  className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
                 />
                 <span className="text-[12px] font-medium">{a.name}</span>
               </label>
@@ -76,7 +76,7 @@ const DailyFilters = ({ assignees, selectedAssignees, onAssigneesChange, selecte
                 type="checkbox" 
                 checked={selectedPriorities.length === 0}
                 onChange={() => onPrioritiesChange([])}
-                className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
               />
               <span className="text-[12px] font-bold">All Priorities</span>
             </label>
@@ -92,7 +92,7 @@ const DailyFilters = ({ assignees, selectedAssignees, onAssigneesChange, selecte
                       onPrioritiesChange([...selectedPriorities, p.value]);
                     }
                   }}
-                  className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
                 />
                 <span className={`text-[12px] ${p.color}`}>{p.label}</span>
               </label>

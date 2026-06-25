@@ -74,6 +74,8 @@ public class GeminiServiceImpl implements GeminiService {
         }
 
         // Phase 2: Generate Requirements with Domain Context
+        // Prompt AI: Trích xuất danh sách Actor và Requirement từ nội dung tài liệu tải lên. 
+        // Phân loại độ ưu tiên, tag, loại (Functional, Security...) và tự động sinh các Acceptance Criteria.
         String prompt = "Below is the text extracted from a project requirement document. " +
                 "Your task is to analyze and extract a list of Actors (Roles) and Requirements from this text. " +
                 "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
@@ -153,6 +155,8 @@ public class GeminiServiceImpl implements GeminiService {
                 ? String.join("\n- ", existingUseCases)
                 : "(No existing use cases)";
 
+        // Prompt AI: Tạo danh sách Use Case (kịch bản sử dụng) dựa trên các Requirement (Yêu cầu) đã có.
+        // Hướng dẫn AI cách viết luồng chính (main flow), luồng thay thế (alternative flows), và cách map với Actors, Includes, Extends theo chuẩn UML.
         String prompt = "You are an expert Business Analyst. I will provide you with one or more System Requirements.\n" +
                 "Your task is to analyze these requirements and break them down into detailed Use Cases.\n" +
                 "For EACH requirement, generate one or more Use Cases that fulfill it.\n\n" +
@@ -212,6 +216,8 @@ public class GeminiServiceImpl implements GeminiService {
                 ? String.join("\n- ", existingRequirements) 
                 : "(No existing requirements in the project)";
 
+        // Prompt AI (Critic): Đóng vai trò chuyên gia QA/BA để chấm điểm và đánh giá chất lượng của các Requirement vừa được AI tạo ra.
+        // Tìm ra các điểm tối nghĩa, sai logic, trích xuất dẫn chứng từ tài liệu gốc, và phát hiện Requirement bị trùng lặp.
         String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
                 "I will provide you with a list of recently extracted Requirements (in JSON format), " +
                 "the original document text, and the EXISTING REQUIREMENTS LIST.\n\n" +
@@ -338,6 +344,8 @@ public class GeminiServiceImpl implements GeminiService {
 
         String contextListString = String.join("\n- ", existingRequirementContexts);
         
+        // Prompt AI: Đánh giá độ liên quan của tài liệu được tải lên so với nội dung của dự án hiện tại.
+        // So sánh tài liệu với các Requirement đã có để chấm điểm (0-100) xem tài liệu có bị lệch chủ đề (off-topic) hay không.
         String prompt = "You are a professional Content Auditing AI. Your task is to evaluate the relevance of an uploaded document against the project's existing Requirements.\n" +
                 "Below are some existing Requirements in the project (acting as the baseline context):\n" +
                 "- " + contextListString + "\n\n" +
@@ -381,6 +389,8 @@ public class GeminiServiceImpl implements GeminiService {
                 ? String.join(", ", allowedActors)
                 : "(No pre-defined actors. Allow any.)";
 
+        // Prompt AI (Critic): Đóng vai trò chuyên gia QA/BA để chấm điểm và đánh giá chất lượng của các Use Case vừa được AI tạo ra.
+        // Tìm lỗi logic, lỗi luồng thay thế, kiểm tra xem Actor có hợp lệ không, và phát hiện Use Case bị trùng lặp.
         String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
                 "I will provide you with a list of recently generated Use Cases (in JSON format), " +
                 "their original parent Requirements, the list of EXISTING USE CASES in the project, and ALLOWED ACTORS.\n\n" +

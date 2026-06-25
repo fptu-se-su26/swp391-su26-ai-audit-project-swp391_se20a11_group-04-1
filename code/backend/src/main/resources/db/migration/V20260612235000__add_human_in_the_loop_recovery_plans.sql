@@ -1,4 +1,4 @@
-CREATE TABLE recovery_plans (
+CREATE TABLE IF NOT EXISTS recovery_plans (
     id BIGSERIAL PRIMARY KEY,
     project_id BIGINT NOT NULL,
     sprint_id BIGINT,
@@ -18,7 +18,7 @@ CREATE TABLE recovery_plans (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE recovery_plan_actions (
+CREATE TABLE IF NOT EXISTS recovery_plan_actions (
     id BIGSERIAL PRIMARY KEY,
     plan_id BIGINT NOT NULL,
     project_id BIGINT NOT NULL,
@@ -37,7 +37,8 @@ CREATE TABLE recovery_plan_actions (
     CONSTRAINT fk_recovery_plan_actions_plan FOREIGN KEY (plan_id) REFERENCES recovery_plans(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_recovery_plans_project_task_created ON recovery_plans(project_id, task_id, created_at);
-CREATE INDEX idx_recovery_plan_actions_plan_id ON recovery_plan_actions(plan_id);
-CREATE INDEX idx_recovery_plan_actions_project_task ON recovery_plan_actions(project_id, task_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_plans_project_task_created ON recovery_plans(project_id, task_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_actions_plan_id ON recovery_plan_actions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_plan_actions_project_task ON recovery_plan_actions(project_id, task_id);
 CREATE UNIQUE INDEX uk_recovery_plan_actions_idempotency ON recovery_plan_actions(idempotency_key);
+

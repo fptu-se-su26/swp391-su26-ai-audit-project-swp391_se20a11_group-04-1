@@ -68,9 +68,9 @@ export function GitHubCallbackPage() {
         {status === 'processing' && (
           <div className="animate-in fade-in zoom-in duration-500">
             <div className="relative w-24 h-24 mx-auto mb-6">
-              <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-primary rounded-full border-t-transparent animate-spin"></div>
-              <span className="absolute inset-0 flex items-center justify-center material-symbols-outlined text-4xl text-primary">
+              <div className="absolute inset-0 border-4 border-[#1E707D]/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-[#1E707D] rounded-full border-t-transparent animate-spin"></div>
+              <span className="absolute inset-0 flex items-center justify-center material-symbols-outlined text-4xl text-[#1E707D]">
                 sync
               </span>
             </div>
@@ -108,7 +108,7 @@ export function GitHubCallbackPage() {
             </p>
             <button
               onClick={() => navigate(-1)}
-              className="mt-6 px-6 py-2 bg-primary text-on-primary font-bold rounded-lg hover:bg-primary/90 transition-colors"
+              className="mt-6 px-6 py-2 bg-[#1E707D] text-white font-bold rounded-lg hover:bg-[#1E707D]/90 transition-colors"
             >
               Go Back
             </button>

@@ -2,7 +2,7 @@
 -- Description: Add project_id to use_cases, backfill data, add constraints, and missing indexes
 
 -- 1. Add project_id as nullable
-ALTER TABLE use_cases ADD COLUMN project_id BIGINT;
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS project_id BIGINT;
 
 -- 2. Backfill existing data using a JOIN with the requirements table
 UPDATE use_cases uc
@@ -26,3 +26,4 @@ ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_use_cases_project_id ON use_cases(project_id);
 CREATE INDEX IF NOT EXISTS idx_test_cases_project_id ON test_cases(project_id);
 CREATE INDEX IF NOT EXISTS idx_evidence_project_id ON evidence(project_id);
+

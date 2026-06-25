@@ -54,11 +54,11 @@ const WeeklyStatsBar = ({ stats = {} }) => {
   return (
     <div className="w-full bg-white border border-[#E5E7EB] rounded-lg p-[10px_16px] shadow-sm flex items-center gap-2">
       <Chip
-        dotColor="bg-[#1E3A5F]"
+        dotColor="bg-[#1E707D]"
         label="TOTAL TASKS"
         value={total}
         delta={0}
-        valueColor="text-[#1E3A5F]"
+        valueColor="text-[#1E707D]"
       />
       <Chip
         dotColor="bg-[#16A34A]"
@@ -84,11 +84,11 @@ const WeeklyStatsBar = ({ stats = {} }) => {
         valueColor="text-[#F97316]"
       />
       <Chip
-        dotColor="bg-[#3B82F6]"
+        dotColor="bg-[#1E707D]"
         label="RTM COVERAGE"
         value={rtmCoverage}
         delta={rtmDelta}
-        valueColor="text-[#3B82F6]"
+        valueColor="text-[#1E707D]"
       />
     </div>
   )
