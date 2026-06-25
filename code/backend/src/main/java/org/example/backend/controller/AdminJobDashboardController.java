@@ -12,9 +12,12 @@ import org.example.backend.repository.DeadLetterEventRepository;
 import org.example.backend.repository.OutboxEventRepository;
 import org.example.backend.repository.SchedulerRunLogRepository;
 import org.example.backend.repository.EntitySyncLogRepository;
+import org.example.backend.repository.AuditLogRepository;
+import org.example.backend.entity.AuditLog;
 import org.example.backend.entity.EntitySyncLog;
 import org.example.backend.dto.EntitySyncLogResponse;
 import org.example.backend.dto.SyncStatsResponse;
+import org.example.backend.dto.AuditLogResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +28,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -36,6 +42,7 @@ public class AdminJobDashboardController {
     private final OutboxEventRepository outboxEventRepository;
     private final DeadLetterEventRepository deadLetterEventRepository;
     private final EntitySyncLogRepository entitySyncLogRepository;
+    private final AuditLogRepository auditLogRepository;
 
     private <T> ResponseEntity<ApiResponse<T>> unauthorized() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Unauthorized"));
@@ -82,11 +89,12 @@ public class AdminJobDashboardController {
 
     @PostMapping("/dlq/{id}/retry")
     @Transactional
+    @org.example.backend.annotation.Auditable(action = "DLQ_RETRY", entityType = "OutboxEvent")
     public ResponseEntity<ApiResponse<Void>> retryDlqEvent(@PathVariable Long id, HttpSession session) {
         if (session.getAttribute("userId") == null) return unauthorized();
         DeadLetterEvent dlq = deadLetterEventRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("DLQ event not found"));
-        
+
         dlq.setRetryStatus("RETRY_REQUESTED");
         dlq.setLastRetryAt(LocalDateTime.now());
         deadLetterEventRepository.save(dlq);
@@ -100,8 +108,6 @@ public class AdminJobDashboardController {
             event.setNextRetryAt(null);
             outboxEventRepository.save(event);
         } else {
-            // Recreate from DLQ (this is risky if we don't have all data like aggregateType or idempotencyKey, 
-            // but we use placeholder or deterministic key)
             String fakeKey = "DLQ_RETRY_" + dlq.getId() + "_" + System.currentTimeMillis();
             OutboxEvent newEvent = OutboxEvent.builder()
                     .eventType(dlq.getEventType())
@@ -125,22 +131,19 @@ public class AdminJobDashboardController {
             @RequestParam(defaultValue = "20") int size,
             HttpSession session) {
         if (session.getAttribute("userId") == null) return unauthorized();
-        
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<EntitySyncLog> logsPage;
-        if (status != null && !status.isEmpty()) {
-            logsPage = entitySyncLogRepository.findByStatusIn(java.util.List.of(status), pageable);
-        } else {
-            logsPage = entitySyncLogRepository.findAll(pageable);
-        }
-        
+        Page<EntitySyncLog> logsPage = (status != null && !status.isEmpty())
+                ? entitySyncLogRepository.findByStatusIn(java.util.List.of(status), pageable)
+                : entitySyncLogRepository.findAll(pageable);
+
         return ResponseEntity.ok(ApiResponse.success(logsPage.map(EntitySyncLogResponse::fromEntity), "Success"));
     }
 
     @GetMapping("/sync/stats")
     public ResponseEntity<ApiResponse<SyncStatsResponse>> getSyncStats(HttpSession session) {
         if (session.getAttribute("userId") == null) return unauthorized();
-        
+
         return ResponseEntity.ok(ApiResponse.success(SyncStatsResponse.builder()
                 .pending(entitySyncLogRepository.countByStatus("PENDING"))
                 .success(entitySyncLogRepository.countByStatus("SUCCESS"))
@@ -154,15 +157,55 @@ public class AdminJobDashboardController {
     @Transactional
     public ResponseEntity<ApiResponse<Void>> retrySyncLog(@PathVariable Long id, HttpSession session) {
         if (session.getAttribute("userId") == null) return unauthorized();
-        
-        EntitySyncLog log = entitySyncLogRepository.findById(id)
+
+        EntitySyncLog syncLog = entitySyncLogRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Sync log not found"));
-        
-        log.setRetryCount(0);
-        log.setStatus("RETRY_PENDING");
-        log.setNextRetryAt(LocalDateTime.now());
-        entitySyncLogRepository.save(log);
-        
+
+        syncLog.setRetryCount(0);
+        syncLog.setStatus("RETRY_PENDING");
+        syncLog.setNextRetryAt(LocalDateTime.now());
+        entitySyncLogRepository.save(syncLog);
+
         return ResponseEntity.ok(ApiResponse.success("Sync retry requested"));
+    }
+
+    @GetMapping("/audit/logs")
+    public ResponseEntity<ApiResponse<Page<AuditLogResponse>>> getAuditLogs(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String action,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<AuditLog> logs;
+
+        if (userId != null) {
+            logs = auditLogRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        } else if (action != null && !action.isBlank()) {
+            logs = auditLogRepository.findByActionContaining(action, pageable);
+        } else {
+            logs = auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(logs.map(AuditLogResponse::fromEntity), "Success"));
+    }
+
+    @GetMapping("/audit/stats")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAuditStats(HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        long totalToday = auditLogRepository.countByCreatedAtAfter(startOfDay);
+        long failedToday = auditLogRepository.countByStatusAndCreatedAtAfter("FAILED", startOfDay);
+        long suspiciousUsers = auditLogRepository.findSuspiciousUserIds().size();
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalToday", totalToday);
+        stats.put("failedToday", failedToday);
+        stats.put("suspiciousUsers", suspiciousUsers);
+
+        return ResponseEntity.ok(ApiResponse.success(stats, "Success"));
     }
 }
