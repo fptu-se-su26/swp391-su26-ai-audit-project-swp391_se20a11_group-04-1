@@ -10,12 +10,20 @@ import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
 import org.example.backend.service.testing.TestCaseService;
 import org.example.backend.service.ApiTestExecutorService;
-import org.example.backend.service.AiApiTestGeneratorService;
+import org.example.backend.service.AiTestCaseGeneratorService;
 import org.example.backend.dto.apitest.ApiTestResultResponse;
 import org.example.backend.repository.ApiTestResultRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.entity.UserAccount;
+import org.example.backend.entity.AiGenerationStaging;
+import org.example.backend.entity.AiStage;
+import org.example.backend.entity.AiGenerationStatus;
+import org.example.backend.repository.AiGenerationStagingRepository;
+import org.example.backend.service.AiGenerationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.exception.ResourceNotFoundException;
+import java.util.UUID;
+import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.Map;
@@ -37,9 +45,12 @@ public class TestCaseController {
 
     private final TestCaseService testCaseService;
     private final ApiTestExecutorService apiTestExecutorService;
-    private final AiApiTestGeneratorService aiApiTestGeneratorService;
+    private final AiTestCaseGeneratorService aiTestCaseGeneratorService;
     private final ApiTestResultRepository apiTestResultRepository;
     private final UserAccountRepository userAccountRepository;
+    private final AiGenerationStagingRepository aiGenerationStagingRepository;
+    private final AiGenerationService aiGenerationService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -143,19 +154,88 @@ public class TestCaseController {
                 });
     }
 
-    @PostMapping("/generate-api")
+    @PostMapping("/generate-ai")
     @PreAuthorizeProjectMember
-    public ApiResponse<TestCaseRequest> generateApiTestFromDescription(
+    public ApiResponse<Map<String, Object>> generateTestCasesWithAi(
             @PathVariable Long projectId,
-            @RequestBody Map<String, String> payload) {
-        String description = payload.get("description");
-        if (description == null || description.trim().isEmpty()) {
-            throw new org.example.backend.exception.BusinessException("Description is required");
+            @Valid @RequestBody org.example.backend.dto.testing.AiTestCaseGenerateRequest request,
+            Principal principal) {
+        
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
+
+        List<TestCaseRequest> generatedTestCases = aiTestCaseGeneratorService.generateTestCases(request);
+        org.example.backend.entity.Project project = new org.example.backend.entity.Project();
+        project.setId(projectId);
+        
+        AiGenerationStaging staging = new AiGenerationStaging();
+        staging.setProject(project);
+        staging.setGenerationId(UUID.randomUUID());
+        staging.setRequirementId(request.getRequirementId());
+        staging.setStage(AiStage.TEST_CASE);
+        staging.setStatus(AiGenerationStatus.PENDING);
+        
+        try {
+            String payloadStr = objectMapper.writeValueAsString(generatedTestCases);
+            staging.setPayload(objectMapper.readTree(payloadStr));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process generated test cases", e);
         }
-        return ApiResponse.success(
-            aiApiTestGeneratorService.generateFromDescription(description),
-            "API test generated successfully"
-        );
+        
+        AiGenerationStaging saved = aiGenerationStagingRepository.save(staging);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("generationId", saved.getGenerationId());
+        response.put("testCases", generatedTestCases);
+
+        return ApiResponse.success(response, "Test cases generated successfully by AI");
+    }
+
+    @GetMapping("/generate-ai/{generationId}")
+    @PreAuthorizeProjectMember
+    public ApiResponse<Map<String, Object>> getTestCaseGeneration(
+            @PathVariable Long projectId,
+            @PathVariable UUID generationId) {
+        
+        List<AiGenerationStaging> stagings = aiGenerationStagingRepository.findByGenerationId(generationId);
+        if (stagings.isEmpty()) {
+            throw new ResourceNotFoundException("Generation data not found");
+        }
+        AiGenerationStaging staging = stagings.get(0);
+                
+        Map<String, Object> response = new HashMap<>();
+        response.put("generationId", staging.getGenerationId());
+        response.put("testCases", staging.getPayload());
+        
+        return ApiResponse.success(response, "Test case generation data retrieved successfully");
+    }
+
+    @PostMapping("/generate-ai/{generationId}/approve")
+    @PreAuthorizeProjectMember
+    public ApiResponse<List<TestCaseResponse>> approveTestCaseGeneration(
+            @PathVariable Long projectId,
+            @PathVariable UUID generationId,
+            @RequestBody Map<String, Object> requestBody,
+            Principal principal) {
+            
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Long currentUserId = user.getId();
+
+        @SuppressWarnings("unchecked")
+        List<Integer> selectedIndices = (List<Integer>) requestBody.get("selectedIndices");
+        
+        Object payloadObj = requestBody.get("modifiedPayload");
+        com.fasterxml.jackson.databind.JsonNode modifiedPayload = null;
+        if (payloadObj != null) {
+            modifiedPayload = objectMapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
+        }
+
+        List<org.example.backend.entity.TestCase> approvedTestCases = aiGenerationService.approveTestCaseGeneration(
+                generationId, selectedIndices, modifiedPayload, currentUserId, projectId);
+                
+        return ApiResponse.success(null, "Test cases approved successfully");
     }
 
     @GetMapping("/{testCaseId}/api-results")
