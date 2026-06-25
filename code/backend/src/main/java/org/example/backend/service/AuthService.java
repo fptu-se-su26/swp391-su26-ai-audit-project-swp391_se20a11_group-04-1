@@ -40,4 +40,9 @@ public interface AuthService {
      * Lấy thông tin tài khoản của người dùng đang đăng nhập trong session hiện tại.
      */
     UserResponse getCurrentUser(HttpSession session);
+
+    /**
+     * Cho phép tài khoản bị khóa gửi đơn kháng cáo kèm lý do và minh chứng.
+     */
+    void submitAppeal(Long userId, String usernameOrEmail, String reason, String evidenceUrl, String evidenceName);
 }

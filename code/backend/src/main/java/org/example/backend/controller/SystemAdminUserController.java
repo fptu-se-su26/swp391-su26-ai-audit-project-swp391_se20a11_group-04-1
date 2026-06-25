@@ -42,9 +42,13 @@ public class SystemAdminUserController {
     }
 
     @PutMapping("/{id}/toggle-lock")
-    public ResponseEntity<?> toggleLock(@PathVariable Long id, HttpSession session) {
+    public ResponseEntity<?> toggleLock(
+            @PathVariable Long id, 
+            @RequestBody(required = false) Map<String, String> body, 
+            HttpSession session) {
         requireAdmin(session);
-        boolean success = systemAdminService.toggleUserLock(id);
+        String reason = body != null ? body.get("reason") : "";
+        boolean success = systemAdminService.toggleUserLock(id, reason);
         if (!success) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
