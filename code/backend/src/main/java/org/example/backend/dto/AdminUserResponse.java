@@ -25,4 +25,5 @@ public class AdminUserResponse {
     private String appealComment;
     private LocalDateTime appealResolvedAt;
     private String appealResolvedByUsername;
+    private String lockReason;
 }

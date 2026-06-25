@@ -15,6 +15,9 @@ export const useAuthStore = create((set) => {
     fullName: localStorage.getItem('fullName') || null,
     verifyStatus: localStorage.getItem('verifyStatus') || 'UNVERIFIED',
     isAuthenticated: !!userId,
+    isLockedOut: false,
+    lockReason: null,
+    appealStatus: null,
 
   /**
    * Đăng nhập thành công, thiết lập state và lưu trữ cục bộ
@@ -43,6 +46,9 @@ export const useAuthStore = create((set) => {
       fullName: fullName || null,
       verifyStatus: verifyStatus || 'UNVERIFIED',
       isAuthenticated: !!strId,
+      isLockedOut: false,
+      lockReason: null,
+      appealStatus: null,
     })
   },
 
@@ -53,8 +59,10 @@ export const useAuthStore = create((set) => {
     try {
       const response = await authService.getMe()
       if (response.data?.success) {
-        const { id, systemRole, username, email, fullName, verifyStatus } = response.data?.data || {}
+        const { id, systemRole, username, email, fullName, verifyStatus, active, isActive, lockReason, appealStatus } = response.data?.data || {}
         const strId = id ? String(id) : null
+        const userIsActive = isActive ?? active ?? true;
+        const userIsLocked = !userIsActive;
         
         if (strId) localStorage.setItem('userId', strId)
         if (systemRole) localStorage.setItem('userRole', systemRole)
@@ -71,6 +79,9 @@ export const useAuthStore = create((set) => {
           fullName: fullName || null,
           verifyStatus: verifyStatus || 'UNVERIFIED',
           isAuthenticated: !!strId,
+          isLockedOut: userIsLocked,
+          lockReason: lockReason || null,
+          appealStatus: appealStatus || null
         })
         return response.data?.data
       }
@@ -121,6 +132,9 @@ export const useAuthStore = create((set) => {
       fullName: null,
       verifyStatus: 'UNVERIFIED',
       isAuthenticated: false,
+      isLockedOut: false,
+      lockReason: null,
+      appealStatus: null,
     })
   }
 }

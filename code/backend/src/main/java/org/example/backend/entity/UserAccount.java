@@ -50,27 +50,8 @@ public class UserAccount {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @Column(name = "appeal_reason")
-    private String appealReason;
-
-    @Column(name = "appeal_evidence_url", length = 500)
-    private String appealEvidenceUrl;
-
-    @Column(name = "appeal_evidence_name", length = 255)
-    private String appealEvidenceName;
-
-    @Column(name = "appeal_status", length = 50)
-    private String appealStatus;
-
-    @Column(name = "appeal_comment")
-    private String appealComment;
-
-    @Column(name = "appeal_resolved_at")
-    private LocalDateTime appealResolvedAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appeal_resolved_by")
-    private UserAccount appealResolvedBy;
+    @Column(name = "lock_reason", length = 255)
+    private String lockReason;
 
     @PreUpdate
     protected void onUpdate() {

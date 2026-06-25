@@ -17,6 +17,10 @@ const UserManagementPage = () => {
   // Detail views and modal states
   const [selectedUserForAppeal, setSelectedUserForAppeal] = useState(null);
   const [adminFeedback, setAdminFeedback] = useState('');
+  
+  // Lock reason modal states
+  const [userToLock, setUserToLock] = useState(null);
+  const [lockReasonInput, setLockReasonInput] = useState('');
 
   // Banner state management
   const [dismissedAppealBanner, setDismissedAppealBanner] = useState(false);
@@ -26,13 +30,13 @@ const UserManagementPage = () => {
   const [showInactiveOnly, setShowInactiveOnly] = useState(false);
   const [showAppealsOnly, setShowAppealsOnly] = useState(false);
 
-  // Helper to check if user has been inactive for > 2 years
+  // Helper to check if user has been inactive for > 2 months
   const isInactiveOver2Years = (lastActiveDateString) => {
     if (!lastActiveDateString) return true;
     const lastActive = new Date(lastActiveDateString);
-    const twoYearsAgo = new Date();
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-    return lastActive < twoYearsAgo;
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    return lastActive < twoMonthsAgo;
   };
 
   // Fetch all users once (or on major updates) to keep statistics cards stable
@@ -81,13 +85,28 @@ const UserManagementPage = () => {
     fetchUsers();
   }, [searchTerm, roleFilter, statusFilter, appealFilter, showInactiveOnly, showAppealsOnly]);
 
+  // Listen to real-time appeal submission events via WebSocket to refresh the table instantly
+  useEffect(() => {
+    const handleAppealSubmitted = () => {
+      fetchUsers();
+      fetchStatsUsers();
+    };
+
+    window.addEventListener('appeal-submitted', handleAppealSubmitted);
+    return () => {
+      window.removeEventListener('appeal-submitted', handleAppealSubmitted);
+    };
+  }, [searchTerm, roleFilter, statusFilter, appealFilter, showInactiveOnly, showAppealsOnly]);
+
   // Toggle active/inactive status (Lock/Unlock)
-  const handleToggleLock = async (id) => {
+  const handleToggleLock = async (id, reason) => {
     try {
-      const response = await axiosInstance.put(`/v1/admin/users/${id}/toggle-lock`);
+      const response = await axiosInstance.put(`/v1/admin/users/${id}/toggle-lock`, { reason });
       if (response.data && response.data.success) {
         fetchUsers();
         fetchStatsUsers();
+        setUserToLock(null);
+        setLockReasonInput('');
       }
     } catch (err) {
       console.error('Error toggling lock status:', err);
@@ -217,7 +236,7 @@ const UserManagementPage = () => {
               <div>
                 <h4 className="font-bold text-indigo-900 text-base">Tài khoản lâu ngày không sử dụng</h4>
                 <p className="text-sm text-indigo-800 mt-0.5">
-                  Phát hiện có <span className="font-bold">{inactiveCount}</span> tài khoản đã không hoạt động trên 2 năm. Bạn có muốn dọn dẹp không?
+                  Phát hiện có <span className="font-bold">{inactiveCount}</span> tài khoản đã không hoạt động trên 2 tháng. Bạn có muốn dọn dẹp không?
                 </p>
               </div>
             </div>
@@ -422,7 +441,13 @@ const UserManagementPage = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
-                              onClick={() => handleToggleLock(user.id)}
+                              onClick={() => {
+                                if (user.isActive ?? user.active) {
+                                  setUserToLock(user);
+                                } else {
+                                  handleToggleLock(user.id, '');
+                                }
+                              }}
                               className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                                 (user.isActive ?? user.active)
                                   ? 'border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
@@ -549,6 +574,83 @@ const UserManagementPage = () => {
               >
                 <span className="material-symbols-outlined text-sm">lock_open</span>
                 Duyệt & Mở khóa tài khoản
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Lock Reason Modal */}
+      {userToLock && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-100 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-red-600">lock</span>
+                Yêu cầu nhập lý do khóa tài khoản
+              </h3>
+              <button 
+                onClick={() => {
+                  setUserToLock(null);
+                  setLockReasonInput('');
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-red-50/50 border border-red-100 rounded-lg">
+                <img
+                  src={userToLock.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80'}
+                  alt={userToLock.fullName}
+                  className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm"
+                />
+                <div>
+                  <div className="font-bold text-gray-950">{userToLock.fullName}</div>
+                  <div className="text-xs text-gray-500">{userToLock.email}</div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  Lý do khóa tài khoản <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={lockReasonInput}
+                  onChange={(e) => setLockReasonInput(e.target.value)}
+                  placeholder="Nhập lý do chi tiết để thông báo cho người dùng biết tại sao tài khoản của họ bị khóa..."
+                  className="w-full p-3 border border-gray-350 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all h-28 resize-none"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setUserToLock(null);
+                  setLockReasonInput('');
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg text-sm hover:bg-gray-100 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  if (!lockReasonInput.trim()) {
+                    alert('Vui lòng nhập lý do khóa tài khoản.');
+                    return;
+                  }
+                  handleToggleLock(userToLock.id, lockReasonInput);
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-sm">lock</span>
+                Xác nhận khóa
               </button>
             </div>
           </div>
