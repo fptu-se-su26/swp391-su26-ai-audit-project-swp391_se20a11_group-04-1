@@ -1,5 +1,7 @@
 package org.example.backend.scheduler;
 
+import org.example.backend.annotation.MonitoredJob;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.constant.SyncTriggerType;
@@ -33,6 +35,7 @@ public class DataSyncScheduler {
 
     @Scheduled(fixedDelay = 900000) // 15 minutes
     @Transactional
+    @MonitoredJob(name="DataSyncScheduler")
     public void detectAndFixStaleData() {
         SchedulerRunLog runLog = schedulerRunLogService.start("DataSyncScheduler");
         int sprintsFixed = 0;

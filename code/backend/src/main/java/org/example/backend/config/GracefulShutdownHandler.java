@@ -17,16 +17,19 @@ public class GracefulShutdownHandler implements ApplicationListener<ContextClose
     private final ThreadPoolTaskExecutor slaJobExecutor;
     private final ThreadPoolTaskExecutor apiTestExecutor;
     private final ThreadPoolTaskExecutor auditExecutor;
+    private final ThreadPoolTaskExecutor monitoringExecutor;
 
     public GracefulShutdownHandler(
             @Qualifier("defaultAsyncExecutor") Executor defaultAsyncExecutor,
             @Qualifier("slaJobExecutor") Executor slaJobExecutor,
             @Qualifier("apiTestExecutor") Executor apiTestExecutor,
-            @Qualifier("auditExecutor") Executor auditExecutor) {
+            @Qualifier("auditExecutor") Executor auditExecutor,
+            @Qualifier("monitoringExecutor") Executor monitoringExecutor) {
         this.defaultAsyncExecutor = (defaultAsyncExecutor instanceof ThreadPoolTaskExecutor) ? (ThreadPoolTaskExecutor) defaultAsyncExecutor : null;
         this.slaJobExecutor = (slaJobExecutor instanceof ThreadPoolTaskExecutor) ? (ThreadPoolTaskExecutor) slaJobExecutor : null;
         this.apiTestExecutor = (apiTestExecutor instanceof ThreadPoolTaskExecutor) ? (ThreadPoolTaskExecutor) apiTestExecutor : null;
         this.auditExecutor = (auditExecutor instanceof ThreadPoolTaskExecutor) ? (ThreadPoolTaskExecutor) auditExecutor : null;
+        this.monitoringExecutor = (monitoringExecutor instanceof ThreadPoolTaskExecutor) ? (ThreadPoolTaskExecutor) monitoringExecutor : null;
     }
 
     @Override
@@ -36,6 +39,7 @@ public class GracefulShutdownHandler implements ApplicationListener<ContextClose
         shutdownExecutor(slaJobExecutor, "slaJobExecutor");
         shutdownExecutor(apiTestExecutor, "apiTestExecutor");
         shutdownExecutor(auditExecutor, "auditExecutor");
+        shutdownExecutor(monitoringExecutor, "monitoringExecutor");
     }
 
     private void shutdownExecutor(ThreadPoolTaskExecutor executor, String name) {
