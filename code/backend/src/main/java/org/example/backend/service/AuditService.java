@@ -57,9 +57,10 @@ public class AuditService {
     }
 
     public void publishFailure(Long userId, String username, String action,
+                               String entityType, Long entityId,
                                String ipAddress, String httpMethod, String uri,
                                String errorMessage, long durationMs) {
-        applicationEventPublisher.publishEvent(new AuditEvent(this, userId, username, action, null, null,
+        applicationEventPublisher.publishEvent(new AuditEvent(this, userId, username, action, entityType, entityId,
                 null, null, ipAddress, httpMethod, uri, "FAILED", errorMessage, durationMs));
     }
 }
