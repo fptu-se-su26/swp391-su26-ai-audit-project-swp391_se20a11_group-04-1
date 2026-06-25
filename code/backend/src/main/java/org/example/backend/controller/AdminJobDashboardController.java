@@ -11,9 +11,13 @@ import org.example.backend.entity.OutboxEvent;
 import org.example.backend.repository.DeadLetterEventRepository;
 import org.example.backend.repository.OutboxEventRepository;
 import org.example.backend.repository.SchedulerRunLogRepository;
-import org.example.backend.service.event.OutboxEventService;
+import org.example.backend.repository.EntitySyncLogRepository;
+import org.example.backend.entity.EntitySyncLog;
+import org.example.backend.dto.EntitySyncLogResponse;
+import org.example.backend.dto.SyncStatsResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,8 +35,9 @@ public class AdminJobDashboardController {
     private final SchedulerRunLogRepository schedulerRunLogRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final DeadLetterEventRepository deadLetterEventRepository;
+    private final EntitySyncLogRepository entitySyncLogRepository;
 
-    private ResponseEntity<ApiResponse<Void>> unauthorized() {
+    private <T> ResponseEntity<ApiResponse<T>> unauthorized() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Unauthorized"));
     }
 
@@ -111,5 +116,53 @@ public class AdminJobDashboardController {
         }
 
         return ResponseEntity.ok(ApiResponse.success("Retry requested"));
+    }
+
+    @GetMapping("/sync/logs")
+    public ResponseEntity<ApiResponse<Page<EntitySyncLogResponse>>> getSyncLogs(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<EntitySyncLog> logsPage;
+        if (status != null && !status.isEmpty()) {
+            logsPage = entitySyncLogRepository.findByStatusIn(java.util.List.of(status), pageable);
+        } else {
+            logsPage = entitySyncLogRepository.findAll(pageable);
+        }
+        
+        return ResponseEntity.ok(ApiResponse.success(logsPage.map(EntitySyncLogResponse::fromEntity), "Success"));
+    }
+
+    @GetMapping("/sync/stats")
+    public ResponseEntity<ApiResponse<SyncStatsResponse>> getSyncStats(HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        
+        return ResponseEntity.ok(ApiResponse.success(SyncStatsResponse.builder()
+                .pending(entitySyncLogRepository.countByStatus("PENDING"))
+                .success(entitySyncLogRepository.countByStatus("SUCCESS"))
+                .failed(entitySyncLogRepository.countByStatus("FAILED"))
+                .retryPending(entitySyncLogRepository.countByStatus("RETRY_PENDING"))
+                .dead(entitySyncLogRepository.countByStatus("DEAD"))
+                .build(), "Success"));
+    }
+
+    @PostMapping("/sync/retry/{id}")
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> retrySyncLog(@PathVariable Long id, HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        
+        EntitySyncLog log = entitySyncLogRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Sync log not found"));
+        
+        log.setRetryCount(0);
+        log.setStatus("RETRY_PENDING");
+        log.setNextRetryAt(LocalDateTime.now());
+        entitySyncLogRepository.save(log);
+        
+        return ResponseEntity.ok(ApiResponse.success("Sync retry requested"));
     }
 }

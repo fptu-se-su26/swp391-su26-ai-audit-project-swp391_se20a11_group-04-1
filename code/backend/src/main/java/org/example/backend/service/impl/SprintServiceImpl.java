@@ -10,8 +10,11 @@ import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.constant.SyncTriggerType;
+import org.example.backend.dto.event.SyncEvent;
 import org.example.backend.service.SprintService;
 import org.example.backend.service.sla.TaskSlaRuleService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +39,7 @@ public class SprintServiceImpl implements SprintService {
     private final TaskRepository taskRepository;
     private final RequirementRepository requirementRepository;
     private final TaskSlaRuleService taskSlaRuleService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -116,7 +120,16 @@ public class SprintServiceImpl implements SprintService {
         SprintStatus nextStatus = parseRequiredEnum(request != null ? request.getStatus() : null, SprintStatus.class, "Sprint status is required");
         validateScheduleRules(projectId, sprint.getId(), sprint.getStartDate(), sprint.getEndDate(), nextStatus);
         sprint.setStatus(nextStatus);
-        return toSprintResponse(sprintRepository.save(sprint));
+        Sprint savedSprint = sprintRepository.save(sprint);
+        
+        eventPublisher.publishEvent(new SyncEvent(this, 
+            SyncTriggerType.SPRINT_STATUS_CHANGED, 
+            "Sprint", 
+            savedSprint.getId(), 
+            Map.of("projectId", savedSprint.getProject().getId())
+        ));
+        
+        return toSprintResponse(savedSprint);
     }
 
     @Override

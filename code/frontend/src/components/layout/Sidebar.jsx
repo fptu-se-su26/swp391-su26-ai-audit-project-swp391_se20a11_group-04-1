@@ -6,6 +6,7 @@ import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
 import { getInitials } from '@utils/avatarHelper'
 import { recoveryPlanService } from '@features/sla/services/recoveryPlanService'
+import SyncStatusBadge from '../common/SyncStatusBadge'
 
 const W_FULL = 272
 const W_RAIL = 68
@@ -344,11 +345,15 @@ export default function Sidebar() {
                     }} title={activeProject.title}>
                       {activeProject.title.length > 18 ? activeProject.title.slice(0, 16) + '…' : activeProject.title}
                     </p>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: '#1E707D',
-                      background: 'rgba(30,112,125,0.10)', padding: '1px 5px',
-                      borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>{activeProject.role}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 3 }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#1E707D',
+                        background: 'rgba(30,112,125,0.10)', padding: '1px 5px',
+                        borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        display: 'inline-block'
+                      }}>{activeProject.role}</span>
+                      <SyncStatusBadge projectId={activeProject.id} />
+                    </div>
                   </>
                 )}
               </motion.div>
