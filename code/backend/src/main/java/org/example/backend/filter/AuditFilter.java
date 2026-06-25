@@ -56,14 +56,14 @@ public class AuditFilter extends OncePerRequestFilter {
         } catch (Exception ex) {
             alreadyLogged = true;
             long durationMs = System.currentTimeMillis() - startTime;
-            auditService.publishFailure(userId, username, action, ipAddress,
+            auditService.publishFailure(userId, username, action, null, null, ipAddress,
                     request.getMethod(), request.getRequestURI(), ex.getMessage(), durationMs);
             throw ex;
         } finally {
             if (!alreadyLogged) {
                 long durationMs = System.currentTimeMillis() - startTime;
                 if (response.getStatus() >= 400) {
-                    auditService.publishFailure(userId, username, action, ipAddress,
+                    auditService.publishFailure(userId, username, action, null, null, ipAddress,
                             request.getMethod(), request.getRequestURI(),
                             "HTTP " + response.getStatus(), durationMs);
                 } else {

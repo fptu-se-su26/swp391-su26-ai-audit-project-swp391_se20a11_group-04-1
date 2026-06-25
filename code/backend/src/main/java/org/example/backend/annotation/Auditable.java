@@ -10,4 +10,6 @@ import java.lang.annotation.Target;
 public @interface Auditable {
     String action();
     String entityType() default "";
+    /** Index of the method arg that holds the entity ID. -1 = extract from return value via getId(). */
+    int entityIdArgIndex() default -1;
 }

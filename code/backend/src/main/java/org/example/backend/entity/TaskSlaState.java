@@ -82,6 +82,14 @@ public class TaskSlaState {
     @Column(name = "score_breakdown_json", columnDefinition = "TEXT")
     private String scoreBreakdownJson;
 
+    /** Set after sprint ends: whether AI prediction matched actual outcome. */
+    @Column(name = "prediction_accurate")
+    private Boolean predictionAccurate;
+
+    /** Confidence score (0.0–1.0) of the AI prediction. */
+    @Column(name = "prediction_confidence")
+    private Double predictionConfidence;
+
     @Column(name = "evaluated_at", nullable = false)
     @Builder.Default
     private LocalDateTime evaluatedAt = LocalDateTime.now();

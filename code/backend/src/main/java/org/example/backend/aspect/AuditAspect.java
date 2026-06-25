@@ -41,17 +41,16 @@ public class AuditAspect {
                 }
                 ip = getClientIp(request);
             }
-        } catch (Exception ignored) {
-            // Context might not be available, fallback to defaults
-        }
+        } catch (Exception ignored) {}
 
         Object[] argsSnapshot = joinPoint.getArgs();
 
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - start;
+            Long entityId = extractEntityId(auditable, argsSnapshot, result);
             auditService.publishSuccess(userId, username,
-                    auditable.action(), auditable.entityType(), null,
+                    auditable.action(), auditable.entityType(), entityId,
                     argsSnapshot,
                     ip,
                     request != null ? request.getMethod() : "INTERNAL",
@@ -60,13 +59,36 @@ public class AuditAspect {
             return result;
         } catch (Throwable ex) {
             long duration = System.currentTimeMillis() - start;
+            Long entityId = extractEntityId(auditable, argsSnapshot, null);
             auditService.publishFailure(userId, username,
-                    auditable.action(), ip,
+                    auditable.action(), auditable.entityType(), entityId,
+                    ip,
                     request != null ? request.getMethod() : "INTERNAL",
                     request != null ? request.getRequestURI() : auditable.action(),
                     ex.getMessage(), duration);
             throw ex;
         }
+    }
+
+    /**
+     * Extracts entityId from method args (by index) or from the return value (via getId() reflection).
+     * entityIdArgIndex >= 0 → use args[index]; -1 → try result.getId().
+     */
+    private Long extractEntityId(Auditable auditable, Object[] args, Object result) {
+        int idx = auditable.entityIdArgIndex();
+        if (idx >= 0) {
+            if (args != null && idx < args.length && args[idx] instanceof Number n) {
+                return n.longValue();
+            }
+            return null;
+        }
+        if (result != null) {
+            try {
+                Object id = result.getClass().getMethod("getId").invoke(result);
+                if (id instanceof Number n) return n.longValue();
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
     private String getClientIp(HttpServletRequest request) {

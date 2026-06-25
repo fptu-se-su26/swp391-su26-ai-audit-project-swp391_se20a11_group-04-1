@@ -96,7 +96,7 @@ public class AdminJobDashboardController {
 
     @PostMapping("/dlq/{id}/retry")
     @Transactional
-    @org.example.backend.annotation.Auditable(action = "DLQ_RETRY", entityType = "OutboxEvent")
+    @org.example.backend.annotation.Auditable(action = "DLQ_RETRY", entityType = "OutboxEvent", entityIdArgIndex = 0)
     public ResponseEntity<ApiResponse<Void>> retryDlqEvent(@PathVariable Long id, HttpSession session) {
         if (session.getAttribute("userId") == null) return unauthorized();
         DeadLetterEvent dlq = deadLetterEventRepository.findById(id)
