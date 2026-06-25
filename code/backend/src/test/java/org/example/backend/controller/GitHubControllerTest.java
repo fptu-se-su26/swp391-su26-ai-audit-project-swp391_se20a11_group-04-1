@@ -98,18 +98,21 @@ class GitHubControllerTest {
 
     @Test
     @DisplayName("handleGitHubWebhook — Should successfully receive headers and delegate to service layer")
-    void handleGitHubWebhook_Success() {
+    void handleGitHubWebhook_Success() throws Exception {
         // GIVEN
         String mockSignature = "sha256=12345abcde67890f";
         String mockDelivery = "delivery-1";
         String mockEvent = "issues";
         byte[] mockPayload = "{\"action\":\"opened\",\"issue\":{\"number\":12}}".getBytes();
+        
+        org.springframework.mock.web.MockHttpServletRequest mockRequest = new org.springframework.mock.web.MockHttpServletRequest();
+        mockRequest.setContent(mockPayload);
 
         doNothing().when(gitHubApiService).handleWebhook(eq(mockSignature), eq(mockDelivery), eq(mockEvent), eq(mockPayload));
 
         // WHEN
         ResponseEntity<ApiResponse<String>> response = gitHubController.handleGitHubWebhook(
-                mockSignature, mockDelivery, mockEvent, mockPayload
+                mockSignature, mockDelivery, mockEvent, mockRequest
         );
 
         // THEN
