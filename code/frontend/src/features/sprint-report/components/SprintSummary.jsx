@@ -48,7 +48,7 @@ export default function SprintSummary({
               <span>{summary.progress}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${summary.progress}%` }} />
+              <div className="h-full rounded-full bg-[#1E707D]" style={{ width: `${summary.progress}%` }} />
             </div>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function SprintSummary({
             { label: 'Blocked', value: summary.blocked, icon: 'block', tone: 'text-error' },
             { label: 'Overdue', value: summary.overdue, icon: 'schedule', tone: 'text-[#854d0e]' },
             { label: 'Penalty', value: summary.penalty, icon: 'gavel', tone: 'text-[#991b1b]' },
-            { label: 'Risk tasks', value: riskTaskCount, icon: 'warning', tone: 'text-primary' },
+            { label: 'Risk tasks', value: riskTaskCount, icon: 'warning', tone: 'text-[#1E707D]' },
           ].map((metric) => (
             <div key={metric.label} className="rounded-lg border border-outline-variant/60 bg-surface p-4">
               <div className="flex items-center justify-between">

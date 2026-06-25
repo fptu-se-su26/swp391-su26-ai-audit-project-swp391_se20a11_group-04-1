@@ -13,18 +13,18 @@ import { shortTaskType } from '../../kanban/utils/taskMapper'
 const PRIORITY_STYLE = {
   CRITICAL: 'bg-[#DC2626] text-white',
   HIGH:     'bg-[#D97706] text-white',
-  MEDIUM:   'bg-[#3B82F6] text-white',
+  MEDIUM:   'bg-[#0284C7] text-white',
   LOW:      'bg-[#16A34A] text-white',
 }
 
 const STATUS_STYLE = {
   OVERDUE:     'bg-[#DC2626] text-white',
   BLOCKED:     'bg-[#D97706] text-white',
-  IN_PROGRESS: 'bg-[#3B82F6] text-white',
-  IN_REVIEW:   'bg-[#a855f7] text-white',
+  IN_PROGRESS: 'bg-[#0284C7] text-white',
+  IN_REVIEW:   'bg-[#4F46E5] text-white',
   DONE:        'bg-[#16A34A] text-white',
   TODO:        'bg-[#9CA3AF] text-white',
-  UPCOMING:    'bg-[#DBEAFE] text-[#1D4ED8]',
+  UPCOMING:    'bg-[#E0F2FE] text-[#0369A1]',
 }
 
 const TaskCard = ({ task, variant = 'due', onClick }) => {
@@ -107,10 +107,10 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
       {/* Footer: Assignee + deadline/time */}
       <div className="border-t border-[#F3F4F6] pt-2 mt-2 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] text-white font-bold">
+          <div className="w-6 h-6 rounded-full bg-[#1E707D] flex items-center justify-center text-[10px] text-white font-bold">
             {assigneeInitials}
           </div>
-          <span className={`text-[11px] font-bold flex items-center gap-1 ${task.evidenceCount > 0 ? 'text-purple-600' : 'text-[#6B7280]'}`}>
+          <span className={`text-[11px] font-bold flex items-center gap-1 ${task.evidenceCount > 0 ? 'text-[#1E707D]' : 'text-[#6B7280]'}`}>
             {task.evidenceCount > 0 ? `Uploaded (${task.evidenceCount})` : 'Not Uploaded'}
           </span>
         </div>
@@ -120,7 +120,7 @@ const TaskCard = ({ task, variant = 'due', onClick }) => {
             {formatTime(task.updatedAt)}
           </span>
         ) : variant === 'ongoing' ? (
-          <span className={`text-[11px] font-bold flex items-center gap-1 ${isStale ? 'text-[#DC2626]' : 'text-[#3B82F6]'}`}>
+          <span className={`text-[11px] font-bold flex items-center gap-1 ${isStale ? 'text-[#DC2626]' : 'text-[#1E707D]'}`}>
             <span className="material-symbols-outlined text-[13px]">hourglass_empty</span>
             Day {ongoingDays}
           </span>

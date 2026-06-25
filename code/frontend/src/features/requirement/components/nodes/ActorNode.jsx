@@ -58,10 +58,10 @@ const ActorNode = ({ data, id, isConnectable, selected }) => {
       </NodeToolbar>
 
       {/* Handles: Hiển thị mờ, sáng lên và to ra khi hover vào Actor */}
-      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-3 !h-3 !bg-blue-500 border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-blue-600 transition-all duration-200 cursor-crosshair z-10" style={{ right: -6, top: '50%' }} />
-      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-3 !h-3 !bg-blue-500 border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-blue-600 transition-all duration-200 cursor-crosshair z-10" style={{ left: -6, top: '50%' }} />
-      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-3 !h-3 !bg-blue-500 border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-blue-600 transition-all duration-200 cursor-crosshair z-10" style={{ top: -6, left: '50%' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-3 !h-3 !bg-blue-500 border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-blue-600 transition-all duration-200 cursor-crosshair z-10" style={{ bottom: -6, left: '50%' }} />
+      <Handle type="source" position={Position.Right} id="right" isConnectable={isConnectable} className="!w-3 !h-3 !bg-[#1E707D] border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-[#1E707D] transition-all duration-200 cursor-crosshair z-10" style={{ right: -6, top: '50%' }} />
+      <Handle type="source" position={Position.Left} id="left" isConnectable={isConnectable} className="!w-3 !h-3 !bg-[#1E707D] border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-[#1E707D] transition-all duration-200 cursor-crosshair z-10" style={{ left: -6, top: '50%' }} />
+      <Handle type="source" position={Position.Top} id="top" isConnectable={isConnectable} className="!w-3 !h-3 !bg-[#1E707D] border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-[#1E707D] transition-all duration-200 cursor-crosshair z-10" style={{ top: -6, left: '50%' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={isConnectable} className="!w-3 !h-3 !bg-[#1E707D] border-2 border-white opacity-0 group-hover:opacity-100 hover:!scale-150 hover:!bg-[#1E707D] transition-all duration-200 cursor-crosshair z-10" style={{ bottom: -6, left: '50%' }} />
       
       <div className="flex flex-col items-center">
         {/* SVG Stickman */}
@@ -81,7 +81,7 @@ const ActorNode = ({ data, id, isConnectable, selected }) => {
                   onChange={(e) => setName(e.target.value)}
                   onBlur={submitName}
                   onKeyDown={handleKeyDown}
-                  className="text-sm font-semibold text-gray-800 text-center whitespace-nowrap bg-white border border-blue-400 rounded px-1 outline-none w-auto"
+                  className="text-sm font-semibold text-gray-800 text-center whitespace-nowrap bg-white border border-[#1E707D]/20 rounded px-1 outline-none w-auto"
                   style={{ minWidth: '80px' }}
               />
           ) : (

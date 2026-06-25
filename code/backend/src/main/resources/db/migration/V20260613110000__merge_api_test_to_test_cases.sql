@@ -4,15 +4,15 @@ DROP TABLE IF EXISTS api_test_case CASCADE;
 
 -- 2. Thêm các cột cấu hình API vào bảng test_cases
 ALTER TABLE test_cases 
-ADD COLUMN api_method VARCHAR(10),
-ADD COLUMN api_url VARCHAR(1000),
-ADD COLUMN api_headers JSONB DEFAULT '{}'::jsonb,
-ADD COLUMN api_query_params JSONB DEFAULT '{}'::jsonb,
-ADD COLUMN api_body JSONB,
-ADD COLUMN api_assertions JSONB DEFAULT '[]'::jsonb;
+ADD COLUMN IF NOT EXISTS api_method VARCHAR(10),
+ADD COLUMN IF NOT EXISTS api_url VARCHAR(1000),
+ADD COLUMN IF NOT EXISTS api_headers JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS api_query_params JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS api_body JSONB,
+ADD COLUMN IF NOT EXISTS api_assertions JSONB DEFAULT '[]'::jsonb;
 
 -- 3. Tạo lại bảng api_test_result với reference tới test_cases
-CREATE TABLE api_test_result (
+CREATE TABLE IF NOT EXISTS api_test_result (
     id BIGSERIAL PRIMARY KEY,
     test_case_id BIGINT NOT NULL,
     environment_id BIGINT,
@@ -32,3 +32,5 @@ CREATE TABLE api_test_result (
     CONSTRAINT fk_api_test_result_executed_by FOREIGN KEY (executed_by) REFERENCES user_accounts(id) ON DELETE SET NULL,
     CONSTRAINT fk_api_test_result_agent_task FOREIGN KEY (agent_task_id) REFERENCES agent_tasks(id) ON DELETE SET NULL
 );
+
+

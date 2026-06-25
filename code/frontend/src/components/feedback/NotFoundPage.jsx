@@ -6,7 +6,7 @@ function NotFoundPage() {
       
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-primary-fixed-dim opacity-20 blur-[100px]"></div>
+        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-[#BFDEEA] opacity-20 blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-secondary-fixed opacity-30 blur-[120px]"></div>
       </div>
 
@@ -29,7 +29,7 @@ function NotFoundPage() {
         {/* Back Button */}
         <Link
           to="/dashboard"
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-primary text-on-primary font-body-md text-body-md font-semibold hover:bg-on-primary-fixed-variant focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors h-[44px] items-center"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center"
         >
           Quay lại Trang chủ
         </Link>

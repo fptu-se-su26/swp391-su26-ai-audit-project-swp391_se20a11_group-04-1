@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import RequirementHeader from '../components/RequirementHeader';
 import RequirementFilters from '../components/RequirementFilters';
 import RequirementList from '../components/RequirementList';
@@ -25,7 +26,17 @@ const RequirementsPage = () => {
   const [editingReq, setEditingReq] = useState(null);
   const [filters, setFilters] = useState({ status: null, priority: null, tag: null });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentPage = parseInt(searchParams.get('page') || '0', 10);
+  const setCurrentPage = (page) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('page', page);
+      return newParams;
+    });
+  };
+
   const [reqToDelete, setReqToDelete] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const activeProject = useProjectStore((state) => state.activeProject);

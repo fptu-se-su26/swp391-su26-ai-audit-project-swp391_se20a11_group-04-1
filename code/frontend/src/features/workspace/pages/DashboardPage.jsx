@@ -452,7 +452,7 @@ export function DashboardPage() {
             <p className="text-sm text-on-surface-variant">{error}</p>
             <button
               onClick={() => fetchProjects()}
-              className="bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-on-primary-fixed-variant transition-all shadow-md mt-2"
+              className="bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md mt-2"
             >
               Thử lại
             </button>
@@ -465,7 +465,7 @@ export function DashboardPage() {
 
         {/* Glow Background nhẹ nhàng sang trọng */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-[5%] left-[10%] w-[350px] h-[350px] rounded-full bg-primary-fixed opacity-[0.12] blur-[90px]"></div>
+          <div className="absolute top-[5%] left-[10%] w-[350px] h-[350px] rounded-full bg-[#D7EEF1] opacity-[0.12] blur-[90px]"></div>
           <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.15] blur-[100px]"></div>
         </div>
 
@@ -481,7 +481,7 @@ export function DashboardPage() {
             </div>
             <button
               onClick={handleCreateProject}
-              className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-on-primary-fixed-variant transition-all shadow-md shadow-primary/10 shrink-0"
+              className="flex items-center gap-2 bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md shadow-[#1E707D]/10 shrink-0"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               <span>Create Project</span>
@@ -496,7 +496,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('all')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'all'
-                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -505,7 +505,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('active')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'active'
-                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -514,7 +514,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('completed')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'completed'
-                  ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -528,7 +528,7 @@ export function DashboardPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-surface-container-lowest border border-outline-variant px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer hover:bg-surface-container transition-colors"
+                className="bg-surface-container-lowest border border-outline-variant px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
               >
                 <option value="recent">Recent</option>
                 <option value="name">Name A-Z</option>
@@ -556,13 +556,13 @@ export function DashboardPage() {
                   >
 
                   {/* Banner Đầu: AI Insight */}
-                  <div className="bg-primary/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-primary">
+                  <div className="bg-[#1E707D]/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-[#1E707D]">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-sm font-bold">neurology</span>
                       <span className="tracking-wider uppercase text-[10px]">AI INSIGHT</span>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${project.aiInsight === 'On Track' ? 'bg-green-100 text-green-700' :
-                      project.aiInsight === 'At Risk' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                      project.aiInsight === 'At Risk' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-[#1E707D]'
                       }`}>
                       {project.aiInsight}
                     </span>
@@ -573,10 +573,10 @@ export function DashboardPage() {
 
                     {/* Nhãn chuyên ngành & Nhãn trạng thái */}
                     <div className="flex items-center gap-2">
-                      <span className="bg-primary/5 text-primary text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase">
+                      <span className="bg-[#1E707D]/5 text-[#1E707D] text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase">
                         {project.major}
                       </span>
-                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-blue-500/10 text-blue-600'
+                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-[#1E707D]/10 text-[#1E707D]'
                         }`}>
                         {project.status}
                       </span>
@@ -585,7 +585,7 @@ export function DashboardPage() {
                     {/* Tên Dự Án */}
                     <h2
                       onClick={() => openProject(project)}
-                      className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
+                      className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-[#1E707D] transition-colors cursor-pointer"
                     >
                       {project.title}
                     </h2>
@@ -642,7 +642,7 @@ export function DashboardPage() {
                       </div>
                       <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-primary transition-all duration-500"
+                          className="h-full rounded-full bg-[#1E707D] transition-all duration-500"
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
@@ -674,7 +674,7 @@ export function DashboardPage() {
                     {/* Nút Open Project */}
                     <button
                       onClick={() => openProject(project)}
-                      className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      className="bg-[#1E707D] text-white hover:bg-[#165964] px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>Open Project</span>
                       <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -703,11 +703,11 @@ export function DashboardPage() {
                   id="btn-load-more-projects"
                   onClick={loadMore}
                   disabled={loading}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant text-sm font-bold hover:bg-surface-container hover:text-on-surface hover:border-primary/40 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant text-sm font-bold hover:bg-surface-container hover:text-on-surface hover:border-[#1E707D]/40 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
-                      <svg className="animate-spin w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none">
+                      <svg className="animate-spin w-4 h-4 text-[#1E707D]" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
@@ -722,7 +722,7 @@ export function DashboardPage() {
                 </button>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-on-surface-variant px-4 py-2 rounded-full bg-surface-container-lowest border border-outline-variant/40">
-                  <span className="material-symbols-outlined text-sm text-primary">check_circle</span>
+                  <span className="material-symbols-outlined text-sm text-[#1E707D]">check_circle</span>
                   <span>Đã hiển thị hết tất cả dự án của bạn 🎉</span>
                 </div>
               )}
@@ -739,7 +739,7 @@ export function DashboardPage() {
               {/* Header Modal */}
               <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-xl font-bold">add_box</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-xl font-bold">add_box</span>
                   <h3 className="font-extrabold text-base text-on-surface">Create New Project</h3>
                 </div>
                 <button
@@ -765,7 +765,7 @@ export function DashboardPage() {
                     placeholder="E.g., DevTrack Management System"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
                   />
                 </div>
 
@@ -786,7 +786,7 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
@@ -800,7 +800,7 @@ export function DashboardPage() {
                       id="projType"
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-primary cursor-pointer hover:bg-surface-container transition-colors"
+                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
                     >
                       <option value="WEB_APP">Web Application</option>
                       <option value="MOBILE">Mobile Application</option>
@@ -827,7 +827,7 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
@@ -845,7 +845,7 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary'
+                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
@@ -862,7 +862,7 @@ export function DashboardPage() {
                     placeholder="Provide a high-level overview of your project, target audience, and core features..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all resize-none"
                   ></textarea>
                 </div>
 
@@ -870,7 +870,7 @@ export function DashboardPage() {
                 <div className="pt-4 border-t border-outline-variant/40 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[20px]">webhook</span>
+                      <span className="material-symbols-outlined text-[#1E707D] text-[20px]">webhook</span>
                       GitHub Repository Integration
                     </h4>
                     {!['WEB_APP', 'MOBILE', 'DATABASE'].includes(formData.type) && (
@@ -879,7 +879,7 @@ export function DashboardPage() {
                           type="checkbox"
                           checked={enableGithub}
                           onChange={(e) => setEnableGithub(e.target.checked)}
-                          className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                          className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
                         />
                         <span className="text-xs font-semibold text-on-surface-variant">Enable GitHub</span>
                       </label>
@@ -914,7 +914,7 @@ export function DashboardPage() {
                               type="button"
                               onClick={() => setIsNewRepo(false)}
                               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                !isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                                !isNewRepo ? 'bg-surface text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               Choose Repository
@@ -923,7 +923,7 @@ export function DashboardPage() {
                               type="button"
                               onClick={() => setIsNewRepo(true)}
                               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                                isNewRepo ? 'bg-surface text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               Create New Repo
@@ -1028,7 +1028,7 @@ export function DashboardPage() {
                                     type="checkbox"
                                     checked={newRepoData.isPrivate}
                                     onChange={(e) => setNewRepoData({ ...newRepoData, isPrivate: e.target.checked })}
-                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                                    className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
                                   />
                                   <span>Private Repository</span>
                                 </label>
@@ -1037,7 +1037,7 @@ export function DashboardPage() {
                                     type="checkbox"
                                     checked={newRepoData.autoInit}
                                     onChange={(e) => setNewRepoData({ ...newRepoData, autoInit: e.target.checked })}
-                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
+                                    className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
                                   />
                                   <span>Add README.md</span>
                                 </label>
@@ -1099,7 +1099,7 @@ export function DashboardPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-on-primary-fixed-variant text-xs font-bold transition-all shadow-md shadow-primary/10 flex items-center gap-1.5"
+                    className="px-5 py-2.5 rounded-xl bg-[#1E707D] text-white hover:bg-[#165964] text-xs font-bold transition-all shadow-md shadow-[#1E707D]/10 flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-sm font-bold">check</span>
                     <span>Create Project</span>
@@ -1148,7 +1148,7 @@ export function DashboardPage() {
     const upper = (role || '').toUpperCase()
     if (upper === 'PROJECT_LEADER' || upper === 'LEADER') {
       return (
-        <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+        <span className="text-[10px] bg-[#1E707D]/10 text-[#1E707D] border border-[#1E707D]/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
           Leader
         </span>
       )
@@ -1178,7 +1178,7 @@ export function DashboardPage() {
       <div className="relative z-10 w-full space-y-8">
 
         {/* Banner Dự án đầu trang */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-2">
             <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
               {activeProject.major} • {activeProject.semester}
@@ -1201,7 +1201,7 @@ export function DashboardPage() {
           <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
             <div className="flex justify-between items-center text-outline">
               <span className="text-xs font-bold uppercase tracking-wider">Yêu Cầu & Use Case</span>
-              <span className="material-symbols-outlined text-primary text-2xl">description</span>
+              <span className="material-symbols-outlined text-[#1E707D] text-2xl">description</span>
             </div>
             <p className="text-3xl font-black mt-3 text-on-surface">24</p>
             <p className="text-[11px] text-green-600 font-semibold mt-2 flex items-center gap-1">
@@ -1250,12 +1250,12 @@ export function DashboardPage() {
         </section>
 
         {/* Panel Đề Xuất Trí Tuệ Nhân Tạo (AI INSIGHTS) */}
-        <section className="bg-primary/[0.03] border border-primary/10 rounded-2xl p-6 shadow-inner flex flex-col md:flex-row gap-5 items-start">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
+        <section className="bg-[#1E707D]/[0.03] border border-[#1E707D]/10 rounded-2xl p-6 shadow-inner flex flex-col md:flex-row gap-5 items-start">
+          <div className="w-12 h-12 bg-[#1E707D]/10 rounded-xl flex items-center justify-center text-[#1E707D] shrink-0">
             <span className="material-symbols-outlined text-2xl">neurology</span>
           </div>
           <div className="space-y-2">
-            <h3 className="font-extrabold text-base text-primary">Đề xuất thông minh từ AI (DevTrack AI Insights)</h3>
+            <h3 className="font-extrabold text-base text-[#1E707D]">Đề xuất thông minh từ AI (DevTrack AI Insights)</h3>
             <p className="text-sm text-on-surface-variant leading-relaxed">
               Hệ thống phát hiện dự án **{activeProject.title}** hiện đang có **{activeProject.atRiskReqCount}** yêu cầu nghiệp vụ ở mức độ rủi ro chậm trễ cao do thiếu các bằng chứng kiểm thử (Evidence).
               Chúng tôi khuyên bạn nên truy cập mô-đun **Requirements** và **Traceability Matrix (RTM)** ở thanh Sidebar bên trái để cập nhật tài liệu kiểm thử, kéo giảm rủi ro về mức an toàn.
@@ -1287,7 +1287,7 @@ export function DashboardPage() {
                 </div>
               </div>
               <div className="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low/40 transition-colors">
-                <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg self-start text-sm">description</span>
+                <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2 rounded-lg self-start text-sm">description</span>
                 <div>
                   <h4 className="font-bold text-xs text-on-surface">Thêm tài liệu mô tả Use Case mới</h4>
                   <p className="text-[11px] text-on-surface-variant mt-0.5">Tuan Hung đã tải lên đặc tả chi tiết cho tính năng "Quản lý Đăng nhập & Đăng ký".</p>

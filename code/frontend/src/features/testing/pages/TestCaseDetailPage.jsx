@@ -566,12 +566,18 @@ export default function TestCaseDetailPage() {
               </div>
               <a href="#" style={{ fontSize:'12px', color: C.primary, textDecoration:'none', fontWeight:500 }}>View All</a>
             </div>
-            <TestRunHistoryTimeline
-              history={history}
-              loading={historyLoading}
-              testCase={testCase}
-              onHistoryClick={(id) => setSelectedHistoricalRunId(id)}
-            />
+            <style>{`
+              .history-scroll-container::-webkit-scrollbar { display: none; }
+              .history-scroll-container { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+            <div className="history-scroll-container" style={{ maxHeight: '420px', overflowY: 'auto', paddingRight: '8px', paddingLeft: '12px', marginLeft: '-12px' }}>
+              <TestRunHistoryTimeline
+                history={history}
+                loading={historyLoading}
+                testCase={testCase}
+                onHistoryClick={(id) => setSelectedHistoricalRunId(id)}
+              />
+            </div>
           </SectionCard>
         </div>
       </div>

@@ -54,7 +54,7 @@ const WeekDayColumn = ({
     : 'bg-white'
 
   // Style header
-  const headerBg = isToday ? 'bg-[#1E3A5F]' : 'bg-white'
+  const headerBg = isToday ? 'bg-[#1E707D]' : 'bg-white'
   const headerBorder = isToday ? '' : 'border-b border-outline-variant'
   const dayLabelColor = isToday ? 'text-white' : isWeekend ? 'text-[#D1D5DB]' : 'text-[#9CA3AF]'
   const dateColor = isToday ? 'text-white font-bold text-[20px]' : isWeekend ? 'text-[#9CA3AF] text-[18px] font-medium' : 'text-[#111827] text-[18px] font-medium'
@@ -67,7 +67,7 @@ const WeekDayColumn = ({
   return (
     <div
       className={`${colBg} ${colBorder} flex flex-col`}
-      style={isToday ? { borderLeft: '1.5px solid #93C5FD', borderRight: '1.5px solid #93C5FD' } : {}}
+      style={isToday ? { borderLeft: '1.5px solid #1E707D/50', borderRight: '1.5px solid #1E707D/50' } : {}}
     >
       {/* Day Header */}
       <div
@@ -96,7 +96,7 @@ const WeekDayColumn = ({
 
         {/* Footer */}
         <div className="pt-2 border-t border-outline-variant mt-2">
-          <p className={`text-[10px] ${isToday ? 'text-[#1E3A5F] font-bold' : 'text-on-surface-variant'}`}>
+          <p className={`text-[10px] ${isToday ? 'text-[#1E707D] font-bold' : 'text-on-surface-variant'}`}>
             &nbsp;
           </p>
         </div>

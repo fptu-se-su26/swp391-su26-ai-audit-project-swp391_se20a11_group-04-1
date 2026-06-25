@@ -618,7 +618,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   <span>·</span>
                   <span className={`flex items-center gap-1 font-bold border px-2.5 py-0.5 rounded-full ${
                     isSynced
-                      ? 'text-indigo-600 bg-indigo-50 border-indigo-100'
+                      ? 'text-[#1E707D] bg-[#1E707D]/10 border-indigo-100'
                       : task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW'
                         ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
                         : 'text-amber-600 bg-amber-50 border-amber-100'

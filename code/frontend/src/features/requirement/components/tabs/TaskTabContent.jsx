@@ -12,9 +12,6 @@ const TaskTabContent = ({ tasks, requirement }) => {
           <span className="material-symbols-outlined text-[24px]">task</span>
         </div>
         <p className="text-slate-600 text-sm mb-4">No tasks created for this requirement yet</p>
-        <button className="px-4 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-md font-medium text-sm hover:bg-slate-50 transition-colors shadow-sm">
-          Create Task
-        </button>
       </div>
     );
   }
@@ -48,7 +45,7 @@ const TaskTabContent = ({ tasks, requirement }) => {
   return (
     <div className="w-full">
       {/* List Header */}
-      <div className="grid grid-cols-[100px_1fr_120px_120px_130px] gap-4 px-6 py-3 border-b border-slate-100 bg-slate-50/30 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      <div className="grid grid-cols-[100px_3fr_2fr_1.5fr_1.5fr] gap-4 px-6 py-3 border-b border-slate-100 bg-slate-50/30 text-xs font-semibold text-slate-500 uppercase tracking-wider">
         <div>ID</div>
         <div>Task Title</div>
         <div>Assignee</div>
@@ -60,10 +57,10 @@ const TaskTabContent = ({ tasks, requirement }) => {
       <div className="flex flex-col">
         {tasks.map((task, index) => {
           const code = task.code || `TSK-${String(task.id).padStart(3, '0')}`;
-          const isOverdue = task.isOverdue || (task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'DONE');
+          const isOverdue = task.isOverdue || (task.deadline && new Date(task.deadline) < new Date() && task.status !== 'DONE');
           const isBlocked = task.status === 'BLOCKED';
           
-          let rowClass = "grid grid-cols-[100px_1fr_120px_120px_130px] gap-4 px-6 py-3 items-center hover:bg-indigo-50/40 transition-colors bg-white relative cursor-pointer";
+          let rowClass = "grid grid-cols-[100px_3fr_2fr_1.5fr_1.5fr] gap-4 px-6 py-3 items-center hover:bg-[#1E707D]/10/40 transition-colors bg-white relative cursor-pointer";
           if (index !== tasks.length - 1) rowClass += " border-b border-slate-100";
           if (isOverdue) rowClass += " border-l-2 border-l-red-400";
 
@@ -76,16 +73,11 @@ const TaskTabContent = ({ tasks, requirement }) => {
                 </div>
               )}
 
-              <div className="text-sm font-medium text-slate-500">{code}</div>
+              <div className="text-sm font-medium text-[#1E707D]">{code}</div>
               
               <div className="flex items-center gap-2 pr-4 overflow-hidden">
                 {isBlocked && <span className="material-symbols-outlined text-[14px] text-rose-500 shrink-0">block</span>}
                 <div className="text-sm font-medium text-slate-800 truncate" title={task.title}>{task.title}</div>
-                {task.dueDate && (
-                  <div className={`text-[10px] shrink-0 ${isOverdue ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
-                    📅 {new Date(task.dueDate).toLocaleDateString('en-GB')}
-                  </div>
-                )}
               </div>
               
               <div className="flex items-center gap-2 overflow-hidden">

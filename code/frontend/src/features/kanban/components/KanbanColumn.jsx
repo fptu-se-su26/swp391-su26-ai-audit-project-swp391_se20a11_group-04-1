@@ -2,7 +2,7 @@ import TaskCard from './TaskCard'
 
 const countClasses = {
   TODO: 'bg-surface-container-highest text-on-surface-variant',
-  IN_PROGRESS: 'bg-primary-container text-on-primary-container',
+  IN_PROGRESS: 'bg-[#D7EEF1] text-[#1E707D]',
   IN_REVIEW: 'bg-surface-container-highest text-on-surface-variant',
   DONE: 'bg-[#dcfce7] text-[#166534]',
   BLOCKED: 'bg-error-container text-on-error-container',
@@ -42,9 +42,9 @@ const KanbanColumn = ({
   return (
     <section
       className={`${widthClass} shrink-0 flex flex-col self-stretch rounded-xl transition-all ${
-        isDropTarget ? 'bg-primary/5 ring-2 ring-primary/30 ring-offset-2 ring-offset-transparent' : ''
+        isDropTarget ? 'bg-[#1E707D]/5 ring-2 ring-[#1E707D]/30 ring-offset-2 ring-offset-transparent' : ''
       } ${
-        isColumnDragTarget ? 'ring-2 ring-primary/40 bg-primary/5' : ''
+        isColumnDragTarget ? 'ring-2 ring-[#1E707D]/40 bg-[#1E707D]/5' : ''
       } ${
         isDraggingColumn ? 'opacity-60 scale-[0.99]' : ''
       }`}
@@ -114,7 +114,7 @@ const KanbanColumn = ({
         </div>
       </div>
       <div className={`flex-1 min-h-0 overflow-y-auto ${isCompact ? 'space-y-2' : 'space-y-3'} p-1 pb-4 kanban-scroll rounded-lg ${
-        isDropTarget ? 'bg-primary/5' : ''
+        isDropTarget ? 'bg-[#1E707D]/5' : ''
       }`}>
         {tasks.length === 0 ? (
           <div className="border border-dashed border-outline-variant rounded-lg p-4 text-center text-xs text-on-surface-variant bg-surface-container-lowest/50">

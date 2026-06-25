@@ -155,7 +155,7 @@ export default function ProfilePage() {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#1E707D] border-t-transparent"></div>
           <p className="text-sm font-semibold text-on-surface-variant">Loading profile...</p>
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function ProfilePage() {
               }}
             />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-on-primary text-3xl font-bold shadow-md border border-outline-variant/60">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1E707D] text-white text-3xl font-bold shadow-md border border-outline-variant/60">
               {getInitials(profile?.fullName || profile?.username)}
             </div>
           )}
@@ -210,7 +210,7 @@ export default function ProfilePage() {
           {/* 2. Personal Information */}
           <form onSubmit={handleUpdateProfile} className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim space-y-4">
             <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-3">
-              <span className="material-symbols-outlined text-primary">person</span>
+              <span className="material-symbols-outlined text-[#1E707D]">person</span>
               <h2 className="text-lg font-bold text-on-surface">Personal Information</h2>
             </div>
             
@@ -281,7 +281,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={updatingProfile}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary hover:bg-primary/95 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-xl bg-[#1E707D] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1E707D]/95 disabled:opacity-50 transition-colors"
             >
               <span className="material-symbols-outlined text-lg">save</span>
               {updatingProfile ? 'Saving...' : 'Save Changes'}
@@ -291,7 +291,7 @@ export default function ProfilePage() {
           {/* 3. Change Password */}
           <form onSubmit={handleChangePassword} className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim space-y-4">
             <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-3">
-              <span className="material-symbols-outlined text-primary">lock</span>
+              <span className="material-symbols-outlined text-[#1E707D]">lock</span>
               <h2 className="text-lg font-bold text-on-surface">Change Password</h2>
             </div>
 
@@ -336,7 +336,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={updatingPassword}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary hover:bg-primary/95 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-xl bg-[#1E707D] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1E707D]/95 disabled:opacity-50 transition-colors"
             >
               <span className="material-symbols-outlined text-lg">vpn_key</span>
               {updatingPassword ? 'Updating...' : 'Change Password'}
@@ -348,7 +348,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim space-y-4">
             <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-3">
-              <span className="material-symbols-outlined text-primary">folder_shared</span>
+              <span className="material-symbols-outlined text-[#1E707D]">folder_shared</span>
               <h2 className="text-lg font-bold text-on-surface">Projects & Roles</h2>
             </div>
 
@@ -364,7 +364,7 @@ export default function ProfilePage() {
                         {role.projectName}
                       </h3>
                       {role.projectStatus && (
-                        <span className="rounded bg-primary-container/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                        <span className="rounded bg-[#D7EEF1]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#1E707D]">
                           {role.projectStatus}
                         </span>
                       )}
@@ -393,7 +393,7 @@ export default function ProfilePage() {
           {/* Teammates / Co-workers card */}
           <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim space-y-4">
             <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-3">
-              <span className="material-symbols-outlined text-primary">group</span>
+              <span className="material-symbols-outlined text-[#1E707D]">group</span>
               <h2 className="text-lg font-bold text-on-surface">Teammates / Co-workers</h2>
             </div>
 
@@ -425,7 +425,7 @@ export default function ProfilePage() {
                       </h3>
                       <p className="text-xs text-on-surface-variant truncate text-left">@{worker.username}</p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-primary-container px-2.5 py-0.5 text-[10px] font-bold text-on-primary-container shadow-sm border border-outline-variant/30">
+                    <span className="shrink-0 rounded-full bg-[#D7EEF1] px-2.5 py-0.5 text-[10px] font-bold text-[#1E707D] shadow-sm border border-outline-variant/30">
                       {worker.sharedProjectsCount} {worker.sharedProjectsCount === 1 ? 'project' : 'projects'}
                     </span>
                   </div>
@@ -444,7 +444,7 @@ export default function ProfilePage() {
       {/* 4. Statistics Section */}
       <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-sm dark:bg-surface-dim space-y-4">
         <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-3">
-          <span className="material-symbols-outlined text-primary">bar_chart</span>
+          <span className="material-symbols-outlined text-[#1E707D]">bar_chart</span>
           <h2 className="text-lg font-bold text-on-surface">Light Statistics</h2>
         </div>
 
@@ -454,7 +454,7 @@ export default function ProfilePage() {
           <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
             {/* Stat Item */}
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">folder</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">folder</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.totalProjects}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Total Projects</p>
@@ -462,7 +462,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">manage_accounts</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">manage_accounts</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.leaderProjects}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Leader Projects</p>
@@ -470,7 +470,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">person</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">person</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.memberProjects}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Member Projects</p>
@@ -478,7 +478,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">assignment</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">assignment</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.totalAssignedTasks}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Assigned Tasks</p>
@@ -486,7 +486,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">task_alt</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">task_alt</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.completedTasks}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Completed Tasks</p>
@@ -494,7 +494,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">done_all</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">done_all</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.onTimeCompletedTasks}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">On-Time Tasks</p>
@@ -502,7 +502,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">running_with_errors</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">running_with_errors</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.overdueTasks}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Overdue Tasks</p>
@@ -510,7 +510,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">inventory_2</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">inventory_2</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.uploadedEvidenceCount}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Uploaded Evidence</p>
@@ -518,7 +518,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">notifications_active</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">notifications_active</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.slaActionCount}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">SLA Actions</p>
@@ -526,7 +526,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">warning</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">warning</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.slaWarningCount}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">SLA Warnings</p>
@@ -534,7 +534,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">gavel</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">gavel</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.penaltyCount}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Penalties</p>
@@ -542,7 +542,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">verified</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">verified</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.approvedRecoveryPlans}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Approved Recovery</p>
@@ -550,7 +550,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 shadow-inner">
-              <span className="material-symbols-outlined text-primary bg-primary/10 p-2.5 rounded-lg text-[22px]">cancel</span>
+              <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2.5 rounded-lg text-[22px]">cancel</span>
               <div>
                 <p className="text-[20px] font-black text-on-surface leading-none">{stats.rejectedRecoveryPlans}</p>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">Rejected Recovery</p>

@@ -160,7 +160,7 @@ const CodeInsightPage = () => {
       <div className="max-w-[1280px] mx-auto space-y-6">
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <p className="font-label-md text-label-md uppercase text-primary bg-primary-fixed inline-flex px-3 py-1 rounded mb-3">
+            <p className="font-label-md text-label-md uppercase text-[#1E707D] bg-[#D7EEF1] inline-flex px-3 py-1 rounded mb-3">
               {activeProject?.title || 'Current Project'}
             </p>
             <h1 className="font-headline-md text-headline-md text-on-surface">Code Insight</h1>
@@ -198,7 +198,7 @@ const CodeInsightPage = () => {
                 {repositoryConfigured ? 'Configured' : 'Not Configured'}
               </span>
               {config?.repository?.hasWebhookSecret && (
-                <span className="inline-flex items-center gap-1.5 rounded bg-primary-fixed px-2.5 py-1 font-label-md text-label-md uppercase text-primary">
+                <span className="inline-flex items-center gap-1.5 rounded bg-[#D7EEF1] px-2.5 py-1 font-label-md text-label-md uppercase text-[#1E707D]">
                   <span className="material-symbols-outlined text-[14px]">key</span>
                   Secret Saved
                 </span>
@@ -235,7 +235,7 @@ const CodeInsightPage = () => {
                     {config?.repository?.hasWebhookSecret ? 'Saved' : 'Not set'}
                   </p>
                 </div>
-                <div className="md:col-span-2 rounded-lg border border-primary/20 bg-primary-fixed/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="md:col-span-2 rounded-lg border border-[#1E707D]/20 bg-[#D7EEF1]/40 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-on-surface">Configure GitHub from the shared GitHub Config page</h3>
                     <p className="mt-1 text-sm text-on-surface-variant">
@@ -244,7 +244,7 @@ const CodeInsightPage = () => {
                   </div>
                   <Link
                     to={`/projects/${projectId}/github-config`}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E707D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D7EEF1]"
                   >
                     <span className="material-symbols-outlined text-[18px]">settings</span>
                     GitHub Config
@@ -283,7 +283,7 @@ const CodeInsightPage = () => {
                   ))}
                   <div className="flex items-center justify-between gap-3 border-t border-outline-variant pt-3 text-sm font-semibold text-on-surface">
                     <span>Score Warning Threshold</span>
-                    <span className="font-label-md text-label-md rounded bg-primary-fixed px-2 py-1 text-primary">
+                    <span className="font-label-md text-label-md rounded bg-[#D7EEF1] px-2 py-1 text-[#1E707D]">
                       {configForm.minScoreWarningThreshold}
                     </span>
                   </div>
@@ -324,7 +324,7 @@ const CodeInsightPage = () => {
                         checked={Boolean(configForm[field])}
                         onChange={(event) => updateConfigForm(field, event.target.checked)}
                         disabled={!canDecide || configLoading}
-                        className="h-4 w-4 rounded border-outline text-primary focus:ring-primary disabled:opacity-60"
+                        className="h-4 w-4 rounded border-outline text-[#1E707D] focus:ring-[#1E707D] disabled:opacity-60"
                       />
                     </label>
                   ))}
@@ -337,7 +337,7 @@ const CodeInsightPage = () => {
                       value={configForm.minScoreWarningThreshold}
                       onChange={(event) => updateConfigForm('minScoreWarningThreshold', event.target.value)}
                       disabled={!canDecide || configLoading}
-                      className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
+                      className="mt-2 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface focus:border-[#1E707D] focus:outline-none focus:ring-2 focus:ring-primary-fixed disabled:opacity-60"
                     />
                   </label>
                 </div>
@@ -353,7 +353,7 @@ const CodeInsightPage = () => {
                   <button
                     type="submit"
                     disabled={!canDecide || configSaving || configLoading}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1E707D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D7EEF1] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="material-symbols-outlined text-[18px]">save</span>
                     {configSaving ? 'Saving...' : canDecide ? 'Save Configuration' : 'Leader Only'}
@@ -419,7 +419,7 @@ const CodeInsightPage = () => {
                 <article key={`${item.task?.id}-${item.id || 'pending'}`} className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="font-label-md text-label-md text-primary bg-primary-fixed px-2 py-1 rounded">
+                      <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1] px-2 py-1 rounded">
                         {item.task?.requirementCode || 'No Requirement'}
                       </span>
                       <span className="font-label-md text-label-md text-on-surface-variant bg-surface-container-high px-2 py-1 rounded">
@@ -461,7 +461,7 @@ const CodeInsightPage = () => {
                         <button
                           type="button"
                           onClick={() => approveTask(item.task?.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary hover:bg-primary-container"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E707D] px-3 py-2 text-sm font-semibold text-white hover:bg-[#D7EEF1]"
                         >
                           <span className="material-symbols-outlined text-[18px]">check</span>
                           Approve

@@ -6,7 +6,7 @@
 -- =========================================================
 -- 0. SCHEMA UPDATES
 -- =========================================================
-ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
 
 -- =========================================================
 -- 1. SEED USER (1 LEADER)
@@ -183,3 +183,4 @@ JOIN projects p ON p.id = t.project_id
 WHERE p.name = 'DevTrack Alpha Test'
   AND t.primary_assignee_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.user_id = t.primary_assignee_id);
+

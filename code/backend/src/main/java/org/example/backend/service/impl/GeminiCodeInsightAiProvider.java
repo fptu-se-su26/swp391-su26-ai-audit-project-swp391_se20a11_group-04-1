@@ -194,6 +194,8 @@ public class GeminiCodeInsightAiProvider implements CodeInsightAiProvider {
     }
 
     private String buildPrompt(String promptInputJson) {
+        // Prompt AI: Code Insight AI Review. Đóng vai trò AI Reviewer để phân tích task (mã nguồn thay đổi, commits, PRs, CI).
+        // Đưa ra quyết định (recommendation), rủi ro (riskDetails), tóm tắt cho Leader, và liệt kê các đoạn code cần chú ý (reviewNotes).
         return """
                 You are Code Insight AI Review. You are advisory only and must not approve or reject tasks.
                 Return strict JSON only, with no Markdown, matching this schema:

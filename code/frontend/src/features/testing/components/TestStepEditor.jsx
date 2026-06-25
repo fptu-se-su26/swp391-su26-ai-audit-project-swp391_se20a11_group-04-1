@@ -42,7 +42,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                     <select
                       value={step.action || 'goto'}
                       onChange={(e) => handleChangeStep(index, 'action', e.target.value)}
-                      className="w-full sm:w-1/3 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all cursor-pointer"
+                      className="w-full sm:w-1/3 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all cursor-pointer"
                     >
                       <option value="goto">Navigate (goto)</option>
                       <option value="fill">Input (fill)</option>
@@ -62,7 +62,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                         value={step.path || ''}
                         onChange={(e) => handleChangeStep(index, 'path', e.target.value)}
                         placeholder="Path (e.g. /login)"
-                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
+                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all"
                         required
                       />
                     )}
@@ -73,7 +73,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                         value={step.selector || ''}
                         onChange={(e) => handleChangeStep(index, 'selector', e.target.value)}
                         placeholder="Selector (e.g. #email)"
-                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
+                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all"
                         required
                       />
                     )}
@@ -84,7 +84,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                         value={step.value || ''}
                         onChange={(e) => handleChangeStep(index, 'value', e.target.value)}
                         placeholder={step.action === 'select' ? "Option value to select" : "Value to input"}
-                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
+                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all"
                         required
                       />
                     )}
@@ -95,7 +95,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                         value={step.expected || ''}
                         onChange={(e) => handleChangeStep(index, 'expected', e.target.value)}
                         placeholder={step.action === 'expect_text' ? "Expected Text" : "Expected URL (e.g. /dashboard)"}
-                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
+                        className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all"
                         required
                       />
                     )}
@@ -115,7 +115,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
                   value={step.description || ''}
                   onChange={(e) => handleChangeStep(index, 'description', e.target.value)}
                   placeholder="Enter step description..."
-                  className="flex-1 w-full px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-primary outline-none transition-all"
+                  className="flex-1 w-full px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-body-md text-body-md focus:border-[#1E707D] outline-none transition-all"
                   required
                 />
               )}
@@ -135,7 +135,7 @@ export default function TestStepEditor({ steps, onChange, isUiTest }) {
       <button
         type="button"
         onClick={handleAddStep}
-        className="self-start mt-2 flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-fixed-variant transition-colors"
+        className="self-start mt-2 flex items-center gap-1 text-sm font-medium text-[#1E707D] hover:text-primary-fixed-variant transition-colors"
       >
         <span className="material-symbols-outlined text-[18px]">add</span>
         Add Step

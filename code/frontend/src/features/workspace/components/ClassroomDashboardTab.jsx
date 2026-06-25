@@ -16,7 +16,7 @@ import { getInitials } from '@utils/avatarHelper'
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
   'bg-teal-500 text-white',
-  'bg-indigo-500 text-white',
+  'bg-[#1E707D] text-white',
   'bg-rose-500 text-white',
   'bg-amber-500 text-white',
   'bg-emerald-500 text-white',
@@ -279,8 +279,8 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
             <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase block mb-1">TOTAL MEMBERS</span>
             <span className="text-3xl font-extrabold text-slate-800">{activeStats.totalMembers}</span>
           </div>
-          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-indigo-500 text-2xl font-bold">groups</span>
+          <div className="w-12 h-12 bg-[#1E707D]/10 rounded-xl flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[#1E707D] text-2xl font-bold">groups</span>
           </div>
         </div>
 
@@ -324,7 +324,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
         <div className="bg-white border border-slate-200 rounded-[20px] p-6 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
-              <span className="material-symbols-outlined text-indigo-500 text-lg">assessment</span>
+              <span className="material-symbols-outlined text-[#1E707D] text-lg">assessment</span>
               Team Contribution
             </h3>
             <span className="text-xs font-semibold text-slate-400">Dữ liệu tuần này</span>

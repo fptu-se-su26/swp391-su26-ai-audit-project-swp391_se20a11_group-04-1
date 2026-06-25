@@ -47,14 +47,14 @@ const RequirementDetailRelationships = ({ requirement, onOpenUseCaseModal, onOpe
                 onClick={() => setActiveTab(tab)}
                 className={`relative px-4 py-1.5 font-medium text-sm transition-all duration-200 whitespace-nowrap rounded-md flex items-center gap-2 ${
                   isActive 
-                    ? 'text-indigo-700 bg-white shadow-sm ring-1 ring-slate-900/5' 
+                    ? 'text-[#1E707D] bg-white shadow-sm ring-1 ring-slate-900/5' 
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
                 }`}
               >
                 {tab}
                 <span className={`text-[10px] py-0.5 px-1.5 rounded-md font-bold transition-colors ${
                   isActive 
-                    ? 'bg-indigo-100/80 text-indigo-700' 
+                    ? 'bg-[#1E707D]/10 text-[#1E707D]' 
                     : 'bg-slate-200/80 text-slate-500'
                 }`}>
                   {count}
@@ -67,7 +67,7 @@ const RequirementDetailRelationships = ({ requirement, onOpenUseCaseModal, onOpe
         {/* Traceability Map Button */}
         <button 
           onClick={() => setIsMapOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-md font-medium text-sm hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shrink-0 shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-md font-medium text-sm hover:bg-slate-50 hover:text-[#1E707D] hover:border-[#1E707D]/20 transition-all shrink-0 shadow-sm"
         >
           <span className="material-symbols-outlined text-[18px]">account_tree</span>
           Traceability Map

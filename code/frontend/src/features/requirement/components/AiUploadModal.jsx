@@ -139,7 +139,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
         {/* HEADER */}
         <div className="flex items-center justify-between px-[24px] py-[20px] border-b border-[#E5E7EB]">
           <div className="flex items-center gap-[12px]">
-            <div className="w-[38px] h-[38px] rounded-[8px] bg-[#EFF6FF] text-[#185FA5] flex items-center justify-center shrink-0">
+            <div className="w-[38px] h-[38px] rounded-[8px] bg-[#1E707D]/10 text-[#1E707D] flex items-center justify-center shrink-0">
               <BsStars size={20} />
             </div>
             <div>
@@ -180,7 +180,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
           {!isUploading && !file && (
             <div
               className={`border-[1.5px] border-dashed rounded-[12px] p-[28px] flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
-                isDragging ? 'border-[#185FA5] bg-[#EFF6FF]' : 'border-[#D1D5DB] hover:border-[#185FA5] hover:bg-[#EFF6FF]'
+                isDragging ? 'border-[#1E707D] bg-[#1E707D]/10' : 'border-[#D1D5DB] hover:border-[#1E707D] hover:bg-[#1E707D]/10'
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -188,12 +188,12 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
               onClick={() => fileInputRef.current?.click()}
             >
               <input type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.docx" />
-              <div className="w-[48px] h-[48px] bg-[#EFF6FF] text-[#185FA5] rounded-[8px] flex items-center justify-center mb-[12px]">
+              <div className="w-[48px] h-[48px] bg-[#1E707D]/10 text-[#1E707D] rounded-[8px] flex items-center justify-center mb-[12px]">
                 <FiUploadCloud size={24} />
               </div>
               <h3 className="text-[14px] font-medium text-gray-900">Drag and drop your file here</h3>
               <p className="text-[12px] text-gray-600 mt-[4px]">
-                or <span className="text-[#185FA5] font-medium">browse</span> from your computer
+                or <span className="text-[#1E707D] font-medium">browse</span> from your computer
               </p>
               <p className="text-[11px] text-gray-400 mt-[8px]">Supports .DOCX, .PDF — max 10 MB</p>
             </div>
@@ -202,7 +202,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
           {!isUploading && file && (
             <div className="bg-gray-50 rounded-[8px] border border-[#E5E7EB] p-[10px_12px] flex items-center justify-between">
               <div className="flex items-center gap-[12px] overflow-hidden">
-                <div className="w-[36px] h-[36px] bg-[#EFF6FF] text-[#185FA5] rounded-[6px] flex items-center justify-center shrink-0">
+                <div className="w-[36px] h-[36px] bg-[#1E707D]/10 text-[#1E707D] rounded-[6px] flex items-center justify-center shrink-0">
                   <FiFileText size={18} />
                 </div>
                 <div className="truncate">
@@ -234,14 +234,14 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
                       </div>
                     )}
                     {isActive && (
-                      <div className="w-[24px] h-[24px] rounded-full border-[2px] border-gray-200 border-t-[#185FA5] animate-spin shrink-0"></div>
+                      <div className="w-[24px] h-[24px] rounded-full border-[2px] border-gray-200 border-t-[#1E707D] animate-spin shrink-0"></div>
                     )}
                     {isDone && (
                       <div className="w-[24px] h-[24px] rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0">
                         <FiCheck size={14} strokeWidth={3} />
                       </div>
                     )}
-                    <span className={`text-[13px] ${isActive ? 'font-medium text-[#185FA5]' : isDone ? 'text-gray-900' : 'text-gray-400'}`}>
+                    <span className={`text-[13px] ${isActive ? 'font-medium text-[#1E707D]' : isDone ? 'text-gray-900' : 'text-gray-400'}`}>
                       {stepLabel}
                     </span>
                   </div>
@@ -286,7 +286,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
             <button
               onClick={handleUpload}
               disabled={!file || isUploading}
-              className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#185FA5] rounded-[6px] flex items-center gap-[8px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#124d87] transition-colors"
+              className="h-[36px] px-[16px] text-[13px] font-medium text-white bg-[#1E707D] rounded-[6px] flex items-center gap-[8px] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#155762] transition-colors"
             >
               <BsStars size={14} />
               Start Analysis

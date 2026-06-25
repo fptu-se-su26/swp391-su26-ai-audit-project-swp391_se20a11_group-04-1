@@ -21,6 +21,12 @@ import org.example.backend.entity.Priority;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.TestCaseRepository;
+import org.example.backend.repository.TestStepRepository;
+import org.example.backend.entity.TestCase;
+import org.example.backend.entity.TestStep;
+import org.example.backend.entity.enums.TestCaseStatus;
+import org.example.backend.entity.enums.TestType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,6 +48,8 @@ public class AiGenerationService {
     private final UserAccountRepository userRepository;
     private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
     private final ObjectMapper objectMapper;
+    private final TestCaseRepository testCaseRepository;
+    private final TestStepRepository testStepRepository;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -52,7 +60,9 @@ public class AiGenerationService {
                                org.example.backend.repository.UseCaseRepository useCaseRepository,
                                UserAccountRepository userRepository,
                                org.example.backend.repository.ProjectActorRepository projectActorRepository,
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               TestCaseRepository testCaseRepository,
+                               TestStepRepository testStepRepository) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.stagingRepository = stagingRepository;
@@ -62,6 +72,8 @@ public class AiGenerationService {
         this.userRepository = userRepository;
         this.projectActorRepository = projectActorRepository;
         this.objectMapper = objectMapper;
+        this.testCaseRepository = testCaseRepository;
+        this.testStepRepository = testStepRepository;
     }
 
     @Transactional
@@ -728,6 +740,107 @@ public class AiGenerationService {
         stagingRepository.save(staging);
     }
 
+    @Transactional
+    public List<TestCase> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
+        List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
+        if (stagings.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy dữ liệu staging với ID: " + generationId);
+        }
+
+        AiGenerationStaging staging = stagings.get(0);
+        if (staging.getStatus() != AiGenerationStatus.PENDING) {
+            throw new RuntimeException("Dữ liệu này đã được duyệt hoặc bị từ chối.");
+        }
+
+        Project project = staging.getProject();
+        if (!project.getId().equals(projectId)) {
+            throw new RuntimeException("Generation data doesn't match the project.");
+        }
+
+        UserAccount user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
+        
+        JsonNode payload = modifiedPayload != null ? modifiedPayload : staging.getPayload();
+        
+        Integer maxSubId = testCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
+        int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        
+        List<TestCase> testCasesToSave = new ArrayList<>();
+        
+        for (int i = 0; i < payload.size(); i++) {
+            if (selectedIndices == null || selectedIndices.contains(i)) {
+                JsonNode tcNode = payload.get(i);
+                
+                TestCase tc = new TestCase();
+                tc.setProjectId(project.getId());
+                tc.setTitle(tcNode.has("title") ? tcNode.get("title").asText() : "Untitled Test Case");
+                if (tcNode.has("requirementId") && !tcNode.get("requirementId").isNull()) {
+                    tc.setRequirementId(tcNode.get("requirementId").asLong());
+                } else {
+                    throw new RuntimeException("Requirement is required for all test cases.");
+                }
+                
+                tc.setPrecondition(tcNode.path("precondition").asText(""));
+                tc.setExpectedResult(tcNode.path("expectedResult").asText(""));
+                tc.setStatus(TestCaseStatus.NOT_RUN);
+                tc.setCreatedBy(userId);
+                tc.setProjectSubId(nextSubId);
+                tc.setTcCode("TC-" + nextSubId);
+                
+                String typeStr = tcNode.path("type").asText("MANUAL");
+                try {
+                    tc.setType(TestType.valueOf(typeStr));
+                } catch (Exception e) {
+                    tc.setType(TestType.MANUAL);
+                }
+                
+                // Map UI specific fields
+                if (tcNode.has("stepsStructured")) {
+                    tc.setStepsStructured(tcNode.get("stepsStructured").toString());
+                }
+                if (tcNode.has("baseUrl")) {
+                    tc.setBaseUrl(tcNode.get("baseUrl").asText());
+                }
+                
+                // Map API specific fields
+                if (tcNode.has("apiMethod")) tc.setApiMethod(tcNode.get("apiMethod").asText());
+                if (tcNode.has("apiUrl")) tc.setApiUrl(tcNode.get("apiUrl").asText());
+                if (tcNode.has("apiHeaders")) tc.setApiHeaders(tcNode.get("apiHeaders").toString());
+                if (tcNode.has("apiQueryParams")) tc.setApiQueryParams(tcNode.get("apiQueryParams").toString());
+                if (tcNode.has("apiBody")) tc.setApiBody(tcNode.get("apiBody").toString());
+                if (tcNode.has("apiAssertions")) tc.setApiAssertions(tcNode.get("apiAssertions").toString());
+                
+                // Save first to get ID for TestStep linkage (since TestStep cascade is tricky with new entities manually managed)
+                // Actually, cascade = CascadeType.ALL will handle it if we set the relationship on both sides.
+                List<TestStep> stepEntities = new ArrayList<>();
+                if (tcNode.has("steps") && tcNode.get("steps").isArray()) {
+                    int stepNum = 1;
+                    for (JsonNode stepNode : tcNode.get("steps")) {
+                        TestStep step = new TestStep();
+                        step.setTestCase(tc);
+                        step.setStepNumber(stepNum++);
+                        step.setDescription(stepNode.path("description").asText(""));
+                        stepEntities.add(step);
+                    }
+                }
+                tc.setSteps(stepEntities);
+                
+                nextSubId++;
+                testCasesToSave.add(tc);
+            }
+        }
+
+        List<TestCase> savedTestCases = testCaseRepository.saveAll(testCasesToSave);
+        
+        staging.setStatus(AiGenerationStatus.CONFIRMED);
+        if (modifiedPayload != null) {
+            staging.setPayload(modifiedPayload);
+        }
+        stagingRepository.save(staging);
+        
+        return savedTestCases;
+    }
+
     private String formatFlowForPrompt(String flowJson) {
         if (flowJson == null || flowJson.trim().isEmpty()) return "None";
         try {
@@ -808,6 +921,8 @@ public class AiGenerationService {
             "\nMain Flow: " + formatFlowForPrompt(uc.getMainFlow()) + 
             "\nAlternative Flow: " + formatFlowForPrompt(uc.getAlternativeFlow());
         
+        // Prompt AI: Cập nhật một Use Case đơn lẻ dựa trên sự thay đổi của Requirement cha.
+        // Hướng dẫn AI giữ nguyên các luồng logic cũ nếu không mâu thuẫn, và bổ sung luồng mới nếu Requirement có thêm tính năng.
         String prompt = "You are an expert Business Analyst. Below is an existing Use Case and its updated parent Requirement.\n" +
             "Your task is to analyze the changes in the Requirement and intelligently update the Use Case to match the new Requirement.\n" +
             "CRITICAL RULES:\n" +
@@ -898,6 +1013,8 @@ public class AiGenerationService {
             }
         }
         
+        // Prompt AI: Cập nhật HÀNG LOẠT Use Case dựa trên sự thay đổi của Requirement cha.
+        // Hướng dẫn AI tự động sửa các Use Case cũ và đề xuất tạo thêm Use Case mới nếu Requirement mở rộng quy mô.
         String prompt = "You are an expert Business Analyst. Below is an updated Requirement and its existing Use Cases.\n" +
             "Your task is to analyze the new Requirement and update the existing Use Cases to match it, AND generate new Use Cases if the Requirement has added new flows not covered by the existing ones.\n" +
             "CRITICAL RULES:\n" +
@@ -1205,6 +1322,8 @@ public class AiGenerationService {
         String actorsStr = uc.getActors() != null ? 
             uc.getActors().stream().map(a -> a.getActorName()).collect(java.util.stream.Collectors.joining(", ")) : "";
 
+        // Prompt AI: Gợi ý các Requirement phù hợp nhất cho một Use Case nháp vừa được tạo trên biểu đồ.
+        // Hướng dẫn AI đọc danh sách Requirement hiện có và trả về mảng ID của các Requirement khớp với Use Case này nhất.
         StringBuilder prompt = new StringBuilder();
         prompt.append("You are an expert System Analyst. I have a draft Use Case and a list of existing Requirements in the system.\n");
         prompt.append("Use Case Name: ").append(uc.getName()).append("\n");

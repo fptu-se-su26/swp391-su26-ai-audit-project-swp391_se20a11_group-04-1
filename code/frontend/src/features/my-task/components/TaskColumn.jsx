@@ -24,9 +24,9 @@ const COLUMN_CONFIG = {
   },
   ongoing: {
     icon: 'sync',
-    iconColor: 'text-[#2563EB]',
-    titleColor: 'text-[#2563EB]',
-    badgeBg: 'bg-[#2563EB]',
+    iconColor: 'text-[#1E707D]',
+    titleColor: 'text-[#1E707D]',
+    badgeBg: 'bg-[#1E707D]',
   },
   done: {
     icon: 'check_circle',

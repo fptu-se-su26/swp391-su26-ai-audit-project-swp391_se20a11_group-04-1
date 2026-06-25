@@ -99,9 +99,9 @@ html, body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-surface); }
-::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #1E707D; border-radius: 99px; }
 
 /* Links */
 a { color: var(--color-primary-light); text-decoration: none; transition: color var(--transition); }
@@ -279,9 +279,37 @@ a:hover { color: var(--color-primary); }
 .delay-300 { animation-delay: 300ms; }
 
 /* =====================================================
-   Global Button Override — Teal Gradient 3D Design System
-   Catches ALL primary-intent buttons regardless of file
+   System Admin Dashboard Classes
    ===================================================== */
+.sidebar-item-active {
+    background-color: #d0e1fb;
+    color: #54647a;
+    border-radius: 0.5rem;
+}
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.tab-active {
+    color: #003c90;
+    border-bottom: 2px solid #003c90;
+}
+.chart-line-gradient {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: dash 3s linear forwards;
+}
+@keyframes dash {
+    to { stroke-dashoffset: 0; }
+}
+
+/* =====================================================
 
 /*
   Target: buttons using old indigo/blue/navy hardcoded colors.
@@ -370,5 +398,6 @@ button:disabled[class*="bg-blue-"] {
   box-shadow: none !important;
   transform: none !important;
   cursor: not-allowed !important;
+  opacity: 0.6 !important;
   opacity: 0.6 !important;
 }

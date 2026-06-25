@@ -16,4 +16,6 @@ public interface BugReportRepository extends JpaRepository<BugReport, Long> {
     
     // Core query method supporting the reverse-sync from Task to BugReport
     Optional<BugReport> findByRelatedTaskId(Long taskId);
+
+    long countByStatusAndSeverity(org.example.backend.entity.enums.BugStatus status, org.example.backend.entity.enums.BugSeverity severity);
 }

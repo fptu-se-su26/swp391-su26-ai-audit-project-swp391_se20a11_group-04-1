@@ -2,7 +2,7 @@ import React from 'react';
 
 const LevelLegend = () => {
   const levels = [
-    { name: 'Requirement', color: 'bg-indigo-500' },
+    { name: 'Requirement', color: 'bg-[#1E707D]' },
     { name: 'Use Case', color: 'bg-cyan-500' },
     { name: 'Task', color: 'bg-amber-500' },
     { name: 'Test', color: 'bg-emerald-500' },

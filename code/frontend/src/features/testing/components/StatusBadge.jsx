@@ -7,7 +7,7 @@ const statusConfig = {
     label: 'Pass',
     bgClass: 'bg-secondary-container',
     textClass: 'text-on-secondary-container',
-    dotClass: 'bg-primary-container',
+    dotClass: 'bg-[#D7EEF1]',
   },
   FAIL: {
     label: 'Fail',

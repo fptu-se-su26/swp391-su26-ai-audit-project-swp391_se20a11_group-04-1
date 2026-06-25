@@ -42,7 +42,7 @@ const SlaSummaryPanel = ({ projectId, taskId }) => {
     return (
       <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex items-center justify-center">
         <span className="text-xs text-on-surface-variant flex items-center gap-2">
-          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-3 h-3 border-2 border-[#1E707D] border-t-transparent rounded-full animate-spin"></div>
           Loading SLA...
         </span>
       </div>
@@ -84,7 +84,7 @@ const SlaSummaryPanel = ({ projectId, taskId }) => {
     <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 space-y-3">
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-bold text-on-background flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px] text-primary">robot_2</span>
+          <span className="material-symbols-outlined text-[16px] text-[#1E707D]">robot_2</span>
           AI SLA Summary
         </h3>
       </div>
@@ -111,7 +111,7 @@ const SlaSummaryPanel = ({ projectId, taskId }) => {
             ))}
           </ul>
           {remainingReasons > 0 && (
-            <div className="text-[10px] text-primary mt-1 font-medium pl-1">
+            <div className="text-[10px] text-[#1E707D] mt-1 font-medium pl-1">
               +{remainingReasons} more reasons...
             </div>
           )}
@@ -119,8 +119,8 @@ const SlaSummaryPanel = ({ projectId, taskId }) => {
       )}
 
       {recommendedAction && (
-        <div className="p-2 bg-primary/5 border border-primary/20 rounded">
-          <span className="text-[10px] font-bold text-primary block mb-0.5">Recommended Action</span>
+        <div className="p-2 bg-[#1E707D]/5 border border-[#1E707D]/20 rounded">
+          <span className="text-[10px] font-bold text-[#1E707D] block mb-0.5">Recommended Action</span>
           <p className="text-xs text-on-surface line-clamp-2" title={recommendedAction}>{recommendedAction}</p>
         </div>
       )}

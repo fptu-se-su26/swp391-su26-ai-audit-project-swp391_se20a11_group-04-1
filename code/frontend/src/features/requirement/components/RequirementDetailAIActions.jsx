@@ -14,15 +14,15 @@ const RequirementDetailAIActions = ({ requirement }) => {
       </div>
 
       {/* Quick Actions / Suggestions */}
-      <div className="bg-primary-fixed/30 border border-primary-fixed-dim rounded-xl p-stack_lg">
+      <div className="bg-[#1E707D]-fixed/30 border border-[#1E707D]-fixed-dim rounded-xl p-stack_lg">
         <h3 className="font-headline-sm text-headline-sm text-on-surface mb-3 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary filled">smart_toy</span> AI Actions
+          <span className="material-symbols-outlined text-[#1E707D] filled">smart_toy</span> AI Actions
         </h3>
         <div className="space-y-2">
-          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Suggest Missing Tests clicked')}>
+          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-[#1E707D] hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Suggest Missing Tests clicked')}>
             Suggest Missing Tests <span className="material-symbols-outlined text-[18px] text-secondary">chevron_right</span>
           </button>
-          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-primary hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Review Acceptance Criteria clicked')}>
+          <button className="w-full text-left px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded hover:border-[#1E707D] hover:shadow-sm transition-all font-body-md text-body-md text-on-surface flex justify-between items-center" onClick={() => console.log('Review Acceptance Criteria clicked')}>
             Review Acceptance Criteria <span className="material-symbols-outlined text-[18px] text-secondary">chevron_right</span>
           </button>
         </div>

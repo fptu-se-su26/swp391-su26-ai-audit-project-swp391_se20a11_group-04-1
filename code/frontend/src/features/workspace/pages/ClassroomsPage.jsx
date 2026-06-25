@@ -26,7 +26,7 @@ const SEMESTER_OPTIONS = [
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
   'bg-teal-500 text-white',
-  'bg-indigo-500 text-white',
+  'bg-[#1E707D] text-white',
   'bg-rose-500 text-white',
   'bg-amber-500 text-white',
   'bg-emerald-500 text-white',
@@ -242,7 +242,7 @@ export default function ClassroomsPage() {
     <main className="flex-1 px-6 py-2 md:px-10 md:py-4 overflow-y-auto relative bg-background select-none">
       {/* Background Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[5%] left-[10%] w-[350px] h-[350px] rounded-full bg-primary-fixed opacity-[0.10] blur-[90px]"></div>
+        <div className="absolute top-[5%] left-[10%] w-[350px] h-[350px] rounded-full bg-[#D7EEF1] opacity-[0.10] blur-[90px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[450px] h-[450px] rounded-full bg-secondary-fixed opacity-[0.12] blur-[110px]"></div>
       </div>
 
@@ -251,7 +251,7 @@ export default function ClassroomsPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-on-surface tracking-tight flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-3xl">school</span>
+              <span className="material-symbols-outlined text-[#1E707D] text-3xl">school</span>
               My Classrooms
             </h1>
             <p className="text-on-surface-variant text-sm mt-1">
@@ -261,7 +261,7 @@ export default function ClassroomsPage() {
           {canCreateClassroom && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-on-primary-fixed-variant transition-all shadow-md shadow-primary/10 shrink-0"
+              className="flex items-center gap-2 bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md shadow-[#1E707D]/10 shrink-0"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               <span>Create Classroom</span>
@@ -273,8 +273,8 @@ export default function ClassroomsPage() {
         {showStats && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-4 shadow-sm flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-xl">school</span>
+              <div className="w-11 h-11 rounded-xl bg-[#1E707D]/10 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[#1E707D] text-xl">school</span>
               </div>
               <div>
                 <p className="text-2xl font-black text-on-surface leading-none">{totalClassrooms}</p>
@@ -302,7 +302,7 @@ export default function ClassroomsPage() {
               <div className="fixed bottom-6 right-6 z-50">
                 <button
                   onClick={() => setAssistiveOpen(!assistiveOpen)}
-                  className="w-12 h-12 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-all"
+                  className="w-12 h-12 bg-[#1E707D] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-all"
                 >
                   <span className="material-symbols-outlined">settings_suggest</span>
                 </button>
@@ -334,7 +334,7 @@ export default function ClassroomsPage() {
                   onClick={() => setSelectedSemester(opt.value)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border ${
                     selectedSemester === opt.value
-                      ? 'bg-primary-container text-on-primary border-primary-container shadow-sm'
+                      ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
                       : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
                 >
@@ -351,7 +351,7 @@ export default function ClassroomsPage() {
                 placeholder="Search classroom..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
               />
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function ClassroomsPage() {
         {/* Classroom Grid */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+            <div className="w-10 h-10 border-4 border-[#1E707D]/20 border-t-primary rounded-full animate-spin mb-4"></div>
             <p className="text-on-surface-variant font-medium">Đang tải danh sách lớp học...</p>
           </div>
         ) : filteredClassrooms.length === 0 ? (
@@ -384,7 +384,7 @@ export default function ClassroomsPage() {
                   {/* Dark Banner */}
                   <div className="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0c1929] px-5 py-4 relative overflow-hidden">
                     {/* Subtle glow */}
-                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-primary/20 blur-2xl pointer-events-none"></div>
+                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-[#1E707D]/20 blur-2xl pointer-events-none"></div>
 
                     <div className="relative z-10 flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -455,7 +455,7 @@ export default function ClassroomsPage() {
                       <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
-                            capacityPercent >= 100 ? 'bg-red-500' : isNearFull ? 'bg-amber-500' : 'bg-primary'
+                            capacityPercent >= 100 ? 'bg-red-500' : isNearFull ? 'bg-amber-500' : 'bg-[#1E707D]'
                           }`}
                           style={{ width: `${Math.min(capacityPercent, 100)}%` }}
                         ></div>
@@ -486,7 +486,7 @@ export default function ClassroomsPage() {
                   <div className="border-t border-outline-variant/40 px-5 py-3.5 flex items-center justify-end bg-surface-container-low/20">
                     <button
                       onClick={() => navigate(`/classrooms/${classroom.id}`)}
-                      className="bg-primary text-on-primary hover:bg-on-primary-fixed-variant px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      className="bg-[#1E707D] text-white hover:bg-[#165964] px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>View Details</span>
                       <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -502,7 +502,7 @@ export default function ClassroomsPage() {
         {filteredClassrooms.length > 0 && (
           <div className="flex justify-center">
             <div className="flex items-center gap-2 text-xs text-on-surface-variant px-4 py-2 rounded-full bg-surface-container-lowest border border-outline-variant/40">
-              <span className="material-symbols-outlined text-sm text-primary">check_circle</span>
+              <span className="material-symbols-outlined text-sm text-[#1E707D]">check_circle</span>
               <span>
                 Hiển thị <span className="font-bold text-on-surface">{filteredClassrooms.length}</span> trên{' '}
                 <span className="font-bold text-on-surface">{totalClassrooms}</span> lớp học
@@ -519,7 +519,7 @@ export default function ClassroomsPage() {
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl font-bold">school</span>
+                <span className="material-symbols-outlined text-[#1E707D] text-xl font-bold">school</span>
                 <h3 className="font-extrabold text-base text-on-surface">Create New Classroom</h3>
               </div>
               <button
@@ -542,7 +542,7 @@ export default function ClassroomsPage() {
                     placeholder={newClassroom.semester === 'PERSONAL' ? "E.g., DevTrack" : "E.g., SWP391"}
                     value={newClassroom.subjectCode}
                     onChange={(e) => setNewClassroom({ ...newClassroom, subjectCode: e.target.value.toUpperCase() })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
                   />
                 </div>
 
@@ -555,17 +555,17 @@ export default function ClassroomsPage() {
                     placeholder={newClassroom.semester === 'PERSONAL' ? "E.g., Group 04" : "E.g., SE20A11"}
                     value={newClassroom.classCode}
                     onChange={(e) => setNewClassroom({ ...newClassroom, classCode: e.target.value.toUpperCase() })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all uppercase placeholder:normal-case placeholder:text-outline-variant"
                   />
                 </div>
               </div>
 
               {newClassroom.subjectCode && newClassroom.classCode && (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-xl shrink-0">info</span>
+                <div className="bg-[#1E707D]/5 border border-[#1E707D]/20 rounded-xl p-3 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[#1E707D] text-xl shrink-0">info</span>
                   <p className="text-xs text-on-surface-variant leading-relaxed">
                     Tên lớp sẽ được lưu: <br />
-                    <span className="font-bold text-primary mt-1 block text-sm">
+                    <span className="font-bold text-[#1E707D] mt-1 block text-sm">
                       {newClassroom.semester === 'PERSONAL' 
                         ? `${newClassroom.subjectCode} - ${newClassroom.classCode}`
                         : `${newClassroom.semester === 'SPRING' ? 'SP' : newClassroom.semester === 'SUMMER' ? 'SU' : 'FA'}${newClassroom.academicYear.substring(2, 4)}-${newClassroom.subjectCode}-${newClassroom.classCode}`
@@ -591,7 +591,7 @@ export default function ClassroomsPage() {
                         setNewClassroom({ ...newClassroom, semester: selected });
                       }
                     }}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer hover:bg-surface-container transition-colors"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
                   >
                     <option value="SPRING">Spring</option>
                     <option value="SUMMER">Summer</option>
@@ -627,7 +627,7 @@ export default function ClassroomsPage() {
                   }}
                   min={5}
                   max={50}
-                  className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
                 />
                 <p className="text-[10px] text-on-surface-variant">Giới hạn số sinh viên tối đa trong lớp (5-50).</p>
               </div>
@@ -643,7 +643,7 @@ export default function ClassroomsPage() {
                 <button
                   onClick={handleCreateClassroom}
                   disabled={createMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-on-primary hover:bg-on-primary-fixed-variant text-xs font-bold shadow-md shadow-primary/20 transition-all flex items-center justify-center min-w-[120px]"
+                  className="px-5 py-2.5 rounded-xl bg-[#1E707D] text-white hover:bg-[#165964] text-xs font-bold shadow-md shadow-[#1E707D]/20 transition-all flex items-center justify-center min-w-[120px]"
                 >
                   {createMutation.isPending ? (
                     <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin"></div>
@@ -663,7 +663,7 @@ export default function ClassroomsPage() {
           <div className="w-full max-w-md bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-2xl overflow-hidden animate-slideUp">
             <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">link</span>
+                <span className="material-symbols-outlined text-[#1E707D] text-xl">link</span>
                 <h3 className="font-extrabold text-base text-on-surface">Invite Link</h3>
               </div>
               <button
@@ -685,7 +685,7 @@ export default function ClassroomsPage() {
                 </div>
                 <button
                   onClick={() => handleCopyInviteLink(inviteLinkModal)}
-                  className="shrink-0 bg-primary text-on-primary px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-on-primary-fixed-variant transition-all shadow-sm"
+                  className="shrink-0 bg-[#1E707D] text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-[#165964] transition-all shadow-sm"
                 >
                   Copy
                 </button>
@@ -707,8 +707,8 @@ export default function ClassroomsPage() {
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/10">
-                  <span className="text-primary font-black text-sm">{expandedClassroom.subject.slice(0, 3)}</span>
+                <div className="w-10 h-10 rounded-xl bg-[#1E707D]/10 flex items-center justify-center border border-[#1E707D]/10">
+                  <span className="text-[#1E707D] font-black text-sm">{expandedClassroom.subject.slice(0, 3)}</span>
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base text-on-surface">{expandedClassroom.subject}</h3>
@@ -743,13 +743,13 @@ export default function ClassroomsPage() {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-bold text-sm text-on-surface flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base text-primary">groups</span>
+                  <span className="material-symbols-outlined text-base text-[#1E707D]">groups</span>
                   Members ({expandedClassroom.members.length} shown / {expandedClassroom.memberCount} total)
                 </h4>
                 {expandedClassroom.status !== 'ARCHIVED' && (
                   <button
                     onClick={() => toast.success('Chức năng quản lý thành viên sẽ được kích hoạt sau!')}
-                    className="text-xs font-bold text-primary hover:text-on-primary-fixed-variant flex items-center gap-1 transition-colors"
+                    className="text-xs font-bold text-[#1E707D] hover:text-[#165964] flex items-center gap-1 transition-colors"
                   >
                     <span className="material-symbols-outlined text-sm">person_add</span>
                     Add Member
@@ -767,7 +767,7 @@ export default function ClassroomsPage() {
                   {expandedClassroom.members.map((member, idx) => (
                     <div
                       key={member.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low/30 border border-outline-variant/30 hover:border-primary/20 hover:shadow-sm transition-all"
+                      className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low/30 border border-outline-variant/30 hover:border-[#1E707D]/20 hover:shadow-sm transition-all"
                     >
                       <div
                         className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(idx)}`}
@@ -783,7 +783,7 @@ export default function ClassroomsPage() {
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
                             member.role === 'LEADER'
-                              ? 'bg-primary/10 text-primary'
+                              ? 'bg-[#1E707D]/10 text-[#1E707D]'
                               : 'bg-surface-container text-on-surface-variant'
                           }`}
                         >

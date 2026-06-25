@@ -49,7 +49,9 @@ public class DiagramServiceImpl implements DiagramService {
         
         // Map to resolve Use Case names to IDs for include/extend relations with robustness
         Map<String, String> ucNameToIdMap = new HashMap<>();
+        Set<String> validUcIds = new HashSet<>();
         for (UseCase uc : useCases) {
+            validUcIds.add(uc.getId().toString());
             if (uc.getName() == null) continue;
             String cleanName = uc.getName().trim().toLowerCase();
             ucNameToIdMap.put(cleanName, uc.getId().toString());
@@ -104,7 +106,7 @@ public class DiagramServiceImpl implements DiagramService {
             // Includes
             if (uc.getIncludesList() != null) {
                 for (String includeTarget : uc.getIncludesList()) {
-                    String targetId = resolveUseCaseIdRobustly(includeTarget, ucNameToIdMap);
+                    String targetId = validUcIds.contains(includeTarget) ? includeTarget : resolveUseCaseIdRobustly(includeTarget, ucNameToIdMap);
                     if (targetId != null) {
                         DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
@@ -118,7 +120,7 @@ public class DiagramServiceImpl implements DiagramService {
             // Extends
             if (uc.getExtendsList() != null) {
                 for (String extendTarget : uc.getExtendsList()) {
-                    String targetId = resolveUseCaseIdRobustly(extendTarget, ucNameToIdMap);
+                    String targetId = validUcIds.contains(extendTarget) ? extendTarget : resolveUseCaseIdRobustly(extendTarget, ucNameToIdMap);
                     if (targetId != null) {
                         DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
@@ -381,10 +383,12 @@ public class DiagramServiceImpl implements DiagramService {
             if (!inPayload && !pa.isDeleted()) {
                 boolean wasLinked = linkedActorNames.contains(pa.getName());
                 if (wasLinked) {
-                    pa.setDeleted(true);
-                    projectActorRepository.save(pa);
+                    // Temporarily disable soft deletion to prevent data loss
+                    // pa.setDeleted(true);
+                    // projectActorRepository.save(pa);
                 } else {
-                    projectActorRepository.delete(pa);
+                    // Temporarily disable hard deletion to prevent data loss
+                    // projectActorRepository.delete(pa);
                 }
             }
         }

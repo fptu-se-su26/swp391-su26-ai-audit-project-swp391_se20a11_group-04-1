@@ -201,7 +201,7 @@ function RegisterPage() {
       
       {/* Decorative Background Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-primary-fixed-dim opacity-20 blur-[100px]"></div>
+        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-[#BFDEEA] opacity-20 blur-[100px]"></div>
         <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-secondary-fixed opacity-30 blur-[120px]"></div>
       </div>
 
@@ -210,7 +210,7 @@ function RegisterPage() {
         
         {/* Header */}
         <div className="p-stack_lg border-b border-surface-container flex flex-col items-center text-center">
-          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary-container text-on-primary-container mb-stack_md">
+          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-[#D7EEF1] text-[#1E707D] mb-stack_md">
             <span className="material-symbols-outlined text-display-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
               dataset
             </span>
@@ -239,7 +239,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.fullName 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="fullName"
                   name="fullName"
@@ -263,7 +263,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.username 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="username"
                   name="username"
@@ -287,7 +287,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.email 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="email"
                   name="email"
@@ -311,7 +311,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.phone 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="phone"
                   name="phone"
@@ -335,7 +335,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.password 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="password"
                   name="password"
@@ -359,7 +359,7 @@ function RegisterPage() {
                   className={`w-full px-3 py-2 border rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 transition-colors ${
                     errors.confirmPassword 
                       ? 'border-error focus:border-error focus:ring-error-container' 
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed'
                   }`}
                   id="confirmPassword"
                   name="confirmPassword"
@@ -378,7 +378,7 @@ function RegisterPage() {
               <div className="flex items-start mt-2">
                 <div className="flex items-center h-5">
                   <input
-                    className={`w-4 h-4 text-primary bg-surface-container border rounded focus:ring-primary-fixed focus:ring-2 ${
+                    className={`w-4 h-4 text-[#1E707D] bg-surface-container border rounded focus:ring-primary-fixed focus:ring-2 ${
                       errors.terms ? 'border-error focus:ring-error' : 'border-outline-variant'
                     }`}
                     id="terms"
@@ -391,7 +391,7 @@ function RegisterPage() {
                 </div>
                 <div className="ml-3 font-body-md text-body-md">
                   <label className="text-on-surface-variant" htmlFor="terms">
-                    I agree to the <a className="text-primary hover:underline" href="#">Terms of Service</a> and <a className="text-primary hover:underline" href="#">Privacy Policy</a>.
+                    I agree to the <a className="text-[#1E707D] hover:underline" href="#">Terms of Service</a> and <a className="text-[#1E707D] hover:underline" href="#">Privacy Policy</a>.
                   </label>
                   {errors.terms && (
                     <p className="text-error text-xs mt-1">{errors.terms}</p>
@@ -402,7 +402,7 @@ function RegisterPage() {
               {/* Submit Button */}
               <div className="pt-2">
                 <button
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-primary text-on-primary font-body-md text-body-md font-semibold hover:bg-on-primary-fixed-variant focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
                   disabled={loading}
                 >
@@ -429,7 +429,7 @@ function RegisterPage() {
                   Nhập mã xác thực (OTP)
                 </label>
                 <input
-                  className="w-full px-4 py-3 border border-outline-variant rounded bg-surface-container-lowest font-label-md text-2xl tracking-[0.75em] text-center text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed transition-all"
+                  className="w-full px-4 py-3 border border-outline-variant rounded bg-surface-container-lowest font-label-md text-2xl tracking-[0.75em] text-center text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed transition-all"
                   id="otp"
                   maxLength={6}
                   name="otp"
@@ -447,7 +447,7 @@ function RegisterPage() {
 
               <div className="space-y-3 pt-2">
                 <button
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-primary text-on-primary font-body-md text-body-md font-semibold hover:bg-on-primary-fixed-variant focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
                   disabled={loading}
                 >
@@ -463,7 +463,7 @@ function RegisterPage() {
 
                 <div className="flex items-center justify-between text-xs pt-2">
                   <button
-                    className="text-primary hover:underline font-semibold disabled:opacity-50"
+                    className="text-[#1E707D] hover:underline font-semibold disabled:opacity-50"
                     type="button"
                     onClick={handleResendOtp}
                     disabled={loading}
@@ -491,7 +491,7 @@ function RegisterPage() {
         <div className="px-stack_lg py-stack_md bg-surface-container-low border-t border-surface-container text-center">
           <p className="font-body-md text-body-md text-on-surface-variant">
             Already have an account?{' '}
-            <Link className="font-semibold text-primary hover:text-on-primary-fixed-variant transition-colors" to="/login">
+            <Link className="font-semibold text-[#1E707D] hover:text-[#165964] transition-colors" to="/login">
               Login
             </Link>
           </p>

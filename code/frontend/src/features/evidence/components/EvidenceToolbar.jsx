@@ -46,7 +46,7 @@ const EvidenceToolbar = ({
           placeholder="Search evidence by title, ID..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-all"
+          className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-all"
         />
       </div>
 
@@ -54,7 +54,7 @@ const EvidenceToolbar = ({
       <select
         value={typeFilter}
         onChange={(e) => onTypeFilterChange(e.target.value)}
-        className="px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer min-w-[150px]"
+        className="px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer min-w-[150px]"
       >
         {EVIDENCE_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -67,7 +67,7 @@ const EvidenceToolbar = ({
       <select
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value)}
-        className="px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer min-w-[150px]"
+        className="px-3 py-2 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer min-w-[150px]"
       >
         {EVIDENCE_STATUSES.map((s) => (
           <option key={s.value} value={s.value}>

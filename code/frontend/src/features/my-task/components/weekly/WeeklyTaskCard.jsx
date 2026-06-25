@@ -12,7 +12,7 @@ import { shortTaskType } from '../../../kanban/utils/taskMapper'
 const STATUS_DOT = {
   DONE:        'bg-green-500',
   IN_PROGRESS: 'bg-orange-500',
-  IN_REVIEW:   'bg-blue-500',
+  IN_REVIEW:   'bg-purple-500',
   BLOCKED:     'bg-red-500',
   TODO:        'bg-gray-300',
   OVERDUE:     'bg-red-500',
@@ -22,11 +22,11 @@ const STATUS_DOT = {
 const STATUS_BADGE = {
   DONE:        'bg-green-600 text-white',
   IN_PROGRESS: 'bg-orange-500 text-white',
-  IN_REVIEW:   'bg-blue-500 text-white',
+  IN_REVIEW:   'bg-purple-600 text-white',
   BLOCKED:     'bg-red-600 text-white',
   TODO:        'bg-gray-400 text-white',
   OVERDUE:     'bg-red-600 text-white',
-  UPCOMING:    'bg-[#DBEAFE] text-[#1D4ED8]',
+  UPCOMING:    'bg-blue-100 text-blue-800',
 }
 
 const PRIORITY_BADGE = {
@@ -50,7 +50,7 @@ const WeeklyTaskCard = ({ task, onClick }) => {
     : isDone
     ? 'bg-[#F0FDF4] border-green-200 border-l-green-600'
     : isUpcoming
-    ? 'bg-[#F8F9FF] border-outline-variant border-l-[#93C5FD]'
+    ? 'bg-[#1E707D/5] border-outline-variant border-l-[#1E707D/50]'
     : task.status === 'IN_PROGRESS'
     ? 'bg-white border-outline-variant border-l-orange-500'
     : task.status === 'IN_REVIEW'
@@ -85,7 +85,7 @@ const WeeklyTaskCard = ({ task, onClick }) => {
             <span className="text-[9px] font-medium text-outline uppercase">{reqCode}</span>
           )}
           {task.type && (
-            <span className="bg-blue-100 text-blue-700 text-[8px] font-bold px-1 rounded">
+            <span className="bg-[#1E707D]/10 text-[#1E707D] text-[8px] font-bold px-1 rounded">
               {shortTaskType(task.type)}
             </span>
           )}
@@ -117,7 +117,7 @@ const WeeklyTaskCard = ({ task, onClick }) => {
       {/* Assignee */}
       {assigneeInitials && (
         <div className="flex items-center gap-1.5">
-          <div className="w-[18px] h-[18px] rounded-full bg-primary flex items-center justify-center text-[9px] text-white font-bold">
+          <div className="w-[18px] h-[18px] rounded-full bg-[#1E707D] flex items-center justify-center text-[9px] text-white font-bold">
             {assigneeInitials}
           </div>
           {assignee?.name && (

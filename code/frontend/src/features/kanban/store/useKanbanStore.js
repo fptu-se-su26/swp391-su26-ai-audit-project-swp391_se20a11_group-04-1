@@ -5,7 +5,7 @@ import { requirementApi } from '@features/requirement/services/requirementApi'
 
 export const TASK_STATUSES = [
   { id: 'TODO', title: 'Todo', statusKey: 'TODO', color: 'bg-outline' },
-  { id: 'IN_PROGRESS', title: 'In Progress', statusKey: 'IN_PROGRESS', color: 'bg-primary' },
+  { id: 'IN_PROGRESS', title: 'In Progress', statusKey: 'IN_PROGRESS', color: 'bg-[#1E707D]' },
   { id: 'NEEDS_CHANGES', title: 'Needs Changes', statusKey: 'NEEDS_CHANGES', color: 'bg-[#f59e0b]' },
   { id: 'IN_REVIEW', title: 'In Review', statusKey: 'IN_REVIEW', color: 'bg-[#a855f7]' },
   { id: 'DONE', title: 'Done', statusKey: 'DONE', color: 'bg-[#16a34a]' },

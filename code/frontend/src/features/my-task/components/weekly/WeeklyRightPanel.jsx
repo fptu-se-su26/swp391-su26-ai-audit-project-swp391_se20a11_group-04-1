@@ -15,7 +15,6 @@ const WeeklyRightPanel = ({ sprintProgress, activeSprint, teamWorkload, aiInsigh
     <aside className="col-span-3 space-y-4">
       <SprintOverviewCard sprintProgress={sprintProgress} activeSprint={activeSprint} />
       <TeamWorkloadCard members={teamWorkload} />
-      <AiWeeklyInsightCard insight={aiInsight} onViewReport={onViewReport} />
     </aside>
   )
 }

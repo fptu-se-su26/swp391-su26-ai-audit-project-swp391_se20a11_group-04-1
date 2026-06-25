@@ -27,7 +27,7 @@ const SprintBanner = ({ sprint }) => {
     <div className="bg-white border border-outline-variant rounded-xl p-4 shadow-sm flex items-center justify-between">
       {/* Left: Sprint info */}
       <div className="flex items-center gap-3">
-        <span className="bg-primary-container text-white px-3 py-1 rounded-md text-xs font-bold tracking-tight uppercase">
+        <span className="bg-[#1E707D]-container text-white px-3 py-1 rounded-md text-xs font-bold tracking-tight uppercase">
           {sprint.name || 'Sprint'}
         </span>
         <span className="text-sm text-on-surface font-semibold">
@@ -43,7 +43,7 @@ const SprintBanner = ({ sprint }) => {
       {/* Right: Sprint goal */}
       {sprint.goal && (
         <div className="flex items-center gap-3 text-on-surface-variant bg-surface-container-low p-2.5 rounded-lg border border-dashed border-outline-variant max-w-md">
-          <span className="material-symbols-outlined text-primary text-[20px]">target</span>
+          <span className="material-symbols-outlined text-[#1E707D] text-[20px]">target</span>
           <span className="text-sm">
             <strong>Sprint Goal:</strong> {sprint.goal}
           </span>

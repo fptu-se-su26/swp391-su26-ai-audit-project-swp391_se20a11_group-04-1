@@ -34,9 +34,13 @@ export default function CustomEdge({
     return null;
   }
 
+  const isDependency = data?.relType === 'include' || data?.relType === 'extends';
+  const finalStyle = isDependency ? { ...style, strokeDasharray: '5,5' } : style;
+  const finalMarkerEnd = isDependency && !markerEnd ? { type: 'arrowclosed', width: 14, height: 14 } : markerEnd;
+
   return (
     <>
-      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+      <BaseEdge path={edgePath} markerEnd={finalMarkerEnd} style={finalStyle} />
       {label && (
         <EdgeLabelRenderer>
           <div
@@ -75,7 +79,7 @@ export default function CustomEdge({
                          <div className="relative inline-block text-left">
                              <button 
                                  onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(!isDropdownOpen); }} 
-                                 className="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded flex items-center justify-center font-bold font-mono text-[11px]" 
+                                 className="px-2 py-1 text-[#1E707D] hover:bg-[#1E707D]/10 rounded flex items-center justify-center font-bold font-mono text-[11px]" 
                                  title="Đổi loại (Include/Extend)"
                              >
                                 &lt;&lt;{data.relType}&gt;&gt;
@@ -83,13 +87,13 @@ export default function CustomEdge({
                              {isDropdownOpen && (
                                  <div className="absolute top-full left-0 mt-1 w-24 bg-white border border-gray-200 rounded shadow-lg z-50">
                                      <button 
-                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'include' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'include' ? 'font-bold text-[#1E707D]' : 'text-gray-700'}`}
                                          onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); data?.onEdgeAction(id, 'changeType', 'include'); }}
                                      >
                                          &lt;&lt;include&gt;&gt;
                                      </button>
                                      <button 
-                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'extends' ? 'font-bold text-blue-600' : 'text-gray-700'}`}
+                                         className={`w-full text-left px-2 py-1 text-[11px] font-mono hover:bg-gray-100 ${data.relType === 'extends' ? 'font-bold text-[#1E707D]' : 'text-gray-700'}`}
                                          onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); data?.onEdgeAction(id, 'changeType', 'extends'); }}
                                      >
                                          &lt;&lt;extends&gt;&gt;

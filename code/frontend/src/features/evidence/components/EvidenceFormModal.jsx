@@ -222,8 +222,8 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-low">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary-fixed/30 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-[20px]">
+            <div className="w-9 h-9 rounded-lg bg-[#D7EEF1]/30 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[#1E707D] text-[20px]">
                 {isEditMode ? 'edit_note' : 'upload_file'}
               </span>
             </div>
@@ -254,7 +254,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
               className={`w-full px-3 py-2.5 border rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:ring-2 transition-all ${
                 errors.title
                   ? 'border-error focus:ring-error/30'
-                  : 'border-outline-variant focus:border-primary focus:ring-primary-fixed-dim'
+                  : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed-dim'
               }`}
             />
             {errors.title && (
@@ -273,7 +273,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
             <select
               value={formData.type}
               onChange={(e) => handleChange('type', e.target.value)}
-              className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+              className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
             >
               {EVIDENCE_TYPES.filter((t) => t.value !== '').map((t) => (
                 <option key={t.value} value={t.value}>
@@ -293,7 +293,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Describe what this evidence demonstrates..."
               rows={3}
-              className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all resize-none"
+              className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all resize-none"
             />
           </div>
 
@@ -310,10 +310,10 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
                   dragOver
-                    ? 'border-primary bg-primary-fixed/10'
+                    ? 'border-[#1E707D] bg-[#D7EEF1]/10'
                     : errors.file
                     ? 'border-error bg-error-container/10'
-                    : 'border-outline-variant hover:border-primary/50 hover:bg-surface-container-low'
+                    : 'border-outline-variant hover:border-[#1E707D]/50 hover:bg-surface-container-low'
                 }`}
               >
                 <input
@@ -325,7 +325,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 />
                 {formData.file ? (
                   <div className="flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[24px]">check_circle</span>
+                    <span className="material-symbols-outlined text-[#1E707D] text-[24px]">check_circle</span>
                     <span className="font-body-md text-body-md text-on-surface font-medium">{formData.file.name}</span>
                     <span className="font-body-md text-[12px] text-on-surface-variant">
                       ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
@@ -335,7 +335,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                   <>
                     <span className="material-symbols-outlined text-[36px] text-outline-variant mb-2 block">cloud_upload</span>
                     <p className="font-body-md text-body-md text-on-surface-variant">
-                      Drag & drop a file here, or <span className="text-primary font-medium">click to browse</span>
+                      Drag & drop a file here, or <span className="text-[#1E707D] font-medium">click to browse</span>
                     </p>
                     <p className="font-body-md text-[12px] text-outline mt-1">Max 50MB</p>
                   </>
@@ -374,7 +374,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                   className={`w-full pl-10 pr-3 py-2.5 border rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:ring-2 transition-all ${
                     errors.externalUrl
                       ? 'border-error focus:ring-error/30'
-                      : 'border-outline-variant focus:border-primary focus:ring-primary-fixed-dim'
+                      : 'border-outline-variant focus:border-[#1E707D] focus:ring-primary-fixed-dim'
                   }`}
                 />
               </div>
@@ -404,7 +404,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 value={linkInput.entityId}
                 onChange={handleTargetChange}
                 disabled={loadingTargets || targetOptions.length === 0}
-                className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-primary focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+                className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
               >
                 <option value="" disabled>
                   {loadingTargets ? 'Loading...' : targetOptions.length === 0 ? 'No items found' : 'Select Target'}
@@ -419,7 +419,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 type="button"
                 onClick={addLinkedEntity}
                 disabled={!linkInput.entityId}
-                className="px-3 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="px-3 py-2 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[20px]">add</span>
               </button>
@@ -439,7 +439,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                     key={idx}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-surface border border-outline-variant rounded-lg font-label-md text-[11px] text-on-surface-variant"
                   >
-                    <span className="font-semibold text-primary">{link.entityType.replace('_', ' ')}:</span>
+                    <span className="font-semibold text-[#1E707D]">{link.entityType.replace('_', ' ')}:</span>
                     {link.entityLabel || `#${link.entityId}`}
                     <button
                       type="button"
@@ -469,7 +469,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-5 py-2.5 rounded-lg font-body-md text-body-md bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+            className="px-5 py-2.5 rounded-lg font-body-md text-body-md bg-[#1E707D] text-white hover:bg-[#1E707D]/90 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
           >
             {isSubmitting ? (
               <>

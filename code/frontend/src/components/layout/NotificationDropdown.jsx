@@ -6,10 +6,10 @@ import useProjectStore from '@store/useProjectStore'
 
 const notificationMeta = (notification) => {
   if (notification.type === 'INVITATION') {
-    return { icon: 'mail', className: 'bg-primary/10 text-primary' }
+    return { icon: 'mail', className: 'bg-[#1E707D]/10 text-[#1E707D]' }
   }
   if (notification.entityType === 'WEEKLY_REPORT') {
-    return { icon: 'summarize', className: 'bg-blue-500/10 text-blue-700' }
+    return { icon: 'summarize', className: 'bg-[#1E707D]/10 text-[#1E707D]' }
   }
   if (notification.entityType === 'TASK' && /sla|quá hạn|penalty|overdue/i.test(`${notification.title} ${notification.message}`)) {
     return { icon: 'release_alert', className: 'bg-red-500/10 text-red-700' }
@@ -153,7 +153,7 @@ export function NotificationDropdown() {
       <button
         onClick={handleToggle}
         className={`relative w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-all ${
-          isOpen ? 'bg-surface-container text-primary' : ''
+          isOpen ? 'bg-surface-container text-[#1E707D]' : ''
         }`}
         title="Thông báo"
       >
@@ -171,13 +171,13 @@ export function NotificationDropdown() {
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/50 bg-surface-container-low/40">
             <h4 className="font-extrabold text-sm text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-lg">notifications_active</span>
+              <span className="material-symbols-outlined text-[#1E707D] text-lg">notifications_active</span>
               Trung tâm thông báo
             </h4>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs font-bold text-primary hover:text-primary-container transition-colors"
+                className="text-xs font-bold text-[#1E707D] hover:text-primary-container transition-colors"
               >
                 Đọc tất cả
               </button>
@@ -188,7 +188,7 @@ export function NotificationDropdown() {
           <div className="max-h-[360px] overflow-y-auto divide-y divide-outline-variant/20">
             {loading && notifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
-                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <div className="w-6 h-6 border-2 border-[#1E707D] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 <p className="text-xs text-on-surface-variant">Đang tải thông báo...</p>
               </div>
             ) : notifications.length === 0 ? (
@@ -202,12 +202,12 @@ export function NotificationDropdown() {
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
                   className={`p-4 hover:bg-surface-container-low/30 transition-colors cursor-pointer relative group flex gap-3.5 items-start ${
-                    !n.isRead ? 'bg-primary/[0.02]' : ''
+                    !n.isRead ? 'bg-[#1E707D]/[0.02]' : ''
                   }`}
                 >
                   {/* Trạng thái chưa đọc */}
                   {!n.isRead && (
-                    <span className="absolute left-2.5 top-5 w-1.5 h-1.5 rounded-full bg-primary"></span>
+                    <span className="absolute left-2.5 top-5 w-1.5 h-1.5 rounded-full bg-[#1E707D]"></span>
                   )}
 
                   {/* Icon loại thông báo */}
@@ -245,7 +245,7 @@ export function NotificationDropdown() {
                         <div className="flex gap-2 pt-1.5">
                           <button
                             onClick={(e) => handleAccept(e, n)}
-                            className="px-3.5 py-1.5 bg-primary text-on-primary text-[11px] font-bold rounded-lg hover:bg-primary-container hover:text-on-primary-container transition-all shadow-sm"
+                            className="px-3.5 py-1.5 bg-[#1E707D] text-white text-[11px] font-bold rounded-lg hover:bg-[#D7EEF1] hover:text-[#1E707D] transition-all shadow-sm"
                           >
                             Đồng ý
                           </button>
