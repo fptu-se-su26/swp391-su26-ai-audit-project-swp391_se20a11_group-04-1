@@ -35,6 +35,10 @@ import org.example.backend.service.sla.TaskSlaPauseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
+import org.example.backend.dto.event.SyncEvent;
+import org.example.backend.constant.SyncTriggerType;
+import java.util.Map;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -83,6 +87,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationService notificationService;
     private final OutboxEventService outboxEventService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -1437,6 +1442,13 @@ public class TaskServiceImpl implements TaskService {
                 sendNotification(task.getPrimaryAssignee(), title, msg, task);
             }
         }
+
+        eventPublisher.publishEvent(new SyncEvent(this, 
+            SyncTriggerType.TASK_STATUS_CHANGED, 
+            "Task", 
+            task.getId(), 
+            Map.of("projectId", task.getProject().getId())
+        ));
     }
 
     private void notifyAssignee(Task task, String title, String message) {
