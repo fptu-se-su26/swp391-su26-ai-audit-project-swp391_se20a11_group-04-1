@@ -477,4 +477,121 @@ public class SystemAdminService {
         
         return alerts;
     }
+
+    public List<org.example.backend.dto.AdminUserResponse> getUsers(String search, String role, String status, String appealFilter, boolean showInactiveOnly) {
+        List<UserAccount> allUsers = userAccountRepository.findAll();
+        
+        return allUsers.stream()
+            .filter(u -> {
+                if (u.getSystemRole() != null && "ADMIN".equalsIgnoreCase(u.getSystemRole().getName())) {
+                    return false; // Skip admin accounts in the list
+                }
+                
+                // Search filter (name or email or username)
+                if (search != null && !search.trim().isEmpty()) {
+                    String searchLower = search.toLowerCase().trim();
+                    boolean matchesUsername = u.getUsername() != null && u.getUsername().toLowerCase().contains(searchLower);
+                    boolean matchesEmail = u.getEmail() != null && u.getEmail().toLowerCase().contains(searchLower);
+                    boolean matchesFullName = u.getProfile() != null && u.getProfile().getFullName() != null && u.getProfile().getFullName().toLowerCase().contains(searchLower);
+                    if (!matchesUsername && !matchesEmail && !matchesFullName) {
+                        return false;
+                    }
+                }
+                
+                // Role filter
+                if (role != null && !role.equalsIgnoreCase("ALL")) {
+                    if (u.getSystemRole() == null || !role.equalsIgnoreCase(u.getSystemRole().getName())) {
+                        return false;
+                    }
+                }
+                
+                // Status filter
+                if (status != null && !status.equalsIgnoreCase("ALL")) {
+                    boolean targetActive = status.equalsIgnoreCase("ACTIVE");
+                    if (u.isActive() != targetActive) {
+                        return false;
+                    }
+                }
+                
+                // Appeal filter
+                if (appealFilter != null && !appealFilter.equalsIgnoreCase("ALL")) {
+                    if (appealFilter.equalsIgnoreCase("PENDING")) {
+                        if (!"PENDING".equalsIgnoreCase(u.getAppealStatus())) {
+                            return false;
+                        }
+                    } else if (appealFilter.equalsIgnoreCase("NONE")) {
+                        if (u.getAppealStatus() != null && !"NONE".equalsIgnoreCase(u.getAppealStatus())) {
+                            return false;
+                        }
+                    }
+                }
+                
+                // Inactive over 2 years filter
+                if (showInactiveOnly) {
+                    if (!isInactiveOver2Years(u.getUpdatedAt())) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            })
+            .map(u -> {
+                String fullName = u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername();
+                String avatarUrl = u.getProfile() != null ? u.getProfile().getAvatarUrl() : null;
+                
+                return org.example.backend.dto.AdminUserResponse.builder()
+                    .id(u.getId())
+                    .username(u.getUsername())
+                    .email(u.getEmail())
+                    .fullName(fullName)
+                    .avatarUrl(avatarUrl)
+                    .isActive(u.isActive())
+                    .lastActive(u.getUpdatedAt()) // we use updatedAt for lastActive
+                    .appealReason(u.getAppealReason())
+                    .appealEvidenceUrl(u.getAppealEvidenceUrl())
+                    .appealEvidenceName(u.getAppealEvidenceName())
+                    .appealStatus(u.getAppealStatus())
+                    .appealComment(u.getAppealComment())
+                    .appealResolvedAt(u.getAppealResolvedAt())
+                    .appealResolvedByUsername(u.getAppealResolvedBy() != null ? u.getAppealResolvedBy().getUsername() : null)
+                    .build();
+            })
+            .collect(Collectors.toList());
+    }
+
+    private boolean isInactiveOver2Years(LocalDateTime updatedAt) {
+        if (updatedAt == null) return true;
+        return updatedAt.isBefore(LocalDateTime.now().minusYears(2));
+    }
+
+    public boolean toggleUserLock(Long id) {
+        UserAccount user = userAccountRepository.findById(id).orElse(null);
+        if (user == null) return false;
+        
+        user.setActive(!user.isActive());
+        // If unlocking, also mark any pending appeal as RESOLVED
+        if (user.isActive() && "PENDING".equalsIgnoreCase(user.getAppealStatus())) {
+            user.setAppealStatus("RESOLVED");
+        }
+        userAccountRepository.save(user);
+        return true;
+    }
+
+    public boolean resolveUserAppeal(Long id, boolean approve, String feedback, UserAccount resolver) {
+        UserAccount user = userAccountRepository.findById(id).orElse(null);
+        if (user == null) return false;
+        
+        if (approve) {
+            user.setActive(true);
+            user.setAppealStatus("APPROVED");
+        } else {
+            user.setAppealStatus("REJECTED");
+        }
+        user.setAppealComment(feedback);
+        user.setAppealResolvedAt(LocalDateTime.now());
+        user.setAppealResolvedBy(resolver);
+        
+        userAccountRepository.save(user);
+        return true;
+    }
 }
