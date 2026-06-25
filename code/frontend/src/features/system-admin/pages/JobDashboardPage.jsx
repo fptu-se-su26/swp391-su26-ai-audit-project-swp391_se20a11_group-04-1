@@ -9,6 +9,20 @@ export default function JobDashboardPage() {
   const [runsPage, setRunsPage] = useState(0);
   const [dlqPage, setDlqPage] = useState(0);
   
+  const [auditStats, setAuditStats] = useState({ totalToday: 0, failedToday: 0, suspiciousUsers: 0 });
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditActionFilter, setAuditActionFilter] = useState("");
+  const [debouncedAction, setDebouncedAction] = useState("");
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedAction(auditActionFilter);
+      setAuditPage(0);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [auditActionFilter]);
+  
   const fetchStats = useCallback(async () => {
     try {
       const res = await axiosInstance.get('/api/v1/admin/outbox/stats');
@@ -42,16 +56,45 @@ export default function JobDashboardPage() {
     }
   }, [runsPage]);
 
+  const fetchAuditStats = useCallback(async () => {
+    try {
+      const res = await axiosInstance.get('/api/v1/admin/audit/stats');
+      if (res.data.success) {
+        setAuditStats(res.data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const fetchAuditLogs = useCallback(async () => {
+    try {
+      let url = `/api/v1/admin/audit/logs?page=${auditPage}&size=20`;
+      if (debouncedAction) {
+        url += `&action=${encodeURIComponent(debouncedAction)}`;
+      }
+      const res = await axiosInstance.get(url);
+      if (res.data.success) {
+        setAuditLogs(res.data.data.content || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [auditPage, debouncedAction]);
+
   useEffect(() => {
     fetchStats();
     fetchDlq();
     fetchRuns();
+    fetchAuditStats();
+    fetchAuditLogs();
     
     const interval = setInterval(() => {
       fetchStats();
+      fetchAuditStats();
     }, 30000);
     return () => clearInterval(interval);
-  }, [fetchStats, fetchDlq, fetchRuns]);
+  }, [fetchStats, fetchDlq, fetchRuns, fetchAuditStats, fetchAuditLogs]);
 
   const handleRetry = async (id) => {
     try {
@@ -185,6 +228,98 @@ export default function JobDashboardPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* SECTION 4: Audit Logs */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-gray-800 border-t pt-8">System Audit Logs</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-slate-500 rounded-lg shadow-lg p-5 text-white">
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-2">Total Today</p>
+            <p className="text-4xl font-extrabold">{auditStats.totalToday}</p>
+          </div>
+          <div className="bg-red-500 rounded-lg shadow-lg p-5 text-white">
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-2">Failed Today</p>
+            <p className="text-4xl font-extrabold">{auditStats.failedToday}</p>
+          </div>
+          <div className="bg-orange-500 rounded-lg shadow-lg p-5 text-white">
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80 mb-2">Suspicious Users</p>
+            <p className="text-4xl font-extrabold">{auditStats.suspiciousUsers}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div className="relative w-full md:w-64">
+              <input
+                type="text"
+                placeholder="Filter by action..."
+                value={auditActionFilter}
+                onChange={(e) => setAuditActionFilter(e.target.value)}
+                className="w-full pl-3 pr-8 py-1.5 text-sm border rounded outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow"
+              />
+              {auditActionFilter && (
+                <button
+                  onClick={() => setAuditActionFilter("")}
+                  className="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600 font-bold"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+            <div className="space-x-2 flex items-center">
+              <button onClick={() => setAuditPage(Math.max(0, auditPage - 1))} disabled={auditPage === 0} className="px-3 py-1 bg-white border rounded text-sm font-medium hover:bg-gray-50 disabled:opacity-50">Prev</button>
+              <span className="text-sm font-medium text-gray-500 mx-2">Page {auditPage + 1}</span>
+              <button onClick={() => setAuditPage(auditPage + 1)} className="px-3 py-1 bg-white border rounded text-sm font-medium hover:bg-gray-50">Next</button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600 whitespace-nowrap">
+              <thead className="bg-gray-50 text-xs font-bold uppercase text-gray-500 border-b">
+                <tr>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Action</th>
+                  <th className="px-4 py-3">Entity</th>
+                  <th className="px-4 py-3">IP</th>
+                  <th className="px-4 py-3">Method</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Duration (ms)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {auditLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-gray-500">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{log.username || 'System/Anon'}</td>
+                    <td className="px-4 py-3 text-blue-600 font-medium">{log.action}</td>
+                    <td className="px-4 py-3">
+                      {log.entityType ? (
+                        <span><span className="font-semibold text-gray-700">{log.entityType}</span> #{log.entityId}</span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{log.ipAddress}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{log.httpMethod || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${
+                        log.status === 'SUCCESS' ? 'bg-green-100 text-green-700' :
+                        log.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">{log.durationMs || 0}</td>
+                  </tr>
+                ))}
+                {auditLogs.length === 0 && (
+                  <tr><td colSpan="8" className="px-5 py-12 text-center text-gray-500 font-medium">No audit logs found</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

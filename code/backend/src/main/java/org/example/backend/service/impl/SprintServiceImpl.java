@@ -114,6 +114,7 @@ public class SprintServiceImpl implements SprintService {
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="UPDATE_SPRINT_STATUS", entityType="Sprint")
     public SprintResponse updateSprintStatus(Long projectId, Long sprintId, SprintStatusUpdateRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
         Sprint sprint = findSprint(projectId, sprintId);

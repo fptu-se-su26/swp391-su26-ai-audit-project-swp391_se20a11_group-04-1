@@ -161,6 +161,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="CREATE_TASK", entityType="Task")
     public TaskResponse createTask(Long projectId, TaskRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
         Project project = projectRepository.findById(projectId)
