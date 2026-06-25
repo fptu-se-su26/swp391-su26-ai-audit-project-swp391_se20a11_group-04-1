@@ -7,6 +7,7 @@ import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.EmailService;
+import org.example.backend.service.GeminiService;
 import org.example.backend.service.NotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class SlaPingService {
     private final TaskSlaStateRepository taskSlaStateRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final GeminiService geminiService;
 
     @Transactional
     public void pingTask(Long projectId, Long taskId) {
@@ -79,7 +81,46 @@ public class SlaPingService {
     }
 
     @Transactional
-    public void pingRiskMember(Long projectId, Long sprintId, String assigneeName) {
+    public String generateMemberAiEvaluation(Long projectId, Long sprintId, String assigneeName) {
+        List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
+        List<TaskSlaState> memberRiskStates = states.stream()
+                .filter(s -> !"NORMAL".equals(s.getCurrentRiskLevel()))
+                .filter(s -> s.getTask().getPrimaryAssignee() != null)
+                .filter(s -> {
+                    String name = s.getTask().getPrimaryAssignee().getUsername();
+                    if (s.getTask().getPrimaryAssignee().getProfile() != null && 
+                        s.getTask().getPrimaryAssignee().getProfile().getFullName() != null && 
+                        !s.getTask().getPrimaryAssignee().getProfile().getFullName().trim().isEmpty()) {
+                        name = s.getTask().getPrimaryAssignee().getProfile().getFullName();
+                    }
+                    return name.equals(assigneeName);
+                })
+                .toList();
+
+        if (memberRiskStates.isEmpty()) {
+            return "Thành viên " + assigneeName + " hiện đang thực hiện tốt, không có task nào bị trễ hạn hay cảnh báo SLA trong Sprint này.";
+        }
+
+        int overdueCount = (int) memberRiskStates.stream().filter(s -> s.getTask().getDeadline() != null && java.time.LocalDate.now().isAfter(s.getTask().getDeadline())).count();
+        int penaltyCount = (int) memberRiskStates.stream().filter(s -> s.getTask().isOverduePenaltyApplied()).count();
+
+        String prompt = String.format(
+                "Bạn là trợ lý AI quản lý dự án nghiêm khắc. Hãy viết MỘT lời nhận xét/nhắc nhở (dưới 40 chữ) gửi tới thành viên '%s'. " +
+                "Hiện trạng: Có tổng cộng %d task bị cảnh báo SLA, trong đó có %d task đã quá hạn và %d task đã bị phạt. " +
+                "Yêu cầu: Lời lẽ chuyên nghiệp, sắc sảo, hối thúc họ cập nhật trạng thái và hoàn thành gấp. Chỉ trả về lời nhận xét, không giải thích thêm.",
+                assigneeName, memberRiskStates.size(), overdueCount, penaltyCount
+        );
+
+        try {
+            return geminiService.generateText(prompt);
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi Gemini AI", e);
+            return "Bạn đang có " + memberRiskStates.size() + " task gặp rủi ro trễ hạn. Vui lòng kiểm tra và xử lý gấp để không ảnh hưởng đến tiến độ chung của Sprint.";
+        }
+    }
+
+    @Transactional
+    public void pingRiskMember(Long projectId, Long sprintId, String assigneeName, String aiComment) {
         List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
         
         List<TaskSlaState> memberRiskStates = states.stream()
@@ -121,6 +162,13 @@ public class SlaPingService {
         body.append("<h2 style=\"color: #0f172a;\">Urgent SLA Warning</h2>");
         body.append("<p>Hello <strong>").append(assigneeName).append("</strong>,</p>");
         body.append("<p>You have <strong>").append(memberRiskStates.size()).append(" tasks</strong> currently flagged with SLA risks or delays in this sprint. The project manager has manually pinged you to take action.</p>");
+        
+        if (aiComment != null && !aiComment.trim().isEmpty()) {
+            body.append("<div style=\"background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin: 20px 0; border-radius: 4px;\">");
+            body.append("  <strong style=\"color: #991b1b; display: block; margin-bottom: 8px; font-size: 14px;\">🚨 Lời nhắn từ Quản lý Dự án (AI Assisted):</strong>");
+            body.append("  <span style=\"color: #7f1d1d; font-size: 14px; line-height: 1.5;\">").append(aiComment).append("</span>");
+            body.append("</div>");
+        }
         
         body.append("<table style=\"width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #e2e8f0; font-size: 14px;\">");
         body.append("  <thead style=\"background-color: #f8fafc; text-align: left;\">");
