@@ -1,5 +1,7 @@
 package org.example.backend.scheduler;
 
+import org.example.backend.annotation.MonitoredJob;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.SchedulerRunLog;
@@ -22,6 +24,7 @@ public class AuditMonitorScheduler {
     private final SchedulerRunLogService schedulerRunLogService;
 
     @Scheduled(fixedDelay = 300000)
+    @MonitoredJob(name="AuditMonitorScheduler")
     public void detectSuspiciousActivity() {
         SchedulerRunLog runLog = schedulerRunLogService.start("AuditMonitorScheduler");
         int flagged = 0;

@@ -18,6 +18,11 @@ import org.example.backend.entity.EntitySyncLog;
 import org.example.backend.dto.EntitySyncLogResponse;
 import org.example.backend.dto.SyncStatsResponse;
 import org.example.backend.dto.AuditLogResponse;
+import org.example.backend.dto.HealthSummaryResponse;
+import org.example.backend.dto.ComponentHealth;
+import org.example.backend.dto.JobStatResponse;
+import org.example.backend.repository.MonitoredJobStatRepository;
+import org.example.backend.service.HealthCheckService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +48,8 @@ public class AdminJobDashboardController {
     private final DeadLetterEventRepository deadLetterEventRepository;
     private final EntitySyncLogRepository entitySyncLogRepository;
     private final AuditLogRepository auditLogRepository;
+    private final HealthCheckService healthCheckService;
+    private final MonitoredJobStatRepository monitoredJobStatRepository;
 
     private <T> ResponseEntity<ApiResponse<T>> unauthorized() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Unauthorized"));
@@ -207,5 +214,38 @@ public class AdminJobDashboardController {
         stats.put("suspiciousUsers", suspiciousUsers);
 
         return ResponseEntity.ok(ApiResponse.success(stats, "Success"));
+    }
+    @GetMapping("/monitor/health")
+    public ResponseEntity<ApiResponse<HealthSummaryResponse>> getHealthSummary(HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        return ResponseEntity.ok(ApiResponse.success(healthCheckService.getLatestSummary(), "Success"));
+    }
+
+    @GetMapping("/monitor/health/live")
+    public ResponseEntity<ApiResponse<java.util.List<ComponentHealth>>> getLiveHealth(HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        java.util.List<org.example.backend.entity.SystemHealthCheck> results = healthCheckService.checkAll();
+        java.util.List<ComponentHealth> componentHealths = results.stream().map(c -> ComponentHealth.builder()
+                .component(c.getComponent())
+                .status(c.getStatus())
+                .message(c.getMessage())
+                .responseTimeMs(c.getResponseTimeMs())
+                .checkedAt(c.getCheckedAt())
+                .build()).collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(componentHealths, "Success"));
+    }
+
+    @GetMapping("/monitor/jobs")
+    public ResponseEntity<ApiResponse<Page<JobStatResponse>>> getJobStats(
+            @RequestParam(required = false) String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpSession session) {
+        if (session.getAttribute("userId") == null) return unauthorized();
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "executedAt"));
+        Page<org.example.backend.entity.MonitoredJobStat> stats = (name != null && !name.isBlank())
+                ? monitoredJobStatRepository.findByJobName(name, pageable)
+                : monitoredJobStatRepository.findAll(pageable);
+        return ResponseEntity.ok(ApiResponse.success(stats.map(JobStatResponse::fromEntity), "Success"));
     }
 }
