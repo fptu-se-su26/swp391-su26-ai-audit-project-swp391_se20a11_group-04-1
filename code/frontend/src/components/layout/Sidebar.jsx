@@ -262,6 +262,10 @@ export default function Sidebar() {
     { key: 'settings',   icon: 'settings',     label: 'Global Settings', path: '#' },
   ]
   if (userRole !== 'ADMIN') portfolioRaw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
+  if (userRole === 'ADMIN') {
+    portfolioRaw.push({ key: 'admin', icon: 'admin_panel_settings', label: 'Admin Dashboard', path: '/admin' })
+    portfolioRaw.push({ key: 'admin-jobs', icon: 'monitor_heart', label: 'Job Dashboard', path: '/admin/jobs' })
+  }
 
   const portfolioItems = portfolioRaw.map(item => ({
     ...item,
@@ -275,6 +279,8 @@ export default function Sidebar() {
     if (p === '/dashboard') return 'projects'
     if (p.startsWith('/classrooms')) return 'classrooms'
     if (p.startsWith('/verify')) return 'verify'
+    if (p === '/admin') return 'admin'
+    if (p.startsWith('/admin/jobs')) return 'admin-jobs'
     return null
   })()
 

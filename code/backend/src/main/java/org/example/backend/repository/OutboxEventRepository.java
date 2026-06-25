@@ -9,8 +9,14 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import java.util.Optional;
+
 @Repository
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
+    Optional<OutboxEvent> findByIdempotencyKey(String idempotencyKey);
+
+    long countByStatus(String status);
+
     List<OutboxEvent> findTop50ByStatusOrderByCreatedAtAsc(String status);
 
     @Query("""

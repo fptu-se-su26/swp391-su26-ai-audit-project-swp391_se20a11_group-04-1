@@ -23,6 +23,7 @@ import org.example.backend.repository.SprintRepository;
 import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaReliabilityMetricsService;
 import org.example.backend.service.sla.SlaStateService;
+import org.example.backend.repository.ProcessedEventRepository;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +61,7 @@ public class TaskSlaScheduler {
     private final RecoveryPlanService recoveryPlanService;
     private final SprintRepository sprintRepository;
     private final SlaReliabilityMetricsService slaReliabilityMetricsService;
+    private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -232,6 +234,19 @@ public class TaskSlaScheduler {
                     computed, endedSprints.size(), yesterday);
         } catch (Exception ex) {
             log.error("RELIABILITY_SNAPSHOT_COMPUTE failed", ex);
+            schedulerRunLogService.fail(runLog, ex);
+        }
+    }
+
+    @Scheduled(cron = "0 0 3 * * *", zone = "${app.sla.timezone:Asia/Ho_Chi_Minh}")
+    public void cleanupProcessedEvents() {
+        SchedulerRunLog runLog = schedulerRunLogService.start("PROCESSED_EVENTS_CLEANUP");
+        try {
+            int deletedCount = processedEventRepository.deleteOldEvents();
+            schedulerRunLogService.finish(runLog, deletedCount, deletedCount, 0);
+            log.info("PROCESSED_EVENTS_CLEANUP completed. Deleted {} records.", deletedCount);
+        } catch (Exception ex) {
+            log.error("PROCESSED_EVENTS_CLEANUP failed", ex);
             schedulerRunLogService.fail(runLog, ex);
         }
     }

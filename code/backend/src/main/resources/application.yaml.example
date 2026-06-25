@@ -2,6 +2,9 @@ spring:
   application:
     name: backend
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   servlet:
     multipart:
       max-file-size: 50MB
