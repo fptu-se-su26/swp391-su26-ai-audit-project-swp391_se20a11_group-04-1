@@ -788,15 +788,15 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
                 </span>
             </button>
-            <button 
+            <button
+                className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-md shadow-sm hover:bg-gray-50 flex items-center gap-1 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleUndo}
                 disabled={history.length === 0}
-                className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm hover:bg-gray-50 flex items-center text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Hoàn tác thao tác cuối"
-            >
-                <span className="material-symbols-outlined text-[18px] mr-2">undo</span>
-                Hoàn tác
-            </button>
+                title="Return"
+              >
+                <span className="material-symbols-outlined text-[16px]">undo</span>
+                Return
+              </button>
          </div>
       )}
 

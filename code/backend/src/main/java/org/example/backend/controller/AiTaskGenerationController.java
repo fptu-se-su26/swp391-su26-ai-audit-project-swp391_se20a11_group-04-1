@@ -40,11 +40,15 @@ public class AiTaskGenerationController {
     @PostMapping("/split")
     public ResponseEntity<?> splitTask(
             @PathVariable Long projectId,
-            @RequestBody Map<String, Object> taskData,
+            @RequestBody Map<String, Object> payload,
             jakarta.servlet.http.HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        Map<String, Object> taskData = (Map<String, Object>) payload.get("task");
+        if (taskData == null) {
+            taskData = payload; // fallback if frontend sends flat object
         }
         return ResponseEntity.ok(aiTaskGenerationService.splitTask(projectId, taskData, userId));
     }
@@ -52,11 +56,15 @@ public class AiTaskGenerationController {
     @PostMapping("/merge")
     public ResponseEntity<?> mergeTasks(
             @PathVariable Long projectId,
-            @RequestBody List<Map<String, Object>> tasksData,
+            @RequestBody Map<String, Object> payload,
             jakarta.servlet.http.HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        List<Map<String, Object>> tasksData = (List<Map<String, Object>>) payload.get("tasks");
+        if (tasksData == null || tasksData.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing or empty tasks list"));
         }
         return ResponseEntity.ok(aiTaskGenerationService.mergeTasks(projectId, tasksData, userId));
     }

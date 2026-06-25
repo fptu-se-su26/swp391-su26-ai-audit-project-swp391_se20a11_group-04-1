@@ -47,6 +47,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Core tasks (Database, Core API) MUST inherit the exact priority of their parent Requirement.\n" +
                 "- Secondary tasks (Documentation, minor UI) can be one level lower than the parent Requirement's priority.\n" +
                 "- Bottleneck tasks (which many others depend on) should be elevated to HIGH or CRITICAL.\n\n" +
+                "ASSIGNMENT RULES:\n" +
+                "- You MUST assign a 'suggested_assignee' to every task.\n" +
+                "- Balance the workload evenly among members based on their 'current_task_count' and 'current_workload_weight'. Assign new tasks to members with the lowest workload first.\n" +
+                "- Ignore their role completely for assignment. The ONLY priority is balancing workload and difficulty (weight) fairly.\n" +
+                "- The 'member_name' in 'suggested_assignee' MUST EXACTLY match the 'username' field of the chosen member.\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +
                 "- DO NOT include comments inside the JSON.\n\n" +

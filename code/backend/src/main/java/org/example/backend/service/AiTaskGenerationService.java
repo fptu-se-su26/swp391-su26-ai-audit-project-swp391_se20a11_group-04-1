@@ -23,15 +23,55 @@ public class AiTaskGenerationService {
     private String cleanJsonString(String raw) {
         if (raw == null) return "{}";
         String cleaned = raw.trim();
-        if (cleaned.startsWith("```json")) {
-            cleaned = cleaned.substring(7);
-        } else if (cleaned.startsWith("```")) {
-            cleaned = cleaned.substring(3);
+        
+        int start = cleaned.indexOf("```json");
+        if (start != -1) {
+            int end = cleaned.lastIndexOf("```");
+            if (end > start) {
+                return cleaned.substring(start + 7, end).trim();
+            }
         }
-        if (cleaned.endsWith("```")) {
-            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        
+        start = cleaned.indexOf("```");
+        if (start != -1) {
+            int end = cleaned.lastIndexOf("```");
+            if (end > start && start != end) {
+                String sub = cleaned.substring(start + 3, end).trim();
+                if (sub.startsWith("json")) {
+                    sub = sub.substring(4).trim();
+                }
+                return sub;
+            }
         }
-        return cleaned.trim();
+        
+        // Fallback: extract from first { or [ to last } or ]
+        int firstBrace = cleaned.indexOf('{');
+        int firstBracket = cleaned.indexOf('[');
+        int startIdx = -1;
+        if (firstBrace != -1 && firstBracket != -1) {
+            startIdx = Math.min(firstBrace, firstBracket);
+        } else if (firstBrace != -1) {
+            startIdx = firstBrace;
+        } else if (firstBracket != -1) {
+            startIdx = firstBracket;
+        }
+
+        int lastBrace = cleaned.lastIndexOf('}');
+        int lastBracket = cleaned.lastIndexOf(']');
+        int endIdx = -1;
+        if (lastBrace != -1 && lastBracket != -1) {
+            endIdx = Math.max(lastBrace, lastBracket);
+        } else if (lastBrace != -1) {
+            endIdx = lastBrace;
+        } else if (lastBracket != -1) {
+            endIdx = lastBracket;
+        }
+
+        if (startIdx != -1 && endIdx != -1 && startIdx <= endIdx) {
+            return cleaned.substring(startIdx, endIdx + 1);
+        }
+
+        return cleaned;
     }
 
     private final TaskGeminiService taskGeminiService;
@@ -43,6 +83,7 @@ public class AiTaskGenerationService {
     private final UserAccountRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final ObjectMapper objectMapper;
+    private final KanbanColumnRepository kanbanColumnRepository;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -57,7 +98,8 @@ public class AiTaskGenerationService {
                                    TaskRepository taskRepository,
                                    UserAccountRepository userRepository,
                                    ProjectMemberRepository projectMemberRepository,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   KanbanColumnRepository kanbanColumnRepository) {
         this.taskGeminiService = taskGeminiService;
         this.stagingRepository = stagingRepository;
         this.projectRepository = projectRepository;
@@ -67,6 +109,7 @@ public class AiTaskGenerationService {
         this.userRepository = userRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.objectMapper = objectMapper;
+        this.kanbanColumnRepository = kanbanColumnRepository;
     }
 
     public UUID generateTasks(Long projectId, AiTaskGenerateRequest request, Long userId) {
@@ -79,8 +122,8 @@ public class AiTaskGenerationService {
             throw new RuntimeException("No valid Use Cases found to generate tasks.");
         }
 
-        List<Task> existingTasks = taskRepository.findByProjectId(projectId);
-        List<Map<String, Object>> members = fetchProjectMembers(projectId);
+        List<Task> existingTasks = self.fetchExistingTasks(projectId);
+        List<Map<String, Object>> members = self.fetchProjectMembers(projectId);
 
         // 2. Chunking / Batching Phase 1: Task Generation
         List<JsonNode> generatedTasksList = new ArrayList<>();
@@ -145,17 +188,27 @@ public class AiTaskGenerationService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    protected List<Map<String, Object>> fetchProjectMembers(Long projectId) {
+    public List<Map<String, Object>> fetchProjectMembers(Long projectId) {
         List<org.example.backend.entity.ProjectMember> pms = projectMemberRepository.findByProjectId(projectId);
-        List<Long> userIds = pms.stream().map(pm -> pm.getUser().getId()).collect(Collectors.toList());
-        List<UserAccount> users = userRepository.findAllById(userIds);
-        
-        return users.stream().map(u -> {
+        return pms.stream().map(pm -> {
             Map<String, Object> map = new HashMap<>();
+            org.example.backend.entity.UserAccount u = pm.getUser();
             map.put("id", u.getId());
             map.put("username", u.getUsername());
+            map.put("fullName", u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername());
             return map;
         }).collect(Collectors.toList());
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Task> fetchExistingTasks(Long projectId) {
+        List<Task> tasks = taskRepository.findByProjectId(projectId);
+        for (Task t : tasks) {
+            if (t.getPrimaryAssignee() != null) {
+                org.hibernate.Hibernate.initialize(t.getPrimaryAssignee());
+            }
+        }
+        return tasks;
     }
 
     private JsonNode generateTasksBatch(Project project, List<UseCase> useCases, List<Task> existingTasks, List<Map<String, Object>> members) {
@@ -191,7 +244,29 @@ public class AiTaskGenerationService {
 
             dataNode.set("useCases", objectMapper.valueToTree(simpleUseCases));
             dataNode.set("existingTasks", objectMapper.valueToTree(simpleExistingTasks));
-            dataNode.set("members", objectMapper.valueToTree(members));
+            
+            // Calculate current workload
+            Map<String, Long> taskCountMap = new HashMap<>();
+            Map<String, Double> weightMap = new HashMap<>();
+            if (existingTasks != null) {
+                for (Task t : existingTasks) {
+                    if (t.getPrimaryAssignee() != null) {
+                        String username = t.getPrimaryAssignee().getUsername();
+                        taskCountMap.put(username, taskCountMap.getOrDefault(username, 0L) + 1);
+                        weightMap.put(username, weightMap.getOrDefault(username, 0.0) + (t.getWeight() != null ? t.getWeight().doubleValue() : 1.0));
+                    }
+                }
+            }
+            
+            List<Map<String, Object>> membersWithWorkload = members.stream().map(m -> {
+                Map<String, Object> map = new HashMap<>(m);
+                String username = (String) m.get("username");
+                map.put("current_task_count", taskCountMap.getOrDefault(username, 0L));
+                map.put("current_workload_weight", weightMap.getOrDefault(username, 0.0));
+                return map;
+            }).collect(Collectors.toList());
+
+            dataNode.set("members", objectMapper.valueToTree(membersWithWorkload));
 
             String cleanJson = taskGeminiService.generateTasksBatch(objectMapper.writeValueAsString(dataNode));
             return objectMapper.readTree(cleanJsonString(cleanJson));
@@ -352,13 +427,54 @@ public class AiTaskGenerationService {
             throw new RuntimeException("Invalid payload");
         }
 
+        UserAccount creator = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        KanbanColumn defaultColumn = kanbanColumnRepository.findByProjectIdAndStatusKey(projectId, "TODO")
+            .orElseGet(() -> kanbanColumnRepository.findByProjectIdAndNameIgnoreCase(projectId, "TODO").orElse(null));
+
         for (Integer index : selectedIndices) {
             JsonNode taskNode = modifiedPayload.get(index);
             if (taskNode != null) {
                 Task task = new Task();
                 task.setProject(project);
+                task.setCreatedBy(creator);
+                task.setKanbanColumn(defaultColumn);
                 task.setTitle(taskNode.has("title") ? taskNode.get("title").asText() : "AI Generated Task");
                 task.setDescription(taskNode.has("description") ? taskNode.get("description").asText() : "");
+                
+                if (taskNode.has("start_date") && !taskNode.get("start_date").isNull() && !taskNode.get("start_date").asText().isEmpty()) {
+                    try {
+                        task.setStartDate(java.time.LocalDate.parse(taskNode.get("start_date").asText()));
+                    } catch (Exception e) {}
+                }
+                
+                String deadlineStr = null;
+                if (taskNode.has("deadline") && !taskNode.get("deadline").isNull() && !taskNode.get("deadline").asText().isEmpty()) {
+                    deadlineStr = taskNode.get("deadline").asText();
+                } else if (taskNode.has("suggested_deadline") && !taskNode.get("suggested_deadline").isNull() && !taskNode.get("suggested_deadline").asText().isEmpty()) {
+                    deadlineStr = taskNode.get("suggested_deadline").asText();
+                }
+                
+                if (deadlineStr != null) {
+                    try {
+                        task.setDeadline(java.time.LocalDate.parse(deadlineStr));
+                    } catch (Exception e) {
+                        task.setDeadline(java.time.LocalDate.now().plusDays(7));
+                    }
+                } else {
+                    task.setDeadline(java.time.LocalDate.now().plusDays(7));
+                }
+                
+                if (taskNode.has("weight") && !taskNode.get("weight").isNull()) {
+                    try {
+                        task.setWeight(java.math.BigDecimal.valueOf(taskNode.get("weight").asDouble()));
+                    } catch (Exception e) {}
+                }
+                
+                if (taskNode.has("sprint_id") && !taskNode.get("sprint_id").isNull()) {
+                    try {
+                        task.setSprintId(taskNode.get("sprint_id").asLong());
+                    } catch (Exception e) {}
+                }
                 
                 try {
                     task.setPriority(taskNode.has("priority") ? Priority.valueOf(taskNode.get("priority").asText().toUpperCase()) : Priority.MEDIUM);
@@ -399,16 +515,29 @@ public class AiTaskGenerationService {
                 // Assuming default is set in the entity or DB.
                 
                 if (taskNode.has("_syncAction") && "MERGE_INTO_EXISTING".equals(taskNode.get("_syncAction").asText())) {
-                    String existingTaskIdStr = taskNode.get("_existingTaskId").asText().replace("TASK-", "");
+                    if (taskNode.has("_existingTaskId") && !taskNode.get("_existingTaskId").isNull()) {
+                        String existingTaskIdStr = taskNode.get("_existingTaskId").asText().replace("TASK-", "");
                     try {
                         Long existingTaskId = Long.parseLong(existingTaskIdStr);
                         Task existingTask = taskRepository.findById(existingTaskId).orElse(null);
                         if (existingTask != null) {
-                            existingTask.setDescription(existingTask.getDescription() + "\n\n[AI Merged Info]:\n" + task.getDescription());
+                            existingTask.setTitle(task.getTitle());
+                            existingTask.setDescription(task.getDescription());
+                            existingTask.setPriority(task.getPriority());
+                            existingTask.setType(task.getType());
+                            existingTask.setEstimatedHours(task.getEstimatedHours());
+                            if (task.getStartDate() != null) existingTask.setStartDate(task.getStartDate());
+                            if (task.getDeadline() != null) existingTask.setDeadline(task.getDeadline());
+                            if (task.getWeight() != null) existingTask.setWeight(task.getWeight());
+                            if (task.getSprintId() != null) existingTask.setSprintId(task.getSprintId());
+                            if (task.getRequirementId() != null) existingTask.setRequirementId(task.getRequirementId());
+                            if (task.getUseCaseId() != null) existingTask.setUseCaseId(task.getUseCaseId());
+                            if (task.getPrimaryAssignee() != null) existingTask.setPrimaryAssignee(task.getPrimaryAssignee());
                             taskRepository.save(existingTask);
                             continue; // Skip creating a new one
                         }
                     } catch (NumberFormatException ignored) {}
+                    }
                 }
 
                 taskRepository.save(task);
