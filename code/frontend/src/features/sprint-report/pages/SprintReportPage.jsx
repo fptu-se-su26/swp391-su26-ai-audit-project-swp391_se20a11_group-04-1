@@ -8,7 +8,7 @@ import { sprintReportService } from '@features/sprint-report/services/sprintRepo
 import SprintReportHeader from '@features/sprint-report/components/SprintReportHeader'
 import SprintSelector from '@features/sprint-report/components/SprintSelector'
 import SprintSummary from '@features/sprint-report/components/SprintSummary'
-import SprintHealthSection from '@features/sprint-report/components/SprintHealthSection'
+import SprintHealthModal from '@features/sprint-report/components/SprintHealthModal'
 import SprintReportResult from '@features/sprint-report/components/SprintReportResult'
 import {
   canGenerateSprintReport,
@@ -45,6 +45,7 @@ export default function SprintReportPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const exportRef = useRef(null)
+  const [isSprintHealthOpen, setIsSprintHealthOpen] = useState(false)
   const canGenerate = canGenerateSprintReport(activeProject?.role)
 
   useEffect(() => {
@@ -350,8 +351,7 @@ export default function SprintReportPage() {
           onExportPdf={handleExportPdf}
           isExporting={isExporting}
           canExport={!!selectedSprintId && (!!selectedReportId || sprintTasks.length > 0)}
-          onTestDigest={handleTestDigest}
-          isTestingDigest={isTestingDigest}
+          onOpenSprintHealth={() => setIsSprintHealthOpen(true)}
         />
 
         <div className="space-y-6">
@@ -387,7 +387,9 @@ export default function SprintReportPage() {
                   distributionData={distributionData}
                 />
 
-                <SprintHealthSection
+                <SprintHealthModal
+                  isOpen={isSprintHealthOpen}
+                  onClose={() => setIsSprintHealthOpen(false)}
                   tasks={sprintHealthTasks}
                   loading={sprintHealthLoading}
                   activeProject={activeProject}
@@ -404,6 +406,28 @@ export default function SprintReportPage() {
                   members={members}
                   liveMetrics={liveReportMetrics}
                 />
+
+                {/* Call To Action for Sprint Health */}
+                {sprintHealthTasks.length > 0 && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                    <div>
+                      <h3 className="text-lg font-bold text-rose-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-rose-600">warning</span>
+                        Action Required: Risk Tasks Detected
+                      </h3>
+                      <p className="text-sm text-rose-700 mt-1">
+                        There are {sprintHealthTasks.length} tasks currently flagged for SLA risks or penalties. Open Sprint Health to manage and ping members.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsSprintHealthOpen(true)}
+                      className="shrink-0 flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-rose-700 shadow-sm transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">health_and_safety</span>
+                      Open Sprint Health
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </>
