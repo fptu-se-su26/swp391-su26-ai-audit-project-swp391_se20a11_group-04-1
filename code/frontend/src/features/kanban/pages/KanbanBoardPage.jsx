@@ -6,6 +6,10 @@ import KanbanFilters from '../components/KanbanFilters'
 import KanbanHeader from '../components/KanbanHeader'
 import TaskDetailDrawer from '../components/TaskDetailDrawer'
 import TaskFormModal from '../components/TaskFormModal'
+import AiTaskGenerationModal from '../components/AiTaskGenerationModal'
+import AITaskGenerationProgressModal from '../components/AITaskGenerationProgressModal'
+import AiTaskReviewBoard from '../components/AiTaskReviewBoard'
+import taskService from '../services/taskService'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 import { isIssueOwnedTask } from '../utils/taskMapper'
@@ -36,6 +40,13 @@ const KanbanBoardPage = () => {
   const [reviewMoveModal, setReviewMoveModal] = useState(null)
   const [reviewMoveReason, setReviewMoveReason] = useState('')
   const [selectedTargetStatus, setSelectedTargetStatus] = useState('NEEDS_CHANGES')
+
+  const [isAiTaskGenModalOpen, setIsAiTaskGenModalOpen] = useState(false)
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false)
+  const [generatingReqCount, setGeneratingReqCount] = useState(1)
+  const [aiGenerationId, setAiGenerationId] = useState(null)
+  const abortControllerRef = useRef(null)
+
   const activeProject = useProjectStore((state) => state.activeProject)
   const {
     tasks,
@@ -138,6 +149,38 @@ const KanbanBoardPage = () => {
     })
     return result
   }, {})
+
+  const handleGenerateAiTasks = async (requirementIds) => {
+    setIsAiTaskGenModalOpen(false);
+    setGeneratingReqCount(requirementIds.length);
+    setIsGeneratingTasks(true);
+    
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const payload = { requirementIds };
+      const response = await taskService.generateAITasks(activeProject?.id, payload, { signal: abortControllerRef.current.signal });
+      setAiGenerationId(response.generationId);
+      toast.success('AI Task Generation completed!');
+    } catch (err) {
+      if (err.name === 'CanceledError' || err.message === 'canceled') {
+        toast('Đã hủy quá trình Generate Tasks.', { icon: 'ℹ️' });
+      } else {
+        console.error(err);
+        toast.error(err.response?.data?.error || 'Lỗi khi gọi AI Generate Tasks.');
+      }
+    } finally {
+      setIsGeneratingTasks(false);
+      abortControllerRef.current = null;
+    }
+  }
+
+  const handleCancelGenerateAiTasks = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setIsGeneratingTasks(false);
+  }
 
   const handleDragStart = (event, taskId) => {
     if (hasTextSelection()) {
@@ -397,6 +440,7 @@ const KanbanBoardPage = () => {
         isCompactBoard={isCompactBoard}
         onToggleCompact={() => setIsCompactBoard((current) => !current)}
         onCreateTask={openTaskForm}
+        onGenerateAITasks={() => setIsAiTaskGenModalOpen(true)}
       />
       <KanbanFilters
         filters={filters}
@@ -478,6 +522,30 @@ const KanbanBoardPage = () => {
           aria-label="Close task drawer backdrop"
         />
       )}
+
+      <AiTaskGenerationModal
+        isOpen={isAiTaskGenModalOpen}
+        onClose={() => setIsAiTaskGenModalOpen(false)}
+        projectId={activeProject?.id}
+        onGenerate={handleGenerateAiTasks}
+      />
+
+      <AITaskGenerationProgressModal
+        isOpen={isGeneratingTasks}
+        requirementCount={generatingReqCount}
+        onClose={handleCancelGenerateAiTasks} 
+      />
+
+      <AiTaskReviewBoard
+        isOpen={!!aiGenerationId}
+        generationId={aiGenerationId}
+        projectId={activeProject?.id}
+        onClose={() => setAiGenerationId(null)}
+        onSuccess={() => {
+          setAiGenerationId(null)
+          fetchBoardData()
+        }}
+      />
 
       <TaskDetailDrawer
         task={selectedTask}
