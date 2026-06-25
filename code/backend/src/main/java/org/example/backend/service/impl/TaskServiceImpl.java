@@ -2002,7 +2002,11 @@ public class TaskServiceImpl implements TaskService {
                 log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}",
                         task.getId(), task.getTitle(), timestamp);
                 try {
-                    codeInsightApprovalGateService.assertCanApprove(task);
+                    var gate = codeInsightApprovalGateService.evaluate(task);
+                    if ("BLOCKED".equals(gate.getApprovalStatus())) {
+                        log.warn("Failed to auto-approve Task ID: {} because gate is BLOCKED: {}", task.getId(), String.join(" ", gate.getBlockers()));
+                        continue;
+                    }
                     changeTaskStatus(task, TaskStatus.DONE, null);
                     taskRepository.save(task);
 
