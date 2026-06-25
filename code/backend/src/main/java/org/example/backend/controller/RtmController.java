@@ -18,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/rtm")
 @RequiredArgsConstructor
+@org.example.backend.annotation.PreAuthorizeProjectMember
 public class RtmController {
 
     private final RtmService rtmService;
@@ -75,3 +76,4 @@ public class RtmController {
         return userId;
     }
 }
+

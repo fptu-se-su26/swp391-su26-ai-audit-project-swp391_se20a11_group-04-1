@@ -11,6 +11,11 @@ import HistoricalTestRunModal from '../components/HistoricalTestRunModal'
 import ApiTestCaseBuilder from '../components/ApiTestCaseBuilder'
 import { testCaseService } from '../services/testCaseService'
 
+import Card from '../../../components/ui/Card'
+import SectionTitle from '../../../components/ui/SectionTitle'
+import FieldLabel from '../../../components/ui/FieldLabel'
+import Button from '../../../components/ui/Button'
+
 // ── Design tokens ──────────────────────────────────────────────
 const C = {
   primary:      '#1E707D',
@@ -31,148 +36,22 @@ const C = {
   textMuted:    '#9CA3AF',
 }
 
-const CARD = {
-  background:   C.surface,
-  border:       `1px solid ${C.border}`,
-  borderRadius: '20px',
-  boxShadow:    '0 12px 30px rgba(0,0,0,0.06), 0 2px 6px rgba(30,112,125,0.04)',
-  padding:      '24px',
-  transition:   'transform 250ms ease, box-shadow 250ms ease',
-}
+const ICON_BG = 'linear-gradient(135deg, #2b99a8, #1e707d)'
+const SectionCard = Card;
 
-const ICON_BG = `linear-gradient(135deg, ${C.primaryHov} 0%, ${C.primary} 100%)`
+const BtnPrimary = ({ children, onClick, disabled, icon }) => (
+  <Button variant="primary" onClick={onClick} disabled={disabled} style={{ padding: '0 22px', borderRadius: '16px' }}>
+    {icon && <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>}
+    {children}
+  </Button>
+);
 
-// ── Sub-components ─────────────────────────────────────────────
-const SectionCard = ({ children, style = {} }) => {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <div
-      style={{
-        ...CARD,
-        transform:  hovered ? 'translateY(-2px)' : 'translateY(0)',
-        boxShadow:  hovered
-          ? '0 20px 48px rgba(30,112,125,0.12)'
-          : CARD.boxShadow,
-        ...style,
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {children}
-    </div>
-  )
-}
-
-const SectionTitle = ({ icon, children }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
-    <div style={{
-      width:         '32px',
-      height:        '32px',
-      borderRadius:  '10px',
-      background:    ICON_BG,
-      display:       'flex',
-      alignItems:    'center',
-      justifyContent:'center',
-      flexShrink:    0,
-      boxShadow:     `0 4px 10px rgba(30,112,125,0.25)`,
-    }}>
-      <span className="material-symbols-outlined" style={{
-        fontSize: '16px',
-        color:    '#fff',
-        fontVariationSettings: "'FILL' 1",
-      }}>{icon}</span>
-    </div>
-    <span style={{ fontSize: '15px', fontWeight: 700, color: C.textPri }}>{children}</span>
-  </div>
-)
-
-const FieldLabel = ({ children }) => (
-  <span style={{
-    display:       'block',
-    fontSize:      '10px',
-    fontWeight:    600,
-    color:         C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginBottom:  '6px',
-  }}>{children}</span>
-)
-
-// ── Primary button (3D elevated, breathing) ────────────────────
-const BtnPrimary = ({ children, onClick, disabled, icon }) => {
-  const [hovered, setHovered] = useState(false)
-  const [pressed, setPressed] = useState(false)
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        display:       'inline-flex',
-        alignItems:    'center',
-        gap:           '8px',
-        padding:       '10px 22px',
-        borderRadius:  '16px',
-        border:        'none',
-        background:    pressed
-          ? `linear-gradient(180deg, ${C.primary} 0%, ${C.primaryDark} 100%)`
-          : hovered
-            ? `linear-gradient(180deg, #2E9AAB 0%, ${C.primaryHov} 55%, ${C.primary} 100%)`
-            : `linear-gradient(180deg, ${C.primaryHov} 0%, ${C.primary} 55%, ${C.primaryDark} 100%)`,
-        color:         '#fff',
-        fontSize:      '13px',
-        fontWeight:    600,
-        cursor:        disabled ? 'not-allowed' : 'pointer',
-        opacity:       disabled ? 0.5 : 1,
-        boxShadow:     pressed
-          ? '0 4px 10px rgba(30,112,125,0.20)'
-          : hovered
-            ? '0 12px 28px rgba(30,112,125,0.35), 0 20px 48px rgba(30,112,125,0.20), 0 0 20px rgba(78,198,216,0.25)'
-            : '0 8px 20px rgba(30,112,125,0.25), 0 16px 40px rgba(30,112,125,0.15), inset 0 1px 0 rgba(255,255,255,0.35)',
-        transform:     pressed ? 'translateY(2px)' : hovered ? 'translateY(-3px)' : 'translateY(0)',
-        transition:    'transform 150ms ease, box-shadow 150ms ease, background 150ms ease',
-        animation:     (!hovered && !pressed) ? 'btnIdle 4.5s ease-in-out infinite' : 'none',
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setPressed(false) }}
-      onMouseDown={() => setPressed(true)}
-      onMouseUp={() => setPressed(false)}
-    >
-      {icon && <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>}
-      {children}
-    </button>
-  )
-}
-
-// ── Secondary button ───────────────────────────────────────────
-const BtnSecondary = ({ children, onClick, icon, danger = false }) => {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display:    'inline-flex',
-        alignItems: 'center',
-        gap:        '8px',
-        padding:    '10px 18px',
-        borderRadius: '12px',
-        border:     `1.5px solid ${danger ? C.dangerBdr : (hovered ? C.primary : C.border)}`,
-        background: danger ? (hovered ? '#FEE2E2' : C.dangerBg) : (hovered ? C.primaryLight : C.surface),
-        color:      danger ? C.danger : (hovered ? C.primary : C.textPri),
-        fontSize:   '13px',
-        fontWeight: 600,
-        cursor:     'pointer',
-        boxShadow:  '0 2px 8px rgba(0,0,0,0.05)',
-        transform:  hovered ? 'translateY(-1px)' : 'translateY(0)',
-        transition: 'all 150ms ease',
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {icon && <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>}
-      {children}
-    </button>
-  )
-}
+const BtnSecondary = ({ children, onClick, icon, danger = false }) => (
+  <Button variant={danger ? "danger" : "outline"} onClick={onClick} style={{ height: 40, padding: '0 18px' }}>
+    {icon && <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>}
+    {children}
+  </Button>
+);
 
 // ── API Execution Tracker ──────────────────────────────────────
 const ApiExecutionTracker = ({ apiTestResult, onSaveResult }) => {
@@ -183,19 +62,19 @@ const ApiExecutionTracker = ({ apiTestResult, onSaveResult }) => {
   const statusBdr   = isPassed ? C.successBdr : C.dangerBdr
 
   if (!apiTestResult) return (
-    <div style={{
-      ...CARD, display:'flex', flexDirection:'column', alignItems:'center',
+    <Card style={{
+      display:'flex', flexDirection:'column', alignItems:'center',
       justifyContent:'center', padding:'48px 16px', gap:12,
     }}>
       <span className="material-symbols-outlined" style={{ fontSize:44, color: C.border }}>play_circle</span>
       <span style={{ fontSize:13, color: C.textMuted, textAlign:'center' }}>
         Click "Run API Test" to execute and see results here.
       </span>
-    </div>
+    </Card>
   )
 
   return (
-    <div style={{ ...CARD, display:'flex', flexDirection:'column', gap:20 }}>
+    <Card style={{ display:'flex', flexDirection:'column', gap:20 }}>
 
       {/* Status bar */}
       <div style={{
@@ -340,7 +219,7 @@ const ApiExecutionTracker = ({ apiTestResult, onSaveResult }) => {
           </ul>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }
 

@@ -4,6 +4,10 @@ import TaskReviewService from '../services/taskReviewService'
 import useProjectStore from '@store/useProjectStore'
 import taskService from '@features/kanban/services/taskService'
 import toast from 'react-hot-toast'
+import Card from '../../../components/ui/Card'
+import SectionTitle from '../../../components/ui/SectionTitle'
+import Button from '../../../components/ui/Button'
+import { useProjectRole } from '@/hooks/useProjectRole'
 
 // Lightweight Native STOMP Client for WebSocket communication without external npm packages
 class NativeStompClient {
@@ -95,13 +99,12 @@ const CodePatchAnalyzer = ({ changedFiles }) => {
   const fileCount = changedFiles?.length || 0;
   
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
+    <Card style={{ padding: '20px' }}>
       <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => setIsOpen(!isOpen)}>
-        <h3 className="font-bold text-on-surface flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">data_object</span>
+        <SectionTitle icon="data_object" style={{ marginBottom: 0 }}>
           2. Implementation Evidence (Code Changes)
           <span className="bg-surface-container-high px-2 py-0.5 rounded-full text-xs ml-2 text-on-surface-variant font-bold">{fileCount} files</span>
-        </h3>
+        </SectionTitle>
         <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }}>
           expand_more
         </span>
@@ -129,7 +132,7 @@ const CodePatchAnalyzer = ({ changedFiles }) => {
           )}
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 // Custom Lightweight Markdown Parser
@@ -238,11 +241,10 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
   return (
     <div className="space-y-6 mt-6">
       {/* Section 1: Task Requirements */}
-      <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-        <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-green-600">assignment</span>
+      <Card style={{ padding: '20px' }}>
+        <SectionTitle icon="assignment">
           1. Requirements & Criteria
-        </h3>
+        </SectionTitle>
         
         {/* Render the unified Requirements list using requirementAcCoverage and targetedCriteria */}
         <div className="border border-outline-variant/60 rounded-xl overflow-hidden divide-y divide-outline-variant/60 shadow-sm bg-surface">
@@ -301,17 +303,16 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
              </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Section 2: Implementation Evidence */}
       <CodePatchAnalyzer changedFiles={changedFiles} />
 
       {/* Section 3: AI Evaluation */}
-      <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-        <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-secondary">model_training</span>
+      <Card style={{ padding: '20px' }}>
+        <SectionTitle icon="model_training">
           3. AI Evaluation & Risks
-        </h3>
+        </SectionTitle>
 
         {streamingMarkdown && (
           <div className="mb-4 p-4 bg-surface-container-low rounded-xl border border-outline-variant/40 font-sans text-sm text-on-surface-variant leading-relaxed shadow-sm">
@@ -396,7 +397,7 @@ const ReqDiffAlignment = ({ aiReview, streamingMarkdown, requirementAcCoverage, 
         ) : (
           !streamingMarkdown && <p className="text-sm text-on-surface-variant italic text-center py-4">AI Review hasn't been generated yet.</p>
         )}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -408,6 +409,7 @@ const isCodeTask = (taskType) => {
 export function TaskReviewWorkspacePage() {
   const { projectId, taskId } = useParams()
   const navigate = useNavigate()
+  const { isLeader, isMember } = useProjectRole()
   
   const [queue, setQueue] = useState([])
   const [detail, setDetail] = useState(null)
@@ -809,7 +811,7 @@ export function TaskReviewWorkspacePage() {
             )}
             <div className={`max-w-4xl mx-auto w-full space-y-6 pb-20 ${!isQueueOpen ? 'mt-4' : ''}`}>
               {/* Task Header */}
-              <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/60 shadow-sm">
+              <Card style={{ padding: '24px' }}>
                 <div className="flex justify-between items-start gap-4">
                   <div>
                     <h1 className="text-2xl font-black text-on-surface tracking-tight">{task.title}</h1>
@@ -856,7 +858,7 @@ export function TaskReviewWorkspacePage() {
                     {task.description}
                   </div>
                 )}
-              </div>
+              </Card>
 
               {/* Error Alert */}
               {aiError && (
@@ -1155,34 +1157,48 @@ export function TaskReviewWorkspacePage() {
             </div>
 
             {/* 2. Sticky Bottom Decision Panel - Cuộn co giãn Flexbox */}
-            <div className="border-t border-outline-variant p-5 bg-surface-container-lowest shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-              <textarea 
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                disabled={decisionLoading}
-                className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-3"
-                rows="2"
-                placeholder="Write your review comments here..."
-              ></textarea>
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleRequestChanges} 
-                  disabled={decisionLoading}
-                  className="flex-1 bg-error-container text-error font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                  {decisionLoading ? 'Processing...' : 'Request Changes'}
-                </button>
-                <button 
-                  onClick={handleApprove} 
-                  disabled={decisionLoading}
-                  className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check</span>
-                  {decisionLoading ? 'Processing...' : 'Approve Task'}
-                </button>
+                  <div className="bg-surface-container-low p-5 border-t border-outline-variant/30 shrink-0">
+                <h3 className="font-extrabold text-sm mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">gavel</span>
+                  Final Decision
+                </h3>
+                {isMember ? (
+                  <div className="p-4 bg-surface rounded-xl border border-outline-variant/30 text-center">
+                    <span className="material-symbols-outlined text-outline mb-2 text-3xl">lock</span>
+                    <p className="text-sm font-bold text-on-surface">View Only Mode</p>
+                    <p className="text-xs text-on-surface-variant mt-1">Only Project Leaders can approve or reject tasks.</p>
+                  </div>
+                ) : (
+                  <>
+                    <textarea 
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      disabled={decisionLoading}
+                      className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-3"
+                      rows="2"
+                      placeholder="Write your review comments here..."
+                    ></textarea>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleRequestChanges} 
+                        disabled={decisionLoading}
+                        className="flex-1 bg-error-container text-error font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                        {decisionLoading ? 'Processing...' : 'Request Changes'}
+                      </button>
+                      <button 
+                        onClick={handleApprove} 
+                        disabled={decisionLoading}
+                        className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">check</span>
+                        {decisionLoading ? 'Processing...' : 'Approve Task'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
           </aside>
 
       {/* Modal for AI Logs */}

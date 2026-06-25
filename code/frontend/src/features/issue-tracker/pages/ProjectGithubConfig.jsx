@@ -4,6 +4,10 @@ import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import bugService from '../services/bugService'
 import axiosInstance from '@/api/axiosConfig'
+import Card from '../../../components/ui/Card'
+import SectionTitle from '../../../components/ui/SectionTitle'
+import Button from '../../../components/ui/Button'
+import { useProjectRole } from '@/hooks/useProjectRole'
 
 const CODE_INSIGHT_RECOMMENDED_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
 const REQUIRED_CODE_INSIGHT_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
@@ -307,9 +311,9 @@ export function ProjectGithubConfig() {
     }
   }
 
-  const currentRole = activeProject?.role?.toUpperCase()?.replace(/\s+/g, '_') || ''
-  const canView = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
-  const canEdit = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
+  const { isLeader, isMember } = useProjectRole()
+  const canView = isLeader || isMember
+  const canEdit = isLeader
   const isInitialSetup = !repoOwner || !repoName
   
   if (!canView) {
@@ -352,17 +356,26 @@ export function ProjectGithubConfig() {
           <p className="text-on-surface-variant text-sm max-w-md mx-auto mb-8 leading-relaxed">
             To enable automatic issue synchronization, you need to authorize DevTrack AI to access your GitHub repositories. You only need to do this once.
           </p>
-          <button 
-            onClick={handleConnectGitHub}
-            className="flex items-center gap-3 bg-[#24292e] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-[#1b1f23] transition-all transform hover:scale-105 shadow-md"
-          >
-            <i className="fa-brands fa-github text-xl"></i>
-            Connect with GitHub
-          </button>
-          <div className="mt-6 flex items-center gap-2 text-xs text-on-surface-variant font-medium bg-surface-container-low px-4 py-2 rounded-lg">
-            <span className="material-symbols-outlined text-[16px] text-green-600">security</span>
-            We only request access to read/write repositories for issue syncing.
-          </div>
+          {canEdit ? (
+            <>
+              <button 
+                onClick={handleConnectGitHub}
+                className="flex items-center gap-3 bg-[#24292e] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-[#1b1f23] transition-all transform hover:scale-105 shadow-md"
+              >
+                <i className="fa-brands fa-github text-xl"></i>
+                Connect with GitHub
+              </button>
+              <div className="mt-6 flex items-center gap-2 text-xs text-on-surface-variant font-medium bg-surface-container-low px-4 py-2 rounded-lg">
+                <span className="material-symbols-outlined text-[16px] text-green-600">security</span>
+                We only request access to read/write repositories for issue syncing.
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 flex items-center gap-2 text-sm text-red-500 font-bold bg-red-500/10 px-4 py-3 rounded-lg border border-red-500/20">
+              <span className="material-symbols-outlined">lock</span>
+              Only Project Leaders can configure GitHub integration.
+            </div>
+          )}
         </div>
       ) : isInitialSetup ? (
         // INITIAL SETUP VIEW (Must add a repository first)
@@ -459,15 +472,9 @@ export function ProjectGithubConfig() {
         // CONNECTED VIEW - Grouped Dashboard
         <div className="space-y-6">
           {/* SECTION 1: Active Connection Status (Dashboard) */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
+          <Card className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-outline-variant/50">
-              <div>
-                <span className="text-xs font-bold text-primary uppercase tracking-wider">Section 1: Status Dashboard</span>
-                <h2 className="text-lg font-black flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-primary">link</span>
-                  Active Connection
-                </h2>
-              </div>
+              <SectionTitle icon="link">Active Connection</SectionTitle>
               <div className="flex items-center gap-2.5">
                 <span className="text-xs text-on-surface-variant font-medium">Status:</span>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 ${
@@ -600,16 +607,12 @@ export function ProjectGithubConfig() {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* SECTION 2: Webhook Configuration & Troubleshooter */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
+          <Card className="space-y-4">
             <div className="pb-4 border-b border-outline-variant/50">
-              <span className="text-xs font-bold text-primary uppercase tracking-wider">Section 2: Troubleshooter Tools</span>
-              <h2 className="text-lg font-black flex items-center gap-2 mt-1">
-                <span className="material-symbols-outlined text-primary">build</span>
-                Webhook & Troubleshooter
-              </h2>
+              <SectionTitle icon="build">Webhook & Troubleshooter</SectionTitle>
             </div>
 
             <div className="space-y-4">
@@ -686,10 +689,10 @@ export function ProjectGithubConfig() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* SECTION 3: Change Repository (Edit Config) - COLLAPSED ACCORDION */}
-          <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/60 overflow-hidden">
+          <Card style={{ padding: 0 }} className="overflow-hidden">
             <button
               type="button"
               onClick={() => {
@@ -699,11 +702,7 @@ export function ProjectGithubConfig() {
               className="w-full flex justify-between items-center px-6 py-4 hover:bg-surface-container/30 transition-colors"
             >
               <div className="text-left">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-wider block">Section 3: Advanced Settings</span>
-                <span className="text-base font-black text-on-surface flex items-center gap-2 mt-0.5">
-                  <span className="material-symbols-outlined text-primary text-[20px]">settings_applications</span>
-                  Change Repository / Edit Integration
-                </span>
+                <SectionTitle icon="settings_applications" style={{ marginBottom: 0 }}>Change Repository / Edit Integration</SectionTitle>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-on-surface-variant font-medium">
@@ -865,18 +864,12 @@ export function ProjectGithubConfig() {
                 </form>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* SECTION 4: Webhook Delivery Logs */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
-            <div className="flex justify-between items-center pb-4 border-b border-outline-variant/50">
-              <div>
-                <span className="text-xs font-bold text-primary uppercase tracking-wider">Section 4: Delivery Logs</span>
-                <h2 className="text-lg font-black flex items-center gap-2 mt-0.5">
-                  <span className="material-symbols-outlined text-primary">history</span>
-                  Webhook Delivery Logs
-                </h2>
-              </div>
+          <Card className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-outline-variant/50">
+              <SectionTitle icon="api">Webhook Configuration</SectionTitle>
               <button 
                 type="button"
                 onClick={fetchDeliveries} 
@@ -923,7 +916,7 @@ export function ProjectGithubConfig() {
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
