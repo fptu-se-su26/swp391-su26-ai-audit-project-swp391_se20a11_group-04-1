@@ -1,6 +1,10 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 const SideNavBar = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
     <aside className="fixed left-0 top-0 w-sidebar_width h-full bg-surface-container-low border-r border-outline-variant flex flex-col z-50">
       <div className="h-topbar_height flex items-center px-stack_lg border-b border-outline-variant">
@@ -22,14 +26,28 @@ const SideNavBar = () => {
         
         {/* Nav Items */}
         <nav className="space-y-1">
-          <a className="sidebar-item-active flex items-center gap-3 px-stack_md py-2.5 text-on-secondary-container" href="#">
+          <Link 
+            className={`flex items-center gap-3 px-stack_md py-2.5 rounded-lg transition-all ${
+              currentPath === '/admin' 
+                ? 'bg-[#D7EEF1] text-[#1E707D] font-semibold' 
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`} 
+            to="/admin"
+          >
             <span className="material-symbols-outlined">dashboard</span>
             <span className="font-label-md text-body-md">Dashboard</span>
-          </a>
-          <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+          </Link>
+          <Link 
+            className={`flex items-center gap-3 px-stack_md py-2.5 rounded-lg transition-all ${
+              currentPath === '/admin/users' 
+                ? 'bg-[#D7EEF1] text-[#1E707D] font-semibold' 
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`} 
+            to="/admin/users"
+          >
             <span className="material-symbols-outlined">people</span>
             <span className="font-label-md text-body-md">User Management</span>
-          </a>
+          </Link>
           <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
             <span className="material-symbols-outlined">folder_shared</span>
             <span className="font-label-md text-body-md">Project Management</span>
