@@ -54,8 +54,19 @@ public class SlaDecisionPackController {
     public ResponseEntity<ApiResponse<Void>> pingRiskMember(
             @PathVariable Long projectId,
             @PathVariable Long sprintId,
-            @RequestParam String assigneeName) {
-        slaPingService.pingRiskMember(projectId, sprintId, assigneeName);
+            @RequestParam String assigneeName,
+            @RequestParam(required = false) String aiComment) {
+        slaPingService.pingRiskMember(projectId, sprintId, assigneeName, aiComment);
         return ResponseEntity.ok(ApiResponse.success(null, "Batch ping notification sent successfully"));
+    }
+
+    @GetMapping("/api/v1/projects/{projectId}/sla/sprints/{sprintId}/members/{assigneeName}/ai-evaluation")
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<String>> generateMemberAiEvaluation(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            @PathVariable String assigneeName) {
+        String evaluation = slaPingService.generateMemberAiEvaluation(projectId, sprintId, assigneeName);
+        return ResponseEntity.ok(ApiResponse.success(evaluation, "AI evaluation generated successfully"));
     }
 }
