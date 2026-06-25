@@ -18,6 +18,8 @@ import org.example.backend.exception.UnauthorizedException;
 import org.example.backend.exception.ForbiddenException;
 import org.example.backend.repository.SystemRoleRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.UserAppealRepository;
+import org.example.backend.entity.UserAppeal;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.OtpService;
@@ -54,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     private final StringRedisTemplate redisTemplate;
     private final RateLimitService rateLimitService;
     private final org.example.backend.service.MentorVerificationService mentorVerificationService;
+    private final UserAppealRepository userAppealRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
     private String apiBaseUrl;
@@ -177,7 +180,33 @@ public class AuthServiceImpl implements AuthService {
         String lockKey = "login:lock:" + usernameOrEmail;
         String attemptKey = "login:attempts:" + usernameOrEmail;
 
-        // BƯỚC 1: Ngắt mạch sớm tài khoản (Khóa mềm tài khoản)
+        // BƯỚC 1: Truy vấn PostgreSQL kiểm tra xem User có tồn tại không và có bị khóa vĩnh viễn không.
+        UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
+                .orElseThrow(() -> {
+                    log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
+                    throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
+                });
+
+        if (!user.isActive()) {
+            UserAppeal latestAppeal = userAppealRepository.findFirstByUserIdOrderByIdDesc(user.getId()).orElse(null);
+            String extraMsg = "";
+            if (latestAppeal != null) {
+                if ("PENDING".equalsIgnoreCase(latestAppeal.getStatus())) {
+                    extraMsg = " (Đơn kháng cáo của bạn đang được xử lý...)";
+                } else if ("REJECTED".equalsIgnoreCase(latestAppeal.getStatus())) {
+                    String comment = latestAppeal.getAdminComment();
+                    if (comment != null && !comment.trim().isEmpty()) {
+                        extraMsg = " | Phản hồi từ Admin về kháng cáo bị từ chối: " + comment;
+                    }
+                }
+            }
+            throw new CustomException(
+                "Tài khoản của bạn đã bị admin khóa với lí do: " + (user.getLockReason() != null ? user.getLockReason() : "Không có lý do cụ thể") + extraMsg,
+                HttpStatus.LOCKED
+            );
+        }
+
+        // BƯỚC 2: Ngắt mạch sớm tài khoản (Khóa mềm tài khoản do nhập sai mật khẩu nhiều lần)
         Boolean isLocked = redisTemplate.hasKey(lockKey);
         if (Boolean.TRUE.equals(isLocked)) {
             Long expireSeconds = redisTemplate.getExpire(lockKey, TimeUnit.SECONDS);
@@ -188,15 +217,6 @@ public class AuthServiceImpl implements AuthService {
                     String.format("Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau %d phút.", expireMinutes),
                     HttpStatus.LOCKED);
         }
-
-        // BƯỚC 2: Truy vấn PostgreSQL kiểm tra xem User có tồn tại không.
-        // Chỉ lưu log đếm sai khi User thật tồn tại để tránh hacker spam tràn RAM
-        // Redis!
-        UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
-                .orElseThrow(() -> {
-                    log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
-                    throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
-                });
 
         // BƯỚC 3: So khớp mật khẩu
         boolean matches = passwordEncoder.matches(password, user.getPasswordHash());
@@ -229,6 +249,8 @@ public class AuthServiceImpl implements AuthService {
             session.setAttribute("email", user.getEmail());
             session.setAttribute("fullName", user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername());
 
+            org.example.backend.config.SessionRegistryListener.register(user.getId(), session);
+
             log.info("User {} successfully authenticated and session bound.", user.getUsername());
 
             return UserResponse.builder()
@@ -240,6 +262,7 @@ public class AuthServiceImpl implements AuthService {
                     .isActive(user.isActive())
                     .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                     .createdAt(user.getCreatedAt())
+                    .lockReason(user.getLockReason())
                     .build();
         } else {
             // Đăng nhập thất bại -> Phân tích thiết bị và vị trí
@@ -435,10 +458,50 @@ public class AuthServiceImpl implements AuthService {
                 .isActive(user.isActive())
                 .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
+                .lockReason(user.getLockReason())
                 .build();
     }
 
     private void checkAndExpireVerification(UserAccount user) {
         mentorVerificationService.checkAndExpireVerification(user);
+    }
+
+    @Override
+    public void submitAppeal(Long userId, String usernameOrEmail, String reason, String evidenceUrl, String evidenceName) {
+        UserAccount user;
+        if (userId != null) {
+            user = userAccountRepository.findById(userId)
+                    .orElseThrow(() -> new org.example.backend.exception.ResourceNotFoundException("Tài khoản không tồn tại."));
+        } else if (usernameOrEmail != null && !usernameOrEmail.trim().isEmpty()) {
+            user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
+                    .orElseThrow(() -> new org.example.backend.exception.ResourceNotFoundException("Không tìm thấy tài khoản với thông tin đã cung cấp."));
+        } else {
+            throw new org.example.backend.exception.BadRequestException("Thiếu thông tin xác thực tài khoản để gửi kháng cáo.");
+        }
+        
+        if (user.isActive()) {
+            throw new org.example.backend.exception.BadRequestException("Tài khoản này hiện không bị khóa, không cần gửi kháng cáo.");
+        }
+
+        // Kiểm tra xem đã có đơn kháng cáo nào đang PENDING của user này chưa để tránh trùng lặp
+        userAppealRepository.findFirstByUserIdAndStatusOrderByIdDesc(user.getId(), "PENDING")
+                .ifPresent(existing -> {
+                    throw new org.example.backend.exception.BadRequestException("Bạn đã có đơn kháng cáo đang chờ xử lý.");
+                });
+
+        UserAppeal appeal = UserAppeal.builder()
+                .user(user)
+                .reason(reason)
+                .evidenceUrl(evidenceUrl)
+                .evidenceName(evidenceName)
+                .status("PENDING")
+                .build();
+        
+        userAppealRepository.save(appeal);
+        
+        // Broadcast the appeal submission in real-time to all active websocket sessions (including admins)
+        String jsonPayload = String.format("{\"type\":\"APPEAL_SUBMITTED\",\"userId\":%d,\"username\":\"%s\"}", 
+                user.getId(), user.getUsername());
+        org.example.backend.config.NotificationWebSocketHandler.broadcast(jsonPayload);
     }
 }

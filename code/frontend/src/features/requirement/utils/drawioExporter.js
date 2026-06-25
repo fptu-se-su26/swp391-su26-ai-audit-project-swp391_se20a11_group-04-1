@@ -12,12 +12,12 @@ export const exportToDrawio = (nodes, edges, diagramName = "Use Case Diagram") =
         const drawioId = `dx_${node.id}`;
         if (node.type === 'actor') {
             xmlStr += `
-        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Actor')}" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Actor')}" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#1E707D/80;" vertex="1" parent="1">
           <mxGeometry x="${node.position.x}" y="${node.position.y}" width="30" height="60" as="geometry" />
         </mxCell>`;
         } else if (node.type === 'useCase') {
             xmlStr += `
-        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Use Case')}" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="1">
+        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Use Case')}" style="ellipse;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="1">
           <mxGeometry x="${node.position.x}" y="${node.position.y}" width="140" height="70" as="geometry" />
         </mxCell>`;
         } else if (node.type === 'systemBoundary') {
@@ -38,10 +38,10 @@ export const exportToDrawio = (nodes, edges, diagramName = "Use Case Diagram") =
         
         if (edgeLabel.includes('include')) {
              edgeStyle = "html=1;dashed=1;endArrow=open;endFill=0;";
-             label = "&lt;&lt;include&gt;&gt;";
+             label = escapeXml(escapeXml("<<include>>"));
         } else if (edgeLabel.includes('extend')) {
              edgeStyle = "html=1;dashed=1;endArrow=open;endFill=0;";
-             label = "&lt;&lt;extend&gt;&gt;";
+             label = escapeXml(escapeXml("<<extends>>"));
         }
 
         xmlStr += `

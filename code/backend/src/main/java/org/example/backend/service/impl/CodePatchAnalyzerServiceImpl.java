@@ -125,6 +125,8 @@ public class CodePatchAnalyzerServiceImpl implements CodePatchAnalyzerService {
     }
 
     private String buildPrompt(String rawDiff) {
+        // Prompt AI: Phân tích chuyên sâu (Deep Code Analyzer) đoạn mã thay đổi (git diff).
+        // Trích xuất các thay đổi vật lý, chữ ký hàm, API được public, DB được thêm/sửa, và các luồng logic để đánh giá độ phức tạp.
         return """
                 You are a Deep Code Analyzer. Parse the raw git diff and extract physical changes, method signatures, exposed APIs, DB entities/columns, logic flows, and complexity delta.
                 Analyze the diff thoroughly and output strictly in JSON format matching this schema:

@@ -11,7 +11,7 @@ export default function SprintSelector({ sprints, selectedSprint, selectedSprint
           <select
             value={selectedSprintId || ''}
             onChange={(event) => onChange(Number(event.target.value))}
-            className="mt-1 w-full min-w-[260px] rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary md:w-auto"
+            className="mt-1 w-full min-w-[260px] rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-[#1E707D] md:w-auto"
           >
             {sprints.map((sprint) => (
               <option key={sprint.id} value={sprint.id}>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AiUploadModal from './AiUploadModal';
+import Button from '../../../components/ui/Button';
 
 const RequirementHeader = ({ onOpenCreateModal }) => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -14,20 +15,20 @@ const RequirementHeader = ({ onOpenCreateModal }) => {
         <p className="font-body-md text-body-md text-secondary">Manage and track system requirements and coverage.</p>
       </div>
       <div className="flex items-center gap-3">
-        <button 
+        <Button 
+          variant="outline"
           onClick={() => setIsAiModalOpen(true)}
-          className="flex items-center gap-2 bg-surface-container-lowest text-on-surface border border-outline-variant h-[44px] px-4 rounded-lg font-body-md text-body-md hover:bg-surface-container-low transition-colors shadow-sm"
         >
           <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
           AI Import
-        </button>
-        <button 
+        </Button>
+        <Button 
+          variant="primary"
           onClick={onOpenCreateModal}
-          className="flex items-center gap-2 bg-primary text-on-primary h-[44px] px-4 rounded-lg font-body-md text-body-md hover:bg-on-primary-fixed-variant transition-colors shadow-sm"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
           Add Requirement
-        </button>
+        </Button>
       </div>
     </div>
       

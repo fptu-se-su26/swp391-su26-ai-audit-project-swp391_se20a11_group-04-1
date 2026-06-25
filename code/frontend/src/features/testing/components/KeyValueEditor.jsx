@@ -29,14 +29,14 @@ export default function KeyValueEditor({ items, onChange }) {
             value={item.key}
             onChange={(e) => handleUpdate(idx, 'key', e.target.value)}
             placeholder="Key"
-            className="w-1/3 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            className="w-1/3 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-mono text-sm focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none transition-all"
           />
           <input
             type="text"
             value={item.value}
             onChange={(e) => handleUpdate(idx, 'value', e.target.value)}
             placeholder="Value"
-            className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            className="flex-1 px-3 py-1.5 bg-surface-container-lowest border border-outline-variant rounded font-mono text-sm focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none transition-all"
           />
           <button
             onClick={() => handleRemove(idx)}
@@ -49,7 +49,7 @@ export default function KeyValueEditor({ items, onChange }) {
       ))}
       <button
         onClick={handleAdd}
-        className="self-start px-2 py-1.5 mt-1 text-sm font-medium text-primary hover:bg-primary-container/30 rounded transition-colors flex items-center gap-1"
+        className="self-start px-2 py-1.5 mt-1 text-sm font-medium text-[#1E707D] hover:bg-[#D7EEF1]/30 rounded transition-colors flex items-center gap-1"
       >
         <span className="material-symbols-outlined text-[16px]">add</span>
         Add Row

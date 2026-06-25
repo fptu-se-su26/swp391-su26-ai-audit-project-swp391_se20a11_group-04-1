@@ -119,7 +119,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                         <select
                           value={flow.branchFromStep || (totalMainSteps > 0 ? totalMainSteps : 1)}
                           onChange={(e) => handleFlowFieldChange(index, 'branchFromStep', parseInt(e.target.value))}
-                          className="px-2 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-sm transition-all"
+                          className="px-2 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-sm transition-all"
                         >
                           {Array.from({ length: totalMainSteps || 1 }, (_, i) => i + 1).map(stepNum => (
                             <option key={stepNum} value={stepNum}>Step {stepNum}</option>
@@ -131,7 +131,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                         value={flow.condition || ''}
                         onChange={(e) => handleFlowFieldChange(index, 'condition', e.target.value)}
                         placeholder="Condition (e.g. If validation fails)"
-                        className="w-full px-3 py-1.5 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-md font-semibold transition-all"
+                        className="w-full px-3 py-1.5 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md font-semibold transition-all"
                       />
                     </div>
                     <button
@@ -153,7 +153,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                           value={stripMarkdown(step)}
                           onChange={(e) => handleStepChange(index, stepIndex, e.target.value)}
                           placeholder="Step description"
-                          className="flex-1 px-3 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-body-sm transition-all"
+                          className="flex-1 px-3 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-sm transition-all"
                         />
                         <button
                           type="button"
@@ -167,7 +167,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                     <button
                       type="button"
                       onClick={() => handleAddStep(index)}
-                      className="text-xs flex items-center gap-1 text-primary hover:bg-primary/5 px-2 py-1 rounded transition-colors ml-2"
+                      className="text-xs flex items-center gap-1 text-[#1E707D] hover:bg-[#1E707D]/5 px-2 py-1 rounded transition-colors ml-2"
                     >
                       <span className="material-symbols-outlined text-[14px]">add</span> Add Flow Step
                     </button>
@@ -176,7 +176,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
               ) : (
                 <>
                   <h3 className="font-body-lg text-body-lg text-on-surface font-semibold mb-2">
-                    {flowLabels[index]?.label || `${index + 1}a`}. {flow.condition || 'Alternative Condition'}
+                    {flow.condition || 'Alternative Condition'}
                   </h3>
                   <div className="space-y-1 font-body-md text-body-md text-on-surface ml-2">
                     {(Array.isArray(flow.steps) ? flow.steps : []).map((step, idx) => (

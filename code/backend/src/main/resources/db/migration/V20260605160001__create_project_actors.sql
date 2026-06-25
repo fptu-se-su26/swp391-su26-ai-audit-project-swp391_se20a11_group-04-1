@@ -1,4 +1,4 @@
-CREATE TABLE project_actors (
+CREATE TABLE IF NOT EXISTS project_actors (
     id BIGSERIAL PRIMARY KEY,
     project_id BIGINT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -7,4 +7,4 @@ CREATE TABLE project_actors (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE use_cases ADD COLUMN req_version_hash VARCHAR(255);
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS req_version_hash VARCHAR(255);

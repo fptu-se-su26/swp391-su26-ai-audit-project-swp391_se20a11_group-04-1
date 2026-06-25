@@ -37,7 +37,7 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
       className="border-b border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer"
       onClick={() => navigate(`/projects/${projectId}/test-cases/${testCase.id}`)}
     >
-      <td className="py-3 px-4 font-label-md text-label-md text-primary">{testCase.code}</td>
+      <td className="py-3 px-4 font-label-md text-label-md text-[#1E707D]">{testCase.code}</td>
       <td className="py-3 px-4 font-medium">{testCase.title}</td>
       <td className="py-3 px-4">
         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-outline-variant text-secondary">
@@ -54,7 +54,7 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
       <td className="py-3 px-4 text-secondary text-sm">{formatDate(testCase.lastExecutedAt)}</td>
       <td className="py-3 px-4 text-center relative" ref={menuRef}>
         <button
-          className="text-outline hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+          className="text-outline hover:text-[#1E707D] transition-colors opacity-0 group-hover:opacity-100"
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
         >
           <span className="material-symbols-outlined text-[20px]">more_vert</span>

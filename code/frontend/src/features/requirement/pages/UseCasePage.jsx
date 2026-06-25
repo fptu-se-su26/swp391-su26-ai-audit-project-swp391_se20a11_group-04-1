@@ -62,6 +62,7 @@ const UseCasePage = () => {
         projectId: activeProject.id,
         page: currentPage,
         size: pageSize,
+        sort: 'createdAt,desc'
       };
       if (searchTerm) params.keyword = searchTerm;
       if (statusFilter && !isDraftView) params.status = statusFilter;
@@ -195,7 +196,7 @@ const UseCasePage = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 pt-2 md:pt-4 z-10 h-full relative">
+    <div className="p-4 md:p-6 pt-2 md:pt-4 h-full relative">
       <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
       <div className="w-full">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
@@ -224,11 +225,7 @@ const UseCasePage = () => {
               </button>
             </div>
 
-            {/* Group 2: Filter button */}
-            <button className="flex items-center justify-center h-[36px] px-[14px] bg-white border border-[#D9E7E4] rounded-[10px] text-[13px] font-medium text-[#374151] hover:bg-[#D7EEF1] hover:text-[#1E707D] hover:border-[#1E707D] transition-colors">
-              <span className="material-symbols-outlined text-[14px] mr-1">filter_list</span>
-              Filter
-            </button>
+
 
             {/* Group 3: Generate Usecase */}
             {isLeader && (
@@ -252,7 +249,7 @@ const UseCasePage = () => {
           </div>
         </div>
 
-        <UseCaseStats useCases={allUseCases} />
+        {viewMode === 'list' && <UseCaseStats useCases={allUseCases} />}
 
         {viewMode.startsWith('diagram') ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">

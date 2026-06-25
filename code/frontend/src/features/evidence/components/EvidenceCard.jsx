@@ -151,13 +151,13 @@ const EvidenceCard = ({ evidence }) => {
       <div className="p-4 flex-1 flex flex-col">
         {/* ID */}
         <div className="flex justify-between items-start mb-2">
-          <span className="font-label-md text-label-md text-primary bg-primary-fixed/30 px-1.5 py-0.5 rounded-md">
+          <span className="font-label-md text-label-md text-[#1E707D] bg-[#D7EEF1]/30 px-1.5 py-0.5 rounded-md">
             EV-{String(evidence.id).padStart(3, '0')}
           </span>
         </div>
 
         {/* Title */}
-        <h3 className="font-headline-sm text-[15px] leading-tight text-on-surface mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+        <h3 className="font-headline-sm text-[15px] leading-tight text-on-surface mb-1 line-clamp-1 group-hover:text-[#1E707D] transition-colors">
           {evidence.title}
         </h3>
 

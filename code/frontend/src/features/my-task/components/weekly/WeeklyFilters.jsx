@@ -16,8 +16,8 @@ const WeeklyFilters = ({
   const statuses = [
     { value: 'OVERDUE', label: 'Overdue', color: 'text-red-600' },
     { value: 'BLOCKED', label: 'Blocked', color: 'text-rose-700' },
-    { value: 'IN_PROGRESS', label: 'In Progress', color: 'text-blue-600' },
-    { value: 'IN_REVIEW', label: 'In Review', color: 'text-blue-500' },
+    { value: 'IN_PROGRESS', label: 'In Progress', color: 'text-[#1E707D]' },
+    { value: 'IN_REVIEW', label: 'In Review', color: 'text-[#1E707D]' },
     { value: 'TODO', label: 'To Do', color: 'text-gray-500' },
     { value: 'DONE', label: 'Done', color: 'text-green-600' }
   ];
@@ -66,7 +66,7 @@ const WeeklyFilters = ({
                 type="checkbox" 
                 checked={selectedStatuses.length === 0}
                 onChange={() => onStatusesChange([])}
-                className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
               />
               <span className="text-[12px] font-bold">All Statuses</span>
             </label>
@@ -76,7 +76,7 @@ const WeeklyFilters = ({
                   type="checkbox" 
                   checked={selectedStatuses.includes(s.value)}
                   onChange={() => handleStatusToggle(s.value)}
-                  className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
                 />
                 <span className={`text-[12px] font-medium ${s.color}`}>{s.label}</span>
               </label>
@@ -102,7 +102,7 @@ const WeeklyFilters = ({
                 type="checkbox" 
                 checked={selectedAssignees.length === 0}
                 onChange={() => onAssigneesChange([])}
-                className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
               />
               <span className="text-[12px] font-bold">All Members</span>
             </label>
@@ -112,7 +112,7 @@ const WeeklyFilters = ({
                   type="checkbox" 
                   checked={selectedAssignees.includes(a.id)}
                   onChange={() => handleAssigneeToggle(a.id)}
-                  className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
                 />
                 <span className="text-[12px] font-medium">{a.name}</span>
               </label>
@@ -138,7 +138,7 @@ const WeeklyFilters = ({
                 type="checkbox" 
                 checked={selectedPriorities.length === 0}
                 onChange={() => onPrioritiesChange([])}
-                className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
               />
               <span className="text-[12px] font-bold">All Priorities</span>
             </label>
@@ -154,7 +154,7 @@ const WeeklyFilters = ({
                       onPrioritiesChange([...selectedPriorities, p.value]);
                     }
                   }}
-                  className="mr-2 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="mr-2 rounded border-gray-300 text-[#1E707D] focus:ring-[#1E707D]"
                 />
                 <span className={`text-[12px] ${p.color}`}>{p.label}</span>
               </label>

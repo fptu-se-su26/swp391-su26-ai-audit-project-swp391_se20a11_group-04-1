@@ -36,7 +36,7 @@ const ConfirmModal = ({
             <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
               type === 'danger' ? 'bg-error-container text-error' :
               type === 'warning' ? 'bg-tertiary-fixed text-on-tertiary-fixed' :
-              'bg-primary-container text-primary'
+              'bg-[#D7EEF1] text-[#1E707D]'
             }`}>
               <span className="material-symbols-outlined text-2xl">
                 {type === 'danger' ? 'delete' : type === 'warning' ? 'warning' : 'info'}
@@ -66,7 +66,7 @@ const ConfirmModal = ({
             className={`px-4 py-2 rounded-lg font-label-md text-sm uppercase transition-colors shadow-sm ${
               type === 'danger' ? 'bg-error text-on-error hover:bg-error/90' :
               type === 'warning' ? 'bg-tertiary text-on-tertiary hover:bg-tertiary/90' :
-              'bg-primary text-on-primary hover:bg-primary/90'
+              'bg-[#1E707D] text-white hover:bg-[#1E707D]/90'
             }`}
           >
             {confirmText}

@@ -16,7 +16,7 @@ export const statusColors = {
 
 export const badgeClasses = {
   ACTIVE: 'bg-[#dcfce7] text-[#166534]',
-  PLANNED: 'bg-primary-fixed text-on-primary-fixed',
+  PLANNED: 'bg-[#D7EEF1] text-[#1E707D]',
   COMPLETED: 'bg-surface-container-high text-on-surface-variant',
   OVERDUE: 'bg-[#fef08a] text-[#854d0e]',
   PENALTY: 'bg-[#fee2e2] text-[#991b1b]',

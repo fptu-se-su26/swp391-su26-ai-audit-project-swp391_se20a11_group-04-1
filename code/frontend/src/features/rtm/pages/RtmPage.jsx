@@ -91,7 +91,7 @@ export function RtmPage() {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none flex items-center justify-center">
         <div className="max-w-md w-full text-center bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/60 shadow-lg space-y-4">
-          <span className="material-symbols-outlined text-5xl text-primary animate-bounce">folder_open</span>
+          <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-bounce">folder_open</span>
           <h3 className="font-extrabold text-xl text-on-surface">No project selected</h3>
           <p className="text-sm text-on-surface-variant leading-relaxed">
             Return to Dashboard and select a project to view its requirement traceability matrix.
@@ -104,7 +104,7 @@ export function RtmPage() {
   return (
     <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-primary-fixed opacity-[0.08] blur-[120px]"></div>
+        <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] rounded-full bg-[#D7EEF1] opacity-[0.08] blur-[120px]"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[400px] h-[400px] rounded-full bg-secondary-fixed opacity-[0.1] blur-[100px]"></div>
       </div>
 
@@ -112,12 +112,12 @@ export function RtmPage() {
         <section className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-5">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed">
+              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-[#D7EEF1] text-[#1E707D]">
                 {activeProject.title}
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-3">
-              <span className="material-symbols-outlined text-3xl text-primary">reorder</span>
+              <span className="material-symbols-outlined text-3xl text-[#1E707D]">reorder</span>
               Requirement Traceability Matrix
             </h1>
             <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
@@ -160,7 +160,7 @@ export function RtmPage() {
 
         {loading && !matrix ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
-            <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
+            <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Loading traceability matrix...</p>
           </section>
         ) : (

@@ -37,7 +37,7 @@ export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
         <div className="p-5 border-b border-outline-variant/60 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-black text-lg text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">history</span>
+              <span className="material-symbols-outlined text-[#1E707D]">history</span>
               RTM Snapshots
             </h2>
             <p className="text-xs text-on-surface-variant mt-1">Saved matrix states for reporting and review.</p>
@@ -64,7 +64,7 @@ export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
                   <p className="text-sm font-black text-on-surface">Snapshot #{snapshot.id}</p>
                   <p className="text-xs text-on-surface-variant mt-1">{formatDate(snapshot.createdAt)}</p>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-primary-fixed text-on-primary-fixed">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-[#D7EEF1] text-[#1E707D]">
                   {snapshot.rowCount} Rows
                 </span>
               </div>
@@ -85,7 +85,7 @@ export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
             </article>
           )) : (
             <div className="text-center py-12 border border-dashed border-outline-variant rounded-2xl">
-              <span className="material-symbols-outlined text-5xl text-primary">history</span>
+              <span className="material-symbols-outlined text-5xl text-[#1E707D]">history</span>
               <h3 className="mt-3 text-sm font-black text-on-surface">No snapshots yet</h3>
               <p className="mt-1 text-xs text-on-surface-variant">Save a snapshot from the RTM toolbar.</p>
             </div>

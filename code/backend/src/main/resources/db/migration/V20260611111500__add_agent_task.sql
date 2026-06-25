@@ -1,4 +1,4 @@
-CREATE TABLE agent_tasks (
+CREATE TABLE IF NOT EXISTS agent_tasks (
     id UUID PRIMARY KEY,
     test_run_id BIGINT NOT NULL,
     execution_id BIGINT NOT NULL,
@@ -12,10 +12,10 @@ CREATE TABLE agent_tasks (
     completed_at TIMESTAMP WITHOUT TIME ZONE
 );
 
-ALTER TABLE projects ADD COLUMN agent_token_hash VARCHAR(255);
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS agent_token_hash VARCHAR(255);
 
 -- Index for Agent poll query: findFirstByProjectIdAndStatusOrderByCreatedAtAsc
-CREATE INDEX idx_agent_tasks_project_status ON agent_tasks(project_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_project_status ON agent_tasks(project_id, status, created_at);
 
 -- Index for Watchdog timeout query: findByStatusAndClaimedAtBefore
-CREATE INDEX idx_agent_tasks_status_claimed ON agent_tasks(status, claimed_at);
+CREATE INDEX IF NOT EXISTS idx_agent_tasks_status_claimed ON agent_tasks(status, claimed_at);

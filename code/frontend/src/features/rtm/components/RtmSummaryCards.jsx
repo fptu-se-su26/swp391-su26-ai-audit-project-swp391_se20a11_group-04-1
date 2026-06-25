@@ -1,7 +1,7 @@
 import StatusIndicator from './StatusIndicator'
 
 const cards = [
-  { key: 'totalRequirements', label: 'Requirements', icon: 'description', tone: 'text-primary' },
+  { key: 'totalRequirements', label: 'Requirements', icon: 'description', tone: 'text-[#1E707D]' },
   { key: 'doneCount', label: 'Done', icon: 'check_circle', status: 'DONE' },
   { key: 'inProgressCount', label: 'In Progress', icon: 'pending', status: 'IN_PROGRESS' },
   { key: 'atRiskCount', label: 'At Risk', icon: 'warning', status: 'AT_RISK' },

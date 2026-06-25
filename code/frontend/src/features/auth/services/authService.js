@@ -51,6 +51,18 @@ export const authService = {
   getMe: async () => {
     return axiosInstance.get('/v1/auth/me')
   },
+
+  /**
+   * Gửi đơn kháng cáo cho tài khoản bị khóa
+   */
+  submitAppeal: async (userId, usernameOrEmail, reason, evidenceUrl, evidenceName) => {
+    return axiosInstance.post('/v1/auth/appeal', {
+      usernameOrEmail,
+      reason,
+      evidenceUrl,
+      evidenceName
+    })
+  },
 }
 
 export default authService

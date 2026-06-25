@@ -5,7 +5,7 @@ const STATUS_COLOR = {
     CANCELLED: 'bg-gray-400',
     SYSTEM_ERROR: 'bg-red-500',
     TIMED_OUT: 'bg-orange-500',
-    RUNNING: 'bg-blue-500 animate-pulse',
+    RUNNING: 'bg-[#1E707D] animate-pulse',
     PENDING: 'bg-gray-300',
     // API Result statuses
     PASSED: 'bg-green-500',

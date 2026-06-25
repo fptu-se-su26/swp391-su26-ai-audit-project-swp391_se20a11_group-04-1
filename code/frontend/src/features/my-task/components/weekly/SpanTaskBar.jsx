@@ -36,7 +36,7 @@ const SpanTaskBar = ({ task, topOffset, onTaskClick, onNextWeek, onPrevWeek }) =
   // Assignee Avatar
   const assigneeInfo = task.primaryAssignee
   const initials = assigneeInfo?.initials || '?'
-  const avatarBg = assigneeInfo ? 'bg-indigo-900/40' : 'bg-gray-900/30'
+  const avatarBg = assigneeInfo ? 'bg-[#1E707D]' : 'bg-gray-900/30'
 
   return (
     <div

@@ -7,7 +7,7 @@
  *     { userId, name, initials, projectRole, totalTasks, doneTasks, inProgressTasks, lateTasks, workloadPercent }
  */
 
-const AVATAR_COLORS = ['#1E3A5F', '#732900', '#505f76', '#16A34A', '#7C3AED', '#DC2626']
+const AVATAR_COLORS = ['#1E707D', '#732900', '#505f76', '#16A34A', '#7C3AED', '#DC2626']
 
 const MemberProgressPanel = ({ members = [] }) => {
   return (
@@ -59,7 +59,7 @@ const MemberProgressPanel = ({ members = [] }) => {
                         </span>
                       )}
                       {inProgress > 0 && (
-                        <span className="px-1.5 py-[2px] rounded bg-blue-50 text-blue-600 text-[9px] font-bold uppercase tracking-wider border border-blue-100">
+                        <span className="px-1.5 py-[2px] rounded bg-[#1E707D]/10 text-[#1E707D] text-[9px] font-bold uppercase tracking-wider border border-[#1E707D]/20">
                           {inProgress} Ongoing
                         </span>
                       )}

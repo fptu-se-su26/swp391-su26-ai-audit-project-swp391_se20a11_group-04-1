@@ -53,8 +53,8 @@ const MiniCalendar = ({ selectedDate, onSelectDate, tasksByDate = {} }) => {
     <div className="bg-white rounded-[8px] border border-[#E5E7EB] p-4 flex flex-col shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h4 className="font-bold text-[13px] text-[#1E3A5F]">Tuần này</h4>
-        <span className="text-[12px] font-semibold text-[#1E3A5F] capitalize">{monthYear}</span>
+        <h4 className="font-bold text-[13px] text-[#1E707D]">Tuần này</h4>
+        <span className="text-[12px] font-semibold text-[#1E707D] capitalize">{monthYear}</span>
       </div>
 
       {/* Day labels + dates */}
@@ -79,11 +79,11 @@ const MiniCalendar = ({ selectedDate, onSelectDate, tasksByDate = {} }) => {
               onClick={() => onSelectDate(date)}
             >
               {selected ? (
-                <div className="w-6 h-6 bg-[#1E3A5F] text-white rounded-full flex items-center justify-center font-bold text-[12px]">
+                <div className="w-6 h-6 bg-[#1E707D] text-white rounded-full flex items-center justify-center font-bold text-[12px]">
                   {date.getDate()}
                 </div>
               ) : (
-                <span className={`text-[12px] font-medium hover:text-[#1E3A5F] transition-colors ${today ? 'text-[#1E3A5F] font-bold' : 'text-[#374151]'}`}>
+                <span className={`text-[12px] font-medium hover:text-[#1E707D] transition-colors ${today ? 'text-[#1E707D] font-bold' : 'text-[#374151]'}`}>
                   {date.getDate()}
                 </span>
               )}

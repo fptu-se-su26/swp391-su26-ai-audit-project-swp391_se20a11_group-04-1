@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTraceability } from './TraceabilityContext';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -8,6 +9,18 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
   const navigate = useNavigate();
   const { projectId } = useParams();
   const [showEvidence, setShowEvidence] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showEvidence && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowEvidence(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEvidence]);
 
   const id = isEmpty ? (item?.id || `empty-${level}`) : item.id;
 
@@ -39,196 +52,200 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
     }
   };
 
+  if (isEmpty && level === 'Tests') {
+    return (
+      <div 
+        ref={nodeRef}
+        className="relative z-10 w-[200px] min-h-[120px] flex flex-col items-center justify-center bg-slate-50 border-[0.5px] border-slate-300 border-dashed rounded-xl shadow-sm cursor-default"
+      >
+        <span className="material-symbols-outlined text-[20px] text-slate-400 mb-1">science</span>
+        <span className="text-xs font-medium text-slate-600">Chưa có test</span>
+        <span className="text-[10px] text-slate-400 mt-0.5">liên kết task để tạo</span>
+      </div>
+    );
+  }
+
   if (isEmpty) {
     return (
       <div 
         ref={nodeRef}
-        className="relative z-10 w-56 flex flex-col items-center justify-center h-20 bg-white/60 backdrop-blur-sm border border-slate-300 border-dashed rounded-xl shadow-sm"
+        className="relative z-10 w-56 flex flex-col items-center justify-center h-20 bg-slate-50 border-[0.5px] border-slate-300 border-dashed rounded-xl shadow-sm"
       >
         <span className="text-xs text-slate-400 italic">No {level}</span>
       </div>
     );
   }
 
-  // Level specific styling
-  let icon, labelColor, borderColor, hoverBorderColor, statusBg, statusText;
-  
+  // Color mapping based on exact user specification
+  let icon, themeColor;
   switch (level) {
     case 'Requirement':
-      icon = 'assignment'; labelColor = 'text-indigo-600 bg-indigo-50'; borderColor = 'border-indigo-200'; hoverBorderColor = 'hover:border-indigo-400';
-      break;
+      icon = 'content_paste'; themeColor = { borderLeft: 'border-l-indigo-400', text: 'text-[#1E707D]' }; break;
     case 'Use Cases':
-      icon = 'emoji_people'; labelColor = 'text-cyan-600 bg-cyan-50'; borderColor = 'border-slate-200'; hoverBorderColor = 'hover:border-cyan-400';
-      break;
+      icon = 'route'; themeColor = { borderLeft: 'border-l-amber-400', text: 'text-amber-600' }; break;
     case 'Tasks':
-      icon = 'task'; labelColor = 'text-amber-600 bg-amber-50'; borderColor = 'border-slate-200'; hoverBorderColor = 'hover:border-amber-400';
-      break;
+      icon = 'article'; themeColor = { borderLeft: 'border-l-orange-500', text: 'text-orange-600' }; break;
     case 'Tests':
-      icon = 'science'; labelColor = 'text-emerald-600 bg-emerald-50'; borderColor = 'border-slate-200'; hoverBorderColor = 'hover:border-emerald-400';
-      break;
+      icon = 'science'; themeColor = { borderLeft: 'border-l-emerald-500', text: 'text-emerald-600' }; break;
     case 'Evidence':
-      icon = 'inventory_2'; labelColor = 'text-purple-600 bg-purple-50'; borderColor = 'border-slate-200'; hoverBorderColor = 'hover:border-purple-400';
-      break;
+      icon = 'inventory_2'; themeColor = { borderLeft: 'border-l-purple-500', text: 'text-[#1E707D]' }; break;
     default:
-      icon = 'article'; labelColor = 'text-slate-600 bg-slate-50'; borderColor = 'border-slate-200'; hoverBorderColor = 'hover:border-slate-400';
+      icon = 'article'; themeColor = { borderLeft: 'border-l-slate-400', text: 'text-slate-600' };
   }
 
-  let statusClass = 'bg-slate-50 text-slate-600 border-slate-200';
-  const status = item.status?.toUpperCase() || 'UNKNOWN';
-  if (status === 'PASS' || status === 'DONE' || status === 'VERIFIED') statusClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (status === 'FAIL') statusClass = 'bg-rose-50 text-rose-700 border-rose-200';
-  if (status === 'IN_PROGRESS') statusClass = 'bg-amber-50 text-amber-700 border-amber-200';
+  const getStatusColor = (status) => {
+    const s = (status || '').toUpperCase();
+    if (s === 'PASS' || s === 'DONE' || s === 'VERIFIED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (s === 'FAIL' || s === 'BLOCKED') return 'bg-red-50 text-red-700 border-red-200';
+    if (s === 'IN_PROGRESS' || s === 'IN PROGRESS') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (s === 'IN_REVIEW' || s === 'IN REVIEW') return 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/20';
+    return 'bg-slate-50 text-slate-600 border-slate-200'; // DRAFT / DEFAULT
+  };
+
+  const getPriorityInfo = (priority) => {
+    const p = (priority || 'MEDIUM').toUpperCase();
+    if (p === 'LOW') return { dot: 'bg-slate-400', text: 'Low' };
+    if (p === 'HIGH' || p === 'CRITICAL') return { dot: 'bg-red-500', text: 'High' };
+    return { dot: 'bg-orange-500', text: 'Medium' };
+  };
 
   const isRequirement = level === 'Requirement';
+  
   const countCriteria = (text) => {
     if (!text) return 0;
     if (Array.isArray(text)) return text.length;
     return String(text).split('\n').filter(line => line.trim().length > 0).length;
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority?.toUpperCase()) {
-      case 'LOW': return 'text-emerald-600 font-bold';
-      case 'MEDIUM': return 'text-amber-600 font-bold';
-      case 'HIGH': return 'text-orange-600 font-bold';
-      case 'CRITICAL': return 'text-red-600 font-bold';
-      default: return 'text-slate-600 font-bold';
-    }
-  };
-
-  const renderRequirementMetadata = () => (
-    <div className="mt-1.5 flex flex-col gap-1 text-[10px] text-slate-500">
-      <div className="flex items-center justify-between">
-        <span className="truncate">Owner: {item.ownerId || 'Unassigned'}</span>
-        <span className={getPriorityColor(item.priority)}>{item.priority || 'MEDIUM'}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span>Criteria: {countCriteria(item.acceptanceCriteria)}</span>
-        <span className="truncate max-w-[80px]">Tags: {item.tags?.join(', ') || 'None'}</span>
-      </div>
-    </div>
-  );
-
-  const renderUseCaseMetadata = () => (
-    <div className="mt-2 flex flex-col gap-1 text-[10px] text-slate-500">
-      <div>Actor: {item.actors && item.actors.length > 0 ? item.actors.join(', ') : 'N/A'}</div>
-    </div>
-  );
-
-  const renderTaskMetadata = () => (
-    <div className="mt-1.5 flex flex-col gap-1 text-[10px] text-slate-500">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1 truncate pr-2">
-          <span className="material-symbols-outlined text-[12px] text-slate-400">person</span>
-          {item.primaryAssignee?.name || 'Unassigned'}
-        </span>
-        <span className={getPriorityColor(item.priority)}>{item.priority || 'MEDIUM'}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1">
-          <span className="material-symbols-outlined text-[12px] text-slate-400">calendar_today</span>
-          {item.deadline || 'No Due Date'}
-        </span>
-      </div>
-
-      {/* Internal Evidence Accordion */}
-      {taskEvidences && taskEvidences.length > 0 && (
-        <div className="mt-3 border-t border-slate-100 pt-2">
-          <button 
-            onClick={(e) => { e.stopPropagation(); setShowEvidence(!showEvidence); }}
-            className="flex items-center justify-between w-full hover:bg-slate-50 p-1.5 rounded-md transition-colors group"
-          >
-            <div className="flex items-center gap-1.5 font-medium text-slate-600 group-hover:text-purple-600 transition-colors">
-              <span className="material-symbols-outlined text-[14px]">inventory_2</span>
-              <span>{taskEvidences.length} Evidence</span>
-            </div>
-            <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover:text-purple-600 transition-transform duration-200" style={{ transform: showEvidence ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-              expand_more
-            </span>
-          </button>
-          
-          <div 
-            className={`overflow-hidden transition-all duration-300 ease-in-out`}
-            style={{ 
-              maxHeight: showEvidence ? `${taskEvidences.length * 60 + 20}px` : '0px',
-              opacity: showEvidence ? 1 : 0,
-              marginTop: showEvidence ? '8px' : '0px'
-            }}
-          >
-            <div className="flex flex-col gap-2">
-              {taskEvidences.map(ev => (
-                <div 
-                  key={ev.id} 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/projects/${projectId}/evidence/${ev.id}`);
-                  }}
-                  className="flex items-center justify-between bg-white border border-slate-200 rounded p-2 hover:border-purple-300 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="material-symbols-outlined text-[14px] text-purple-500">description</span>
-                    <span className="font-medium text-slate-700 truncate" title={ev.title || ev.name}>{ev.title || ev.name || 'Untitled File'}</span>
-                  </div>
-                  <span className="text-[9px] text-slate-400 shrink-0">{ev.fileSize || '245 KB'}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {taskEvidences && taskEvidences.length === 0 && (
-         <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-slate-400 italic">
-            <span className="material-symbols-outlined text-[14px]">inventory_2</span>
-            <span>No Evidence</span>
-         </div>
-      )}
-    </div>
-  );
-
-  const renderTestMetadata = () => (
-    <div className="mt-2 flex flex-col gap-1 text-[10px] text-slate-500">
-      <div className="flex items-center justify-between">
-        <span>Tester: {item.createdBy?.name || 'Unassigned'}</span>
-        <span>{item.testType || 'MANUAL'}</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span>Last run: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</span>
-      </div>
-      {item.status === 'PASS' && (
-        <div className="mt-0.5 font-medium text-emerald-600 flex items-center gap-1">
-          🟢 Passed
-        </div>
-      )}
-    </div>
-  );
-
-  const renderEvidenceMetadata = () => {
-    const linkedTask = item.evidenceLinks?.find(l => l.entityType?.toUpperCase() === 'TASK');
-    const linkedText = linkedTask ? `TSK-${linkedTask.entityId}` : 'Unlinked';
-
+  const renderRequirementMetadata = () => {
+    const prio = getPriorityInfo(item.priority);
     return (
-      <div className="mt-2 flex flex-col gap-1 text-[10px] text-slate-500">
-        <div className="flex items-center justify-between">
-          <span>{item.fileSize || 'Unknown Size'}</span>
-          <span>{item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}</span>
+      <div className="mt-3 pt-2 border-t border-slate-200 grid grid-cols-2 gap-y-2 gap-x-1 text-[11px] text-slate-500">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="material-symbols-outlined text-[14px]">account_circle</span>
+          <span className="truncate">{item.ownerId || 'Unassigned'}</span>
         </div>
-        <div className="flex items-center justify-between">
-          <span>By: {item.uploadedByName || 'Unknown'}</span>
-          <span>For: {linkedText}</span>
+        <div className="flex items-center gap-1.5 justify-end">
+          <div className={`w-1.5 h-1.5 rounded-full ${prio.dot}`}></div>
+          <span>{prio.text}</span>
+        </div>
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="material-symbols-outlined text-[14px]">checklist</span>
+          <span>{countCriteria(item.acceptanceCriteria)} criteria</span>
+        </div>
+        <div className="flex items-center gap-1.5 justify-end truncate">
+          <span className="material-symbols-outlined text-[14px]">local_offer</span>
+          <span className={`truncate ${!item.tags?.length ? 'text-slate-300 italic' : ''}`}>{item.tags?.join(', ') || 'No tags'}</span>
         </div>
       </div>
     );
   };
 
-  let leftBorderClass = '';
-  if (level === 'Tests') {
-    leftBorderClass = status === 'PASS' || status === 'PASSED' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-rose-500';
-  } else if (level === 'Evidence') {
-    leftBorderClass = 'border-l-4 border-l-purple-500';
-  } else if (level === 'Tasks') {
-    leftBorderClass = 'border-l-2 border-l-amber-400';
-  }
+  const renderUseCaseMetadata = () => {
+    const taskCount = item.tasks?.length || 0;
+    return (
+      <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="material-symbols-outlined text-[14px]">account_circle</span>
+          <span className="truncate">{item.actors && item.actors.length > 0 ? item.actors.join(', ') : 'N/A'}</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <span className="material-symbols-outlined text-[14px]">check_box</span>
+          <span>{taskCount} task{taskCount !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTaskMetadata = () => {
+    const prio = getPriorityInfo(item.priority);
+    return (
+      <>
+        <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="material-symbols-outlined text-[14px]">person</span>
+            <span className="truncate">{item.primaryAssignee?.name || 'Unassigned'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className={`w-1.5 h-1.5 rounded-full ${prio.dot}`}></div>
+            <span>{prio.text}</span>
+          </div>
+        </div>
+        <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+            <span>{item.deadline || 'No Date'}</span>
+          </div>
+          <div className="relative" ref={dropdownRef}>
+            <div 
+              className={`flex items-center gap-1 shrink-0 ${taskEvidences?.length ? 'text-[#1E707D] hover:bg-purple-50 px-1.5 py-0.5 rounded cursor-pointer font-medium transition-colors -mr-1' : 'italic text-slate-400'}`}
+              onClick={taskEvidences?.length ? (e) => { e.stopPropagation(); setShowEvidence(!showEvidence); } : undefined}
+            >
+              <span className="material-symbols-outlined text-[14px]">attach_file</span>
+              <span>{taskEvidences?.length ? `${taskEvidences.length} evidence` : 'No evidence'}</span>
+              {taskEvidences?.length > 0 && (
+                <span className="material-symbols-outlined text-[14px] transition-transform duration-200" style={{ transform: showEvidence ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  expand_more
+                </span>
+              )}
+            </div>
+
+            {/* Floating Evidence Popover */}
+            {taskEvidences && taskEvidences.length > 0 && showEvidence && (
+              <div 
+                className="absolute top-full left-0 mt-2 w-[220px] bg-white border-[0.5px] border-slate-300 border-l-[3px] border-l-purple-500 rounded-xl rounded-tl-none shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] z-[9999] animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 origin-top-left"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex flex-col gap-0.5 p-2 max-h-[220px] overflow-y-auto">
+                  {taskEvidences.map(ev => (
+                    <div 
+                      key={ev.id} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowEvidence(false);
+                        if (ev.fileUrl || ev.externalUrl) {
+                          setPreviewImage(ev.fileUrl || ev.externalUrl);
+                        } else {
+                          navigate(`/projects/${projectId}/evidence/${ev.id}`);
+                        }
+                      }}
+                      className="flex items-center justify-between bg-white border border-transparent rounded p-1.5 hover:bg-purple-50 hover:border-[#1E707D]/20 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-[#1E707D] transition-colors">
+                          {ev.fileUrl || ev.externalUrl ? 'image' : 'description'}
+                        </span>
+                        <span className="font-medium text-[11px] text-slate-700 truncate group-hover:text-[#1E707D]" title={ev.title || ev.name}>{ev.title || ev.name || 'Untitled'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  const renderTestMetadata = () => {
+    const linkedTask = item.testLinks?.find(l => l.entityType === 'TASK');
+    return (
+      <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="material-symbols-outlined text-[14px]">schedule</span>
+          <span className="truncate">Run: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</span>
+        </div>
+        {linkedTask && (
+          <div className="flex items-center gap-1.5 shrink-0 text-slate-500 hover:text-[#1E707D] transition-colors cursor-pointer" 
+               onClick={(e) => { e.stopPropagation(); navigate(`/projects/${projectId}/tasks/${linkedTask.entityId}`); }}>
+            <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+            TSK-{linkedTask.entityId}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div 
@@ -236,39 +253,58 @@ const TraceabilityNodeCard = ({ level, item, isEmpty = false, taskEvidences = []
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleNavigate}
-      className={`relative z-10 transition-all duration-200 cursor-pointer shrink-0 text-left
-        ${isRequirement ? 'w-[240px] p-3' : 'w-[190px] p-2.5'}
-        bg-white border ${isActive ? `ring-2 ring-slate-200 border-transparent shadow-md -translate-y-0.5` : `${borderColor} shadow-sm`}
-        ${hoverBorderColor} rounded-xl
+      className={`relative transition-all duration-200 cursor-pointer shrink-0 text-left
+        ${showEvidence ? 'z-50' : 'z-10'}
+        ${isRequirement ? 'w-[280px]' : 'w-[220px]'}
+        bg-white border-[0.5px] ${isActive ? `border-slate-400 shadow-md -translate-y-0.5` : `border-slate-300 shadow-sm`}
+        hover:border-slate-400 rounded-xl rounded-l-none border-l-[3px] ${themeColor.borderLeft}
         ${isFaded ? 'opacity-40 grayscale-[0.5]' : 'opacity-100'}
         ${isPathActive ? 'shadow-md' : ''}
-        ${leftBorderClass}
+        p-3.5
       `}
       data-no-drag="true"
     >
-      <div className="flex items-center justify-between mb-1.5 gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className={`material-symbols-outlined text-[14px] ${labelColor.split(' ')[0]}`}>{icon}</span>
-          <span className={`font-bold text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded ${labelColor} truncate`}>
-            {item.code || item.reqCode || level.replace('s', '')}
-          </span>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className={`flex items-center gap-1.5 ${themeColor.text} font-mono text-[11px] font-bold uppercase`}>
+          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+          <span>{item.code || item.reqCode || level.replace('s', '')}</span>
         </div>
-        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${statusClass}`}>
-          {status}
+        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${getStatusColor(item.status)}`}>
+          {item.status || 'DRAFT'}
         </span>
       </div>
       
-      <h4 className={`font-semibold text-slate-800 ${isRequirement ? 'text-xs line-clamp-2' : 'text-xs truncate'}`} title={item.title || item.name}>
+      <h4 className={`font-medium text-slate-800 ${isRequirement ? 'text-[15px]' : 'text-[13px] line-clamp-2'} leading-snug`} title={item.title || item.name}>
         {item.title || item.name || 'Untitled'}
       </h4>
 
-      <div className="border-t border-slate-100 mt-2 pt-1">
-        {level === 'Requirement' && renderRequirementMetadata()}
-        {level === 'Use Cases' && renderUseCaseMetadata()}
-        {level === 'Tasks' && renderTaskMetadata()}
-        {level === 'Tests' && renderTestMetadata()}
-        {level === 'Evidence' && renderEvidenceMetadata()}
-      </div>
+      {level === 'Requirement' && renderRequirementMetadata()}
+      {level === 'Use Cases' && renderUseCaseMetadata()}
+      {level === 'Tasks' && renderTaskMetadata()}
+      {level === 'Tests' && renderTestMetadata()}
+
+      {/* Image Preview Modal via Portal */}
+      {previewImage && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+        >
+          <button 
+            className="absolute top-6 right-6 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full w-10 h-10 flex items-center justify-center transition-all cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+          >
+            <span className="material-symbols-outlined text-2xl pointer-events-none">close</span>
+          </button>
+          
+          <img 
+            src={previewImage} 
+            alt="Evidence Preview" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl scale-100 animate-in zoom-in-95 duration-200 cursor-default"
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

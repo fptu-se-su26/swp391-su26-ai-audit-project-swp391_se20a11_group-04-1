@@ -19,4 +19,5 @@ public class UserResponse {
     private boolean isActive;
     private String verifyStatus;
     private LocalDateTime createdAt;
+    private String lockReason;
 }

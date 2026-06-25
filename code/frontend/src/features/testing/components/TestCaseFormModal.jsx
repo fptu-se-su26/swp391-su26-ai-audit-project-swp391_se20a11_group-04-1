@@ -175,7 +175,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                 maxLength={200}
                 value={formData.title}
                 onChange={e => setFormData({ ...formData, title: e.target.value })}
-                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all"
                 placeholder="E.g., Verify successful login with valid credentials"
               />
             </div>
@@ -188,7 +188,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                   value={formData.requirementId}
                   onChange={e => setFormData({ ...formData, requirementId: e.target.value })}
                   disabled={loadingReqs}
-                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all cursor-pointer"
+                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all cursor-pointer"
                 >
                   <option value="" disabled>{loadingReqs ? 'Loading requirements...' : 'Select a Requirement'}</option>
                   {requirements.map(req => (
@@ -205,7 +205,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                   required
                   value={formData.type}
                   onChange={handleTypeChange}
-                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all"
                 >
                   <option value="UI">UI</option>
                   <option value="API">API</option>
@@ -217,9 +217,9 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
             </div>
 
             {formData.type === 'UI' && (
-              <div className="flex flex-col gap-1.5 p-4 bg-primary-container/10 border border-primary/20 rounded-lg">
+              <div className="flex flex-col gap-1.5 p-4 bg-[#D7EEF1]/10 border border-[#1E707D]/20 rounded-lg">
                 <label className="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-primary text-[18px]">public</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-[18px]">public</span>
                   Base URL (for UI Automation) <span className="text-error">*</span>
                 </label>
                 <input
@@ -227,7 +227,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                   required
                   value={formData.baseUrl || ''}
                   onChange={e => setFormData({ ...formData, baseUrl: e.target.value })}
-                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                  className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all"
                   placeholder="E.g., http://localhost:5173"
                 />
                 <span className="text-xs text-on-surface-variant mt-1">This URL is required to run Playwright test scripts.</span>
@@ -235,16 +235,16 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
             )}
 
             {formData.type === 'API' && (
-              <div className="flex flex-col gap-1.5 p-4 bg-primary-container/10 border border-primary/20 rounded-lg">
+              <div className="flex flex-col gap-1.5 p-4 bg-[#D7EEF1]/10 border border-[#1E707D]/20 rounded-lg">
                 <label className="font-label-md text-label-md text-on-surface flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-primary text-[18px]">api</span>
+                  <span className="material-symbols-outlined text-[#1E707D] text-[18px]">api</span>
                   API Endpoint <span className="text-error">*</span>
                 </label>
                 <div className="flex gap-2">
                   <select
                     value={formData.apiMethod}
                     onChange={e => setFormData({ ...formData, apiMethod: e.target.value })}
-                    className="w-24 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all font-medium"
+                    className="w-24 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all font-medium"
                   >
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
@@ -257,7 +257,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                     required
                     value={formData.apiUrl || ''}
                     onChange={e => setFormData({ ...formData, apiUrl: e.target.value })}
-                    className="flex-1 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all"
+                    className="flex-1 px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all"
                     placeholder="E.g., https://api.example.com/v1/users"
                   />
                 </div>
@@ -271,7 +271,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                 rows={2}
                 value={formData.precondition}
                 onChange={e => setFormData({ ...formData, precondition: e.target.value })}
-                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all resize-y"
+                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all resize-y"
                 placeholder="Optional preconditions..."
               />
             </div>
@@ -287,7 +287,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
                 rows={3}
                 value={formData.expectedResult}
                 onChange={e => setFormData({ ...formData, expectedResult: e.target.value })}
-                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-primary focus:ring-2 focus:ring-primary-container outline-none transition-all resize-y"
+                className="px-3 py-2 bg-surface-container-lowest border border-outline-variant rounded focus:border-[#1E707D] focus:ring-2 focus:ring-primary-container outline-none transition-all resize-y"
                 placeholder="What is the expected outcome?"
               />
             </div>
@@ -309,7 +309,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
             type="submit"
             form="testCaseForm"
             disabled={isSubmitting}
-            className="px-4 py-2 bg-primary text-on-primary hover:bg-primary-fixed-variant rounded font-medium transition-colors shadow flex items-center gap-2"
+            className="px-4 py-2 bg-[#1E707D] text-white hover:bg-primary-fixed-variant rounded font-medium transition-colors shadow flex items-center gap-2"
           >
             {isSubmitting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
             {testCase ? 'Save Changes' : 'Create Test Case'}
