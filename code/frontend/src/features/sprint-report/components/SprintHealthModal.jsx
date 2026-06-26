@@ -2,6 +2,83 @@ import React, { useState, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import axiosInstance from '@api/axiosConfig';
 
+const SECTION_META = {
+  'Performance Summary': { icon: 'bar_chart', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
+  'Strengths':           { icon: 'thumb_up',  color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
+  'Areas for Improvement': { icon: 'edit_note', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
+  'Potential Risks':     { icon: 'warning',   color: 'text-rose-600', bg: 'bg-rose-50 border-rose-200' },
+};
+
+function AiEvaluationPanel({ text, onChange }) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  const sections = useMemo(() => {
+    const result = [];
+    const lines = text.split('\n');
+    let current = null;
+    for (const line of lines) {
+      if (line.startsWith('## ')) {
+        if (current) result.push(current);
+        current = { title: line.replace('## ', '').trim(), lines: [] };
+      } else if (current) {
+        current.lines.push(line);
+      }
+    }
+    if (current) result.push(current);
+    return result;
+  }, [text]);
+
+  if (isEditing) {
+    return (
+      <div className="space-y-2">
+        <textarea
+          value={text}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-48 p-3 bg-surface border border-outline-variant rounded-lg text-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition-all shadow-inner font-mono"
+        />
+        <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-primary hover:underline">
+          ← Back to preview
+        </button>
+      </div>
+    );
+  }
+
+  if (sections.length === 0) {
+    return <p className="text-sm text-on-surface-variant italic">{text}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {sections.map((section) => {
+          const meta = SECTION_META[section.title] || { icon: 'info', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' };
+          const bodyLines = section.lines.filter(l => l.trim());
+          return (
+            <div key={section.title} className={`rounded-lg border p-3 ${meta.bg}`}>
+              <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1 ${meta.color}`}>
+                <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+                {section.title}
+              </p>
+              <ul className="space-y-1">
+                {bodyLines.map((line, i) => (
+                  <li key={i} className="text-xs text-on-surface leading-relaxed">
+                    {line.startsWith('- ') ? (
+                      <span className="flex gap-1.5"><span className={`mt-1 shrink-0 ${meta.color}`}>•</span>{line.slice(2)}</span>
+                    ) : line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+      <button onClick={() => setIsEditing(true)} className="text-xs font-bold text-on-surface-variant hover:text-primary hover:underline">
+        ✏ Edit before pinging
+      </button>
+    </div>
+  );
+}
+
 export default function SprintHealthModal({ isOpen, onClose, tasks, loading, onOpenTask, activeProject, activeSprintId }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [isPinging, setIsPinging] = useState(false);
@@ -221,12 +298,12 @@ export default function SprintHealthModal({ isOpen, onClose, tasks, loading, onO
             {/* AI Evaluation Panel */}
             {selectedMember && (
               <div className="bg-surface-bright px-5 py-4 border-b border-outline-variant">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold flex items-center gap-2 text-on-surface">
                     <span className="material-symbols-outlined text-primary text-[18px]">temp_preferences_custom</span>
                     AI Evaluation for {selectedMember}
                   </h3>
-                  <button 
+                  <button
                     onClick={handleGenerateAiComment}
                     disabled={isGeneratingAi}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -236,11 +313,9 @@ export default function SprintHealthModal({ isOpen, onClose, tasks, loading, onO
                   </button>
                 </div>
                 {memberComments[selectedMember] !== undefined && (
-                  <textarea
-                    value={memberComments[selectedMember]}
-                    onChange={(e) => setMemberComments(prev => ({ ...prev, [selectedMember]: e.target.value }))}
-                    className="w-full h-20 p-3 bg-surface border border-outline-variant rounded-lg text-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition-all shadow-inner"
-                    placeholder="AI evaluation will appear here. You can edit it before pinging..."
+                  <AiEvaluationPanel
+                    text={memberComments[selectedMember]}
+                    onChange={(val) => setMemberComments(prev => ({ ...prev, [selectedMember]: val }))}
                   />
                 )}
               </div>

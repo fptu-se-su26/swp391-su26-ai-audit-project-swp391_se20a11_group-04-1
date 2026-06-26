@@ -439,11 +439,11 @@ export default function JobDashboardPage() {
                   <div className="flex justify-between items-start mb-2">
                     <p className="text-sm font-bold uppercase text-gray-600">{comp.component}</p>
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      comp.status === 'UP' ? 'bg-green-100 text-green-700' :
-                      comp.status === 'WARN' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
+                      comp.status === 'UP' ? 'bg-emerald-100 text-emerald-800' :
+                      comp.status === 'WARN' ? 'bg-amber-100 text-amber-800' :
+                      'bg-rose-100 text-rose-800'
                     }`}>
-                      {comp.status}
+                      {comp.status === 'UP' ? 'HEALTHY' : comp.status === 'WARN' ? 'DEGRADED' : 'DOWN'}
                     </span>
                   </div>
                   <p className="text-lg font-semibold text-gray-800">{comp.message || 'Healthy'}</p>

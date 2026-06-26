@@ -42,6 +42,8 @@ export default function SprintReportPage() {
   const [sprintHealthLoading, setSprintHealthLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDetailLoading, setReportDetailLoading] = useState(false)
+  const [completionSummary, setCompletionSummary] = useState(null)
+  const [completionSummaryLoading, setCompletionSummaryLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const exportRef = useRef(null)
@@ -109,6 +111,25 @@ export default function SprintReportPage() {
   useEffect(() => {
     loadReports()
   }, [loadReports])
+
+  useEffect(() => {
+    const loadCompletionSummary = async () => {
+      if (!activeProject?.id || !selectedSprintId) {
+        setCompletionSummary(null)
+        return
+      }
+      setCompletionSummaryLoading(true)
+      try {
+        const data = await sprintReportService.getCompletionSummary(activeProject.id, selectedSprintId)
+        setCompletionSummary(data || null)
+      } catch (error) {
+        setCompletionSummary(null)
+      } finally {
+        setCompletionSummaryLoading(false)
+      }
+    }
+    loadCompletionSummary()
+  }, [activeProject?.id, selectedSprintId])
 
   useEffect(() => {
     const focusRequestedReport = async () => {
@@ -402,9 +423,10 @@ export default function SprintReportPage() {
                   selectedReport={selectedReport}
                   selectedReportId={selectedReportId}
                   sprintReports={sprintReports}
-                  reportLoading={reportLoading || reportDetailLoading}
+                  reportLoading={reportLoading || reportDetailLoading || completionSummaryLoading}
                   members={members}
                   liveMetrics={liveReportMetrics}
+                  completionSummary={completionSummary}
                 />
 
                 {/* Call To Action for Sprint Health */}

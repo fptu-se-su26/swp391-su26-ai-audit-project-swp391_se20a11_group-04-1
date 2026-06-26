@@ -11,6 +11,9 @@ export const sprintReportService = {
   getSprintSummary: (projectId, sprintId) =>
     axiosInstance.get(`/v1/projects/${projectId}/reports/sprints/${sprintId}/summary`).then(unwrap),
 
+  getCompletionSummary: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/sprints/${sprintId}/completion-summary`).then(unwrap),
+
   getSprintHealth: (projectId, sprintId) =>
     axiosInstance.get(`/v1/projects/${projectId}/sla/sprint-health`, { params: { sprintId } }).then(unwrap),
 

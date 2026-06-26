@@ -69,4 +69,7 @@ public interface SprintRepository extends JpaRepository<Sprint, Long> {
 
     @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.status = :status AND s.endDate < :date")
     List<Sprint> findActiveSprintsEndedBefore(@Param("status") SprintStatus status, @Param("date") LocalDate date);
+
+    @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.status = 'COMPLETED' AND NOT EXISTS (SELECT sc FROM SprintCompletionSummary sc WHERE sc.sprint.id = s.id)")
+    List<Sprint> findCompletedSprintsWithoutSummary();
 }

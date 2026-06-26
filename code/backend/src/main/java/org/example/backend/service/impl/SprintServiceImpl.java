@@ -12,6 +12,7 @@ import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.constant.SyncTriggerType;
 import org.example.backend.dto.event.SyncEvent;
+import org.example.backend.service.SprintCompletionService;
 import org.example.backend.service.SprintService;
 import org.example.backend.service.sla.TaskSlaRuleService;
 import org.springframework.context.ApplicationEventPublisher;
@@ -40,6 +41,7 @@ public class SprintServiceImpl implements SprintService {
     private final RequirementRepository requirementRepository;
     private final TaskSlaRuleService taskSlaRuleService;
     private final ApplicationEventPublisher eventPublisher;
+    private final SprintCompletionService sprintCompletionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -122,14 +124,18 @@ public class SprintServiceImpl implements SprintService {
         validateScheduleRules(projectId, sprint.getId(), sprint.getStartDate(), sprint.getEndDate(), nextStatus);
         sprint.setStatus(nextStatus);
         Sprint savedSprint = sprintRepository.save(sprint);
-        
-        eventPublisher.publishEvent(new SyncEvent(this, 
-            SyncTriggerType.SPRINT_STATUS_CHANGED, 
-            "Sprint", 
-            savedSprint.getId(), 
+
+        eventPublisher.publishEvent(new SyncEvent(this,
+            SyncTriggerType.SPRINT_STATUS_CHANGED,
+            "Sprint",
+            savedSprint.getId(),
             Map.of("projectId", savedSprint.getProject().getId())
         ));
-        
+
+        if (nextStatus == SprintStatus.COMPLETED) {
+            sprintCompletionService.generate(savedSprint.getId(), "MANUAL");
+        }
+
         return toSprintResponse(savedSprint);
     }
 
