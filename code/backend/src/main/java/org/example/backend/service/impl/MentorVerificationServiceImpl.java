@@ -54,7 +54,12 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
 
     @Override
     public List<MentorVerificationRequest> getAllPendingRequests() {
-        return verificationRepository.findByStatus(VerificationRequestStatus.PENDING);
+        return verificationRepository.findByStatusWithUserAndProfile(VerificationRequestStatus.PENDING);
+    }
+
+    @Override
+    public List<MentorVerificationRequest> getAllRequests() {
+        return verificationRepository.findAllWithUserAndProfileOrderByCreatedAtDesc();
     }
 
     @Override

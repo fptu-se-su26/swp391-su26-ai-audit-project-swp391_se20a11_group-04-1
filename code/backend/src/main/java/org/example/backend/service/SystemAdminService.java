@@ -567,6 +567,8 @@ public class SystemAdminService {
                     .appealResolvedAt(latestAppeal != null ? latestAppeal.getResolvedAt() : null)
                     .appealResolvedByUsername(latestAppeal != null && latestAppeal.getResolvedBy() != null ? latestAppeal.getResolvedBy().getUsername() : null)
                     .lockReason(u.getLockReason())
+                    .verifyStatus(u.getVerifyStatus() != null ? u.getVerifyStatus().name() : "UNVERIFIED")
+                    .systemRole(u.getSystemRole() != null ? u.getSystemRole().getName() : "STUDENT")
                     .build();
             })
             .collect(Collectors.toList());

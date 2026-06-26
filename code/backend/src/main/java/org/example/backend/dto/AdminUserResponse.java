@@ -26,4 +26,6 @@ public class AdminUserResponse {
     private LocalDateTime appealResolvedAt;
     private String appealResolvedByUsername;
     private String lockReason;
+    private String verifyStatus;
+    private String systemRole;
 }

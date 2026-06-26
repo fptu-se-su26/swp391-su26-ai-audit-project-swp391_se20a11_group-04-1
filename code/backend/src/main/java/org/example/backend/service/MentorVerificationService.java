@@ -10,6 +10,8 @@ public interface MentorVerificationService {
 
     List<MentorVerificationRequest> getAllPendingRequests();
 
+    List<MentorVerificationRequest> getAllRequests();
+
     List<MentorVerificationRequest> getUserRequests(Long userId);
 
     MentorVerificationRequest getRequestById(Long requestId);

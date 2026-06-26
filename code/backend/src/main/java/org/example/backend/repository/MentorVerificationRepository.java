@@ -15,6 +15,12 @@ public interface MentorVerificationRepository extends JpaRepository<MentorVerifi
 
     List<MentorVerificationRequest> findByStatus(VerificationRequestStatus status);
     
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM MentorVerificationRequest r JOIN FETCH r.user LEFT JOIN FETCH r.user.profile WHERE r.status = :status ORDER BY r.createdAt DESC")
+    List<MentorVerificationRequest> findByStatusWithUserAndProfile(@org.springframework.data.repository.query.Param("status") VerificationRequestStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT r FROM MentorVerificationRequest r JOIN FETCH r.user LEFT JOIN FETCH r.user.profile ORDER BY r.createdAt DESC")
+    List<MentorVerificationRequest> findAllWithUserAndProfileOrderByCreatedAtDesc();
+    
     Optional<MentorVerificationRequest> findByUserIdAndStatus(Long userId, VerificationRequestStatus status);
 
     List<MentorVerificationRequest> findByUserIdOrderByCreatedAtDesc(Long userId);

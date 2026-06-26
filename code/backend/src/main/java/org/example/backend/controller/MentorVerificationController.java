@@ -75,6 +75,38 @@ public class MentorVerificationController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getAllRequests() {
+        List<MentorVerificationRequest> requests = verificationService.getAllRequests();
+        
+        List<Map<String, Object>> response = requests.stream().map(req -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", req.getId());
+            map.put("userId", req.getUser().getId());
+            map.put("username", req.getUser().getUsername());
+            map.put("email", req.getUser().getEmail());
+            
+            String fullName = req.getUser().getProfile() != null 
+                    ? req.getUser().getProfile().getFullName() 
+                    : req.getUser().getUsername();
+            map.put("fullName", fullName);
+            
+            String avatarUrl = req.getUser().getProfile() != null 
+                    ? req.getUser().getProfile().getAvatarUrl() 
+                    : null;
+            map.put("avatarUrl", avatarUrl);
+            
+            map.put("status", req.getStatus().name());
+            map.put("createdAt", req.getCreatedAt());
+            map.put("message", req.getMessage());
+            map.put("cardImageUrl", "/api/v1/mentor-verifications/requests/" + req.getId() + "/card-image");
+            return map;
+        }).toList();
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/pending")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getPendingRequests() {
