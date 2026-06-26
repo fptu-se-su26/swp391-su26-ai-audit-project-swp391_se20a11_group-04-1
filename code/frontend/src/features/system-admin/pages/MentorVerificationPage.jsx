@@ -14,6 +14,9 @@ const MentorVerificationPage = () => {
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [dismissedBanner, setDismissedBanner] = useState(false);
 
+  // Expanded users state (tracks which username's history is expanded)
+  const [expandedUsers, setExpandedUsers] = useState({});
+
   // Modals / Lightbox state
   const [selectedImage, setSelectedImage] = useState(null);
   const [requestToReject, setRequestToReject] = useState(null);
@@ -25,7 +28,6 @@ const MentorVerificationPage = () => {
     setError(null);
     try {
       const res = await axiosInstance.get('/v1/mentor-verifications');
-      // Backend returns list directly
       setRequests(res.data || []);
     } catch (err) {
       console.error('Fetch requests error:', err);
@@ -48,7 +50,15 @@ const MentorVerificationPage = () => {
     };
   }, [selectedImage]);
 
-  // Stats calculation
+  // Helper to toggle expand/collapse for a user
+  const toggleExpandUser = (username) => {
+    setExpandedUsers(prev => ({
+      ...prev,
+      [username]: !prev[username]
+    }));
+  };
+
+  // Stats calculation based on raw requests
   const totalRequests = requests.length;
   const pendingCount = requests.filter(r => r.status === 'PENDING').length;
   const approvedCount = requests.filter(r => r.status === 'APPROVED').length;
@@ -95,7 +105,6 @@ const MentorVerificationPage = () => {
   const handleViewCard = async (relativeUrl) => {
     const loadingToast = toast.loading('Đang tải ảnh thẻ bảo mật...');
     try {
-      // Remove '/api' prefix since axiosInstance baseURL already includes it
       const cleanUrl = relativeUrl.startsWith('/api') 
         ? relativeUrl.substring(4) 
         : relativeUrl;
@@ -114,26 +123,60 @@ const MentorVerificationPage = () => {
     }
   };
 
+  // Group requests by user (username)
+  const getGroupedUsers = () => {
+    const groups = {};
+    
+    requests.forEach(req => {
+      const key = req.username;
+      if (!groups[key]) {
+        groups[key] = {
+          username: req.username,
+          email: req.email,
+          fullName: req.fullName,
+          avatarUrl: req.avatarUrl,
+          requests: []
+        };
+      }
+      groups[key].requests.push(req);
+    });
 
-  // Filter requests based on search, status filter and banner filter
-  const filteredRequests = requests.filter(req => {
+    // Sort requests within each group by createdAt desc and determine latest
+    const userGroups = Object.values(groups).map(group => {
+      const sortedReqs = [...group.requests].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return {
+        ...group,
+        requests: sortedReqs,
+        latestRequest: sortedReqs[0]
+      };
+    });
+
+    // Sort groups by latest request's createdAt desc
+    userGroups.sort((a, b) => new Date(b.latestRequest.createdAt) - new Date(a.latestRequest.createdAt));
+    
+    return userGroups;
+  };
+
+  // Filter groups based on search terms and status filters
+  const groupedUsers = getGroupedUsers();
+  const filteredGroups = groupedUsers.filter(group => {
     // Search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      const matchesName = req.fullName.toLowerCase().includes(searchLower);
-      const matchesEmail = req.email.toLowerCase().includes(searchLower);
-      const matchesUsername = req.username.toLowerCase().includes(searchLower);
+      const matchesName = group.fullName.toLowerCase().includes(searchLower);
+      const matchesEmail = group.email.toLowerCase().includes(searchLower);
+      const matchesUsername = group.username.toLowerCase().includes(searchLower);
       if (!matchesName && !matchesEmail && !matchesUsername) return false;
     }
 
-    // Banner filter override
+    // Banner filter override (Pending only)
     if (showPendingOnly) {
-      return req.status === 'PENDING';
+      return group.latestRequest.status === 'PENDING';
     }
 
     // Status filter
     if (statusFilter !== 'ALL') {
-      return req.status === statusFilter;
+      return group.latestRequest.status === statusFilter;
     }
 
     return true;
@@ -149,6 +192,131 @@ const MentorVerificationPage = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Status Badge Renderer Helper
+  const renderStatusBadge = (status, message) => {
+    let bgClass = '';
+    let dotClass = '';
+    let text = '';
+
+    switch (status) {
+      case 'APPROVED':
+        bgClass = 'bg-green-100 text-green-800';
+        dotClass = 'bg-green-500';
+        text = 'Đã xác minh';
+        break;
+      case 'REJECTED':
+        bgClass = 'bg-red-100 text-red-800';
+        dotClass = 'bg-red-500';
+        text = 'Bị từ chối';
+        break;
+      case 'CANCELLED':
+        bgClass = 'bg-gray-100 text-gray-700 border border-gray-255';
+        dotClass = 'bg-gray-400';
+        text = 'Đã hết hạn';
+        break;
+      case 'PENDING':
+      default:
+        bgClass = 'bg-amber-100 text-amber-800 animate-pulse';
+        dotClass = 'bg-amber-500';
+        text = 'Đang chờ duyệt';
+        break;
+    }
+
+    return (
+      <div className="flex flex-col gap-1 items-start">
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${bgClass}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`}></span>
+          {text}
+        </span>
+        {status === 'REJECTED' && message && (
+          <span className="text-xxs text-red-500 max-w-xs truncate block" title={message}>
+            Lý do: {message}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Card view button helper
+  const renderCardButton = (status, cardImageUrl) => {
+    if (status === 'CANCELLED') {
+      return (
+        <span 
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xxs font-semibold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none select-none"
+          title="Tài liệu đính kèm đã tự động xóa để bảo vệ quyền riêng tư."
+        >
+          <span className="material-symbols-outlined text-sm">no_photography</span>
+          Ảnh đã bị xóa
+        </span>
+      );
+    }
+
+    return (
+      <div 
+        onClick={() => handleViewCard(cardImageUrl)}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xxs font-semibold bg-teal-50 text-teal-800 border border-teal-100 hover:bg-teal-100 hover:border-teal-300 transition-all cursor-pointer shadow-sm"
+      >
+        <span className="material-symbols-outlined text-sm">badge</span>
+        Xem ảnh thẻ
+      </div>
+    );
+  };
+
+  // Action column helper
+  const renderActionColumn = (req) => {
+    if (req.status === 'PENDING') {
+      return (
+        <div className="flex justify-end gap-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleApprove(req.id);
+            }}
+            className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xxs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[10px] font-bold">done</span>
+            Duyệt
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setRequestToReject(req);
+            }}
+            className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xxs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[10px] font-bold">close</span>
+            Từ chối
+          </button>
+        </div>
+      );
+    }
+
+    let text = '';
+    let colorClass = '';
+    let icon = '';
+
+    if (req.status === 'APPROVED') {
+      text = 'Đã phê duyệt';
+      colorClass = 'text-green-600';
+      icon = 'check_circle';
+    } else if (req.status === 'REJECTED') {
+      text = 'Đã từ chối';
+      colorClass = 'text-red-600';
+      icon = 'cancel';
+    } else if (req.status === 'CANCELLED') {
+      text = 'Đã hết hạn';
+      colorClass = 'text-gray-500';
+      icon = 'history';
+    }
+
+    return (
+      <div className={`text-xxs ${colorClass} font-semibold flex items-center gap-1 justify-end`}>
+        <span className="material-symbols-outlined text-xs">{icon}</span>
+        {text}
+      </div>
+    );
   };
 
   return (
@@ -177,7 +345,7 @@ const MentorVerificationPage = () => {
               <div>
                 <h4 className="font-bold text-amber-900 text-sm">Yêu cầu xác minh tài khoản mới đang chờ duyệt</h4>
                 <p className="text-xs text-amber-800 mt-0.5">
-                  Hệ thống ghi nhận có <span className="font-bold text-amber-950">{pendingCount}</span> tài khoản đã gửi ảnh xác minh giảng viên gần đây và đang đợi phê duyệt.
+                  Hệ thống ghi nhận có <span className="font-bold text-amber-950">{pendingCount}</span> yêu cầu đang đợi phê duyệt.
                 </p>
               </div>
             </div>
@@ -210,7 +378,7 @@ const MentorVerificationPage = () => {
               <span className="material-symbols-outlined text-base">filter_alt</span>
               <span>
                 Đang hiển thị bộ lọc thông minh:{' '}
-                <span className="font-bold">Chỉ những tài khoản đang chờ phê duyệt</span>
+                <span className="font-bold">Chỉ những tài khoản có yêu cầu mới nhất đang chờ phê duyệt</span>
               </span>
             </div>
             <button
@@ -244,14 +412,15 @@ const MentorVerificationPage = () => {
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
-                setShowPendingOnly(false); // reset banner filter if manual status selected
+                setShowPendingOnly(false);
               }}
               className="px-2.5 py-1.5 border border-gray-350 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#1E707D] bg-white text-gray-700 font-medium"
             >
-              <option value="ALL">Tất cả trạng thái</option>
+              <option value="ALL">Tất cả trạng thái gần nhất</option>
               <option value="PENDING">Đang chờ duyệt</option>
               <option value="APPROVED">Đã xác minh (Thành công)</option>
               <option value="REJECTED">Bị từ chối</option>
+              <option value="CANCELLED">Đã hết hạn</option>
             </select>
           </div>
         </div>
@@ -275,142 +444,124 @@ const MentorVerificationPage = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <th className="px-6 py-4">ID</th>
+                    <th className="w-10 px-4 py-4"></th>
                     <th className="px-6 py-4">Người dùng</th>
-                    <th className="px-6 py-4">Trạng thái</th>
-                    <th className="px-6 py-4">Thẻ giảng viên (Tài liệu)</th>
-                    <th className="px-6 py-4">Ngày gửi yêu cầu</th>
-                    <th className="px-6 py-4 text-right">Hành động</th>
+                    <th className="px-6 py-4">Trạng thái gần nhất</th>
+                    <th className="px-6 py-4">Ảnh thẻ gần nhất</th>
+                    <th className="px-6 py-4">Cập nhật cuối</th>
+                    <th className="px-6 py-4 text-right">Hành động nhanh</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
-                  {filteredRequests.length > 0 ? (
-                    filteredRequests.map((req) => (
-                      <tr key={req.id} className="hover:bg-gray-50/50 transition-colors">
-                        {/* Request ID */}
-                        <td className="px-6 py-4">
-                          <span className="font-mono font-bold text-gray-500">#{req.id}</span>
-                        </td>
-
-                        {/* User details */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={req.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80'}
-                              alt={req.fullName}
-                              className="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm"
-                            />
-                            <div>
-                              <div className="font-semibold text-gray-900 flex items-center gap-1.5 text-xs">
-                                {req.fullName}
-                                <span className="text-xxs font-normal text-gray-400">(@{req.username})</span>
-                              </div>
-                              <div className="text-xxs text-gray-500">{req.email}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Status Badge */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                req.status === 'APPROVED'
-                                  ? 'bg-green-100 text-green-800'
-                                  : req.status === 'REJECTED'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-amber-100 text-amber-800 animate-pulse'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  req.status === 'APPROVED'
-                                    ? 'bg-green-500'
-                                    : req.status === 'REJECTED'
-                                    ? 'bg-red-500'
-                                    : 'bg-amber-500'
-                                }`}
-                              ></span>
-                              {req.status === 'APPROVED'
-                                ? 'Đã xác minh'
-                                : req.status === 'REJECTED'
-                                ? 'Bị từ chối'
-                                : 'Đang chờ duyệt'}
-                            </span>
-                            {req.status === 'REJECTED' && req.message && (
-                              <span className="text-xxs text-red-500 max-w-xs truncate" title={req.message}>
-                                Lý do: {req.message}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Lecturer Card Attachment (Secure On-Demand Preview) */}
-                        <td className="px-6 py-4">
-                          <div 
-                            onClick={() => handleViewCard(req.cardImageUrl)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-100 hover:bg-teal-100 hover:border-teal-300 transition-all cursor-pointer shadow-sm"
+                  {filteredGroups.length > 0 ? (
+                    filteredGroups.map((group) => {
+                      const isExpanded = !!expandedUsers[group.username];
+                      const latest = group.latestRequest;
+                      
+                      return (
+                        <React.Fragment key={group.username}>
+                          {/* Main Row */}
+                          <tr 
+                            onClick={() => toggleExpandUser(group.username)}
+                            className="hover:bg-gray-50/70 transition-colors cursor-pointer"
                           >
-                            <span className="material-symbols-outlined text-sm">badge</span>
-                            Xem ảnh thẻ
-                          </div>
-                        </td>
-
-                        {/* Created At */}
-                        <td className="px-6 py-4 text-gray-500 text-xs">
-                          {formatDate(req.createdAt)}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4 text-right">
-                          {req.status === 'PENDING' ? (
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => handleApprove(req.id)}
-                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1"
-                              >
-                                <span className="material-symbols-outlined text-xs">done</span>
-                                Duyệt
-                              </button>
-                              <button
-                                onClick={() => setRequestToReject(req)}
-                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1"
-                              >
-                                <span className="material-symbols-outlined text-xs">close</span>
-                                Từ chối
-                              </button>
-                            </div>
-                        ) : (
-                          <div className="text-xs text-gray-400 font-medium">
-                            {req.status === 'APPROVED' ? (
-                              <span className="text-green-600 flex items-center gap-1 justify-end">
-                                <span className="material-symbols-outlined text-xs">check_circle</span>
-                                Đã phê duyệt
+                            {/* Collapse/Expand toggle button */}
+                            <td className="px-4 py-4 text-center">
+                              <span className={`material-symbols-outlined text-gray-400 text-lg transition-transform duration-200 inline-block ${isExpanded ? 'rotate-180' : ''}`}>
+                                keyboard_arrow_down
                               </span>
-                            ) : (
-                              <span className="text-red-600 flex items-center gap-1 justify-end">
-                                <span className="material-symbols-outlined text-xs">cancel</span>
-                                Đã từ chối
-                              </span>
-                            )}
-                          </div>
-                        )}
+                            </td>
+
+                            {/* User details */}
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={group.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80'}
+                                  alt={group.fullName}
+                                  className="w-10 h-10 rounded-full object-cover border border-gray-100 shadow-sm"
+                                />
+                                <div>
+                                  <div className="font-semibold text-gray-900 flex items-center gap-1.5 text-xs">
+                                    {group.fullName}
+                                    <span className="text-xxs font-normal text-gray-400">(@{group.username})</span>
+                                  </div>
+                                  <div className="text-xxs text-gray-500">{group.email}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Latest Status */}
+                            <td className="px-6 py-4">
+                              {renderStatusBadge(latest.status, latest.message)}
+                            </td>
+
+                            {/* Latest Attachment */}
+                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                              {renderCardButton(latest.status, latest.cardImageUrl)}
+                            </td>
+
+                            {/* Last Updated Date */}
+                            <td className="px-6 py-4 text-gray-500 text-xs">
+                              {formatDate(latest.createdAt)}
+                            </td>
+
+                            {/* Quick Actions */}
+                            <td className="px-6 py-4 text-right">
+                              {renderActionColumn(latest)}
+                            </td>
+                          </tr>
+
+                          {/* Expanded History Row */}
+                          {isExpanded && (
+                            <tr className="bg-gray-50/30">
+                              <td colSpan="6" className="px-8 py-3 border-t border-b border-gray-100">
+                                <div className="bg-gray-50/70 border border-gray-200 rounded-xl p-3.5 shadow-inner">
+                                  <div className="flex items-center gap-2 mb-2 text-xs font-bold text-gray-600">
+                                    <span className="material-symbols-outlined text-sm">history</span>
+                                    Lịch sử xác minh của {group.fullName} ({group.requests.length} yêu cầu)
+                                  </div>
+                                  <table className="w-full text-left border-collapse bg-white rounded-lg border border-gray-150 overflow-hidden text-xs shadow-sm">
+                                    <thead>
+                                      <tr className="bg-gray-100 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                        <th className="px-4 py-2.5">ID Yêu cầu</th>
+                                        <th className="px-4 py-2.5">Trạng thái</th>
+                                        <th className="px-4 py-2.5">Ảnh đính kèm</th>
+                                        <th className="px-4 py-2.5">Ngày gửi</th>
+                                        <th className="px-4 py-2.5 text-right">Xử lý</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {group.requests.map((hist) => (
+                                        <tr key={hist.id} className="hover:bg-gray-50/50 transition-colors">
+                                          <td className="px-4 py-2.5 font-mono font-bold text-gray-500">#{hist.id}</td>
+                                          <td className="px-4 py-2.5">{renderStatusBadge(hist.status, hist.message)}</td>
+                                          <td className="px-4 py-2.5">{renderCardButton(hist.status, hist.cardImageUrl)}</td>
+                                          <td className="px-4 py-2.5 text-gray-500">{formatDate(hist.createdAt)}</td>
+                                          <td className="px-4 py-2.5 text-right">{renderActionColumn(hist)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                        <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">inbox</span>
+                        Không tìm thấy yêu cầu xác minh nào phù hợp.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                      <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">inbox</span>
-                      Không tìm thấy yêu cầu xác minh nào phù hợp.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Lightbox / Secure Image Preview Modal */}
