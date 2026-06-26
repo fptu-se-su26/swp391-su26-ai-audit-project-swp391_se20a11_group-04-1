@@ -145,36 +145,44 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     @Override
     public String splitTask(String taskDataJson) {
         String prompt = "SYSTEM:\n" +
-                "You are an expert Technical Project Manager. Your job is to split a large task into smaller, manageable sub-tasks.\n\n" +
-                "RULES:\n" +
-                "- You MUST break the task down into at least 2 to 4 sub-tasks. You can split by technical layers (e.g. Frontend vs Backend, UI vs Logic, Database vs API, Setup vs Execution).\n" +
-                "- DO NOT return an empty sub_tasks array. You must find a way to split it.\n" +
-                "- All text outputs (title, description, checklists, reason) MUST be in Vietnamese.\n" +
-                "- Sub-tasks MUST strictly inherit the exact priority of the original task.\n" +
-                "- Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
-                "- You MUST generate 3 to 5 'checklists' items for each sub-task as the Definition of Done. Make them specific and testable.\n" +
-                "- Return JSON only. No extra text.\n\n" +
+                "You are an AI that ONLY outputs JSON. Your sole purpose is to forcibly slice a task into 2 or more smaller sub-tasks.\n\n" +
+                "CRITICAL INSTRUCTIONS (FAILURE IS NOT AN OPTION):\n" +
+                "1. You MUST return a JSON object with a 'sub_tasks' array containing AT LEAST 2 items.\n" +
+                "2. NEVER return an empty array []. NEVER return a 'reason'. NEVER refuse to split.\n" +
+                "3. If the task is already extremely small (e.g., 'Update color to red'), you MUST still split it by phases. For example: Subtask 1: 'Research exact hex code', Subtask 2: 'Apply color code to CSS'.\n" +
+                "4. All text outputs MUST be in Vietnamese.\n" +
+                "5. Inherit priority exactly.\n" +
+                "6. Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
+                "7. Provide 3-5 'checklists' per sub-task.\n\n" +
+                "EXAMPLE OF FORCED SPLITTING FOR A TINY TASK:\n" +
+                "Input: {\"title\": \"Đổi màu nút thành đỏ\", \"description\": \"Cập nhật mã màu.\"}\n" +
+                "Output:\n" +
+                "{\n" +
+                "  \"sub_tasks\": [\n" +
+                "    {\"temp_id\": \"sub1\", \"title\": \"Xác định mã màu\", \"description\": \"Tìm mã màu đỏ chuẩn.\", \"checklists\": [\"Lấy mã màu\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"RESEARCH\", \"priority\": \"LOW\"},\n" +
+                "    {\"temp_id\": \"sub2\", \"title\": \"Cập nhật CSS\", \"description\": \"Thay đổi màu trong file CSS.\", \"checklists\": [\"Sửa code\", \"Test\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"DEVELOPMENT\", \"priority\": \"LOW\", \"depends_on\": [\"sub1\"]}\n" +
+                "  ]\n" +
+                "}\n\n" +
                 "USER:\n" +
                 "Original Task data:\n" +
                 taskDataJson + "\n\n" +
-                "Return ONLY a valid JSON object of the sub-tasks:\n" +
+                "Return ONLY a valid JSON object in this exact structure. DO NOT wrap in markdown blocks, just raw JSON:\n" +
                 "{\n" +
                 "  \"sub_tasks\": [\n" +
                 "    {\n" +
                 "      \"temp_id\": \"New unique string like sub1, sub2\",\n" +
                 "      \"title\": \"Clear action in Vietnamese\",\n" +
                 "      \"description\": \"Detailed scope in Vietnamese\",\n" +
-                "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
+                "      \"checklists\": [\"Actionable step 1\"],\n" +
                 "      \"estimated_hours\": 8.0,\n" +
                 "      \"weight\": 1.0,\n" +
                 "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
                 "      \"priority\": \"Must match original\",\n" +
                 "      \"start_date\": \"YYYY-MM-DD\",\n" +
                 "      \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
-                "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks it depends on\"]\n" +
+                "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks\"]\n" +
                 "    }\n" +
-                "  ],\n" +
-                "  \"reason\": \"(Optional) Explain briefly why it cannot be split if sub_tasks is empty\"\n" +
+                "  ]\n" +
                 "}";
         return geminiService.generateText(prompt);
     }

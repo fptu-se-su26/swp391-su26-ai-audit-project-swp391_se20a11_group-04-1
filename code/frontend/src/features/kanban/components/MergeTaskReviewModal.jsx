@@ -82,7 +82,8 @@ const MergeTaskReviewModal = ({
               members={members}
               priorityColor={priorityColor}
               getTypeConfig={getTypeConfig}
-              onSave={(updatedTask) => setMergedTask(updatedTask)}
+              onUpdate={(updatedTask) => setMergedTask(updatedTask)}
+              onChangeSprint={(newSprintId) => setMergedTask({ ...mergedTask, sprint_id: newSprintId })}
               onEditStateChange={(editing) => setIsEditingTask(editing)}
             />
           </div>

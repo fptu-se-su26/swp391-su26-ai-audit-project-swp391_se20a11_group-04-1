@@ -1597,16 +1597,6 @@ public class TaskServiceImpl implements TaskService {
                 .build());
     }
 
-    private boolean isProjectLeader(Long projectId, Long userId) {
-        if (projectId == null || userId == null) return false;
-        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
-                .map(m -> m.getRole() != null &&
-                        m.getRole().getName() != null &&
-                        (m.getRole().getName().toLowerCase().contains("leader") || 
-                         m.getRole().getName().toLowerCase().contains("mentor")))
-                .orElse(false);
-    }
-
     private boolean isTightlyBoundToIssue(Task task) {
         if (task == null) return false;
         if (task.getGithubIssueNumber() != null) return true;

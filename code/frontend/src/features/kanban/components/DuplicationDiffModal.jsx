@@ -38,6 +38,16 @@ const DuplicationDiffModal = ({
             } else if (data && !data.checklists) {
               data.checklists = [];
             }
+            
+            // Map camelCase fields from TaskResponse to snake_case for EditableTaskCard
+            data.estimated_hours = data.estimatedHours;
+            data.task_type = data.type;
+            data.requirement_code = data.requirementCode;
+            data.use_case_code = data.useCaseCode;
+            data.start_date = data.startDate;
+            data.suggested_deadline = data.deadline;
+            data.assignee = data.primaryAssignee ? (data.primaryAssignee.fullName || data.primaryAssignee.username) : null;
+            
             setExistingTaskData(data);
           } else {
              // If we can't parse it, just create a dummy task
@@ -102,7 +112,7 @@ const DuplicationDiffModal = ({
             <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg font-bold flex items-center justify-between border border-orange-200 shadow-sm">
               <div className="flex items-center gap-2">
                  <span className="material-symbols-outlined text-[20px]">inventory_2</span>
-                 {activeDiffRisk.existing_task_id} đã tồn tại
+                 Task đã tồn tại
               </div>
               <span className="text-[11px] bg-white text-orange-600 px-2 py-0.5 rounded-full font-bold shadow-sm">
                  Ghi nhận từ Hệ thống

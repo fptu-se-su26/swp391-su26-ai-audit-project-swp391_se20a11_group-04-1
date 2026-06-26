@@ -6,7 +6,8 @@ const EditableTaskCard = ({
   members = [],
   priorityColor,
   getTypeConfig,
-  onSave,
+  onUpdate,
+  onChangeSprint,
   isMergingToExisting = false,
   readOnlyMode = false, // When true, doesn't allow editing (for the top half of modals)
   onEditStateChange // Callback to notify parent if card is currently being edited
@@ -48,8 +49,8 @@ const EditableTaskCard = ({
   };
 
   const handleSaveEdit = () => {
-    if (onSave) {
-      onSave({ ...task, ...editForm });
+    if (onUpdate) {
+      onUpdate({ ...task, ...editForm });
     }
     setIsEditing(false);
     if (onEditStateChange) onEditStateChange(false);
@@ -57,8 +58,8 @@ const EditableTaskCard = ({
 
   const handleQuickAssigneeChange = (e) => {
     if (readOnlyMode) return;
-    if (onSave) {
-      onSave({
+    if (onUpdate) {
+      onUpdate({
         ...task,
         suggested_assignee: {
           ...(task.suggested_assignee || {}),
@@ -324,6 +325,23 @@ const EditableTaskCard = ({
           </span>
         )}
 
+        {!readOnlyMode && onChangeSprint && (
+          <div className="relative inline-block">
+             <select
+               value={task.sprint_id || ''}
+               onChange={(e) => onChangeSprint(e.target.value)}
+               className="text-[12px] bg-white text-slate-700 px-2 py-0.5 rounded-full font-bold tracking-wider flex items-center gap-1 border border-slate-300 cursor-pointer hover:bg-slate-50 outline-none appearance-none pr-6"
+               style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .5rem top 50%', backgroundSize: '.65em auto' }}
+               title="Chọn Sprint"
+             >
+               <option value="">🗓 Chưa gán Sprint</option>
+               {sprints.map(s => (
+                 <option key={s.id} value={s.id}>🗓 {s.name}</option>
+               ))}
+             </select>
+          </div>
+        )}
+
         {isMergingToExisting && (
           <span className="text-[12px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-medium border border-teal-200">
             Merge to {task._existingTaskId}
@@ -360,15 +378,6 @@ const EditableTaskCard = ({
             </select>
           </div>
         
-        {task.sprint_id && sprints.find(s => s.id == task.sprint_id) && (
-          <>
-            <div className="w-px h-3 bg-slate-300"></div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-500">Sprint:</span>
-              <span className="text-indigo-600 font-medium">{sprints.find(s => s.id == task.sprint_id).name}</span>
-            </div>
-          </>
-        )}
       </div>
     </>
   );
