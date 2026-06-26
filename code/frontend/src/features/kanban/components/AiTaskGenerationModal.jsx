@@ -22,13 +22,15 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [reqs, ucs] = await Promise.all([
+      const [reqs, ucs, allTasks] = await Promise.all([
         requirementService.getRequirements(projectId),
-        useCaseService.getAllUseCases(projectId)
+        useCaseService.getAllUseCases(projectId),
+        taskService.getProjectTasks(projectId)
       ]);
 
       const reqsWithValidation = reqs.map(req => {
         const reqUseCases = ucs.filter(uc => uc.requirementId === req.id);
+        const reqTasks = allTasks.filter(t => t.requirementId === req.id);
         let isValid = true;
         let warning = '';
 
@@ -71,6 +73,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
         return {
           ...req,
           useCases: reqUseCases,
+          taskCount: reqTasks.length,
           isValid,
           warning
         };
@@ -217,6 +220,15 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
                             <span className="text-slate-800 text-sm font-medium">{req.title}</span>
                           </div>
                           <div className="flex items-center gap-2">
+                            <span 
+                              className={`text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                                req.taskCount > 0 
+                                  ? 'text-teal-600 bg-teal-50 border-teal-200' 
+                                  : 'text-slate-400 bg-slate-50 border-slate-100'
+                              }`}
+                            >
+                              {req.taskCount} Tasks
+                            </span>
                             <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                               {req.useCases?.length || 0} UC
                             </span>

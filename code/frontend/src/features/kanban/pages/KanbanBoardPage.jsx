@@ -13,6 +13,7 @@ import taskService from '../services/taskService'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 import { isIssueOwnedTask } from '../utils/taskMapper'
+import ConfirmModal from '../../../components/ui/ConfirmModal'
 
 const unique = (items) => [...new Set(items.filter(Boolean))]
 
@@ -40,6 +41,7 @@ const KanbanBoardPage = () => {
   const [reviewMoveModal, setReviewMoveModal] = useState(null)
   const [reviewMoveReason, setReviewMoveReason] = useState('')
   const [selectedTargetStatus, setSelectedTargetStatus] = useState('NEEDS_CHANGES')
+  const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '', payload: null })
 
   const [isAiTaskGenModalOpen, setIsAiTaskGenModalOpen] = useState(false)
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false)
@@ -387,10 +389,13 @@ const KanbanBoardPage = () => {
 
   const handleDeleteTask = (taskId) => {
     const task = tasks.find((item) => item.id === taskId)
-    const confirmed = window.confirm(`Delete ${task?.id || 'this task'}? This cannot be undone in the current board state.`)
-    if (confirmed) {
-      deleteTask(taskId)
-    }
+    setConfirmConfig({
+      isOpen: true,
+      action: 'DELETE_TASK',
+      title: 'Xóa Task',
+      message: `Xóa ${task?.id || 'Task này'}? Không thể hoàn tác.`,
+      payload: taskId
+    })
   }
 
   const handleSubmitTaskForm = (payload) => {
@@ -414,10 +419,13 @@ const KanbanBoardPage = () => {
   }
 
   const handleArchiveColumn = (column) => {
-    const confirmed = window.confirm(`Hide ${column.title}? Tasks in this column will stay in the database.`)
-    if (confirmed) {
-      archiveColumn(activeProject?.id, column.id)
-    }
+    setConfirmConfig({
+      isOpen: true,
+      action: 'ARCHIVE_COLUMN',
+      title: 'Ẩn cột',
+      message: `Ẩn cột ${column.title}? Task trong cột vẫn sẽ được lưu trên database.`,
+      payload: column.id
+    })
   }
 
   const handleSubmitReviewMove = async (event) => {
@@ -536,14 +544,13 @@ const KanbanBoardPage = () => {
         onClose={handleCancelGenerateAiTasks} 
       />
 
-      <AiTaskReviewBoard
         isOpen={!!aiGenerationId}
         generationId={aiGenerationId}
         projectId={activeProject?.id}
         onClose={() => setAiGenerationId(null)}
         onSuccess={() => {
           setAiGenerationId(null)
-          fetchBoardData()
+          fetchProjectTasks(activeProject?.id)
         }}
       />
 
@@ -658,6 +665,34 @@ const KanbanBoardPage = () => {
           </form>
         </div>
       )}
+      {isAiTaskGenModalOpen && (
+        <AiTaskReviewBoard
+          isOpen={isAiTaskGenModalOpen}
+          onClose={() => setIsAiTaskGenModalOpen(false)}
+          generationId={aiGenerationId}
+          projectId={activeProject?.id}
+          onSuccess={() => {
+            fetchProjectTasks(activeProject?.id)
+          }}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText="Xác nhận"
+        cancelText="Hủy"
+        onConfirm={() => {
+          if (confirmConfig.action === 'DELETE_TASK') {
+            deleteTask(confirmConfig.payload)
+          } else if (confirmConfig.action === 'ARCHIVE_COLUMN') {
+            archiveColumn(activeProject?.id, confirmConfig.payload)
+          }
+          setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
+        }}
+        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
     </div>
   )
 }

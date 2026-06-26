@@ -6,6 +6,7 @@ import EditableTaskCard from './EditableTaskCard';
 import SplitTaskReviewModal from './SplitTaskReviewModal';
 import MergeTaskReviewModal from './MergeTaskReviewModal';
 import DuplicationDiffModal from './DuplicationDiffModal';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 
 const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess }) => {
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   // Error Popup State
   const [actionError, setActionError] = useState(null); // { title: string, reason: string }
   const [isMerging, setIsMerging] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '' });
   
   const abortControllerRef = useRef(null);
 
@@ -62,7 +64,43 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       if (typeof payloadData === 'string') {
         try { payloadData = JSON.parse(payloadData); } catch(e) {}
       }
+      
       const generatedTasks = payloadData.tasks || [];
+      
+      if (generatedTasks.length === 0) {
+        toast.custom((t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-xl rounded-xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border-2 border-indigo-100`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <span className="material-symbols-outlined text-3xl text-emerald-500">check_circle</span>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-base font-bold text-slate-800">
+                    Đã phủ kín tính năng!
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Hệ thống AI nhận thấy các Requirement này đã được các Task hiện tại xử lý đầy đủ. Không cần tạo thêm Task mới để tránh trùng lặp.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-slate-200 bg-slate-50">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-16 border border-transparent flex flex-col items-center justify-center text-xs font-bold text-slate-500 hover:bg-slate-200 hover:text-slate-800 focus:outline-none transition-colors"
+              >
+                <span className="material-symbols-outlined mb-1">close</span>
+                Đóng
+              </button>
+            </div>
+          </div>
+        ), { duration: Infinity });
+        
+        onClose();
+        return;
+      }
+      
       setTasks(generatedTasks);
       setAssessment(payloadData.ai_critical_assessment || null);
 
@@ -126,20 +164,32 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   };
 
   const handleApproveSplit = (finalSubTasks) => {
-    const newTasks = [...tasks];
-    newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
-    setTasks(newTasks);
-    setSelectedIndices(new Set(newTasks.map((_, i) => i)));
+    setTasks(prevTasks => {
+      const newTasks = [...prevTasks];
+      newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
+      return newTasks;
+    });
+    setSelectedIndices(prev => {
+      // Need a simple recalculation logic here. If we expanded 1 task into N, 
+      // the set needs to be recomputed. Since we approve the split, let's just 
+      // select all tasks like we did before.
+      return new Set(Array.from({length: tasks.length - 1 + finalSubTasks.length}, (_, i) => i));
+    });
     setReviewingSplitData(null);
     setSplitSelectedIndex(null); // Clear after apply
     toast.success("Đã áp dụng Split!");
   };
 
   const handleApproveMerge = (finalMergedTask) => {
-    const newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
-    newTasks.unshift(finalMergedTask);
-    setTasks(newTasks);
-    setSelectedIndices(new Set(newTasks.map((_, i) => i)));
+    setTasks(prevTasks => {
+      const newTasks = prevTasks.filter((_, idx) => !mergeSelectedSet.has(idx));
+      newTasks.unshift(finalMergedTask);
+      return newTasks;
+    });
+    setSelectedIndices(prev => {
+       // Since tasks are shifted, just select all
+       return new Set(Array.from({length: tasks.length - mergeSelectedSet.size + 1}, (_, i) => i));
+    });
     setReviewingMergeData(null);
     setMergeSelectedSet(new Set()); // Clear after apply
     toast.success("Đã áp dụng Merge!");
@@ -238,7 +288,27 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   const handleResolveDiff = (action) => {
     if (activeDiffTaskIndex === null) return;
     if (action === 'DELETE_GENERATED') {
-      if (!window.confirm("Bạn có chắc chắn muốn xóa Task AI sinh ra này khỏi danh sách không?")) return;
+      setConfirmConfig({
+        isOpen: true,
+        action: 'DELETE_GENERATED',
+        title: 'Xóa Task AI',
+        message: 'Bạn có chắc chắn muốn xóa Task AI sinh ra này khỏi danh sách không?'
+      });
+    } else if (action === 'MERGE_INTO_EXISTING') {
+      setConfirmConfig({
+        isOpen: true,
+        action: 'MERGE_INTO_EXISTING',
+        title: 'Xác nhận gộp',
+        message: 'Xác nhận gộp? Khi phê duyệt, dữ liệu của Task cũ sẽ bị ghi đè hoàn toàn bởi Task AI này.'
+      });
+    } else if (action === 'KEEP_BOTH') {
+      executeResolveDiff('KEEP_BOTH');
+    }
+  };
+
+  const executeResolveDiff = (action) => {
+    if (activeDiffTaskIndex === null) return;
+    if (action === 'DELETE_GENERATED') {
       const updatedTasks = [...tasks];
       updatedTasks.splice(activeDiffTaskIndex, 1);
       setTasks(updatedTasks);
@@ -250,7 +320,6 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       });
       setSelectedIndices(newSet);
     } else if (action === 'MERGE_INTO_EXISTING') {
-      if (!window.confirm("Xác nhận gộp? Khi phê duyệt, dữ liệu của Task cũ sẽ bị ghi đè hoàn toàn bởi Task AI này.")) return;
       const updatedTasks = [...tasks];
       updatedTasks[activeDiffTaskIndex] = {
         ...updatedTasks[activeDiffTaskIndex],
@@ -400,9 +469,12 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
               <span className="material-symbols-outlined animate-spin text-4xl text-indigo-600">progress_activity</span>
             </div>
           ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <span className="material-symbols-outlined text-6xl opacity-20 mb-4">scan_delete</span>
-              <p className="text-lg font-medium">Không có Task nào được tạo</p>
+            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+              <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">check_circle</span>
+              <p className="text-xl font-bold text-slate-700 mb-2">Đã phủ kín tính năng!</p>
+              <p className="text-base text-center max-w-md">
+                Hệ thống AI nhận thấy các Requirement này đã được các Task hiện tại xử lý đầy đủ. Không cần tạo thêm Task mới để tránh trùng lặp.
+              </p>
             </div>
           ) : (
             <div className="max-w-5xl mx-auto flex flex-col gap-4 pb-10">
@@ -535,6 +607,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         members={members}
         priorityColor={priorityColor}
         getTypeConfig={getTypeConfig}
+        projectId={projectId}
       />
 
       {/* SPLIT POPUP */}
@@ -735,6 +808,18 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         members={members}
         priorityColor={priorityColor}
         getTypeConfig={getTypeConfig}
+      />
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText="Xác nhận"
+        cancelText="Hủy"
+        onConfirm={() => {
+          executeResolveDiff(confirmConfig.action);
+          setConfirmConfig({ isOpen: false, action: null, message: '', title: '' });
+        }}
+        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '' })}
       />
     </div>
   );

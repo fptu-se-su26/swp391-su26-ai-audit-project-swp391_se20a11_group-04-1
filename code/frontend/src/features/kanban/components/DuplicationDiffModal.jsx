@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import EditableTaskCard from './EditableTaskCard';
-import { taskService } from '../services/taskService';
+import taskService from '../services/taskService';
 
 const DuplicationDiffModal = ({
   isOpen,
@@ -11,7 +11,8 @@ const DuplicationDiffModal = ({
   sprints,
   members,
   priorityColor,
-  getTypeConfig
+  getTypeConfig,
+  projectId
 }) => {
   const [existingTaskData, setExistingTaskData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,11 +22,22 @@ const DuplicationDiffModal = ({
       const fetchExistingTask = async () => {
         setIsLoading(true);
         try {
-          // The AI might return something like "TASK-12" or "12". Let's parse the ID.
           const existingIdStr = String(activeDiffRisk.existing_task_id).replace("TASK-", "");
           const parsedId = parseInt(existingIdStr, 10);
           if (!isNaN(parsedId)) {
             const data = await taskService.getTask(parsedId);
+            
+            if (projectId && String(data.projectId) !== String(projectId)) {
+               setExistingTaskData({ title: "Task này thuộc về Project khác hoặc không tồn tại trong Project hiện tại." });
+               setIsLoading(false);
+               return;
+            }
+
+            if (data && data.checklist) {
+              data.checklists = data.checklist.map(item => item.content);
+            } else if (data && !data.checklists) {
+              data.checklists = [];
+            }
             setExistingTaskData(data);
           } else {
              // If we can't parse it, just create a dummy task
@@ -95,10 +107,6 @@ const DuplicationDiffModal = ({
               <span className="text-[11px] bg-white text-orange-600 px-2 py-0.5 rounded-full font-bold shadow-sm">
                  Ghi nhận từ Hệ thống
               </span>
-            </div>
-            
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800 mb-1">
-              <strong>💡 Gợi ý của AI: </strong> {activeDiffRisk.recommendation}
             </div>
 
             {isLoading ? (

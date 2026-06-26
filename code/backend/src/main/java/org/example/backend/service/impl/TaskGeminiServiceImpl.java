@@ -19,6 +19,10 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     public String generateTasksBatch(String contextDataJson) {
         String prompt = "SYSTEM:\n" +
                 "You are an expert Technical Project Manager. Your job is to break down Use Cases into logical technical tasks.\n\n" +
+                "DUPLICATION PREVENTION RULES (CRITICAL):\n" +
+                "- You will be provided with 'existingTasks'. You MUST NOT generate any new tasks for scopes/features that are already covered by these 'existingTasks'.\n" +
+                "- Only generate tasks for the MISSING gaps in the Use Cases.\n" +
+                "- If a Use Case is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +
                 "- Medium (full feature): 3-5 days.\n" +
@@ -52,6 +56,9 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Balance the workload evenly among members based on their 'current_task_count' and 'current_workload_weight'. Assign new tasks to members with the lowest workload first.\n" +
                 "- Ignore their role completely for assignment. The ONLY priority is balancing workload and difficulty (weight) fairly.\n" +
                 "- The 'member_name' in 'suggested_assignee' MUST EXACTLY match the 'username' field of the chosen member.\n\n" +
+                "CHECKLIST RULES:\n" +
+                "- You MUST generate 3 to 5 'checklists' items for each task. These act as the Definition of Done (DoD).\n" +
+                "- Each checklist item must be specific, actionable, and testable (e.g., 'Validate email format', 'Hash password using bcrypt', 'Return JWT token').\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +
                 "- DO NOT include comments inside the JSON.\n\n" +
@@ -67,6 +74,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "      \"use_case_code\": \"Code of the parent Use Case\",\n" +
                 "      \"title\": \"Clear technical action\",\n" +
                 "      \"description\": \"Detailed scope and acceptance criteria\",\n" +
+                "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
                 "      \"estimated_hours\": 16.0,\n" +
                 "      \"weight\": 1.5,\n" +
                 "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
@@ -88,7 +96,8 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     public String auditTasks(String contextDataJson) {
         String prompt = "SYSTEM:\n" +
                 "You are an expert Technical Auditor. Your job is to review a freshly generated list of technical tasks against the original Use Cases and existing tasks.\n" +
-                "Do not generate new tasks. Only analyze the provided tasks.\n\n" +
+                "Do not generate new tasks. Only analyze the provided tasks.\n" +
+                "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in Vietnamese. Be extremely concise and direct.\n\n" +
                 "Identify risks in these specific categories:\n" +
                 "1. Coverage Gaps: Are there any steps in the Use Case mainFlow/alternativeFlows that are not covered by any generated task?\n" +
                 "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks?\n" +
@@ -138,9 +147,12 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
         String prompt = "SYSTEM:\n" +
                 "You are an expert Technical Project Manager. Your job is to split a large task into smaller, manageable sub-tasks.\n\n" +
                 "RULES:\n" +
+                "- You MUST break the task down into at least 2 to 4 sub-tasks. You can split by technical layers (e.g. Frontend vs Backend, UI vs Logic, Database vs API, Setup vs Execution).\n" +
+                "- DO NOT return an empty sub_tasks array. You must find a way to split it.\n" +
+                "- All text outputs (title, description, checklists, reason) MUST be in Vietnamese.\n" +
                 "- Sub-tasks MUST strictly inherit the exact priority of the original task.\n" +
                 "- Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
-                "- If the task CANNOT be logically split (e.g., too small), return an empty array for sub_tasks AND provide a 'reason' string explaining why briefly.\n" +
+                "- You MUST generate 3 to 5 'checklists' items for each sub-task as the Definition of Done. Make them specific and testable.\n" +
                 "- Return JSON only. No extra text.\n\n" +
                 "USER:\n" +
                 "Original Task data:\n" +
@@ -150,11 +162,14 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "  \"sub_tasks\": [\n" +
                 "    {\n" +
                 "      \"temp_id\": \"New unique string like sub1, sub2\",\n" +
-                "      \"title\": \"Clear action\",\n" +
-                "      \"description\": \"Detailed scope\",\n" +
+                "      \"title\": \"Clear action in Vietnamese\",\n" +
+                "      \"description\": \"Detailed scope in Vietnamese\",\n" +
+                "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
                 "      \"estimated_hours\": 8.0,\n" +
+                "      \"weight\": 1.0,\n" +
                 "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
                 "      \"priority\": \"Must match original\",\n" +
+                "      \"start_date\": \"YYYY-MM-DD\",\n" +
                 "      \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
                 "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks it depends on\"]\n" +
                 "    }\n" +
@@ -172,6 +187,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Combine scopes without losing details.\n" +
                 "- Establish a logical title and description.\n" +
                 "- Sum the estimated_hours of all original tasks.\n" +
+                "- You MUST generate 3 to 5 'checklists' items as the combined Definition of Done. Consolidate criteria from the original tasks.\n" +
                 "- If the tasks CANNOT be logically merged (e.g., completely unrelated), return null for merged_task AND provide a 'reason' string explaining why briefly.\n" +
                 "- Return JSON only. No extra text.\n\n" +
                 "USER:\n" +
@@ -183,9 +199,12 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "    \"temp_id\": \"New unique string like merged1\",\n" +
                 "    \"title\": \"Combined action\",\n" +
                 "    \"description\": \"Combined detailed scope\",\n" +
-                "    \"estimated_hours\": 16.0,\n" +
+                "    \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
+                "    \"estimated_hours\": 16.0, // MUST BE A NUMBER ONLY, DO NOT ADD 'h'\n" +
+                "    \"weight\": 1.0, // MUST BE A NUMBER ONLY\n" +
                 "    \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
                 "    \"priority\": \"Highest priority among merged tasks\",\n" +
+                "    \"start_date\": \"YYYY-MM-DD\",\n" +
                 "    \"suggested_deadline\": \"YYYY-MM-DD\"\n" +
                 "  },\n" +
                 "  \"reason\": \"(Optional) Explain briefly why they cannot be merged if merged_task is null\"\n" +
