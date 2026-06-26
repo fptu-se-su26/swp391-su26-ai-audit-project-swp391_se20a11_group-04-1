@@ -719,6 +719,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public DailyViewResponse getDailyView(Long projectId, Long userId, LocalDate date) {
         ensureProjectMember(projectId, userId);
+        boolean isLeader = isProjectLeader(projectId, userId);
 
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
@@ -729,6 +730,15 @@ public class TaskServiceImpl implements TaskService {
         List<Task> due      = taskRepository.findDueTasks(projectId, date);
         List<Task> ongoing  = taskRepository.findOngoingTasks(projectId, date);
         List<Task> done     = taskRepository.findDoneTasksOnDate(projectId, startOfDay, endOfDay);
+        
+        if (!isLeader) {
+            overdue.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            blocked.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            due.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            ongoing.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            done.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
+        
         int inProgressCount = taskRepository.countInProgressTasks(projectId);
 
         // Gộp overdue + blocked (tránh trùng)
@@ -762,6 +772,9 @@ public class TaskServiceImpl implements TaskService {
 
         // 3. Member progress (chỉ tính khối lượng công việc của ngày hôm nay)
         List<ProjectMember> members = projectMemberRepository.findByProjectId(projectId);
+        if (!isLeader) {
+            members = members.stream().filter(m -> m.getUser().getId().equals(userId)).collect(Collectors.toList());
+        }
         List<Task> dailyTasks = new ArrayList<>();
         dailyTasks.addAll(overdueAndBlocked);
         dailyTasks.addAll(due);
@@ -794,6 +807,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public WeeklyViewResponse getWeeklyView(Long projectId, Long userId, LocalDate weekStart) {
         ensureProjectMember(projectId, userId);
+        boolean isLeader = isProjectLeader(projectId, userId);
 
         // Chuẩn hóa weekStart về Thứ 2
         LocalDate monday = weekStart.with(java.time.DayOfWeek.MONDAY);
@@ -801,6 +815,9 @@ public class TaskServiceImpl implements TaskService {
 
         // 1. Task trong tuần
         List<Task> weekTasks = taskRepository.findTasksInWeek(projectId, monday, sunday);
+        if (!isLeader) {
+            weekTasks.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
 
         // Phân tách spanTasks và dayTasks
         List<TaskCalendarItemResponse> spanTasks = new ArrayList<>();
@@ -844,7 +861,11 @@ public class TaskServiceImpl implements TaskService {
         int overdue   = (int) weekTasks.stream()
                 .filter(t -> t.getDeadline() != null && t.getDeadline().isBefore(today)
                         && t.getStatus() != TaskStatus.DONE).count();
-        int blocked   = (int) taskRepository.findBlockedTasks(projectId, today).size();
+        List<Task> allBlocked = taskRepository.findBlockedTasks(projectId, today);
+        if (!isLeader) {
+            allBlocked.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
+        int blocked   = allBlocked.size();
 
         // RTM coverage: % requirement có ít nhất 1 task
         int rtmCoverage = calcRtmCoverage(projectId);
@@ -2047,5 +2068,15 @@ public class TaskServiceImpl implements TaskService {
         } else if (oldStatus == TaskStatus.BLOCKED && newStatus != TaskStatus.BLOCKED) {
             taskSlaPauseService.resumeOpenPauseIfNeeded(task);
         }
+    }
+    
+    private boolean isProjectLeader(Long projectId, Long userId) {
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(pm -> {
+                    if (pm.getRole() == null) return false;
+                    String roleName = pm.getRole().getName().toUpperCase();
+                    return roleName.equals("LEADER") || roleName.equals("PROJECT_LEADER") || roleName.equals("PROJECT LEADER") || roleName.equals("MENTOR");
+                })
+                .orElse(false);
     }
 }

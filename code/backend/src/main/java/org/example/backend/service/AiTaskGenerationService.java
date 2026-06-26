@@ -84,6 +84,7 @@ public class AiTaskGenerationService {
     private final ProjectMemberRepository projectMemberRepository;
     private final ObjectMapper objectMapper;
     private final KanbanColumnRepository kanbanColumnRepository;
+    private final org.example.backend.repository.TaskChecklistRepository taskChecklistRepository;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -99,7 +100,8 @@ public class AiTaskGenerationService {
                                    UserAccountRepository userRepository,
                                    ProjectMemberRepository projectMemberRepository,
                                    ObjectMapper objectMapper,
-                                   KanbanColumnRepository kanbanColumnRepository) {
+                                   KanbanColumnRepository kanbanColumnRepository,
+                                   org.example.backend.repository.TaskChecklistRepository taskChecklistRepository) {
         this.taskGeminiService = taskGeminiService;
         this.stagingRepository = stagingRepository;
         this.projectRepository = projectRepository;
@@ -110,6 +112,7 @@ public class AiTaskGenerationService {
         this.projectMemberRepository = projectMemberRepository;
         this.objectMapper = objectMapper;
         this.kanbanColumnRepository = kanbanColumnRepository;
+        this.taskChecklistRepository = taskChecklistRepository;
     }
 
     public UUID generateTasks(Long projectId, AiTaskGenerateRequest request, Long userId) {
@@ -434,7 +437,7 @@ public class AiTaskGenerationService {
         for (Integer index : selectedIndices) {
             JsonNode taskNode = modifiedPayload.get(index);
             if (taskNode != null) {
-                Task task = new Task();
+                Task task = Task.builder().build();
                 task.setProject(project);
                 task.setCreatedBy(creator);
                 task.setKanbanColumn(defaultColumn);
@@ -534,6 +537,27 @@ public class AiTaskGenerationService {
                             if (task.getUseCaseId() != null) existingTask.setUseCaseId(task.getUseCaseId());
                             if (task.getPrimaryAssignee() != null) existingTask.setPrimaryAssignee(task.getPrimaryAssignee());
                             taskRepository.save(existingTask);
+                            
+                            // Save Checklists for existing task
+                            if (taskNode.has("checklists") && taskNode.get("checklists").isArray()) {
+                                // Delete old checklists
+                                taskChecklistRepository.deleteByTaskId(existingTask.getId());
+                                
+                                int orderIndex = 0;
+                                for (JsonNode checklistNode : taskNode.get("checklists")) {
+                                    String content = checklistNode.asText();
+                                    if (content != null && !content.trim().isEmpty() && !content.trim().equalsIgnoreCase("null")) {
+                                        org.example.backend.entity.TaskChecklist checklist = org.example.backend.entity.TaskChecklist.builder()
+                                                .task(existingTask)
+                                                .content(content.trim())
+                                                .done(false)
+                                                .orderIndex(orderIndex++)
+                                                .build();
+                                        taskChecklistRepository.save(checklist);
+                                    }
+                                }
+                            }
+                            
                             continue; // Skip creating a new one
                         }
                     } catch (NumberFormatException ignored) {}
@@ -541,6 +565,23 @@ public class AiTaskGenerationService {
                 }
 
                 taskRepository.save(task);
+
+                // Save Checklists
+                if (taskNode.has("checklists") && taskNode.get("checklists").isArray()) {
+                    int orderIndex = 0;
+                    for (JsonNode checklistNode : taskNode.get("checklists")) {
+                        String content = checklistNode.asText();
+                        if (content != null && !content.trim().isEmpty() && !content.trim().equalsIgnoreCase("null")) {
+                            org.example.backend.entity.TaskChecklist checklist = org.example.backend.entity.TaskChecklist.builder()
+                                    .task(task)
+                                    .content(content.trim())
+                                    .done(false)
+                                    .orderIndex(orderIndex++)
+                                    .build();
+                            taskChecklistRepository.save(checklist);
+                        }
+                    }
+                }
             }
         }
 
