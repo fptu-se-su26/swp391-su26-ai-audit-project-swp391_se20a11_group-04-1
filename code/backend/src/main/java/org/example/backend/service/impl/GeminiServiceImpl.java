@@ -70,7 +70,11 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
         Map<String, Object> contents = new HashMap<>();
         contents.put("parts", List.of(parts));
 
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("responseMimeType", "application/json");
+
         requestBody.put("contents", List.of(contents));
+        requestBody.put("generationConfig", generationConfig);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -106,7 +110,15 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
                 log.error("Gemini API HTTP Error {}: {}", statusCode, errorBody);
                 
                 if (statusCode == 401) {
-                    log.warn("Gemini API Key kết thúc bằng {} bị lỗi 401 (Unauthorized). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
+                    // 401 có thể do key invalid HOẶC do RPM quota bị exceeded (một số Gemini region trả 401 thay vì 429)
+                    // Check body để phân biệt
+                    if (errorBody.contains("quota") || errorBody.contains("rate") || errorBody.contains("limit") || errorBody.contains("exhausted")) {
+                        log.warn("Gemini API Key kết thúc bằng {} bị 401 do Rate Limit/Quota. Nghỉ {}ms rồi thử tiếp...", apiKey.substring(Math.max(0, apiKey.length() - 4)), backoff429);
+                        try { Thread.sleep(backoff429); } catch (InterruptedException ignored) {}
+                        backoff429 = Math.min(backoff429 * 2, 8000);
+                    } else {
+                        log.warn("Gemini API Key kết thúc bằng {} bị lỗi 401 (Key Invalid). Bỏ qua key này...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
+                    }
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("exhausted") || errorBody.contains("billing")) {
                         log.warn("Gemini API Key kết thúc bằng {} đã hết Quota ngày (RPD). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));

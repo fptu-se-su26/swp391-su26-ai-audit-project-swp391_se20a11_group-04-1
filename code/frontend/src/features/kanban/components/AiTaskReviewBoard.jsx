@@ -8,6 +8,35 @@ import MergeTaskReviewModal from './MergeTaskReviewModal';
 import DuplicationDiffModal from './DuplicationDiffModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 
+// Helper for auto-mapping sprints based on task deadline vs sprint dates
+const autoMapSprint = (t, sprintList) => {
+  let bestSprintId = null;
+  const targetDate = t.suggested_deadline || t.deadline || t.start_date;
+  if (targetDate && sprintList && sprintList.length > 0) {
+     const tDate = new Date(targetDate);
+     const matchedSprint = sprintList.find(s => {
+       const start = s.startDate ? new Date(s.startDate) : null;
+       const end = s.endDate ? new Date(s.endDate) : null;
+       if (start && end) return tDate >= start && tDate <= end;
+       if (start) return tDate >= start;
+       if (end) return tDate <= end;
+       return false;
+     });
+     if (matchedSprint) {
+       bestSprintId = matchedSprint.id;
+     } else {
+       const firstSprint = sprintList[0];
+       const lastSprint = sprintList[sprintList.length - 1];
+       if (firstSprint.startDate && tDate < new Date(firstSprint.startDate)) {
+          bestSprintId = firstSprint.id;
+       } else if (lastSprint.endDate && tDate > new Date(lastSprint.endDate)) {
+          bestSprintId = lastSprint.id;
+       }
+     }
+  }
+  return bestSprintId;
+};
+
 const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
@@ -101,15 +130,22 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         return;
       }
       
-      setTasks(generatedTasks);
-      setAssessment(payloadData.ai_critical_assessment || null);
-
+      let fetchedSprints = [];
       try {
-        const sprintData = await taskService.getProjectSprints(projectId);
-        setSprints(sprintData);
+        fetchedSprints = await taskService.getProjectSprints(projectId);
+        setSprints(fetchedSprints);
       } catch (err) {
         console.error("Failed to load sprints", err);
       }
+
+      // Auto-map sprints based on task deadline vs sprint dates
+      const mappedTasks = generatedTasks.map(t => {
+        return { ...t, sprint_id: autoMapSprint(t, fetchedSprints) || t.sprint_id };
+      });
+
+      setTasks(mappedTasks);
+      setAssessment(payloadData.ai_critical_assessment || null);
+
       // Do NOT auto select generated tasks initially
       setSelectedIndices(new Set());
     } catch (err) {
@@ -144,8 +180,9 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     setApproving(true);
     try {
       const finalTasks = tasks.map((t, idx) => {
-        if (selectedIndices.has(idx) && globalSprintId && !t.sprint_id) {
-          return { ...t, sprint_id: globalSprintId };
+        if (selectedIndices.has(idx)) {
+          // Sprint logic is now handled per-task or via bulk override, so we just use what's on the task state
+          return t;
         }
         return t;
       });
@@ -164,32 +201,24 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   };
 
   const handleApproveSplit = (finalSubTasks) => {
-    setTasks(prevTasks => {
-      const newTasks = [...prevTasks];
-      newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
-      return newTasks;
-    });
-    setSelectedIndices(prev => {
-      // Need a simple recalculation logic here. If we expanded 1 task into N, 
-      // the set needs to be recomputed. Since we approve the split, let's just 
-      // select all tasks like we did before.
-      return new Set(Array.from({length: tasks.length - 1 + finalSubTasks.length}, (_, i) => i));
-    });
+    const newTasks = [...tasks];
+    newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
+    setTasks(newTasks);
+    
+    setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
+    
     setReviewingSplitData(null);
     setSplitSelectedIndex(null); // Clear after apply
     toast.success("Đã áp dụng Split!");
   };
 
   const handleApproveMerge = (finalMergedTask) => {
-    setTasks(prevTasks => {
-      const newTasks = prevTasks.filter((_, idx) => !mergeSelectedSet.has(idx));
-      newTasks.unshift(finalMergedTask);
-      return newTasks;
-    });
-    setSelectedIndices(prev => {
-       // Since tasks are shifted, just select all
-       return new Set(Array.from({length: tasks.length - mergeSelectedSet.size + 1}, (_, i) => i));
-    });
+    const newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
+    newTasks.unshift(finalMergedTask);
+    setTasks(newTasks);
+    
+    setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
+    
     setReviewingMergeData(null);
     setMergeSelectedSet(new Set()); // Clear after apply
     toast.success("Đã áp dụng Merge!");
@@ -200,17 +229,36 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     setIsSplitting(true);
     abortControllerRef.current = new AbortController();
     try {
-      const taskToSplit = tasks[splitSelectedIndex];
+      const fullTask = tasks[splitSelectedIndex];
+      // Clean up payload to avoid confusing the AI with internal metadata
+      const taskToSplit = {
+        title: fullTask.title,
+        description: fullTask.description,
+        estimated_hours: fullTask.estimated_hours,
+        priority: fullTask.priority,
+        task_type: fullTask.task_type
+      };
       const result = await taskService.splitAITask(projectId, { task: taskToSplit }, { signal: abortControllerRef.current.signal });
-      const subTasks = result.data?.sub_tasks || result.sub_tasks;
-      if (subTasks && subTasks.length > 0) {
+      
+      let subTasks = result.data?.sub_tasks || result.sub_tasks;
+      // Handle case where Gemini double-wraps the array or puts it in "items"
+      if (subTasks && !Array.isArray(subTasks)) {
+         if (subTasks.items && Array.isArray(subTasks.items)) subTasks = subTasks.items;
+         else if (Object.keys(subTasks).length > 0) subTasks = Object.values(subTasks)[0];
+      }
+
+      if (subTasks && Array.isArray(subTasks) && subTasks.length > 0) {
         // Preserve metadata from original task
-        const enrichedSubTasks = subTasks.map(st => ({
-          ...taskToSplit, // keep requirement, use_case, assignees by default
-          ...st, // overwrite with AI generated fields
-          title: st.title || st.task_title || st.task_name || `${taskToSplit.title} (Phần nhỏ)`,
-          description: st.description || st.task_description || `${taskToSplit.description}\n\n(Tách từ task gốc)`
-        }));
+        const enrichedSubTasks = subTasks.map(st => {
+          const newSub = {
+            ...fullTask, // keep requirement, use_case, assignees by default
+            ...st, // overwrite with AI generated fields
+            title: st.title || st.task_title || st.task_name || `${fullTask.title} (Phần nhỏ)`,
+            description: st.description || st.task_description || `${fullTask.description}\n\n(Tách từ task gốc)`
+          };
+          newSub.sprint_id = autoMapSprint(newSub, sprints) || newSub.sprint_id;
+          return newSub;
+        });
 
         // Instead of applying immediately, open the review modal
         setReviewingSplitData({
@@ -244,23 +292,38 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     setIsMerging(true);
     abortControllerRef.current = new AbortController();
     try {
-      const tasksToMerge = Array.from(mergeSelectedSet).map(idx => tasks[idx]);
+      const fullTasksToMerge = Array.from(mergeSelectedSet).map(idx => tasks[idx]);
+      // Clean up payload to avoid confusing the AI
+      const tasksToMerge = fullTasksToMerge.map(t => ({
+        title: t.title,
+        description: t.description,
+        estimated_hours: t.estimated_hours,
+        priority: t.priority,
+        task_type: t.task_type
+      }));
       const result = await taskService.mergeAITasks(projectId, { tasks: tasksToMerge }, { signal: abortControllerRef.current.signal });
       let mergedTask = result.data?.merged_task || result.merged_task;
+      
+      // Handle if Gemini wraps it
+      if (mergedTask && mergedTask.merged_task) {
+         mergedTask = mergedTask.merged_task;
+      }
+
       if (mergedTask && typeof mergedTask === 'object') {
         // Preserve metadata from original tasks
-        const baseTask = tasksToMerge[0];
-        const aiMerged = result.data?.merged_task || result.merged_task || {};
+        const baseTask = fullTasksToMerge[0];
+        const aiMerged = mergedTask || {};
         mergedTask = {
             ...baseTask, // keep requirement, use_case, assignees by default
             ...aiMerged, // overwrite with AI generated fields
             title: aiMerged.title || aiMerged.task_title || aiMerged.task_name || `${baseTask.title} (Đã gộp)`,
             description: aiMerged.description || aiMerged.task_description || `${baseTask.description}\n\n(Đã gộp từ các task khác)`
         };
+        mergedTask.sprint_id = autoMapSprint(mergedTask, sprints) || mergedTask.sprint_id;
 
         // Instead of applying immediately, open the review modal
         setReviewingMergeData({
-          originalTasks: tasksToMerge,
+          originalTasks: fullTasksToMerge,
           mergedTask: mergedTask
         });
         toast.success("AI đã gộp xong, vui lòng kiểm tra lại!");
@@ -425,13 +488,19 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           <div className="flex items-center gap-2">
             <button 
               className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
-              onClick={() => setSplitModalOpen(true)}
+              onClick={() => {
+                if (selectedIndices.size === 1) {
+                  setSplitSelectedIndex(Array.from(selectedIndices)[0]);
+                }
+                setSplitModalOpen(true);
+              }}
             >
               <span className="material-symbols-outlined text-[18px] text-yellow-600">bolt</span>
               Tách Task
             </button>
             <button 
               className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
+              title="Gộp các task"
               onClick={() => {
                 setMergeSelectedSet(new Set(selectedIndices));
                 setMergeModalOpen(true);
@@ -443,12 +512,19 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Sprint:</span>
+            <span className="text-sm font-medium text-slate-600 cursor-help" title="Chỉ dùng khi muốn ép toàn bộ task vào chung 1 Sprint">Ghi đè Sprint (Tất cả):</span>
             {sprints.length > 0 ? (
               <select 
                 className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white min-w-[150px] outline-none focus:border-indigo-500"
                 value={globalSprintId}
-                onChange={(e) => setGlobalSprintId(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setGlobalSprintId(val);
+                  if (val) {
+                    setTasks(tasks.map(t => ({ ...t, sprint_id: val })));
+                    toast.success("Đã ghi đè Sprint cho toàn bộ Task.");
+                  }
+                }}
               >
                 <option value="">-- Chọn Sprint --</option>
                 {sprints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -516,9 +592,14 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                           priorityColor={priorityColor}
                           getTypeConfig={getTypeConfig}
                           isMergingToExisting={isMergingToExisting}
-                          onSave={(updatedTask) => {
+                          onUpdate={(updatedTask) => {
                             const newTasks = [...tasks];
                             newTasks[index] = updatedTask;
+                            setTasks(newTasks);
+                          }}
+                          onChangeSprint={(newSprintId) => {
+                            const newTasks = [...tasks];
+                            newTasks[index] = { ...task, sprint_id: newSprintId };
                             setTasks(newTasks);
                           }}
                         />

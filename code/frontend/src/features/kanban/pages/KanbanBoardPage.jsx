@@ -543,7 +543,7 @@ const KanbanBoardPage = () => {
         requirementCount={generatingReqCount}
         onClose={handleCancelGenerateAiTasks} 
       />
-
+      <AiTaskReviewBoard
         isOpen={!!aiGenerationId}
         generationId={aiGenerationId}
         projectId={activeProject?.id}
@@ -664,17 +664,6 @@ const KanbanBoardPage = () => {
             </div>
           </form>
         </div>
-      )}
-      {isAiTaskGenModalOpen && (
-        <AiTaskReviewBoard
-          isOpen={isAiTaskGenModalOpen}
-          onClose={() => setIsAiTaskGenModalOpen(false)}
-          generationId={aiGenerationId}
-          projectId={activeProject?.id}
-          onSuccess={() => {
-            fetchProjectTasks(activeProject?.id)
-          }}
-        />
       )}
 
       <ConfirmModal

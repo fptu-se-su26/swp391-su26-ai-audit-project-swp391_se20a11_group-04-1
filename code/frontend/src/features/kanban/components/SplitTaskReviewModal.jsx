@@ -88,7 +88,8 @@ const SplitTaskReviewModal = ({
                   members={members}
                   priorityColor={priorityColor}
                   getTypeConfig={getTypeConfig}
-                  onSave={(updatedTask) => handleSaveSubTask(idx, updatedTask)}
+                  onUpdate={(updatedTask) => handleSaveSubTask(idx, updatedTask)}
+                  onChangeSprint={(newSprintId) => handleSaveSubTask(idx, { ...t, sprint_id: newSprintId })}
                   onEditStateChange={(editing) => {
                     setEditingTaskIndices(prev => {
                       const newSet = new Set(prev);

@@ -381,12 +381,66 @@ public class AiTaskGenerationService {
             dataNode.put("originalDeadline", deadlineStr);
             dataNode.set("originalTask", objectMapper.valueToTree(taskData));
 
-            String cleanJson = taskGeminiService.splitTask(objectMapper.writeValueAsString(dataNode));
-            JsonNode resultNode = objectMapper.readTree(cleanJsonString(cleanJson));
-            
+            // Wrap Gemini call separately so API errors (401, quota) fall through to fallback
+            JsonNode resultNode = null;
+            try {
+                String cleanJson = taskGeminiService.splitTask(objectMapper.writeValueAsString(dataNode));
+                resultNode = objectMapper.readTree(cleanJsonString(cleanJson));
+            } catch (Exception geminiEx) {
+                log.warn("Gemini splitTask failed ({}), falling back to deterministic split.", geminiEx.getMessage());
+                resultNode = objectMapper.createObjectNode(); // empty node → triggers fallback below
+            }
+
             Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put("sub_tasks", resultNode.get("sub_tasks"));
-            if (resultNode.has("reason")) {
+
+            boolean hasValidSubTasks = resultNode != null
+                    && resultNode.has("sub_tasks")
+                    && resultNode.get("sub_tasks").isArray()
+                    && resultNode.get("sub_tasks").size() >= 2;
+
+            if (hasValidSubTasks) {
+                responseMap.put("sub_tasks", resultNode.get("sub_tasks"));
+            } else {
+                // HARD FALLBACK: Gemini refused / API error → deterministic 2-phase split
+                log.info("splitTask: using deterministic fallback for task '{}'", taskData.get("title"));
+                List<Map<String, Object>> fallbackList = new ArrayList<>();
+
+                String baseTitle = taskData.containsKey("title") ? taskData.get("title").toString() : "Task";
+                String baseDesc = taskData.containsKey("description") ? taskData.get("description").toString() : "";
+                double baseHours;
+                try {
+                    baseHours = taskData.containsKey("estimated_hours") ? Double.parseDouble(taskData.get("estimated_hours").toString()) : 4.0;
+                } catch (NumberFormatException nfe) {
+                    baseHours = 4.0;
+                }
+                String priority = taskData.containsKey("priority") ? taskData.get("priority").toString() : "MEDIUM";
+                String taskType = taskData.containsKey("task_type") ? taskData.get("task_type").toString() : "DEVELOPMENT";
+
+                Map<String, Object> part1 = new HashMap<>();
+                part1.put("temp_id", "fallback_sub1");
+                part1.put("title", "[Giai đoạn 1] " + baseTitle);
+                part1.put("description", "Phân tích, thiết kế và chuẩn bị cho: " + baseDesc);
+                part1.put("estimated_hours", Math.max(1.0, baseHours / 2.0));
+                part1.put("priority", priority);
+                part1.put("task_type", taskType);
+                part1.put("checklists", List.of("Phân tích yêu cầu", "Thiết kế giải pháp", "Xác nhận scope với team"));
+
+                Map<String, Object> part2 = new HashMap<>();
+                part2.put("temp_id", "fallback_sub2");
+                part2.put("title", "[Giai đoạn 2] " + baseTitle);
+                part2.put("description", "Thực thi, kiểm thử và hoàn thiện cho: " + baseDesc);
+                part2.put("estimated_hours", Math.max(1.0, baseHours / 2.0));
+                part2.put("priority", priority);
+                part2.put("task_type", taskType);
+                part2.put("depends_on", List.of("fallback_sub1"));
+                part2.put("checklists", List.of("Implement theo design", "Viết unit test", "Code review", "Deploy & verify"));
+
+                fallbackList.add(part1);
+                fallbackList.add(part2);
+                responseMap.put("sub_tasks", fallbackList);
+            }
+
+            if (resultNode != null && resultNode.has("reason")) {
                 responseMap.put("reason", resultNode.get("reason").asText());
             }
             return responseMap;
