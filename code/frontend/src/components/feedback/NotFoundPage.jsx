@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
+import useAuthStore from '@store/useAuthStore'
 
 function NotFoundPage() {
+  const userRole = useAuthStore((state) => state.userRole)
+  const homePath = userRole === 'ADMIN' ? '/admin' : '/dashboard'
+
   return (
     <div className="bg-surface font-body-md text-on-surface antialiased min-h-screen flex items-center justify-center p-margin_mobile md:p-margin_desktop relative overflow-hidden">
       
@@ -28,7 +32,7 @@ function NotFoundPage() {
 
         {/* Back Button */}
         <Link
-          to="/dashboard"
+          to={homePath}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center"
         >
           Quay lại Trang chủ

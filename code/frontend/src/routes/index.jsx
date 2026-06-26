@@ -50,6 +50,7 @@ import ProfilePage from '@features/profile/pages/ProfilePage'
 import AdminDashboardPage from '@features/system-admin/pages/AdminDashboardPage'
 import AuditLogsPage from '@features/system-admin/pages/AuditLogsPage'
 import UserManagementPage from '@features/system-admin/pages/UserManagementPage'
+import MentorVerificationPage from '@features/system-admin/pages/MentorVerificationPage'
 
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
@@ -61,8 +62,20 @@ import ProjectLayout from '@components/layout/ProjectLayout'
 // Shared Feedback Components
 import NotFoundPage from '@components/feedback/NotFoundPage'
 
-// Route Guards
 import PrivateRoute from './PrivateRoute'
+import useAuthStore from '@store/useAuthStore'
+
+// Helper component for smart root redirection based on user role
+function RootRedirect() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const userRole = useAuthStore((state) => state.userRole)
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+  
+  return userRole === 'ADMIN' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />
+}
 
 /**
  * Centralized routing for the application.
@@ -81,6 +94,7 @@ export function AppRoutes() {
         {/* System Admin Dashboard */}
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/users" element={<UserManagementPage />} />
+        <Route path="/admin/mentor-verifications" element={<MentorVerificationPage />} />
         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
 
         <Route element={<MainLayout />}>
@@ -147,7 +161,7 @@ export function AppRoutes() {
       </Route>
 
       {/* 4. Redirect & 404 Pages */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
