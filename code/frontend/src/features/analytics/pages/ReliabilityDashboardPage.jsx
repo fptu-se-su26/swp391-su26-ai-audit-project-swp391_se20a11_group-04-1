@@ -203,6 +203,17 @@ export default function ReliabilityDashboardPage() {
         </div>
       )}
 
+      {/* AI Narrative */}
+      {!isLoading && report?.aiNarrative && (
+        <div className="bg-primary-fixed/10 border border-primary/20 rounded-2xl p-4 flex gap-3 shadow-sm">
+          <span className="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">smart_toy</span>
+          <div>
+            <p className="text-xs font-semibold text-primary mb-1">AI Reliability Summary</p>
+            <p className="text-sm text-on-surface leading-relaxed">{report.aiNarrative}</p>
+          </div>
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -242,17 +253,6 @@ export default function ReliabilityDashboardPage() {
           <span className="material-symbols-outlined text-5xl opacity-30">monitor_heart</span>
           <p className="text-sm">No reliability data yet for this sprint.</p>
           <p className="text-xs opacity-70">Data is computed automatically when a sprint ends, or click Refresh to compute now.</p>
-        </div>
-      )}
-
-      {/* AI Narrative */}
-      {!isLoading && report?.aiNarrative && (
-        <div className="bg-primary-fixed/10 border border-primary/20 rounded-2xl p-4 flex gap-3">
-          <span className="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">smart_toy</span>
-          <div>
-            <p className="text-xs font-semibold text-primary mb-1">AI Reliability Summary</p>
-            <p className="text-sm text-on-surface leading-relaxed">{report.aiNarrative}</p>
-          </div>
         </div>
       )}
 

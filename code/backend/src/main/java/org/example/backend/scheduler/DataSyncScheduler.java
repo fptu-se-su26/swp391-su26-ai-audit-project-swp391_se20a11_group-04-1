@@ -17,6 +17,7 @@ import org.example.backend.repository.EntitySyncLogRepository;
 import org.example.backend.repository.SprintRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.scheduler.SchedulerRunLogService;
+import org.example.backend.service.SprintCompletionService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -37,6 +38,7 @@ public class DataSyncScheduler {
     private final TaskSlaStateRepository taskSlaStateRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final SchedulerRunLogService schedulerRunLogService;
+    private final SprintCompletionService sprintCompletionService;
 
     @Scheduled(fixedDelay = 900000) // 15 minutes
     @Transactional
@@ -59,6 +61,7 @@ public class DataSyncScheduler {
                         sprint.getId(),
                         Map.of("projectId", sprint.getProject().getId())
                 ));
+                sprintCompletionService.generate(sprint.getId(), "AUTO");
                 backfillPredictionAccurate(sprint, today);
                 sprintsFixed++;
             }
@@ -81,6 +84,15 @@ public class DataSyncScheduler {
                     ));
                     syncsRetried++;
                 }
+            }
+
+            // Bước 3 — Backfill: sinh summary cho sprint COMPLETED chưa có record
+            List<Sprint> sprintsNeedingSummary = sprintRepository.findCompletedSprintsWithoutSummary();
+            for (Sprint sprint : sprintsNeedingSummary) {
+                sprintCompletionService.generate(sprint.getId(), "BACKFILL");
+            }
+            if (!sprintsNeedingSummary.isEmpty()) {
+                log.info("DataSyncScheduler backfill: queued {} sprint completion summaries", sprintsNeedingSummary.size());
             }
 
             schedulerRunLogService.finish(runLog, sprintsFixed + syncsRetried, sprintsFixed, syncsRetried);

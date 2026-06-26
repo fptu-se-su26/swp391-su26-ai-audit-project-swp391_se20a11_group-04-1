@@ -83,13 +83,13 @@ public class SlaPingService {
     @Transactional
     public String generateMemberAiEvaluation(Long projectId, Long sprintId, String assigneeName) {
         List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
-        List<TaskSlaState> memberRiskStates = states.stream()
-                .filter(s -> !"NORMAL".equals(s.getCurrentRiskLevel()))
+
+        List<TaskSlaState> allMemberStates = states.stream()
                 .filter(s -> s.getTask().getPrimaryAssignee() != null)
                 .filter(s -> {
                     String name = s.getTask().getPrimaryAssignee().getUsername();
-                    if (s.getTask().getPrimaryAssignee().getProfile() != null && 
-                        s.getTask().getPrimaryAssignee().getProfile().getFullName() != null && 
+                    if (s.getTask().getPrimaryAssignee().getProfile() != null &&
+                        s.getTask().getPrimaryAssignee().getProfile().getFullName() != null &&
                         !s.getTask().getPrimaryAssignee().getProfile().getFullName().trim().isEmpty()) {
                         name = s.getTask().getPrimaryAssignee().getProfile().getFullName();
                     }
@@ -97,25 +97,65 @@ public class SlaPingService {
                 })
                 .toList();
 
-        if (memberRiskStates.isEmpty()) {
-            return "Thành viên " + assigneeName + " hiện đang thực hiện tốt, không có task nào bị trễ hạn hay cảnh báo SLA trong Sprint này.";
+        List<TaskSlaState> memberRiskStates = allMemberStates.stream()
+                .filter(s -> !"NORMAL".equals(s.getCurrentRiskLevel()))
+                .toList();
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int totalTasks = allMemberStates.size();
+        int doneTasks = (int) allMemberStates.stream().filter(s -> s.getTask().getStatus() == TaskStatus.DONE).count();
+        int overdueCount = (int) allMemberStates.stream()
+                .filter(s -> s.getTask().getDeadline() != null && today.isAfter(s.getTask().getDeadline()) && s.getTask().getStatus() != TaskStatus.DONE)
+                .count();
+        int penaltyCount = (int) allMemberStates.stream().filter(s -> s.getTask().isOverduePenaltyApplied()).count();
+        int criticalCount = (int) memberRiskStates.stream().filter(s -> "CRITICAL".equals(s.getCurrentRiskLevel())).count();
+        int highCount = (int) memberRiskStates.stream().filter(s -> "HIGH".equals(s.getCurrentRiskLevel())).count();
+
+        String riskTaskTitles = memberRiskStates.stream()
+                .map(s -> "- " + s.getTask().getTitle() + " [" + s.getCurrentRiskLevel() + "]")
+                .collect(java.util.stream.Collectors.joining("\n"));
+
+        if (allMemberStates.isEmpty()) {
+            return "## Performance Summary\nThành viên " + assigneeName + " chưa có task nào trong Sprint này.\n\n## Strengths\n- Chưa có dữ liệu\n\n## Areas for Improvement\n- Chưa có dữ liệu\n\n## Potential Risks\n- Chưa có dữ liệu";
         }
 
-        int overdueCount = (int) memberRiskStates.stream().filter(s -> s.getTask().getDeadline() != null && java.time.LocalDate.now().isAfter(s.getTask().getDeadline())).count();
-        int penaltyCount = (int) memberRiskStates.stream().filter(s -> s.getTask().isOverduePenaltyApplied()).count();
+        String prompt = String.format("""
+                Bạn là Agile Project Coach chuyên nghiệp. Dựa vào dữ liệu Sprint bên dưới, hãy viết báo cáo đánh giá thành viên bằng tiếng Việt.
+                Trả về đúng 4 phần với tiêu đề Markdown (##), không thêm câu chào hay giải thích thừa:
 
-        String prompt = String.format(
-                "Bạn là trợ lý AI quản lý dự án nghiêm khắc. Hãy viết MỘT lời nhận xét/nhắc nhở (dưới 40 chữ) gửi tới thành viên '%s'. " +
-                "Hiện trạng: Có tổng cộng %d task bị cảnh báo SLA, trong đó có %d task đã quá hạn và %d task đã bị phạt. " +
-                "Yêu cầu: Lời lẽ chuyên nghiệp, sắc sảo, hối thúc họ cập nhật trạng thái và hoàn thành gấp. Chỉ trả về lời nhận xét, không giải thích thêm.",
-                assigneeName, memberRiskStates.size(), overdueCount, penaltyCount
+                ## Performance Summary
+                (1-2 câu tóm tắt tổng thể hiệu suất Sprint)
+
+                ## Strengths
+                (bullet points — điểm làm tốt, suy luận từ số task hoàn thành đúng hạn)
+
+                ## Areas for Improvement
+                (bullet points — vấn đề cụ thể dựa trên task trễ/bị phạt)
+
+                ## Potential Risks
+                (bullet points — rủi ro có thể xảy ra nếu không cải thiện)
+
+                Dữ liệu thực tế:
+                - Thành viên: %s
+                - Tổng task được giao: %d | Đã hoàn thành: %d
+                - Task trễ hạn: %d | Task bị penalty: %d
+                - Task mức CRITICAL: %d | Task mức HIGH: %d
+                - Danh sách task có vấn đề:
+                %s
+                """,
+                assigneeName, totalTasks, doneTasks, overdueCount, penaltyCount,
+                criticalCount, highCount,
+                riskTaskTitles.isEmpty() ? "- (không có)" : riskTaskTitles
         );
 
         try {
             return geminiService.generateText(prompt);
         } catch (Exception e) {
             log.error("Lỗi khi gọi Gemini AI", e);
-            return "Bạn đang có " + memberRiskStates.size() + " task gặp rủi ro trễ hạn. Vui lòng kiểm tra và xử lý gấp để không ảnh hưởng đến tiến độ chung của Sprint.";
+            return String.format(
+                "## Performance Summary\n%s có %d/%d task hoàn thành, %d task trễ hạn và %d task bị penalty.\n\n## Strengths\n- Chưa thể phân tích (lỗi kết nối AI)\n\n## Areas for Improvement\n- %d task cần được xử lý gấp\n\n## Potential Risks\n- Tiến độ Sprint bị ảnh hưởng nếu không cải thiện",
+                assigneeName, doneTasks, totalTasks, overdueCount, penaltyCount, memberRiskStates.size()
+            );
         }
     }
 
