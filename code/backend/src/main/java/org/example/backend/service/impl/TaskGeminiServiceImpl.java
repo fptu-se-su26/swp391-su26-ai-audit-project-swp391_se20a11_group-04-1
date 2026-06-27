@@ -150,17 +150,17 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "1. You MUST return a JSON object with a 'sub_tasks' array containing AT LEAST 2 items.\n" +
                 "2. NEVER return an empty array []. NEVER return a 'reason'. NEVER refuse to split.\n" +
                 "3. If the task is already extremely small (e.g., 'Update color to red'), you MUST still split it by phases. For example: Subtask 1: 'Research exact hex code', Subtask 2: 'Apply color code to CSS'.\n" +
-                "4. All text outputs MUST be in Vietnamese.\n" +
+                "4. All text outputs MUST be in English.\n" +
                 "5. Inherit priority exactly.\n" +
                 "6. Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
                 "7. Provide 3-5 'checklists' per sub-task.\n\n" +
                 "EXAMPLE OF FORCED SPLITTING FOR A TINY TASK:\n" +
-                "Input: {\"title\": \"Đổi màu nút thành đỏ\", \"description\": \"Cập nhật mã màu.\"}\n" +
+                "Input: {\"title\": \"Change button color to red\", \"description\": \"Update the hex code.\"}\n" +
                 "Output:\n" +
                 "{\n" +
                 "  \"sub_tasks\": [\n" +
-                "    {\"temp_id\": \"sub1\", \"title\": \"Xác định mã màu\", \"description\": \"Tìm mã màu đỏ chuẩn.\", \"checklists\": [\"Lấy mã màu\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"RESEARCH\", \"priority\": \"LOW\"},\n" +
-                "    {\"temp_id\": \"sub2\", \"title\": \"Cập nhật CSS\", \"description\": \"Thay đổi màu trong file CSS.\", \"checklists\": [\"Sửa code\", \"Test\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"DEVELOPMENT\", \"priority\": \"LOW\", \"depends_on\": [\"sub1\"]}\n" +
+                "    {\"temp_id\": \"sub1\", \"title\": \"Determine hex code\", \"description\": \"Find the exact red hex code.\", \"checklists\": [\"Get color code\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"RESEARCH\", \"priority\": \"LOW\"},\n" +
+                "    {\"temp_id\": \"sub2\", \"title\": \"Update CSS\", \"description\": \"Change the color in CSS file.\", \"checklists\": [\"Modify code\", \"Test\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"DEVELOPMENT\", \"priority\": \"LOW\", \"depends_on\": [\"sub1\"]}\n" +
                 "  ]\n" +
                 "}\n\n" +
                 "USER:\n" +
