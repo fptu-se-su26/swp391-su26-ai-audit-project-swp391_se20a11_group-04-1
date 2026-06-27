@@ -84,9 +84,9 @@ const AiStagingReviewPage = () => {
     }
   }, [activeProject?.id]);
 
-  const fetchStagingData = async () => {
+  const fetchStagingData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const data = await requirementApi.getStagingRequirements(activeProject.id);
       const dataArray = Array.isArray(data) ? data : (data?.data || []);
       setGenerations(dataArray);
@@ -120,7 +120,7 @@ const AiStagingReviewPage = () => {
       console.error('Error fetching staging data:', error);
       toast.error('Lỗi khi tải dữ liệu nháp từ AI.');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -141,7 +141,7 @@ const AiStagingReviewPage = () => {
   };
 
   const handleRegenerate = async (generationId) => {
-    if (!currentGen) return;
+    if (!generationId) return;
     try {
       setIsRegenerating(true);
       setProgressStep(0);
@@ -154,7 +154,7 @@ const AiStagingReviewPage = () => {
       toast.success('Đã chạy lại AI thành công!');
       
       // Fetch new data
-      await fetchStagingData();
+      await fetchStagingData(true);
     } catch (error) {
       console.error('Error regenerating:', error);
       toast.error(error.response?.data?.error || 'Lỗi khi chạy lại AI.');

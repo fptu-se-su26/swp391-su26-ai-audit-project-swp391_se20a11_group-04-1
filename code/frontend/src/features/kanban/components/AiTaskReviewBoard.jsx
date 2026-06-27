@@ -188,7 +188,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       onSuccess();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Error approving tasks.");
+      toast.error(err.response?.data?.message || err.response?.data?.error || "Error approving tasks.");
     } finally {
       setApproving(false);
     }
@@ -264,7 +264,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         const reason = result.data?.reason || result.reason || "Task này đã đạt mức tối thiểu hoặc không thể phân tách hợp lý theo logic nghiệp vụ.";
         setActionError({
           title: "Không thể tách Task",
-          reason: reason + "\n\n[DEBUG - Raw Result]: " + JSON.stringify(result)
+          reason: reason
         });
       }
     } catch (err) {

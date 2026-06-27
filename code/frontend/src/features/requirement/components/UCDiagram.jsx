@@ -748,6 +748,13 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       // Do nothing here, we handle actions inside CustomEdge
   };
 
+  useEffect(() => {
+      if (mode === 'view') {
+          setNodes(nds => nds.map(n => n.selected ? { ...n, selected: false } : n));
+          setEdges(eds => eds.map(e => e.selected ? { ...e, selected: false } : e));
+      }
+  }, [mode, setNodes, setEdges]);
+
 
 
   const handleResetLayout = () => {

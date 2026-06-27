@@ -16,6 +16,36 @@ const EditableTaskCard = ({
   const [editForm, setEditForm] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const checkSprintDateError = (formState) => {
+    if (!formState.sprint_id) return null;
+    const selectedSprint = sprints.find(s => String(s.id) === String(formState.sprint_id));
+    if (!selectedSprint) return null;
+    const sStart = selectedSprint.startDate || selectedSprint.start_date;
+    const sEnd = selectedSprint.endDate || selectedSprint.end_date;
+    if (!sStart || !sEnd) return null;
+    
+    const tStart = formState.start_date || formState.startDate;
+    const tEnd = formState.deadline || formState.suggested_deadline || formState.endDate;
+    
+    if (tStart && tStart < sStart) return `Bắt đầu trước Sprint (${sStart})`;
+    if (tEnd && tEnd > sEnd) return `Kết thúc sau Sprint (${sEnd})`;
+    return null;
+  };
+
+  const isSprintValid = (sprintId, tStart, tEnd) => {
+    if (!sprintId) return true;
+    const s = sprints.find(sp => String(sp.id) === String(sprintId));
+    if (!s) return true;
+    const sStart = s.startDate || s.start_date;
+    const sEnd = s.endDate || s.end_date;
+    if (!sStart || !sEnd) return true;
+    if (tStart && tStart < sStart) return false;
+    if (tEnd && tEnd > sEnd) return false;
+    return true;
+  };
+
+  const sprintError = checkSprintDateError(isEditing ? editForm : task);
+
   const handleStartEdit = () => {
     if (readOnlyMode) return;
     setEditForm({ 
@@ -161,16 +191,28 @@ const EditableTaskCard = ({
             </div>
           </div>
           {sprints.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-slate-500">Sprint:</span>
-              <select 
-                className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
-                value={editForm.sprint_id || ''}
-                onChange={(e) => setEditForm({...editForm, sprint_id: e.target.value})}
-              >
-                <option value="">-- No Sprint --</option>
-                {sprints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">Sprint:</span>
+                <select 
+                  className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
+                  value={editForm.sprint_id || ''}
+                  onChange={(e) => setEditForm({...editForm, sprint_id: e.target.value})}
+                >
+                  <option value="">-- No Sprint --</option>
+                  {sprints.map(s => {
+                    const valid = isSprintValid(s.id, editForm.start_date, editForm.deadline || editForm.suggested_deadline);
+                    return (
+                      <option key={s.id} value={s.id} disabled={!valid}>
+                        {s.name} {!valid ? '(Sai ngày)' : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+              {sprintError && (
+                <span className="text-[11px] text-red-500 font-medium italic mt-0.5">{sprintError}</span>
+              )}
             </div>
           )}
             <div className="flex items-center gap-2">
@@ -234,7 +276,13 @@ const EditableTaskCard = ({
             <button onClick={handleCancelEdit} className="px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded transition-colors">
               ✕ Hủy
             </button>
-            <button onClick={handleSaveEdit} className="px-3 py-1 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded transition-colors">
+            <button 
+              onClick={handleSaveEdit} 
+              disabled={!!sprintError}
+              className={`px-3 py-1 text-sm font-medium text-white rounded transition-colors ${
+                sprintError ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
               ✓ Lưu
             </button>
           </div>
@@ -325,22 +373,7 @@ const EditableTaskCard = ({
           </span>
         )}
 
-        {!readOnlyMode && onChangeSprint && (
-          <div className="relative inline-block">
-             <select
-               value={task.sprint_id || ''}
-               onChange={(e) => onChangeSprint(e.target.value)}
-               className="text-[12px] bg-white text-slate-700 px-2 py-0.5 rounded-full font-bold tracking-wider flex items-center gap-1 border border-slate-300 cursor-pointer hover:bg-slate-50 outline-none appearance-none pr-6"
-               style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .5rem top 50%', backgroundSize: '.65em auto' }}
-               title="Chọn Sprint"
-             >
-               <option value="">🗓 Chưa gán Sprint</option>
-               {sprints.map(s => (
-                 <option key={s.id} value={s.id}>🗓 {s.name}</option>
-               ))}
-             </select>
-          </div>
-        )}
+
 
         {isMergingToExisting && (
           <span className="text-[12px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-medium border border-teal-200">
@@ -351,6 +384,36 @@ const EditableTaskCard = ({
 
       {/* ROW 4: References & Assignee */}
       <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
+        <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-500">Sprint:</span>
+            {readOnlyMode || !onChangeSprint ? (
+              <span className="text-indigo-600 font-medium">
+                {task.sprint_id && sprints ? sprints.find(s => String(s.id) === String(task.sprint_id))?.name || `Sprint ${task.sprint_id}` : 'N/A'}
+              </span>
+            ) : (
+              <select
+                value={task.sprint_id || ''}
+                onChange={(e) => onChangeSprint(e.target.value)}
+                className="text-indigo-600 font-medium bg-transparent border-b border-dashed border-indigo-300 outline-none hover:bg-slate-50 cursor-pointer max-w-[150px] truncate"
+              >
+                <option value="">-- Chưa gán --</option>
+                {sprints.map(s => {
+                  const valid = isSprintValid(s.id, task.start_date || task.startDate, task.deadline || task.suggested_deadline || task.endDate);
+                  return (
+                    <option key={s.id} value={s.id} disabled={!valid}>
+                      {s.name} {!valid ? '(Sai ngày)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+            )}
+          </div>
+          {sprintError && (
+            <span className="text-[11px] text-red-500 font-medium italic">{sprintError}</span>
+          )}
+        </div>
+        <div className="w-px h-3 bg-slate-300"></div>
         <div className="flex items-center gap-1.5">
           <span className="font-semibold text-slate-500">Requirement:</span>
           <span className="text-indigo-600 font-medium">{task.requirement_code || 'N/A'}</span>
