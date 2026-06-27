@@ -85,6 +85,7 @@ public class AiTaskGenerationService {
     private final ObjectMapper objectMapper;
     private final KanbanColumnRepository kanbanColumnRepository;
     private final org.example.backend.repository.TaskChecklistRepository taskChecklistRepository;
+    private final SprintRepository sprintRepository;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -101,7 +102,8 @@ public class AiTaskGenerationService {
                                    ProjectMemberRepository projectMemberRepository,
                                    ObjectMapper objectMapper,
                                    KanbanColumnRepository kanbanColumnRepository,
-                                   org.example.backend.repository.TaskChecklistRepository taskChecklistRepository) {
+                                   org.example.backend.repository.TaskChecklistRepository taskChecklistRepository,
+                                   SprintRepository sprintRepository) {
         this.taskGeminiService = taskGeminiService;
         this.stagingRepository = stagingRepository;
         this.projectRepository = projectRepository;
@@ -113,6 +115,7 @@ public class AiTaskGenerationService {
         this.objectMapper = objectMapper;
         this.kanbanColumnRepository = kanbanColumnRepository;
         this.taskChecklistRepository = taskChecklistRepository;
+        this.sprintRepository = sprintRepository;
     }
 
     public UUID generateTasks(Long projectId, AiTaskGenerateRequest request, Long userId) {
@@ -479,8 +482,51 @@ public class AiTaskGenerationService {
             }
             return responseMap;
         } catch (Exception e) {
-            throw new RuntimeException("Error merging tasks: " + e.getMessage(), e);
+            log.error("Error merging tasks via AI, using fallback.", e);
+            return createFallbackMergedTask(tasksData);
         }
+    }
+
+    private Map<String, Object> createFallbackMergedTask(List<Map<String, Object>> tasksData) {
+        Map<String, Object> responseMap = new HashMap<>();
+        Map<String, Object> merged = new HashMap<>();
+        
+        if (tasksData == null || tasksData.isEmpty()) {
+            return responseMap;
+        }
+        
+        StringBuilder combinedTitle = new StringBuilder("Merged: ");
+        StringBuilder combinedDesc = new StringBuilder("Merged tasks:\n");
+        double totalHours = 0.0;
+        
+        for (Map<String, Object> t : tasksData) {
+            String tTitle = t.containsKey("title") ? t.get("title").toString() : "Task";
+            combinedTitle.append(tTitle).append(" & ");
+            
+            String tDesc = t.containsKey("description") ? t.get("description").toString() : "";
+            combinedDesc.append("- ").append(tTitle).append(": ").append(tDesc).append("\n");
+            
+            try {
+                if (t.containsKey("estimated_hours") && t.get("estimated_hours") != null) {
+                    totalHours += Double.parseDouble(t.get("estimated_hours").toString());
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        
+        String finalTitle = combinedTitle.substring(0, Math.max(0, combinedTitle.length() - 3));
+        if (finalTitle.length() > 100) finalTitle = finalTitle.substring(0, 97) + "...";
+        
+        merged.put("temp_id", "fallback_merged");
+        merged.put("title", finalTitle);
+        merged.put("description", combinedDesc.toString());
+        merged.put("estimated_hours", totalHours);
+        merged.put("priority", tasksData.get(0).containsKey("priority") ? tasksData.get(0).get("priority") : "MEDIUM");
+        merged.put("task_type", tasksData.get(0).containsKey("task_type") ? tasksData.get(0).get("task_type") : "DEVELOPMENT");
+        
+        responseMap.put("merged_task", merged);
+        responseMap.put("reason", "API failed. Used deterministic fallback merge.");
+        
+        return responseMap;
     }
 
     @Transactional
@@ -543,6 +589,25 @@ public class AiTaskGenerationService {
                     try {
                         task.setSprintId(taskNode.get("sprint_id").asLong());
                     } catch (Exception e) {}
+                }
+                
+                org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
+                if (project != null) {
+                    try {
+                        org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), project.getStartDate(), project.getDeadline(), "Task", "Project");
+                    } catch (Exception e) {
+                        throw new org.example.backend.exception.BadRequestException("Task '" + task.getTitle() + "' có ngày nằm ngoài Project.");
+                    }
+                }
+                if (task.getSprintId() != null) {
+                    Sprint sprint = sprintRepository.findById(task.getSprintId()).orElse(null);
+                    if (sprint != null) {
+                        try {
+                            org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), sprint.getStartDate(), sprint.getEndDate(), "Task", "Sprint");
+                        } catch (Exception e) {
+                            throw new org.example.backend.exception.BadRequestException("Task '" + task.getTitle() + "' có ngày nằm ngoài Sprint.");
+                        }
+                    }
                 }
                 
                 try {
