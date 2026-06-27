@@ -51,11 +51,11 @@ Author: Trần Công Tú
 
 ### Added
 - Khởi tạo thư mục gốc của project.
-- Thêm file `.gitignore` và khởi tạo repo Git.
+- Thêm file .gitignore và khởi tạo repo Git.
 - Cập nhật danh sách các Idea sơ bộ.
 
 ### AI-assisted
-- Dùng **Gemini** để brainstorm ý tưởng cốt lõi (Task Management, Peer-review, UML Drawing). Kết quả được chọn lọc và lưu vào `idea.md`.
+- Dùng Gemini để brainstorm ý tưởng cốt lõi (Task Management, Peer-review, UML Drawing). Kết quả được chọn lọc và lưu vào idea.md.
 
 ## [2026-05-19]
 Author: Trần Công Tú
@@ -64,7 +64,7 @@ Author: Trần Công Tú
 - Tạo bộ khung file tài liệu Requirement.
 
 ### AI-assisted
-- Dùng **Claude** để tự động sinh cấu trúc Use Case dựa trên các tính năng đã chốt. Tự gỡ bỏ tính năng duyệt task rườm rà.
+- Dùng Claude để tự động sinh cấu trúc Use Case dựa trên các tính năng đã chốt. Tự gỡ bỏ tính năng duyệt task rườm rà.
 
 ## [2026-05-20]
 Author: Trần Công Tú
@@ -73,7 +73,7 @@ Author: Trần Công Tú
 - Phân rã Work Breakdown Structure (WBS) thành các task Frontend và Backend.
 
 ### AI-assisted
-- Nhờ **Claude** chia nhỏ module UML để dễ code hơn. Phê duyệt bảng WBS cùng team.
+- Nhờ Claude chia nhỏ module UML để dễ code hơn. Phê duyệt bảng WBS cùng team.
 
 ## [2026-05-22]
 Author: Trần Công Tú
@@ -85,7 +85,7 @@ Author: Trần Công Tú
 - Tự tay gắn thư viện Chart.js thay vì dùng giao diện AI gợi ý.
 
 ### AI-assisted
-- Dùng **Stitch** gen code CSS Grid cho layout 2 cột.
+- Dùng Stitch gen code CSS Grid cho layout 2 cột.
 
 ## [2026-05-24]
 Author: Trần Công Tú
@@ -94,7 +94,7 @@ Author: Trần Công Tú
 - Dọn dẹp dữ liệu Mock (Fake array data) mà AI tạo trên giao diện. Bắt buộc gọi qua API.
 
 ### AI-assisted
-- Nhờ **Kiro** kiểm tra vì sao UI không update data, phát hiện do AI hardcode, ép đổi thành fetch API để chuẩn bị cho giai đoạn code Backend.
+- Nhờ Kiro kiểm tra vì sao UI không update data, phát hiện do AI hardcode, ép đổi thành fetch API để chuẩn bị cho giai đoạn code Backend.
 
 ## [2026-05-26]
 Author: Trần Công Tú
@@ -103,7 +103,7 @@ Author: Trần Công Tú
 - Tích hợp hệ thống quản lý Database Migration (Knex) để quản lý cấu trúc PostgreSQL chuyên nghiệp, từ chối sửa DB bằng tay.
 
 ### AI-assisted
-- Dùng **Claude** thiết kế kiến trúc DB và yêu cầu **Antigravity** viết lệnh init Knex Migration.
+- Dùng Claude thiết kế kiến trúc DB và yêu cầu Antigravity viết lệnh init Knex Migration.
 
 ## [2026-05-28]
 Author: Trần Công Tú
@@ -112,7 +112,7 @@ Author: Trần Công Tú
 - Từ bỏ giải pháp hình ảnh tĩnh Mermaid.js (quá cứng nhắc). Đổi nền tảng biểu đồ ngay từ khâu thiết kế.
 
 ### AI-assisted
-- **Gemini** tư vấn đổi qua React Flow để có tính năng Drag Drop. Tinh thần không ngại đập bỏ để tối ưu sớm.
+- Gemini tư vấn đổi qua React Flow để có tính năng Drag Drop. Tinh thần không ngại đập bỏ để tối ưu sớm.
 
 ---
 
@@ -126,30 +126,30 @@ Author: Trần Công Tú
 - Middleware kiểm tra User token.
 
 ### AI-assisted
-- Dùng **Antigravity** code Auth middleware. Tự bổ sung cơ chế bắt lỗi TokenExpiredError để tăng tính bảo mật.
+- Dùng Antigravity code Auth middleware. Tự bổ sung cơ chế bắt lỗi TokenExpiredError để tăng tính bảo mật.
 
 ## [2026-05-30]
 Author: Trần Công Tú
 
 ### Fixed
 - Sửa lỗi Login không gửi kèm Cookie chứa token lên server do thiếu SameSite và CORS.
-- Update `server.js` cấu hình allowed origin.
+- Update server.js cấu hình allowed origin.
 
 ### AI-assisted
-- Nhờ **Kiro** quét lỗi CORS và xác định nguyên nhân.
-- Dùng **Antigravity** code lại đoạn CORS config dựa trên chỉ định của Kiro. Tôi đã chuyển Domain thành file `.env` cho an toàn.
+- Nhờ Kiro quét lỗi CORS và xác định nguyên nhân.
+- Dùng Antigravity code lại đoạn CORS config dựa trên chỉ định của Kiro. Tôi đã chuyển Domain thành file .env cho an toàn.
 
 ## [2026-06-02]
 Author: Trần Công Tú
 
 ### Added
-- Chức năng Create Task với field nhập `estimate_hours`. Tích hợp PostgreSQL.
+- Chức năng Create Task với field nhập estimate_hours. Tích hợp PostgreSQL.
 
 ### Changed
 - Bổ sung schema Zod để thay thế luồng validate if-else lộn xộn cũ.
 
 ### AI-assisted
-- Dùng **Antigravity** code Controller lưu xuống PostgreSQL, nhưng đã chủ động yêu cầu Claude sinh Zod validation thay vì tự tay viết.
+- Dùng Antigravity code Controller lưu xuống PostgreSQL, nhưng đã chủ động yêu cầu Claude sinh Zod validation thay vì tự tay viết.
 
 ## [2026-06-04]
 Author: Trần Công Tú
@@ -158,7 +158,7 @@ Author: Trần Công Tú
 - Sửa lỗi API báo 200 nhưng PostgreSQL không có data mới. (End-to-End Testing bug)
 
 ### AI-assisted
-- Bắt quả tang Antigravity giả mạo query thông qua log báo của **Kiro**. Ép Antigravity dùng đúng chuẩn kết nối thực thi DB thật sự.
+- Bắt quả tang Antigravity giả mạo query thông qua log báo của Kiro. Ép Antigravity dùng đúng chuẩn kết nối thực thi DB thật sự.
 
 ---
 
@@ -171,16 +171,16 @@ Author: Trần Công Tú
 - Thiết kế hệ thống (Architecture) phần luồng xử lý Node và Edge cho module vẽ UML React Flow.
 
 ### AI-assisted
-- Dùng **Claude** và **Gemini** nghiên cứu sâu React Flow, lên meta-prompt chi tiết trước khi bước vào code. Đây là bước sống còn để kiểm soát logic AI code sau này.
+- Dùng Claude và Gemini nghiên cứu sâu React Flow, lên meta-prompt chi tiết trước khi bước vào code. Đây là bước sống còn để kiểm soát logic AI code sau này.
 
 ## [2026-06-11]
 Author: Trần Công Tú
 
 ### Added
-- Component `UmlDiagram.jsx` hiển thị bảng vẽ.
+- Component UmlDiagram.jsx hiển thị bảng vẽ.
 
 ### AI-assisted
-- Dùng **Antigravity** gen component dựa trên Master Prompt.
+- Dùng Antigravity gen component dựa trên Master Prompt.
 
 ## [2026-06-12]
 Author: Trần Công Tú
@@ -190,7 +190,7 @@ Author: Trần Công Tú
 - Thay đổi ID của các thẻ Handle cho đồng nhất trên mọi component.
 
 ### AI-assisted
-- Dùng **Kiro** trace bug lỗi đứt kết nối dây. Cập nhật lại yêu cầu để **Antigravity** code lại.
+- Dùng Kiro trace bug lỗi đứt kết nối dây. Cập nhật lại yêu cầu để Antigravity code lại.
 
 ## [2026-06-14]
 Author: Trần Công Tú
@@ -200,7 +200,7 @@ Author: Trần Công Tú
 - Cấu trúc lại cơ chế lưu State Undo/Redo bằng kỹ thuật Debouncing.
 
 ### AI-assisted
-- Yêu cầu **Antigravity** viết custom hook fix lỗi giật lag. AI viết quá rối, nhờ **Claude** viết lại bản sạch, sau đó ép Antigravity tích hợp vào dự án.
+- Yêu cầu Antigravity viết custom hook fix lỗi giật lag. AI viết quá rối, nhờ Claude viết lại bản sạch, sau đó ép Antigravity tích hợp vào dự án.
 
 ---
 
@@ -213,16 +213,16 @@ Author: Trần Công Tú
 - Tích hợp React Error Boundary chặn lỗi Crash UI do đụng độ dữ liệu Optimistic Locking.
 
 ### AI-assisted
-- Được **Kiro** chẩn đoán nguyên nhân và nhờ **Claude** thiết kế cơ chế cảnh báo UI mượt mà (Graceful Degradation).
+- Được Kiro chẩn đoán nguyên nhân và nhờ Claude thiết kế cơ chế cảnh báo UI mượt mà (Graceful Degradation).
 
 ## [2026-06-20]
 Author: Trần Công Tú
 
 ### Changed
-- (Refactor) Đập bỏ component `UmlDiagram.jsx` khổng lồ 1500 dòng thành các Custom Hook và component nhỏ tuân thủ Separation of Concerns.
+- (Refactor) Đập bỏ component UmlDiagram.jsx khổng lồ 1500 dòng thành các Custom Hook và component nhỏ tuân thủ Separation of Concerns.
 
 ### AI-assisted
-- Nhờ **Claude** vẽ cấu trúc băm nhỏ, sau đó ép **Antigravity** chia tách các file tương ứng nhằm trả "nợ kỹ thuật" (Technical Debt).
+- Nhờ Claude vẽ cấu trúc băm nhỏ, sau đó ép Antigravity chia tách các file tương ứng nhằm trả "nợ kỹ thuật" (Technical Debt).
 
 ## [2026-06-22]
 Author: Trần Công Tú
@@ -231,7 +231,7 @@ Author: Trần Công Tú
 - Cải thiện kiến trúc WebSocket truyền data để đỡ ngốn băng thông và CPU.
 
 ### AI-assisted
-- **Claude** cung cấp thuật toán Delta Update cực đỉnh để nén data vẽ gửi cho nhiều user, bắt Antigravity sửa.
+- Claude cung cấp thuật toán Delta Update cực đỉnh để nén data vẽ gửi cho nhiều user, bắt Antigravity sửa.
 
 ## [2026-06-25]
 Author: Trần Công Tú
@@ -243,7 +243,7 @@ Author: Trần Công Tú
 - Điều chỉnh tông giọng tài liệu cho chuẩn văn phong Việt Nam. Gắn screenshot thực tế của app.
 
 ### AI-assisted
-- Dùng **Claude** draft bản thô cho User Manual từ file Requirement cũ.
+- Dùng Claude draft bản thô cho User Manual từ file Requirement cũ.
 
 ## [2026-06-27]
 Author: Trần Công Tú
@@ -253,4 +253,4 @@ Author: Trần Công Tú
 - Tự động hóa Testing và Deploy lên server thật (Render).
 
 ### AI-assisted
-- **Gemini** sinh file `deploy.yml`. Tự động hóa vòng đời phần mềm (SDLC) lên mức cao nhất.
+- Gemini sinh file deploy.yml. Tự động hóa vòng đời phần mềm (SDLC) lên mức cao nhất.
