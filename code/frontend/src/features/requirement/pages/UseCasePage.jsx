@@ -244,12 +244,13 @@ const UseCasePage = () => {
 
             {/* Group 3: Generate Usecase */}
             {isLeader && (
-            <Button
+            <button
+              type="button"
               onClick={() => setIsSelectionModalOpen(true)}
+              className="h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-[14px] shadow-sm"
             >
-              <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
               Generate Usecase
-            </Button>
+            </button>
             )}
 
             {/* Group 4: Add Use Case */}

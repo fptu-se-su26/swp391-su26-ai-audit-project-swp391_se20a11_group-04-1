@@ -71,8 +71,10 @@ const SplitTaskReviewModal = ({
                <div className="w-full border-t border-slate-200 border-dashed"></div>
             </div>
             <div className="relative bg-white px-4 flex flex-col items-center gap-1 text-teal-500">
-               <span className="material-symbols-outlined text-3xl animate-bounce">call_split</span>
-               <span className="text-[10px] font-bold tracking-widest uppercase bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">Tách thành</span>
+               <div className="animate-pulse">
+                  <span className="material-symbols-outlined text-3xl rotate-180 block">call_split</span>
+               </div>
+               <span className="text-[10px] font-bold tracking-widest uppercase bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">SPLIT INTO</span>
             </div>
           </div>
 
@@ -106,24 +108,24 @@ const SplitTaskReviewModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
           <button 
             onClick={onClose}
             className="px-4 py-2 border border-slate-300 rounded font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            Hủy Bỏ
+            Cancel
           </button>
           <button 
             onClick={() => {
               if (editingTaskIndices.size > 0) {
-                alert("Vui lòng bấm '✓ Lưu' ở các Task đang chỉnh sửa trước khi tách nhé!");
+                alert("Please click '✓ Save' on editing tasks before splitting!");
                 return;
               }
               onApprove(subTasks);
             }}
             className={`px-6 py-2 font-bold rounded shadow-sm transition-colors flex items-center gap-2 ${editingTaskIndices.size > 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
           >
-            {editingTaskIndices.size > 0 ? "Đang chỉnh sửa..." : "✓ Chốt & Áp Dụng Tách"}
+            {editingTaskIndices.size > 0 ? "Editing..." : "✓ Confirm & Split"}
           </button>
         </div>
 

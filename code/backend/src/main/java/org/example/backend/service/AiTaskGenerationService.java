@@ -399,7 +399,11 @@ public class AiTaskGenerationService {
                     && resultNode.get("sub_tasks").size() >= 2;
 
             if (hasValidSubTasks) {
-                responseMap.put("sub_tasks", resultNode.get("sub_tasks"));
+                List<Map<String, Object>> parsedList = objectMapper.convertValue(
+                        resultNode.get("sub_tasks"), 
+                        new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {}
+                );
+                responseMap.put("sub_tasks", parsedList);
             } else {
                 // HARD FALLBACK: Gemini refused / API error → deterministic 2-phase split
                 log.info("splitTask: using deterministic fallback for task '{}'", taskData.get("title"));
@@ -418,22 +422,22 @@ public class AiTaskGenerationService {
 
                 Map<String, Object> part1 = new HashMap<>();
                 part1.put("temp_id", "fallback_sub1");
-                part1.put("title", "[Giai đoạn 1] " + baseTitle);
-                part1.put("description", "Phân tích, thiết kế và chuẩn bị cho: " + baseDesc);
+                part1.put("title", "[Phase 1] " + baseTitle);
+                part1.put("description", "Analyze, design and prepare for: " + baseDesc);
                 part1.put("estimated_hours", Math.max(1.0, baseHours / 2.0));
                 part1.put("priority", priority);
                 part1.put("task_type", taskType);
-                part1.put("checklists", List.of("Phân tích yêu cầu", "Thiết kế giải pháp", "Xác nhận scope với team"));
+                part1.put("checklists", List.of("Requirements analysis", "Design solution", "Confirm scope with team"));
 
                 Map<String, Object> part2 = new HashMap<>();
                 part2.put("temp_id", "fallback_sub2");
-                part2.put("title", "[Giai đoạn 2] " + baseTitle);
-                part2.put("description", "Thực thi, kiểm thử và hoàn thiện cho: " + baseDesc);
+                part2.put("title", "[Phase 2] " + baseTitle);
+                part2.put("description", "Execute, test and finalize for: " + baseDesc);
                 part2.put("estimated_hours", Math.max(1.0, baseHours / 2.0));
                 part2.put("priority", priority);
                 part2.put("task_type", taskType);
                 part2.put("depends_on", List.of("fallback_sub1"));
-                part2.put("checklists", List.of("Implement theo design", "Viết unit test", "Code review", "Deploy & verify"));
+                part2.put("checklists", List.of("Implement based on design", "Write unit tests", "Code review", "Deploy & verify"));
 
                 fallbackList.add(part1);
                 fallbackList.add(part2);
@@ -461,7 +465,15 @@ public class AiTaskGenerationService {
             JsonNode resultNode = objectMapper.readTree(cleanJsonString(cleanJson));
 
             Map<String, Object> responseMap = new HashMap<>();
-            responseMap.put("merged_task", resultNode.get("merged_task"));
+            
+            if (resultNode.has("merged_task")) {
+                Map<String, Object> parsedMap = objectMapper.convertValue(
+                        resultNode.get("merged_task"),
+                        new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+                );
+                responseMap.put("merged_task", parsedMap);
+            }
+            
             if (resultNode.has("reason")) {
                 responseMap.put("reason", resultNode.get("reason").asText());
             }

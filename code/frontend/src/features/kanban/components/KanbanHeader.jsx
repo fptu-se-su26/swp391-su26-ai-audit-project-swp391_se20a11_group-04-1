@@ -27,9 +27,8 @@ const KanbanHeader = ({ isCompactBoard, onToggleCompact, onCreateTask, onGenerat
           <button
             type="button"
             onClick={onGenerateAITasks}
-            className="h-[36px] px-4 bg-secondary-container text-on-secondary-container rounded-lg font-semibold flex items-center space-x-2 hover:bg-secondary-fixed transition-colors text-sm"
+            className="h-[36px] px-4 bg-secondary-container text-on-secondary-container rounded-lg font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-sm shadow-sm"
           >
-            <span className="material-symbols-outlined text-[18px]">psychology</span>
             <span>AI Generate Tasks</span>
           </button>
           <button

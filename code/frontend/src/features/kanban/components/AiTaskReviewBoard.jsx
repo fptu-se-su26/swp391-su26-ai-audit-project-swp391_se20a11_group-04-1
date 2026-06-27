@@ -97,36 +97,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       const generatedTasks = payloadData.tasks || [];
       
       if (generatedTasks.length === 0) {
-        toast.custom((t) => (
-          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-xl rounded-xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border-2 border-indigo-100`}>
-            <div className="flex-1 w-0 p-4">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 pt-0.5">
-                  <span className="material-symbols-outlined text-3xl text-emerald-500">check_circle</span>
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-base font-bold text-slate-800">
-                    Đã phủ kín tính năng!
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Hệ thống AI nhận thấy các Requirement này đã được các Task hiện tại xử lý đầy đủ. Không cần tạo thêm Task mới để tránh trùng lặp.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex border-l border-slate-200 bg-slate-50">
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className="w-16 border border-transparent flex flex-col items-center justify-center text-xs font-bold text-slate-500 hover:bg-slate-200 hover:text-slate-800 focus:outline-none transition-colors"
-              >
-                <span className="material-symbols-outlined mb-1">close</span>
-                Đóng
-              </button>
-            </div>
-          </div>
-        ), { duration: Infinity });
-        
-        onClose();
+        setTasks([]);
+        setLoading(false);
         return;
       }
       
@@ -177,6 +149,28 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
   const handleApprove = async () => {
     if (selectedIndices.size === 0) return;
+
+    // Check for unresolved duplication risks
+    const hasUnresolvedDuplications = Array.from(selectedIndices).some(idx => {
+      const task = tasks[idx];
+      const isMergingToExisting = task._syncAction === 'MERGE_INTO_EXISTING';
+      const hasDuplication = duplicationRisks.some(r => r.generated_task_temp_id === task.temp_id);
+      return hasDuplication && !isMergingToExisting;
+    });
+
+    if (hasUnresolvedDuplications) {
+      setConfirmConfig({
+        isOpen: true,
+        action: 'BLOCK_APPROVE',
+        type: 'warning',
+        title: 'Unresolved Duplications',
+        message: 'Please resolve all highlighted duplication risks (orange border tasks) before approving.',
+        hideCancel: true,
+        confirmText: 'OK, I got it'
+      });
+      return;
+    }
+
     setApproving(true);
     try {
       const finalTasks = tasks.map((t, idx) => {
@@ -190,11 +184,11 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         selectedIndices: Array.from(selectedIndices),
         modifiedPayload: finalTasks
       });
-      toast.success("Duyệt Tasks thành công! Các Task đã được thêm vào Kanban.");
+      toast.success("Approved successfully! Tasks have been added to Kanban.");
       onSuccess();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Lỗi khi duyệt Tasks.");
+      toast.error(err.response?.data?.error || "Error approving tasks.");
     } finally {
       setApproving(false);
     }
@@ -262,7 +256,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
         // Instead of applying immediately, open the review modal
         setReviewingSplitData({
-          originalTask: taskToSplit,
+          originalTask: fullTask,
           subTasks: enrichedSubTasks
         });
         toast.success("AI đã tách xong, vui lòng kiểm tra lại!");
@@ -270,7 +264,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         const reason = result.data?.reason || result.reason || "Task này đã đạt mức tối thiểu hoặc không thể phân tách hợp lý theo logic nghiệp vụ.";
         setActionError({
           title: "Không thể tách Task",
-          reason: reason
+          reason: reason + "\n\n[DEBUG - Raw Result]: " + JSON.stringify(result)
         });
       }
     } catch (err) {
@@ -354,15 +348,19 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       setConfirmConfig({
         isOpen: true,
         action: 'DELETE_GENERATED',
-        title: 'Xóa Task AI',
-        message: 'Bạn có chắc chắn muốn xóa Task AI sinh ra này khỏi danh sách không?'
+        type: 'danger',
+        title: 'Delete AI Task',
+        message: 'Are you sure you want to delete this generated AI Task from the list?',
+        confirmText: 'Delete'
       });
     } else if (action === 'MERGE_INTO_EXISTING') {
       setConfirmConfig({
         isOpen: true,
         action: 'MERGE_INTO_EXISTING',
-        title: 'Xác nhận gộp',
-        message: 'Xác nhận gộp? Khi phê duyệt, dữ liệu của Task cũ sẽ bị ghi đè hoàn toàn bởi Task AI này.'
+        type: 'merge',
+        title: 'Confirm Merge',
+        message: 'Are you sure you want to merge? The existing task data will be completely overwritten by this AI Task.',
+        confirmText: 'Confirm'
       });
     } else if (action === 'KEEP_BOTH') {
       executeResolveDiff('KEEP_BOTH');
@@ -449,9 +447,38 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
   if (!isOpen) return null;
 
+  if (tasks.length === 0 && !loading) {
+    return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="max-w-md w-full bg-white shadow-2xl rounded-2xl border border-slate-100 pointer-events-auto p-6 relative overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-28 h-28 bg-emerald-50 rounded-full opacity-50 pointer-events-none"></div>
+          
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors z-10"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+
+          <div className="flex flex-col items-center justify-center pt-2 pb-4">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center shadow-inner mb-4">
+              <span className="material-symbols-outlined text-3xl text-emerald-600">task_alt</span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-2 text-center">
+              Fully Covered!
+            </h3>
+            <p className="text-sm text-slate-600 leading-relaxed text-center px-2">
+              The AI system determined that these requirements are already fully covered by existing tasks. No new tasks were generated to avoid duplication.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-slate-50 rounded-xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden">
         
         {/* 1. MODAL HEADER */}
         <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
@@ -543,14 +570,6 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           {loading ? (
             <div className="flex justify-center py-20">
               <span className="material-symbols-outlined animate-spin text-4xl text-indigo-600">progress_activity</span>
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-              <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">check_circle</span>
-              <p className="text-xl font-bold text-slate-700 mb-2">Đã phủ kín tính năng!</p>
-              <p className="text-base text-center max-w-md">
-                Hệ thống AI nhận thấy các Requirement này đã được các Task hiện tại xử lý đầy đủ. Không cần tạo thêm Task mới để tránh trùng lặp.
-              </p>
             </div>
           ) : (
             <div className="max-w-5xl mx-auto flex flex-col gap-4 pb-10">
@@ -653,7 +672,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
             disabled={approving}
             className="px-4 py-2 border border-slate-300 rounded font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            Hủy
+            Cancel
           </button>
           
           <button 
@@ -664,11 +683,11 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
             {approving ? (
               <>
                 <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                Đang phê duyệt...
+                Approving...
               </>
             ) : (
               <>
-                ✅ Phê duyệt & Đưa vào Kanban ({selectedIndices.size})
+                ✅ Approve Task ({selectedIndices.size})
               </>
             )}
           </button>
@@ -894,10 +913,14 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         isOpen={confirmConfig.isOpen}
         title={confirmConfig.title}
         message={confirmConfig.message}
-        confirmText="Xác nhận"
-        cancelText="Hủy"
+        type={confirmConfig.type || 'danger'}
+        confirmText={confirmConfig.confirmText || 'Confirm'}
+        cancelText="Cancel"
+        hideCancel={confirmConfig.hideCancel}
         onConfirm={() => {
-          executeResolveDiff(confirmConfig.action);
+          if (confirmConfig.action !== 'BLOCK_APPROVE') {
+            executeResolveDiff(confirmConfig.action);
+          }
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '' });
         }}
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '' })}
