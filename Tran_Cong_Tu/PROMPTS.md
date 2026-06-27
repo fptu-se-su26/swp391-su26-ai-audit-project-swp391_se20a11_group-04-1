@@ -58,7 +58,7 @@ Sinh viên/nhóm cần ghi lại:
 - Purpose: Tìm kiếm thông tin và lên ý tưởng cốt lõi.
 
 ### Prompt
-Đóng vai là một chuyên gia quản lý dự án phần mềm giáo dục. Hãy đề xuất các tính năng cần có cho một hệ thống "Software Project Management System" dành riêng cho sinh viên IT làm đồ án môn học. Hệ thống này có gì khác biệt so với Jira hay Trello?
+Chào bạn, hiện tại nhóm chúng tôi đang lên ý tưởng để làm một đồ án tốt nghiệp cho môn học SWP391. Tên đề tài dự kiến là "Software Project Management System for IT Student Teams". Yêu cầu của giảng viên là không được làm một hệ thống chung chung như Jira hay Trello, mà phải có những chức năng bám sát vào việc sinh viên làm đồ án trên trường. Bạn hãy đóng vai là một chuyên gia quản lý dự án và tư vấn giúp tôi các module cốt lõi cần phải có. Hãy tập trung vào việc quản lý tiến độ, phân chia công việc, và đặc biệt là cơ chế đánh giá điểm số đóng góp của từng thành viên trong nhóm.
 
 ### Expected Output
 - Danh sách các module chính, điểm khác biệt.
@@ -74,7 +74,7 @@ Gemini gợi ý tốt, chỉ ra được điểm khác biệt là tích hợp mo
 - Purpose: Phân tích và sinh Use Case cho hệ thống.
 
 ### Prompt
-Dựa vào ý tưởng: Hệ thống quản lý đồ án sinh viên (Actor gồm: Student, Mentor, Admin). Chức năng cốt lõi: Quản lý nhóm, Phân chia Task, Vẽ UML, Chấm chéo (Peer-review). Hãy viết cho tôi danh sách Use Case chuẩn, và mô tả chi tiết Use Case "Create Task".
+Sau khi chốt được các module cốt lõi, bây giờ tôi cần viết tài liệu đặc tả yêu cầu (Requirement Specification). Dựa vào ý tưởng hệ thống quản lý đồ án sinh viên với 3 vai trò chính là Student, Mentor và Admin. Bạn hãy phân tích và viết cho tôi một danh sách Use Case hoàn chỉnh. Ngoài ra, hãy tư vấn cho tôi nên sử dụng hệ quản trị cơ sở dữ liệu nào là phù hợp nhất, đảm bảo được tính toàn vẹn của dữ liệu điểm số, mượt mà khi truy vấn các quan hệ phức tạp giữa Task, Sinh viên và Nhóm, đồng thời có khả năng mở rộng tốt.
 
 ### Expected Output
 - Danh sách UC theo Actor.
@@ -107,7 +107,7 @@ Claude chia khá chuẩn, gợi ý dùng thư viện đồ họa kéo thả đ�
 - Purpose: Tạo mockup UI cho trang Dashboard.
 
 ### Prompt
-Tạo giao diện Dashboard cho trang quản lý dự án của sinh viên. Bao gồm: Sidebar bên trái, Header có thông tin user, main content chia làm 2 cột (Cột 1: Danh sách task cần làm, Cột 2: Biểu đồ tiến độ nhóm). Dùng TailwindCSS.
+Hiện tại tôi đang cần thiết kế giao diện cho trang Dashboard quản lý dự án. Yêu cầu giao diện phải sáng sủa, hiện đại và sử dụng thư viện TailwindCSS. Cấu trúc DOM cần thiết kế nông và gọn gàng, sử dụng CSS Grid để chia layout. Trang Dashboard sẽ bao gồm một Sidebar bên trái chứa các menu điều hướng, một Header hiển thị thông tin người dùng đang đăng nhập, và phần nội dung chính chia làm hai cột. Cột bên trái sẽ hiển thị danh sách các task cần làm trong tuần, cột bên phải sẽ để trống để sau này tôi tự tích hợp thư viện biểu đồ vào.
 
 ### Expected Output
 - Code HTML/Tailwind cho Dashboard.
@@ -123,7 +123,7 @@ Stitch gen ra khung giao diện khá đẹp, nhưng phần biểu đồ chỉ l�
 - Purpose: Truy tìm nguyên nhân UI có vẻ chạy được nhưng thực chất là lừa dối (Mock Data).
 
 ### Prompt
-Tôi vừa dùng UI do AI kia tạo. Trên màn hình hiện danh sách Task nhưng tôi thử bấm nút thêm Task mới thì danh sách không dài ra. Tại sao?
+Tôi vừa sử dụng đoạn code giao diện UI mà một AI khác tạo ra. Giao diện hiển thị lên trình duyệt rất đẹp và đúng ý tôi, trên màn hình có hiện sẵn một danh sách các Task. Tuy nhiên, tôi phát hiện ra đây chỉ là dữ liệu tĩnh được hardcode sẵn trong một mảng. Khi tôi thử bấm nút thêm Task mới trên giao diện thì danh sách này hoàn toàn không thay đổi hay dài ra. Bạn hãy hướng dẫn tôi cách bóc tách toàn bộ phần dữ liệu mảng tĩnh này ra khỏi giao diện, và chuẩn bị các hàm fetch dữ liệu bằng React Query để tôi có thể kết nối với API thực tế từ Backend sau này.
 
 ### Expected Output
 - Phân tích nguyên nhân tĩnh hóa dữ liệu của file React.
@@ -139,7 +139,7 @@ Kiro chỉ ra AI đã hardcode sẵn dữ liệu vào mảng (mock data) thay v�
 - Purpose: Quản lý thay đổi cấu trúc Database (DB Migration).
 
 ### Prompt
-Dự án sắp bước vào giai đoạn code Backend. Tránh việc dùng lệnh `ALTER TABLE` thủ công trên PostgreSQL gây rủi ro mất data và khó đồng bộ nhóm, hãy tư vấn hệ thống quản lý Migration (như Prisma hay Knex) cho Node.js và viết script init.
+Dự án của tôi sẽ sử dụng PostgreSQL làm cơ sở dữ liệu chính và chuẩn bị bước vào giai đoạn code Backend bằng Node.js. Để quản lý vòng đời của cơ sở dữ liệu một cách chuyên nghiệp, tôi không muốn sử dụng lệnh ALTER TABLE thủ công trên pgAdmin vì rất dễ gây lỗi mất dữ liệu và khó đồng bộ giữa các thành viên. Bạn hãy tư vấn cho tôi cách tích hợp hệ thống quản lý Database Migration, cụ thể là Knex.js. Hãy hướng dẫn tôi cách khởi tạo thư mục migration, cấu hình file knexfile.js kết nối với database, và viết một script migration mẫu để tạo bảng đầu tiên. Cần tích hợp sẵn cơ chế Optimistic Locking (thêm trường version vào các bảng) để ngăn chặn lỗi đụng độ dữ liệu.
 
 ### Expected Output
 - Kiến trúc DB Migration chuyên nghiệp.
@@ -173,13 +173,13 @@ Gemini đã giới thiệu tôi React Flow. Việc tôi không chấp nhận dù
 - Purpose: Code tính năng phân quyền User.
 
 ### Prompt
-Viết middleware trong ExpressJS để check Role dựa trên JWT. Có 3 role: ADMIN, MENTOR, STUDENT. Nếu route yêu cầu MENTOR mà user là STUDENT thì trả về 403.
+Bây giờ chúng ta sẽ bắt đầu code chức năng xác thực và phân quyền cho Backend bằng Express.js. Bạn hãy viết cho tôi một đoạn Middleware có nhiệm vụ kiểm tra và giải mã JWT token từ header của request. Hệ thống có 3 role chính là ADMIN, MENTOR, và STUDENT. Middleware này cần nhận tham số role đầu vào và đối chiếu với role trong token. Ví dụ nếu route yêu cầu quyền MENTOR mà user gửi token của STUDENT thì phải trả về lỗi 403 Forbidden. Lưu ý, bạn phải xử lý cả trường hợp token bị hết hạn hoặc không hợp lệ.
 
 ### Expected Output
 - Code đoạn `authMiddleware.js`.
 
 ### Evaluation
-Antigravity viết đúng logic cơ bản, nhưng quên check case token bị expired. Tôi đã tự đọc document của `jsonwebtoken` và thêm block try-catch để handle `TokenExpiredError`.
+Antigravity viết đúng logic cơ bản, nhưng quên check case token bị expired. Tôi đã tự đọc document của jsonwebtoken và thêm block try-catch để handle TokenExpiredError.
 
 
 ## Prompt #09
@@ -189,13 +189,13 @@ Antigravity viết đúng logic cơ bản, nhưng quên check case token bị ex
 - Purpose: Tìm bug đăng nhập không lưu được token.
 
 ### Prompt
-[Đưa đoạn log lỗi CORS và cookie bị reject] Frontend báo lỗi không gửi được cookie chứa token lên server dù đã login thành công. Lỗi ở đâu?
+Tôi đang gặp một lỗi khá đau đầu khi kết nối Frontend với Backend. Mặc dù quá trình đăng nhập qua API trả về thành công và server có set cookie chứa JWT token, nhưng khi Frontend gọi các API tiếp theo, trình duyệt lại báo lỗi CORS và cookie hoàn toàn không được đính kèm vào request. Tôi đang chạy Frontend ở localhost:3000 và Backend ở localhost:8080. Bạn hãy đọc đoạn log lỗi này và giải thích chi tiết cho tôi nguyên nhân tại sao trình duyệt lại từ chối gửi cookie, và liên quan gì đến thuộc tính SameSite.
 
 ### Expected Output
 - Xác định nguyên nhân lỗi CORS và SameSite cookie.
 
 ### Evaluation
-Kiro dò bug rất nhanh, báo lỗi do thiếu `credentials: true` ở Axios và `SameSite=none` ở cookie.
+Kiro dò bug rất nhanh, báo lỗi do thiếu credentials: true ở Axios và SameSite=none ở cookie.
 
 
 ## Prompt #10
@@ -205,7 +205,7 @@ Kiro dò bug rất nhanh, báo lỗi do thiếu `credentials: true` ở Axios v�
 - Purpose: Fix bug CORS theo gợi ý của Kiro.
 
 ### Prompt
-Cập nhật file `server.js` cấu hình lại CORS allowed origin và thêm config cookie SameSite None, Secure true như gợi ý để giải quyết lỗi.
+Dựa trên nguyên nhân lỗi CORS và SameSite cookie vừa tìm ra, bây giờ bạn hãy hướng dẫn tôi cách cấu hình lại file server.js trong Express. Cụ thể, tôi cần cấu hình thư viện cors để cho phép origin từ Frontend, và quan trọng nhất là phải bật thông số allow-credentials lên true. Ngoài ra, hãy hướng dẫn tôi cách cấu hình cookie trả về từ API đăng nhập với các thuộc tính httpOnly, SameSite là None, và Secure là true. Vui lòng sử dụng biến môi trường (environment variables) cho domain gốc để bảo mật.
 
 ### Expected Output
 - File `server.js` được cập nhật.
@@ -221,7 +221,7 @@ Antigravity fix thành công. Code đã chạy mượt.
 - Purpose: Code API Create Task có tính toán estimate time.
 
 ### Prompt
-Viết API POST `/api/tasks`. Nhận vào `title, description, assignee_id, estimate_hours`. Logic: Validate dữ liệu, nếu `estimate_hours` > 40 thì báo lỗi "Quá thời gian cho phép của tuần". Lưu vào PostgreSQL.
+Tiếp theo, bạn hãy viết cho tôi API POST /api/tasks để tạo công việc mới. Input nhận vào từ body sẽ bao gồm title, description, assignee_id, và estimate_hours. Logic nghiệp vụ yêu cầu phải validate dữ liệu đầu vào, nếu estimate_hours lớn hơn 40 thì phải trả về lỗi "Quá thời gian cho phép của một tuần". Sau khi qua bước validate, hãy viết code lưu dữ liệu này xuống PostgreSQL. Dưới đây là bộ luật Strict Backend Rule của tôi, yêu cầu bạn tuân thủ tuyệt đối, không được viết code đối phó hay lười biếng.
 
 ### Expected Output
 - Code Router, Controller, Model.
@@ -237,13 +237,13 @@ Hoạt động tốt. Nhờ sự hướng dẫn, AI lưu đúng xuống PostgreS
 - Purpose: Phát hiện lỗ hổng API báo 200 nhưng không lưu data vào PostgreSQL (End-to-End Testing).
 
 ### Prompt
-Code API tạo Task trả về Postman 200 Success. Nhưng tôi mở PostgreSQL (pgAdmin) thì bảng Tasks không có dòng nào mới. Code này đang lừa tôi đúng không?
+Tôi vừa test thử API tạo Task mà một AI khác viết bằng Postman. Postman báo về HTTP Status 200 Success, kèm theo message báo tạo thành công. Tuy nhiên, khi tôi cẩn thận mở công cụ pgAdmin để kiểm tra trực tiếp vào bảng Tasks trong PostgreSQL thì hoàn toàn không thấy có dòng dữ liệu nào mới được thêm vào cả. Đoạn code controller này đang có vấn đề gì? Phải chăng nó chỉ đang in thông tin ra màn hình console chứ chưa hề gọi lệnh thực thi xuống cơ sở dữ liệu? Bạn hãy kiểm tra giúp tôi.
 
 ### Expected Output
 - Phát hiện AI Coder giả mạo truy vấn.
 
 ### Evaluation
-Kiro bóc mẽ rằng Antigravity chỉ `console.log` câu query SQL chứ chưa gọi hàm `pool.query()` thực thi xuống Database. Sự phát hiện E2E Testing này giúp tôi chặn đứng thói lười biếng của AI. Tôi bắt Antigravity sửa lại và nối vào CSDL lập tức.
+Kiro bóc mẽ rằng Antigravity chỉ console.log câu query SQL chứ chưa gọi hàm pool.query thực thi xuống Database. Sự phát hiện E2E Testing này giúp tôi chặn đứng thói lười biếng của AI. Tôi bắt Antigravity sửa lại và nối vào CSDL lập tức.
 
 
 ### Phase 3: Module UML & Tương tác giao diện (07/06 - 15/06)
@@ -255,7 +255,7 @@ Kiro bóc mẽ rằng Antigravity chỉ `console.log` câu query SQL chứ chưa
 - Purpose: So sánh chi tiết thư viện vẽ biểu đồ.
 
 ### Prompt
-Cho tôi ưu nhược điểm của React Flow, JointJS, và GoJS trong việc xây dựng tính năng kéo thả Class Diagram. Tôi cần thư viện mã nguồn mở, dễ custom, tài liệu dễ đọc.
+Module vẽ biểu đồ UML là linh hồn của dự án này. Trước khi bắt tay vào code, tôi cần bạn phân tích và so sánh chi tiết giúp tôi 3 thư viện vẽ biểu đồ trên nền tảng React: React Flow, JointJS, và GoJS. Tiêu chí đánh giá của tôi là thư viện phải hoàn toàn mã nguồn mở, tài liệu document phong phú dễ tiếp cận, cộng đồng hỗ trợ lớn, và quan trọng nhất là phải dễ dàng tùy biến các Node và Edge để phù hợp với việc vẽ Class Diagram có các thuộc tính và phương thức.
 
 ### Expected Output
 - Bảng so sánh 3 thư viện.
@@ -271,7 +271,7 @@ Gemini phân tích tốt. JointJS và GoJS thương mại nhiều, React Flow ph
 - Purpose: Lên luồng xử lý (prompt engineering) để hướng dẫn Antigravity code UML.
 
 ### Prompt
-Tôi đã chọn React Flow để làm công cụ vẽ Class Diagram. Hãy viết cho tôi một "master prompt" thật chi tiết (bao gồm cấu trúc Node, cách nối Edge, cách quản lý state) để tôi đưa cho trợ lý code của tôi thực hiện.
+Sau khi cân nhắc, tôi đã quyết định chọn thư viện React Flow làm nền tảng cốt lõi để xây dựng tính năng kéo thả biểu đồ Class Diagram. Vì đây là một thư viện phức tạp, tôi cần bạn đóng vai là một kỹ sư hệ thống, vạch ra cho tôi một bản thiết kế kiến trúc toàn diện (Master Prompt). Bản thiết kế này cần mô tả rõ ràng cấu trúc dữ liệu JSON để lưu trữ state của các Node và Edge, cách thiết lập các điểm neo kết nối (Handle), và cách quản lý luồng dữ liệu khi người dùng kéo thả.
 
 ### Expected Output
 - Một đoạn Prompt chi tiết mô tả logic cần implement.
@@ -287,13 +287,13 @@ Claude tạo ra prompt rất kỹ, mô tả rõ cấu trúc data của React Flo
 - Purpose: Tạo giao diện Toolpad chứa các hình khối UML.
 
 ### Prompt
-Tạo component Toolbar nằm ngang bên trái màn hình. Có 3 nút có thể kéo thả (Draggable): "Class", "Interface", "Enum". Dùng TailwindCSS.
+Bây giờ tôi cần thiết kế giao diện cho phần công cụ vẽ biểu đồ. Bạn hãy tạo cho tôi một component Sidebar nằm dọc ở bên trái màn hình. Component này sẽ đóng vai trò như một hộp công cụ, chứa 3 nút bấm tương ứng với 3 loại hình khối: Class, Interface, và Enum. Yêu cầu quan trọng là các nút bấm này phải có khả năng kéo thả (Drag and Drop) được. Hãy sử dụng TailwindCSS để style cho Sidebar trông hiện đại và chuyên nghiệp, có hiệu ứng hover khi người dùng di chuột vào các công cụ.
 
 ### Expected Output
 - Component `Sidebar.tsx`.
 
 ### Evaluation
-Giao diện đẹp. Tuy nhiên thuộc tính kéo thả (HTML5 Drag Drop) Stitch gen bị thiếu hàm `onDragStart`, tôi yêu cầu AI bổ sung lại logic sự kiện này.
+Giao diện đẹp. Tuy nhiên thuộc tính kéo thả (HTML5 Drag Drop) Stitch gen bị thiếu hàm onDragStart, tôi yêu cầu AI bổ sung lại logic sự kiện này.
 
 
 ## Prompt #16
@@ -303,7 +303,7 @@ Giao diện đẹp. Tuy nhiên thuộc tính kéo thả (HTML5 Drag Drop) Stitch
 - Purpose: Implement logic React Flow.
 
 ### Prompt
-Dựa trên yêu cầu sau: [Paste Master Prompt từ Claude]. Hãy code component `UmlDiagram.jsx` nhận drag event từ Sidebar và thêm Node mới vào sơ đồ.
+Dựa trên bản thiết kế kiến trúc Master Prompt mà tôi cung cấp dưới đây, bạn hãy bắt tay vào code component chính UmlDiagram.jsx sử dụng React Flow. Component này cần bao gồm một vùng Canvas rộng lớn chiếm phần còn lại của màn hình. Nó phải có khả năng lắng nghe sự kiện khi người dùng kéo một công cụ từ Sidebar và thả (drop) vào vùng Canvas, sau đó lấy tọa độ chuột và thêm một Custom Node mới vào state của biểu đồ. Hãy chú ý xử lý tính năng kéo thả cẩn thận.
 
 ### Expected Output
 - React component xử lý diagram.
@@ -319,13 +319,13 @@ Antigravity code ra nhưng logic liên kết (Edge) bị lỗi, không dính và
 - Purpose: Tìm bug tại sao Edge không nối được vào Node.
 
 ### Prompt
-[Đưa file CustomNode.jsx và log lỗi React Flow] Tại sao khi tôi kéo thả dây nối, nó không lưu thành Edge trong state `edges`? Kéo xong thả tay ra là dây biến mất.
+Tôi đang gặp một lỗi nghiêm trọng với tính năng vẽ biểu đồ. Các khối Custom Node đã hiển thị thành công lên màn hình, nhưng khi tôi dùng chuột bấm vào các điểm neo (Handle) để kéo một đường dây kết nối (Edge) sang khối khác, thì đường dây không hề bám dính vào. Cứ kéo thả chuột ra là đường dây biến mất không lưu lại trong state. Tôi gửi kèm đây đoạn code của CustomNode.jsx và log lỗi hiển thị trên trình duyệt. Bạn hãy phân tích xem tại sao sự kiện onConnect lại không hoạt động như mong đợi.
 
 ### Expected Output
 - Phân tích bug.
 
 ### Evaluation
-Kiro phát hiện ra ID của Handle trong CustomNode không trùng khớp với ID khi hàm `onConnect` bắn ra. Do AI gen code ở file A khác chuẩn với file B.
+Kiro phát hiện ra ID của Handle trong CustomNode không trùng khớp với ID khi hàm onConnect bắn ra. Do AI gen code ở file A khác chuẩn với file B.
 
 
 ## Prompt #18
@@ -335,7 +335,7 @@ Kiro phát hiện ra ID của Handle trong CustomNode không trùng khớp với
 - Purpose: Fix logic onConnect của React Flow.
 
 ### Prompt
-Thay vì dùng cách cũ, hãy viết lại hàm `onConnect` sử dụng `addEdge` của React Flow. Hãy truyền đúng ID 'top-handle' và 'bottom-handle' mà tôi đã fix.
+Dựa trên nguyên nhân lỗi vừa tìm ra là do ID của các điểm neo (Handle) bị đặt sai lệch, bạn hãy viết lại đoạn logic xử lý sự kiện onConnect cho component biểu đồ. Lần này, tôi yêu cầu bạn phải tuyệt đối tuân thủ theo chuẩn đặt tên mà tôi đã quy định: điểm neo phía trên phải có ID là 'top-handle' và phía dưới là 'bottom-handle'. Hãy sử dụng hàm addEdge của thư viện React Flow để cập nhật state một cách chính xác, đảm bảo dây kết nối không bị biến mất sau khi thả chuột.
 
 ### Expected Output
 - Fix bug nối mép UML.
@@ -351,7 +351,7 @@ Thành công. Tôi nhận ra nếu không tự check code và đồng bộ ID gi
 - Purpose: Tìm lỗi State management (Undo/Redo).
 
 ### Prompt
-Logic Undo/Redo của tôi (lưu mảng history) đang làm web bị lag khi số node lên đến 50. Tại sao? [Đưa file useUndoRedo.js]
+Tính năng hoàn tác (Undo/Redo) của biểu đồ đang làm hiệu năng của trang web bị giảm sút trầm trọng. Khi số lượng node trên màn hình tăng lên khoảng 50 node, mỗi lần tôi kéo thả một node đi chỗ khác là giao diện bị giật lag rõ rệt. Dưới đây là đoạn code file useUndoRedo.js mà tôi đang dùng để lưu lịch sử mảng state vào một mảng history. Bạn hãy đọc code và chỉ ra cho tôi nguyên nhân cốt lõi gây ra tình trạng tụt FPS này, có phải do việc clone toàn bộ object quá lớn gây tràn bộ nhớ không?
 
 ### Expected Output
 - Nguyên nhân hiệu năng kém.
@@ -367,7 +367,7 @@ Kiro báo lỗi do lưu cả Object quá to vào state thay vì chỉ lưu Delta
 - Purpose: Tối ưu hoá Undo/Redo.
 
 ### Prompt
-Tôi không muốn lưu nguyên mảng Nodes/Edges nữa. Hãy viết một custom hook dùng Lodash `debounce` và chỉ lưu các ID bị thay đổi. 
+Tôi đồng ý với phân tích của bạn, việc lưu toàn bộ mảng dữ liệu khổng lồ mỗi khi có thay đổi nhỏ là không thể chấp nhận được. Bây giờ, tôi không muốn dùng cách lưu nguyên mảng cũ nữa. Bạn hãy viết lại toàn bộ custom hook Undo/Redo này theo hướng tối ưu hóa bộ nhớ. Cụ thể, hãy sử dụng thư viện Lodash với hàm debounce để gộp các thao tác kéo thả liên tục lại thành một lần lưu duy nhất. Ngoài ra, hãy cố gắng chỉ lưu lại những trạng thái thực sự bị thay đổi (delta) thay vì clone toàn bộ.
 
 ### Expected Output
 - Code tối ưu hóa (Refactor).
@@ -385,23 +385,23 @@ Antigravity viết ban đầu khá phức tạp. Thay vì tự code tay, tôi ma
 - Purpose: Xử lý lỗi Crash UI khi đụng độ khóa Optimistic Locking.
 
 ### Prompt
-Nhờ tôi cấu hình Optimistic Locking từ trước, khi 2 user cùng thao tác, DB đã chặn được (báo version conflict). Nhưng Frontend React của tôi bị văng màn hình trắng bóc thay vì hiện thông báo lỗi. Làm sao bắt lỗi này và hiển thị popup cảnh báo mượt mà?
+Nhờ việc cấu hình Optimistic Locking từ những ngày đầu, hệ thống cơ sở dữ liệu đã tự động chặn đứng được thao tác ghi đè khi 2 user cùng chỉnh sửa một Task và báo lỗi version conflict. Tuy nhiên, vấn đề hiện tại nằm ở Frontend. Do không đón được lỗi này, toàn bộ ứng dụng React của tôi bị văng ra thành một màn hình trắng xóa cực kỳ phản cảm. Bạn hãy hướng dẫn tôi cách xây dựng cơ chế Error Boundary trong React để bắt các lỗi không lường trước này, thay vào đó hiển thị một thông báo lịch sự yêu cầu người dùng tải lại trang.
 
 ### Expected Output
 - Giải pháp Error Boundary & Graceful Degradation.
 
 ### Evaluation
-Kiro tìm ra lỗi do Frontend thiếu cơ chế Error Boundary bọc quanh Component. Tôi nhờ Claude thiết kế lại UI/UX popup báo lỗi, rồi ép Antigravity code `ErrorBoundary`. Sự kết hợp hoàn hảo bảo vệ hệ thống từ sâu thẳm DB lên tới trải nghiệm UX bề mặt.
+Kiro tìm ra lỗi do Frontend thiếu cơ chế Error Boundary bọc quanh Component. Tôi nhờ Claude thiết kế lại UI/UX popup báo lỗi, rồi ép Antigravity code ErrorBoundary. Sự kết hợp hoàn hảo bảo vệ hệ thống từ sâu thẳm DB lên tới trải nghiệm UX bề mặt.
 
 
 ## Prompt #22
 - Date: 2026-06-20
 - AI Tool: Claude
 - Author: Trần Công Tú
-- Purpose: Tái cấu trúc "nợ kỹ thuật" (Refactoring Technical Debt).
+- Purpose: Tái cấu trúc (Refactoring Technical Debt).
 
 ### Prompt
-Antigravity vừa code ra file `UmlDiagram.jsx` dài tận 1500 dòng chứa tả pín lù (gọi API, socket, kéo thả, logic). Hãy áp dụng nguyên tắc Separation of Concerns, vạch ra kiến trúc chia file này thành các Custom Hooks (`useUmlState`, `useSocket`) và các component nhỏ gọn.
+File UmlDiagram.jsx của dự án hiện tại đã phình to lên tới hơn 1500 dòng code. Nó đang ôm đồm quá nhiều trách nhiệm: từ việc render giao diện, xử lý kéo thả, gọi API lưu dữ liệu, cho đến quản lý kết nối Socket realtime. Tình trạng "nợ kỹ thuật" này khiến việc bảo trì trở nên bất khả thi. Bạn hãy áp dụng nguyên tắc Separation of Concerns, vạch ra cho tôi một bản thiết kế tái cấu trúc hoàn chỉnh. Hãy chia nhỏ file này thành nhiều Custom Hooks riêng biệt (như useUmlState, useSocket) và tách giao diện thành các component nhỏ gọn.
 
 ### Expected Output
 - Cấu trúc thư mục Component và Hook rõ ràng.
@@ -417,7 +417,7 @@ Claude băm nhỏ file 1500 dòng thành 5 file nhỏ gọn, mỗi file không q
 - Purpose: Tối ưu WebSockets bị lag khi sử dụng chung (Concurrency).
 
 ### Prompt
-Tính năng 5 người cùng vẽ sơ đồ UML bằng WebSockets đang làm sập trình duyệt do AI gửi data mảng Nodes liên tục mỗi khung hình. Có thuật toán tối ưu nào để gửi data nhẹ hơn không?
+Tính năng vẽ biểu đồ chung thời gian thực (Real-time Collaboration) đang gặp sự cố nghiêm trọng về đường truyền. Hiện tại, mỗi khi có một người dùng kéo thả một Node, hệ thống WebSockets lại gửi đi toàn bộ mảng Nodes chứa tất cả dữ liệu lên server, sau đó server lại broadcast cục dữ liệu khổng lồ đó về cho tất cả mọi người. Chỉ cần 5 người dùng chung, trình duyệt đã bị đơ cứng vì quá tải. Bạn hãy đề xuất cho tôi một thuật toán nén đường truyền, chỉ gửi đi tọa độ x,y của đúng Node đang bị thay đổi (Delta Update) kèm theo kỹ thuật Throttling.
 
 ### Expected Output
 - Thuật toán tối ưu đường truyền (Network).
@@ -433,7 +433,7 @@ Claude hướng dẫn tôi kỹ thuật "Delta Update" (chỉ gửi tọa độ 
 - Purpose: Viết User Manual (Tài liệu hướng dẫn sử dụng).
 
 ### Prompt
-Dựa trên Use Case ban đầu và các tính năng: Đăng nhập, Tạo Task, Vẽ UML trực tuyến. Hãy viết một file README.md thật chuyên nghiệp hướng dẫn sinh viên (End-user) cách sử dụng hệ thống này.
+Dự án đã cơ bản hoàn thiện, bây giờ tôi cần viết một tài liệu Hướng dẫn sử dụng (User Manual) dành cho người dùng cuối là các bạn sinh viên. Dựa trên các Use Case ban đầu và các tính năng thực tế đã làm như: Đăng nhập phân quyền, Tạo Task quản lý dự án, và Vẽ biểu đồ UML trực tuyến. Bạn hãy biên soạn cho tôi một file README.md thật chi tiết, có cấu trúc mục lục rõ ràng, hướng dẫn từng bước (step-by-step) cách thao tác trên hệ thống. Văn phong cần tự nhiên, dễ hiểu, không sử dụng các từ ngữ quá kỹ thuật.
 
 ### Expected Output
 - File README.md hoàn chỉnh.
@@ -449,10 +449,10 @@ Claude viết document cực tốt, chuyên nghiệp và có mục lục rõ rà
 - Purpose: Thiết lập CI/CD Pipeline tự động hóa DevOps.
 
 ### Prompt
-Đóng vai một DevOps Engineer. Chỉ tôi cách tự động hóa quy trình: Cứ mỗi khi tôi push code lên nhánh `main` của GitHub, hệ thống tự động chạy Unit Test, nếu Pass thì tự động deploy lên server Render. Yêu cầu viết file `.github/workflows/deploy.yml`.
+Để chứng minh năng lực triển khai phần mềm theo chuẩn công nghiệp khép kín (SDLC), tôi muốn tự tự động hóa toàn bộ quá trình đưa code lên server. Bạn hãy đóng vai là một chuyên gia DevOps, hướng dẫn tôi cách thiết lập hệ thống CI/CD Pipeline bằng GitHub Actions. Yêu cầu cụ thể: Cứ mỗi khi có bất kỳ thay đổi nào được push lên nhánh main của repository, hệ thống phải tự động kích hoạt tiến trình cài đặt thư viện, chạy Unit Test, và nếu mọi thứ xanh (Pass) thì tự động deploy thẳng lên dịch vụ Render. Vui lòng viết cho tôi file deploy.yml chi tiết.
 
 ### Expected Output
 - Script GitHub Actions CI/CD chuẩn mực.
 
 ### Evaluation
-Gemini gen ra file `deploy.yml` khá chuẩn. Tuy nhiên lúc chạy trên GitHub Action bị lỗi thiếu biến môi trường DB URL. Tôi lại dùng Kiro để trace log của Actions, fix env và luồng deploy tự động đã chạy thành công rực rỡ.
+Gemini gen ra file deploy.yml khá chuẩn. Tuy nhiên lúc chạy trên GitHub Action bị lỗi thiếu biến môi trường DB URL. Tôi lại dùng Kiro để trace log của Actions, fix env và luồng deploy tự động đã chạy thành công rực rỡ.
