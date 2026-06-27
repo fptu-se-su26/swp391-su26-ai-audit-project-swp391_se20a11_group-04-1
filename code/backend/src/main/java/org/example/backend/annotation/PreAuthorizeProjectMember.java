@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
  * is an active member of the project.
  * The method must accept a `projectId` parameter (either @PathVariable or @RequestParam).
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PreAuthorizeProjectMember {
 }

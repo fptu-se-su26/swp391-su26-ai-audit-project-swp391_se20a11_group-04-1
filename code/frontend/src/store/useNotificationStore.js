@@ -235,6 +235,40 @@ export const useNotificationStore = create((set, get) => ({
             )
           }
 
+          if (payload.type === 'USER_LOCKED') {
+            import('@store/useAuthStore').then((module) => {
+              const store = module.useAuthStore || module.default
+              if (store && store.getState) {
+                store.getState().logout()
+              }
+              const reason = payload.reason || 'Vi phạm chính sách bảo mật hệ thống.'
+              window.location.href = `/login?locked=true&reason=${encodeURIComponent(reason)}`
+            }).catch(err => {
+              console.error(err)
+              const reason = payload.reason || 'Vi phạm chính sách bảo mật hệ thống.'
+              window.location.href = `/login?locked=true&reason=${encodeURIComponent(reason)}`
+            })
+          }
+
+          if (payload.type === 'USER_UNLOCKED') {
+            import('@store/useAuthStore').then((module) => {
+              const store = module.useAuthStore || module.default
+              if (store && store.getState) {
+                store.setState({ 
+                  isLockedOut: false, 
+                  lockReason: null,
+                  appealStatus: 'APPROVED'
+                })
+              }
+            }).catch(err => console.error(err))
+            toast.success('Tài khoản của bạn đã được mở khóa thành công!', { duration: 5000 })
+          }
+
+          if (payload.type === 'APPEAL_SUBMITTED') {
+            window.dispatchEvent(new CustomEvent('appeal-submitted', { detail: payload }))
+            toast.success(`Người dùng ${payload.username || ''} đã gửi đơn kháng cáo mới!`, { duration: 4000 })
+          }
+
           if (payload.type === 'AI_PROGRESS') {
             window.dispatchEvent(new CustomEvent('AI_PROGRESS', { detail: payload.data }))
           }

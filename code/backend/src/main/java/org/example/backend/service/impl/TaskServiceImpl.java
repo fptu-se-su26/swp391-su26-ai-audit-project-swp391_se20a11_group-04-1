@@ -614,8 +614,13 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId) {
         // Queue is built from live IN_REVIEW tasks, then decorated with the latest review decision if available.
-        ensureProjectMember(projectId, userId);
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+        
+        boolean isMemberRole = member.getRole() != null && "MEMBER".equalsIgnoreCase(member.getRole().getName());
+        
         return taskRepository.findByProjectIdAndStatusOrderByUpdatedAtDesc(projectId, TaskStatus.IN_REVIEW).stream()
+                .filter(task -> !isMemberRole || (task.getPrimaryAssignee() != null && task.getPrimaryAssignee().getId().equals(userId)))
                 .map(task -> taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId())
                         .map(this::toReviewDecisionResponse)
                         .orElseGet(() -> toSyntheticReviewQueueItem(task)))

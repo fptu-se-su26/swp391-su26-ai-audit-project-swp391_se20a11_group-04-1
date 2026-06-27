@@ -50,6 +50,9 @@ public class UserAccount {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Column(name = "lock_reason", length = 255)
+    private String lockReason;
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();

@@ -7,6 +7,7 @@ import RtmToolbar from '../components/RtmToolbar'
 import RtmMatrixTable from '../components/RtmMatrixTable'
 import RtmDetailDrawer from '../components/RtmDetailDrawer'
 import RtmSnapshotPanel from '../components/RtmSnapshotPanel'
+import Card from '../../../components/ui/Card'
 
 const initialFilters = {
   status: 'ALL',
@@ -124,22 +125,22 @@ export function RtmPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3">
+            <Card style={{ padding: '12px 16px', borderRadius: '12px' }}>
               <p className="text-lg font-black text-on-surface">{matrix?.summary?.totalTasks || 0}</p>
               <p className="text-[10px] uppercase font-bold text-on-surface-variant">Tasks</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3">
+            </Card>
+            <Card style={{ padding: '12px 16px', borderRadius: '12px' }}>
               <p className="text-lg font-black text-on-surface">{matrix?.summary?.totalTests || 0}</p>
               <p className="text-[10px] uppercase font-bold text-on-surface-variant">Tests</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3">
+            </Card>
+            <Card style={{ padding: '12px 16px', borderRadius: '12px' }}>
               <p className="text-lg font-black text-error">{matrix?.summary?.openBugs || 0}</p>
               <p className="text-[10px] uppercase font-bold text-on-surface-variant">Bugs</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-3">
+            </Card>
+            <Card style={{ padding: '12px 16px', borderRadius: '12px' }}>
               <p className="text-lg font-black text-[#047857]">{matrix?.summary?.acceptedEvidence || 0}</p>
               <p className="text-[10px] uppercase font-bold text-on-surface-variant">Evidence</p>
-            </div>
+            </Card>
           </div>
         </section>
 

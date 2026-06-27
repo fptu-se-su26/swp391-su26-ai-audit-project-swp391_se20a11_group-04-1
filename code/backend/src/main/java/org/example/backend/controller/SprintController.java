@@ -15,6 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/sprints")
 @RequiredArgsConstructor
+@org.example.backend.annotation.PreAuthorizeProjectMember
 public class SprintController {
 
     private final SprintService sprintService;
@@ -27,7 +28,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.getProjectSprints(projectId, userId), "Sprints retrieved"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping
     public ResponseEntity<ApiResponse<SprintResponse>> createSprint(
             @PathVariable Long projectId,
@@ -47,7 +47,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.getSprint(projectId, sprintId, userId), "Sprint retrieved"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PutMapping("/{sprintId}")
     public ResponseEntity<ApiResponse<SprintResponse>> updateSprint(
             @PathVariable Long projectId,
@@ -58,7 +57,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.updateSprint(projectId, sprintId, request, userId), "Sprint updated"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @DeleteMapping("/{sprintId}")
     public ResponseEntity<ApiResponse<Void>> deleteSprint(
             @PathVariable Long projectId,
@@ -69,7 +67,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(null, "Sprint deleted"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/{sprintId}/status")
     public ResponseEntity<ApiResponse<SprintResponse>> updateSprintStatus(
             @PathVariable Long projectId,
@@ -128,3 +125,4 @@ public class SprintController {
         return userId;
     }
 }
+
