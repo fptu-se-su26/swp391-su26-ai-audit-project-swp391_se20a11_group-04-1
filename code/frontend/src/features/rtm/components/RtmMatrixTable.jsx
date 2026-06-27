@@ -1,5 +1,6 @@
 import StatusIndicator from './StatusIndicator'
 import { getInitials, getAvatarColor } from '@utils/avatarHelper'
+import Card from '../../../components/ui/Card'
 
 const priorityClass = {
   CRITICAL: 'bg-error-container text-on-error-container border-error/20',
@@ -49,22 +50,22 @@ function TestDots({ row }) {
 export function RtmMatrixTable({ rows, onSelectRow }) {
   if (!rows.length) {
     return (
-      <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-10 text-center shadow-sm">
-        <span className="material-symbols-outlined text-5xl text-[#1E707D]">reorder</span>
+      <Card style={{ padding: '40px' }} className="text-center shadow-sm">
+        <span className="material-symbols-outlined text-5xl text-primary">reorder</span>
         <h3 className="mt-3 text-lg font-black text-on-surface">No requirements found</h3>
         <p className="mt-1 text-sm text-on-surface-variant">
           Once requirements are created for this project, their traceability chain will appear here.
         </p>
-      </section>
+      </Card>
     )
   }
 
   return (
-    <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl overflow-hidden shadow-sm">
+    <Card style={{ padding: 0 }} className="overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[1040px]">
           <thead>
-            <tr className="bg-surface-container-low border-b border-outline-variant/60 text-on-surface-variant font-black text-[10px] uppercase tracking-wider">
+            <tr className="bg-surface-container-low border-b border-outline-variant/60 text-on-surface-variant font-black text-[10px] uppercase tracking-wider" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
               <th className="px-4 py-3">Requirement</th>
               <th className="px-4 py-3">Priority</th>
               <th className="px-4 py-3">Owner</th>
@@ -83,11 +84,11 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                 <tr
                   key={row.requirementId}
                   onClick={() => onSelectRow(row)}
-                  className={`cursor-pointer transition-colors group hover:bg-[#D7EEF1]/30 ${row.traceabilityStatus === 'AT_RISK' ? 'bg-error-container/10' : ''}`}
+                  className={`cursor-pointer transition-colors group hover:bg-primary-fixed/30 ${row.traceabilityStatus === 'AT_RISK' ? 'bg-error-container/10' : ''}`}
                 >
                   <td className="px-4 py-4 max-w-[280px]">
                     <div className="flex flex-col">
-                      <span className="font-label-md text-[11px] text-[#1E707D] font-black">{row.requirementCode}</span>
+                      <span className="font-label-md text-[11px] text-primary font-black">{row.requirementCode}</span>
                       <span className="text-sm font-bold text-on-surface truncate">{row.title}</span>
                     </div>
                   </td>
@@ -138,7 +139,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   )
 }
 

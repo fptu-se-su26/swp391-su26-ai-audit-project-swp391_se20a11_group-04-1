@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final org.example.backend.service.FileStorageService fileStorageService;
 
     /**
      * Step 1: Submit Registration Info, Save to Redis, Send OTP Email.
@@ -89,6 +91,51 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(HttpSession session) {
         UserResponse userResponse = authService.getCurrentUser(session);
         return ResponseEntity.ok(ApiResponse.success(userResponse, "Lấy thông tin người dùng thành công!"));
+    }
+
+    /**
+     * Gửi đơn kháng cáo cho tài khoản bị khóa.
+     * POST /api/v1/auth/appeal
+     */
+    @PostMapping("/appeal")
+    public ResponseEntity<ApiResponse<Void>> submitAppeal(
+            @RequestBody Map<String, String> payload,
+            HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        String usernameOrEmail = payload.get("usernameOrEmail");
+        
+        if (userId == null && (usernameOrEmail == null || usernameOrEmail.trim().isEmpty())) {
+            throw new org.example.backend.exception.UnauthorizedException("Vui lòng đăng nhập hoặc cung cấp tên đăng nhập/email để kháng cáo.");
+        }
+        
+        String reason = payload.get("reason");
+        String evidenceUrl = payload.get("evidenceUrl");
+        String evidenceName = payload.get("evidenceName");
+        
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new org.example.backend.exception.BadRequestException("Lý do kháng cáo không được để trống.");
+        }
+        
+        authService.submitAppeal(userId, usernameOrEmail, reason, evidenceUrl, evidenceName);
+        return ResponseEntity.ok(ApiResponse.success(null, "Gửi đơn kháng cáo thành công!"));
+    }
+
+    /**
+     * Tải tài liệu giải trình/kháng cáo lên Cloudinary (unauthenticated)
+     * POST /api/v1/auth/upload
+     */
+    @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<String>> uploadFile(
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                throw new BadRequestException("File upload không được để trống.");
+            }
+            String url = fileStorageService.storeFile(file);
+            return ResponseEntity.ok(ApiResponse.success(url, "Tải file lên thành công!"));
+        } catch (Exception e) {
+            throw new org.example.backend.exception.BusinessException("Không thể tải file lên: " + e.getMessage());
+        }
     }
 
     /**

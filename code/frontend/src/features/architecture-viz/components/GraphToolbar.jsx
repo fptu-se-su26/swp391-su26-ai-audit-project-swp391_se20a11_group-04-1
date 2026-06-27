@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useArchitectureStore } from '../store/architectureStore'
+import Card from '../../../components/ui/Card'
+import Button from '../../../components/ui/Button'
 
 export default function GraphToolbar({ onSearch, onZoomIn, onZoomOut, onFitView }) {
   const { physicsEnabled, togglePhysics } = useArchitectureStore()
@@ -12,7 +14,7 @@ export default function GraphToolbar({ onSearch, onZoomIn, onZoomOut, onFitView 
   }
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 bg-surface border border-outline-variant/30 rounded-xl shadow-sm w-full">
+    <Card style={{ padding: '12px' }} className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
       <div className="relative flex-1 max-w-xs w-full">
         <span className="material-icons-outlined absolute left-3 top-2.5 text-on-surface-variant/60 text-lg">search</span>
         <input
@@ -25,43 +27,42 @@ export default function GraphToolbar({ onSearch, onZoomIn, onZoomOut, onFitView 
       </div>
 
       <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
-        <button
+        <Button
+          variant={physicsEnabled ? 'primary' : 'outline'}
           onClick={togglePhysics}
-          className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
-            physicsEnabled
-              ? 'bg-primary/10 text-primary border-primary/30 shadow-sm'
-              : 'bg-surface hover:bg-surface-container-highest text-on-surface border-outline-variant/50'
-          }`}
           title="Bật/Tắt chế độ vật lý Obsidian mode"
         >
           <span className="material-icons-outlined text-sm">settings_input_antenna</span>
           <span>Obsidian Physics: {physicsEnabled ? 'ON' : 'OFF'}</span>
-        </button>
+        </Button>
 
         <div className="h-6 w-px bg-outline-variant/50 mx-1"></div>
 
-        <button
+        <Button
+          variant="outline"
           onClick={() => onZoomIn?.()}
-          className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Phóng to"
+          style={{ padding: '8px' }}
         >
           <span className="material-icons-outlined text-sm">add</span>
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={() => onZoomOut?.()}
-          className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Thu nhỏ"
+          style={{ padding: '8px' }}
         >
           <span className="material-icons-outlined text-sm">remove</span>
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={() => onFitView?.({ padding: 0.2, duration: 800 })}
-          className="p-2 bg-surface hover:bg-surface-container-highest border border-outline-variant/50 rounded-lg text-on-surface transition-colors"
           title="Căn giữa màn hình"
+          style={{ padding: '8px' }}
         >
-          <span className="material-icons-outlined text-sm">fullscreen</span>
-        </button>
+          <span className="material-icons-outlined text-sm">fit_screen</span>
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }

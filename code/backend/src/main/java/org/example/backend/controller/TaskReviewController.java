@@ -17,6 +17,8 @@ import org.example.backend.exception.CustomException;
 import org.example.backend.service.ManualEvidenceLinkService;
 import org.example.backend.service.TaskReviewService;
 import org.example.backend.service.TaskService;
+import org.example.backend.annotation.PreAuthorizeProjectLeader;
+import org.example.backend.annotation.PreAuthorizeProjectMember;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +28,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/task-reviews")
 @RequiredArgsConstructor
+@PreAuthorizeProjectMember
 public class TaskReviewController {
 
     private final TaskService taskService;
@@ -46,6 +49,7 @@ public class TaskReviewController {
 
     // Update repository config and review rules; service layer restricts this to project leaders.
     @PutMapping("/config")
+    @PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<CodeInsightConfigResponse>> updateConfig(
             @PathVariable Long projectId,
             @RequestBody CodeInsightConfigRequest request,
@@ -151,6 +155,7 @@ public class TaskReviewController {
     }
 
     @PostMapping("/tasks/{taskId}/manual-links/{linkId}/confirm")
+    @PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<ManualEvidenceLinkResponse>> confirmManualLink(
             @PathVariable Long projectId,
             @PathVariable Long taskId,
@@ -163,6 +168,7 @@ public class TaskReviewController {
     }
 
     @PostMapping("/tasks/{taskId}/manual-links/{linkId}/reject")
+    @PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<ManualEvidenceLinkResponse>> rejectManualLink(
             @PathVariable Long projectId,
             @PathVariable Long taskId,

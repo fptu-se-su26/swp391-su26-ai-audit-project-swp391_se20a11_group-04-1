@@ -136,7 +136,7 @@ Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ nh�
 - Purpose: Viết Auth Middleware phân quyền người dùng.
 - Prompt Reference: PROMPTS.md#prompt-08
 - AI Output Summary: Code express middleware check role.
-- Human Decision: AI thiếu check JWT expired, tôi tự bổ sung đoạn catch error của thư viện `jsonwebtoken`.
+- Human Decision: AI thiếu check JWT expired, tôi tự bổ sung đoạn catch error của thư viện jsonwebtoken.
 - Applied To: Backend (`auth.middleware.js`).
 - Verification: Dùng Postman test API bằng token hết hạn và check mã 401/403 chuẩn xác.
 
@@ -158,7 +158,7 @@ Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ nh�
 - Purpose: Áp dụng config fix lỗi CORS.
 - Prompt Reference: PROMPTS.md#prompt-10
 - AI Output Summary: Update server.js thêm cấu hình cors credential.
-- Human Decision: Review đoạn code AI gen xem có an toàn không, chuyển domain config thành biến môi trường `.env`.
+- Human Decision: Review đoạn code AI gen xem có an toàn không, chuyển domain config thành biến môi trường .env.
 - Applied To: Backend (`server.js`).
 - Verification: Login FE gọi API thành công, cookie được attach.
 
@@ -180,7 +180,7 @@ Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ nh�
 - Purpose: Debug lỗi lừa dối của API Backend đối với PostgreSQL.
 - Prompt Reference: PROMPTS.md#prompt-12
 - AI Output Summary: Lòi ra việc Antigravity chỉ in query SQL ra Console thay vì thực thi kết nối xuống DB.
-- Human Decision: Nhận thức sự nguy hiểm nếu không test chéo E2E. Em ép AI phải sửa lại lệnh gọi `pool.query()` đàng hoàng.
+- Human Decision: Nhận thức sự nguy hiểm nếu không test chéo E2E. Em ép AI phải sửa lại lệnh gọi pool.query đàng hoàng.
 - Applied To: Backend DB Connection.
 - Verification: Sau khi sửa, dữ liệu đã lưu cứng vào PostgreSQL.
 
@@ -216,7 +216,7 @@ Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ nh�
 - Purpose: Tạo component Sidebar cho UML Tools.
 - Prompt Reference: PROMPTS.md#prompt-15
 - AI Output Summary: Thanh menu chứa các nút công cụ Class, Enum.
-- Human Decision: AI thiếu API HTML5 Drag Drop, tôi yêu cầu Antigravity tự code thêm `draggable` và `onDragStart`.
+- Human Decision: AI thiếu API HTML5 Drag Drop, tôi yêu cầu Antigravity tự code thêm draggable và onDragStart.
 - Applied To: Frontend (`UmlSidebar.tsx`).
 - Verification: Test thao tác kéo thả trên trình duyệt, log event thành công.
 
@@ -328,7 +328,7 @@ Mô tả ngắn gọn sinh viên/nhóm đã sử dụng AI để hỗ trợ nh�
 - AI Tool: Gemini
 - Purpose: Tự động hóa quá trình Deploy (CI/CD Pipeline).
 - Prompt Reference: PROMPTS.md#prompt-25
-- AI Output Summary: Gen ra file cấu hình `.github/workflows/deploy.yml`.
+- AI Output Summary: Gen ra file cấu hình deploy.yml.
 - Human Decision: Vượt ra khỏi ranh giới code tính năng, tôi tiến vào tự động hóa DevOps để chứng minh năng lực triển khai phần mềm (SDLC) khép kín.
 - Applied To: GitHub Actions & Render Deployment.
 - Verification: Code merge vào main -> Trigger Github Action -> Server Render tự động nhận bản cập nhật thành công.
