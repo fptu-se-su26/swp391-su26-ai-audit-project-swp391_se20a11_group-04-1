@@ -72,6 +72,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final SprintRepository sprintRepository;
     private final BugReportRepository bugReportRepository;
     private final AuditLogRepository auditLogRepository;
+    private final org.example.backend.service.event.OutboxEventService outboxEventService;
 
     @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
     private String projectJoinLockPrefix;
@@ -1090,6 +1091,47 @@ public class ProjectServiceImpl implements ProjectService {
                 .status("SUCCESS")
                 .build();
         auditLogRepository.save(log);
+
+        // Publish PROJECT_CLOSED event — consumer gửi notification cho toàn nhóm
+        outboxEventService.createEvent("PROJECT_CLOSED", "Project", projectId, Map.of(
+                "projectName",        project.getName(),
+                "closedByUserId",     userId,
+                "closedByUsername",   caller != null ? caller.getUsername() : "unknown",
+                "cancelledTaskCount", openTasks.size(),
+                "closedBugCount",     openBugs.size(),
+                "completedSprintCount", activeSprints.size(),
+                "reason",             request.getReason(),
+                "occurredAt",         project.getClosedAt().toString()
+        ));
+
+        // Gửi notification real-time tới tất cả thành viên trong project
+        String closedByName = caller != null ? caller.getUsername() : "Leader";
+        String notifTitle = "Project \"" + project.getName() + "\" đã được đóng";
+        String notifMessage = "Project được đóng bởi " + closedByName + ". Lý do: " + request.getReason();
+        List<ProjectMember> allMembers = projectMemberRepository.findByProjectId(projectId);
+        for (ProjectMember member : allMembers) {
+            Notification notif = Notification.builder()
+                    .recipient(member.getUser())
+                    .title(notifTitle)
+                    .message(notifMessage)
+                    .type(NotificationType.SYSTEM)
+                    .project(project)
+                    .entityType(org.example.backend.entity.NotificationEntityType.PROJECT)
+                    .relatedId(projectId)
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            Notification savedNotif = notificationRepository.save(notif);
+            String jsonPayload = String.format(
+                    "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"PROJECT\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+                    savedNotif.getId(),
+                    savedNotif.getTitle(),
+                    savedNotif.getMessage().replace("\"", "'"),
+                    savedNotif.getRelatedId(),
+                    project.getId(),
+                    savedNotif.getCreatedAt().toString());
+            notificationWebSocketHandler.sendToUser(member.getUser().getId(), jsonPayload);
+        }
     }
 
     @Override
