@@ -195,4 +195,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(DISTINCT t) FROM Task t LEFT JOIN t.assignees a WHERE t.project.id = :projectId " +
            "AND (t.primaryAssignee.id = :userId OR a.id = :userId) AND t.status = 'DONE'")
     long countCompletedTasksByProjectAndUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(MAX(t.projectSubId), 0) FROM Task t WHERE t.project.id = :projectId")
+    int findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 }
