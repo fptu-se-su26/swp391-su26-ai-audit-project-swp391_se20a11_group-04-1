@@ -6,4 +6,5 @@ public interface WebSocketBroadcastService {
     void broadcastGateUpdated(Long projectId, Long taskId, String gateResult, String evidenceConfidence);
     void broadcastEvidenceLinked(Long projectId, Long taskId, String evidenceType, String source);
     void broadcastEvidenceUpdated(Long projectId, Long taskId, String evidenceType, String newState);
+    void broadcastSprintAiDone(Long projectId, Long sprintId);
 }

@@ -32,6 +32,9 @@ export const sprintReportService = {
 
   triggerDailyDigest: (projectId) =>
     axiosInstance.post(`/v1/projects/${projectId}/digests/test-trigger`).then(res => res.data),
+
+  regenerateCompletionSummary: (projectId, sprintId) =>
+    axiosInstance.post(`/v1/projects/${projectId}/sprints/${sprintId}/completion-summary/regenerate`).then(res => res.data),
 }
 
 export default sprintReportService

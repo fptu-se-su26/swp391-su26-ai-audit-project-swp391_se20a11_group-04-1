@@ -131,6 +131,18 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintCompletionService.getSummary(projectId, sprintId, userId), "Sprint completion summary retrieved"));
     }
 
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
+    @PostMapping("/{sprintId}/completion-summary/regenerate")
+    public ResponseEntity<ApiResponse<Void>> regenerateCompletionSummary(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        sprintCompletionService.deleteForSprint(sprintId);
+        sprintCompletionService.generate(sprintId, "USER_" + userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "AI evaluation is being regenerated"));
+    }
+
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

@@ -25,46 +25,44 @@ public class GeminiSprintNarrativeService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    public String generateNarrative(String sprintName, String projectName, int totalTasks, int completedTasks, int completedOnTime, int overdueTasks, int penalizedTasks, int totalMembers, int redMembers) {
+    public String generateNarrative(String sprintName, String projectName, String sprintGoal,
+            int totalTasks, int completedTasks, int completedOnTime, int overdueTasks, int penalizedTasks,
+            int totalMembers, int redMembers,
+            java.util.List<org.example.backend.entity.SprintMemberSummary> memberSummaries) {
         if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
             return null;
         }
 
         try {
             double completionRate = totalTasks == 0 ? 0.0 : ((double) completedTasks / totalTasks) * 100.0;
-            double onTimeRate = totalTasks == 0 ? 0.0 : ((double) completedOnTime / totalTasks) * 100.0;
+            String goalText = (sprintGoal != null && !sprintGoal.isBlank()) ? sprintGoal : "(no sprint goal set)";
+
+            StringBuilder memberData = new StringBuilder();
+            for (org.example.backend.entity.SprintMemberSummary m : memberSummaries) {
+                memberData.append(String.format("  - %s: %d tasks assigned, %d on-time, %d overdue, %d penalized → %s%n",
+                        m.name(), m.totalAssigned(), m.completedOnTime(), m.overdueCount(), m.penalizedCount(), m.riskLevel()));
+            }
 
             String prompt = String.format("""
-                    Bạn là Project Coach chuyên nghiệp trong mô hình Agile.
-                    Dựa vào các thông số sau, hãy đánh giá Sprint một cách xây dựng và chuyên nghiệp (không phán xét cá nhân).
-                    Viết báo cáo đánh giá dưới dạng Markdown, BẮT BUỘC có 6 phần (tiêu đề in đậm bằng ###):
-                    ### 1. Sprint Goal
-                    ### 2. Delivery
-                    ### 3. Quality
-                    ### 4. Team Performance
-                    ### 5. Process
-                    ### 6. Improvement
+                    You are a Scrum Master giving feedback at Sprint Retrospective. Write in Vietnamese, max 80 words, ONE paragraph.
 
-                    Nếu thông số không đủ để kết luận chính xác một tiêu chí (như Quality hay Process), hãy đưa ra lời khuyên Agile tiêu chuẩn dựa trên số task trễ hạn/bị phạt.
-                    Chỉ trả về nội dung Markdown thuần túy, không thêm câu chào hỏi thừa.
+                    Rules:
+                    - NEVER use "có thể", "có vẻ", "dường như", "có thể là". Make direct statements only.
+                    - Compare members directly: if one member has 100%% overdue while others have 0%%, state that contrast as a fact.
+                    - Name the struggling member explicitly and name who can help them.
+                    - Draw conclusion from the contrast between members — that IS the data.
+                    - Do NOT echo numbers. Say what the pattern means.
+                    - End with one concrete action using real names.
 
-                    Dữ liệu thực tế của Sprint:
-                    - Sprint: %s | Project: %s
-                    - Tổng task: %d | Hoàn thành: %d (%.1f%%)
-                    - Đúng hạn: %d (%.1f%%) | Trễ hạn: %d | Bị phạt (Penalty): %d
-                    - Có %d thành viên gặp vấn đề/rủi ro trên tổng số %d thành viên.
+                    Sprint: %s | Project: %s | Goal: %s
+                    Overall: %d/%d tasks done (%.0f%%), %d overdue, %d penalized
+
+                    Per-member breakdown:
+                    %s
                     """,
-                    sprintName,
-                    projectName,
-                    totalTasks,
-                    completedTasks,
-                    completionRate,
-                    completedOnTime,
-                    onTimeRate,
-                    overdueTasks,
-                    penalizedTasks,
-                    redMembers,
-                    totalMembers
+                    sprintName, projectName, goalText,
+                    completedTasks, totalTasks, completionRate, overdueTasks, penalizedTasks,
+                    memberData.toString()
             );
 
             Map<String, Object> requestBody = Map.of(
@@ -86,6 +84,65 @@ public class GeminiSprintNarrativeService {
 
         } catch (Exception ex) {
             log.warn("GeminiSprintNarrativeService narrative generation failed: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    public String generateCriteriaJson(String sprintName, String projectName, String sprintGoal,
+            int totalTasks, int completedTasks, int completedOnTime, int overdueTasks,
+            int penalizedTasks, int totalMembers, int redMembers) {
+        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
+            return null;
+        }
+        try {
+            double completionRate = totalTasks == 0 ? 0.0 : ((double) completedTasks / totalTasks) * 100.0;
+            double onTimeRate = totalTasks == 0 ? 0.0 : ((double) completedOnTime / totalTasks) * 100.0;
+            String goalText = (sprintGoal != null && !sprintGoal.isBlank()) ? sprintGoal : "(Không có mục tiêu sprint)";
+
+            String prompt = String.format("""
+                    Bạn là Project Coach Agile. Hãy đánh giá sprint và trả về KẾT QUẢ DUY NHẤT là một JSON object hợp lệ (không có markdown, không có ```json, không có text ngoài JSON).
+                    JSON phải có đúng 6 key sau, mỗi value là chuỗi tiếng Việt 2-4 câu ngắn gọn, súc tích:
+                    {
+                      "sprintGoal": "...",
+                      "delivery": "...",
+                      "quality": "...",
+                      "teamPerformance": "...",
+                      "process": "...",
+                      "improvement": "..."
+                    }
+
+                    Dữ liệu sprint:
+                    - Sprint: %s | Project: %s
+                    - Mục tiêu: %s
+                    - Tổng task: %d | Hoàn thành: %d (%.1f%%)
+                    - Đúng hạn: %d (%.1f%%) | Trễ hạn: %d | Penalty: %d
+                    - %d/%d thành viên gặp vấn đề rủi ro.
+                    """,
+                    sprintName, projectName, goalText,
+                    totalTasks, completedTasks, completionRate,
+                    completedOnTime, onTimeRate, overdueTasks, penalizedTasks,
+                    redMembers, totalMembers
+            );
+
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt))))
+            );
+            String separator = endpoint.contains("?") ? "&" : "?";
+            Map<?, ?> response = restTemplate.postForObject(
+                    endpoint + separator + "key=" + apiKey, requestBody, Map.class);
+
+            String text = extractText(response);
+            if (text == null || text.isBlank()) return null;
+            text = text.trim();
+            // Loại bỏ markdown code fence nếu Gemini vẫn thêm vào
+            if (text.startsWith("```")) {
+                text = text.replaceAll("^```[a-z]*\\n?", "").replaceAll("```$", "").trim();
+            }
+            // Validate là JSON hợp lệ
+            objectMapper.readTree(text);
+            return text;
+        } catch (Exception ex) {
+            log.warn("GeminiSprintNarrativeService criteria JSON generation failed: {}", ex.getMessage());
             return null;
         }
     }

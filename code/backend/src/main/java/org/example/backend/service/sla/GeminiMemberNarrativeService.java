@@ -25,35 +25,41 @@ public class GeminiMemberNarrativeService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    public String generateComment(String memberName, int totalAssigned, int completedOnTime, int overdueCount, int penalizedCount) {
+    public String generateComment(String memberName, int totalAssigned, int completedCount, int completedOnTime,
+                                   int overdueCount, int penalizedCount, double totalWeight,
+                                   double totalEstimatedHours, double avgDaysEarly, int highPriorityCount) {
         if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
             return null;
         }
 
         try {
             double onTimeRate = totalAssigned == 0 ? 0.0 : ((double) completedOnTime / totalAssigned) * 100.0;
-            
+            String earlyLate = avgDaysEarly >= 0
+                    ? String.format("sớm hơn %.1f ngày", avgDaysEarly)
+                    : String.format("trễ %.1f ngày", -avgDaysEarly);
+
             String prompt = String.format("""
-                    Bạn là Project Coach trong hệ thống quản lý dự án học thuật.
-                    Viết 1-2 câu nhận xét cá nhân cho thành viên dưới đây.
-                    Giọng văn: thân thiện, cụ thể, mang tính khuyến khích nếu làm tốt,
-                    hoặc đưa ra 1 gợi ý hành động cụ thể nếu chưa tốt. Không phán xét.
-                    Không dùng tên thành viên trong câu (tránh cứng nhắc).
+                    Viết đánh giá sprint cho thành viên tên chính xác là: "%s" (KHÔNG được đổi tên, sửa dấu, hay viết tắt).
 
                     Dữ liệu:
-                    - Task được giao: %d
-                    - Hoàn thành đúng hạn: %d
-                    - Trễ hạn: %d
-                    - Bị penalty: %d
-                    - Tỷ lệ đúng hạn: %.1f%%
+                    - Hoàn thành đúng hạn: %d/%d (%.0f%%)
+                    - Trễ hạn: %d | Penalty: %d
+                    - Tổng task xong: %d | Trọng số công việc: %.1f | Giờ ước tính: %.1fh
+                    - Nộp %s | Task HIGH/CRITICAL: %d
 
-                    Trả về 1-2 câu tiếng Việt, văn xuôi thuần túy, không markdown, không JSON.
+                    Yêu cầu:
+                    - Đúng 2 câu tiếng Việt, tối đa 35 từ.
+                    - Câu 1: nêu thẳng vấn đề nổi bật nhất (điểm mạnh hoặc điểm yếu), dùng tên "%s".
+                    - Câu 2: hành động cụ thể cho sprint sau.
+                    - KHÔNG dùng: "nhìn chung", "có thể", "đây là", "cần cải thiện giao tiếp", hay bất kỳ cụm từ chung chung.
+                    - KHÔNG lặp lại số liệu, hãy diễn giải ý nghĩa.
                     """,
-                    totalAssigned,
-                    completedOnTime,
-                    overdueCount,
-                    penalizedCount,
-                    onTimeRate
+                    memberName,
+                    completedOnTime, totalAssigned, onTimeRate,
+                    overdueCount, penalizedCount,
+                    completedCount, totalWeight, totalEstimatedHours,
+                    earlyLate, highPriorityCount,
+                    memberName
             );
 
             Map<String, Object> requestBody = Map.of(
