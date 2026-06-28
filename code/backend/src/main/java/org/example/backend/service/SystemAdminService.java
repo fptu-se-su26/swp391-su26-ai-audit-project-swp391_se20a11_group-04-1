@@ -13,6 +13,8 @@ import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.BugReportRepository;
 import org.example.backend.repository.AiGenerationStagingRepository;
 import org.example.backend.entity.enums.BugStatus;
+import org.example.backend.entity.UserAppeal;
+import org.example.backend.repository.UserAppealRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -29,9 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class SystemAdminService {
 
     private final UserAccountRepository userAccountRepository;
@@ -42,6 +47,8 @@ public class SystemAdminService {
     private final BugReportRepository bugReportRepository;
     private final AiGenerationStagingRepository aiGenerationStagingRepository;
     private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+    private final UserAppealRepository userAppealRepository;
+    private final EmailService emailService;
     private final jakarta.persistence.EntityManager entityManager;
 
     public Map<String, Object> getSystemMetrics() {
@@ -476,5 +483,175 @@ public class SystemAdminService {
         }
         
         return alerts;
+    }
+
+    public List<org.example.backend.dto.AdminUserResponse> getUsers(String search, String role, String status, String appealFilter, boolean showInactiveOnly) {
+        List<UserAccount> allUsers = userAccountRepository.findAll();
+        
+        return allUsers.stream()
+            .filter(u -> {
+                if (u.getSystemRole() != null && "ADMIN".equalsIgnoreCase(u.getSystemRole().getName())) {
+                    return false; // Skip admin accounts in the list
+                }
+                
+                // Search filter (name or email or username)
+                if (search != null && !search.trim().isEmpty()) {
+                    String searchLower = search.toLowerCase().trim();
+                    boolean matchesUsername = u.getUsername() != null && u.getUsername().toLowerCase().contains(searchLower);
+                    boolean matchesEmail = u.getEmail() != null && u.getEmail().toLowerCase().contains(searchLower);
+                    boolean matchesFullName = u.getProfile() != null && u.getProfile().getFullName() != null && u.getProfile().getFullName().toLowerCase().contains(searchLower);
+                    if (!matchesUsername && !matchesEmail && !matchesFullName) {
+                        return false;
+                    }
+                }
+                
+                // Role filter
+                if (role != null && !role.equalsIgnoreCase("ALL")) {
+                    if (u.getSystemRole() == null || !role.equalsIgnoreCase(u.getSystemRole().getName())) {
+                        return false;
+                    }
+                }
+                
+                // Status filter
+                if (status != null && !status.equalsIgnoreCase("ALL")) {
+                    boolean targetActive = status.equalsIgnoreCase("ACTIVE");
+                    if (u.isActive() != targetActive) {
+                        return false;
+                    }
+                }
+                
+                // Appeal filter
+                if (appealFilter != null && !appealFilter.equalsIgnoreCase("ALL")) {
+                    UserAppeal latestAppeal = userAppealRepository.findFirstByUserIdOrderByIdDesc(u.getId()).orElse(null);
+                    String appealStatus = latestAppeal != null ? latestAppeal.getStatus() : null;
+                    
+                    if (appealFilter.equalsIgnoreCase("PENDING")) {
+                        if (!"PENDING".equalsIgnoreCase(appealStatus)) {
+                            return false;
+                        }
+                    } else if (appealFilter.equalsIgnoreCase("NONE")) {
+                        if (appealStatus != null && !"NONE".equalsIgnoreCase(appealStatus)) {
+                            return false;
+                        }
+                    }
+                }
+                
+                // Inactive over 2 years filter
+                if (showInactiveOnly) {
+                    if (!isInactiveOver2Years(u.getUpdatedAt())) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            })
+            .map(u -> {
+                String fullName = u.getProfile() != null ? u.getProfile().getFullName() : u.getUsername();
+                String avatarUrl = u.getProfile() != null ? u.getProfile().getAvatarUrl() : null;
+                
+                UserAppeal latestAppeal = userAppealRepository.findFirstByUserIdOrderByIdDesc(u.getId()).orElse(null);
+                
+                return org.example.backend.dto.AdminUserResponse.builder()
+                    .id(u.getId())
+                    .username(u.getUsername())
+                    .email(u.getEmail())
+                    .fullName(fullName)
+                    .avatarUrl(avatarUrl)
+                    .isActive(u.isActive())
+                    .lastActive(u.getUpdatedAt()) // we use updatedAt for lastActive
+                    .appealReason(latestAppeal != null ? latestAppeal.getReason() : null)
+                    .appealEvidenceUrl(latestAppeal != null ? latestAppeal.getEvidenceUrl() : null)
+                    .appealEvidenceName(latestAppeal != null ? latestAppeal.getEvidenceName() : null)
+                    .appealStatus(latestAppeal != null ? latestAppeal.getStatus() : null)
+                    .appealComment(latestAppeal != null ? latestAppeal.getAdminComment() : null)
+                    .appealResolvedAt(latestAppeal != null ? latestAppeal.getResolvedAt() : null)
+                    .appealResolvedByUsername(latestAppeal != null && latestAppeal.getResolvedBy() != null ? latestAppeal.getResolvedBy().getUsername() : null)
+                    .lockReason(u.getLockReason())
+                    .build();
+            })
+            .collect(Collectors.toList());
+    }
+
+    private boolean isInactiveOver2Years(LocalDateTime updatedAt) {
+        if (updatedAt == null) return true;
+        return updatedAt.isBefore(LocalDateTime.now().minusMonths(2));
+    }
+
+    public boolean toggleUserLock(Long id, String reason) {
+        UserAccount user = userAccountRepository.findById(id).orElse(null);
+        if (user == null) return false;
+        
+        user.setActive(!user.isActive());
+        if (!user.isActive()) {
+            user.setLockReason(reason);
+            // Broadcast lock event immediately via WebSocket
+            String escapedReason = reason != null ? reason.replace("\"", "\\\"").replace("\n", "\\n") : "";
+            String jsonPayload = String.format("{\"type\":\"USER_LOCKED\",\"reason\":\"%s\"}", escapedReason);
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(id, jsonPayload);
+            
+            // Revoke HttpSessions immediately
+            org.example.backend.config.SessionRegistryListener.invalidateSessionsForUser(id);
+        } else {
+            user.setLockReason(null);
+            // If unlocking, also mark any pending appeal as RESOLVED
+            userAppealRepository.findFirstByUserIdAndStatusOrderByIdDesc(id, "PENDING")
+                .ifPresent(appeal -> {
+                    appeal.setStatus("RESOLVED");
+                    appeal.setResolvedAt(LocalDateTime.now());
+                    userAppealRepository.save(appeal);
+                });
+            // Broadcast unlock event immediately via WebSocket
+            String jsonPayload = "{\"type\":\"USER_UNLOCKED\"}";
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(id, jsonPayload);
+        }
+        userAccountRepository.save(user);
+        return true;
+    }
+
+    public boolean resolveUserAppeal(Long id, boolean approve, String feedback, UserAccount resolver) {
+        UserAccount user = userAccountRepository.findById(id).orElse(null);
+        if (user == null) return false;
+        
+        UserAppeal appeal = userAppealRepository.findFirstByUserIdAndStatusOrderByIdDesc(id, "PENDING")
+                .orElse(null);
+        if (appeal == null) return false;
+        
+        if (approve) {
+            user.setActive(true);
+            appeal.setStatus("APPROVED");
+            user.setLockReason(null); // Clear lock reason
+            // Send UNLOCK event
+            String jsonPayload = "{\"type\":\"USER_UNLOCKED\"}";
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(id, jsonPayload);
+            
+            // Gửi Email thông báo mở khóa tài khoản thành công
+            try {
+                String subject = "[DevTrack AI] Kết quả kháng cáo: Tài khoản đã được mở khóa";
+                String body = String.format("Xin chào %s,\n\nĐơn kháng cáo của bạn đã được Ban quản trị phê duyệt.\nTài khoản của bạn đã được mở khóa thành công. Bạn có thể đăng nhập lại vào hệ thống ngay bây giờ.\n\nPhản hồi từ Admin: %s\n\nTrân trọng,\nBan quản trị DevTrack AI", 
+                        user.getUsername(), (feedback != null && !feedback.trim().isEmpty() ? feedback : "Đã chấp thuận yêu cầu giải trình."));
+                emailService.sendEmail(user.getEmail(), subject, body);
+            } catch (Exception e) {
+                log.error("Failed to send appeal approval email to {}", user.getEmail(), e);
+            }
+        } else {
+            appeal.setStatus("REJECTED");
+            
+            // Gửi Email thông báo từ chối đơn kháng cáo
+            try {
+                String subject = "[DevTrack AI] Kết quả kháng cáo: Bị từ chối";
+                String body = String.format("Xin chào %s,\n\nĐơn kháng cáo của bạn đã bị Ban quản trị từ chối.\nTài khoản của bạn vẫn tiếp tục bị khóa.\n\nPhản hồi từ Admin: %s\n\nTrân trọng,\nBan quản trị DevTrack AI", 
+                        user.getUsername(), (feedback != null && !feedback.trim().isEmpty() ? feedback : "Không chấp nhận giải trình."));
+                emailService.sendEmail(user.getEmail(), subject, body);
+            } catch (Exception e) {
+                log.error("Failed to send appeal rejection email to {}", user.getEmail(), e);
+            }
+        }
+        appeal.setAdminComment(feedback);
+        appeal.setResolvedAt(LocalDateTime.now());
+        appeal.setResolvedBy(resolver);
+        
+        userAppealRepository.save(appeal);
+        userAccountRepository.save(user);
+        return true;
     }
 }

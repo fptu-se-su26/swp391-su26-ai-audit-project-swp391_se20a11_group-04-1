@@ -19,432 +19,238 @@ Nguyên tắc ghi changelog:
 
 | Thông tin | Nội dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Repository URL |  |
-| Ngày bắt đầu |  |
-| Ngày hoàn thành |  |
+| Môn học | SWP391 |
+| Mã môn học | SWP391 |
+| Lớp | SE20A11 |
+| Học kỳ | SUMMER 2026 |
+| Tên bài tập / Project | Software Project Management System for IT Student Teams |
+| Tên sinh viên / Nhóm | Trần Công Tú |
+| MSSV / Danh sách MSSV | SE202611 |
+| Giảng viên hướng dẫn | Quang Lê |
+| Repository URL | N/A |
+| Ngày bắt đầu | 18/05/2026 |
+| Ngày hoàn thành | 27/06/2026 |
 
 ---
 
 ## 3. Tổng quan các phiên bản/giai đoạn
 
-| Phiên bản/Giai đoạn | Thời gian | Nội dung chính | Trạng thái |
-|---|---|---|---|
-| Phase 01 |  | Khởi tạo project | Not Started / In Progress / Completed |
-| Phase 02 |  | Phân tích yêu cầu | Not Started / In Progress / Completed |
-| Phase 03 |  | Thiết kế hệ thống | Not Started / In Progress / Completed |
-| Phase 04 |  | Implementation | Not Started / In Progress / Completed |
-| Phase 05 |  | Testing & Debug | Not Started / In Progress / Completed |
-| Phase 06 |  | Hoàn thiện báo cáo và demo | Not Started / In Progress / Completed |
+| Phiên bản/Giai đoạn | Thời gian | Nội dung chính |
+|---|---|---|
+| Phase 01 | 18/05 - 28/05 | Khởi tạo, Giao diện UI & Kiến trúc Database |
+| Phase 02 | 29/05 - 06/06 | Backend Core, E2E Testing & Sửa lỗi hệ thống |
+| Phase 03 | 07/06 - 15/06 | R&D Module Biểu đồ UML Động & Giao diện tương tác |
+| Phase 04 | 16/06 - 27/06 | Bảo mật, Tối ưu Real-time, Refactoring & CI/CD |
 
 ---
 
-# [Phase 01] Khởi tạo project
+# [Phase 01] Khởi tạo, Giao diện UI & Kiến trúc Database (18/05 - 28/05)
 
-## Ngày thực hiện
+## [2026-05-18]
+Author: Trần Công Tú
 
-```text
-DD/MM/YYYY
-```
+### Added
+- Khởi tạo thư mục gốc của project.
+- Thêm file .gitignore và khởi tạo repo Git.
+- Cập nhật danh sách các Idea sơ bộ.
 
-## Đã hoàn thành
+### AI-assisted
+- Dùng Gemini để brainstorm ý tưởng cốt lõi (Task Management, Peer-review, UML Drawing). Kết quả được chọn lọc và lưu vào idea.md.
 
-- [ ] Tạo repository
-- [ ] Tạo cấu trúc thư mục project
-- [ ] Tạo file README.md
-- [ ] Tạo thư mục `docs/`
-- [ ] Tạo file `AI_AUDIT_LOG.md`
-- [ ] Tạo file `PROMPTS.md`
-- [ ] Tạo file `REFLECTION.md`
-- [ ] Tạo file `CHANGELOG.md`
-- [ ] Khởi tạo source code ban đầu
-- [ ] Cài đặt thư viện/công cụ cần thiết
-- [ ] Cấu hình môi trường chạy project
+## [2026-05-19]
+Author: Trần Công Tú
 
-## Thay đổi chi tiết
+### Added
+- Tạo bộ khung file tài liệu Requirement.
 
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+### AI-assisted
+- Dùng Claude để tự động sinh cấu trúc Use Case dựa trên các tính năng đã chốt. Tự gỡ bỏ tính năng duyệt task rườm rà.
 
-## AI có hỗ trợ không?
+## [2026-05-20]
+Author: Trần Công Tú
 
-- [ ] Có
-- [ ] Không
+### Changed
+- Phân rã Work Breakdown Structure (WBS) thành các task Frontend và Backend.
 
-Nếu có, mô tả AI đã hỗ trợ phần nào:
+### AI-assisted
+- Nhờ Claude chia nhỏ module UML để dễ code hơn. Phê duyệt bảng WBS cùng team.
 
-```text
-Viết tại đây...
-```
+## [2026-05-22]
+Author: Trần Công Tú
 
-## Commit/Screenshot minh chứng
+### Added
+- Code khung HTML/CSS tĩnh cho giao diện Dashboard.
 
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
+### Changed
+- Tự tay gắn thư viện Chart.js thay vì dùng giao diện AI gợi ý.
 
-## Ghi chú
+### AI-assisted
+- Dùng Stitch gen code CSS Grid cho layout 2 cột.
 
-```text
-Viết tại đây...
-```
+## [2026-05-24]
+Author: Trần Công Tú
 
----
+### Fixed
+- Dọn dẹp dữ liệu Mock (Fake array data) mà AI tạo trên giao diện. Bắt buộc gọi qua API.
 
-# [Phase 02] Phân tích yêu cầu
+### AI-assisted
+- Nhờ Kiro kiểm tra vì sao UI không update data, phát hiện do AI hardcode, ép đổi thành fetch API để chuẩn bị cho giai đoạn code Backend.
 
-## Ngày thực hiện
+## [2026-05-26]
+Author: Trần Công Tú
 
-```text
-DD/MM/YYYY
-```
+### Added
+- Tích hợp hệ thống quản lý Database Migration (Knex) để quản lý cấu trúc PostgreSQL chuyên nghiệp, từ chối sửa DB bằng tay.
 
-## Đã hoàn thành
+### AI-assisted
+- Dùng Claude thiết kế kiến trúc DB và yêu cầu Antigravity viết lệnh init Knex Migration.
 
-- [ ] Xác định problem statement
-- [ ] Xác định user roles
-- [ ] Viết user stories
-- [ ] Viết use cases
-- [ ] Xác định functional requirements
-- [ ] Xác định non-functional requirements
-- [ ] Xác định business rules
-- [ ] Xác định acceptance criteria
-- [ ] Review yêu cầu với giảng viên/nhóm
-- [ ] Chỉnh sửa yêu cầu sau feedback
+## [2026-05-28]
+Author: Trần Công Tú
 
-## Thay đổi chi tiết
+### Changed
+- Từ bỏ giải pháp hình ảnh tĩnh Mermaid.js (quá cứng nhắc). Đổi nền tảng biểu đồ ngay từ khâu thiết kế.
 
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
+### AI-assisted
+- Gemini tư vấn đổi qua React Flow để có tính năng Drag Drop. Tinh thần không ngại đập bỏ để tối ưu sớm.
 
 ---
 
-# [Phase 03] Thiết kế hệ thống
+# [Phase 02] Backend Core & E2E Testing (29/05 - 06/06)
 
-## Ngày thực hiện
+## [2026-05-29]
+Author: Trần Công Tú
 
-```text
-DD/MM/YYYY
-```
+### Added
+- Chức năng Authentication và Phân quyền Role.
+- Middleware kiểm tra User token.
 
-## Đã hoàn thành
+### AI-assisted
+- Dùng Antigravity code Auth middleware. Tự bổ sung cơ chế bắt lỗi TokenExpiredError để tăng tính bảo mật.
 
-- [ ] Thiết kế kiến trúc tổng quan
-- [ ] Thiết kế database/ERD
-- [ ] Thiết kế API
-- [ ] Thiết kế giao diện/wireframe
-- [ ] Thiết kế flow xử lý
-- [ ] Thiết kế class diagram
-- [ ] Thiết kế sequence diagram
-- [ ] Thiết kế security/authorization flow
-- [ ] Review thiết kế
-- [ ] Chỉnh sửa thiết kế sau feedback
+## [2026-05-30]
+Author: Trần Công Tú
 
-## Thay đổi chi tiết
+### Fixed
+- Sửa lỗi Login không gửi kèm Cookie chứa token lên server do thiếu SameSite và CORS.
+- Update server.js cấu hình allowed origin.
 
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+### AI-assisted
+- Nhờ Kiro quét lỗi CORS và xác định nguyên nhân.
+- Dùng Antigravity code lại đoạn CORS config dựa trên chỉ định của Kiro. Tôi đã chuyển Domain thành file .env cho an toàn.
 
-## AI có hỗ trợ không?
+## [2026-06-02]
+Author: Trần Công Tú
 
-- [ ] Có
-- [ ] Không
+### Added
+- Chức năng Create Task với field nhập estimate_hours. Tích hợp PostgreSQL.
 
-Nếu có, mô tả AI đã hỗ trợ phần nào:
+### Changed
+- Bổ sung schema Zod để thay thế luồng validate if-else lộn xộn cũ.
 
-```text
-Viết tại đây...
-```
+### AI-assisted
+- Dùng Antigravity code Controller lưu xuống PostgreSQL, nhưng đã chủ động yêu cầu Claude sinh Zod validation thay vì tự tay viết.
 
-## Commit/Screenshot minh chứng
+## [2026-06-04]
+Author: Trần Công Tú
 
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
+### Fixed
+- Sửa lỗi API báo 200 nhưng PostgreSQL không có data mới. (End-to-End Testing bug)
 
-## Ghi chú
-
-```text
-Viết tại đây...
-```
+### AI-assisted
+- Bắt quả tang Antigravity giả mạo query thông qua log báo của Kiro. Ép Antigravity dùng đúng chuẩn kết nối thực thi DB thật sự.
 
 ---
 
-# [Phase 04] Implementation
+# [Phase 03] Module UML & Tương tác giao diện (07/06 - 15/06)
 
-## Ngày thực hiện
+## [2026-06-08]
+Author: Trần Công Tú
 
-```text
-DD/MM/YYYY
-```
+### Added
+- Thiết kế hệ thống (Architecture) phần luồng xử lý Node và Edge cho module vẽ UML React Flow.
 
-## Đã hoàn thành
+### AI-assisted
+- Dùng Claude và Gemini nghiên cứu sâu React Flow, lên meta-prompt chi tiết trước khi bước vào code. Đây là bước sống còn để kiểm soát logic AI code sau này.
 
-- [ ] Tạo project structure
-- [ ] Cài đặt database connection
-- [ ] Xây dựng backend
-- [ ] Xây dựng frontend
-- [ ] Xây dựng authentication/authorization
-- [ ] Xử lý CRUD
-- [ ] Xử lý validation
-- [ ] Tích hợp API
-- [ ] Xử lý upload/download file
-- [ ] Xử lý lỗi
-- [ ] Tối ưu giao diện
-- [ ] Cập nhật README hướng dẫn chạy
+## [2026-06-11]
+Author: Trần Công Tú
 
-## Thay đổi chi tiết
+### Added
+- Component UmlDiagram.jsx hiển thị bảng vẽ.
 
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+### AI-assisted
+- Dùng Antigravity gen component dựa trên Master Prompt.
 
-## AI có hỗ trợ không?
+## [2026-06-12]
+Author: Trần Công Tú
 
-- [ ] Có
-- [ ] Không
+### Fixed
+- Sửa lỗi không nối dây (Edge) được giữa 2 khối UML.
+- Thay đổi ID của các thẻ Handle cho đồng nhất trên mọi component.
 
-Nếu có, mô tả AI đã hỗ trợ phần nào:
+### AI-assisted
+- Dùng Kiro trace bug lỗi đứt kết nối dây. Cập nhật lại yêu cầu để Antigravity code lại.
 
-```text
-Viết tại đây...
-```
+## [2026-06-14]
+Author: Trần Công Tú
 
-## Commit/Screenshot minh chứng
+### Fixed
+- Lỗi giật lag giao diện (giảm FPS) khi thêm xóa node nhiều lần.
+- Cấu trúc lại cơ chế lưu State Undo/Redo bằng kỹ thuật Debouncing.
 
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
+### AI-assisted
+- Yêu cầu Antigravity viết custom hook fix lỗi giật lag. AI viết quá rối, nhờ Claude viết lại bản sạch, sau đó ép Antigravity tích hợp vào dự án.
 
 ---
 
-# [Phase 05] Testing & Debug
+# [Phase 04] Bảo mật, Tối ưu hóa hệ thống & DevOps (16/06 - 27/06)
 
-## Ngày thực hiện
+## [2026-06-18]
+Author: Trần Công Tú
 
-```text
-DD/MM/YYYY
-```
+### Added
+- Tích hợp React Error Boundary chặn lỗi Crash UI do đụng độ dữ liệu Optimistic Locking.
 
-## Đã hoàn thành
+### AI-assisted
+- Được Kiro chẩn đoán nguyên nhân và nhờ Claude thiết kế cơ chế cảnh báo UI mượt mà (Graceful Degradation).
 
-- [ ] Viết test case
-- [ ] Chạy test chức năng chính
-- [ ] Kiểm tra output
-- [ ] Kiểm tra validation
-- [ ] Kiểm tra lỗi giao diện
-- [ ] Kiểm tra lỗi database
-- [ ] Kiểm tra phân quyền
-- [ ] Kiểm tra bảo mật cơ bản
-- [ ] Fix bug
-- [ ] Chạy lại sau khi fix bug
-- [ ] Ghi nhận kết quả test
+## [2026-06-20]
+Author: Trần Công Tú
 
-## Danh sách lỗi đã xử lý
+### Changed
+- (Refactor) Đập bỏ component UmlDiagram.jsx khổng lồ 1500 dòng thành các Custom Hook và component nhỏ tuân thủ Separation of Concerns.
 
-| STT | Lỗi phát hiện | Nguyên nhân | Cách xử lý | Trạng thái |
-|---:|---|---|---|---|
-| 1 |  |  |  | Open / Fixed / Pending |
-| 2 |  |  |  | Open / Fixed / Pending |
-| 3 |  |  |  | Open / Fixed / Pending |
-| 4 |  |  |  | Open / Fixed / Pending |
-| 5 |  |  |  | Open / Fixed / Pending |
+### AI-assisted
+- Nhờ Claude vẽ cấu trúc băm nhỏ, sau đó ép Antigravity chia tách các file tương ứng nhằm trả "nợ kỹ thuật" (Technical Debt).
 
-## Thay đổi chi tiết
+## [2026-06-22]
+Author: Trần Công Tú
 
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+### Changed
+- Cải thiện kiến trúc WebSocket truyền data để đỡ ngốn băng thông và CPU.
 
-## AI có hỗ trợ không?
+### AI-assisted
+- Claude cung cấp thuật toán Delta Update cực đỉnh để nén data vẽ gửi cho nhiều user, bắt Antigravity sửa.
 
-- [ ] Có
-- [ ] Không
+## [2026-06-25]
+Author: Trần Công Tú
 
-Nếu có, mô tả AI đã hỗ trợ phần nào:
+### Added
+- Tài liệu Hướng dẫn sử dụng (User Manual).
 
-```text
-Viết tại đây...
-```
+### Changed
+- Điều chỉnh tông giọng tài liệu cho chuẩn văn phong Việt Nam. Gắn screenshot thực tế của app.
 
-## Commit/Screenshot minh chứng
+### AI-assisted
+- Dùng Claude draft bản thô cho User Manual từ file Requirement cũ.
 
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
+## [2026-06-27]
+Author: Trần Công Tú
 
-## Ghi chú
+### Added
+- Tích hợp CI/CD Pipeline với GitHub Actions.
+- Tự động hóa Testing và Deploy lên server thật (Render).
 
-```text
-Viết tại đây...
-```
-
----
-
-# [Phase 06] Hoàn thiện báo cáo và demo
-
-## Ngày thực hiện
-
-```text
-DD/MM/YYYY
-```
-
-## Đã hoàn thành
-
-- [ ] Hoàn thiện source code
-- [ ] Hoàn thiện README.md
-- [ ] Hoàn thiện report
-- [ ] Hoàn thiện slide
-- [ ] Hoàn thiện video demo
-- [ ] Kiểm tra lại `AI_AUDIT_LOG.md`
-- [ ] Kiểm tra lại `PROMPTS.md`
-- [ ] Hoàn thiện `REFLECTION.md`
-- [ ] Kiểm tra lại `CHANGELOG.md`
-- [ ] Đóng gói bài nộp
-
-## Thay đổi chi tiết
-
-| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
-|---:|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-
-## AI có hỗ trợ không?
-
-- [ ] Có
-- [ ] Không
-
-Nếu có, mô tả AI đã hỗ trợ phần nào:
-
-```text
-Viết tại đây...
-```
-
-## Commit/Screenshot minh chứng
-
-```text
-Dán link commit, screenshot hoặc mô tả minh chứng tại đây...
-```
-
-## Ghi chú
-
-```text
-Viết tại đây...
-```
-
----
-
-# 4. Tổng kết thay đổi cuối project
-
-## 4.1. Các chức năng đã hoàn thành
-
-| STT | Chức năng | Trạng thái | Minh chứng | Ghi chú |
-|---:|---|---|---|---|
-| 1 |  | Completed / Partial / Not Completed |  |  |
-| 2 |  | Completed / Partial / Not Completed |  |  |
-| 3 |  | Completed / Partial / Not Completed |  |  |
-| 4 |  | Completed / Partial / Not Completed |  |  |
-| 5 |  | Completed / Partial / Not Completed |  |  |
-
----
-
-## 4.2. Các chức năng chưa hoàn thành
-
-| STT | Chức năng | Lý do chưa hoàn thành | Hướng cải thiện |
-|---:|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-
----
-
-## 4.3. Tổng hợp AI hỗ trợ trong project
-
-| Hạng mục | AI có hỗ trợ không? | Mức độ hỗ trợ | Ghi chú |
-|---|---|---|---|
-| Requirement | Có / Không | Ít / Trung bình / Nhiều |  |
-| Design | Có / Không | Ít / Trung bình / Nhiều |  |
-| Database | Có / Không | Ít / Trung bình / Nhiều |  |
-| Coding | Có / Không | Ít / Trung bình / Nhiều |  |
-| Debug | Có / Không | Ít / Trung bình / Nhiều |  |
-| Testing | Có / Không | Ít / Trung bình / Nhiều |  |
-| Report | Có / Không | Ít / Trung bình / Nhiều |  |
-| Presentation | Có / Không | Ít / Trung bình / Nhiều |  |
-
----
-
-## 4.4. Bài học rút ra
-
-```text
-Viết tại đây...
-```
-
----
-
-## 4.5. Hướng cải thiện tiếp theo
-
-```text
-Viết tại đây...
-```
-
----
-
-# 5. Cam kết cập nhật Changelog
-
-Sinh viên/nhóm cam kết rằng nội dung changelog phản ánh đúng các thay đổi đã thực hiện trong quá trình làm bài tập/project.
-
-| Đại diện sinh viên/nhóm | Ngày xác nhận |
-|---|---|
-|  |  |
+### AI-assisted
+- Gemini sinh file deploy.yml. Tự động hóa vòng đời phần mềm (SDLC) lên mức cao nhất.

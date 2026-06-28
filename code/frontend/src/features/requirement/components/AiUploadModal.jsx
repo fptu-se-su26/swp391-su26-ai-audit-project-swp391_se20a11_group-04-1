@@ -37,7 +37,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
   // Listen to WebSocket real-time progress
   useEffect(() => {
     const handleProgress = (event) => {
-      if (isUploading && !isCancelledRef.current) {
+      if (!isCancelledRef.current) {
         const { step } = event.detail || {};
         if (typeof step === 'number') {
           setCurrentStep(step);
@@ -47,7 +47,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
 
     window.addEventListener('AI_PROGRESS', handleProgress);
     return () => window.removeEventListener('AI_PROGRESS', handleProgress);
-  }, [isUploading]);
+  }, []);
 
   if (!isOpen) return null;
 

@@ -53,6 +53,7 @@ import ProfilePage from '@features/profile/pages/ProfilePage'
 import AdminDashboardPage from '@features/system-admin/pages/AdminDashboardPage'
 import AuditLogsPage from '@features/system-admin/pages/AuditLogsPage'
 import JobDashboardPage from '@features/system-admin/pages/JobDashboardPage'
+import UserManagementPage from '@features/system-admin/pages/UserManagementPage'
 
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
@@ -83,6 +84,7 @@ export function AppRoutes() {
       <Route element={<PrivateRoute />}>
         {/* System Admin Dashboard */}
         <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/users" element={<UserManagementPage />} />
         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
         <Route path="/admin/jobs" element={<JobDashboardPage />} />
 

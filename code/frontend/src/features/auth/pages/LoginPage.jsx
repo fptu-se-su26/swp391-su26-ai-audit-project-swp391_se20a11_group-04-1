@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import authService from '../services/authService'
 import useAuthStore from '@store/useAuthStore'
+import axiosInstance from '@api/axiosConfig'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -18,6 +19,107 @@ function LoginPage() {
   const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0) // Thời gian khóa còn lại tính bằng giây
   const [lockoutMessage, setLockoutMessage] = useState('')
   const [lockedUsername, setLockedUsername] = useState('') // Tài khoản bị khóa thực tế
+  const [permanentBanMessage, setPermanentBanMessage] = useState('') // Lý do bị ban vĩnh viễn
+  
+  // Các state phục vụ cho form kháng cáo trực tiếp tại trang login
+  const [showAppealForm, setShowAppealForm] = useState(false)
+  const [appealUser, setAppealUser] = useState('')
+  const [appealText, setAppealText] = useState('')
+  const [appealLoading, setAppealLoading] = useState(false)
+  const [appealSubmitted, setAppealSubmitted] = useState(false)
+
+  // State phục vụ upload tài liệu minh chứng
+  const [fileName, setFileName] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [evidenceUrl, setEvidenceUrl] = useState('')
+
+  // Tải tài liệu minh chứng lên Cloudinary thông qua backend
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setFileName(file.name)
+    setUploading(true)
+    setUploadProgress(0)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await axiosInstance.post('/v1/auth/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          setUploadProgress(percentCompleted)
+        },
+      })
+
+      if (response.data && response.data.success) {
+        setEvidenceUrl(response.data.data)
+        toast.success('Tải lên tài liệu minh chứng thành công!')
+      }
+    } catch (err) {
+      console.error('Failed to upload file:', err)
+      toast.error(err.response?.data?.message || 'Tải lên tài liệu minh chứng thất bại.')
+      setFileName('')
+      setEvidenceUrl('')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Đồng bộ tên đăng nhập từ form đăng nhập sang form kháng cáo để tối ưu trải nghiệm người dùng
+  useEffect(() => {
+    if (formData.usernameOrEmail) {
+      setAppealUser(formData.usernameOrEmail)
+    }
+  }, [formData.usernameOrEmail])
+
+  // Xử lý query parameters khi bị redirect từ WebSocket lúc đang thao tác
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('locked') === 'true') {
+      const reason = params.get('reason') || 'Vi phạm chính sách bảo mật hệ thống.'
+      setPermanentBanMessage(reason)
+      // Dọn sạch URL mà không cần tải lại trang
+      navigate('/login', { replace: true })
+    }
+  }, [location, navigate])
+
+  const handleAppealSubmit = async (e) => {
+    e.preventDefault()
+    if (!appealUser.trim() || !appealText.trim()) {
+      toast.error('Vui lòng điền đầy đủ thông tin!')
+      return
+    }
+
+    setAppealLoading(true)
+    try {
+      const response = await authService.submitAppeal(
+        null, // Không truyền userId vì chưa đăng nhập
+        appealUser.trim(),
+        appealText.trim(),
+        evidenceUrl || null,
+        fileName || null
+      )
+
+      if (response.data?.success) {
+        toast.success('Gửi đơn kháng cáo thành công!')
+        setAppealSubmitted(true)
+        setAppealText('')
+        setFileName('')
+        setEvidenceUrl('')
+      }
+    } catch (err) {
+      console.error('Failed to submit appeal:', err)
+      toast.error(err.response?.data?.message || 'Gửi đơn kháng cáo thất bại.')
+    } finally {
+      setAppealLoading(false)
+    }
+  }
 
   // 1. Phục hồi trạng thái khóa khi load lại trang (F5 Prevention)
   useEffect(() => {
@@ -69,6 +171,10 @@ function LoginPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }))
+    // Clear permanent ban message when typing a new username/email
+    if (name === 'usernameOrEmail') {
+      setPermanentBanMessage('')
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -110,22 +216,29 @@ function LoginPage() {
         
         // Nếu là lỗi khóa tài khoản (423 Locked)
         if (err.response.status === 423) {
-          setLockoutMessage(msg)
+          const isPermanentBan = msg.includes("admin khóa") || !msg.includes("tạm thời");
           
-          // Trích xuất số phút từ câu thông báo lỗi
-          const match = msg.match(/(\d+)\s*phút/)
-          const minutes = match ? parseInt(match[1], 10) : 5
-          const lockoutEndTime = Date.now() + minutes * 60 * 1000
-          
-          localStorage.setItem('lockoutEndTime', lockoutEndTime.toString())
-          localStorage.setItem('lockoutMessage', msg)
-          localStorage.setItem('lockoutUsername', formData.usernameOrEmail) // Lưu tài khoản bị khóa
-          setLockoutTimeLeft(minutes * 60)
-          setLockedUsername(formData.usernameOrEmail)
+          if (isPermanentBan) {
+            setPermanentBanMessage(msg);
+            toast.error(msg, { duration: 5000 });
+          } else {
+            setLockoutMessage(msg)
+            
+            // Trích xuất số phút từ câu thông báo lỗi
+            const match = msg.match(/(\d+)\s*phút/)
+            const minutes = match ? parseInt(match[1], 10) : 5
+            const lockoutEndTime = Date.now() + minutes * 60 * 1000
+            
+            localStorage.setItem('lockoutEndTime', lockoutEndTime.toString())
+            localStorage.setItem('lockoutMessage', msg)
+            localStorage.setItem('lockoutUsername', formData.usernameOrEmail) // Lưu tài khoản bị khóa
+            setLockoutTimeLeft(minutes * 60)
+            setLockedUsername(formData.usernameOrEmail)
+          }
         } else {
           toast.error(msg)
         }
-        return
+        return;
       }
 
       // Trường hợp khi đang dev, server chưa bật: hỗ trợ đăng nhập giả lập để test giao diện
@@ -168,10 +281,178 @@ function LoginPage() {
         {/* Form Content */}
         <div className="p-stack_lg">
           
+          {/* Permanent Ban Warning Banner with high-fidelity styling and Appeal form */}
+          {permanentBanMessage && (
+            <div className="mb-6 p-5 rounded-2xl bg-red-50 border border-red-200 shadow-sm text-left animate-in fade-in zoom-in-95 duration-300">
+              <div className="mb-3">
+                <h3 className="font-bold text-red-900 text-sm">Tài khoản đã bị khóa</h3>
+                <p className="text-[10px] text-red-700 font-bold uppercase tracking-wider">Hệ thống</p>
+              </div>
+              
+              <div className="p-3 bg-white/95 rounded-xl border border-red-100 mb-3">
+                <p className="text-[10px] text-red-850 font-bold uppercase tracking-wider mb-1">Lý do khóa tài khoản:</p>
+                <p className="text-xs text-red-900 leading-relaxed italic font-medium">"{permanentBanMessage}"</p>
+              </div>
+
+              {!showAppealForm ? (
+                <div className="text-xs text-slate-600 leading-relaxed">
+                  {permanentBanMessage.includes("đang được xử lý") ? (
+                    <span className="text-amber-700 font-bold flex items-center gap-1.5 mt-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                      <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                      Đơn kháng cáo của bạn đang được Ban quản trị xem xét.
+                    </span>
+                  ) : (
+                    <>
+                      Nếu đây là sự nhầm lẫn hoặc bạn muốn giải trình, vui lòng{' '}
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setShowAppealForm(true)
+                          setAppealSubmitted(false)
+                        }} 
+                        className="text-[#1E707D] font-bold hover:underline bg-transparent border-none p-0 cursor-pointer text-xs focus:outline-none"
+                      >
+                        gửi kháng cáo tại đây
+                      </button>
+                      .
+                    </>
+                  )}
+                </div>
+              ) : appealSubmitted ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center space-y-2 animate-in fade-in duration-300">
+                  <span className="material-symbols-outlined text-2xl text-emerald-600">check_circle</span>
+                  <p className="text-xs font-bold text-emerald-950">Gửi đơn kháng cáo thành công!</p>
+                  <p className="text-[11px] text-emerald-850 leading-relaxed">
+                    Đơn giải trình đã được gửi tới Ban quản trị. Chúng tôi sẽ xem xét và phản hồi sớm nhất qua email.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAppealForm(false)
+                      setAppealSubmitted(false)
+                      setFileName('')
+                      setEvidenceUrl('')
+                    }}
+                    className="text-xs font-bold text-[#1E707D] hover:underline bg-transparent border-none p-0 cursor-pointer mt-1"
+                  >
+                    Quay lại đăng nhập
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAppealSubmit} className="mt-4 pt-4 border-t border-red-150 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#1E707D]">edit_document</span>
+                    Gửi đơn giải trình & kháng cáo
+                  </h4>
+                  
+                  {/* Account Identifier (Username or Email) */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Tên đăng nhập hoặc Email
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={appealUser}
+                      onChange={(e) => setAppealUser(e.target.value)}
+                      placeholder="Nhập tên đăng nhập hoặc email cần kháng cáo"
+                      className="w-full px-3 py-2 border border-slate-200 rounded bg-white font-body-md text-xs text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed transition-colors"
+                    />
+                  </div>
+
+                  {/* Appeal Reason */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Nội dung giải trình
+                    </label>
+                    <textarea
+                      required
+                      value={appealText}
+                      onChange={(e) => setAppealText(e.target.value)}
+                      placeholder="Nhập lý do chi tiết hoặc bằng chứng đối chứng để Admin xem xét..."
+                      className="w-full p-2.5 border border-slate-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#1E707D] transition-colors h-20 resize-none"
+                    />
+                  </div>
+
+                  {/* Simulated File Upload Area */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                      Tài liệu minh chứng đính kèm (Tùy chọn)
+                    </label>
+                    <div className="relative border border-dashed border-slate-300 hover:border-[#1E707D] rounded-lg p-3 transition-colors bg-slate-50/50">
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,.zip"
+                        onChange={handleFileChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        disabled={uploading}
+                      />
+                      
+                      {fileName ? (
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-1 text-slate-700 font-bold truncate">
+                            <span className="material-symbols-outlined text-[#1E707D] text-base">description</span>
+                            <span className="truncate">{fileName}</span>
+                          </div>
+                          {uploading ? (
+                            <span className="text-[10px] text-slate-400 shrink-0 font-medium">Đang tải... {uploadProgress}%</span>
+                          ) : (
+                            <span className="text-[10px] text-green-600 shrink-0 font-bold flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-xs">check_circle</span> Đã đính kèm
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-0.5 text-slate-400 text-center">
+                          <span className="material-symbols-outlined text-2xl">upload_file</span>
+                          <span className="text-[10px] font-bold text-slate-600">Chọn file hoặc kéo thả vào đây</span>
+                          <span className="text-[8px] text-slate-400">PDF, PNG, JPG, ZIP (Tối đa 10MB)</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    {uploading && (
+                      <div className="w-full bg-slate-100 h-1 rounded-full mt-1.5 overflow-hidden">
+                        <div 
+                          className="bg-[#1E707D] h-full rounded-full transition-all duration-150"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit and Cancel buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAppealForm(false)
+                        setAppealSubmitted(false)
+                        setFileName('')
+                        setEvidenceUrl('')
+                      }}
+                      className="flex-1 py-2 border border-slate-200 text-slate-700 font-bold rounded text-xs hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={appealLoading || uploading}
+                      className="flex-1 py-2 bg-[#1E707D] hover:bg-[#154f59] text-white font-bold rounded text-xs transition-colors shadow-sm flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 focus:outline-none"
+                    >
+                      {appealLoading ? 'Đang gửi...' : 'Gửi đơn'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
           {/* Lockout Warning Banner */}
           {isCurrentAccountLocked && (
-            <div className="mb-6 p-4 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-              <p className="font-semibold text-red-400">
+            <div className="mb-6 p-4 rounded bg-red-500/10 border border-red-500/20 text-red-800 text-sm font-medium">
+              <p className="font-semibold text-red-750 text-center">
                 Tài khoản của bạn đang bị khóa tạm thời, vui lòng thử lại sau: {Math.floor(lockoutTimeLeft / 60)} phút {lockoutTimeLeft % 60} giây
               </p>
             </div>

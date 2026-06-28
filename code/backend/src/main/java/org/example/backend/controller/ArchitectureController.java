@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/architecture/projects/{projectId}")
 @RequiredArgsConstructor
+@org.example.backend.annotation.PreAuthorizeProjectMember
 public class ArchitectureController {
 
     private final ArchitectureSyncService architectureSyncService;
@@ -53,3 +54,4 @@ public class ArchitectureController {
         return ResponseEntity.ok(ApiResponse.success(graph, "Lấy dữ liệu đồ thị kiến trúc thành công"));
     }
 }
+
