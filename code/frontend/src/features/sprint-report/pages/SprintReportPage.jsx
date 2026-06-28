@@ -423,10 +423,19 @@ export default function SprintReportPage() {
                   selectedReport={selectedReport}
                   selectedReportId={selectedReportId}
                   sprintReports={sprintReports}
-                  reportLoading={reportLoading || reportDetailLoading || completionSummaryLoading}
+                  reportLoading={selectedSprint?.status === 'COMPLETED' ? completionSummaryLoading : (reportLoading || reportDetailLoading || completionSummaryLoading)}
                   members={members}
                   liveMetrics={liveReportMetrics}
                   completionSummary={completionSummary}
+                  activeProject={activeProject}
+                  onCompletionSummaryRefresh={() => {
+                    if (!activeProject?.id || !selectedSprintId) return
+                    setCompletionSummaryLoading(true)
+                    sprintReportService.getCompletionSummary(activeProject.id, selectedSprintId)
+                      .then(data => setCompletionSummary(data || null))
+                      .catch(() => setCompletionSummary(null))
+                      .finally(() => setCompletionSummaryLoading(false))
+                  }}
                 />
 
                 {/* Call To Action for Sprint Health */}

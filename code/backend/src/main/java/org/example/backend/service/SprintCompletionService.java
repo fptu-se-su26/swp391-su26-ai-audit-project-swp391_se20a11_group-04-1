@@ -12,6 +12,7 @@ import org.example.backend.service.sla.GeminiSprintNarrativeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,9 +34,17 @@ public class SprintCompletionService {
     private final GeminiMemberNarrativeService geminiMemberNarrativeService;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final WebSocketBroadcastService webSocketBroadcastService;
     private final ObjectMapper objectMapper;
 
+    @Transactional
+    public void deleteForSprint(Long sprintId) {
+        sprintCompletionSummaryRepository.findBySprintId(sprintId)
+                .ifPresent(sprintCompletionSummaryRepository::delete);
+    }
+
     @Async("monitoringExecutor")
+    @Transactional
     public void generate(Long sprintId, String triggeredBy) {
         log.info("Generating SprintCompletionSummary for sprintId: {}", sprintId);
         
@@ -97,15 +106,26 @@ public class SprintCompletionService {
             List<Task> userTasks = entry.getValue();
 
             int mTotalAssigned = userTasks.size();
+            int mCompletedCount = 0;
             int mCompletedOnTime = 0;
             int mOverdueCount = 0;
             int mPenalizedCount = 0;
+            double mTotalWeight = 0;
+            double mTotalEstimatedHours = 0;
+            long mDaysEarlySum = 0;
+            int mDaysEarlyCount = 0;
+            int mHighPriorityCount = 0;
 
             for (Task task : userTasks) {
                 if (task.getStatus() == TaskStatus.DONE) {
-                    if (task.getCompletedAt() != null && task.getDeadline() != null &&
-                            !task.getCompletedAt().toLocalDate().isAfter(task.getDeadline())) {
-                        mCompletedOnTime++;
+                    mCompletedCount++;
+                    if (task.getWeight() != null) mTotalWeight += task.getWeight().doubleValue();
+                    if (task.getEstimatedHours() != null) mTotalEstimatedHours += task.getEstimatedHours().doubleValue();
+                    if (task.getCompletedAt() != null && task.getDeadline() != null) {
+                        long daysEarly = task.getDeadline().toEpochDay() - task.getCompletedAt().toLocalDate().toEpochDay();
+                        mDaysEarlySum += daysEarly;
+                        mDaysEarlyCount++;
+                        if (daysEarly >= 0) mCompletedOnTime++;
                     }
                 } else {
                     if (task.getDeadline() != null && task.getDeadline().isBefore(today)) {
@@ -115,7 +135,11 @@ public class SprintCompletionService {
                 if (task.isOverduePenaltyApplied()) {
                     mPenalizedCount++;
                 }
+                if (task.getPriority() == Priority.HIGH || task.getPriority() == Priority.CRITICAL) {
+                    mHighPriorityCount++;
+                }
             }
+            double mAvgDaysEarly = mDaysEarlyCount == 0 ? 0.0 : (double) mDaysEarlySum / mDaysEarlyCount;
 
             double mOnTimeRate = mTotalAssigned == 0 ? 0 : (double) mCompletedOnTime / mTotalAssigned * 100.0;
             
@@ -129,7 +153,12 @@ public class SprintCompletionService {
                 riskLevel = "GREEN";
             }
 
-            String aiComment = ""; // Không dùng đánh giá cá nhân theo yêu cầu mới
+            String aiComment = geminiMemberNarrativeService.generateComment(
+                    assignee.getProfile() != null && assignee.getProfile().getFullName() != null
+                            ? assignee.getProfile().getFullName() : assignee.getUsername(),
+                    mTotalAssigned, mCompletedCount, mCompletedOnTime, mOverdueCount, mPenalizedCount,
+                    mTotalWeight, mTotalEstimatedHours, mAvgDaysEarly, mHighPriorityCount);
+            if (aiComment == null) aiComment = "";
 
             memberSummaries.add(new SprintMemberSummary(
                     assignee.getId(),
@@ -146,11 +175,15 @@ public class SprintCompletionService {
         }
 
         String aiSprintNarrative = geminiSprintNarrativeService.generateNarrative(
-                sprint.getName(), sprint.getProject().getName(), totalTasks, completedTasks, completedOnTime,
-                overdueTasks, penalizedTasks, tasksByAssignee.size(), redMembers);
+                sprint.getName(), sprint.getProject().getName(), sprint.getGoal(), totalTasks, completedTasks, completedOnTime,
+                overdueTasks, penalizedTasks, tasksByAssignee.size(), redMembers, memberSummaries);
+        log.info("Gemini narrative result: {}", aiSprintNarrative == null ? "NULL (fallback)" : "OK");
 
         if (aiSprintNarrative == null) {
-            aiSprintNarrative = String.format("Sprint %s đã kết thúc với tỷ lệ hoàn thành %.1f%%.", sprint.getName(), completionRateDouble);
+            aiSprintNarrative = buildTemplateNarrative(sprint.getName(), sprint.getProject().getName(), sprint.getGoal(),
+                    totalTasks, completedTasks, completedOnTime, overdueTasks, penalizedTasks,
+                    tasksByAssignee.size(), redMembers, memberSummaries);
+            log.info("Using template narrative, length: {}", aiSprintNarrative.length());
         }
 
         String memberSummariesJson = "[]";
@@ -177,23 +210,29 @@ public class SprintCompletionService {
                 .build();
 
         sprintCompletionSummaryRepository.save(summary);
-        
+        webSocketBroadcastService.broadcastSprintAiDone(sprint.getProject().getId(), sprintId);
         log.info("SprintCompletionSummary generated for sprint {}: {}/{} tasks done", sprintId, completedTasks, totalTasks);
 
-        String notifTitle = String.format("Sprint %s đã kết thúc", sprint.getName());
-        String notifMessage = String.format("%d/%d task hoàn thành (%.1f%%)", completedTasks, totalTasks, completionRateDouble);
-        
-        List<ProjectMember> leaderMentors = new ArrayList<>();
-        leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "LEADER"));
-        leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "MENTOR"));
-        
-        for (ProjectMember pm : leaderMentors) {
-            if (pm.getUser() != null) {
-                notificationService.createAndPush(pm.getUser(), sprint.getProject(), NotificationEntityType.PROJECT, sprint.getId(), NotificationType.SYSTEM, notifTitle, notifMessage);
+        boolean isUserTriggered = triggeredBy != null && triggeredBy.startsWith("USER_");
+
+        if (!isUserTriggered) {
+            String notifTitle = String.format("Sprint %s đã kết thúc", sprint.getName());
+            String notifMessage = String.format("%d/%d task hoàn thành (%.1f%%)", completedTasks, totalTasks, completionRateDouble);
+            List<ProjectMember> leaderMentors = new ArrayList<>();
+            leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "LEADER"));
+            leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "MENTOR"));
+            for (ProjectMember pm : leaderMentors) {
+                if (pm.getUser() != null) {
+                    notificationService.createAndPush(pm.getUser(), sprint.getProject(), NotificationEntityType.PROJECT, sprint.getId(), NotificationType.SYSTEM, notifTitle, notifMessage);
+                }
             }
         }
 
-        if (redMembers > 0) {
+        List<ProjectMember> leaderMentors = new ArrayList<>();
+        leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "LEADER"));
+        leaderMentors.addAll(projectMemberRepository.findByProjectIdAndRoleName(sprint.getProject().getId(), "MENTOR"));
+
+        if (!isUserTriggered && redMembers > 0) {
             String emailSubject = String.format("DevTrack — Tổng kết Sprint %s · %s", sprint.getName(), sprint.getProject().getName());
             
             StringBuilder emailBody = new StringBuilder();
@@ -221,6 +260,61 @@ public class SprintCompletionService {
                 }
             }
         }
+    }
+
+    private String buildTemplateNarrative(String sprintName, String projectName, String sprintGoal,
+            int totalTasks, int completedTasks, int completedOnTime, int overdueTasks, int penalizedTasks,
+            int totalMembers, int redMembers, List<SprintMemberSummary> memberSummaries) {
+
+        double completionRate = totalTasks == 0 ? 0 : (double) completedTasks / totalTasks * 100;
+        double onTimeRate = totalTasks == 0 ? 0 : (double) completedOnTime / totalTasks * 100;
+
+        List<String> redNames = memberSummaries.stream()
+                .filter(m -> "RED".equals(m.riskLevel())).map(SprintMemberSummary::name).collect(Collectors.toList());
+        List<String> greenNames = memberSummaries.stream()
+                .filter(m -> "GREEN".equals(m.riskLevel())).map(SprintMemberSummary::name).collect(Collectors.toList());
+
+        StringBuilder sb = new StringBuilder();
+
+        // Goal + Delivery (1 câu)
+        if (sprintGoal != null && !sprintGoal.isBlank()) {
+            sb.append("Mục tiêu **\"").append(sprintGoal).append("\"** ");
+            sb.append(completionRate >= 80 ? "đạt được" : "chưa đạt");
+        } else {
+            sb.append("Sprint không có goal cụ thể");
+        }
+        sb.append(" — **").append(completedTasks).append("/").append(totalTasks)
+          .append(" tasks** hoàn thành (").append(String.format("%.0f%%", completionRate)).append(")");
+        sb.append(", đúng hạn **").append(completedOnTime).append("** (").append(String.format("%.0f%%", onTimeRate)).append("). ");
+
+        // Quality (1 câu)
+        if (overdueTasks == 0 && penalizedTasks == 0) {
+            sb.append("Không có task trễ hay penalty — chất lượng sprint tốt. ");
+        } else {
+            sb.append("**").append(overdueTasks).append(" task trễ hạn**");
+            if (penalizedTasks > 0) sb.append(", **").append(penalizedTasks).append(" bị penalty**");
+            sb.append(". ");
+        }
+
+        // Team Performance (1 câu, nêu tên cụ thể)
+        if (redMembers == 0) {
+            if (!greenNames.isEmpty()) sb.append(String.join(", ", greenNames)).append(" duy trì GREEN toàn sprint. ");
+        } else {
+            sb.append(String.join(", ", redNames)).append(" ở mức **RED**");
+            if (!greenNames.isEmpty()) sb.append("; ").append(String.join(", ", greenNames)).append(" GREEN");
+            sb.append(". ");
+        }
+
+        // Process + Improvement (1 câu kết)
+        if (!redNames.isEmpty() && penalizedTasks > 0) {
+            sb.append("Sprint sau nên raise flag sớm khi có nguy cơ trễ và 1:1 với ").append(String.join(", ", redNames)).append(" để unblock kịp thời.");
+        } else if (overdueTasks > 0) {
+            sb.append("Sprint sau cần mid-sprint check để phát hiện task trễ sớm hơn.");
+        } else {
+            sb.append("Giữ vững quy trình hiện tại và tiếp tục duy trì chất lượng này cho sprint sau.");
+        }
+
+        return sb.toString().trim();
     }
 
     private boolean isDeliverableEmail(String email) {
@@ -262,6 +356,7 @@ public class SprintCompletionService {
                 .completionRate(summary.getCompletionRate())
                 .onTimeRate(summary.getOnTimeRate())
                 .aiSprintNarrative(summary.getAiSprintNarrative())
+                .criteriaJson(summary.getCriteriaJson())
                 .memberSummaries(memberSummaries)
                 .generatedAt(summary.getGeneratedAt())
                 .generatedBy(summary.getGeneratedBy())

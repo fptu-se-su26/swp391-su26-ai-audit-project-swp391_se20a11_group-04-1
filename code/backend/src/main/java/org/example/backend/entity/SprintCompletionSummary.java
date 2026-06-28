@@ -52,6 +52,9 @@ public class SprintCompletionSummary {
     @Column(name = "ai_sprint_narrative", columnDefinition = "TEXT")
     private String aiSprintNarrative;
 
+    @Column(name = "criteria_json", columnDefinition = "TEXT")
+    private String criteriaJson;
+
     @Column(name = "member_summaries_json", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private String memberSummariesJson;
