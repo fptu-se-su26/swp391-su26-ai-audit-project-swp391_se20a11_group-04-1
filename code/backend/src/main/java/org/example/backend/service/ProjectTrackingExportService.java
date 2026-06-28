@@ -101,8 +101,8 @@ public class ProjectTrackingExportService {
         row++; // blank
 
         // Header
-        String[] headers = {"ID","Task","Member","Start Date","Due Date",
-                "Actual Finish","Estimate(h)","Actual(h)","Quality(1-10)","Task Points","Status"};
+        String[] headers = {"ID","Task","Member","Start Date","Actual Start","Due Date",
+                "Actual Finish","Actual(h)","Quality(1-10)","Task Points","Status"};
         Row hRow = sheet.createRow(row++);
         for (int c = 0; c < headers.length; c++) cell(hRow, c, headers[c], s.header);
 
@@ -160,9 +160,9 @@ public class ProjectTrackingExportService {
                 cell(row, 1, t.getTitle(), s.data);
                 cell(row, 2, assigneeName(t), s.data);
                 cell(row, 3, t.getStartDate() != null ? t.getStartDate().format(DATE_FMT) : "", s.data);
-                cell(row, 4, t.getDeadline() != null ? t.getDeadline().format(DATE_FMT) : "", s.data);
-                cell(row, 5, t.getCompletedAt() != null ? t.getCompletedAt().format(DATETIME_FMT) : "", s.data);
-                numCell(row, 6, t.getEstimatedHours() != null ? t.getEstimatedHours().doubleValue() : 0, s.data);
+                cell(row, 4, t.getStartedAt() != null ? t.getStartedAt().format(DATETIME_FMT) : "", s.data);
+                cell(row, 5, t.getDeadline() != null ? t.getDeadline().format(DATE_FMT) : "", s.data);
+                cell(row, 6, t.getCompletedAt() != null ? t.getCompletedAt().format(DATETIME_FMT) : "", s.data);
                 if (dv.actualHours != null) numCell(row, 7, dv.actualHours.doubleValue(), s.data);
                 else cell(row, 7, "", s.data);
 
@@ -264,95 +264,145 @@ public class ProjectTrackingExportService {
         Sheet sheet = wb.createSheet("Công thức đánh giá");
         sheet.setColumnWidth(0, 500);
         sheet.setColumnWidth(1, 7000);
-        sheet.setColumnWidth(2, 5000);
+        sheet.setColumnWidth(2, 5500);
         sheet.setColumnWidth(3, 5000);
 
         int r = 0;
 
-        // ── Tiêu đề ──────────────────────────────────────────────────────────
         r = sectionTitle(sheet, s, r, "HỆ THỐNG ĐÁNH GIÁ ĐÓNG GÓP — PHƯƠNG PHÁP LUẬN");
         r++;
 
-        // ── 1. Quality Score ─────────────────────────────────────────────────
-        r = sectionHeader(sheet, s, r, "1. QUALITY SCORE (1–10) — Chất lượng thực thi từng task");
+        // ══════════════════════════════════════════════════════════════════════
+        // NHÓM A — SHEET 1: TASKS  (theo thứ tự cột từ trái sang phải)
+        // Cột formula-relevant: Actual Start | Actual(h) | Quality(1-10) | Task Points
+        // ══════════════════════════════════════════════════════════════════════
+        r = sectionTitle(sheet, s, r, "NHÓM A — SHEET 1: TASKS");
+        r++;
 
+        // A1. Actual Start
+        r = sectionHeader(sheet, s, r, "A1. ACTUAL START — Thời điểm bắt đầu thực tế");
+        r = infoRow(sheet, s, r, "Nguồn dữ liệu",
+                "Trường startedAt được ghi tự động khi task chuyển sang IN_PROGRESS lần đầu tiên.");
+        r = infoRow(sheet, s, r, "Lưu ý",
+                "Task tạo trước khi triển khai tính năng này sẽ để trống. "
+                + "Start Date (cột liền trước) là ngày kế hoạch do Leader đặt — khác với Actual Start.");
+        r++;
+
+        // A2. Actual(h)
+        r = sectionHeader(sheet, s, r, "A2. ACTUAL(h) — Số giờ làm việc thực tế");
+        r = tableHeader(sheet, s, r, "Trường hợp", "Công thức tính", "Độ chính xác");
+        r = tableRow(sheet, s, r,
+                "Có Actual Start (task mới)",
+                "Actual Finish − Actual Start",
+                "Chính xác — tính từ lúc thực sự bắt đầu làm");
+        r = tableRow(sheet, s, r,
+                "Không có Actual Start (task cũ)",
+                "Actual Finish − Start Date",
+                "Ước tính — Start Date là ngày kế hoạch");
+        r = infoRow(sheet, s, r, "Ô trống",
+                "Task chưa DONE hoặc không đủ dữ liệu để tính (không có completedAt).");
+        r++;
+
+        // A3. Quality(1-10)
+        r = sectionHeader(sheet, s, r, "A3. QUALITY(1–10) — Chất lượng thực thi từng task");
         r = infoRow(sheet, s, r, "Mục đích",
-                "Đo lường mức độ hoàn thành của từng task theo 2 tiêu chí khách quan. "
-                + "Không dùng số giờ ước tính vì đây là giá trị do Leader nhập thủ công, "
-                + "không phản ánh thực tế độ phức tạp của task.");
-
+                "Đo mức độ hoàn thành theo 2 tiêu chí khách quan. "
+                + "Không dùng giờ ước tính vì Leader nhập thủ công, không phản ánh độ phức tạp thực tế.");
         r = tableHeader(sheet, s, r, "Tiêu chí", "Điều kiện", "Điểm trừ");
-
         r = tableRow(sheet, s, r,
                 "① Đúng hạn (On-time)",
-                "Trễ 1–3 ngày\nTrễ 4–7 ngày\nTrễ > 7 ngày",
-                "-1\n-2\n-3");
+                "Trễ 1–3 ngày / Trễ 4–7 ngày / Trễ > 7 ngày",
+                "−1 / −2 / −3");
         r = tableRow(sheet, s, r,
                 "② SLA Penalty",
                 "Task từng bị hệ thống SLA cắm cờ phạt do quá hạn",
-                "-2");
-
-        r = infoRow(sheet, s, r, "Công thức",
-                "Quality = max(1,  10 − Σ(điểm trừ))");
-        r = infoRow(sheet, s, r, "Lưu ý",
-                "Điểm tối thiểu là 1. Điểm tối đa có thể bị trừ là 5 (trễ >7 ngày + SLA penalty), "
-                + "nên điểm thực tế thấp nhất thường là 5 trừ khi cộng đủ cả hai vi phạm.");
+                "−2");
+        r = infoRow(sheet, s, r, "Công thức", "Quality = max(1,  10 − Σ điểm trừ)");
+        r = infoRow(sheet, s, r, "Phạm vi", "1 (tệ nhất) → 10 (hoàn hảo). Hiển thị N/A nếu task chưa DONE.");
         r++;
 
-        // ── 2. Task Points ───────────────────────────────────────────────────
-        r = sectionHeader(sheet, s, r, "2. TASK POINTS — Điểm đóng góp của từng task");
-
-        r = infoRow(sheet, s, r, "Mục đích",
-                "Cân bằng giá trị đóng góp theo độ khó & mức độ ưu tiên của task, "
-                + "không chỉ đếm số lượng task.");
-
+        // A4. Task Points
+        r = sectionHeader(sheet, s, r, "A4. TASK POINTS — Điểm đóng góp của từng task");
         r = infoRow(sheet, s, r, "Công thức",
-                "Task Points = Weight × Priority Factor × (Quality Score ÷ 10)");
-
+                "Task Points = Weight × Priority Factor × (Quality ÷ 10)");
         r = tableHeader(sheet, s, r, "Priority", "Priority Factor", "Giải thích");
-        r = tableRow(sheet, s, r, "CRITICAL", "1.5", "Task nghiêm trọng, ảnh hưởng toàn hệ thống");
-        r = tableRow(sheet, s, r, "HIGH",     "1.2", "Task quan trọng, ảnh hưởng luồng chính");
-        r = tableRow(sheet, s, r, "MEDIUM",   "1.0", "Task thông thường");
-        r = tableRow(sheet, s, r, "LOW",      "0.8", "Task nhỏ, ít ảnh hưởng");
-
+        r = tableRow(sheet, s, r, "CRITICAL", "× 1.5", "Task nghiêm trọng, ảnh hưởng toàn hệ thống");
+        r = tableRow(sheet, s, r, "HIGH",     "× 1.2", "Task quan trọng, ảnh hưởng luồng chính");
+        r = tableRow(sheet, s, r, "MEDIUM",   "× 1.0", "Task thông thường");
+        r = tableRow(sheet, s, r, "LOW",      "× 0.8", "Task nhỏ, ít ảnh hưởng");
         r = infoRow(sheet, s, r, "Weight",
-                "Hệ số trọng số của task (mặc định = 1.0, Leader có thể điều chỉnh khi tạo task).");
+                "Hệ số trọng số (mặc định = 1.0, Leader chỉnh khi tạo task).");
+        r = infoRow(sheet, s, r, "Lưu ý",
+                "Chỉ tính task DONE. Task CANCELLED / IN_PROGRESS / BLOCKED = 0 điểm.");
         r++;
 
-        // ── 3. Contribution % ────────────────────────────────────────────────
-        r = sectionHeader(sheet, s, r, "3. CONTRIBUTION % — Chỉ số đóng góp tương đối");
+        // ══════════════════════════════════════════════════════════════════════
+        // NHÓM B — SHEET 2: MEMBER SUMMARY  (theo thứ tự cột từ trái sang phải)
+        // Cột: Completion % | On-time % | Est.(h) | Actual(h) | Avg Quality | Total Points | Contribution %
+        // ══════════════════════════════════════════════════════════════════════
+        r = sectionTitle(sheet, s, r, "NHÓM B — SHEET 2: MEMBER SUMMARY");
+        r++;
 
-        r = infoRow(sheet, s, r, "Mục đích",
-                "So sánh mức độ đóng góp giữa các thành viên trong cùng project một cách công bằng. "
-                + "Tổng toàn nhóm luôn = 100%.");
-
+        // B1. Completion %
+        r = sectionHeader(sheet, s, r, "B1. COMPLETION % — Tỷ lệ hoàn thành");
         r = infoRow(sheet, s, r, "Công thức",
-                "Contribution(member) = Σ Task Points(member) ÷ Σ Task Points(cả nhóm) × 100%");
+                "Completion % = Số task DONE ÷ Tổng task được giao × 100%");
+        r = infoRow(sheet, s, r, "Ý nghĩa",
+                "Phản ánh tiến độ hoàn thành công việc của từng thành viên.");
+        r++;
 
+        // B2. On-time %
+        r = sectionHeader(sheet, s, r, "B2. ON-TIME % — Tỷ lệ hoàn thành đúng hạn");
+        r = infoRow(sheet, s, r, "Công thức",
+                "On-time % = Số task DONE đúng hạn ÷ Tổng task DONE × 100%");
+        r = infoRow(sheet, s, r, "Đúng hạn",
+                "completedAt ≤ deadline (so sánh theo ngày, không tính giờ).");
+        r++;
+
+        // B3. Est.(h)
+        r = sectionHeader(sheet, s, r, "B3. EST.(h) — Tổng giờ ước tính");
+        r = infoRow(sheet, s, r, "Nguồn",
+                "Tổng estimatedHours của tất cả task được giao cho thành viên (Leader nhập khi tạo task).");
+        r = infoRow(sheet, s, r, "Lưu ý",
+                "Giá trị mang tính kế hoạch, không dùng để chấm điểm vì không phản ánh độ phức tạp thực tế.");
+        r++;
+
+        // B4. Actual(h)
+        r = sectionHeader(sheet, s, r, "B4. ACTUAL(h) — Tổng giờ làm việc thực tế");
+        r = infoRow(sheet, s, r, "Công thức",
+                "Tổng Actual(h) của tất cả task DONE thuộc thành viên (xem công thức A2 ở trên).");
+        r++;
+
+        // B5. Avg Quality
+        r = sectionHeader(sheet, s, r, "B5. AVG QUALITY — Chất lượng trung bình");
+        r = infoRow(sheet, s, r, "Công thức",
+                "Avg Quality = Trung bình cộng Quality Score của tất cả task DONE có Quality > 0.");
+        r = infoRow(sheet, s, r, "Ý nghĩa",
+                "Phản ánh mức độ nhất quán về chất lượng của thành viên, không chỉ tổng điểm.");
+        r++;
+
+        // B6. Total Points
+        r = sectionHeader(sheet, s, r, "B6. TOTAL POINTS — Tổng điểm đóng góp");
+        r = infoRow(sheet, s, r, "Công thức",
+                "Total Points = Σ Task Points của tất cả task DONE thuộc thành viên (xem công thức A4).");
+        r++;
+
+        // B7. Contribution %
+        r = sectionHeader(sheet, s, r, "B7. CONTRIBUTION % — Chỉ số đóng góp tương đối");
+        r = infoRow(sheet, s, r, "Mục đích",
+                "So sánh đóng góp giữa các thành viên một cách công bằng. Tổng toàn nhóm luôn = 100%.");
+        r = infoRow(sheet, s, r, "Công thức",
+                "Contribution % = Total Points(thành viên) ÷ Total Points(cả nhóm) × 100%");
         r = infoRow(sheet, s, r, "Ưu điểm",
                 "• Làm 3 task khó chất lượng cao > Làm 10 task dễ chất lượng thấp\n"
-                + "• Không bị ảnh hưởng bởi số lượng task tuyệt đối\n"
-                + "• Phản ánh cả khối lượng lẫn chất lượng công việc");
-
-        r = infoRow(sheet, s, r, "Ghi chú",
-                "Chỉ tính task có trạng thái DONE. Task CANCELLED hoặc IN_PROGRESS không được tính điểm.");
+                + "• Phản ánh cả khối lượng lẫn chất lượng, không chỉ đếm số lượng task.");
         r++;
 
-        // ── 4. Actual Hours ──────────────────────────────────────────────────
-        r = sectionHeader(sheet, s, r, "4. ACTUAL HOURS — Cách tính giờ thực tế");
-        r = tableHeader(sheet, s, r, "Trường hợp", "Công thức", "Độ chính xác");
-        r = tableRow(sheet, s, r,
-                "Có startedAt (task mới)",
-                "completedAt − startedAt",
-                "Chính xác — tính từ lúc thực sự bắt đầu làm");
-        r = tableRow(sheet, s, r,
-                "Không có startedAt (task cũ)",
-                "completedAt − startDate",
-                "Ước tính — startDate là ngày dự kiến bắt đầu do Leader kế hoạch");
+        // ══════════════════════════════════════════════════════════════════════
+        // VÍ DỤ MINH HỌA
+        // ══════════════════════════════════════════════════════════════════════
+        r = sectionTitle(sheet, s, r, "VÍ DỤ MINH HỌA — QUALITY & TASK POINTS");
         r++;
-
-        // ── 5. Ví dụ minh họa ────────────────────────────────────────────────
-        r = sectionHeader(sheet, s, r, "5. VÍ DỤ MINH HỌA");
         r = tableHeader(sheet, s, r, "Scenario", "Tính toán", "Kết quả");
         r = tableRow(sheet, s, r,
                 "Task CRITICAL, đúng hạn, không SLA",
@@ -425,7 +475,7 @@ public class ProjectTrackingExportService {
         return Comparator
                 .comparingInt((Task t) -> t.getStatus() == TaskStatus.DONE ? 0 : 1)
                 .thenComparing(t -> t.getDeadline() != null ? t.getDeadline() : LocalDate.MAX)
-                .thenComparingLong(Task::getId);
+                .thenComparingLong(t -> t.getId());
     }
 
     private String assigneeName(Task t) {

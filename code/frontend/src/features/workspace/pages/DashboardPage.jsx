@@ -1253,25 +1253,27 @@ export function DashboardPage() {
 
               {/* Action buttons — chỉ hiện với Leader/Mentor */}
               {isLeaderOrMentor && (
-                <div className="flex flex-wrap gap-2 pt-1 border-t border-white/10">
+                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/10">
                   {/* Export Tracking */}
                   <button
                     onClick={() => handleExportTracking(activeProject.id)}
                     disabled={exportingTracking}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all disabled:opacity-50"
+                    className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.3)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
                   >
-                    <span className="material-symbols-outlined text-sm">download</span>
-                    {exportingTracking ? 'Đang xuất...' : 'Export Tracking (.xlsx)'}
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                    <span className="material-symbols-outlined text-base group-hover:-translate-y-0.5 transition-transform duration-300 relative z-10">download</span>
+                    <span className="relative z-10">{exportingTracking ? 'Đang xuất...' : 'Xuất Tracking'}</span>
                   </button>
 
                   {/* Close Project */}
                   {!isArchived && (
                     <button
                       onClick={() => setIsClosureModalOpen(true)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-300/30 text-white text-xs font-bold transition-all"
+                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(239,68,68,0.2)] hover:shadow-[0_4px_20px_rgba(239,68,68,0.5)] active:scale-95 transition-all duration-300 overflow-hidden"
                     >
-                      <span className="material-symbols-outlined text-sm">lock</span>
-                      Đóng Project
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                      <span className="material-symbols-outlined text-base group-hover:rotate-12 transition-transform duration-300 relative z-10">lock</span>
+                      <span className="relative z-10">Đóng Project</span>
                     </button>
                   )}
 
@@ -1280,10 +1282,11 @@ export function DashboardPage() {
                     <button
                       onClick={() => handleReopen(activeProject.id)}
                       disabled={reopening}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-300/30 text-white text-xs font-bold transition-all disabled:opacity-50"
+                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/80 hover:bg-emerald-500 backdrop-blur-md border border-emerald-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
                     >
-                      <span className="material-symbols-outlined text-sm">lock_open</span>
-                      {reopening ? 'Đang mở lại...' : 'Mở Lại Project'}
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                      <span className="material-symbols-outlined text-base group-hover:scale-110 transition-transform duration-300 relative z-10">lock_open</span>
+                      <span className="relative z-10">{reopening ? 'Đang mở lại...' : 'Mở Lại Project'}</span>
                     </button>
                   )}
                 </div>
