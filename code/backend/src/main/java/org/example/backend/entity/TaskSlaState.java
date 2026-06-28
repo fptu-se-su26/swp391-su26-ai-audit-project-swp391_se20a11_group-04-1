@@ -58,13 +58,37 @@ public class TaskSlaState {
     @Column(name = "days_until_deadline")
     private Long daysUntilDeadline;
 
-    @Column(name = "has_accepted_evidence", nullable = false)
-    @Builder.Default
-    private boolean hasAcceptedEvidence = false;
+    // removed from SLA logic: evidence is checked by the review/DONE gate, not SLA scoring.
 
     @Column(name = "penalty_applied", nullable = false)
     @Builder.Default
     private boolean penaltyApplied = false;
+
+    @Column(name = "burn_gap")
+    private Double burnGap;
+
+    @Column(name = "burn_rate_level", length = 20)
+    private String burnRateLevel;
+
+    @Column(name = "spi")
+    private Double spi;
+
+    @Column(name = "predicted_risk_level", length = 20)
+    private String predictedRiskLevel;
+
+    @Column(name = "prediction_reasons_json", columnDefinition = "TEXT")
+    private String predictionReasonsJson;
+
+    @Column(name = "score_breakdown_json", columnDefinition = "TEXT")
+    private String scoreBreakdownJson;
+
+    /** Set after sprint ends: whether AI prediction matched actual outcome. */
+    @Column(name = "prediction_accurate")
+    private Boolean predictionAccurate;
+
+    /** Confidence score (0.0–1.0) of the AI prediction. */
+    @Column(name = "prediction_confidence")
+    private Double predictionConfidence;
 
     @Column(name = "evaluated_at", nullable = false)
     @Builder.Default

@@ -1,11 +1,9 @@
 export default function SprintReportHeader({
   activeProject,
-  onRefresh,
   onExportPdf,
   isExporting,
   canExport,
-  onTestDigest,
-  isTestingDigest,
+  onOpenSprintHealth,
 }) {
   return (
     <header className="flex flex-col gap-4 border-b border-outline-variant/60 pb-5 md:flex-row md:items-end md:justify-between">
@@ -21,21 +19,11 @@ export default function SprintReportHeader({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={onRefresh}
+          onClick={onOpenSprintHealth}
           className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-bold text-on-surface hover:bg-surface-container-high"
         >
-          <span className="material-symbols-outlined text-lg">refresh</span>
-          Refresh
-        </button>
-        <button
-          type="button"
-          onClick={onTestDigest}
-          disabled={isTestingDigest}
-          title="Chạy thử hệ thống nhắc nhở gửi mail (Chỉ dùng cho test)"
-          className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-bold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
-        >
-          <span className="material-symbols-outlined text-lg">schedule_send</span>
-          {isTestingDigest ? 'Đang chạy...' : 'Chạy thử hệ thống nhắc nhở'}
+          <span className="material-symbols-outlined text-lg">health_and_safety</span>
+          Sprint Health
         </button>
         <button
           type="button"

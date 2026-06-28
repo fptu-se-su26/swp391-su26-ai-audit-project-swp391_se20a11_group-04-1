@@ -198,3 +198,93 @@ Ngay mai no co nhac lai khong? Hay sua de trong cung ngay khong spam nhung khac 
 ```
 
 **Ket qua su dung:** Dung de sua `SlaActionService`, bo duplicate check dua tren notification title cho assignee reminder va chi dung `action_key` lam co che chong spam chinh.
+
+---
+
+## 6. Prompt bo sung - Recovery Plan, Adaptive SLA va Reliability Evidence
+
+Phan nay ghi cac prompt quan trong sau Full SLA Core. Cac prompt duoc loc theo tieu chi: co anh huong den architecture, code, test, commit hoac cach defend module. Cac cau hoi nho ve IDE, GitHub chart, quota, file agent, hoac giai thich thuat ngu don le khong dua vao.
+
+### Prompt 22 - Thiet ke Recovery Plan theo Human-in-the-loop
+
+```text
+SLA hien tai da co risk/state/log/decision pack. Bay gio muon len Level 5 thi lam Recovery Plan nhu the nao cho dung SWP391, khong over-engineer? Can co generate plan, leader approve/reject, execute safe actions va audit log. Hay doc code hien tai, de xuat backend flow phu hop va chi ro file/entity/repository/service/controller can co.
+```
+
+**Ket qua su dung:** Dung de thiet ke Recovery Plan backend flow theo Human-in-the-loop, them plan/action/audit log, approve/reject/execute va unique active plan per task.
+
+### Prompt 23 - Dua AI vao Recovery Plan nhung khong cho AI tu y thay doi du lieu
+
+```text
+Recovery Plan rule-based da chay duoc nhung summary/action message con cung va de gay cam giac bi he thong phat. Co nen dua AI vao khong? Hay de xuat cach dung Gemini de sinh summary/message mem hon, nhung backend van giu rule va leader van approve truoc khi execute.
+```
+
+**Ket qua su dung:** Dung de dinh huong AI chi lam lop reasoning/message, backend rule van la nguon quyet dinh chinh, va human approval gate van bat buoc.
+
+### Prompt 24 - Adaptive AI Recovery Loop va follow-up plan
+
+```text
+Toi muon Recovery Plan thong minh hon: Gemini co the de xuat action, nhung action phai nam trong whitelist. Neu execute xong ma score khong cai thien thi scheduler sau 24h phai detect ineffective va tao follow-up plan. Hay thiet ke flow, guard an toan va noi ro phan nao AI duoc lam, phan nao backend rule quyet dinh.
+```
+
+**Ket qua su dung:** Dung de them AI selectedActions co whitelist, fallback rule-based, effectiveness tracking va follow-up recovery plan co guard chong lap.
+
+### Prompt 25 - Hybrid Rule-based SLA Scoring va burn rate prediction
+
+```text
+SLA score hien tai con tho. Hay nang cap theo huong deterministic, khong dung AI de tinh diem. Can co burn rate, progress percent, SPI, predicted risk level, prediction reasons va score breakdown. Luu y AI chi giai thich/de xuat, core score phai rule-based de defend duoc.
+```
+
+**Ket qua su dung:** Dung de refactor SLA scoring sang hybrid rule-based scoring, them burn rate, SPI, predicted risk va score breakdown vao Decision Pack.
+
+### Prompt 26 - Lay code moi nhat va kiem tra 3 prompt SLA
+
+```text
+Len GitHub lay code moi nhat ve. Sau do toi se dua 3 prompt SLA, ban doc code that va kiem tra da lam dung chua, thieu gi thi bao ro. Khong de xuat lung tung neu khong can.
+```
+
+**Ket qua su dung:** Dung de merge latest `develop`, kiem tra Scheduler Logs UI, Async SLA Analysis Job, Recovery Plan Dashboard va xac dinh cac gap can fix.
+
+### Prompt 27 - Fix duplicate SLA Analysis Job
+
+```text
+SlaAnalysisJobService.createJob() hien tai luon tao job moi. Neu user bam Refresh 2 lan nhanh thi co 2 job cung projectId/sprintId, goi Gemini 2 lan va snapshot co the bi ghi de. Hay them query find job PENDING/RUNNING, neu co thi tra job cu, khong tao moi, log warn.
+```
+
+**Ket qua su dung:** Dung de them duplicate job prevention trong service, skip duplicate async execution va sau do bo sung DB unique index cho active SLA job.
+
+### Prompt 28 - Evidence Snapshot cho Recovery Plan
+
+```text
+Sau khi leader execute recovery plan, scheduler checkEffectivenessForExecutedPlans() chi luu scoreBeforeExecution va scoreAfterExecution. Hay them evidenceSnapshotId bang cach computeAndPersist reliability snapshot sau effectiveness check, fail thi log warn khong lam hong luong chinh, va UI hien link reliability khi co evidence.
+```
+
+**Ket qua su dung:** Dung de them `evidenceSnapshotId`, migration, mapping response va UI evidence link trong Recovery Plan Dashboard.
+
+### Prompt 29 - Recovery Gate Result
+
+```text
+EXECUTED dang dong 2 vai: action da chay xong va ket qua ok. Huong clean la giu status lam process state, them gateResult PASSED/FAILED/INSUFFICIENT_DATA va gateReason. Hay sua checkEffectivenessForExecutedPlans(), evaluateGate(), response mapping va frontend card.
+```
+
+**Ket qua su dung:** Dung de them gate result/gate reason, tach status voi outcome verdict, hien gate result UI va tao follow-up khi gate FAILED.
+
+### Prompt 30 - Hoc tu phan Distributed lock/Redis cua Dat nhung ap dung dung code hien tai
+
+```text
+Xem code that xem co can them Distributed lock/Redis khong. Neu khong can thi noi khong, dung de xuat lung tung. Neu can thi noi ro cho phan nao cua SLA/Recovery Plan.
+```
+
+**Ket qua su dung:** Dung de ket luan chua can Redis lock, nen uu tien DB constraint va row lock. Sau do them `findByIdForUpdate()` voi `PESSIMISTIC_WRITE` cho approve/reject/execute recovery plan va unique partial index cho active SLA analysis job.
+
+### Prompt 31 - Ghi lai du lieu cho AI Audit
+
+```text
+Ghi vao folder Tin de co du lieu sau nay dua vao AI Audit. Sau do loc tat ca cuoc tro chuyen chua dua vao audit, chi lay phan co gia tri code/thiet ke/test/commit, bo qua cau hoi nho.
+```
+
+**Ket qua su dung:** Dung de tao file local `Tin/SLA_RELIABILITY_RECOVERY_SESSION_20260619.md`, sau do cap nhat `Nguyen_Le_Trung_Tin/AI_AUDIT_LOG.md`, `CHANGELOG.md`, `PROMPTS.md` va `REFLECTION.md`.
+
+## 7. Prompt dang gia nhat sau phan bo sung
+
+Prompt 30 la prompt dang gia nhat ve mat engineering vi no giup em khong them Redis lock theo phong trao. Thay vao do, em hoc cach chon giai phap vua du voi codebase: idempotency o service, DB unique constraint lam hang rao cuoi, va row lock cho cac thao tac doi trang thai quan trong. Day la bai hoc giup code an toan hon ma khong lam he thong phuc tap qua muc.

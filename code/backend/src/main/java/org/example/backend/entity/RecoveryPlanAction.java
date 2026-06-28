@@ -41,8 +41,9 @@ public class RecoveryPlanAction {
     @Column(name = "status", nullable = false, length = 40)
     private RecoveryPlanActionStatus status;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "priority", length = 20)
-    private String priority;
+    private RecoveryActionPriority priority;
 
     @Column(name = "message", columnDefinition = "TEXT")
     private String message;

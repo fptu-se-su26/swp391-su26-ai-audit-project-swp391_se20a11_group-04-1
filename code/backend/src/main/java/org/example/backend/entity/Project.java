@@ -69,6 +69,12 @@ public class Project {
     @Column(name = "agent_token")
     private String agentToken;
 
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
+
+    @Column(name = "closed_reason", columnDefinition = "TEXT")
+    private String closedReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

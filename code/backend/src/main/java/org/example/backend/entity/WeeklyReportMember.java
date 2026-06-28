@@ -38,12 +38,29 @@ public class WeeklyReportMember {
     @Column(name = "stale_explanation_count", nullable = false)
     private int staleExplanationCount;
 
+    @Column(name = "total_assigned_count", nullable = false)
+    @Builder.Default
+    private int totalAssignedCount = 0;
+
+    @Column(name = "completed_on_time_count", nullable = false)
+    @Builder.Default
+    private int completedOnTimeCount = 0;
+
     @Column(name = "risk_level", nullable = false, length = 30)
     @Builder.Default
     private String riskLevel = "RED";
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;
+
+    @Column(name = "ai_comment", columnDefinition = "TEXT")
+    private String aiComment;
+
+    @Column(name = "ai_score")
+    private Integer aiScore;
+
+    @Column(name = "ai_evaluated_at")
+    private LocalDateTime aiEvaluatedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

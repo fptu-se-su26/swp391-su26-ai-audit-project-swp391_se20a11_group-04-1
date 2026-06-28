@@ -91,6 +91,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     long countBySprintId(Long sprintId);
 
+    long countBySprintIdAndStatus(Long sprintId, TaskStatus status);
+
+    List<Task> findBySprintId(Long sprintId);
+
+    @Query("select count(t) from Task t where t.project.id = :projectId and t.sprintId = :sprintId")
+    long countByProjectIdAndSprintId(@Param("projectId") Long projectId,
+                                     @Param("sprintId") Long sprintId);
+
 
 
     List<Task> findByUseCaseId(Long useCaseId);
@@ -171,6 +179,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId")
     long countTotalAssignedTasks(@Param("userId") Long userId);
 
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE'")
+    long countActiveTasksByAssignee(@Param("userId") Long userId);
+
     @Query("SELECT COUNT(t) FROM Task t WHERE t.primaryAssignee.id = :userId AND t.status <> 'DONE' AND t.deadline IS NOT NULL AND t.deadline < CURRENT_DATE")
     long countOverdueTasks(@Param("userId") Long userId);
 
@@ -186,4 +197,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(DISTINCT t) FROM Task t LEFT JOIN t.assignees a WHERE t.project.id = :projectId " +
            "AND (t.primaryAssignee.id = :userId OR a.id = :userId) AND t.status = 'DONE'")
     long countCompletedTasksByProjectAndUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(MAX(t.projectSubId), 0) FROM Task t WHERE t.project.id = :projectId")
+    int findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 }

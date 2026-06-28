@@ -2,6 +2,9 @@ spring:
   application:
     name: backend
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   servlet:
     multipart:
       max-file-size: 50MB
@@ -72,7 +75,7 @@ cloudinary:
 
 gemini:
   api:
-    key: "YOUR_GEMINI_API_KEY_HERE" # 👈 Điền Google Gemini API Key vào đây
+    key: "${GEMINI_API_KEY:}" # Set GEMINI_API_KEY in your local environment
     url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 # GitHub OAuth & Integration Settings

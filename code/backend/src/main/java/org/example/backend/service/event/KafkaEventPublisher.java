@@ -1,20 +1,36 @@
 package org.example.backend.service.event;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.OutboxEvent;
+import org.example.backend.entity.ProcessedEvent;
+import org.example.backend.repository.ProcessedEventRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 @ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
 @RequiredArgsConstructor
+@Slf4j
 public class KafkaEventPublisher implements EventPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ProcessedEventRepository processedEventRepository;
 
     @Override
     public void publish(OutboxEvent event) {
+        try {
+            processedEventRepository.saveAndFlush(ProcessedEvent.builder()
+                    .idempotencyKey(event.getIdempotencyKey())
+                    .consumerId("kafka_publisher")
+                    .build());
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Skipping duplicate event: {}", event.getIdempotencyKey());
+            return;
+        }
+
         // Dùng aggregateId làm key để các test run khác nhau hash vào partition khác nhau
         // → Worker có thể xử lý song song nhờ partitionsConsumedConcurrently
         String key = event.getAggregateId() != null

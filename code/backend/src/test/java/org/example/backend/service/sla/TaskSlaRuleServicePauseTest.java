@@ -3,7 +3,6 @@ package org.example.backend.service.sla;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskSlaPauseLog;
 import org.example.backend.entity.TaskStatus;
-import org.example.backend.repository.EvidenceLinkRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskSlaPauseLogRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +29,6 @@ import static org.mockito.Mockito.*;
 class TaskSlaRuleServicePauseTest {
 
     @Mock
-    private EvidenceLinkRepository evidenceLinkRepository;
-
-    @Mock
     private TaskRepository taskRepository;
 
     @Mock
@@ -46,7 +42,7 @@ class TaskSlaRuleServicePauseTest {
     void setUp() {
         fixedClock = Clock.fixed(Instant.parse("2026-06-17T12:00:00Z"), ZoneId.of("UTC"));
         taskSlaPauseService = new TaskSlaPauseService(taskRepository, taskSlaPauseLogRepository, fixedClock);
-        taskSlaRuleService = new TaskSlaRuleService(evidenceLinkRepository, taskSlaPauseService, fixedClock);
+        taskSlaRuleService = new TaskSlaRuleService(taskSlaPauseService, fixedClock);
     }
 
     @Test

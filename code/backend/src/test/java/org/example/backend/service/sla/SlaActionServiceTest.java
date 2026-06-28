@@ -4,6 +4,7 @@ import org.example.backend.entity.Project;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskStatus;
 import org.example.backend.entity.UserAccount;
+import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.SlaActionLogRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.NotificationService;
@@ -39,6 +40,9 @@ class SlaActionServiceTest {
     @Mock
     private TaskSlaStateRepository taskSlaStateRepository;
 
+    @Mock
+    private ProjectMemberRepository projectMemberRepository;
+
     private Clock fixedClock;
     private SlaActionService slaActionService;
 
@@ -50,13 +54,14 @@ class SlaActionServiceTest {
                 taskPenaltyService,
                 slaActionLogRepository,
                 taskSlaStateRepository,
+                projectMemberRepository,
                 fixedClock
         );
     }
 
     @Test
-    @DisplayName("Should push notification for DUE_TODAY once and skip if duplicate")
-    void testDueTodayNotification() {
+    @DisplayName("Should push assignee notification for medium risk score once and skip if duplicate")
+    void testMediumRiskNotification() {
         UserAccount assignee = UserAccount.builder().id(12L).username("testUser").build();
         Project project = Project.builder().id(1L).build();
         Task task = Task.builder()
@@ -68,23 +73,25 @@ class SlaActionServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.DUE_TODAY),
-                0,
-                false
+                0
         );
 
-        // Case 1: First time - no duplicate action log exists
+        SlaRiskAssessmentService.AssessmentResult assessment = SlaRiskAssessmentService.AssessmentResult.builder()
+                .score(70)
+                .recommendedAction("Update task progress.")
+                .build();
+
         when(slaActionLogRepository.existsByActionKey(anyString())).thenReturn(false);
 
-        String result = slaActionService.executeActions(task, evaluation);
+        String result = slaActionService.executeActions(task, evaluation, assessment);
         assertThat(result).contains("NOTIFIED_ASSIGNEE");
         verify(notificationService, times(1)).createAndPush(any(), any(), any(), any(), any(), any(), any());
         verify(slaActionLogRepository, times(1)).save(any());
 
-        // Case 2: Duplicate call - log exists
         reset(notificationService, slaActionLogRepository);
         when(slaActionLogRepository.existsByActionKey(anyString())).thenReturn(true);
 
-        String resultDuplicate = slaActionService.executeActions(task, evaluation);
+        String resultDuplicate = slaActionService.executeActions(task, evaluation, assessment);
         assertThat(resultDuplicate).contains("SKIPPED_DUPLICATE_NOTIFICATION");
         verify(notificationService, never()).createAndPush(any(), any(), any(), any(), any(), any(), any());
     }
@@ -104,13 +111,17 @@ class SlaActionServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.OVERDUE_PENALTY),
-                3,
-                false
+                3
         );
 
         when(slaActionLogRepository.existsByActionKey(anyString())).thenReturn(false);
 
-        String result = slaActionService.executeActions(task, evaluation);
+        SlaRiskAssessmentService.AssessmentResult assessment = SlaRiskAssessmentService.AssessmentResult.builder()
+                .score(15)
+                .recommendedAction("Create recovery plan.")
+                .build();
+
+        String result = slaActionService.executeActions(task, evaluation, assessment);
         assertThat(result).contains("APPLIED_PENALTY");
         verify(taskPenaltyService, times(1)).applyPenaltyIfNeeded(task, evaluation);
     }

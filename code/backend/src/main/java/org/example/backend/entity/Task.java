@@ -121,6 +121,15 @@ public class Task {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "actual_hours", precision = 6, scale = 2)
+    private BigDecimal actualHours;
+
+    @Column(name = "quality_score")
+    private Integer qualityScore;
+
     @Column(name = "github_issue_number")
     private Integer githubIssueNumber;
 
