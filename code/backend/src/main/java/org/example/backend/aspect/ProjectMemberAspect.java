@@ -26,7 +26,7 @@ public class ProjectMemberAspect {
     @Autowired
     private UserAccountRepository userAccountRepository;
 
-    @Before("@annotation(org.example.backend.annotation.PreAuthorizeProjectMember)")
+    @Before("@annotation(org.example.backend.annotation.PreAuthorizeProjectMember) || @within(org.example.backend.annotation.PreAuthorizeProjectMember)")
     public void checkProjectMembership(JoinPoint joinPoint) {
         Long projectId = extractProjectId(joinPoint);
 
@@ -47,7 +47,7 @@ public class ProjectMemberAspect {
                 .orElseThrow(() -> new ForbiddenException("Access Denied: You are not an active member of this project"));
     }
 
-    @Before("@annotation(org.example.backend.annotation.PreAuthorizeProjectLeader)")
+    @Before("@annotation(org.example.backend.annotation.PreAuthorizeProjectLeader) || @within(org.example.backend.annotation.PreAuthorizeProjectLeader)")
     public void checkProjectLeader(JoinPoint joinPoint) {
         Long projectId = extractProjectId(joinPoint);
 

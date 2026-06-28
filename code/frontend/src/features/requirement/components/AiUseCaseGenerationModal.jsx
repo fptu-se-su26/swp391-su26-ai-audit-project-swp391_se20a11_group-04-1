@@ -195,7 +195,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                             <span className="material-symbols-outlined text-[14px]">link</span>
                             Requirement ID: 
                             <a 
-                               href={`/projects/${projectId}/requirements/${uc.requirementCode || `REQ-${uc.requirementId}`}`} 
+                               href={`/projects/${projectId}/requirements/${uc.requirementId}`} 
                                className="font-medium text-[#1E707D] hover:underline"
                                target="_blank" rel="noreferrer"
                             >

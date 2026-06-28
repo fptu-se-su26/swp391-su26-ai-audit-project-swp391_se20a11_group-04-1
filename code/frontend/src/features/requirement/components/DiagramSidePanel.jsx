@@ -7,7 +7,7 @@ const DiagramSidePanel = ({ projectId, systemName, setSystemName }) => {
   const [activeTab, setActiveTab] = useState('actors');
 
   return (
-    <div className="w-80 h-full flex flex-col bg-white border-r border-gray-200">
+    <div className="w-full h-full flex flex-col bg-white">
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <h2 className="text-lg font-bold text-gray-800">Diagram Elements</h2>
         <p className="text-xs text-gray-500 mt-1 mb-3">Manage actors, use cases, and relations.</p>

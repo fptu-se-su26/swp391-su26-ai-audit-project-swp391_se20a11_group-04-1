@@ -84,9 +84,9 @@ const AiStagingReviewPage = () => {
     }
   }, [activeProject?.id]);
 
-  const fetchStagingData = async () => {
+  const fetchStagingData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const data = await requirementApi.getStagingRequirements(activeProject.id);
       const dataArray = Array.isArray(data) ? data : (data?.data || []);
       setGenerations(dataArray);
@@ -120,7 +120,7 @@ const AiStagingReviewPage = () => {
       console.error('Error fetching staging data:', error);
       toast.error('Lỗi khi tải dữ liệu nháp từ AI.');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -141,7 +141,7 @@ const AiStagingReviewPage = () => {
   };
 
   const handleRegenerate = async (generationId) => {
-    if (!currentGen) return;
+    if (!generationId) return;
     try {
       setIsRegenerating(true);
       setProgressStep(0);
@@ -154,7 +154,7 @@ const AiStagingReviewPage = () => {
       toast.success('Đã chạy lại AI thành công!');
       
       // Fetch new data
-      await fetchStagingData();
+      await fetchStagingData(true);
     } catch (error) {
       console.error('Error regenerating:', error);
       toast.error(error.response?.data?.error || 'Lỗi khi chạy lại AI.');
@@ -561,7 +561,7 @@ const AiStagingReviewPage = () => {
                                 {req.isDuplicate && (
                                   <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold shrink-0 z-20">DUPLICATE</span>
                                 )}
-                                <h3 className={`text-[14.5px] font-bold truncate ${req.isDuplicate ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                <h3 className={`text-[14.5px] font-bold truncate ${req.isDuplicate ? 'text-gray-500 opacity-60' : 'text-gray-900'}`}>
                                   {req.title || 'Untitled Requirement'}
                                 </h3>
                               </div>
@@ -679,8 +679,8 @@ const AiStagingReviewPage = () => {
                       {removedItems.map(req => (
                         <div key={req._idx} className="relative flex flex-col bg-gray-50 rounded-[8px] border-[0.5px] border-gray-200 p-[16px] border-l-4 border-l-red-400">
                           <span className="absolute top-2 right-2 text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">REMOVED</span>
-                          <h3 className="text-[14.5px] font-semibold text-gray-500 mb-[4px] line-through decoration-red-400">{req.title || 'Untitled Requirement'}</h3>
-                          <p className="text-[13.5px] text-gray-400 leading-relaxed line-through">{req.description}</p>
+                          <h3 className="text-[14.5px] font-semibold text-gray-500 mb-[4px] opacity-60">{req.title || 'Untitled Requirement'}</h3>
+                          <p className="text-[13.5px] text-gray-400 leading-relaxed opacity-60">{req.description}</p>
                         </div>
                       ))}
                     </div>

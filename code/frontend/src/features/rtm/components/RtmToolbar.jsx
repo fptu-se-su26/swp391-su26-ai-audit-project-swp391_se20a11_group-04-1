@@ -1,4 +1,6 @@
 import StatusIndicator from './StatusIndicator'
+import Card from '../../../components/ui/Card'
+import Button from '../../../components/ui/Button'
 
 export function RtmToolbar({
   filters,
@@ -12,7 +14,7 @@ export function RtmToolbar({
   saving,
 }) {
   return (
-    <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between">
+    <Card style={{ padding: '24px' }} className="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between">
       <div className="flex flex-wrap items-center gap-3">
         {['DONE', 'IN_PROGRESS', 'AT_RISK', 'NOT_STARTED'].map((status) => (
           <StatusIndicator key={status} status={status} compact />
@@ -23,7 +25,7 @@ export function RtmToolbar({
         <select
           value={filters.status}
           onChange={(e) => onFilterChange('status', e.target.value)}
-          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D]"
+          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         >
           <option value="ALL">All Statuses</option>
           {statusOptions.map((status) => (
@@ -34,7 +36,7 @@ export function RtmToolbar({
         <select
           value={filters.priority}
           onChange={(e) => onFilterChange('priority', e.target.value)}
-          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-[#1E707D]/20 focus:border-[#1E707D]"
+          className="bg-surface border border-outline-variant rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
         >
           <option value="ALL">All Priorities</option>
           {priorityOptions.map((priority) => (
@@ -42,36 +44,37 @@ export function RtmToolbar({
           ))}
         </select>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={onRefresh}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-outline-variant bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-black uppercase tracking-wider transition-colors disabled:opacity-50"
         >
           <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
           Refresh
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={onToggleSnapshots}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-outline-variant bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-black uppercase tracking-wider transition-colors"
         >
           <span className="material-symbols-outlined text-[18px]">history</span>
           Snapshots
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={onSaveSnapshot}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#1E707D] text-white hover:bg-[#D7EEF1] text-xs font-black uppercase tracking-wider transition-colors shadow-md disabled:opacity-50"
         >
-          <span className={`material-symbols-outlined text-[18px] ${saving ? 'animate-spin' : ''}`}>save</span>
+          {saving ? (
+            <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+          ) : (
+            <span className="material-symbols-outlined text-[18px]">add_a_photo</span>
+          )}
           Save Snapshot
-        </button>
+        </Button>
       </div>
-    </section>
+    </Card>
   )
 }
 

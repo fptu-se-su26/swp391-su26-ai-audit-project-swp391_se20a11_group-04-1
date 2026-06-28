@@ -21,6 +21,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
+    List<Task> findByProjectId(Long projectId);
+
     List<Task> findByParentId(Long parentId);
 
     List<Task> findByRequirementId(Long requirementId);

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.entity.AiGenerationStaging;
 import org.example.backend.entity.AiGenerationStatus;
+import org.example.backend.service.AiRoutingService;
 import org.example.backend.entity.AiStage;
 import org.example.backend.entity.Project;
 import org.example.backend.repository.AiGenerationStagingRepository;
@@ -40,7 +41,9 @@ import lombok.extern.slf4j.Slf4j;
 public class AiGenerationService {
 
     private final DocumentParserService documentParserService;
-    private final GeminiService geminiService;
+    private final AiRoutingService geminiService;
+    private final RequirementGeminiService requirementGeminiService;
+    private final UseCaseGeminiService useCaseGeminiService;
     private final AiGenerationStagingRepository stagingRepository;
     private final ProjectRepository projectRepository;
     private final RequirementRepository requirementRepository;
@@ -53,7 +56,9 @@ public class AiGenerationService {
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
-                               GeminiService geminiService,
+                               AiRoutingService geminiService,
+                               RequirementGeminiService requirementGeminiService,
+                               UseCaseGeminiService useCaseGeminiService,
                                AiGenerationStagingRepository stagingRepository,
                                ProjectRepository projectRepository,
                                RequirementRepository requirementRepository,
@@ -65,6 +70,8 @@ public class AiGenerationService {
                                TestStepRepository testStepRepository) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
+        this.requirementGeminiService = requirementGeminiService;
+        this.useCaseGeminiService = useCaseGeminiService;
         this.stagingRepository = stagingRepository;
         this.projectRepository = projectRepository;
         this.requirementRepository = requirementRepository;
@@ -127,7 +134,7 @@ public class AiGenerationService {
                 contextStrings.add(r.getTitle() + (r.getDescription() != null ? ": " + r.getDescription() : ""));
             }
             
-            String evalJson = geminiService.evaluateDocumentContext(contextStrings, documentText);
+            String evalJson = requirementGeminiService.evaluateDocumentContext(contextStrings, documentText);
             try {
                 JsonNode evalNode = objectMapper.readTree(evalJson);
                 int score = evalNode.has("relevanceScore") ? evalNode.get("relevanceScore").asInt() : 100;
@@ -145,7 +152,7 @@ public class AiGenerationService {
             sendProgress(userId, 2, "AI is analyzing and extracting requirements...");
             // 2. Call Gemini API to extract requirements JSON
             // 2. Call Gemini API to extract requirements JSON
-            String rawJsonResponse = geminiService.extractRequirementsFromText(documentText);
+            String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
             
             JsonNode reqsArray;
             JsonNode actorsArray;
@@ -160,7 +167,7 @@ public class AiGenerationService {
 
             sendProgress(userId, 3, "AI Critic is reviewing requirement quality and checking semantics duplicates...");
             // 3. Call AI Critic to evaluate
-            String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
+            String criticizedJsonResponse = requirementGeminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
 
             sendProgress(userId, 4, "Finalizing results and saving to database...");
             // 4. Parse JSON response to ensure it's valid
@@ -234,7 +241,7 @@ public class AiGenerationService {
                 .toList();
 
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
-        String rawJsonResponse = geminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
+        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
 
         sendProgress(userId, 2, "Parsing AI results...");
         JsonNode payload;
@@ -288,7 +295,7 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 3, "AI Critic is reviewing the Use Cases...");
-        String evaluatedJson = geminiService.evaluateUseCasesWithCritic(payload.toString(), reqs, existingUseCases, projectActors);
+        String evaluatedJson = useCaseGeminiService.evaluateUseCasesWithCritic(payload.toString(), reqs, existingUseCases, projectActors);
         
         sendProgress(userId, 4, "Saving draft Use Cases to staging...");
         JsonNode finalPayload;
@@ -366,7 +373,7 @@ public class AiGenerationService {
         for (org.example.backend.entity.Requirement r : contextReqs) {
             contextStrings.add(r.getTitle() + (r.getDescription() != null ? ": " + r.getDescription() : ""));
         }
-        String evalJson = geminiService.evaluateDocumentContext(contextStrings, documentText);
+        String evalJson = requirementGeminiService.evaluateDocumentContext(contextStrings, documentText);
         try {
             JsonNode evalNode = objectMapper.readTree(evalJson);
             int score = evalNode.has("relevanceScore") ? evalNode.get("relevanceScore").asInt() : 100;
@@ -382,7 +389,7 @@ public class AiGenerationService {
         staging.setContextWarning(contextWarning);
 
         // Call Gemini API again (bypassing cache)
-        String rawJsonResponse = geminiService.extractRequirementsFromText(documentText);
+        String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
         
         JsonNode reqsArray;
         JsonNode actorsArray;
@@ -396,7 +403,7 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 2, "AI Critic is reviewing requirement quality and checking semantics duplicates...");
-        String criticizedJsonResponse = geminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
+        String criticizedJsonResponse = requirementGeminiService.evaluateRequirementsWithCritic(reqsArray.toString(), documentText, contextStrings);
 
         sendProgress(userId, 3, "Finalizing results and updating database...");
         JsonNode newPayload;
@@ -948,7 +955,7 @@ public class AiGenerationService {
             JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ArrayNode arr = objectMapper.createArrayNode();
             arr.add(root);
-            String evalStr = geminiService.evaluateUseCasesWithCritic(arr.toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+            String evalStr = useCaseGeminiService.evaluateUseCasesWithCritic(arr.toString(), java.util.List.of(req), projectExistingUcs, projectActors);
             JsonNode evalArrNode = objectMapper.readTree(evalStr);
             return evalArrNode.get(0);
         } catch (Exception e) {
@@ -1044,14 +1051,14 @@ public class AiGenerationService {
             com.fasterxml.jackson.databind.node.ObjectNode evaluatedRoot = objectMapper.createObjectNode();
             
             if (root.has("updatedUseCases") && root.get("updatedUseCases").isArray() && root.get("updatedUseCases").size() > 0) {
-                String evalStr = geminiService.evaluateUseCasesWithCritic(root.get("updatedUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+                String evalStr = useCaseGeminiService.evaluateUseCasesWithCritic(root.get("updatedUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
                 evaluatedRoot.set("updatedUseCases", objectMapper.readTree(evalStr));
             } else {
                 evaluatedRoot.set("updatedUseCases", objectMapper.createArrayNode());
             }
             
             if (root.has("newUseCases") && root.get("newUseCases").isArray() && root.get("newUseCases").size() > 0) {
-                String evalStr = geminiService.evaluateUseCasesWithCritic(root.get("newUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
+                String evalStr = useCaseGeminiService.evaluateUseCasesWithCritic(root.get("newUseCases").toString(), java.util.List.of(req), projectExistingUcs, projectActors);
                 evaluatedRoot.set("newUseCases", objectMapper.readTree(evalStr));
             } else {
                 evaluatedRoot.set("newUseCases", objectMapper.createArrayNode());

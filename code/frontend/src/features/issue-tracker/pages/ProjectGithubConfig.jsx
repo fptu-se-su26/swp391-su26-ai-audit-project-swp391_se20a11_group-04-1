@@ -4,6 +4,10 @@ import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import bugService from '../services/bugService'
 import axiosInstance from '@/api/axiosConfig'
+import Card from '../../../components/ui/Card'
+import SectionTitle from '../../../components/ui/SectionTitle'
+import Button from '../../../components/ui/Button'
+import { useProjectRole } from '@/hooks/useProjectRole'
 
 const CODE_INSIGHT_RECOMMENDED_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
 const REQUIRED_CODE_INSIGHT_EVENTS = ['issues', 'push', 'pull_request', 'workflow_run', 'check_run']
@@ -307,9 +311,9 @@ export function ProjectGithubConfig() {
     }
   }
 
-  const currentRole = activeProject?.role?.toUpperCase()?.replace(/\s+/g, '_') || ''
-  const canView = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
-  const canEdit = ['PROJECT_LEADER', 'LEADER', 'MENTOR'].includes(currentRole)
+  const { isLeader, isMember } = useProjectRole()
+  const canView = isLeader || isMember
+  const canEdit = isLeader
   const isInitialSetup = !repoOwner || !repoName
   
   if (!canView) {
@@ -331,7 +335,7 @@ export function ProjectGithubConfig() {
         </button>
         <div>
           <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#1E707D]">webhook</span>
+            <span className="material-symbols-outlined text-primary">webhook</span>
             GitHub Integration
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">Connect this project to a GitHub repository to sync issues automatically.</p>
@@ -342,7 +346,7 @@ export function ProjectGithubConfig() {
 
       {loading ? (
         <div className="flex justify-center p-12">
-          <span className="material-symbols-outlined text-4xl text-[#1E707D] animate-spin">progress_activity</span>
+          <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
         </div>
       ) : !hasToken ? (
         // NOT CONNECTED VIEW
@@ -352,17 +356,26 @@ export function ProjectGithubConfig() {
           <p className="text-on-surface-variant text-sm max-w-md mx-auto mb-8 leading-relaxed">
             To enable automatic issue synchronization, you need to authorize DevTrack AI to access your GitHub repositories. You only need to do this once.
           </p>
-          <button 
-            onClick={handleConnectGitHub}
-            className="flex items-center gap-3 bg-[#24292e] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-[#1b1f23] transition-all transform hover:scale-105 shadow-md"
-          >
-            <i className="fa-brands fa-github text-xl"></i>
-            Connect with GitHub
-          </button>
-          <div className="mt-6 flex items-center gap-2 text-xs text-on-surface-variant font-medium bg-surface-container-low px-4 py-2 rounded-lg">
-            <span className="material-symbols-outlined text-[16px] text-green-600">security</span>
-            We only request access to read/write repositories for issue syncing.
-          </div>
+          {canEdit ? (
+            <>
+              <button 
+                onClick={handleConnectGitHub}
+                className="flex items-center gap-3 bg-[#24292e] text-white px-8 py-3.5 rounded-xl font-bold hover:bg-[#1b1f23] transition-all transform hover:scale-105 shadow-md"
+              >
+                <i className="fa-brands fa-github text-xl"></i>
+                Connect with GitHub
+              </button>
+              <div className="mt-6 flex items-center gap-2 text-xs text-on-surface-variant font-medium bg-surface-container-low px-4 py-2 rounded-lg">
+                <span className="material-symbols-outlined text-[16px] text-green-600">security</span>
+                We only request access to read/write repositories for issue syncing.
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 flex items-center gap-2 text-sm text-red-500 font-bold bg-red-500/10 px-4 py-3 rounded-lg border border-red-500/20">
+              <span className="material-symbols-outlined">lock</span>
+              Only Project Leaders can configure GitHub integration.
+            </div>
+          )}
         </div>
       ) : isInitialSetup ? (
         // INITIAL SETUP VIEW (Must add a repository first)
@@ -384,7 +397,7 @@ export function ProjectGithubConfig() {
                   <div className="flex gap-2 relative">
                     <input
                       type="text"
-                      className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-[#1E707D] disabled:opacity-50"
+                      className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-primary disabled:opacity-50"
                       placeholder="-- Type to search a Repository --"
                       value={searchRepo}
                       onChange={(e) => {
@@ -411,7 +424,7 @@ export function ProjectGithubConfig() {
                       disabled={!isEditingConfig}
                     />
                     {isEditingConfig && (
-                      <button type="button" onClick={() => setShowCreateModal(true)} className="px-3 bg-[#1E707D] hover:bg-[#1E707D]/90 text-white rounded-lg flex items-center justify-center transition-colors shadow-sm" title="Create new repository">
+                      <button type="button" onClick={() => setShowCreateModal(true)} className="px-3 bg-primary hover:bg-primary/90 text-on-primary rounded-lg flex items-center justify-center transition-colors shadow-sm" title="Create new repository">
                         <span className="material-symbols-outlined">add</span>
                       </button>
                     )}
@@ -446,7 +459,7 @@ export function ProjectGithubConfig() {
                 <button 
                   type="submit" 
                   disabled={saving || !repoOwner || !repoName}
-                  className="w-full py-2.5 bg-[#1E707D] text-white font-bold rounded-lg hover:bg-[#1E707D]/90 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full py-2.5 bg-primary text-on-primary font-bold rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   {saving ? <span className="material-symbols-outlined animate-spin text-sm">refresh</span> : <span className="material-symbols-outlined text-sm">save</span>}
                   Save Repository
@@ -459,15 +472,9 @@ export function ProjectGithubConfig() {
         // CONNECTED VIEW - Grouped Dashboard
         <div className="space-y-6">
           {/* SECTION 1: Active Connection Status (Dashboard) */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
+          <Card className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-outline-variant/50">
-              <div>
-                <span className="text-xs font-bold text-[#1E707D] uppercase tracking-wider">Section 1: Status Dashboard</span>
-                <h2 className="text-lg font-black flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-[#1E707D]">link</span>
-                  Active Connection
-                </h2>
-              </div>
+              <SectionTitle icon="link">Active Connection</SectionTitle>
               <div className="flex items-center gap-2.5">
                 <span className="text-xs text-on-surface-variant font-medium">Status:</span>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1 ${
@@ -493,7 +500,7 @@ export function ProjectGithubConfig() {
                       href={`https://github.com/${repoOwner}/${repoName}`} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="inline-flex items-center gap-2 text-sm font-bold text-[#1E707D] hover:underline hover:text-[#165964]"
+                      className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline hover:text-primary-hover"
                     >
                       <i className="fa-brands fa-github text-base"></i>
                       {repoOwner}/{repoName}
@@ -503,7 +510,7 @@ export function ProjectGithubConfig() {
                     <div className="flex gap-2 relative mt-1">
                       <input
                         type="text"
-                        className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-[#1E707D] disabled:opacity-50"
+                        className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-primary disabled:opacity-50"
                         placeholder="-- Type to search a Repository --"
                         value={searchRepo}
                         onChange={(e) => {
@@ -530,7 +537,7 @@ export function ProjectGithubConfig() {
                         disabled={!canEdit}
                       />
                       {canEdit && (
-                        <button type="button" onClick={(e) => { handleSubmit(e) }} disabled={saving || !repoOwner || !repoName} className="px-3 bg-[#1E707D] hover:bg-[#1E707D]/90 text-white rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50" title="Save Repository">
+                        <button type="button" onClick={(e) => { handleSubmit(e) }} disabled={saving || !repoOwner || !repoName} className="px-3 bg-primary hover:bg-primary/90 text-on-primary rounded-lg flex items-center justify-center transition-colors shadow-sm disabled:opacity-50" title="Save Repository">
                           <span className="material-symbols-outlined text-[18px]">save</span>
                         </button>
                       )}
@@ -574,10 +581,10 @@ export function ProjectGithubConfig() {
               <div className="space-y-2 bg-surface-container-low p-4 rounded-xl border border-outline-variant/40">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-[#1E707D]">speed</span>
+                    <span className="material-symbols-outlined text-[15px] text-primary">speed</span>
                     GitHub API Rate Limit
                   </span>
-                  <button type="button" onClick={fetchRateLimit} className="text-[10px] text-[#1E707D] font-bold hover:underline">Refresh</button>
+                  <button type="button" onClick={fetchRateLimit} className="text-[10px] text-primary font-bold hover:underline">Refresh</button>
                 </div>
                 {rateLimit ? (
                   <>
@@ -600,16 +607,12 @@ export function ProjectGithubConfig() {
                 )}
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* SECTION 2: Webhook Configuration & Troubleshooter */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
+          <Card className="space-y-4">
             <div className="pb-4 border-b border-outline-variant/50">
-              <span className="text-xs font-bold text-[#1E707D] uppercase tracking-wider">Section 2: Troubleshooter Tools</span>
-              <h2 className="text-lg font-black flex items-center gap-2 mt-1">
-                <span className="material-symbols-outlined text-[#1E707D]">build</span>
-                Webhook & Troubleshooter
-              </h2>
+              <SectionTitle icon="build">Webhook & Troubleshooter</SectionTitle>
             </div>
 
             <div className="space-y-4">
@@ -686,10 +689,10 @@ export function ProjectGithubConfig() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* SECTION 3: Change Repository (Edit Config) - COLLAPSED ACCORDION */}
-          <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/60 overflow-hidden">
+          <Card style={{ padding: 0 }} className="overflow-hidden">
             <button
               type="button"
               onClick={() => {
@@ -699,11 +702,7 @@ export function ProjectGithubConfig() {
               className="w-full flex justify-between items-center px-6 py-4 hover:bg-surface-container/30 transition-colors"
             >
               <div className="text-left">
-                <span className="text-[10px] font-bold text-[#1E707D] uppercase tracking-wider block">Section 3: Advanced Settings</span>
-                <span className="text-base font-black text-on-surface flex items-center gap-2 mt-0.5">
-                  <span className="material-symbols-outlined text-[#1E707D] text-[20px]">settings_applications</span>
-                  Change Repository / Edit Integration
-                </span>
+                <SectionTitle icon="settings_applications" style={{ marginBottom: 0 }}>Change Repository / Edit Integration</SectionTitle>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-on-surface-variant font-medium">
@@ -723,7 +722,7 @@ export function ProjectGithubConfig() {
                   </p>
                   <button 
                     onClick={handleConnectGitHub}
-                    className="text-xs font-bold text-[#1E707D] hover:bg-surface-container px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-outline-variant/40"
+                    className="text-xs font-bold text-primary hover:bg-surface-container px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-outline-variant/40"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[14px]">sync_alt</span>
@@ -740,7 +739,7 @@ export function ProjectGithubConfig() {
                       <div className="flex gap-2 relative">
                         <input
                           type="text"
-                          className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-[#1E707D] disabled:opacity-50"
+                          className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm outline-none focus:border-primary disabled:opacity-50"
                           placeholder="-- Type to search a Repository --"
                           value={searchRepo}
                           onChange={(e) => {
@@ -767,7 +766,7 @@ export function ProjectGithubConfig() {
                           disabled={!isEditingConfig}
                         />
                         {isEditingConfig && (
-                          <button type="button" onClick={() => setShowCreateModal(true)} className="px-3 bg-surface-container hover:bg-surface-container-high rounded-lg text-[#1E707D] flex items-center justify-center transition-colors shadow-sm border border-outline-variant" title="Create new repository">
+                          <button type="button" onClick={() => setShowCreateModal(true)} className="px-3 bg-surface-container hover:bg-surface-container-high rounded-lg text-primary flex items-center justify-center transition-colors shadow-sm border border-outline-variant" title="Create new repository">
                             <span className="material-symbols-outlined">add</span>
                           </button>
                         )}
@@ -809,7 +808,7 @@ export function ProjectGithubConfig() {
                           onChange={(e) => setWebhookSecret(e.target.value)}
                           placeholder="Enter or generate secret"
                           disabled={!isEditingConfig}
-                          className="w-full px-3 py-2 pr-10 rounded-lg bg-surface-container-low border border-outline-variant text-sm font-mono outline-none focus:border-[#1E707D] disabled:opacity-50"
+                          className="w-full px-3 py-2 pr-10 rounded-lg bg-surface-container-low border border-outline-variant text-sm font-mono outline-none focus:border-primary disabled:opacity-50"
                         />
                         <button
                           type="button"
@@ -844,7 +843,7 @@ export function ProjectGithubConfig() {
                       <button 
                         type="submit" 
                         disabled={saving}
-                        className="flex-1 py-2 bg-[#1E707D] text-white font-bold rounded-lg hover:bg-[#1E707D]/90 flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-50"
+                        className="flex-1 py-2 bg-primary text-on-primary font-bold rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 text-xs transition-all disabled:opacity-50"
                       >
                         {saving ? <span className="material-symbols-outlined animate-spin text-sm">refresh</span> : <span className="material-symbols-outlined text-sm">save</span>}
                         Save Configuration
@@ -865,23 +864,17 @@ export function ProjectGithubConfig() {
                 </form>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* SECTION 4: Webhook Delivery Logs */}
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/60 space-y-4">
-            <div className="flex justify-between items-center pb-4 border-b border-outline-variant/50">
-              <div>
-                <span className="text-xs font-bold text-[#1E707D] uppercase tracking-wider">Section 4: Delivery Logs</span>
-                <h2 className="text-lg font-black flex items-center gap-2 mt-0.5">
-                  <span className="material-symbols-outlined text-[#1E707D]">history</span>
-                  Webhook Delivery Logs
-                </h2>
-              </div>
+          <Card className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-4 border-b border-outline-variant/50">
+              <SectionTitle icon="api">Webhook Configuration</SectionTitle>
               <button 
                 type="button"
                 onClick={fetchDeliveries} 
                 disabled={loadingDeliveries} 
-                className="text-xs font-bold text-[#1E707D] hover:bg-surface-container-high border border-outline-variant px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                className="text-xs font-bold text-primary hover:bg-surface-container-high border border-outline-variant px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[14px]">refresh</span>
                 {loadingDeliveries ? 'Loading...' : 'Refresh Logs'}
@@ -901,7 +894,7 @@ export function ProjectGithubConfig() {
                         <div className="flex items-center gap-2 font-mono text-xs">
                           <span className="font-bold text-on-surface">#{d.id}</span>
                           <span className="text-on-surface-variant font-semibold">·</span>
-                          <span className="text-[#1E707D] font-bold bg-[#1E707D]/10 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">{d.event}</span>
+                          <span className="text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">{d.event}</span>
                         </div>
                         <p className="text-xs text-on-surface-variant mt-1">
                           {new Date(d.delivered_at).toLocaleString()} &nbsp;·&nbsp; {d.duration}ms &nbsp;·&nbsp; 
@@ -923,7 +916,7 @@ export function ProjectGithubConfig() {
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -943,7 +936,7 @@ export function ProjectGithubConfig() {
             
             <form onSubmit={handleAutoConfigureWebhook} className="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
               <div className="bg-surface-container-low p-4 rounded-lg border border-blue-500/30 text-blue-800 dark:text-blue-200 mb-6 flex gap-3">
-                <span className="material-symbols-outlined text-[#1E707D] shrink-0">info</span>
+                <span className="material-symbols-outlined text-blue-500 shrink-0">info</span>
                 <p className="text-xs leading-relaxed">
                   We'll send a POST request to the URL below with details of any subscribed events. 
                   The Webhook Payload URL is configured statically on the backend server for security.
@@ -983,7 +976,7 @@ export function ProjectGithubConfig() {
                     required
                     value={webhookSecretInput}
                     onChange={(e) => setWebhookSecretInput(e.target.value)}
-                    className="w-full px-3 py-2 pr-10 rounded-lg bg-surface-container border border-outline-variant text-on-surface-variant font-mono text-xs outline-none focus:border-[#1E707D]"
+                    className="w-full px-3 py-2 pr-10 rounded-lg bg-surface-container border border-outline-variant text-on-surface-variant font-mono text-xs outline-none focus:border-primary"
                   />
                   <button
                     type="button"
@@ -1011,7 +1004,7 @@ export function ProjectGithubConfig() {
                         setWebhookEventType('recommended')
                         setSelectedEvents(CODE_INSIGHT_RECOMMENDED_EVENTS)
                       }}
-                      className="mt-1 text-[#1E707D] focus:ring-[#1E707D]"
+                      className="mt-1 text-primary focus:ring-primary"
                     />
                     <div>
                       <span className="font-bold text-on-surface">Code Insight Recommended</span>
@@ -1027,7 +1020,7 @@ export function ProjectGithubConfig() {
                       name="webhookEventType"
                       checked={webhookEventType === 'custom'}
                       onChange={() => setWebhookEventType('custom')}
-                      className="mt-1 text-[#1E707D] focus:ring-[#1E707D]"
+                      className="mt-1 text-primary focus:ring-primary"
                     />
                     <div>
                       <span className="font-bold text-on-surface">Custom</span>
@@ -1040,31 +1033,31 @@ export function ProjectGithubConfig() {
                   {webhookEventType === 'custom' && (
                     <div className="ml-7 mt-3 p-4 bg-surface-container-low border border-outline-variant rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('issues')} onChange={() => handleEventCheckboxChange('issues')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('issues')} onChange={() => handleEventCheckboxChange('issues')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Issues</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('issue_comment')} onChange={() => handleEventCheckboxChange('issue_comment')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('issue_comment')} onChange={() => handleEventCheckboxChange('issue_comment')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Issue comments</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('pull_request')} onChange={() => handleEventCheckboxChange('pull_request')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('pull_request')} onChange={() => handleEventCheckboxChange('pull_request')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Pull requests</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('pull_request_review_comment')} onChange={() => handleEventCheckboxChange('pull_request_review_comment')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('pull_request_review_comment')} onChange={() => handleEventCheckboxChange('pull_request_review_comment')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Pull request reviews</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('push')} onChange={() => handleEventCheckboxChange('push')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('push')} onChange={() => handleEventCheckboxChange('push')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Pushes</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('workflow_run')} onChange={() => handleEventCheckboxChange('workflow_run')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('workflow_run')} onChange={() => handleEventCheckboxChange('workflow_run')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Workflow runs</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={selectedEvents.includes('check_run')} onChange={() => handleEventCheckboxChange('check_run')} className="text-[#1E707D] rounded" />
+                        <input type="checkbox" checked={selectedEvents.includes('check_run')} onChange={() => handleEventCheckboxChange('check_run')} className="text-primary rounded" />
                         <span className="text-on-surface text-sm">Check runs</span>
                       </label>
                     </div>
@@ -1099,7 +1092,7 @@ export function ProjectGithubConfig() {
           <div className="bg-surface-container-lowest rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
               <h3 className="font-black text-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#1E707D]">add_box</span>
+                <span className="material-symbols-outlined text-primary">add_box</span>
                 Create GitHub Repository
               </h3>
               <button type="button" onClick={() => setShowCreateModal(false)} className="text-on-surface-variant hover:text-on-surface">
@@ -1116,7 +1109,7 @@ export function ProjectGithubConfig() {
                   value={newRepoName}
                   onChange={(e) => setNewRepoName(e.target.value.replace(/\s+/g, '-'))}
                   placeholder="e.g., my-awesome-project"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm focus:border-[#1E707D] outline-none"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm focus:border-primary outline-none"
                 />
               </div>
               
@@ -1126,7 +1119,7 @@ export function ProjectGithubConfig() {
                   value={newRepoDesc}
                   onChange={(e) => setNewRepoDesc(e.target.value)}
                   placeholder="Short description of this repository"
-                  className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm focus:border-[#1E707D] outline-none resize-none h-20"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant text-sm focus:border-primary outline-none resize-none h-20"
                 />
               </div>
               
@@ -1137,7 +1130,7 @@ export function ProjectGithubConfig() {
                     type="checkbox"
                     checked={newRepoPrivate}
                     onChange={(e) => setNewRepoPrivate(e.target.checked)}
-                    className="w-4 h-4 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D]"
+                    className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary"
                   />
                 </div>
                 <div className="text-sm">
@@ -1157,7 +1150,7 @@ export function ProjectGithubConfig() {
                 <button
                   type="submit"
                   disabled={creatingRepo}
-                  className="flex-1 px-4 py-2 bg-[#1E707D] hover:bg-[#1E707D]/90 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-on-primary font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {creatingRepo ? <span className="material-symbols-outlined animate-spin text-sm">refresh</span> : 'Create'}
                 </button>

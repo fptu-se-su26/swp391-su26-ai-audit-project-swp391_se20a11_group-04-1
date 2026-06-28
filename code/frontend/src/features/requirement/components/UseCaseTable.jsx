@@ -3,9 +3,76 @@ import Badge from '../../../components/ui/Badge';
 import { Link, useNavigate } from 'react-router-dom';
 import useProjectStore from '../../../store/useProjectStore';
 
-const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) => {
+const UseCaseTable = ({ useCases, allUseCases = [], diagramData, onEdit, onDelete, onApprove, isDraftView }) => {
   const activeProject = useProjectStore((state) => state.activeProject);
   const navigate = useNavigate();
+
+  const resolveActors = (uc) => {
+    const graphicalActors = new Set();
+
+    if (diagramData && diagramData.relations && diagramData.actors) {
+      const { relations, actors } = diagramData;
+
+      // 1. Find direct actor connections in the diagram
+      const directRelations = relations.filter(r => r.type === 'actor-uc' && String(r.targetId) === String(uc.id));
+      directRelations.forEach(r => {
+        const actor = actors.find(a => String(a.id) === String(r.sourceId) || String(`actor_${a.id}`) === String(r.sourceId));
+        if (actor) graphicalActors.add(actor.name);
+      });
+
+      // 2. If no direct graphical actors, check include/extends relations in the diagram backwards
+      if (graphicalActors.size === 0) {
+        const parentRelations = relations.filter(r => 
+          (r.type === 'include' || r.type === 'extends') && String(r.targetId) === String(uc.id)
+        );
+        
+        parentRelations.forEach(pRel => {
+          const parentActorRels = relations.filter(r => r.type === 'actor-uc' && String(r.targetId) === String(pRel.sourceId));
+          parentActorRels.forEach(r => {
+            const actor = actors.find(a => String(a.id) === String(r.sourceId) || String(`actor_${a.id}`) === String(r.sourceId));
+            if (actor) graphicalActors.add(actor.name);
+          });
+        });
+      }
+    }
+
+    if (graphicalActors.size > 0) {
+      return Array.from(graphicalActors);
+    }
+
+    // fallback to DB actors
+    if (uc.actors && uc.actors.length > 0) return uc.actors;
+    if (!allUseCases || allUseCases.length === 0) return [];
+
+    const relatedActors = new Set();
+    
+    // Check if this UC is included/extended by any other UC
+    allUseCases.forEach(parent => {
+      const includes = parent.includesList || [];
+      const extendsList = parent.extendsList || [];
+      if (includes.includes(uc.id) || includes.includes(uc.code) || 
+          extendsList.includes(uc.id) || extendsList.includes(uc.code)) {
+        if (parent.actors) {
+          parent.actors.forEach(a => relatedActors.add(a));
+        }
+      }
+    });
+
+    // Also check if this UC includes/extends another UC that has actors
+    const myIncludes = uc.includesList || [];
+    const myExtends = uc.extendsList || [];
+    allUseCases.forEach(child => {
+      if (myIncludes.includes(child.id) || myIncludes.includes(child.code) ||
+          myExtends.includes(child.id) || myExtends.includes(child.code)) {
+        if (child.actors) {
+          child.actors.forEach(a => relatedActors.add(a));
+        }
+      }
+    });
+
+    return Array.from(relatedActors);
+  };
+
   return (
     <div className="overflow-x-auto pb-32">
       <table className="w-full text-left border-collapse">
@@ -63,7 +130,9 @@ const UseCaseTable = ({ useCases, onEdit, onDelete, onApprove, isDraftView }) =>
                   <div className="w-6 h-6 rounded-full flex items-center justify-center bg-[#1E707D]/10 text-[#1E707D]">
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>person</span>
                   </div>
-                  <span>{uc.actors && uc.actors.length > 0 ? uc.actors.join(', ') : 'None'}</span>
+                  <span>
+                    {resolveActors(uc).length > 0 ? resolveActors(uc).join(', ') : 'None'}
+                  </span>
                 </div>
               </td>
               <td className="py-3 px-4">

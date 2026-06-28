@@ -133,6 +133,7 @@ public class BugReportController {
     }
 
     @GetMapping("/projects/{projectId}/github-integration")
+    @org.example.backend.annotation.PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Map<String, Object>>> getGithubConfig(
             @PathVariable Long projectId,
             HttpSession session) {
@@ -164,6 +165,7 @@ public class BugReportController {
     }
 
     @GetMapping("/projects/{projectId}/github-integration/rate-limit")
+    @org.example.backend.annotation.PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Map<String, Object>>> getRateLimit(@PathVariable Long projectId, HttpSession session) {
         Long userId = requireUser(session);
         Map<String, Object> rateLimit = gitHubApiService.getRateLimit(projectId, userId);
@@ -174,6 +176,7 @@ public class BugReportController {
     }
 
     @PostMapping("/projects/{projectId}/github-integration")
+    @org.example.backend.annotation.PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<Map<String, Object>>> saveGithubConfig(
             @PathVariable Long projectId,
             @RequestBody Map<String, Object> request,
@@ -199,6 +202,7 @@ public class BugReportController {
     }
 
     @PostMapping("/projects/{projectId}/github-integration/ping")
+    @org.example.backend.annotation.PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<Void>> pingWebhook(@PathVariable Long projectId, HttpSession session) {
         Long userId = requireUser(session);
         gitHubApiService.pingWebhook(projectId, userId);
@@ -206,6 +210,7 @@ public class BugReportController {
     }
 
     @PostMapping("/projects/{projectId}/github-integration/auto-configure")
+    @org.example.backend.annotation.PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<Void>> autoConfigureWebhook(
             @PathVariable Long projectId,
             @RequestBody Map<String, Object> payload,
@@ -232,6 +237,7 @@ public class BugReportController {
     }
 
     @PostMapping("/projects/{projectId}/github-integration/webhook/refresh")
+    @org.example.backend.annotation.PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<Map<String, Object>>> refreshWebhookConfig(
             @PathVariable Long projectId,
             HttpSession session) {
@@ -241,6 +247,7 @@ public class BugReportController {
     }
 
     @GetMapping("/projects/{projectId}/github-integration/deliveries")
+    @org.example.backend.annotation.PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Object>> getDeliveries(@PathVariable Long projectId, HttpSession session) {
         Long userId = requireUser(session);
         Object deliveries = gitHubApiService.getWebhookDeliveries(projectId, userId);
@@ -248,6 +255,7 @@ public class BugReportController {
     }
 
     @PostMapping("/projects/{projectId}/github-integration/deliveries/{deliveryId}/redeliver")
+    @org.example.backend.annotation.PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<Void>> redeliverWebhook(
             @PathVariable Long projectId,
             @PathVariable Long deliveryId,

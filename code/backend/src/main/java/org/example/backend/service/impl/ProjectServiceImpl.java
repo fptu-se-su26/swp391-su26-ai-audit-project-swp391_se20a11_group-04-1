@@ -944,6 +944,7 @@ public class ProjectServiceImpl implements ProjectService {
 
                 memberDtos.add(ProjectResponse.MemberDto.builder()
                         .id(member.getUser().getId())
+                        .username(member.getUser().getUsername())
                         .name(name)
                         .role(roleName)
                         .build());
