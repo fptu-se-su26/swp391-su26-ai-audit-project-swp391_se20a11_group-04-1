@@ -252,3 +252,106 @@ Nho vay em co the giai thich voi giang vien rang he thong khong "tu dong cho vui
 - Lam UI evidence snapshot ro hon, co the cho leader click xem snapshot detail.
 - Theo doi thuc te neu deploy nhieu backend instance; khi do moi can xem xet distributed lock/Redis/ShedLock cho cac job phan tan.
 - Cap nhat AI Audit Log ngay sau moi dot lam viec lon de khong bi don cuoi ky.
+
+---
+
+## 11. Reflection bo sung - Nang cap Outbox Pattern va Admin Job Dashboard
+
+Sau cac chuc nang Task Management va SLA, em tien hanh nang cap kien truc he thong thong qua module Outbox Pattern va Admin Job Dashboard, giup em thuc su cham den "Enterprise-level architecture".
+
+### 11.1. AI da ho tro em o diem nao
+
+AI ho tro em:
+- Dua ra ban thiet ke chi tiet tu Database (Flyway) den Frontend (React/Tailwind).
+- Trien khai Idempotency bang thuat toan sinh hash (SHA-256).
+- Viet `SmartLifecycle` de thuc hien Graceful Shutdown, giup server an toan khi restart.
+- Xay dung logic DLQ (Dead Letter Queue) ket hop gui canh bao qua EmailService.
+- Thiet ke API va Frontend hien thi Dashboard giam sat toan he thong Outbox va Jobs.
+- Viet unit test de cover case duplicate records (DataIntegrityViolationException).
+
+### 11.2. Dieu em thay hay nhat trong phan moi
+
+Dieu hay nhat la viec bien mot chuc nang chay ngầm (Background Job) kho nhin thay va kho debug tro thanh mot cong cu truc quan, the hien 100% tinh minh bach cua he thong. Voi Admin Dashboard, thay vi mo database SQL len check cac job bi loi, gio day Admin chi can nhin UI va bam nut "Retry".
+
+### 11.3. Phan em tu suy nghi va quyet dinh
+
+- Quyet dinh khong dung them thu vien UI moi nao (ant-design, mui, etc.) ma van giu nguyen Tailwind CSS va `axiosInstance` co san, dong nhat voi code hien tai cua project.
+- Quyen dinh giu nguyen retry_count bang 0 khi gui lai mot su kien tu DLQ de he thong bat dau mot chu trinh thu lai tiep theo.
+
+### 11.4. Dieu hoc duoc ve he thong phan tan (Distributed Systems)
+
+Em hieu duoc mot kien truc Microservice/Phan tan can phai co:
+- **Idempotency:** Request bi trung van xu ly ket qua y het nhau ma khong tao rac.
+- **Graceful Shutdown:** Khong giet thread ngay lap tuc khi server down, phai cho thread chay xong nhung gi no dang chay do (hoac trong 1 timeout nhat dinh).
+- **Dead Letter Queue (DLQ):** Khi thu nhieu lan ma van chet, dung xoa event ma phai day qua DLQ de phuc hoi (Recover).
+
+### 11.5. Tu danh gia cap nhat cho module nay
+
+| Tieu chi | Diem 1-5 | Ghi chu |
+|---|:---:|---|
+| Kien truc Outbox/Idempotency | 5 | Hieu ro va ap dung tot Idempotency, DLQ |
+| Kien thuc Threading | 4 | Biet su dung SmartLifecycle de dong goi Thread |
+| Thiet ke Frontend Admin | 5 | Giao dien truc quan, chuyen nghiep va de quan tri |
+
+---
+
+## 12. Reflection bo sung - Co che Data Synchronization va WebSocket Realtime
+
+Tiep tuc toi uu trai nghiem nguoi dung va dam bao tinh nhat quan du lieu, em xay dung tiep co che Data Synchronization cho he thong de giup cap nhat Frontend theo thoi gian thuc.
+
+### 12.1. AI da ho tro em o diem nao
+
+AI ho tro em:
+- Giai doan thiet ke loose coupling: Khuyen nghiem khong dung khoa ngoai cho `EntitySyncLog` ma dung kieu chuoi `entityType` va `entityId` de mo rong cho nhieu thuc the (Task, Sprint, etc).
+- Viet Websocket STOMP tu dau (khong dung cac thu vien cồng kềnh ma xai raw `NativeStompClient`).
+- Giao tiep STOMP giua Spring Boot (`SimpMessagingTemplate`) va React de hien thi trang thai Sync.
+- Tao unit test su dung ArgumentCaptor trong Mockito de chan payload cua websocket.
+
+### 12.2. Dieu em thay hay nhat trong phan moi
+
+Hay nhat la cam giac mang lai duoc mot tinh nang thuong thay o cac app lon (nhu Jira hay Trello) - khi mot nguoi cap nhat Task, tat ca nhung nguoi dang xem chung project tren trinh duyet khac se lap tuc thay bieu tuong "Syncing..." hien len tren Sidebar. No mang lai cam giac "Realtime" thuc su va tich cuc.
+
+### 12.3. Phan em tu suy nghi va quyet dinh
+
+- Quyet dinh tich hop san `NativeStompClient` vao chung hook `useSyncStatus.js` thay vi chia nho thanh context provider giup giam code thua.
+- Khong luu tru nguyen toan bo JSON cua Task xuong DB Log ma chi luu `entityId` de cho background job query lai, giup toi uu dung luong DB.
+
+### 12.4. Tu danh gia cap nhat cho module nay
+
+| Tieu chi | Diem 1-5 | Ghi chu |
+|---|:---:|---|
+| Kien truc Event-Driven | 5 | Ap dung tot ApplicationEventPublisher de tach biet core logic |
+| Realtime Websocket | 5 | Hieu kien truc pub/sub cua STOMP |
+| Toi uu DB | 5 | Ap dung loose coupling cho DB Logging va Native UPSERT |
+
+---
+
+## 13. Reflection bo sung - Custom System Health Checks and Monitoring
+
+De tang cuong kha nang giam sat (observability) cua du an, em xay dung he thong Custom Health Checks and Job Monitoring.
+
+### 13.1. AI da ho tro em o diem nao
+
+AI ho tro em:
+- Trien khai cac buoc tu Database Migration, Entities, Repositories, Services den REST APIs ma khong dung Spring Actuator.
+- Xay dung AOP Aspect (`@MonitoredJob`) de tu dong bat cac loi cua job va tracking `consecutiveFailures`.
+- Cap nhat React Frontend mot cach truc quan va chuyen nghiep (auto-refresh, skeleton loading).
+- Viet unit test de dam bao tinh chinh xac cua Health Checks va Monitoring Aspect.
+
+### 13.2. Dieu em thay hay nhat trong phan moi
+
+Hay nhat la viec tu tay xay dung duoc cac chuc nang giam sat (Disk Space, DB Connection, Memory usage) thay vi su dung cac component tich hop san. Tinh nang giup chu dong gui email thong bao khi he thong hoac job bi loi (Dead Letter) cung mang lai gia tri thuc te cao cho quan tri vien.
+
+### 13.3. Phan em tu suy nghi va quyet dinh
+
+- Quyet dinh reset count (consecutive failures) ve 0 ngay sau khi Job chay success de trang thai on dinh tro lai, khong de cong don lam sai lech.
+- Cach ly hoan toan `HealthCheckService` va khong phu thuoc vao Database log services khac de tranh truong hop Circular Failure.
+- Add them skeleton loader trong React truoc khi Health data ve.
+
+### 13.4. Tu danh gia cap nhat cho module nay
+
+| Tieu chi | Diem 1-5 | Ghi chu |
+|---|:---:|---|
+| Kien truc Giam sat (Monitoring) | 5 | Su dung custom solution toi uu thay cho actuator |
+| AOP & Annotations | 5 | Hieu kien truc Aspect-Oriented Programming de track log jobs |
+| Dashboard UI/UX | 5 | Cap nhat giao dien muot ma, auto-refresh cho Admin |

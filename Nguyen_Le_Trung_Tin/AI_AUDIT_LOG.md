@@ -791,6 +791,65 @@ Ghi chu: `clean compile` bi fail do file jar trong `target` dang bi process back
 
 Khong dua chi tiet cac cau hoi nho nhu VSCode/IntelliJ chiem backend, hoi giai thich ngan ve file agent, hay cac trao doi ve viec anh GitHub hien so dong code. Cac noi dung do chi ho tro hieu context, khong phai thay doi chuc nang chinh.
 
+### Ngay 25/06/2026 - Nang cap Outbox Pattern va Admin Job Dashboard
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | Antigravity |
+| Muc dich | Nang cap Outbox Pattern len chuan production, xu ly Idempotency, Graceful Shutdown, DLQ va xay dung Admin Job Dashboard |
+| Phan viec lien quan | Backend, Database, React Frontend, Unit Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI nang cap Outbox Pattern tu trang thai co ban (status PENDING/PUBLISHED/DEAD) thanh he thong ben bi hon de chuan bi cho production. Yeu cau chi tiet gom: them Idempotency Key, Graceful Shutdown, Dead Letter Queue (DLQ), cron job don dep processed events, xay dung Admin REST APIs, va UI bang React.
+
+**Ket qua AI ho tro**
+
+- Tao Flyway script cap nhat Database (them bang `dead_letter_events`, `processed_events`, cot `idempotency_key`).
+- Hoan thien logic tao va check Idempotency Key bang hash (SHA-256) de chong trung lap event, xu ly an toan voi `DataIntegrityViolationException`.
+- Tich hop `SmartLifecycle` de dam bao OutboxPublisherService Graceful Shutdown (doi 25s cho batch chay xong).
+- Xay dung luong xu ly Dead Letter Queue (DLQ): Luu tru event loi, giu nguyen so lan retry khi admin kich hoat lai va gui email canh bao thong qua `EmailService`.
+- Tao cron job don dep `processed_events` qua 7 ngay tuoi.
+- Xay dung he thong 4 REST APIs cho phia Admin de thong ke, xem danh sach DLQ, xem lich su Scheduler va API chay lai (Retry) su kien loi.
+- Code trang `JobDashboardPage.jsx` cho System Admin theo doi thong ke, bang log va thao tac Retry truc tiep bang giao dien.
+- Viet test case `OutboxEventServiceTest.java` dung JUnit 5 va Mockito.
+
+**Phan da ap dung**
+
+- Full stack luong xu ly event production-ready tu Database cho toi React UI.
+- Giao dien giam sat an toan, bao gom chuc nang quan tri cho phep phuc hoi he thong khi co su co kien truc mang.
+
+### Lan 34 - Custom System Health Checks and Monitoring
+
+| Noi dung | Thong tin |
+|---|---|
+| Ngay su dung | 25/06/2026 |
+| Cong cu AI | Antigravity |
+| Muc dich | Trien khai he thong System Health Checks va Job Monitoring khong dung Actuator |
+| Phan viec lien quan | Backend, Database, React Frontend, Unit Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI xay dung he thong giam sat chu dong tu custom code (khong phu thuoc vao Actuator), giup nguoi quan tri de dang theo doi suc khoe cua database, disk, memory va lich trinh cac job quan trong tu Admin UI. Yeu cau chi tiet gom: Flyway migration, Entity, Repository, Monitoring Executor, @MonitoredJob annotation, MonitoringAspect, HealthCheckService, AlertService qua email, System Monitor Scheduler, DTOs, Admin REST API, va React Frontend update cho trang JobDashboardPage.
+
+**Ket qua AI ho tro**
+
+- Tao Flyway script cap nhat Database (them bang `system_health_checks`, `monitored_job_stats`).
+- Xay dung AOP Aspect (`@MonitoredJob`) de tu dong bat cac loi cua job va tracking `consecutiveFailures`.
+- Them `HealthCheckService` de kiem tra Database, Disk, va Memory.
+- Them `MonitoringAlertService` de gui email canh bao khi health check that bai hoac job that bai lien tuc.
+- Them `SystemMonitorScheduler` chay dinh ky (5 phut/lan) de update health status.
+- Mo rong `AdminJobDashboardController` voi 3 API quan ly Health Summary, Live Health Check va Job Stats.
+- Cap nhat React Frontend `JobDashboardPage.jsx`, them section "System Health & Monitoring".
+- Viet test case `HealthCheckServiceTest.java` va `MonitoringAspectTest.java` dung JUnit 5 va Mockito.
+
+**Phan da ap dung**
+
+- Kien truc giam sat (Monitoring) su dung custom solution toi uu thay cho actuator.
+- Dashboard UI/UX cap nhat giao dien muot ma, auto-refresh cho Admin.
+
 ### Cac noi dung da loc bo, khong dua vao audit chinh
 
 Nhung phien sau khong duoc ghi chi tiet vao AI Audit Log vi khong phai dong gop chinh cho module hoac chi la ho tro nho:
@@ -822,5 +881,8 @@ Sau cac phien lam viec bo sung, phan dong gop cua em khong chi dung lai o Module
 - Evidence Snapshot cho Recovery Plan.
 - Recovery Gate Result.
 - DB constraint va row lock de chong duplicate/race condition.
+- Xay dung Admin Job Dashboard.
+- Co che Data Synchronization va WebSocket Realtime.
+- Xay dung Custom System Health Checks and Monitoring.
 
 AI duoc su dung de phan tich, thiet ke huong lam, tao prompt trien khai, ra soat code va giai thich loi. Em khong ap dung may moc ma da lien tuc hoi lai, so sanh voi code hien co, yeu cau compile/build, va chi giu lai nhung huong phu hop voi project.

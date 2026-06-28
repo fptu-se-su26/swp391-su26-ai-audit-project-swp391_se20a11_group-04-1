@@ -288,3 +288,59 @@ Ghi vao folder Tin de co du lieu sau nay dua vao AI Audit. Sau do loc tat ca cuo
 ## 7. Prompt dang gia nhat sau phan bo sung
 
 Prompt 30 la prompt dang gia nhat ve mat engineering vi no giup em khong them Redis lock theo phong trao. Thay vao do, em hoc cach chon giai phap vua du voi codebase: idempotency o service, DB unique constraint lam hang rao cuoi, va row lock cho cac thao tac doi trang thai quan trong. Day la bai hoc giup code an toan hon ma khong lam he thong phuc tap qua muc.
+
+---
+
+## 8. Prompt bo sung - Nang cap Outbox Pattern va Admin Job Dashboard
+
+### Prompt 32 - Trien khai kien truc Outbox Pattern Production-ready
+
+```text
+Toi co mot du an Spring Boot + React (Vite). Hien tai da co Outbox Pattern ban dau, nhung de len production can xu ly them: Idempotency Key, Graceful Shutdown cho cac ThreadPoolTaskExecutor, Dead Letter Queue (DLQ), Job Cleanup rác, tao Admin REST APIs de monitor va xay dung Frontend UI (React + Tailwind). Hay dua ra ke hoach trien khai chi tiet va day du.
+```
+
+**Ket qua su dung:** Dung de xac dinh cac buoc can lam de nang cap Outbox Pattern cho chuan production: tu Database, Logic, API den UI.
+
+### Prompt 33 - Unit Test cho Idempotency Key
+
+```text
+Hay viet Unit Test (JUnit 5 + Mockito) cho viec tao Idempotency Key, kiem chung duplicate handling khi save event thu 2 (xu ly `DataIntegrityViolationException` an toan) trong `OutboxEventServiceTest`.
+```
+
+**Ket qua su dung:** Dung de bao dam code hoat dong dung luong nghiep vu ngay ca khi xay ra tranh chap luu data.
+
+## 9. Prompt dang gia nhat cho phan Outbox
+
+Prompt 32 mang tinh he thong nhat boi no khong chi xu ly loi don le ma nang cap ca mot kien truc he thong quan trong giup he thong de dang bao tri va van hanh (monitor/retry) thong qua giao dien.
+
+---
+
+## 10. Prompt bo sung - Co che Data Synchronization va WebSocket Realtime
+
+### Prompt 34 - Trien khai kien truc Data Sync cho Sprint va Task
+
+```text
+Toi can xay dung mot Data Synchronization Mechanism. Hien tai khi Task thay doi trang thai, Sprint khong tu dong cap nhat progress va Frontend cung khong nhan duoc thong bao realtime. Toi muon dung Spring ApplicationEvent de decouple, luu log (EntitySyncLog) va STOMP WebSocket de bao Frontend. O Frontend, tao hook `useSyncStatus` va hien thi badge tren Sidebar. Hay lap plan trien khai cho chuc nang nay nhe.
+```
+
+**Ket qua su dung:** Dung de len plan kien truc tong the cho chuc nang Data Synchronization, giup viec ket noi trang thai giua Frontend va Backend duoc dong bo qua websocket, giu tinh loose coupling cho DB.
+
+### Prompt 35 - Viet Unit Test cho DataSyncService
+
+```text
+Hay viet `DataSyncServiceTest` (su dung Mockito) de test luong `handleSyncEvent` khi Task thay doi trang thai thanh COMPLETED. Dam bao no goi `syncStatusRepository.upsert` de cap nhat Sprint va `messagingTemplate.convertAndSend` ban dung STOMP payload xuong Frontend.
+```
+
+**Ket qua su dung:** Bao dam service lang nghe su kien va thuc thi dung 2 nhiem vu quan trong nhat la database upsert va ban STOMP message.
+
+---
+
+## 11. Prompt bo sung - Custom System Health Checks and Job Monitoring
+
+### Prompt 36 - Xay dung Custom Monitoring & Health Check
+
+```text
+Tôi có dự án Spring Boot 3 (package: org.example.backend) quản lý dự án học thuật. Spring Actuator CHƯA có — tự implement custom health checks. Hãy giúp tôi tạo Flyway migration, Entity, Repository, Monitoring Executor, @MonitoredJob annotation, MonitoringAspect, HealthCheckService, AlertService qua email, System Monitor Scheduler, DTOs, Admin REST API, và React Frontend update cho trang JobDashboardPage.jsx. Và nhớ viết Unit tests nữa nhé.
+```
+
+**Ket qua su dung:** Dung de xay dung he thong giam sat chu dong tu custom code (khong phu thuoc vao Actuator), giup nguoi quan tri de dang theo doi suc khoe cua database, disk, memory va lich trinh cac job quan trong tu Admin UI.

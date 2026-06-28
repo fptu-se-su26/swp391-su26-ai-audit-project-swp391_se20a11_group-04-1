@@ -78,7 +78,7 @@ public class SlaEventConsumer {
             }
 
             String riskLevel = state.getCurrentRiskLevel();
-            if (!"HIGH".equalsIgnoreCase(riskLevel) && !"CRITICAL".equalsIgnoreCase(riskLevel)) {
+            if (!"WARNING".equalsIgnoreCase(riskLevel) && !"BREACH".equalsIgnoreCase(riskLevel)) {
                 return;
             }
 

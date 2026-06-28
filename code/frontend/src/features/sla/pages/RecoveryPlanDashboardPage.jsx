@@ -168,7 +168,7 @@ export default function RecoveryPlanDashboardPage() {
                 <div className="space-y-1 w-full">
                   <div className="flex items-center gap-2">
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      plan.riskLevel === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                      plan.riskLevel === 'BREACH' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
                     }`}>
                       {plan.riskLevel}
                     </span>

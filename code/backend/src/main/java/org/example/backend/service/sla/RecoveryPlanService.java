@@ -208,13 +208,13 @@ public class RecoveryPlanService {
         }
 
         // Remove NORMAL from categories — it's just a placeholder meaning "no issue"
-        categories.removeIf(c -> "NORMAL".equalsIgnoreCase(c));
+        categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
 
         String riskLevel = slaState.getCurrentRiskLevel();
-        boolean isHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+        boolean isHighRisk = "WARNING".equalsIgnoreCase(riskLevel) || "BREACH".equalsIgnoreCase(riskLevel);
 
         if (!isHighRisk && categories.isEmpty()) {
-            throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only HIGH or CRITICAL tasks can have recovery plans.");
+            throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only WARNING or BREACH tasks can have recovery plans.");
         }
 
         GeminiRecoveryResult aiContent = geminiRecoveryService.generateContent(
@@ -328,7 +328,7 @@ public class RecoveryPlanService {
             }
         }
 
-        if (Arrays.asList("HIGH", "CRITICAL").contains(slaState.getCurrentRiskLevel().toUpperCase())) {
+        if (Arrays.asList("WARNING", "BREACH").contains(slaState.getCurrentRiskLevel().toUpperCase())) {
             actions.add(RecoveryPlanAction.builder()
                     .recoveryPlan(plan)
                     .projectId(plan.getProjectId())
@@ -1059,7 +1059,7 @@ public class RecoveryPlanService {
         int before = plan.getScoreBeforeExecution();
         int after = plan.getScoreAfterExecution();
         String riskLevel = currentState.getCurrentRiskLevel();
-        boolean stillHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+        boolean stillHighRisk = "WARNING".equalsIgnoreCase(riskLevel) || "BREACH".equalsIgnoreCase(riskLevel);
 
         if (after > before && !stillHighRisk) {
             return new GateVerdict("PASSED",

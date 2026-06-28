@@ -18,6 +18,7 @@ import org.example.backend.service.sla.TaskSlaCategory;
 import org.example.backend.service.sla.TaskSlaEvaluation;
 import org.example.backend.service.sla.TaskSlaRuleService;
 import org.example.backend.service.sla.SlaRiskAssessmentService;
+import org.example.backend.service.sla.GeminiMemberNarrativeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,7 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
     private final OutboxEventService outboxEventService;
     private final TaskSlaRuleService taskSlaRuleService;
     private final SlaRiskAssessmentService slaRiskAssessmentService;
+    private final GeminiMemberNarrativeService geminiMemberNarrativeService;
     private final Clock clock;
 
     @Override
@@ -251,11 +253,27 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         }
 
         int totalAssigned = tasks.size();
+        int completedCount = (int) tasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
         int completedOnTime = (int) tasks.stream()
                 .filter(t -> t.getStatus() == TaskStatus.DONE
                         && t.getCompletedAt() != null
                         && t.getDeadline() != null
                         && !t.getCompletedAt().toLocalDate().isAfter(t.getDeadline()))
+                .count();
+
+        double totalWeight = tasks.stream()
+                .mapToDouble(t -> t.getWeight() != null ? t.getWeight().doubleValue() : 1.0)
+                .sum();
+        double totalEstimatedHours = tasks.stream()
+                .mapToDouble(t -> t.getEstimatedHours() != null ? t.getEstimatedHours().doubleValue() : 0.0)
+                .sum();
+        double avgDaysEarly = tasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.DONE && t.getCompletedAt() != null && t.getDeadline() != null)
+                .mapToLong(t -> t.getDeadline().toEpochDay() - t.getCompletedAt().toLocalDate().toEpochDay())
+                .average()
+                .orElse(0.0);
+        int highPriorityCount = (int) tasks.stream()
+                .filter(t -> t.getPriority() == Priority.HIGH || t.getPriority() == Priority.CRITICAL)
                 .count();
 
         boolean red = overdue > 3 || penalized > 0 || stale > 0;
@@ -264,9 +282,18 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
         }
 
         List<String> reasons = new ArrayList<>();
-        if (overdue > 3) reasons.add("more than 3 overdue tasks");
-        if (penalized > 0) reasons.add(penalized + " penalized task(s)");
-        if (stale > 0) reasons.add(stale + " overdue task(s) without update for 3+ days");
+        if (overdue > 3) reasons.add("có hơn 3 task quá hạn");
+        if (penalized > 0) reasons.add(penalized + " task bị penalty");
+        if (stale > 0) reasons.add(stale + " task quá hạn không có cập nhật hơn 3 ngày");
+
+        String aiComment = geminiMemberNarrativeService.generateComment(
+                user.getUsername(), totalAssigned, completedCount, completedOnTime,
+                overdue, penalized, totalWeight, totalEstimatedHours, avgDaysEarly, highPriorityCount);
+        if (aiComment == null) {
+            aiComment = penalized > 0
+                    ? "Có " + penalized + " task bị penalty trong tuần này, cần chú ý hơn về deadline."
+                    : "Có " + overdue + " task đang trễ hạn, hãy ưu tiên cập nhật tiến độ sớm.";
+        }
 
         return WeeklyReportMember.builder()
                 .user(user)
@@ -278,6 +305,9 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
                 .completedOnTimeCount(completedOnTime)
                 .riskLevel("RED")
                 .reason(String.join("; ", reasons))
+                .aiComment(aiComment)
+                .aiScore(0)
+                .aiEvaluatedAt(LocalDateTime.now(clock))
                 .build();
     }
 
@@ -427,14 +457,21 @@ public class WeeklyReportServiceImpl implements WeeklyReportService {
     }
 
     private String buildSummaryText(Project project, Sprint sprint, int redMembers, int overdueTasks, int penalizedTasks) {
-        if (redMembers == 0) {
-            return "Sprint " + sprint.getName() + " in project " + project.getName()
-                    + " has no red-alert members.";
+        String statusText;
+        if (sprint.getStatus() == SprintStatus.COMPLETED) {
+            statusText = "đã kết thúc";
+        } else if (sprint.getStatus() == SprintStatus.PLANNED) {
+            statusText = "sắp diễn ra";
+        } else {
+            statusText = "đang diễn ra";
         }
-        return "Sprint " + sprint.getName() + " in project " + project.getName()
-                + " has " + redMembers
-                + " red-alert member(s), " + overdueTasks
-                + " overdue task(s), and " + penalizedTasks + " penalized task(s).";
+
+        if (redMembers == 0) {
+            return "Sprint " + sprint.getName() + " " + statusText + ". Hiện không có member báo động đỏ nào.";
+        }
+        return "Sprint " + sprint.getName() + " " + statusText + ". Hiện có " + redMembers
+                + " member báo động đỏ, " + overdueTasks
+                + " task quá hạn, và " + penalizedTasks + " task bị phạt.";
     }
 
     private Project findProject(Long projectId) {

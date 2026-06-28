@@ -343,9 +343,9 @@ export default function SprintHealthModal({ isOpen, onClose, tasks, loading, onO
                         {/* Status Column */}
                         <div>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                            task.currentRiskLevel === 'CRITICAL' ? 'bg-danger-bg text-danger border-danger-border' :
-                            task.currentRiskLevel === 'HIGH' ? 'bg-warning-bg text-warning border-warning-border' :
-                            task.currentRiskLevel === 'MEDIUM' ? 'bg-warning-bg text-warning border-warning-border' :
+                            task.currentRiskLevel === 'BREACH' ? 'bg-danger-bg text-danger border-danger-border' :
+                            task.currentRiskLevel === 'WARNING' ? 'bg-warning-bg text-warning border-warning-border' :
+                            task.currentRiskLevel === 'AT_RISK' ? 'bg-warning-bg text-warning border-warning-border' :
                             'bg-success-bg text-success border-success-border'
                           }`}>
                             {task.currentRiskLevel}

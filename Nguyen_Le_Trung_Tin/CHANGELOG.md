@@ -290,3 +290,81 @@ Ghi chu:
 - `8db5058` - `[DE190364] feat: add SLA reliability monitoring`.
 - `f5ec7f6` - `[DE190364] feat: add recovery plan evidence gate`.
 - `ae2dfc1` - `[DE190364] fix: make migrations idempotent`.
+
+---
+
+## 7. Cap nhat bo sung - Nang cap Outbox Pattern va Admin Job Dashboard
+
+### [25/06/2026] Added
+
+- Them Idempotency Key cho Outbox Pattern bang thuat toan SHA-256.
+- Them Graceful Shutdown (SmartLifecycle, GracefulShutdownHandler) de dong goi an toan cac luong bat dong bo trong 25s.
+- Them luong Dead Letter Queue (DLQ) cho cac event that bai sau 3 lan retry.
+- Them thong bao Email (EmailService) khi mot su kien bi day vao DLQ.
+- Them cron job `TaskSlaScheduler` de don dep `processed_events` sau 7 ngay.
+- Xay dung 4 REST APIs trong `AdminJobDashboardController` de phuc vu UI (Outbox Stats, DLQ List, Scheduler Logs, DLQ Retry).
+- Xay dung `JobDashboardPage.jsx` trong phan Frontend voi React + Tailwind CSS de hien thi dashboard.
+- Them unit test `OutboxEventServiceTest.java` (JUnit 5 + Mockito) de kiem tra tinh toan ven cua Idempotency Key va exception `DataIntegrityViolationException`.
+
+### [25/06/2026] Changed
+
+- Update `OutboxPublisherService` de tich hop retry logic, DLQ, Email va SmartLifecycle.
+- Cap nhat DB bang Flyway `V20260625000000__upgrade_outbox_pattern.sql`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (OutboxEventServiceTest)
+```
+
+---
+
+## 8. Cap nhat bo sung - Co che Data Synchronization va WebSocket Realtime
+
+### [25/06/2026] Added
+
+- Them bang `entity_sync_logs` va `sync_status` su dung loose coupling (luu entityType, entityId thay vi foreign key).
+- Tao `SyncTriggerType` enum va `SyncEvent` class (extends ApplicationEvent) de xu ly su kien thay doi trang thai cua Task/Sprint.
+- Xay dung `DataSyncService` nhan event bat dong bo, xu ly logic nghiep vu cap nhat Sprint va luu log.
+- Tich hop STOMP WebSocket qua `SimpMessagingTemplate` de ban thong bao realtime den topic `/topic/project/{projectId}/sync`.
+- Them cron job `DataSyncScheduler` quet dinh ky moi 15 phut de cap nhat trang thai Sprint het han va thu lai cac su kien bi loi (RETRY_PENDING).
+- Bo sung 3 endpoint REST API cho trang AdminJobDashboard de quan ly Data Sync Logs.
+- Tao `useSyncStatus.js` hook (su dung `NativeStompClient`) va `SyncStatusBadge.jsx` component hien thi trang thai "Syncing..." realtime tren React Sidebar.
+- Viet unit test `DataSyncServiceTest.java` (Mockito) kiem tra luong xu ly event va STOMP payload.
+
+### [25/06/2026] Changed
+
+- Modify `TaskServiceImpl` va `SprintServiceImpl` de publish `SyncEvent` sau khi thay doi trang thai.
+- Cap nhat DB bang Flyway `V20260626000000__create_data_sync_tables.sql`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (DataSyncServiceTest)
+```
+
+---
+
+## 9. Cap nhat bo sung - Custom System Health Checks and Job Monitoring
+
+### [25/06/2026] Added
+
+- Them table `system_health_checks` va `monitored_job_stats` bang Flyway migration.
+- Tao entity `SystemHealthCheck`, `MonitoredJobStat` va cac repository tuong ung.
+- Them `monitoringExecutor` vao `AsyncConfig` va cap nhat `GracefulShutdownHandler`.
+- Xay dung `@MonitoredJob` annotation va `MonitoringAspect` de tu dong luu log va dem so lan that bai (reset thanh 0 khi thanh cong).
+- Them `HealthCheckService` de kiem tra Database, Disk, va Memory.
+- Them `MonitoringAlertService` de gui email canh bao khi health check that bai hoac job that bai lien tuc.
+- Them `SystemMonitorScheduler` chay dinh ky (5 phut/lan) de update health status.
+- Mo rong `AdminJobDashboardController` voi 3 API quan ly Health Summary, Live Health Check va Job Stats.
+- Cap nhat React Frontend `JobDashboardPage.jsx`, them section "System Health & Monitoring" de hien thi banner, card components va table quan ly job stats.
+- Them unit tests cho `HealthCheckService` va `MonitoringAspect`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (HealthCheckServiceTest, MonitoringAspectTest)
+```

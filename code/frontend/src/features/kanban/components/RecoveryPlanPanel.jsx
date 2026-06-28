@@ -125,7 +125,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
     return <div className="animate-pulse h-20 bg-gray-100 rounded-md mt-4"></div>;
   }
 
-  const isHighRisk = riskLevel === 'HIGH' || riskLevel === 'CRITICAL';
+  const isHighRisk = riskLevel === 'WARNING' || riskLevel === 'BREACH';
   if (!isHighRisk && !plan) return null;
 
   const renderStatusBadge = (status) => {

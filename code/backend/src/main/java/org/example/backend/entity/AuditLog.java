@@ -1,6 +1,8 @@
 package org.example.backend.entity;
 
 import jakarta.persistence.Column;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -46,9 +48,11 @@ public class AuditLog {
     private Long entityId;
 
     @Column(name = "old_value", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String oldValue;
 
     @Column(name = "new_value", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String newValue;
 
     @Column(name = "ip_address", length = 45)
