@@ -1,7 +1,7 @@
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.example.backend.entity.MentorVerificationRequest;
+import org.example.backend.entity   .MentorVerificationRequest;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.VerifyStatus;
 import org.example.backend.entity.VerificationRequestStatus;
@@ -23,6 +23,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
     private final org.example.backend.service.FileStorageService fileStorageService;
     private final org.example.backend.repository.SystemRoleRepository systemRoleRepository;
     private final org.example.backend.service.NotificationService notificationService;
+    private final java.util.List<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @Override
     @Transactional
@@ -49,7 +50,9 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
                 .status(VerificationRequestStatus.PENDING)
                 .build();
 
-        return verificationRepository.save(request);
+        MentorVerificationRequest saved = verificationRepository.save(request);
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
+        return saved;
     }
 
     @Override
@@ -114,6 +117,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
             System.err.println("Failed to send WebSocket message: " + e.getMessage());
         }
 
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
         return request;
     }
 
@@ -158,6 +162,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
             System.err.println("Failed to send WebSocket message: " + e.getMessage());
         }
 
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
         return request;
     }
 
@@ -180,6 +185,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
                     user.setVerifyStatus(VerifyStatus.UNVERIFIED);
                     userAccountRepository.save(user);
                 });
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
     }
     @Override
     @Transactional
@@ -206,6 +212,7 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
             .orElseThrow(() -> new RuntimeException("Role USER not found"));
         user.setSystemRole(userRole);
         userAccountRepository.save(user);
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
     }
 
     @Override
@@ -247,6 +254,87 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
                 }
             }
         }
+    }
+
+    private void notifyAdmins(String eventType, Object data) {
+        java.util.List<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> deadEmitters = new java.util.ArrayList<>();
+        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter : emitters) {
+            try {
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .name(eventType)
+                        .data(data));
+            } catch (Exception e) {
+                deadEmitters.add(emitter);
+            }
+        }
+        emitters.removeAll(deadEmitters);
+    }
+
+    @Override
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter subscribeToRequests() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(3600000L); // 1 hour
+        emitters.add(emitter);
+
+        Runnable onDetach = () -> emitters.remove(emitter);
+        emitter.onCompletion(onDetach);
+        emitter.onTimeout(onDetach);
+        emitter.onError((e) -> onDetach.run());
+
+        return emitter;
+    }
+
+    @Override
+    @Transactional
+    public MentorVerificationRequest revokeRequest(Long requestId, Long adminId, String reason) {
+        MentorVerificationRequest request = verificationRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        if (!org.example.backend.entity.VerificationRequestStatus.APPROVED.equals(request.getStatus())) {
+            throw new RuntimeException("Chỉ có thể thu hồi yêu cầu đã được duyệt.");
+        }
+
+        UserAccount admin = userAccountRepository.findById(adminId)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        request.setStatus(org.example.backend.entity.VerificationRequestStatus.CANCELLED);
+        request.setMessage("Thu hồi bởi Admin: " + reason);
+        request.setResolvedBy(admin);
+        request.setResolvedAt(LocalDateTime.now());
+        verificationRepository.save(request);
+
+        UserAccount user = request.getUser();
+        user.setVerifyStatus(VerifyStatus.UNVERIFIED);
+        
+        // Downgrade system role back to USER just in case they were granted MENTOR
+        org.example.backend.entity.SystemRole userRole = systemRoleRepository.findByName("USER")
+                .orElseThrow(() -> new RuntimeException("Role USER not found"));
+        user.setSystemRole(userRole);
+        userAccountRepository.save(user);
+
+        if (request.getCardImageUrl() != null) {
+            fileStorageService.deleteFile(request.getCardImageUrl());
+        }
+
+        // Send notification
+        notificationService.createAndPush(
+                user,
+                null,
+                org.example.backend.entity.NotificationEntityType.MENTOR_VERIFICATION,
+                request.getId(),
+                org.example.backend.entity.NotificationType.SYSTEM,
+                "Quyền giảng viên bị thu hồi",
+                "Quyền giảng viên của bạn đã bị thu hồi. Lý do: " + reason
+        );
+
+        try {
+            String wsMessage = "{\"type\":\"VERIFICATION_UPDATE\",\"data\":{\"status\":\"UNVERIFIED\",\"message\":\"Quyền giảng viên của bạn đã bị thu hồi!\"}}";
+            org.example.backend.config.NotificationWebSocketHandler.sendToUser(user.getId(), wsMessage);
+        } catch (Exception e) {
+            System.err.println("Failed to send WebSocket message: " + e.getMessage());
+        }
+
+        notifyAdmins("VERIFICATION_UPDATED", "refresh");
+        return request;
     }
 }
 

@@ -194,5 +194,26 @@ public class MentorVerificationController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamRequests() {
+        return verificationService.subscribeToRequests();
+    }
+
+    @PostMapping("/{id}/revoke")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> revokeRequest(
+            @PathVariable Long id,
+            @SessionAttribute("userId") Long adminId,
+            @RequestBody Map<String, String> payload) {
+        try {
+            String reason = payload.getOrDefault("reason", "No reason provided");
+            MentorVerificationRequest request = verificationService.revokeRequest(id, adminId, reason);
+            return ResponseEntity.ok(Map.of("message", "Request revoked successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }
 

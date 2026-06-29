@@ -21,6 +21,8 @@ const MentorVerificationPage = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [requestToReject, setRequestToReject] = useState(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [requestToRevoke, setRequestToRevoke] = useState(null);
+  const [revokeReasonInput, setRevokeReasonInput] = useState('');
 
   // Fetch all requests from backend
   const fetchRequests = async () => {
@@ -39,6 +41,23 @@ const MentorVerificationPage = () => {
 
   useEffect(() => {
     fetchRequests();
+
+    // Establish SSE connection for real-time updates
+    const sseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/mentor-verifications/stream`;
+    const eventSource = new EventSource(sseUrl, { withCredentials: true });
+
+    eventSource.addEventListener('VERIFICATION_UPDATED', (event) => {
+      console.log('SSE notification received: Verification status updated.');
+      fetchRequests();
+    });
+
+    eventSource.onerror = (err) => {
+      console.error('SSE connection error:', err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   // Cleanup blob URLs to prevent memory leaks
@@ -98,6 +117,28 @@ const MentorVerificationPage = () => {
     } catch (err) {
       console.error('Reject request error:', err);
       toast.error(err.response?.data?.error || 'Từ chối yêu cầu thất bại.');
+    }
+  };
+
+  // Handle Revoke Submit via API
+  const handleRevokeSubmit = async (e) => {
+    e.preventDefault();
+    if (!revokeReasonInput.trim()) {
+      toast.error('Vui lòng nhập lý do thu hồi quyền giảng viên.');
+      return;
+    }
+
+    try {
+      await axiosInstance.post(`/v1/mentor-verifications/${requestToRevoke.id}/revoke`, {
+        reason: revokeReasonInput.trim()
+      });
+      toast.success(`Đã thu hồi quyền của yêu cầu #${requestToRevoke.id} thành công.`);
+      setRequestToRevoke(null);
+      setRevokeReasonInput('');
+      fetchRequests();
+    } catch (err) {
+      console.error('Revoke request error:', err);
+      toast.error(err.response?.data?.error || 'Thu hồi quyền thất bại.');
     }
   };
 
@@ -265,7 +306,7 @@ const MentorVerificationPage = () => {
   };
 
   // Action column helper
-  const renderActionColumn = (req) => {
+  const renderActionColumn = (req, isHistory = false) => {
     if (req.status === 'PENDING') {
       return (
         <div className="flex justify-end gap-1.5">
@@ -298,9 +339,25 @@ const MentorVerificationPage = () => {
     let icon = '';
 
     if (req.status === 'APPROVED') {
-      text = 'Đã phê duyệt';
-      colorClass = 'text-green-600';
-      icon = 'check_circle';
+      return (
+        <div className="flex justify-end gap-1.5 items-center">
+          <div className="text-xxs text-green-600 font-semibold flex items-center gap-1">
+            <span className="material-symbols-outlined text-xs">check_circle</span>
+            Đã phê duyệt
+          </div>
+          {!isHistory && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setRequestToRevoke(req);
+              }}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xxs font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              Thu hồi
+            </button>
+          )}
+        </div>
+      );
     } else if (req.status === 'REJECTED') {
       text = 'Đã từ chối';
       colorClass = 'text-red-600';
@@ -537,7 +594,7 @@ const MentorVerificationPage = () => {
                                           <td className="px-4 py-2.5">{renderStatusBadge(hist.status, hist.message)}</td>
                                           <td className="px-4 py-2.5">{renderCardButton(hist.status, hist.cardImageUrl)}</td>
                                           <td className="px-4 py-2.5 text-gray-500">{formatDate(hist.createdAt)}</td>
-                                          <td className="px-4 py-2.5 text-right">{renderActionColumn(hist)}</td>
+                                          <td className="px-4 py-2.5 text-right">{renderActionColumn(hist, true)}</td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -665,6 +722,82 @@ const MentorVerificationPage = () => {
                 >
                   <span className="material-symbols-outlined text-sm">check</span>
                   Xác nhận từ chối
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Revocation Modal */}
+      {requestToRevoke && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-gray-100 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">
+                Thu hồi quyền xác minh Giảng viên
+              </h3>
+              <button 
+                type="button"
+                onClick={() => {
+                  setRequestToRevoke(null);
+                  setRevokeReasonInput('');
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleRevokeSubmit}>
+              {/* Modal Body */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-amber-50/50 border border-amber-100 rounded-lg">
+                  <img
+                    src={requestToRevoke.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&h=120&q=80'}
+                    alt={requestToRevoke.fullName}
+                    className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm"
+                  />
+                  <div>
+                    <div className="font-bold text-gray-950">{requestToRevoke.fullName}</div>
+                    <div className="text-xs text-gray-500">Yêu cầu ID: #{requestToRevoke.id}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    Lý do thu hồi quyền giảng viên <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={revokeReasonInput}
+                    onChange={(e) => setRevokeReasonInput(e.target.value)}
+                    placeholder="Nhập lý do chi tiết để thu hồi quyền (ví dụ: phát hiện vi phạm quy chế, thông tin giả mạo...)"
+                    className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all h-28 resize-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestToRevoke(null);
+                    setRevokeReasonInput('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg text-sm hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">check</span>
+                  Xác nhận thu hồi
                 </button>
               </div>
             </form>
