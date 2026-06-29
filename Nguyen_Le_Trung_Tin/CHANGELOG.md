@@ -290,3 +290,179 @@ Ghi chu:
 - `8db5058` - `[DE190364] feat: add SLA reliability monitoring`.
 - `f5ec7f6` - `[DE190364] feat: add recovery plan evidence gate`.
 - `ae2dfc1` - `[DE190364] fix: make migrations idempotent`.
+
+---
+
+## 7. Cap nhat bo sung - Nang cap Outbox Pattern va Admin Job Dashboard
+
+### [25/06/2026] Added
+
+- Them Idempotency Key cho Outbox Pattern bang thuat toan SHA-256.
+- Them Graceful Shutdown (SmartLifecycle, GracefulShutdownHandler) de dong goi an toan cac luong bat dong bo trong 25s.
+- Them luong Dead Letter Queue (DLQ) cho cac event that bai sau 3 lan retry.
+- Them thong bao Email (EmailService) khi mot su kien bi day vao DLQ.
+- Them cron job `TaskSlaScheduler` de don dep `processed_events` sau 7 ngay.
+- Xay dung 4 REST APIs trong `AdminJobDashboardController` de phuc vu UI (Outbox Stats, DLQ List, Scheduler Logs, DLQ Retry).
+- Xay dung `JobDashboardPage.jsx` trong phan Frontend voi React + Tailwind CSS de hien thi dashboard.
+- Them unit test `OutboxEventServiceTest.java` (JUnit 5 + Mockito) de kiem tra tinh toan ven cua Idempotency Key va exception `DataIntegrityViolationException`.
+
+### [25/06/2026] Changed
+
+- Update `OutboxPublisherService` de tich hop retry logic, DLQ, Email va SmartLifecycle.
+- Cap nhat DB bang Flyway `V20260625000000__upgrade_outbox_pattern.sql`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (OutboxEventServiceTest)
+```
+
+---
+
+## 8. Cap nhat bo sung - Co che Data Synchronization va WebSocket Realtime
+
+### [25/06/2026] Added
+
+- Them bang `entity_sync_logs` va `sync_status` su dung loose coupling (luu entityType, entityId thay vi foreign key).
+- Tao `SyncTriggerType` enum va `SyncEvent` class (extends ApplicationEvent) de xu ly su kien thay doi trang thai cua Task/Sprint.
+- Xay dung `DataSyncService` nhan event bat dong bo, xu ly logic nghiep vu cap nhat Sprint va luu log.
+- Tich hop STOMP WebSocket qua `SimpMessagingTemplate` de ban thong bao realtime den topic `/topic/project/{projectId}/sync`.
+- Them cron job `DataSyncScheduler` quet dinh ky moi 15 phut de cap nhat trang thai Sprint het han va thu lai cac su kien bi loi (RETRY_PENDING).
+- Bo sung 3 endpoint REST API cho trang AdminJobDashboard de quan ly Data Sync Logs.
+- Tao `useSyncStatus.js` hook (su dung `NativeStompClient`) va `SyncStatusBadge.jsx` component hien thi trang thai "Syncing..." realtime tren React Sidebar.
+- Viet unit test `DataSyncServiceTest.java` (Mockito) kiem tra luong xu ly event va STOMP payload.
+
+### [25/06/2026] Changed
+
+- Modify `TaskServiceImpl` va `SprintServiceImpl` de publish `SyncEvent` sau khi thay doi trang thai.
+- Cap nhat DB bang Flyway `V20260626000000__create_data_sync_tables.sql`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (DataSyncServiceTest)
+```
+
+---
+
+## 9. Cap nhat bo sung - Custom System Health Checks and Job Monitoring
+
+### [25/06/2026] Added
+
+- Them table `system_health_checks` va `monitored_job_stats` bang Flyway migration.
+- Tao entity `SystemHealthCheck`, `MonitoredJobStat` va cac repository tuong ung.
+- Them `monitoringExecutor` vao `AsyncConfig` va cap nhat `GracefulShutdownHandler`.
+- Xay dung `@MonitoredJob` annotation va `MonitoringAspect` de tu dong luu log va dem so lan that bai (reset thanh 0 khi thanh cong).
+- Them `HealthCheckService` de kiem tra Database, Disk, va Memory.
+- Them `MonitoringAlertService` de gui email canh bao khi health check that bai hoac job that bai lien tuc.
+- Them `SystemMonitorScheduler` chay dinh ky (5 phut/lan) de update health status.
+- Mo rong `AdminJobDashboardController` voi 3 API quan ly Health Summary, Live Health Check va Job Stats.
+- Cap nhat React Frontend `JobDashboardPage.jsx`, them section "System Health & Monitoring" de hien thi banner, card components va table quan ly job stats.
+- Them unit tests cho `HealthCheckService` va `MonitoringAspect`.
+
+### [25/06/2026] Verification
+
+```text
+Backend compile: pass (tested local via maven)
+Unit tests: pass (HealthCheckServiceTest, MonitoringAspectTest)
+```
+
+---
+
+## 10. Cap nhat bo sung - AI Training Foundation va AI Sprint Summary
+
+### [25/06/2026] Added - AI Training Foundation
+
+- Them `predictionConfidence` vao `SlaRiskAssessmentService` tinh tu khoang cach score den zone boundary.
+- Them `predictionConfidence` luu vao `task_sla_states`.
+- Them buoc backfill `predictionAccurate` trong `DataSyncScheduler` khi sprint auto-complete.
+- Them `projectId` vao `AuditLog`, extract tu request URI bang regex.
+- Migration `V20260630000000`: `ALTER TABLE audit_logs ADD project_id`, `CREATE VIEW v_member_ai_features` join `weekly_report_members` + `task_sla_states`.
+
+### [26/06/2026] Added - AI Sprint Completion Summary
+
+- Tao entity `SprintCompletionSummary`, repository, `SprintCompletionService`.
+- Migration `V20260627000001__add_sprint_completion_summary.sql`.
+- `GeminiSprintNarrativeService` sinh narrative 6 tieu chi: Goal/Delivery/Quality/Teamwork/Process/Improvement.
+- Trigger `generate()` trong `SprintServiceImpl.updateSprintStatus()` khi sprint → COMPLETED, chi generate mot lan.
+- `DataSyncScheduler` backfill cho sprint da COMPLETED chua co summary.
+- `GeminiMemberNarrativeService` sinh member evaluation 4-section: Performance Summary, Strengths, Areas for Improvement, Potential Risks.
+- Cap nhat `SlaPingService` su dung 4-section format.
+- Frontend `SprintHealthModal` render section cards mau sac.
+- `ReliabilityDashboardPage` Gemini narrative hien thi tren metric charts.
+- `JobDashboardPage` map Actuator status sang HEALTHY/DEGRADED/DOWN badges.
+
+---
+
+## 11. Cap nhat bo sung - 5-criteria Evaluation, Project Closure va Excel Export
+
+### [28/06/2026] Added - 5-criteria Member Evaluation + WebSocket
+
+- 5-criteria assessment per member: delivery reliability, task weight, proactiveness, priority handling, workload volume.
+- Cap nhat `GeminiMemberNarrativeService`: prompt ngan 2 cau, max 35 tu, goi ten truc tiep, tranh ngon ngu chung chung.
+- Them `broadcastSprintAiDone` trong `WebSocketBroadcastService`.
+- Frontend `SprintReportPage` lang nghe WebSocket thay vi hardcode 60s countdown.
+- `SprintReportResult` collapse/expand AI comment theo tung thanh vien.
+
+### [28/06/2026] Added - Project Closure + Quality Score + Excel Export
+
+- Them trang thai ARCHIVED cho Project, khoa toan bo CRUD khi ARCHIVED.
+- Them reopen (ARCHIVED → ACTIVE) voi ly do ghi AuditLog.
+- Pre-close check: task chua DONE, bug chua closed, sprint chua COMPLETED.
+- Xu ly task con do: CANCEL_ALL hoac MOVE_TO_PROJECT.
+- Open bugs auto-close khi project dong.
+- Auto-assign ma task tuan tu: TSK-001, TSK-002 theo project.
+- Auto-track `actualHours` va `qualityScore` khi task → DONE.
+- Quality Score (1-10): graduated deadline penalty + SLA penalty.
+- Task Points = Weight x Priority Factor x (Quality/10).
+- `ProjectTrackingExportService`: Excel 3 sheet (Tasks by sprint/member, Member Summary, Formula).
+- `ProjectClosureModal.jsx`: wizard 4 buoc (kiem tra → xu ly task → ly do → xac nhan).
+- `DashboardPage`: nut Export Tracking / Close Project / Reopen cho Leader/Mentor.
+- BugReport lock khi project ARCHIVED.
+- Real-time SYSTEM notification den tat ca thanh vien khi dong project.
+- `PROJECT_CLOSED` outbox event.
+- Migration `V20260628000002__project_closure_and_task_tracking.sql`.
+
+### [28/06/2026] Verification
+
+```text
+Backend compile: pass
+Frontend build: pass
+```
+
+---
+
+## 12. Cap nhat bo sung - FastAPI ML Microservice + RAG + RLHF
+
+### [29/06/2026] Added - FastAPI ML Microservice
+
+- Tao thu muc `ml-service/` FastAPI port 8001.
+- PyTorch `MultiTaskSLAModel`: 37 features, 3 output heads (risk classification/penalty regression/recovery priority), 86.5% accuracy.
+- Endpoint `/predict/sla-risk`, `/predict/sprint-health`, `/detect/anomaly`.
+- `MlFeatureBuilder.java` chuan bi vector 37 chieu tu task data.
+- `MlServiceClient.java` goi HTTP voi fallback rule-based neu service down.
+- Doi ten SLA risk levels: NORMAL→HEALTHY, LOW→ON_TRACK, MEDIUM→AT_RISK, HIGH→WARNING, CRITICAL→BREACH.
+- Migration `V20260628000002`: rename risk level data cu.
+- Alert cooldown 1h trong `SystemMonitorScheduler`.
+- Dockerfile + docker-compose service cho ml-service.
+
+### [29/06/2026] Added - RAG context injection + RLHF feedback loop
+
+- `ml-service/app/rag/embedder.py`: sentence-transformers `all-MiniLM-L6-v2`, 384-dim.
+- `ml-service/app/rag/faiss_store.py`: FAISS IndexFlatL2, serialize_index bytes + joblib bundle (fix Unicode path Windows).
+- `ml-service/app/rag/build_index.py`: build index tu 500 recovery plans.
+- Endpoint `/recovery/similar` tim top-k plan tuong tu bang FAISS.
+- Endpoint `/feedback/signal` nhan RLHF signal tu Spring Boot.
+- Endpoint `/train/trigger`, `/train/status` quan ly rebuild FAISS async.
+- `generateWithRagContext()` trong `GeminiRecoveryService`: inject top-3 plan tuong tu vao Gemini prompt.
+- Hook RLHF signal vao `RecoveryPlanService` tai approve/reject/gate_result.
+- Auto-rebuild FAISS khi buffer >= 50 STRONG_POSITIVE signals co improvement >= 15.
+
+### [29/06/2026] Verification
+
+```text
+Backend compile: pass (mvnw.cmd -DskipTests compile)
+ML service: FastAPI docs accessible at localhost:8001/docs
+```
