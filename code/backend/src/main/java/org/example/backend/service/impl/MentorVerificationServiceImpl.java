@@ -257,6 +257,15 @@ public class MentorVerificationServiceImpl implements MentorVerificationService 
     }
 
     private void notifyAdmins(String eventType, Object data) {
+        // 1. Broadcast via WebSocket (extremely robust, works through proxies)
+        try {
+            String wsMsg = String.format("{\"type\":\"%s\",\"data\":\"%s\"}", eventType, data);
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(wsMsg);
+        } catch (Exception e) {
+            System.err.println("Failed to broadcast WebSocket verification update: " + e.getMessage());
+        }
+
+        // 2. Fallback: SSE Emitters
         java.util.List<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> deadEmitters = new java.util.ArrayList<>();
         for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter : emitters) {
             try {

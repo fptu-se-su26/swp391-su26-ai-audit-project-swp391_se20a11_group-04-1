@@ -42,8 +42,11 @@ const MentorVerificationPage = () => {
   useEffect(() => {
     fetchRequests();
 
-    // Establish SSE connection for real-time updates
-    const sseUrl = `${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/mentor-verifications/stream`;
+    // 1. Establish SSE connection for real-time updates (as fallback)
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+    const sseUrl = baseUrl.endsWith('/api')
+      ? `${baseUrl}/v1/mentor-verifications/stream`
+      : `${baseUrl}/api/v1/mentor-verifications/stream`;
     const eventSource = new EventSource(sseUrl, { withCredentials: true });
 
     eventSource.addEventListener('VERIFICATION_UPDATED', (event) => {
@@ -55,8 +58,16 @@ const MentorVerificationPage = () => {
       console.error('SSE connection error:', err);
     };
 
+    // 2. Listen to WebSocket notifications propagated via CustomEvent (extremely robust)
+    const handleVerificationUpdated = () => {
+      console.log('WebSocket notification received: Verification status updated.');
+      fetchRequests();
+    };
+    window.addEventListener('verification-updated', handleVerificationUpdated);
+
     return () => {
       eventSource.close();
+      window.removeEventListener('verification-updated', handleVerificationUpdated);
     };
   }, []);
 

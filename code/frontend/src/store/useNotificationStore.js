@@ -284,6 +284,10 @@ export const useNotificationStore = create((set, get) => ({
             window.dispatchEvent(new CustomEvent('task-proposal-event', { detail: payload }))
           }
 
+          if (payload.type === 'VERIFICATION_UPDATED') {
+            window.dispatchEvent(new CustomEvent('verification-updated', { detail: payload.data }))
+          }
+
           if (payload.type === 'VERIFICATION_UPDATE') {
             import('@store/useAuthStore').then((module) => {
               const store = module.useAuthStore || module.default
