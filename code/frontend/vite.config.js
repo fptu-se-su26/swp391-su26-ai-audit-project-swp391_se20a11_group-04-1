@@ -11,6 +11,7 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
+        xfwd: true,
       }
     }
   },
@@ -18,9 +19,12 @@ export default defineConfig({
     alias: {
       '@': '/src',
       '@api': '/src/api',
+      '@assets': '/src/assets',
       '@components': '/src/components',
-      '@pages': '/src/pages',
+      '@context': '/src/context',
+      '@features': '/src/features',
       '@hooks': '/src/hooks',
+      '@routes': '/src/routes',
       '@store': '/src/store',
       '@utils': '/src/utils',
       '@styles': '/src/styles',
