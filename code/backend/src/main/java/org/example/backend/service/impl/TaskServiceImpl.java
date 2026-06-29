@@ -2110,7 +2110,7 @@ public class TaskServiceImpl implements TaskService {
             }
         }
 
-        task.setQualityScore(computeQualityScore(task, actual));
+        task.setQualityScore((short) computeQualityScore(task, actual));
     }
 
     // Graduated quality score — dùng cả khi persist lẫn khi tính trong export

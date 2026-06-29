@@ -127,8 +127,8 @@ public class Task {
     @Column(name = "actual_hours", precision = 6, scale = 2)
     private BigDecimal actualHours;
 
-    @Column(name = "quality_score")
-    private Integer qualityScore;
+    @Column(name = "quality_score", columnDefinition = "smallint")
+    private Short qualityScore;
 
     @Column(name = "github_issue_number")
     private Integer githubIssueNumber;

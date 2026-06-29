@@ -64,13 +64,13 @@ public class TaskSlaState {
     @Builder.Default
     private boolean penaltyApplied = false;
 
-    @Column(name = "burn_gap")
+    @Column(name = "burn_gap", columnDefinition = "numeric")
     private Double burnGap;
 
     @Column(name = "burn_rate_level", length = 20)
     private String burnRateLevel;
 
-    @Column(name = "spi")
+    @Column(name = "spi", columnDefinition = "numeric")
     private Double spi;
 
     @Column(name = "predicted_risk_level", length = 20)
