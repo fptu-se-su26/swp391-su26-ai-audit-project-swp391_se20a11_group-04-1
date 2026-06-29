@@ -238,7 +238,17 @@ public class AiTaskGenerationService {
                 return map;
             }).collect(Collectors.toList());
 
-            List<Map<String, Object>> simpleExistingTasks = existingTasks.stream().map(t -> {
+            java.util.Set<Long> reqIds = useCases.stream()
+                .filter(uc -> uc.getRequirement() != null)
+                .map(uc -> uc.getRequirement().getId())
+                .collect(Collectors.toSet());
+            java.util.Set<Long> ucIds = useCases.stream()
+                .map(UseCase::getId)
+                .collect(Collectors.toSet());
+
+            List<Map<String, Object>> simpleExistingTasks = existingTasks.stream()
+                .filter(t -> (t.getRequirementId() != null && reqIds.contains(t.getRequirementId())) || (t.getUseCaseId() != null && ucIds.contains(t.getUseCaseId())))
+                .map(t -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", t.getId());
                 map.put("title", t.getTitle());
@@ -590,7 +600,7 @@ public class AiTaskGenerationService {
                         task.setSprintId(taskNode.get("sprint_id").asLong());
                     } catch (Exception e) {}
                 }
-                
+                org.example.backend.util.DateValidationUtils.validateNotPastDate(task.getStartDate(), "Task", "start date");
                 org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
                 if (project != null) {
                     try {

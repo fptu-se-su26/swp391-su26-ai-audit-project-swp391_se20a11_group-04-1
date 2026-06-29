@@ -43,10 +43,12 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- BUG_FIX: Resolving specific issues or refactoring bad code.\n" +
                 "- REVIEW: Code review, architecture evaluation, security audit.\n\n" +
                 "TIMELINE RULES (Strictly enforced):\n" +
+                "- NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "- suggested_deadline MUST BE >= start_date.\n" +
                 "- Base tasks (no dependencies) MUST have start_date = today.\n" +
                 "- Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
                 "- start_date >= today AND suggested_deadline <= projectDeadline.\n" +
-                "- The gap between start_date and suggested_deadline must realistically fit the estimated_hours (assume 8h/day).\n\n" +
+                "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap!\n\n" +
                 "PRIORITY RULES:\n" +
                 "- Core tasks (Database, Core API) MUST inherit the exact priority of their parent Requirement.\n" +
                 "- Secondary tasks (Documentation, minor UI) can be one level lower than the parent Requirement's priority.\n" +
@@ -153,7 +155,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "4. All text outputs MUST be in English.\n" +
                 "5. Inherit priority exactly.\n" +
                 "6. Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
-                "7. Provide 3-5 'checklists' per sub-task.\n\n" +
+                "7. Provide 3-5 'checklists' per sub-task.\n" +
+                "8. NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "9. suggested_deadline MUST BE >= start_date.\n" +
+                "10. Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
+                "11. The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n\n" +
                 "EXAMPLE OF FORCED SPLITTING FOR A TINY TASK:\n" +
                 "Input: {\"title\": \"Change button color to red\", \"description\": \"Update the hex code.\"}\n" +
                 "Output:\n" +
@@ -196,6 +202,9 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Establish a logical title and description.\n" +
                 "- Sum the estimated_hours of all original tasks.\n" +
                 "- You MUST generate 3 to 5 'checklists' items as the combined Definition of Done. Consolidate criteria from the original tasks.\n" +
+                "- NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "- suggested_deadline MUST BE >= start_date.\n" +
+                "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n" +
                 "- If the tasks CANNOT be logically merged (e.g., completely unrelated), return null for merged_task AND provide a 'reason' string explaining why briefly.\n" +
                 "- Return JSON only. No extra text.\n\n" +
                 "USER:\n" +
