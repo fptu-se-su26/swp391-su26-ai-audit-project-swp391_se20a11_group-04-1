@@ -21,21 +21,22 @@ backend/.mvn/wrapper/maven-wrapper.jar
 backend/src/main/resources/application-local.properties
 backend/src/main/resources/secrets.properties
 backend/src/main/resources/application.properties
+**/application.yaml
 
 # --- FRONTEND (Vite / React / Node) ---
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/*.local
-frontend/.env
-frontend/.env.local
-frontend/.env.development.local
-frontend/.env.test.local
-frontend/.env.production.local
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
+code/frontend/node_modules/
+code/frontend/dist/
+code/frontend/dist-ssr/
+code/frontend/*.local
+code/frontend/.env
+code/frontend/.env.local
+code/frontend/.env.development.local
+code/frontend/.env.test.local
+code/frontend/.env.production.local
+code/frontend/npm-debug.log*
+code/frontend/yarn-debug.log*
+code/frontend/yarn-error.log*
+code/frontend/pnpm-debug.log*
 
 # --- IDE & TOOLS ---
 .idea/
@@ -44,6 +45,8 @@ frontend/pnpm-debug.log*
 *.ipr
 .vscode/
 !.vscode/extensions.json
+.gemini/
+.gemini
 .settings/
 .project
 .classpath
@@ -63,3 +66,21 @@ backend/logs/
 .vite/
 .parcel-cache
 node_modules/
+
+# --- CUSTOM RULES ---
+coChe.md
+Nguyen_Thanh_Dat/coChe.md
+trigger.md
+private_notes/
+Nguyen_Minh_Hieu/AI_PROJECT_CONTEXT_LOG.md
+Nguyen_Minh_Hieu/MODULE_IMPLEMENTATION_TECHNIQUE_LOG.md
+Nguyen_Minh_Hieu/AGENT_HANDOFF_GUIDE.md
+lichsu/
+schema.sql
+AIRequirement.md
+
+# --- LOCAL WORKING NOTES / ACCIDENTAL ROOT ARTIFACTS ---
+/package-lock.json
+/code/KANBAN_UPGRADE_PLAN.md
+/code/.gitignore
+/Tin/
