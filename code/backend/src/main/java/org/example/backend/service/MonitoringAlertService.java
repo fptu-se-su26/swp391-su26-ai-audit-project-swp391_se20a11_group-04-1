@@ -16,7 +16,7 @@ public class MonitoringAlertService {
 
     private final EmailService emailService;
 
-    @Value("${app.monitoring.admin-email}")
+    @Value("${app.monitoring.admin-email:admin@example.com}")
     private String adminEmail;
 
     @Async("monitoringExecutor")
