@@ -12,7 +12,7 @@ export const exportToDrawio = (nodes, edges, diagramName = "Use Case Diagram") =
         const drawioId = `dx_${node.id}`;
         if (node.type === 'actor') {
             xmlStr += `
-        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Actor')}" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#1E707D/80;" vertex="1" parent="1">
+        <mxCell id="${drawioId}" value="${escapeXml(node.data?.label || 'Actor')}" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
           <mxGeometry x="${node.position.x}" y="${node.position.y}" width="30" height="60" as="geometry" />
         </mxCell>`;
         } else if (node.type === 'useCase') {

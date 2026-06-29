@@ -121,6 +121,15 @@ public class Task {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
+    @Column(name = "actual_hours", precision = 6, scale = 2)
+    private BigDecimal actualHours;
+
+    @Column(name = "quality_score")
+    private Integer qualityScore;
+
     @Column(name = "github_issue_number")
     private Integer githubIssueNumber;
 
@@ -139,6 +148,13 @@ public class Task {
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Task> subTasks = new ArrayList<>();
+
+    @Column(name = "ai_generated", nullable = false)
+    @Builder.Default
+    private boolean aiGenerated = false;
+
+    @Column(name = "source_generation_id")
+    private java.util.UUID sourceGenerationId;
 
     @PreUpdate
     protected void onUpdate() {

@@ -6,5 +6,6 @@ public enum TaskStatus {
     NEEDS_CHANGES,
     IN_REVIEW,
     DONE,
-    BLOCKED
+    BLOCKED,
+    CANCELLED
 }

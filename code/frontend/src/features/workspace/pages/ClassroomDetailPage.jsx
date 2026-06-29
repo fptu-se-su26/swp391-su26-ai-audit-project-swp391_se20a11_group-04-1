@@ -8,6 +8,7 @@ import AnnouncementCarousel from '../components/AnnouncementCarousel'
 import AnnouncementTab from '../components/AnnouncementTab'
 import ClassroomDashboardTab from '../components/ClassroomDashboardTab'
 import ResourceTab from '../components/ResourceTab'
+import ConfirmModal from '../../../components/ui/ConfirmModal'
 
 const AVATAR_COLORS = [
   'bg-sky-500 text-white',
@@ -54,6 +55,8 @@ export default function ClassroomDetailPage() {
   const [isOverwrite, setIsOverwrite] = useState(true)
   const [isClearing, setIsClearing] = useState(false)
 
+  const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '', payload: null })
+
   const fetchClassroom = async () => {
     try {
       setLoading(true)
@@ -73,9 +76,16 @@ export default function ClassroomDetailPage() {
 
   const handleRemoveStudent = async (studentId, studentName, e) => {
     e.stopPropagation()
-    if (!window.confirm(`Are you sure you want to remove ${studentName} from this class?`)) {
-      return
-    }
+    setConfirmConfig({
+      isOpen: true,
+      action: 'REMOVE_STUDENT',
+      title: 'Xóa sinh viên',
+      message: `Are you sure you want to remove ${studentName} from this class?`,
+      payload: studentId
+    })
+  }
+
+  const executeRemoveStudent = async (studentId) => {
     try {
       await axiosClient.delete(`/v1/classrooms/${classroomId}/members/${studentId}`)
       toast.success('Student removed successfully.')
@@ -102,15 +112,28 @@ export default function ClassroomDetailPage() {
 
     if (data.projects && data.projects.length > 0) {
       if (isOverwrite) {
-        if (!window.confirm("CẢNH BÁO: Bạn đã chọn 'Ghi đè nhóm hiện tại'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?")) {
-          return;
-        }
+        setConfirmConfig({
+          isOpen: true,
+          action: 'RANDOM_GROUPS',
+          title: 'Xác nhận tạo nhóm',
+          message: "CẢNH BÁO: Bạn đã chọn 'Ghi đè nhóm hiện tại'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?"
+        });
+        return;
       } else {
-        if (!window.confirm("Bạn KHÔNG chọn 'Ghi đè'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?")) {
-          return;
-        }
+        setConfirmConfig({
+          isOpen: true,
+          action: 'RANDOM_GROUPS',
+          title: 'Xác nhận tạo nhóm',
+          message: "Bạn KHÔNG chọn 'Ghi đè'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?"
+        });
+        return;
       }
     }
+    
+    executeRandomGroups();
+  }
+
+  const executeRandomGroups = async () => {
 
     try {
       setIsRandomizing(true);
@@ -126,9 +149,15 @@ export default function ClassroomDetailPage() {
   }
 
   const handleClearGroups = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn giải tán toàn bộ nhóm trong lớp học này? Hành động này không thể hoàn tác.")) {
-      return;
-    }
+    setConfirmConfig({
+      isOpen: true,
+      action: 'CLEAR_GROUPS',
+      title: 'Giải tán nhóm',
+      message: "Bạn có chắc chắn muốn giải tán toàn bộ nhóm trong lớp học này? Hành động này không thể hoàn tác."
+    })
+  }
+
+  const executeClearGroups = async () => {
     try {
       setIsClearing(true);
       await axiosClient.delete(`/v1/classrooms/${classroomId}/groups`);
@@ -582,6 +611,25 @@ export default function ClassroomDetailPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmText="Đồng ý"
+        cancelText="Hủy"
+        onConfirm={() => {
+          if (confirmConfig.action === 'REMOVE_STUDENT') {
+            executeRemoveStudent(confirmConfig.payload)
+          } else if (confirmConfig.action === 'RANDOM_GROUPS') {
+            executeRandomGroups()
+          } else if (confirmConfig.action === 'CLEAR_GROUPS') {
+            executeClearGroups()
+          }
+          setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
+        }}
+        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
     </div>
   )
 }

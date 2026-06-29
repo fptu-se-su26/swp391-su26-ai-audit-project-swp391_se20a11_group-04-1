@@ -21,6 +21,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"primaryAssignee", "primaryAssignee.profile", "createdBy", "createdBy.profile", "checklist", "project", "kanbanColumn"})
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
+    List<Task> findByProjectId(Long projectId);
+
     List<Task> findByParentId(Long parentId);
 
     List<Task> findByRequirementId(Long requirementId);
@@ -212,4 +214,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             WHERE t.sprintId = :sprintId AND t.project.id = :projectId
             """)
     List<Object[]> sprintSlaStats(@Param("sprintId") Long sprintId, @Param("projectId") Long projectId);
+
+    @Query("SELECT COALESCE(MAX(t.projectSubId), 0) FROM Task t WHERE t.project.id = :projectId")
+    int findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
 }

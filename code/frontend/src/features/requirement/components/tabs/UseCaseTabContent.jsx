@@ -30,7 +30,7 @@ const UseCaseTabContent = ({ useCases, requirement, onOpenUseCaseModal }) => {
   return (
     <div className="w-full">
       {/* List Header */}
-      <div className="grid grid-cols-[100px_1fr_200px_120px] gap-4 px-6 py-3 border-b border-slate-100 bg-slate-50/30 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      <div className="grid grid-cols-[100px_1fr_1fr_120px] gap-4 px-6 py-3 border-b border-slate-100 bg-slate-50/30 text-xs font-semibold text-slate-500 uppercase tracking-wider">
         <div>ID</div>
         <div>Use Case Name</div>
         <div>Actors</div>
@@ -48,7 +48,7 @@ const UseCaseTabContent = ({ useCases, requirement, onOpenUseCaseModal }) => {
             <div 
               key={uc.id} 
               onClick={() => navigate(`/projects/${projectId}/use-cases/${uc.id}`)}
-              className={`grid grid-cols-[100px_1fr_200px_120px] gap-4 px-6 py-3 items-center hover:bg-[#1E707D]/10/40 transition-colors cursor-pointer ${index !== useCases.length - 1 ? 'border-b border-slate-100' : ''}`}
+              className={`grid grid-cols-[100px_1fr_1fr_120px] gap-4 px-6 py-3 items-center hover:bg-[#1E707D]/10/40 transition-colors cursor-pointer ${index !== useCases.length - 1 ? 'border-b border-slate-100' : ''}`}
             >
               <div className="text-sm font-medium text-[#1E707D]">{code}</div>
               <div className="text-sm font-medium text-slate-800 truncate pr-4" title={uc.name}>{uc.name}</div>
