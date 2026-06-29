@@ -4,16 +4,16 @@
 
 | Thông tin | Nội dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Ngày bắt đầu |  |
-| Ngày hoàn thành |  |
+| Môn học | Xây dựng dự án phần mềm |
+| Mã môn học | SWP391 |
+| Lớp | SE20A11 |
+| Học kỳ | SU26 |
+| Tên bài tập / Project | DevTrack |
+| Tên sinh viên / Nhóm | Nguyễn Thành Đạt / Nhóm 4 |
+| MSSV / Danh sách MSSV | DE190465 / Phạm Duy Hưng (DE190330), Nguyễn Thành Đạt (DE190465), Nguyễn Lê Trung Tín (DE190364), Trần Công Tú (DE190313), Nguyễn Minh Hiếu (DE200322) |
+| Giảng viên hướng dẫn | Quang Lê |
+| Ngày bắt đầu | 15/05/2026 |
+| Ngày hoàn thành | 30/06/2026 |
 
 ---
 
@@ -56,6 +56,7 @@ Ví dụ:
 
 ```text
 Viết tại đây...
+```
 
 ## 4. Nhật ký sử dụng AI chi tiết
 
@@ -170,87 +171,91 @@ Hãy viết mã nguồn Java chuẩn chỉnh, đầy đủ cấu trúc, sử d�
 7. **Security Config**:
    - Cấu hình `SecurityConfig.java` sử dụng bộ lọc mới nhất của Spring Security (Spring Boot 3.x), cho phép các endpoint auth đi qua không cần token (`permitAll()`).
 
-Hãy viết code chi tiết, giải thích rõ ràng và viết đầy đủ các dòng imports. Bắt đầu thực hiện ngay!
+   Hãy viết code chi tiết, giải thích rõ ràng và viết đầy đủ các dòng imports. Bắt đầu thực hiện ngay!
+```
+
 ---
 prompt 2: Thực hiện lưu các thông tin đã nhập vào trong ram của người dùng, giải phóng khi trình duyệt được đóng hoặc các trường đã đc submit thành công.
+```text
 Tôi muốn bạn thiết kế một giải pháp JavaScript (Vanilla JS) chuyên nghiệp và tối ưu nhất để tự động lưu trạng thái form nhập liệu (Form State Persistence) nhằm chống mất dữ liệu khi người dùng vô tình bấm F5 (refresh), chuyển hướng trang, hoặc quay lại (back/forward) trong cùng một tab trình duyệt.
 
 Yêu cầu giải pháp phải tuân thủ nghiêm ngặt các tiêu chuẩn kỹ thuật cấp độ Production dưới đây:
 
 1. Cơ chế Lưu trữ & Phạm vi (Storage & Scope):
-- Chỉ sử dụng `sessionStorage` (Web Storage API) để lưu trên RAM trình duyệt. Toàn bộ dữ liệu phải tự động biến mất khi đóng tab hoặc tắt trình duyệt để đảm bảo an toàn tuyệt đối.
-- Cần đặt tên Key lưu trữ riêng biệt cho từng form (ví dụ: `app-login-draft`, `app-register-draft`) để tránh xung đột dữ liệu chéo.
+- Chỉ sử dụng sessionStorage (Web Storage API) để lưu trên RAM trình duyệt. Toàn bộ dữ liệu phải tự động biến mất khi đóng tab hoặc tắt trình duyệt để đảm bảo an toàn tuyệt đối.
+- Cần đặt tên Key lưu trữ riêng biệt cho từng form (ví dụ: app-login-draft, app-register-draft) để tránh xung đột dữ liệu chéo.
 
 2. Bảo mật tuyệt đối (Security - Hard Requirement):
 - Giải pháp phải tự động quét tất cả các input. Tuyệt đối KHÔNG ĐƯỢC LƯU các trường nhạy cảm như Mật khẩu (Password), Nhập lại mật khẩu (Confirm Password), hoặc mã OTP.
-- Cách nhận diện an toàn: Tự động loại trừ các ô input có `type="password"`, `name*="password"`, `id*="password"`, hoặc `id*="otp"`.
+- Cách nhận diện an toàn: Tự động loại trừ các ô input có type="password", name*="password", id*="password", hoặc id*="otp".
 
 3. Tối ưu Hiệu suất vượt trội (Performance & Best Practices):
 - Viết code dưới dạng một Module tự đóng gói (IIFE) hoặc Class để tránh làm ô nhiễm không gian tên toàn cục (Global Scope Pollution) của file giao diện.
-- Sử dụng kỹ thuật "Event Delegation" (Lắng nghe ủy quyền sự kiện) duy nhất trên thẻ `<form>` hoặc `document` để bắt sự kiện 'input'. Không lặp qua từng phần tử để addEventListener.
-- Hỗ trợ cả hai cơ chế map trường dữ liệu linh hoạt: theo `id` hoặc theo `name` của thẻ input (để tương thích hoàn hảo với cả JSP, Thymeleaf, Spring Form).
+- Sử dụng kỹ thuật "Event Delegation" (Lắng nghe ủy quyền sự kiện) duy nhất trên thẻ <form> hoặc document để bắt sự kiện 'input'. Không lặp qua từng phần tử để addEventListener.
+- Hỗ trợ cả hai cơ chế map trường dữ liệu linh hoạt: theo id hoặc theo name của thẻ input (để tương thích hoàn hảo với cả JSP, Thymeleaf, Spring Form).
 
 4. Khôi phục dữ liệu thông minh (Smart Hydration):
-- Khi trang tải xong (`DOMContentLoaded`), chỉ khôi phục (auto-fill) dữ liệu vào các trường nếu ô nhập liệu đó ĐANG TRỐNG. Không được đè lên dữ liệu mặc định đã được Server render sẵn (ví dụ: dữ liệu sửa đổi profile, hoặc dữ liệu được Spring Validation trả về).
+- Khi trang tải xong (DOMContentLoaded), chỉ khôi phục (auto-fill) dữ liệu vào các trường nếu ô nhập liệu đó ĐANG TRỐNG. Không được đè lên dữ liệu mặc định đã được Server render sẵn (ví dụ: dữ liệu sửa đổi profile, hoặc dữ liệu được Spring Validation trả về).
 
 5. Tự động Dọn dẹp (Self-Cleaning):
-- Tự động bắt sự kiện `submit` của form. Khi người dùng bấm gửi form thành công, phải lập tức gọi `sessionStorage.removeItem()` để giải phóng bộ nhớ RAM.
-- Cung cấp thêm một hàm dọn dẹp chủ động (ví dụ: check parameter trên URL như `?success=true` để xóa dữ liệu form nháp của bước trước).
+- Tự động bắt sự kiện submit của form. Khi người dùng bấm gửi form thành công, phải lập tức gọi sessionStorage.removeItem() để giải phóng bộ nhớ RAM.
+- Cung cấp thêm một hàm dọn dẹp chủ động (ví dụ: check parameter trên URL như ?success=true để xóa dữ liệu form nháp của bước trước).
 
 Hãy viết mã nguồn JavaScript hoàn chỉnh, cấu trúc cực kỳ rõ ràng, chú thích (comment) cẩn thận bằng Tiếng Việt và hướng dẫn tôi cách nhúng vào các trang HTML/JSP/React trong dự án một cách dễ dàng nhất.
+```
+
 ---
 Prompt 3: thực hiện cơ chế chống bruteforce và khóa đăng nhập khi mà login
+```text
 Tôi muốn bạn thiết kế và viết mã nguồn hoàn chỉnh cho hệ thống Backend REST API Đăng nhập (Login API) sử dụng Spring Boot 3.x (Java), Spring Security (cấu hình Session-based) và Spring Data Redis. Hệ thống này phải bảo vệ ứng dụng tuyệt đối khỏi các cuộc tấn công SQL Injection và Brute Force bằng cơ chế Khóa lũy tiến (Progressive Lockout) kết hợp với Ngắt mạch sớm (Fast-Fail). Yêu cầu sử dụng HTTP Session truyền thống (JSESSIONID cookie) thay vì JWT, và KHÔNG được làm thay đổi cấu trúc cơ sở dữ liệu hiện tại (không thêm cột vào bảng User SQL).
 
 Hãy triển khai chi tiết các thành phần kỹ thuật sau đây:
 
 1. Kiến trúc REST API:
-- Endpoint: POST `/api/v1/auth/login`
-- Dữ liệu nhận vào (Request Body JSON): `LoginRequest` gồm { `usernameOrEmail`, `password` }
-- Sử dụng `jakarta.validation` để validate đầu vào: username không được trống, lọc bỏ các ký tự lạ.
-- Dữ liệu trả về khi thành công (200 OK): Thiết lập thông tin người dùng vào `HttpSession` (ví dụ: `session.setAttribute("currentUser", user)`), lưu SecurityContext của Spring Security vào Session và trả về JSON chứa thông tin cơ bản của User. Trình duyệt sẽ tự động quản lý Session thông qua Cookie `JSESSIONID`.
+- Endpoint: POST /api/v1/auth/login
+- Dữ liệu nhận vào (Request Body JSON): LoginRequest gồm { usernameOrEmail, password }
+- Sử dụng jakarta.validation để validate đầu vào: username không được trống, lọc bỏ các ký tự lạ.
+- Dữ liệu trả về khi thành công (200 OK): Thiết lập thông tin người dùng vào HttpSession (ví dụ: session.setAttribute("currentUser", user)), lưu SecurityContext của Spring Security vào Session và trả về JSON chứa thông tin cơ bản của User. Trình duyệt sẽ tự động quản lý Session thông qua Cookie JSESSIONID.
 
 2. Cơ chế Chống SQL Injection (SQL Injection Prevention):
 - Sử dụng Spring Data JPA Repositories (Prepared Statements) để truy vấn dữ liệu SQL.
-- Tuyệt đối không dùng kỹ thuật nối chuỗi SQL trong code Java. Tất cả các câu truy vấn custom bằng `@Query` phải sử dụng Named Parameters (ví dụ: `:username`).
+- Tuyệt đối không dùng kỹ thuật nối chuỗi SQL trong code Java. Tất cả các câu truy vấn custom bằng @Query phải sử dụng Named Parameters (ví dụ: :username).
 
 3. Cơ chế Khóa lũy tiến lũy kế kết hợp Ngắt mạch sớm (Fast-Fail Progressive Lockout) bằng Redis:
-- Sử dụng `StringRedisTemplate` của Redis để quản lý số lần đăng nhập sai và trạng thái khóa.
+- Sử dụng StringRedisTemplate của Redis để quản lý số lần đăng nhập sai và trạng thái khóa.
 - Thiết lập 2 loại Key trên Redis:
-  + Key 1: `login:attempts:<username>` dùng để lưu số lần đăng nhập sai lũy kế.
-  + Key 2: `login:lock:<username>` dùng để đánh dấu trạng thái bị khóa.
+  + Key 1: login:attempts:<username> dùng để lưu số lần đăng nhập sai lũy kế.
+  + Key 2: login:lock:<username> dùng để đánh dấu trạng thái bị khóa.
 - Logic kiểm tra và xử lý ngắt mạch sớm (Fast-Fail):
-  + BƯỚC 1 (Ngắt mạch sớm): Ngay khi nhận request, việc đầu tiên là kiểm tra sự tồn tại của Key `login:lock:<username>` trên Redis. 
-    * Nếu Key này có tồn tại, lập tức trả về lỗi HTTP `423 Locked` kèm thông báo tài khoản đang bị khóa và thời gian còn lại.
-    * Ở bước này, TUYỆT ĐỐI không được truy vấn SQL Database để tìm User và TUYỆT ĐỐI không được chạy hàm băm mật khẩu `passwordEncoder.matches()` nhằm tiết kiệm tối đa CPU và kết nối database. Dù mật khẩu người dùng gửi lên là đúng hay sai cũng chặn ngay tại đây.
-  + BƯỚC 2: Nếu tài khoản không bị khóa, tiến hành truy vấn DB để tìm User. Nếu không thấy User, trả về `401 Unauthorized` ngay.
-  + BƯỚC 3: Tiến hành so khớp mật khẩu bằng `passwordEncoder.matches()`:
-    * Nếu mật khẩu đúng: Xóa hoàn toàn Key `login:attempts:<username>` và Key `login:lock:<username>` (nếu có) trên Redis. Tiến hành lưu thông tin vào `HttpSession` và SecurityContext, trả về 200 OK.
-    * Nếu mật khẩu sai: Tăng số lần sai trong Key `login:attempts:<username>` lên 1 (sử dụng `opsForValue().increment()`). Thiết lập thời gian tự hủy (TTL) cho Key này là 24 giờ. Lấy ra số lần sai hiện tại (`attempts`) và kiểm tra điều kiện khóa:
-      * Nếu `attempts >= 3` và `(attempts - 3) % 2 == 0`:
-        * Tính toán Lock Level: `level = (attempts - 3) / 2 + 1`.
-        * Tính toán thời gian khóa (phút): `lockTimeMinutes = level * 5`.
-        * Tạo Key `login:lock:<username>` trên Redis với giá trị "true" và thời gian tự hủy (TTL) chính là `lockTimeMinutes` phút.
-        * Trả về lỗi `423 Locked` thông báo tài khoản bị khóa trong `lockTimeMinutes` phút.
-      * Các trường hợp sai khác (ví dụ sai lần 1, 2, 4, 6): Trả về lỗi `401 Unauthorized` báo sai thông tin thông thường.
+  + BƯỚC 1 (Ngắt mạch sớm): Ngay khi nhận request, việc đầu tiên là kiểm tra sự tồn tại của Key login:lock:<username> trên Redis. 
+    * Nếu Key này có tồn tại, lập tức trả về lỗi HTTP 423 Locked kèm thông báo tài khoản đang bị khóa và thời gian còn lại.
+    * Ở bước này, TUYỆT ĐỐI không được truy vấn SQL Database để tìm User và TUYỆT ĐỐI không được chạy hàm băm mật khẩu passwordEncoder.matches() nhằm tiết kiệm tối đa CPU và kết nối database.
+  + BƯỚC 2: Nếu tài khoản không bị khóa, tiến hành truy vấn DB để tìm User. Nếu không thấy User, trả về 401 Unauthorized ngay.
+  + BƯỚC 3: Tiến hành so khớp mật khẩu bằng passwordEncoder.matches():
+    * Nếu mật khẩu đúng: Xóa hoàn toàn Key login:attempts:<username> và Key login:lock:<username> (nếu có) trên Redis. Tiến hành lưu thông tin vào HttpSession và SecurityContext, trả về 200 OK.
+    * Nếu mật khẩu sai: Tăng số lần sai trong Key login:attempts:<username> lên 1 (sử dụng opsForValue().increment()). Thiết lập thời gian tự hủy (TTL) cho Key này là 24 giờ. Lấy ra số lần sai hiện tại (attempts) và kiểm tra điều kiện khóa:
+      * Nếu attempts >= 3 và (attempts - 3) % 2 == 0:
+        * Tính toán Lock Level: level = (attempts - 3) / 2 + 1.
+        * Tính toán thời gian khóa (phút): lockTimeMinutes = level * 5.
+        * Tạo Key login:lock:<username> trên Redis với giá trị "true" và thời gian tự hủy (TTL) chính là lockTimeMinutes phút.
+        * Trả về lỗi 423 Locked thông báo tài khoản bị khóa trong lockTimeMinutes phút.
+      * Các trường hợp sai khác (ví dụ sai lần 1, 2, 4, 6): Trả về lỗi 401 Unauthorized báo sai thông tin thông thường.
 
 4. Cơ chế Giới hạn Tần suất IP bằng Redis (IP Rate Limiting):
 - Thiết lập một Interceptor hoặc Filter để chặn request đăng nhập theo địa chỉ IP của Client.
-- Sử dụng Redis để quản lý số lượt request của IP thông qua Key: `login:ip:<ip_address>`.
+- Sử dụng Redis để quản lý số lượt request của IP thông qua Key: login:ip:<ip_address>.
 - Logic giới hạn:
-  + Mỗi khi có request, tăng giá trị Key `login:ip:<ip_address>` lên 1. Nếu là request đầu tiên, thiết lập TTL cho Key này là 1 phút.
-  + Nếu giá trị Key vượt quá 5 lượt/phút, trả về mã lỗi HTTP `429 Too Many Requests` ngay lập tức mà không cần truy vấn xuống database SQL hay chạy logic đăng nhập.
+  + Mỗi khi có request, tăng giá trị Key login:ip:<ip_address> lên 1. Nếu là request đầu tiên, thiết lập TTL cho Key này là 1 phút.
+  + Nếu giá trị Key vượt quá 5 lượt/phút, trả về mã lỗi HTTP 429 Too Many Requests ngay lập tức mà không cần truy vấn xuống database SQL hay chạy logic đăng nhập.
 
 5. Định dạng dữ liệu lỗi chuẩn RESTful:
 - Trả về JSON có cấu trúc rõ ràng cho mọi trường hợp lỗi:
-  + `400 Bad Request`: Định dạng dữ liệu gửi lên không hợp lệ.
-  + `401 Unauthorized`: Sai mật khẩu hoặc tài khoản không tồn tại.
-  + `423 Locked`: Tài khoản đang bị khóa tạm thời.
-  + `429 Too Many Requests`: IP bị giới hạn tần suất.
+  + 400 Bad Request: Định dạng dữ liệu gửi lên không hợp lệ.
+  + 401 Unauthorized: Sai mật khẩu hoặc tài khoản không tồn tại.
+  + 423 Locked: Tài khoản đang bị khóa tạm thời.
+  + 429 Too Many Requests: IP bị giới hạn tần suất.
 
 Hãy viết code chi tiết đầy đủ (bao gồm Entity, Service, Controller, Security Configuration cho Session-based và Filter), giải thích logic và viết đầy đủ các dòng imports bằng Tiếng Việt.
-
-
 ```
 
 #### 4.2. Kết quả AI gợi ý
@@ -296,7 +301,7 @@ Tóm tắt nội dung AI đã trả lời hoặc gợi ý.
 Mô tả rõ phần nào được sử dụng lại từ gợi ý của AI.
 
 ```text
-Viết tại đây...
+Sử dụng các JPA Entity (SystemRole, UserAccount, UserProfile), các DTO (RegisterRequest, VerifyOtpRequest, UserResponse) và khung các service (AuthService, EmailService, OtpService) để gửi OTP và đăng ký tài khoản. Tái sử dụng ý tưởng lưu sessionStorage để lưu form nháp.
 ```
 
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
@@ -304,17 +309,17 @@ Viết tại đây...
 Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải tiến gì so với gợi ý ban đầu của AI.
 
 ```text
- Nhận thấy rằng sau khi chạy thử hệ thống mắc các lỗi về việc nạp bean và biên dịch, em đã check tại phần security config và phát hiện ra vấn đề, ở đây thấy được việc AI đang tiêm dữ liệu theo mô hình MVC truyền thống là không có class nào yêu cầu tự động tiêm dữ liệu vào, do đó em đã tiến hành chỉnh sửa lại security config để sử dụng dependency injection phù hợp với spring rest, hiện tại các khai báo bean objectMapper đang được cấu hình thủ công
+ Nhận thấy rằng sau khi chạy thử hệ thống mắc các lỗi về việc nạp bean và biên dịch, em đã check tại phần security config và phát hiện ra vấn đề, ở đây thấy được việc AI đang tiêm dữ liệu theo mô hình MVC truyền thống là không có class nào yêu cầu tự động tiêm dữ liệu vào, do đó em đã tiến hành chỉnh sửa lại security config để sử dụng dependency injection phù hợp với spring rest, hiện tại các khai báo bean objectMapper đang được cấu hình thủ công. Đồng thời, tự viết React Hooks (useEffect) trong RegisterPage.jsx để đồng bộ hóa nháp từ sessionStorage trực tiếp vào setFormData do code can thiệp DOM thô của AI không chạy được trên React.
 ```
 
 #### 4.5. Minh chứng
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit |  |
-| File liên quan |  |
+| Link commit | 578de92 |
+| File liên quan | AuthController.java, OtpServiceImpl.java, RegisterPage.jsx, formPersister.js |
 | Screenshot |  |
-| Kết quả chạy/test |  |
+| Kết quả chạy/test | Đăng ký gửi OTP thành công và xác thực lưu DB thành công, khôi phục nháp sau F5 hoạt động |
 | Link video demo |  |
 | Ghi chú khác |  |
 
@@ -323,7 +328,7 @@ Mô tả sinh viên/nhóm đã thay đổi, kiểm tra, sửa lỗi hoặc cải
 Sinh viên/nhóm học được gì sau lần sử dụng AI này?
 
 ```text
-Viết tại đây...
+Nhóm hiểu rõ hơn về luồng đăng ký 2 bước và tầm quan trọng của việc lưu trữ tạm thời OTP trên Redis. Việc thiết lập React state đồng bộ giúp xử lý nháp mượt mà hơn.
 ```
 
 ---
@@ -434,24 +439,24 @@ Sinh viên đã tiếp nhận và sử dụng những phần sau từ gợi ý c
 #### 4.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
 
 ```text
-Viết tại đây...
+Từ chối cách viết query gộp có NULL check của AI vì PostgreSQL lỗi. Nhóm đã tự cấu trúc lại ProjectRepository thành 4 hàm query chuyên biệt độc lập và xử lý rẽ nhánh logic if-else sạch sẽ ở ProjectServiceImpl.java.
 ```
 
 #### 4.5. Minh chứng
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit |  |
-| File liên quan |  |
+| Link commit | 578de92 |
+| File liên quan | ProjectServiceImpl.java, ProjectRepository.java |
 | Screenshot |  |
-| Kết quả chạy/test |  |
+| Kết quả chạy/test | Phân trang chạy mượt mà, không gặp lỗi cast enum PostgreSQL |
 | Link video demo |  |
 | Ghi chú khác |  |
 
 #### 4.6. Nhận xét cá nhân/nhóm
 
 ```text
-Viết tại đây...
+Hiểu rõ hơn về cơ chế ép kiểu của PostgreSQL đối với các tham số Null và cách sử dụng Pageable của Spring Data JPA.
 ```
 
 ---
@@ -808,12 +813,402 @@ Mô hình AI thiếu ngữ cảnh về Business Logic (Nghiệp vụ). Sự ph�
 
 ---
 
+### Lần sử dụng AI số 8
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 22/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế cơ chế an toàn cho Classroom: Chống IDOR, Token mời AES, Chia nhóm Hybrid và Khóa phân tán Redis |
+| Phần việc liên quan | Backend / Security / Database / Concurrency Control |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 8.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang thiết kế API Classroom. Cần làm API getClassroomById và tính năng sinh link mời học sinh join lớp.
+[AI Lần 1]: Trả về code JPA tìm kiếm thẳng theo ID lớp và trả về Object. Link mời được sinh dưới dạng /join?classroomId=123.
+
+// Suy nghĩ của em: 
+// Cách này quá nguy hiểm. Nếu học sinh tò mò tự thay đổi ID (ví dụ từ 123 thành 124) trên URL thì họ có thể xem trộm thông tin các lớp học khác (lỗi IDOR). Hơn nữa, link mời để dạng plain-text ID thế này thì ai cũng có thể đoán và tự ý chui vào lớp. 
+// Em định dùng JWT để ký và đặt hạn sử dụng cho link mời để tăng tính bảo mật.
+[Em - Lần 2 (Phản biện & Thiết kế bảo mật)]: 
+1. IDOR: Hệ thống đã có JWT để xác thực danh tính (Authentication), nhưng nếu chỉ xác thực mà không ràng buộc quyền truy cập (Authorization) ở Service, một học sinh có JWT hợp lệ vẫn có thể thay đổi số ID ngẫu nhiên trên URL để xem trộm thông tin các lớp học khác. Hãy sửa lại code sao cho chỉ owner (mentor tạo lớp) hoặc học sinh đã join lớp đó (trong danh sách enrolledStudents) mới có quyền xem chi tiết lớp học.
+2. Link mời dạng plain-text ID: Học sinh khác chỉ cần đoán ID là có thể tự ý join vào bất kỳ lớp học nào. Em từng nghĩ đến việc dùng JWT để ký và mã hóa link mời này để có thời hạn hết hạn. Hãy đề xuất giải pháp JWT hoặc phương án mã hóa đối xứng AES-128 an toàn nhẹ hơn để che giấu ID lớp và thời gian sinh link. Hãy viết helper ClassroomTokenUtil cho tôi.
+[AI Lần 2]: Đồng ý check isOwner và isEnrolled để chặn IDOR. Về link mời, AI khuyên dùng AES-128 vì JWT đòi hỏi thư viện cồng kềnh, cấu hình khóa công khai/bí mật phức tạp hơn. AES-128 mã hóa chuỗi "classroomId|timestamp" và encode Base64 Url Safe sẽ gọn nhẹ và bảo mật tuyệt đối cho bài này. AI đã viết ClassroomTokenUtil sử dụng Java Cryptography.
+
+// Suy nghĩ của em:
+// Tiếp theo là tính năng chia nhóm ngẫu nhiên (randomGroups) cho Mentor. 
+// AI thường sẽ sinh thuật toán trộn cả lớp rồi chia từ đầu. Nhưng trong thực tế, các nhóm đang làm việc ổn định thì không được phép phá hỏng. 
+// Em cần một thuật toán lai (Hybrid): chỉ gom học sinh chưa có nhóm, trộn ngẫu nhiên, rồi điền vào các chỗ trống của các nhóm đang có trước cho lấp đầy thành viên (membersPerGroup), sau đó học sinh nào còn thừa mới tạo nhóm mới.
+[Em - Lần 3 (Thiết kế thuật toán chia nhóm Hybrid)]:
+Bây giờ viết chức năng randomGroups. Yêu cầu nghiệp vụ đặc thù: Không được xáo trộn các nhóm đang chạy. Bạn phải lấy danh sách học sinh chưa có nhóm (unassigned), shuffle ngẫu nhiên, sau đó duyệt qua các project đang hoạt động để điền (fill) cho đủ thành viên tối đa (membersPerGroup). Nếu điền hết rồi mà học sinh vẫn thừa thì mới sinh thêm project mới cho họ.
+[AI Lần 3]: Trả về logic chia nhóm dạng lai: Duyệt qua các project, lấy kích thước nhóm hiện tại, so sánh với membersPerGroup, chèn học sinh từ danh sách unassigned vào và save. Sau đó tạo project mới với các học sinh còn lại.
+
+// Suy nghĩ của em:
+// Cuối cùng là vấn đề concurrency ở hàm joinClassroom.
+// Khi link mời được gửi lên nhóm lớp chat, hàng chục học sinh cùng click join cùng lúc. Các luồng xử lý song song sẽ cùng đọc DB, thấy lớp còn chỗ (ví dụ đang có 49 người, max là 50), thế là cả 2 luồng đều cho học sinh join, dẫn đến số lượng vượt quá maxMembers thành 51.
+// Em định dùng từ khóa synchronized của Java nhưng chợt nhớ ra dự án chạy trên server phân tán thì synchronized mất tác dụng.
+[Em - Lần 4 (Concurrency Control bằng Khóa phân tán Redis)]:
+Khi hàng chục học sinh click link join lớp cùng lúc, hệ thống sẽ gặp race condition làm số thành viên vượt quá maxMembers. Nếu em dùng từ khóa `synchronized` của Java để khóa hàm joinClassroom thì có ổn không? Dự án có cấu hình Redis, em có nên dùng khóa phân tán Redis không? Hãy viết code joinClassroom hoàn chỉnh cho tôi.
+[AI Lần 4]: Giải thích synchronized chỉ khóa ở cấp độ đơn JVM, nếu deploy lên nhiều server hoặc cluster thì sẽ bị lọt. Vì dự án đã có Redis, sử dụng Redis Distributed Lock (SETNX / setIfAbsent với TTL 1s) là phương án tối ưu nhất. AI sinh code dùng StringRedisTemplate để lock theo classroomId, kiểm tra giới hạn maxMembers, thêm học sinh vào danh sách, và giải phóng lock ở khối finally.
+```
+
+#### 8.2. Kết quả AI gợi ý
+
+```text
+AI tiếp thu phản biện và đề xuất giải pháp chi tiết:
+1. IDOR: Bổ sung check logic kiểm tra isOwner và isEnrolled tại getClassroomById trước khi trả dữ liệu.
+2. Link mời: So sánh JWT (nặng, tốn tài nguyên ký/giải mã) và đề xuất sử dụng mã hóa đối xứng AES-128 (đệm chuỗi classroomId + timestamp, mã hóa và encode Base64 Url Safe), tối ưu hơn cho link mời nội bộ.
+3. Chia nhóm Hybrid: Thiết kế giải thuật tìm học sinh chưa gán nhóm, shuffle, duyệt qua các active projects để lấp đầy thành viên thiếu, sau đó mới chia số còn dư vào group mới.
+4. Concurrency: Giải thích 'synchronized' của Java chỉ hoạt động trên đơn JVM, không giải quyết được trong môi trường cluster/phân tán. Đề xuất sử dụng Redis Distributed Lock (setIfAbsent) vì hệ thống đã cấu hình sẵn Redis.
+```
+
+#### 8.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng cấu trúc check quyền chống IDOR, tiện ích mã hóa AES-128 tại ClassroomTokenUtil.java, giải thuật chia nhóm ngẫu nhiên dạng lai (Hybrid), và cấu trúc khóa phân tán Redis chống race condition khi join lớp.
+```
+
+#### 8.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Nhóm phát hiện lỗi bất đồng bộ nghiêm trọng: Nếu dùng @Transactional ở mức phương thức kết hợp khóa Redis giải phóng trong khối finally, lock Redis có thể bị nhả trước khi Database transaction thực sự commit (do transaction commit diễn ra sau khi phương thức kết thúc). Điều này khiến luồng khác nhảy vào đọc dữ liệu cũ ở DB, dẫn đến vượt quá giới hạn maxMembers. Nhóm đã tự sửa bằng cách loại bỏ @Transactional trên phương thức joinClassroom, bọc logic JPA bên trong TransactionTemplate thủ công và giải phóng lock Redis ở ngoài transaction boundary.
+```
+
+#### 8.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | ClassroomServiceImpl.java, ClassroomTokenUtil.java, ClassroomServiceConcurrencyTest.java |
+| Kết quả chạy/test | Chạy test concurrency thành công với 10 luồng join đồng thời, giới hạn maxMembers được áp dụng chính xác; link mời AES che giấu ID lớp thành công; chia nhóm ngẫu nhiên bảo lưu được các nhóm cũ. |
+
+#### 8.6. Nhận xét cá nhân/nhóm
+
+```text
+Việc tự đề xuất hướng đi "Hybrid" khi chia nhóm và phản biện lại ý tưởng dùng plain-text/synchronized giúp hệ thống đạt chuẩn thiết kế phần mềm doanh nghiệp thực tế.
+```
+
+---
+
+### Lần sử dụng AI số 9
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 23/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết lập luật biểu quyết (Voting Rules) cho Task Proposal & Sync nhằm tăng tinh thần trách nhiệm nhóm |
+| Phần việc liên quan | Backend / Business Logic / GitHub Integration |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 9.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang làm tính năng phê duyệt Đề xuất Task (approveProposal) và đồng bộ lên GitHub (approveAndSyncTask) cho nhóm. Hãy viết API và logic Spring Boot cơ bản cho phép Leader hoặc người tạo đề xuất bấm duyệt là xong.
+[AI Lần 1]: Sinh ra code kiểm tra xem user hiện tại gửi request có phải là Leader của Project hay là người tạo Proposal/Task không, nếu đúng thì chuyển status sang APPROVED và tiến hành gọi GitHub API để đồng bộ.
+
+// Suy nghĩ của em:
+// Nếu chỉ để Leader hoặc người tạo tự phê duyệt và đồng bộ lên GitHub thì quá lạm quyền và dễ gây sai lệch code. 
+// Dự án của tụi em hướng tới tinh thần làm việc nhóm cao độ, nơi toàn bộ thành viên phải cùng có trách nhiệm với hệ thống và các Task của dự án. Không ai được phép tự ý thay đổi hoặc sync lên GitHub mà không có sự đồng thuận của tập thể.
+// Do đó, em cần thiết lập một luật biểu quyết chặt chẽ: Bất kỳ Đề xuất hay Đồng bộ nào đều phải đạt trên 2/3 thành viên của nhóm tham gia biểu quyết (vote), và số lượng tán thành (upvote) phải lớn hơn phản đối (downvote) thì mới cho phép phê duyệt.
+[Em - Lần 2 (Phản biện & Thiết kế Luật biểu quyết)]:
+Quy trình phê duyệt này không đúng với tinh thần làm việc nhóm của em. Em muốn toàn bộ thành viên phải cùng có trách nhiệm với các quyết định đồng bộ task. 
+Hãy sửa lại code cả ở approveProposal và approveAndSyncTask:
+1. Kiểm tra tổng số thành viên của Project qua projectMemberRepository.
+2. Đếm số lượt vote (tán thành/phản đối) của Proposal/Task.
+3. Bắt buộc số lượng người tham gia vote phải đạt trên 2/3 tổng số thành viên nhóm.
+4. Số lượt tán thành (upvote) phải lớn hơn phản đối (downvote). Nếu không đạt, ném CustomException (HTTP 400) thông báo rõ lỗi.
+[AI Lần 2]: Đồng ý. AI đã sửa lại logic approveProposal và approveAndSyncTask. AI sử dụng các phép so sánh toán học an toàn (như 3 * totalVotes <= 2 * totalMembers để tránh lỗi chia số thực) và ném CustomException với thông báo chi tiết khi chưa đủ 2/3 số thành viên vote hoặc tán thành không chiếm đa số.
+```
+
+#### 9.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất logic tính số thành viên, đếm số lượt vote trong bảng task_proposal_votes và so sánh theo tỷ lệ 2/3 bằng biểu thức số nguyên để tránh sai số dấu phẩy động. Nếu không thỏa mãn, ném BadRequestException.
+```
+
+#### 9.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng biểu thức so sánh toán học 2/3 của AI và cấu trúc ném ngoại lệ khi không đạt điều kiện biểu quyết trong cả 2 API duyệt đề xuất và đồng bộ Github.
+```
+
+#### 9.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Nhóm bổ sung thêm kiểm tra Fast-Fail ở đầu phương thức: Nếu số lượt phản đối chiếm trên 2/3 tổng số thành viên (3 * downvotes > 2 * totalMembers), hệ thống lập tức ném lỗi bắt buộc thảo luận lại mà không cần đợi đếm hết vote, giúp tăng tốc độ phản hồi và tiết kiệm tài nguyên.
+```
+
+#### 9.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | TaskProposalService.java |
+| Kết quả chạy/test | Test trên UI: Khi chưa đủ 2/3 thành viên vote, nút Duyệt báo lỗi 400 Bad Request; khi đạt đủ 2/3 và đa số tán thành, hệ thống tự động đồng bộ sub-task lên GitHub Issues thành công. |
+
+#### 9.6. Nhận xét cá nhân/nhóm
+
+```text
+Ý tưởng biểu quyết 2/3 giúp củng cố tinh thần trách nhiệm chung của tập thể đối với sản phẩm, tránh việc các thành viên ỷ lại hoặc tự ý đưa mã nguồn chưa qua kiểm duyệt lên Github.
+```
+
+---
+
+### Lần sử dụng AI số 10
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 24/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết lập cơ chế gửi yêu cầu phê duyệt Mentor thời gian thực bằng SSE, so sánh giải pháp với WebSockets và thiết lập proxy bảo vệ hình ảnh thẻ giảng viên |
+| Phần việc liên quan | Backend / Security / Real-time Notification / Private Storage |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 10.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang làm tính năng Mentor gửi yêu cầu xác thực tài khoản lên Admin. Khi có yêu cầu mới, Admin cần nhận được thông báo thời gian thực ngay lập tức. Em định dùng WebSockets cho realtime, và lưu ảnh thẻ giảng viên công khai để Admin xem qua URL. Anh thấy có cách nào tối ưu hơn không?
+[AI Lần 1]: 
+1. Real-time: Khuyên dùng Server-Sent Events (SSE) thay vì WebSockets. Vì đây là luồng thông báo một chiều từ Server tới Admin (one-way server push). WebSockets là giao thức hai chiều (bidirectional), đòi hỏi handshake phức tạp, heartbeat giữ kết nối và tốn tài nguyên hơn cho các nghiệp vụ không cần client gửi ngược dữ liệu qua kênh đó. SSE chạy trên HTTP tiêu chuẩn, nhẹ hơn và tự động kết nối lại khi rớt mạng.
+2. Bảo mật hình ảnh: Cảnh báo việc lưu ảnh thẻ giảng viên công khai trên Cloudinary/S3 và phơi bày URL là rò rỉ thông tin cá nhân (lỗi IDOR). AI khuyên lưu ảnh thẻ ở chế độ riêng tư (Private Storage), sau đó tạo một endpoint nội bộ (Proxy Endpoint) ở Backend. Khi Admin gọi URL này, Backend sẽ xác thực quyền ADMIN hoặc chính chủ của Mentor trước khi tải stream ảnh từ Private Storage trả về client.
+
+// Suy nghĩ của em:
+// Giải pháp của AI cực kỳ chuẩn xác và có chiều sâu bảo mật tốt. 
+// Việc dùng SSE sẽ giúp mã nguồn frontend/backend tối giản hơn rất nhiều so với thiết lập cụm STOMP/WebSocket cồng kềnh. 
+// Quan trọng hơn là phần bảo vệ hình ảnh thẻ giảng viên: nếu không có proxy kiểm tra quyền `!ADMIN && !owner`, hacker chỉ cần quét ID là lấy được ảnh nhạy cảm của toàn bộ giảng viên. Em sẽ triển khai theo cấu trúc này.
+[Em - Lần 2 (Thiết kế mã nguồn chi tiết)]:
+Hãy viết code cho MentorVerificationController có:
+1. API submitRequest lưu ảnh ở chế độ private.
+2. API getCardImage nhận ID, kiểm tra nếu userRole không phải ADMIN và userId không trùng với userId của yêu cầu phê duyệt thì trả về 403 Forbidden. Nếu hợp lệ thì stream file private đó về.
+3. API stream /stream trả về SseEmitter để Admin subscribe.
+[AI Lần 2]: Cung cấp code MentorVerificationController hoàn chỉnh sử dụng SseEmitter và FileStorageService (storePrivateFile, downloadPrivateFileStream), tích hợp kiểm tra phân quyền chặt chẽ:
+`if (!"ADMIN".equals(userRole) && !request.getUser().getId().equals(userId)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();`
+```
+
+#### 10.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất sử dụng SseEmitter để truyền các sự kiện yêu cầu phê duyệt thời gian thực, đồng thời khuyến nghị mô hình Proxy Endpoint bảo mật để chặn truy cập trực tiếp vào Cloudinary/S3.
+```
+
+#### 10.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng cấu hình SseEmitter để thiết lập kênh streaming một chiều cho Admin và logic bọc InputStreamResource tải luồng file từ Private Storage.
+```
+
+#### 10.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Tự tối ưu hóa việc quản lý SseEmitter ở Service: sử dụng CopyOnWriteArrayList để lưu trữ danh sách các emitters nhằm tránh ngoại lệ ConcurrentModificationException khi có nhiều luồng kết nối và ngắt kết nối đồng thời. Đồng thời tự dọn dẹp các emitter chết (dead emitters) sau mỗi lượt gửi thông báo thất bại.
+```
+
+#### 10.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | MentorVerificationController.java, MentorVerificationServiceImpl.java |
+| Kết quả chạy/test | Admin nhận thông báo realtime ngay khi Mentor nhấn gửi yêu cầu xác thực. Thử lấy URL ảnh thẻ truy cập từ trình duyệt ẩn danh thì bị lỗi 403 Forbidden; ảnh chỉ hiện khi Admin đã đăng nhập hệ thống. |
+
+#### 10.6. Nhận xét cá nhân/nhóm
+
+```text
+{{ ... }}
+Việc phân tích sự khác nhau giữa SSE và WebSockets giúp chọn lựa công nghệ tối giản, đúng nhu cầu thực tế và tối ưu hiệu suất kết nối của máy chủ.
+```
+
+---
+
+### Lần sử dụng AI số 11
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 25/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế banner động (Classroom Banner) và cơ chế hiển thị thông tin, thông báo quay vòng (Announcement Carousel) |
+| Phần việc liên quan | Frontend / UI-UX / Carousel Component |
+| Mức độ sử dụng | Hỏi sinh code / Tối ưu giải pháp |
+
+#### 11.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang muốn nâng cao trải nghiệm người dùng ở trang chi tiết lớp học. Em muốn thiết kế một banner đầu trang dạng băng chuyền (Carousel) tự động chạy. Slide đầu tiên hiển thị thông tin tổng quan của lớp (Tên môn, học kỳ, mentor, số nhóm, số học sinh) kèm nút chia sẻ link mời nhanh. Các slide sau hiển thị danh sách thông báo từ mentor. Anh gợi ý cho em cấu trúc component này trong React.
+[AI Lần 1]: Đề xuất viết component AnnouncementCarousel nhận dữ liệu lớp và danh sách thông báo. Sử dụng Hook useState và useEffect với setInterval 5s để tự động chuyển slide, cấu trúc giao diện banner dùng CSS flex/grid.
+
+// Suy nghĩ của em:
+// Thiết kế của AI chạy được nhưng các banner đơn sắc rất nhàm chán. Để tạo ấn tượng mạnh cho người dùng, em muốn thiết kế màu nền của banner sinh động hơn. 
+// Em sẽ sử dụng các màu gradient chuyển sắc mềm mại theo sắc thái thông báo (ví dụ màu xanh dương cho slide thông tin lớp, màu tím cho thông báo thường, màu cam cho cảnh báo và màu lục cho thông báo thành công). 
+// Ngoài ra, để tránh spam thông báo quá cũ, em chỉ lọc ra các thông báo được tạo trong vòng 7 ngày gần nhất để đưa lên carousel. Khi Admin/Mentor di chuột vào banner thì tạm dừng chuyển động để người dùng dễ đọc.
+[Em - Lần 2 (Thiết kế chi tiết giao diện chuyển sắc)]:
+Gợi ý của bạn còn hơi đơn giản. Hãy sửa lại code AnnouncementCarousel:
+1. Lọc thông báo từ API: Chỉ lấy các thông báo được tạo trong vòng 7 ngày gần nhất.
+2. Thêm map màu gradient cho từng loại thông báo (success, info, warning, classroom_info) để làm màu nền banner.
+3. Bổ sung sự kiện onMouseEnter/onMouseLeave để dừng tự động chuyển slide khi người dùng rê chuột vào đọc, và onClick để chuyển sang xem chi tiết thông báo đó.
+[AI Lần 2]: Tiếp thu và sinh mã nguồn component AnnouncementCarousel hoàn chỉnh. Bổ sung bộ lọc ngày bằng JS Date, map màu gradient-to-r sặc sỡ (như bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#38bdf8] cho classroom_info), và cài đặt quản lý trạng thái hover để tắt/bật timer.
+```
+
+#### 11.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất giải pháp tạo một component Carousel hoàn chỉnh với bộ đếm thời gian tự động, lọc danh sách tin tức theo ngày và hiển thị màu gradient tương ứng với mức độ quan trọng.
+```
+
+#### 11.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Sử dụng cấu trúc hook useEffect quản lý timer quay vòng slide và logic hiển thị icon, tiêu đề theo từng slide của AI.
+```
+
+#### 11.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Tự thiết kế CSS Keyframes `@keyframes fadeIn` và gán hiệu ứng `animate-[fadeIn_0.5s_ease-out]` để tạo chuyển động lướt chữ mượt mà khi slide chuyển trang. Đồng thời căn chỉnh lại responsive (h-[240px] trên mobile và h-[210px] trên desktop) để giao diện không bị vỡ.
+```
+
+#### 11.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | AnnouncementCarousel.jsx, ClassroomDetailPage.jsx |
+| Kết quả chạy/test | Banner hiển thị rực rỡ ở đầu trang lớp học. Slide đầu tiên hiện đầy đủ sĩ số, số nhóm và nút share link. Tự động chuyển đổi sau mỗi 5 giây, dừng lại khi rê chuột vào. |
+
+#### 11.6. Nhận xét cá nhân/nhóm
+
+```text
+Việc thiết kế banner gradient đa sắc thái giúp giao diện lớp học trở nên hiện đại, chuyên nghiệp và bớt tẻ nhạt hơn so với các khung thông tin dạng bảng thông thường.
+```
+
+---
+
+### Lần sử dụng AI số 12
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 26/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Xây dựng chức năng báo cáo, thống kê và biểu đồ hoạt động trong Classroom Dashboard |
+| Phần việc liên quan | Backend / Database / Charting / Analytics |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 12.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em cần làm API thống kê Dashboard cho lớp học (getClassroomDashboard). Yêu cầu trả về các số liệu: Sĩ số, số task xong, số issue đang mở, số commit. Thêm nữa là biểu đồ xếp hạng đóng góp của các nhóm, tần suất hoạt động trong tuần và bản đồ đóng góp heatmap của project được chọn. Hãy viết code Service Spring Boot tính toán các chỉ số này.
+[AI Lần 1]: Sinh code Service sử dụng các câu lệnh count của JPA Repository để đếm số lượng task, commit theo projectId và trả về một DTO tổng hợp dữ liệu đơn giản.
+
+// Suy nghĩ của em:
+// Kết quả thống kê của AI còn nhiều điểm thiếu sót:
+// 1. Biểu đồ Line Chart hoạt động trong tuần (Monday - Sunday) của các dự án sẽ bị lệch hoặc lỗi hiển thị trên UI nếu một dự án nào đó không có commit nào trong ngày. Cần điền sẵn giá trị mặc định là 0 (fill zeros) cho các ngày không hoạt động.
+// 2. Bản đồ đóng góp Heatmap 365 ngày cần trả về danh sách các ngày kèm theo số lượng commit tương ứng để vẽ biểu đồ mật độ (như contribution grid của GitHub).
+// 3. Lọc bỏ các project đã lưu trữ (ARCHIVED) khỏi danh sách thống kê để thông tin hiển thị chính xác.
+[Em - Lần 2 (Tối ưu hóa hoạt động Dashboard)]:
+Hãy cải tiến code Service:
+1. Thêm vòng lặp điền sẵn giá trị 0 cho các project trống commit trong tuần (`putIfAbsent(projectName, 0)`) để bảo toàn định dạng dữ liệu cho Line Chart.
+2. Viết câu truy vấn lấy danh sách ngày commit trong 365 ngày qua của project được chọn, sau đó gom nhóm (group by date) để tạo Map dữ liệu cho Heatmap đóng góp.
+3. Chỉ lấy các project có status khác ARCHIVED.
+[AI Lần 2]: Đồng ý. AI đã sửa lại phương thức getClassroomDashboard: Bổ sung logic gom nhóm commit bằng HashMap (`activityHeatmap.put(dateStr, count + 1)`), tạo mảng tuần tự từ thứ Hai đến Chủ Nhật và thực hiện `putIfAbsent` để chuẩn hóa Line Chart, đồng thời thêm điều kiện lọc dự án hoạt động.
+```
+
+#### 12.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất logic tập hợp dữ liệu thống kê từ database PostgreSQL, tính toán tần suất đóng góp theo ngày trong tuần và gom nhóm dữ liệu commit 365 ngày định dạng YYYY-MM-DD.
+```
+
+#### 12.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng cấu trúc truy vấn SQL/JPA đếm số lượng commit, task hoàn thành và cấu trúc dữ liệu gom nhóm Heatmap của AI.
+```
+
+#### 12.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Nhóm bổ sung sắp xếp động `teamContributions.sort((a, b) -> b.getCommits() - a.getCommits())` ngay tại Backend để trả về danh sách xếp hạng đóng góp của các nhóm theo thứ tự giảm dần từ cao xuống thấp, giảm tải xử lý sắp xếp cho phía Client.
+```
+
+#### 12.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | ClassroomServiceImpl.java, ClassroomController.java |
+| Kết quả chạy/test | API trả về dữ liệu DTO hoàn chỉnh chỉ trong 120ms. Biểu đồ tần suất tuần hiển thị trơn tru không có lỗi khuyết thiếu dữ liệu, Heatmap vẽ đúng các ô màu đóng góp theo ngày. |
+
+#### 12.6. Nhận xét cá nhân/nhóm
+
+```text
+Việc thiết kế dashboard tổng hợp từ nhiều nguồn dữ liệu (Task, Commit, Member) và chuẩn hóa dữ liệu trống ở backend giúp giao diện biểu đồ hoạt động ổn định và chính xác.
+```
+
+---
+
+### Lần sử dụng AI số 13
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 27/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Tối ưu hóa tải tệp dung lượng lớn (Resource Upload) bằng Chunked Upload và thiết lập ràng buộc định dạng file |
+| Phần việc liên quan | Backend / Files Storage / Cloudinary API |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 13.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang xây dựng chức năng Upload tài liệu học tập (Resources) lên Cloudinary cho lớp học. Khi học sinh hoặc giáo viên tải lên các file tài liệu lớn (như tài liệu hướng dẫn zip, slide pptx lớn), hệ thống thỉnh thoảng bị lỗi Timeout mạng hoặc báo lỗi bộ nhớ JVM OutOfMemory do tải toàn bộ file vào RAM trước khi gửi đi. Đồng thời em muốn giới hạn dung lượng tối đa 10MB và chỉ cho phép một số định dạng file tài liệu phổ biến. Hãy viết code tối ưu cho em.
+[AI Lần 1]: Đề xuất kiểm tra file.getSize() trước khi xử lý, ném ngoại lệ nếu quá 10MB. Về lưu trữ, khuyên dùng upload stream thông thường của Cloudinary.
+
+// Suy nghĩ của em:
+// Gợi ý upload stream thông thường của AI vẫn có thể gây lỗi nghẽn hoặc timeout khi đường truyền mạng của sinh viên không ổn định với các file lớn (tầm 6MB - 10MB). 
+// Phương án tốt nhất để xử lý file lớn là sử dụng cơ chế tải lên phân mảnh (Chunked Upload) của Cloudinary bằng phương thức `uploadLarge`. Bằng cách thiết lập kích thước phân mảnh (ví dụ `chunk_size` = 6MB), file sẽ được chia nhỏ và truyền đi liên tục, tốn ít thời gian nhất và tuyệt đối không bao giờ làm tràn bộ nhớ JVM RAM vì luồng dữ liệu được stream trực tiếp từ Client qua Server tới Cloud Storage.
+// Đồng thời, tài nguyên lớp học không chỉ có dạng "file tải lên" mà giáo viên/học sinh có thể chia sẻ các đường "link liên kết" (dạng ResourceType.LINK như Google Drive, Figma, slide online). Nếu là link liên kết thì không cần upload gì cả, chỉ lưu URL với kích thước 0. Và khi người dùng bấm nút tải xuống tài nguyên lớp học, hệ thống bắt buộc phải kiểm tra quyền, nếu là tài nguyên dạng LINK thì phải chặn tải xuống và quăng BusinessException ("Không thể tải xuống tài liệu dạng link"), yêu cầu họ mở trực tiếp trên trình duyệt.
+[Em - Lần 2 (Tối ưu tải lên phân mảnh, whitelist và xử lý tài nguyên dạng Link)]:
+Hãy cải tiến mã nguồn lưu trữ file:
+1. Thêm bộ lọc Whitelist định dạng file tài liệu ở Service: kiểm tra phần mở rộng file có thuộc danh sách `.doc, .docx, .xls, .xlsx, .pdf, .txt, .jpg, .jpeg, .png, .ppt, .pptx` không.
+2. Tại CloudinaryFileStorageServiceImpl, nếu kích thước file > 6MB, hãy kích hoạt `cloudinary.uploader().uploadLarge` với cấu hình `"chunk_size", 6000000` (6MB) để chia nhỏ gói tin và stream trực tiếp. Dưới 6MB thì dùng `upload` thông thường để tiết kiệm số request mạng.
+3. Tạo publicId không chứa phần mở rộng để tránh Cloudinary chặn các tệp nén (.zip).
+4. Viết thêm phương thức addLinkResource để hỗ trợ tài nguyên liên kết. Trong phương thức downloadResource, kiểm tra nếu resource.getType() != ResourceType.FILE thì ném BusinessException chặn tải xuống.
+[AI Lần 2]: Đồng ý. AI đã sửa lại logic ResourceServiceImpl và CloudinaryFileStorageServiceImpl: Áp dụng phương thức `uploadLarge` khi file > 6MB; sinh mã lọc Whitelist; thêm phương thức addLinkResource; và viết logic kiểm soát tại downloadResource chặn tải xuống đối với tài nguyên dạng Link.
+```
+
+#### 13.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất sử dụng hàm uploadLarge của Cloudinary API kết hợp chunk_size để tối ưu hóa truyền tải file dung lượng lớn và viết logic kiểm tra đuôi file thủ công.
+```
+
+#### 13.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng cấu trúc lệnh uploadLarge, cấu hình chunk_size 6MB và bộ lọc Whitelist các định dạng file tài liệu của AI.
+```
+
+#### 13.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+Tự thiết kế thêm cơ chế tự động nén zip thư mục động khi người dùng tải xuống tài liệu: Server tự động stream file từ Cloudinary, tạo thư mục tạm cùng tên với tài liệu bên trong file `.zip` và đóng gói nén zip trả về stream cho client, giúp cấu trúc file tải về luôn gọn gàng và không bị lỗi giải nén.
+```
+
+#### 13.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | ResourceServiceImpl.java, CloudinaryFileStorageServiceImpl.java |
+| Kết quả chạy/test | Thử tải lên file zip đồ án 9.5MB diễn ra cực nhanh mà không bị nghẽn mạng; RAM máy chủ duy trì ổn định. Tải lên file `.exe` hoặc `.mp4` lập tức bị chặn báo lỗi định dạng không hỗ trợ. Tải xuống file được đóng gói tự động thành file zip chứa thư mục tài liệu chỉn chu. |
+
+#### 13.6. Nhận xét cá nhân/nhóm
+
+```text
+Việc phân chia ranh giới xử lý file theo dung lượng (dưới 6MB upload thường, trên 6MB upload phân mảnh) giúp cân bằng giữa tốc độ truyền mạng và độ an toàn bộ nhớ của server.
+```
+
+---
+
 ## 5. Bảng tổng hợp mức độ sử dụng AI
 
 Đánh dấu mức độ AI hỗ trợ ở từng hạng mục.
 
 | Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
-|---|:---:|:---:|:---:|:---:|---|
 | Phân tích yêu cầu |  |  |  |  |  |
 | Viết user story/use case |  |  |  |  |  |
 | Thiết kế database |  |  |  |  |  |

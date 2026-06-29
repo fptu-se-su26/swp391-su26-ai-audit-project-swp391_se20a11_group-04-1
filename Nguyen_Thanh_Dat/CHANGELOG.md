@@ -19,17 +19,17 @@ Nguyên tắc ghi changelog:
 
 | Thông tin | Nội dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Repository URL |  |
-| Ngày bắt đầu |  |
-| Ngày hoàn thành |  |
+| Môn học | Xây dựng dự án phần mềm |
+| Mã môn học | SWP391 |
+| Lớp | SE20A11 |
+| Học kỳ | Học kỳ 5 (SU26) |
+| Tên bài tập / Project | DevTrack |
+| Tên sinh viên / Nhóm | Nguyễn Thành Đạt / Nhóm 4 |
+| MSSV / Danh sách MSSV | DE190465 / Phạm Duy Hưng (DE190330), Nguyễn Thành Đạt (DE190465), Nguyễn Lê Trung Tín (DE190364), Trần Công Tú (DE190313), Nguyễn Minh Hiếu (DE200322) |
+| Giảng viên hướng dẫn | Quang Lê |
+| Repository URL | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1 |
+| Ngày bắt đầu | 15/05/2026 |
+| Ngày hoàn thành | 30/06/2026 |
 
 ---
 
@@ -241,6 +241,15 @@ DD/MM/YYYY
 | 3 | Triển khai cơ chế Reset Trạng Thái Bảo Mật & Cô lập Hacker | Nguyễn Thành Đạt | AuthServiceImpl.java | Hoàn thành |
 | 4 | Tích hợp và bảo mật Token GitHub (OAuth 2.0) bằng mã hóa AES | Nguyễn Thành Đạt | GithubIntegrationService.java | Hoàn thành |
 | 5 | Triển khai đồng bộ GitHub Issues Webhook và ràng buộc duyệt Task | Nguyễn Thành Đạt | TaskServiceImpl.java, GithubWebhookController.java | Hoàn thành |
+| 6 | Triển khai Đăng ký tài khoản 2 bước bằng REST API (gửi OTP qua Email và dùng Redis làm bộ nhớ đệm) | Nguyễn Thành Đạt | AuthServiceImpl.java, OtpServiceImpl.java | Hoàn thành |
+| 7 | Triển khai cơ chế Lưu trữ trạng thái form nhập liệu (Form State Persistence) bằng sessionStorage | Nguyễn Thành Đạt | RegisterPage.jsx, formPersister.js | Hoàn thành |
+| 8 | Triển khai Phân trang danh sách dự án (Pagination using Pageable, Composite Index, BatchSize) | Nguyễn Thành Đạt | ProjectServiceImpl.java, ProjectRepository.java | Hoàn thành |
+| 9 | Triển khai chức năng Classroom (Dashboard, Detail, Random Groups & Redis Concurrency Lock) | Nguyễn Thành Đạt | ClassroomServiceImpl.java, ClassroomDetailPage.jsx | Hoàn thành |
+| 10 | Triển khai Luật biểu quyết 2/3 (Voting Rules) và đồng bộ quyền hạn dự án | Nguyễn Thành Đạt | TaskProposalService.java | Hoàn thành |
+| 11 | Triển khai xác thực tài khoản Mentor thời gian thực bằng SSE và Proxy ảnh bảo mật | Nguyễn Thành Đạt | MentorVerificationController.java, MentorVerificationServiceImpl.java | Hoàn thành |
+| 12 | Thiết kế Băng chuyền thông báo (Announcement Carousel) kết hợp thông tin lớp học | Nguyễn Thành Đạt | AnnouncementCarousel.jsx, ClassroomDetailPage.jsx | Hoàn thành |
+| 13 | Triển khai Classroom Dashboard thống kê Line Chart tần suất hoạt động và Heatmap 365 ngày | Nguyễn Thành Đạt | ClassroomServiceImpl.java, ClassroomController.java | Hoàn thành |
+| 14 | Tối ưu hóa upload tài liệu học tập (Resources) dung lượng lớn bằng Cloudinary Chunked Upload và bộ lọc định dạng | Nguyễn Thành Đạt | ResourceServiceImpl.java, CloudinaryFileStorageServiceImpl.java | Hoàn thành |
 
 ## AI có hỗ trợ không?
 

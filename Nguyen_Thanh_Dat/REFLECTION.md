@@ -4,15 +4,15 @@
 
 | Thông tin | Nội dung |
 |---|---|
-| Môn học |  |
-| Mã môn học |  |
-| Lớp |  |
-| Học kỳ |  |
-| Tên bài tập / Project |  |
-| Tên sinh viên / Nhóm |  |
-| MSSV / Danh sách MSSV |  |
-| Giảng viên hướng dẫn |  |
-| Ngày hoàn thành reflection |  |
+| Môn học | Xây dựng dự án phần mềm |
+| Mã môn học | SWP391 |
+| Lớp | SE20A11 |
+| Học kỳ | Học kỳ 5 (SU26) |
+| Tên bài tập / Project | DevTrack |
+| Tên sinh viên / Nhóm | Nguyễn Thành Đạt / Nhóm 4 |
+| MSSV / Danh sách MSSV | DE190465 / Phạm Duy Hưng (DE190330), Nguyễn Thành Đạt (DE190465), Nguyễn Lê Trung Tín (DE190364), Trần Công Tú (DE190313), Nguyễn Minh Hiếu (DE200322) |
+| Giảng viên hướng dẫn | Quang Lê |
+| Ngày hoàn thành reflection | 30/06/2026 |
 
 ---
 
@@ -230,6 +230,66 @@ Ghi lại ít nhất một ví dụ nếu có.
 | Em/nhóm đã sửa như thế nào? | Cung cấp lại định nghĩa quy trình duyệt cho AI và yêu cầu viết một State Machine (máy trạng thái) ràng buộc HTTP 400 nếu vượt rào. |
 | Bài học rút ra | Các mô hình ngôn ngữ lớn (LLM) thường bỏ qua Business Logic đặc thù và chỉ làm theo chuẩn RESTful CRUD. Dev phải đóng vai trò là Domain Expert để thiết lập các rào cản nghiệp vụ (Guardrails) ngay tại Controller/Service. |
 
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất logic tham gia lớp học (joinClassroom) mà không có cơ chế concurrency control, dẫn đến nguy cơ đua dữ liệu (race condition) khi nhiều học sinh join lớp cùng lúc. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Nếu nhiều học sinh join cùng lúc, số lượng học sinh thực tế được lưu vào cơ sở dữ liệu có thể vượt quá giới hạn `maxMembers` của lớp học (do các luồng đọc đồng thời đều thấy lớp chưa đầy và cho phép join). |
+| Em/nhóm phát hiện bằng cách nào? | Viết test case concurrency giả lập 10 học sinh join đồng thời vào lớp học có giới hạn 5 người. |
+| Em/nhóm đã sửa như thế nào? | Yêu cầu AI tích hợp Redis-based Distributed Lock để khóa tài nguyên lớp học theo ID trong thời gian ngắn (1s). Tự chỉnh sửa bằng cách chuyển sang bọc logic trong TransactionTemplate để nhả lock ở ngoài transaction boundary, tránh nhả lock trước khi DB commit. |
+| Bài học rút ra | Khi làm việc với các giới hạn số lượng (capacity limits) trong môi trường phân tán hoặc đa luồng, việc sử dụng các cơ chế đồng bộ hoặc Distributed Lock là bắt buộc để đảm bảo tính toàn vẹn dữ liệu. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất logic phê duyệt Đề xuất và Đồng bộ Task lên GitHub chỉ dựa vào quyền của Leader hoặc người tạo (Creator) phê duyệt đơn phương. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Vi phạm nghiêm trọng triết lý làm việc nhóm của em: toàn bộ thành viên phải cùng có trách nhiệm với hệ thống và các thay đổi được sync lên GitHub. Không cho phép một cá nhân tự ý đưa các thay đổi chưa qua thảo luận và thống nhất lên kho lưu trữ chung. |
+| Em/nhóm phát hiện bằng cách nào? | Đánh giá lại quy trình làm việc nhóm (Team Workflow) và thảo luận trong nhóm về tính dân chủ, minh bạch khi quản lý task. |
+| Em/nhóm đã sửa như thế nào? | Phản biện AI và yêu cầu chuyển đổi sang mô hình biểu quyết dân chủ: Bắt buộc tối thiểu 2/3 số thành viên trong nhóm phải tham gia vote và số lượng upvote phải lớn hơn downvote thì mới cho phép phê duyệt và đồng bộ. |
+| Bài học rút ra | Khi thiết kế các hệ thống làm việc cộng tác (Collaboration Tools), logic nghiệp vụ cần phản ánh đúng văn hóa làm việc và tinh thần chia sẻ trách nhiệm của tổ chức, tránh thiết kế phân quyền độc đoán. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất dùng giao thức WebSockets hai chiều để truyền thông báo realtime phê duyệt tới Admin, đồng thời khuyên lưu ảnh thẻ giảng viên công khai trên Cloudinary/S3 và trả URL trực tiếp cho Client hiển thị. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | 1. WebSockets là dư thừa (over-engineered) cho kịch bản thông báo một chiều từ Server -> Admin, gây lãng phí tài nguyên bắt tay (handshake) và quản lý ping-pong. <br/> 2. Việc phơi bày URL ảnh thẻ giảng viên công khai tạo ra lỗ hổng bảo mật nghiêm trọng (IDOR/Direct access), cho phép bất kỳ ai đoán được URL đều xem trộm được thông tin cá nhân nhạy cảm của giảng viên. |
+| Em/nhóm phát hiện bằng cách nào? | Đánh giá kiến trúc truyền tin realtime (chỉ cần server-push một chiều) và thực hiện kiểm tra an toàn thông tin cá nhân trong dự án. |
+| Em/nhóm đã sửa như thế nào? | Phản biện lại AI, chuyển hướng sang dùng Server-Sent Events (SSE) để kết nối nhẹ hơn. Đồng thời lưu trữ ảnh ở thư mục Private và triển khai một Proxy Endpoint ở Backend kiểm soát quyền `if (!"ADMIN".equals(userRole) && !request.getUser().getId().equals(userId))` trước khi truyền stream ảnh nhạy cảm về. |
+| Bài học rút ra | Lựa chọn giải pháp công nghệ đơn giản, đúng nhu cầu (như SSE thay vì WebSocket cho thông báo một chiều) giúp hệ thống tối giản. Đồng thời dữ liệu nhạy cảm của người dùng (ảnh thẻ) bắt buộc phải được bảo vệ qua lớp Proxy Authorization thay vì lưu trữ công khai. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất một component Carousel tĩnh hiển thị thông báo với màu sắc banner đơn điệu và tải toàn bộ thông báo cũ từ trước đến nay mà không lọc theo thời gian. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Giao diện tĩnh đơn sắc làm người dùng cảm thấy đơn điệu, nhàm chán. Đồng thời, hiển thị các thông báo quá cũ (vài tháng trước) gây loãng thông tin và spam trải nghiệm học tập của học sinh. |
+| Em/nhóm phát hiện bằng cách nào? | Đánh giá trực quan về giao diện người dùng (UI-UX Review) và phản hồi từ các thành viên nhóm về việc bộ lọc thông tin bị loãng. |
+| Em/nhóm đã sửa như thế nào? | Thiết lập map chuyển sắc màu gradient đa dạng theo từng mức độ quan trọng (đỏ cho khẩn cấp/cảnh báo, lục cho thành công, xanh dương cho lớp học). Lọc thông tin trên carousel chỉ giữ lại thông báo trong vòng 7 ngày gần nhất. |
+| Bài học rút ra | Giao diện đẹp và trải nghiệm người dùng tinh tế (UI/UX) đóng vai trò quyết định sự hài lòng của sản phẩm. Việc hiển thị thông tin có bộ lọc thời gian giúp tăng độ tập trung cho người học. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất logic tính toán Dashboard thống kê các chỉ số sĩ số, số task xong, số commit bằng cách count JPA cơ bản, nhưng bỏ qua Line Chart bị lệch/vỡ định dạng khi một project có ngày không có commit nào. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | Nếu một dự án có ngày không hoạt động, Line Chart biểu đồ tuần sẽ bị khuyết thiếu điểm dữ liệu (gây crash hoặc hiển thị lệch cột). Đồng thời, heatmap 365 ngày của project không có cơ chế gom nhóm/group-by theo ngày ở SQL làm frontend không thể vẽ được bản đồ đóng góp. |
+| Em/nhóm phát hiện bằng cách nào? | Chạy thử Dashboard với dữ liệu thực tế và kiểm tra console log phía frontend phát hiện lỗi khuyết thiếu dữ liệu Line Chart. |
+| Em/nhóm đã sửa như thế nào? | Viết thuật toán bổ sung giá trị mặc định 0 (`putIfAbsent`) cho các project trống commit trong tuần ở Backend. Viết câu truy vấn map gom nhóm theo ngày (`findCommitDatesByProject`) để cung cấp Map dữ liệu hoàn chỉnh cho biểu đồ Heatmap. |
+| Bài học rút ra | Dữ liệu thô từ database luôn cần được chuẩn hóa (clean và fill zeros) trước khi cung cấp cho các thư viện biểu đồ phía Client để tránh lỗi hiển thị. |
+
+<br/>
+
+| Nội dung | Mô tả |
+|---|---|
+| AI đã gợi ý gì? | AI đề xuất sử dụng stream upload thông thường của Cloudinary để tải tài liệu lên (tải toàn bộ file vào RAM máy chủ trước khi đẩy lên Cloud Storage) và bỏ qua tài nguyên dạng đường dẫn liên kết (Link). |
+| Vì sao gợi ý đó sai/chưa phù hợp? | 1. Khi tải lên các file tài liệu lớn (từ 6MB đến 10MB) với mạng không ổn định, việc buffer toàn bộ file vào RAM sẽ gây lỗi OutOfMemory (JVM) và dễ timeout. <br/> 2. Giáo viên/học sinh có nhu cầu chia sẻ link online (như Google Drive, Figma) mà không cần upload file vật lý, nhưng gợi ý của AI thiếu loại hình tài nguyên này. Đồng thời, nếu là tài nguyên dạng Link thì không thể tải nén ZIP, hệ thống phải chặn lại để tránh lỗi zip rác. |
+| Em/nhóm phát hiện bằng cách nào? | Thực hiện kiểm thử hiệu năng tải lên (Load Testing) với file 9MB và rà soát nghiệp vụ chia sẻ link tài liệu học tập của môn học. |
+| Em/nhóm đã sửa như thế nào? | Phản biện AI để dùng Cloudinary Chunked Upload (`uploadLarge` chunk size 6MB), stream trực tiếp từ file input. Đồng thời viết thêm `addLinkResource` (lưu URL link liên kết) và tại API download, thêm ràng buộc `if (resource.getType() != ResourceType.FILE) throw new BusinessException("Không thể tải xuống tài liệu dạng link");` để chặn zip tài nguyên link. |
+| Bài học rút ra | Đối với các tác vụ xử lý file dung lượng lớn, việc áp dụng cơ chế stream và chunked upload là bắt buộc để đảm bảo sự ổn định của hệ thống máy chủ và tránh nghẽn băng thông. |
+
 Nếu không có trường hợp AI gợi ý sai, hãy ghi rõ:
 
 ---
@@ -238,9 +298,15 @@ Nếu không có trường hợp AI gợi ý sai, hãy ghi rõ:
 
 Mô tả rõ phần nào là đóng góp chính của sinh viên/nhóm, không phải chỉ copy từ AI.
 
-```text
-Viết tại đây...
-```
+- Tự phân tích yêu cầu nghiệp vụ lớp học (Classroom) và cấu trúc phân rã database (academic_contexts, classroom_members).
+- Phản biện sắc bén với các gợi ý sơ sài của AI: từ chối sinh link plain-text để tránh IDOR; so sánh tính khả thi của JWT với AES-128 và quyết định chọn AES vì lý do tối ưu hiệu suất và gọn nhẹ; đề xuất giải thuật chia nhóm dạng Hybrid để giữ lại tiến trình làm việc của các nhóm cũ.
+- Tự nghiên cứu và giải quyết lỗi bất đồng bộ của Distributed Lock trong môi trường transaction (nhả lock ở TransactionTemplate ngoài cùng thay vì dùng @Transactional tại method), đảm bảo an toàn tuyệt đối khi nhiều luồng truy cập đồng thời.
+- Thiết kế hệ thống kiểm thử tự động ClassroomServiceConcurrencyTest để kiểm chứng an toàn concurrency.
+- Lên ý tưởng và trực tiếp phản biện AI để áp dụng luật biểu quyết 2/3 cho Task Proposal & Sync, xuất phát từ tư duy toàn bộ thành viên nhóm phải cùng chia sẻ trách nhiệm quản trị hệ thống và chất lượng code chung, ngăn chặn hành vi lạm quyền duyệt đơn phương.
+- Phân tích kiến trúc truyền tin realtime để lựa chọn Server-Sent Events (SSE) giúp tối ưu tài nguyên mạng thay vì giải pháp WebSockets cồng kềnh; đồng thời đề xuất và tự xây dựng lớp bảo mật Proxy Endpoint tại Controller để chặn IDOR đối với ảnh thẻ giảng viên riêng tư.
+- Thiết kế giao diện và logic lọc tin của AnnouncementCarousel kết hợp màu nền gradient chuyển sắc sinh động, tự động dừng lướt tin khi di chuột và chỉ lấy thông báo trong 7 ngày gần nhất để giữ độ tập trung thông tin.
+- Chuẩn hóa dữ liệu khuyết thiếu (fill zeros) cho biểu đồ Line Chart hoạt động trong tuần ở Backend và tự phát triển cơ chế gom nhóm dữ liệu đóng góp 365 ngày vẽ đồ thị Heatmap đóng góp cho từng dự án.
+- Nghiên cứu cơ chế truyền tải file tối ưu, áp dụng Cloudinary Chunked Upload (`uploadLarge` với chunk size 6MB) kết hợp bộ lọc Whitelist định dạng và giới hạn dung lượng 10MB để bảo toàn bộ nhớ RAM máy chủ; tự phát triển cơ chế đóng gói zip động kèm thư mục tạm cho client khi tải tài nguyên về.
 
 Gợi ý:
 
@@ -260,13 +326,13 @@ Gợi ý:
 
 | Nội dung | Trước khi dùng AI | Sau khi dùng AI | Cải thiện đạt được |
 |---|---|---|---|
-| Hiểu yêu cầu |  |  |  |
-| Phân tích bài toán |  |  |  |
-| Thiết kế giải pháp |  |  |  |
-| Code/Implementation |  |  |  |
-| Debug/Testing |  |  |  |
-| Báo cáo/Thuyết trình |  |  |  |
-| Làm việc nhóm |  |  |  |
+| Hiểu yêu cầu | Phải đọc tài liệu nghiệp vụ nhiều lần để hình dung luồng đi của tính năng. | Nắm bắt nhanh các yêu cầu chung, được AI tóm tắt sơ đồ Use Case. | Tiết kiệm 40% thời gian phân tích nghiệp vụ ban đầu. |
+| Phân tích bài toán | Khó lường trước các vấn đề bảo mật phức tạp như mạng NAT, IDOR hoặc race condition. | Được AI cảnh báo các nguy cơ tấn công Brute-force, IDOR và rủi ro rò rỉ token. | Xây dựng được tư duy phòng thủ (Defensive Design) cho ứng dụng. |
+| Thiết kế giải pháp | Thường chọn giải pháp đơn giản nhất (như synchronized, Plain-text ID, IP Blocking). | Đề xuất giải pháp tối ưu hơn (Redis Lock, AES-128 Token, Account-based lock). | Nâng tầm kiến trúc hệ thống đạt chuẩn môi trường phân tán/Production. |
+| Code/Implementation | Mất nhiều thời gian viết code boilerplate (DTOs, Mappers, Configurations). | AI sinh code mẫu nhanh chóng, chỉ cần tập trung viết logic nghiệp vụ chính. | Tốc độ hoàn thành tính năng nhanh gấp 2 lần. |
+| Debug/Testing | Chủ yếu test thủ công bằng giao diện hoặc Postman thông thường. | Được AI hướng dẫn viết các Test Case concurrency và unit test chi tiết. | Phát hiện sớm các lỗi race condition tiềm ẩn dưới DB. |
+| Báo cáo/Thuyết trình | Tự soạn thảo báo cáo, slide theo mẫu thông thường. | AI hỗ trợ tóm tắt ý chính và đề xuất cấu trúc slide logic, rõ ràng hơn. | Báo cáo có chiều sâu kỹ thuật và tính chuyên nghiệp cao hơn. |
+| Làm việc nhóm | Chia việc thủ công qua chat, khó theo dõi tiến độ chi tiết. | Sử dụng AI để lập kế hoạch công việc và phân chia module rõ ràng. | Quản lý tiến độ tốt hơn, giảm thiểu xung đột code khi merge. |
 
 ---
 
