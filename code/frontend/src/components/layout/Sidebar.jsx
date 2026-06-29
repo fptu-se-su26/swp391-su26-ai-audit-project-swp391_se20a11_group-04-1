@@ -232,7 +232,7 @@ export default function Sidebar() {
     { key: 'github-config', icon: 'hub',        label: 'GitHub Config', path: `/projects/${pid}/github-config` },
     { key: 'task-reviews',  icon: 'fact_check', label: 'Task Review',   path: `/projects/${pid}/task-reviews` },
     { key: 'recovery-plans',icon: 'shield',     label: 'Recovery Plans',path: `/projects/${pid}/recovery-plans`, badge: pendingRecoveryCount },
-    { key: 'architecture',  icon: 'schema',     label: 'Kiến trúc hệ thống', path: `/projects/${pid}/architecture` },
+    { key: 'architecture',  icon: 'schema',     label: 'System Architecture', path: `/projects/${pid}/architecture` },
   ]
   const buildTeamItems = (pid, role) => {
     const base = [

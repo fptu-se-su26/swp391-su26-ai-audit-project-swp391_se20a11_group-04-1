@@ -18,10 +18,10 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
 
         {/* Typography */}
         <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
-          Phân Tích Kiến Trúc Hệ Thống
+          System Architecture Analysis
         </h2>
         <p className="text-slate-500 dark:text-slate-400 max-w-lg mb-8 text-sm leading-relaxed">
-          Tự động quyét toàn bộ cấu trúc mã nguồn của bạn để tạo ra một bản đồ tương tác và liên kết trực quan giữa các thành phần.
+          Automatically scan your repository to generate an interactive map of system services and infrastructure dependencies.
         </p>
 
         {/* Feature List */}
@@ -31,10 +31,10 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
               <ShieldCheck className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
             </div>
             <h4 className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-1">
-              Phát Hiện Dịch Vụ
+              Service Discovery
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Nhận diện tự động Frontend, Backend, Databases, Queue... qua docker-compose.
+              Automatically detect frontend, backend, databases, and message queues from docker-compose.
             </p>
           </div>
           
@@ -43,10 +43,10 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
               <FolderTree className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <h4 className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-1">
-              Tổ Chức File & Thư Mục
+              Infrastructure Hierarchy
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Biểu diễn cấu trúc dưới dạng các folder lớn thu gọn, mở rộng linh hoạt.
+              Represent services grouped inside parent instances and clusters with collapsible zones.
             </p>
           </div>
 
@@ -55,10 +55,10 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
               <Activity className="w-4.5 h-4.5 text-purple-600 dark:text-purple-400" />
             </div>
             <h4 className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-1">
-              Bản Đồ Liên Kết
+              Dependency Mapping
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Reroute liên kết thông minh dựa trên import và annotation.
+              Visualize communication links based on API calls, message queues, and dependency configurations.
             </p>
           </div>
         </div>
@@ -71,7 +71,7 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
             onSyncSuccess={onSyncSuccess}
           />
           <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
-            ⏱ Thời gian chạy ước tính khoảng 1-3 phút tùy thuộc vào kích thước repo của bạn.
+            ⏱ Scanning takes approximately 1-2 minutes depending on repository size.
           </p>
         </div>
       </div>

@@ -337,11 +337,15 @@ export const useGraphLayout = () => {
 
         if (isGroup) {
           updatedNode.style = { width: layout.width, height: layout.height };
+          updatedNode.width = layout.width;
+          updatedNode.height = layout.height;
           updatedNode.data  = { ...node.data, isCollapsed, childCount, onToggle: toggleZoneCollapse };
           if (layout.parentId) updatedNode.extent = 'parent';
           groupNodes.push(updatedNode);
         } else {
           updatedNode.extent = 'parent';
+          updatedNode.width = 160;
+          updatedNode.height = 52;
           serviceNodes.push(updatedNode);
         }
       });
