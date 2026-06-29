@@ -8,7 +8,7 @@ import { sprintReportService } from '@features/sprint-report/services/sprintRepo
 import SprintReportHeader from '@features/sprint-report/components/SprintReportHeader'
 import SprintSelector from '@features/sprint-report/components/SprintSelector'
 import SprintSummary from '@features/sprint-report/components/SprintSummary'
-import SlaRiskTable from '@features/sprint-report/components/SlaRiskTable'
+import SprintHealthModal from '@features/sprint-report/components/SprintHealthModal'
 import SprintReportResult from '@features/sprint-report/components/SprintReportResult'
 import {
   canGenerateSprintReport,
@@ -38,12 +38,29 @@ export default function SprintReportPage() {
   const [selectedReportId, setSelectedReportId] = useState(null)
   const [sprintsLoading, setSprintsLoading] = useState(false)
   const [tasksLoading, setTasksLoading] = useState(false)
+  const [sprintHealthTasks, setSprintHealthTasks] = useState([])
+  const [sprintHealthLoading, setSprintHealthLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportDetailLoading, setReportDetailLoading] = useState(false)
+  const [completionSummary, setCompletionSummary] = useState(null)
+  const [completionSummaryLoading, setCompletionSummaryLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isTestingDigest, setIsTestingDigest] = useState(false)
   const exportRef = useRef(null)
+  const [isSprintHealthOpen, setIsSprintHealthOpen] = useState(false)
   const canGenerate = canGenerateSprintReport(activeProject?.role)
+
+  useEffect(() => {
+    if (!activeProject?.id || !selectedSprintId) {
+      setSprintHealthTasks([])
+      return
+    }
+    setSprintHealthLoading(true)
+    sprintReportService.getSprintHealth(activeProject.id, selectedSprintId)
+      .then(data => setSprintHealthTasks(Array.isArray(data) ? data : []))
+      .catch(() => setSprintHealthTasks([]))
+      .finally(() => setSprintHealthLoading(false))
+  }, [activeProject?.id, selectedSprintId])
 
   const loadSprints = useCallback(async () => {
     if (!activeProject?.id) return
@@ -94,6 +111,25 @@ export default function SprintReportPage() {
   useEffect(() => {
     loadReports()
   }, [loadReports])
+
+  useEffect(() => {
+    const loadCompletionSummary = async () => {
+      if (!activeProject?.id || !selectedSprintId) {
+        setCompletionSummary(null)
+        return
+      }
+      setCompletionSummaryLoading(true)
+      try {
+        const data = await sprintReportService.getCompletionSummary(activeProject.id, selectedSprintId)
+        setCompletionSummary(data || null)
+      } catch (error) {
+        setCompletionSummary(null)
+      } finally {
+        setCompletionSummaryLoading(false)
+      }
+    }
+    loadCompletionSummary()
+  }, [activeProject?.id, selectedSprintId])
 
   useEffect(() => {
     const focusRequestedReport = async () => {
@@ -336,14 +372,13 @@ export default function SprintReportPage() {
           onExportPdf={handleExportPdf}
           isExporting={isExporting}
           canExport={!!selectedSprintId && (!!selectedReportId || sprintTasks.length > 0)}
-          onTestDigest={handleTestDigest}
-          isTestingDigest={isTestingDigest}
+          onOpenSprintHealth={() => setIsSprintHealthOpen(true)}
         />
 
-        <div className="space-y-5 rounded-lg bg-background">
+        <div className="space-y-6">
           {!canGenerate && (
-            <div className="rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
-              Your current project role is <span className="font-bold text-on-surface">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
+            <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
+              Your current project role is <span className="font-semibold text-slate-900">{activeProject?.role || 'Unknown'}</span>. Only Leader/Mentor can generate reports (automatically saved when exporting PDF).
             </div>
           )}
 
@@ -373,10 +408,13 @@ export default function SprintReportPage() {
                   distributionData={distributionData}
                 />
 
-                <SlaRiskTable
+                <SprintHealthModal
+                  isOpen={isSprintHealthOpen}
+                  onClose={() => setIsSprintHealthOpen(false)}
+                  tasks={sprintHealthTasks}
+                  loading={sprintHealthLoading}
                   activeProject={activeProject}
-                  riskTasks={riskTasks}
-                  reportResultRef={reportResultRef}
+                  activeSprintId={selectedSprint?.id}
                   onOpenTask={(projectId, taskId) => navigate(`/projects/${projectId}/tasks/${taskId}`)}
                 />
 
@@ -385,10 +423,42 @@ export default function SprintReportPage() {
                   selectedReport={selectedReport}
                   selectedReportId={selectedReportId}
                   sprintReports={sprintReports}
-                  reportLoading={reportLoading || reportDetailLoading}
+                  reportLoading={selectedSprint?.status === 'COMPLETED' ? completionSummaryLoading : (reportLoading || reportDetailLoading || completionSummaryLoading)}
                   members={members}
                   liveMetrics={liveReportMetrics}
+                  completionSummary={completionSummary}
+                  activeProject={activeProject}
+                  onCompletionSummaryRefresh={() => {
+                    if (!activeProject?.id || !selectedSprintId) return
+                    setCompletionSummaryLoading(true)
+                    sprintReportService.getCompletionSummary(activeProject.id, selectedSprintId)
+                      .then(data => setCompletionSummary(data || null))
+                      .catch(() => setCompletionSummary(null))
+                      .finally(() => setCompletionSummaryLoading(false))
+                  }}
                 />
+
+                {/* Call To Action for Sprint Health */}
+                {sprintHealthTasks.length > 0 && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+                    <div>
+                      <h3 className="text-lg font-bold text-rose-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-rose-600">warning</span>
+                        Action Required: Risk Tasks Detected
+                      </h3>
+                      <p className="text-sm text-rose-700 mt-1">
+                        There are {sprintHealthTasks.length} tasks currently flagged for SLA risks or penalties. Open Sprint Health to manage and ping members.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsSprintHealthOpen(true)}
+                      className="shrink-0 flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-rose-700 shadow-sm transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">health_and_safety</span>
+                      Open Sprint Health
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </>

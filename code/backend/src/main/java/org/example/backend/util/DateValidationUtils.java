@@ -16,6 +16,15 @@ public class DateValidationUtils {
     }
 
     /**
+     * Validates that a date is not in the past.
+     */
+    public static void validateNotPastDate(LocalDate date, String entityName, String fieldName) {
+        if (date != null && date.isBefore(LocalDate.now())) {
+            throw new BadRequestException(entityName + " " + fieldName + " cannot be in the past.");
+        }
+    }
+
+    /**
      * Validates that the child's date range is within the parent's date range.
      */
     public static void validateBounds(LocalDate childStart, LocalDate childEnd,

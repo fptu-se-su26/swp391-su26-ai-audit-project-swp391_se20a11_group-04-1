@@ -63,4 +63,13 @@ public interface SprintRepository extends JpaRepository<Sprint, Long> {
     /** Tìm sprint ACTIVE của project */
     Optional<Sprint> findFirstByProjectIdAndStatus(Long projectId,
                                                     org.example.backend.entity.SprintStatus status);
+
+    @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.endDate = :date")
+    List<Sprint> findSprintsEndingOn(@Param("date") LocalDate date);
+
+    @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.status = :status AND s.endDate < :date")
+    List<Sprint> findActiveSprintsEndedBefore(@Param("status") SprintStatus status, @Param("date") LocalDate date);
+
+    @Query("SELECT s FROM Sprint s JOIN FETCH s.project WHERE s.status = 'COMPLETED' AND NOT EXISTS (SELECT sc FROM SprintCompletionSummary sc WHERE sc.sprint.id = s.id)")
+    List<Sprint> findCompletedSprintsWithoutSummary();
 }

@@ -570,6 +570,499 @@ Khac ngay hoac khac category
 - Co tai lieu `SLA_ACTION_LOG_AND_PROJECT_ISOLATION.md`.
 - Build backend/frontend da duoc kiem chung.
 
+### Ngay 12-13/06/2026 - Trien khai Recovery Plan backend flow theo Human-in-the-loop
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Nang cap SLA tu decision support sang recovery plan co leader approval |
+| Phan viec lien quan | Backend, Database, Recovery Plan, Audit Log, Project Role |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Sau khi SLA Core da co state, decision log va action log, em tiep tuc hoi AI cach dua phan nay len muc cao hon. AI giai thich rang neu he thong chi canh bao thi moi dung o muc decision support; neu muon thanh Level 5 thi can co recovery plan, leader approval gate, execution an toan va audit trail.
+
+**Ket qua AI ho tro**
+
+- De xuat luong Human-in-the-loop:
+
+```text
+SLA risk detected
+-> generate recovery plan
+-> leader/mentor approve or reject
+-> execute safe actions
+-> write audit log
+```
+
+- Giai thich vi sao khong nen cho AI tu sua task truc tiep.
+- De xuat cac bang va entity can co:
+  - `recovery_plans`
+  - `recovery_plan_actions`
+  - `recovery_plan_audit_logs`
+- De xuat unique index active recovery plan de tranh tao nhieu plan dang active cho cung mot task.
+- Dinh nghia cac trang thai:
+  - `PENDING_APPROVAL`
+  - `APPROVED`
+  - `REJECTED`
+  - `EXECUTING`
+  - `EXECUTED`
+  - `FAILED`
+
+**Phan da ap dung**
+
+- Tao backend flow cho Recovery Plan:
+  - Generate plan.
+  - Approve/reject plan.
+  - Execute safe actions.
+  - Lay audit logs.
+- Them action execution an toan:
+  - Notify assignee.
+  - Request evidence.
+  - Ask blocker update.
+  - Create recovery checklist.
+  - Escalate leader.
+- Them audit log cho tung buoc generate/approve/reject/execute/action.
+- Them partial unique index `uk_active_recovery_plan_per_task` de chong race khi tao plan active.
+- Ghi tai lieu `Tin/recovery_plan_backend_flow_changes.md`.
+
+**Phan em tu quyet dinh**
+
+Em giu co che leader/mentor approval, khong cho AI hay scheduler tu dong thay doi task mot cach khong kiem soat. Nhung action nao co rui ro cao hoac can con nguoi can thiep thi chi tao recommendation/log, khong execute tuy tien.
+
+### Ngay 13/06/2026 - Dinh huong dua AI vao Recovery Plan mot cach mem hon
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Tim cach dung AI trong Recovery Plan nhung van giu rule backend an toan |
+| Phan viec lien quan | AI prompt, Recovery Plan, Notification tone, Human approval |
+| Muc do su dung | Ho tro nhieu |
+
+**Noi dung phien lam viec**
+
+Em hoi AI co nen dua AI vao Recovery Plan khong, vi flow rule-based da chay duoc nhung message va summary con cung, de tao cam giac he thong "ra lenh" hon la ho tro team.
+
+**Ket qua AI ho tro**
+
+- De xuat AI chi nen ho tro sinh noi dung theo context, khong duoc nam quyen thay doi du lieu.
+- De xuat tone nhu Agile Coach/Scrum Master:
+  - ro nguyen nhan risk,
+  - nhe nhang voi assignee,
+  - dua huong hanh dong cu the,
+  - tranh cam giac bi phat.
+- Phan biet:
+  - backend rule quyet dinh risk/action an toan,
+  - AI sinh summary/action message de giai thich tot hon,
+  - leader van la nguoi approve.
+
+**Phan da ap dung**
+
+- Tao tai lieu `Tin/SLA_LEVEL5_AI_RECOVERY_IDEA.md`.
+- Dung y tuong nay lam nen cho buoc Adaptive AI Recovery sau do.
+
+### Ngay 18/06/2026 - Adaptive AI Recovery Loop va Hybrid Rule-based Scoring
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Nang cap recovery plan va scoring de co kha nang du bao/phan hoi tot hon |
+| Phan viec lien quan | SLA Scoring, AI Recovery, Follow-up Plan, Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em tiep tuc muon phan SLA khong chi canh bao ma con co kha nang de xuat hanh dong phu hop va theo doi hieu qua sau khi execute. AI giup em tach ro phan nao la deterministic rule va phan nao la AI support.
+
+**Ket qua AI ho tro**
+
+- De xuat AI action selection nhung phai bi gioi han boi whitelist.
+- Neu Gemini tra action sai hoac thieu, backend fallback ve rule-based action cu.
+- De xuat follow-up loop:
+
+```text
+Plan EXECUTED
+-> scheduler check after 24h
+-> compare score before/after
+-> if ineffective, mark declined and generate follow-up plan
+```
+
+- De xuat Hybrid Rule-based SLA Scoring:
+  - deadline penalty,
+  - burn rate penalty,
+  - evidence penalty,
+  - blocker penalty,
+  - workload penalty.
+- Giai thich khong nen goi la AI prediction that neu chua co model hoc tu lich su; ten dung hon la Rule-based Early Risk Prediction / Predictive SLA Risk.
+
+**Phan da ap dung**
+
+- Gemini co the tra `selectedActions`, backend validate theo whitelist.
+- Them adaptive follow-up recovery plan khi plan khong cai thien sau execution.
+- Them guard an toan:
+  - khong tao follow-up neu dang co active plan,
+  - khong tao qua nhieu follow-up trong 24h,
+  - gioi han so AI plan trong cung sprint.
+- Refactor scoring sang hybrid score co burn rate, SPI, predicted risk va score breakdown.
+- Cap nhat Decision Pack API/UI de hien them burn rate, predicted risk, prediction reasons va score breakdown.
+- Them tai lieu `Tin/SLA_ADAPTIVE_AI_AND_HYBRID_SCORING_20260618.md`.
+
+**Kiem chung**
+
+Da ghi nhan cac lenh verify trong tai lieu local:
+
+```text
+mvnw compile
+mvnw test-compile
+mvnw test voi nhom SLA service tests
+mvnw test BackendApplicationTests
+```
+
+Ket qua duoc ghi nhan la pass, co warning Mongo local chua bat nhung khong lam test fail.
+
+### Ngay 19/06/2026 - Reliability Monitoring, Evidence Snapshot va Recovery Gate Result
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | Codex |
+| Muc dich | Lay code moi nhat, kiem tra prompt SLA, fix duplicate job va hoan thien evidence/gate |
+| Phan viec lien quan | Backend, Frontend, Flyway, Reliability, Recovery Plan |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI lay code moi nhat tu `develop`, doc code that sau khi co prompt moi, kiem tra phan nao da xong/chua xong va sua cac loi can thiet. Cac prompt chinh lien quan den Scheduler Logs UI, Async SLA Analysis Job, Recovery Plan Dashboard, Evidence Snapshot va Gate Result.
+
+**Ket qua AI ho tro**
+
+- Pull/merge code moi nhat tu `origin/develop` vao branch hien tai.
+- Kiem tra code that thay phan SLA reliability/recovery da gan xong nhung con mot so rui ro duplicate/race condition.
+- Giai thich cac khai niem hoc tu phan cua thanh vien khac:
+  - idempotency,
+  - DB constraint,
+  - row lock,
+  - distributed lock/Redis.
+- Ket luan khong can them Redis lock ngay; voi code hien tai nen dung DB unique index va row lock truoc.
+
+**Phan da ap dung**
+
+- Them SLA Reliability Monitoring:
+  - reliability snapshot theo project/sprint,
+  - MTTR, MTBF, Availability, Error Budget,
+  - Gemini narrative,
+  - async analysis job,
+  - reliability dashboard,
+  - scheduler logs page.
+- Fix duplicate SLA analysis job:
+  - neu da co job `PENDING/RUNNING` cung project/sprint thi tra job cu,
+  - DB unique partial index cho active job,
+  - catch duplicate race va tra job dang chay.
+- Them Evidence Snapshot cho Recovery Plan:
+  - luu `evidenceSnapshotId`,
+  - compute reliability snapshot sau effectiveness check,
+  - UI hien link sang reliability khi co evidence.
+- Them Gate Result:
+  - `PASSED`,
+  - `FAILED`,
+  - `INSUFFICIENT_DATA`,
+  - `gateReason`,
+  - UI hien score before -> after va ly do.
+- Them row lock cho approve/reject/execute recovery plan bang `PESSIMISTIC_WRITE`.
+- Fix Flyway migration idempotent de backend local khong tu dung vi duplicate table/column.
+
+**Commit lien quan**
+
+- `8d690a8` - merge `origin/develop` vao branch `feature/de190364-adaptive-sla-recovery`.
+- `8db5058` - `[DE190364] feat: add SLA reliability monitoring`.
+- `f5ec7f6` - `[DE190364] feat: add recovery plan evidence gate`.
+- `ae2dfc1` - `[DE190364] fix: make migrations idempotent`.
+
+**Kiem chung**
+
+```text
+mvnw.cmd -DskipTests compile
+```
+
+Ket qua: backend compile pass.
+
+Ghi chu: `clean compile` bi fail do file jar trong `target` dang bi process backend giu, kha nang backend dang chay tu IntelliJ/VSCode, khong phai loi compile code.
+
+**Noi dung da loc bo khoi audit**
+
+Khong dua chi tiet cac cau hoi nho nhu VSCode/IntelliJ chiem backend, hoi giai thich ngan ve file agent, hay cac trao doi ve viec anh GitHub hien so dong code. Cac noi dung do chi ho tro hieu context, khong phai thay doi chuc nang chinh.
+
+### Ngay 25/06/2026 - Nang cap Outbox Pattern va Admin Job Dashboard
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | Antigravity |
+| Muc dich | Nang cap Outbox Pattern len chuan production, xu ly Idempotency, Graceful Shutdown, DLQ va xay dung Admin Job Dashboard |
+| Phan viec lien quan | Backend, Database, React Frontend, Unit Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI nang cap Outbox Pattern tu trang thai co ban (status PENDING/PUBLISHED/DEAD) thanh he thong ben bi hon de chuan bi cho production. Yeu cau chi tiet gom: them Idempotency Key, Graceful Shutdown, Dead Letter Queue (DLQ), cron job don dep processed events, xay dung Admin REST APIs, va UI bang React.
+
+**Ket qua AI ho tro**
+
+- Tao Flyway script cap nhat Database (them bang `dead_letter_events`, `processed_events`, cot `idempotency_key`).
+- Hoan thien logic tao va check Idempotency Key bang hash (SHA-256) de chong trung lap event, xu ly an toan voi `DataIntegrityViolationException`.
+- Tich hop `SmartLifecycle` de dam bao OutboxPublisherService Graceful Shutdown (doi 25s cho batch chay xong).
+- Xay dung luong xu ly Dead Letter Queue (DLQ): Luu tru event loi, giu nguyen so lan retry khi admin kich hoat lai va gui email canh bao thong qua `EmailService`.
+- Tao cron job don dep `processed_events` qua 7 ngay tuoi.
+- Xay dung he thong 4 REST APIs cho phia Admin de thong ke, xem danh sach DLQ, xem lich su Scheduler va API chay lai (Retry) su kien loi.
+- Code trang `JobDashboardPage.jsx` cho System Admin theo doi thong ke, bang log va thao tac Retry truc tiep bang giao dien.
+- Viet test case `OutboxEventServiceTest.java` dung JUnit 5 va Mockito.
+
+**Phan da ap dung**
+
+- Full stack luong xu ly event production-ready tu Database cho toi React UI.
+- Giao dien giam sat an toan, bao gom chuc nang quan tri cho phep phuc hoi he thong khi co su co kien truc mang.
+
+### Lan 34 - Custom System Health Checks and Monitoring
+
+| Noi dung | Thong tin |
+|---|---|
+| Ngay su dung | 25/06/2026 |
+| Cong cu AI | Antigravity |
+| Muc dich | Trien khai he thong System Health Checks va Job Monitoring khong dung Actuator |
+| Phan viec lien quan | Backend, Database, React Frontend, Unit Test |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em yeu cau AI xay dung he thong giam sat chu dong tu custom code (khong phu thuoc vao Actuator), giup nguoi quan tri de dang theo doi suc khoe cua database, disk, memory va lich trinh cac job quan trong tu Admin UI. Yeu cau chi tiet gom: Flyway migration, Entity, Repository, Monitoring Executor, @MonitoredJob annotation, MonitoringAspect, HealthCheckService, AlertService qua email, System Monitor Scheduler, DTOs, Admin REST API, va React Frontend update cho trang JobDashboardPage.
+
+**Ket qua AI ho tro**
+
+- Tao Flyway script cap nhat Database (them bang `system_health_checks`, `monitored_job_stats`).
+- Xay dung AOP Aspect (`@MonitoredJob`) de tu dong bat cac loi cua job va tracking `consecutiveFailures`.
+- Them `HealthCheckService` de kiem tra Database, Disk, va Memory.
+- Them `MonitoringAlertService` de gui email canh bao khi health check that bai hoac job that bai lien tuc.
+- Them `SystemMonitorScheduler` chay dinh ky (5 phut/lan) de update health status.
+- Mo rong `AdminJobDashboardController` voi 3 API quan ly Health Summary, Live Health Check va Job Stats.
+- Cap nhat React Frontend `JobDashboardPage.jsx`, them section "System Health & Monitoring".
+- Viet test case `HealthCheckServiceTest.java` va `MonitoringAspectTest.java` dung JUnit 5 va Mockito.
+
+**Phan da ap dung**
+
+- Kien truc giam sat (Monitoring) su dung custom solution toi uu thay cho actuator.
+- Dashboard UI/UX cap nhat giao dien muot ma, auto-refresh cho Admin.
+
+### Ngay 25/06/2026 - Xay dung nen tang AI Training va mo rong Audit Scope
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Chuan bi du lieu training cho ML model: them prediction confidence, backfill accuracy va tao DB view tong hop feature |
+| Phan viec lien quan | Backend, Database, SLA, Audit |
+| Muc do su dung | Ho tro nhieu |
+
+**Noi dung phien lam viec**
+
+Em nhan ra de ML model co the hoc tu lich su, can phai luu them truong `predictionConfidence` vao trang thai SLA va can co co che kiem tra xem du doan co chinh xac hay khong khi sprint ket thuc. Em hoi AI ve cach tinh prediction confidence tu khoang cach diem so den ranh gioi cua zone rui ro, va cach backfill truong `predictionAccurate` tu lich su sprint.
+
+**Ket qua AI ho tro**
+
+- Giai thich cach tinh confidence tu khoang cach score den ranh gioi zone (zone boundary distance).
+- De xuat them `predictionConfidence` vao `AssessmentResult` va luu vao `task_sla_states`.
+- Huong dan them buoc backfill trong `DataSyncScheduler`: khi sprint tu dong hoan thanh, so sanh `predictedRiskLevel` voi ket qua task thuc te de tinh `predictionAccurate`.
+- De xuat them `projectId` vao `AuditLog` bang cach extract tu request URI (regex pattern `/projects/(\d+)`).
+- Goi y tao DB view `v_member_ai_features` join `weekly_report_members` voi `task_sla_states` de cung cap feature vector san cho viec train model.
+
+**Phan da ap dung**
+
+- Them `predictionConfidence` vao `SlaRiskAssessmentService` va `SlaStateService`.
+- Them buoc backfill `predictionAccurate` trong `DataSyncScheduler`.
+- Them `projectId` vao `AuditLog`, extract tu URI trong `AuditService`.
+- Tao migration `V20260630000000` voi `ALTER TABLE audit_logs ADD project_id` va `CREATE VIEW v_member_ai_features`.
+
+**Phan em tu quyet dinh**
+
+Em quyet dinh khong luu confidence neu khong du du lieu (task moi tao chua co lich su), tra ve null thay vi 0 de phan biet voi truong hop du bao that su thap.
+
+### Ngay 26/06/2026 - Trien khai AI Sprint Completion Summary va nang cap danh gia thanh vien
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Them AI tu dong sinh bao cao tong ket sprint va nang cap danh gia thanh vien thanh 4 phan ro rang |
+| Phan viec lien quan | Backend, Frontend, Sprint, SLA |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em muon khi sprint ket thuc, he thong tu dong sinh mot bao cao tong ket bang Gemini thay vi de leader tu nhan xet tay. Ngoai ra phan danh gia thanh vien trong `SlaPingService` van tra ve doan text thang, kho phan biet cac phan y kien. Em hoi AI cach cau truc Gemini prompt de sinh bao cao co chieu sau va bao cao danh gia thanh vien co nhieu goc nhin.
+
+**Ket qua AI ho tro**
+
+- De xuat cau truc sprint narrative theo 6 tieu chi: Goal Achievement, Delivery, Quality, Teamwork, Process, Improvement Areas.
+- De xuat trigger `generate()` trong `SprintServiceImpl.updateSprintStatus()` khi trang thai chuyen sang COMPLETED, chi generate mot lan.
+- Them `DataSyncScheduler` backfill cho cac sprint da COMPLETED truoc do chua co summary.
+- De xuat cau truc 4-section cho member AI evaluation: Performance Summary, Strengths, Areas for Improvement, Potential Risks.
+- De xuat frontend render tung section thanh card mau sac rieng de de doc.
+
+**Phan da ap dung**
+
+- Tao `SprintCompletionSummary` entity, repository, `SprintCompletionService`, migration `V20260627000001`.
+- Tao `GeminiSprintNarrativeService` sinh sprint narrative theo 6 tieu chi.
+- Tao `GeminiMemberNarrativeService` sinh member evaluation theo 4-section format.
+- Cap nhat `SlaPingService` su dung format moi.
+- Frontend `SprintHealthModal` render section cards co mau sac.
+- `ReliabilityDashboardPage` doi Gemini narrative hien thi tren metric charts.
+
+**Phan em tu quyet dinh**
+
+Em giu che do "edit-before-ping": leader doc lai AI draft truoc khi thuc su gui thong bao den assignee. Khong cho AI tu dong gui thong bao ma khong qua review.
+
+### Ngay 28/06/2026 (phien sang) - Nang cap danh gia thanh vien 5 tieu chi va WebSocket realtime
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Danh gia thanh vien sau sprint chinh xac hon voi 5 tieu chi do luong, them WebSocket de frontend tu cap nhat khi AI xong |
+| Phan viec lien quan | Backend, Frontend, Sprint, WebSocket |
+| Muc do su dung | Ho tro nhieu |
+
+**Noi dung phien lam viec**
+
+Em phat hien bao cao sprint hien tai chua phan biet ro cac khia canh danh gia thanh vien: nguoi giao nhieu task chua chac tot hon nguoi giao it nhung hoan thanh som. Em hoi AI ve cach dinh nghia 5 tieu chi do luong khach quan va cach khong de frontend phai hardcode 60s delay khi cho AI generate xong.
+
+**Ket qua AI ho tro**
+
+- De xuat 5 tieu chi: delivery reliability (ti le hoan thanh dung han), task weight (tong trong so task), proactiveness (so ngay trung binh hoan thanh som hay tre), priority handling (xu ly task Priority cao/urgent), workload volume (so luong task).
+- De xuat Gemini prompt ngan gon: 2 cau, toi da 35 tu, goi ten thanh vien truc tiep, tranh ngon ngu chung chung.
+- De xuat them WebSocket broadcast `broadcastSprintAiDone` sau khi Gemini generate xong thay vi hardcode wait 60s.
+- De xuat collapse/expand comment AI mac dinh de giam chieu dai trang.
+
+**Phan da ap dung**
+
+- Cap nhat `SprintCompletionService` tinh 5 tieu chi truoc khi goi Gemini.
+- Cap nhat `GeminiMemberNarrativeService` voi prompt ngan gon, ro ten, ro tieu chi.
+- Them `broadcastSprintAiDone` trong `WebSocketBroadcastService`.
+- Frontend `SprintReportPage` lang nghe WebSocket thay vi waiting countdown.
+- `SprintReportResult` collapse/expand AI comment theo tung thanh vien.
+
+### Ngay 28/06/2026 (phien chieu) - Quy trinh dong project, quality score va xuat bao cao Excel
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Xay dung quy trinh dong project hoan chinh: kiem tra truoc khi dong, tinh diem dong gop, khoa chinh sua va xuat Excel 3 sheet |
+| Phan viec lien quan | Backend, Frontend, Database, Excel Export |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em nhan thay du an chua co co che chinh thuc de ket thuc mot project. Leader hien khong the dong project sau khi sprint ket, cac task/bug van con mo, va khong co bao cao tong hop dong gop de nop. Em hoi AI ve cach thiet ke luong dong project an toan, tinh Quality Score khach quan cho tung task, va xuat Excel co the dung lam bang cham diem.
+
+**Ket qua AI ho tro**
+
+- De xuat pre-close check: kiem tra task chua DONE, bug chua closed, sprint chua COMPLETED truoc khi cho dong.
+- De xuat 2 option xu ly task con do: CANCEL_ALL hoac MOVE_TO_PROJECT (chuyen sang project moi).
+- De xuat Quality Score (1-10) theo cong thuc: deadline penalty graduated va SLA penalty.
+- De xuat Task Points = Weight x Priority Factor x (Quality/10) de tinh ti le dong gop tuong doi.
+- De xuat Excel 3 sheet: Tasks (theo sprint/thanh vien), Member Summary (tong diem), Formula Sheet (cong thuc kiem tra).
+- De xuat `ProjectClosureModal` la wizard 4 buoc: kiem tra → xu ly task → ly do → xac nhan.
+- De xuat ma task tuan tu theo project: TSK-001, TSK-002.
+
+**Phan da ap dung**
+
+- Them trang thai ARCHIVED cho Project, khoa toan bo CRUD khi ARCHIVED.
+- Them reopen (ARCHIVED → ACTIVE) voi ly do ghi vao AuditLog.
+- Them auto-track `actualHours` va `qualityScore` khi task → DONE.
+- Them auto-assign ma task `TSK-NNN` khi tao task.
+- Tao `ProjectTrackingExportService` xuat Excel 3 sheet.
+- Them `ProjectClosureModal.jsx` la wizard 4 buoc.
+- Them nut Export Tracking / Close Project / Reopen tren `DashboardPage`.
+- Them BugReport lock khi project ARCHIVED.
+- Them real-time SYSTEM notification den tat ca thanh vien khi project dong.
+- Them `PROJECT_CLOSED` outbox event.
+- Migration `V20260628000002__project_closure_and_task_tracking.sql`.
+
+**Kiem chung**
+
+```text
+Backend compile: pass
+Frontend build: pass
+```
+
+**Phan em tu quyet dinh**
+
+Em quyet dinh tinh Quality Score hoan toan rule-based, khong dung AI, de dam bao moi thanh vien co the hieu va kiem tra cong thuc. AI chi duoc dung o phan giai thich, con diem so phai tu giai thich duoc bang rule.
+
+### Ngay 29/06/2026 (phien 1) - Xay dung FastAPI ML Microservice du bao rui ro SLA
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Tach ML model ra microservice rieng, khong embed vao Spring Boot, de co the train va deploy doc lap |
+| Phan viec lien quan | ML, Backend, Docker, FastAPI, Python |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em muon phan du doan SLA risk khong chi dua vao rule co dinh ma dua vao model duoc train tu lich su du an. Em hoi AI ve huong kien truc phu hop: nen embed model vao Spring Boot hay tach ra microservice rieng.
+
+**Ket qua AI ho tro**
+
+- Giai thich nen tach ra FastAPI microservice (port 8001) vi Spring Boot khong native voi PyTorch, va microservice co the train/deploy doc lap.
+- De xuat PyTorch multi-task model voi 37 features: deadline gap, burn rate, evidence count, blocker status, workload volume.
+- De xuat 3 output dau ra: risk level (HEALTHY/ON_TRACK/AT_RISK/WARNING/BREACH), penalty probability (0-1), recovery priority (LOW/MEDIUM/HIGH).
+- De xuat cach tich hop trong Spring Boot: `MlFeatureBuilder` chuan bi vector, `MlServiceClient` goi HTTP, fallback ve rule-based neu ML service down.
+- De xuat Dockerfile va docker-compose service cho ml-service.
+- Goi y doi ten risk levels cho co y nghia hon: NORMAL→HEALTHY, HIGH→WARNING, CRITICAL→BREACH.
+
+**Phan da ap dung**
+
+- Tao thu muc `ml-service/` voi FastAPI, PyTorch, joblib.
+- Tao `MultiTaskSLAModel` (37 input features, 3 output heads): risk classification (86.5% accuracy), penalty regression, recovery priority.
+- Tao endpoint `/predict/sla-risk`, `/predict/sprint-health`, `/detect/anomaly`.
+- Tao `MlFeatureBuilder.java` va `MlServiceClient.java` trong Spring Boot.
+- Doi ten SLA risk levels, them migration `V20260628000002` de rename du lieu cu.
+- Them Dockerfile va docker-compose cho ml-service.
+- Them alert cooldown 1 gio trong `SystemMonitorScheduler` de chong spam email.
+
+**Phan em tu quyet dinh**
+
+Em them fallback trong `MlServiceClient`: neu FastAPI khong tra loi trong 3s thi dung ket qua rule-based cu thay vi de loi. He thong van hoat dong binh thuong khi ML service chua bat.
+
+### Ngay 29/06/2026 (phien 2) - RAG context injection va RLHF feedback loop cho Recovery Plan
+
+| Noi dung | Thong tin |
+|---|---|
+| Cong cu AI | ChatGPT / Codex |
+| Muc dich | Nang cap chat luong Gemini recovery plan bang cach inject context tu cac plan cu hieu qua, va day mo hinh hoc tu phan hoi cua leader |
+| Phan viec lien quan | ML, FastAPI, Backend, RAG, RLHF |
+| Muc do su dung | Ho tro rat nhieu |
+
+**Noi dung phien lam viec**
+
+Em nhan xet rang Gemini dang sinh recovery plan theo prompt thuan tuy, khong biet cac plan nao da tung hieu qua trong qua khu. Em hoi AI ve cach dung RAG de inject context tu plan cu vao Gemini prompt, va cach thu thap phan hoi tu leader de cai thien index theo thoi gian.
+
+**Ket qua AI ho tro**
+
+- Giai thich RAG (Retrieval-Augmented Generation): embed plan cu vao FAISS vector store, khi generate plan moi thi tim top-3 plan tuong tu nhat va them vao Gemini prompt.
+- De xuat sentence-transformers `all-MiniLM-L6-v2` (384-dim) de embed plan text.
+- Giai thich RLHF signal tu cac hanh dong cua leader: APPROVE/REJECT plan → STRONG/WEAK POSITIVE/NEGATIVE.
+- De xuat luong tu dong rebuild FAISS: collect signal → buffer >= 50 strong signals → trigger background rebuild.
+- Canh bao ve van de Unicode path tren Windows voi `faiss.write_index` → giai phap: dung `serialize_index` ra bytes + joblib bundle.
+
+**Phan da ap dung**
+
+- Tao `ml-service/app/rag/`: `embedder.py`, `faiss_store.py`, `build_index.py`.
+- Tao endpoint `/recovery/similar` tim top-k plan tuong tu.
+- Tao endpoint `/feedback/signal` nhan RLHF signal tu Spring Boot.
+- Tao endpoint `/train/trigger` va `/train/status` quan ly viec rebuild FAISS.
+- Them `generateWithRagContext()` trong `GeminiRecoveryService`: lay top-3 plan tu `/recovery/similar`, inject vao Gemini prompt.
+- Hook RLHF signal vao `RecoveryPlanService`: approve/reject/gate_result deu gui signal.
+- Fix FAISS Unicode path issue tren Windows bang `serialize_index` bytes + joblib.
+
+**Phan em tu quyet dinh**
+
+Em dat nguong `MIN_SIGNALS = 50` cho RLHF rebuild va chi lay `STRONG_POSITIVE` signals co `improvement >= 15`. Em khong rebuild tu dong theo schedule ma chi rebuild khi du signals de tranh model drift tu noise.
+
 ### Cac noi dung da loc bo, khong dua vao audit chinh
 
 Nhung phien sau khong duoc ghi chi tiet vao AI Audit Log vi khong phai dong gop chinh cho module hoac chi la ho tro nho:
@@ -594,5 +1087,22 @@ Sau cac phien lam viec bo sung, phan dong gop cua em khong chi dung lai o Module
 - Project-isolated Daily Digest.
 - SLA Decision Pack.
 - SLA Action Log va idempotency key.
+- Human-in-the-loop Recovery Plan.
+- Adaptive AI Recovery Loop.
+- Hybrid Rule-based SLA Scoring va burn rate prediction.
+- SLA Reliability Monitoring.
+- Evidence Snapshot cho Recovery Plan.
+- Recovery Gate Result.
+- DB constraint va row lock de chong duplicate/race condition.
+- Xay dung Admin Job Dashboard.
+- Co che Data Synchronization va WebSocket Realtime.
+- Xay dung Custom System Health Checks and Monitoring.
+- Nen tang AI Training: prediction confidence, predictionAccurate backfill, DB view v_member_ai_features.
+- AI Sprint Completion Summary theo 6 tieu chi va Member Evaluation 4-section.
+- Danh gia thanh vien 5 tieu chi do luong va WebSocket realtime AI done signal.
+- Quy trinh dong project: ARCHIVED lock, Quality Score, ma task TSK-NNN, Excel 3 sheet, wizard 4 buoc.
+- FastAPI ML Microservice: PyTorch multi-task, 37 features, 86.5% accuracy, Dockerfile.
+- RAG context injection vao Gemini Recovery Plan bang FAISS + sentence-transformers.
+- RLHF feedback loop: leader action → signal → auto-rebuild FAISS index.
 
 AI duoc su dung de phan tich, thiet ke huong lam, tao prompt trien khai, ra soat code va giai thich loi. Em khong ap dung may moc ma da lien tuc hoi lai, so sanh voi code hien co, yeu cau compile/build, va chi giu lai nhung huong phu hop voi project.

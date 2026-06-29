@@ -6,16 +6,19 @@ import taskService from '@features/kanban/services/taskService'
 import sprintService from '../services/sprintService'
 import SprintFormModal from '../components/SprintFormModal'
 import SprintDetailDrawer from '../components/SprintDetailDrawer'
+import Card from '../../../components/ui/Card'
+import Button from '../../../components/ui/Button'
+import SectionTitle from '../../../components/ui/SectionTitle'
 
 const statusTone = {
-  PLANNED: 'bg-[#D7EEF1] text-[#1E707D]',
-  ACTIVE: 'bg-[#dcfce7] text-[#166534]',
+  PLANNED: 'bg-primary-fixed text-on-primary-fixed',
+  ACTIVE: 'bg-success-bg text-success',
   COMPLETED: 'bg-surface-container-high text-on-surface-variant',
 }
 
 const statusDot = {
-  PLANNED: 'bg-[#1E707D]',
-  ACTIVE: 'bg-[#16a34a]',
+  PLANNED: 'bg-primary',
+  ACTIVE: 'bg-success',
   COMPLETED: 'bg-outline',
 }
 
@@ -34,19 +37,20 @@ const formatUpdatedAt = (value) => {
 }
 
 const SummaryCard = ({ label, value, icon, helper }) => (
-  <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-sm">
+  <Card style={{ padding: '20px' }} className="flex flex-col h-full">
     <div className="flex items-center justify-between">
       <p className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant">{label}</p>
-      <span className="material-symbols-outlined text-xl text-[#1E707D]">{icon}</span>
+      <span className="material-symbols-outlined text-xl text-primary">{icon}</span>
     </div>
     <p className="mt-3 text-3xl font-black text-on-surface">{value}</p>
     {helper && <p className="mt-1 text-xs text-on-surface-variant">{helper}</p>}
-  </div>
+  </Card>
 )
 
 const SprintCard = ({ sprint, selected, onOpen }) => (
-  <button
-    className={`text-left rounded-2xl border p-5 bg-surface-container-lowest hover:border-[#1E707D]/50 hover:shadow-md transition-all ${selected ? 'border-[#1E707D] shadow-md' : 'border-outline-variant/60'}`}
+  <Card
+    className={`text-left w-full cursor-pointer transition-colors ${selected ? 'border-primary' : ''}`}
+    style={{ padding: '20px', border: selected ? '2px solid #1E707D' : undefined }}
     onClick={() => onOpen(sprint.id)}
   >
     <div className="flex items-start justify-between gap-3">
@@ -70,7 +74,7 @@ const SprintCard = ({ sprint, selected, onOpen }) => (
         <span className="text-on-surface">{sprint.progressPercent || 0}%</span>
       </div>
       <div className="h-2 rounded-full bg-surface-container-high overflow-hidden">
-        <div className="h-full bg-[#1E707D] rounded-full" style={{ width: `${sprint.progressPercent || 0}%` }}></div>
+        <div className="h-full bg-primary rounded-full" style={{ width: `${sprint.progressPercent || 0}%` }}></div>
       </div>
     </div>
     <div className="mt-5 grid grid-cols-4 gap-2 text-center">
@@ -83,7 +87,7 @@ const SprintCard = ({ sprint, selected, onOpen }) => (
         <p className="text-[9px] uppercase font-bold text-on-surface-variant">Done</p>
       </div>
       <div className="rounded-lg bg-surface-container-low p-2">
-        <p className="font-black text-[#1E707D]">{sprint.inProgressTasks || 0}</p>
+        <p className="font-black text-primary">{sprint.inProgressTasks || 0}</p>
         <p className="text-[9px] uppercase font-bold text-on-surface-variant">Active</p>
       </div>
       <div className="rounded-lg bg-surface-container-low p-2">
@@ -91,7 +95,7 @@ const SprintCard = ({ sprint, selected, onOpen }) => (
         <p className="text-[9px] uppercase font-bold text-on-surface-variant">Risk</p>
       </div>
     </div>
-  </button>
+  </Card>
 )
 
 const SprintPage = () => {
@@ -277,7 +281,7 @@ const SprintPage = () => {
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto bg-background flex items-center justify-center">
         <div className="max-w-md text-center bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/60 shadow-lg space-y-4">
-          <span className="material-symbols-outlined text-5xl text-[#1E707D]">folder_open</span>
+          <span className="material-symbols-outlined text-5xl text-primary">folder_open</span>
           <h3 className="font-extrabold text-xl text-on-surface">No project selected</h3>
           <p className="text-sm text-on-surface-variant">Return to Dashboard and select a project to plan sprints.</p>
         </div>
@@ -291,12 +295,12 @@ const SprintPage = () => {
         <section className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-5">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-[#D7EEF1] text-[#1E707D]">
+              <span className="text-[10px] font-black tracking-wider px-2.5 py-1 rounded-md uppercase bg-primary-fixed text-on-primary-fixed">
                 {activeProject.title}
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface flex items-center gap-3">
-              <span className="material-symbols-outlined text-3xl text-[#1E707D]">history_toggle_off</span>
+              <span className="material-symbols-outlined text-3xl text-primary">history_toggle_off</span>
               Sprints
             </h1>
             <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
@@ -304,21 +308,21 @@ const SprintPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest hover:bg-surface-container-high font-black flex items-center gap-2" onClick={loadSprintsAndTasks}>
+            <Button variant="outline" onClick={loadSprintsAndTasks}>
               <span className="material-symbols-outlined text-lg">refresh</span>
               Refresh
-            </button>
-            <button
-              className="px-4 py-2 rounded-lg border border-[#1E707D]/60 bg-[#D7EEF1] text-[#1E707D] hover:bg-[#1E707D]/10 font-black flex items-center gap-2 transition-colors"
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => navigate(`/projects/${activeProject.id}/sprint-reports`)}
             >
               <span className="material-symbols-outlined text-lg">campaign</span>
               View Sprint Report
-            </button>
-            <button className="px-4 py-2 rounded-lg bg-[#1E707D] text-white hover:bg-[#D7EEF1] font-black flex items-center gap-2" onClick={openCreate}>
+            </Button>
+            <Button variant="primary" onClick={openCreate}>
               <span className="material-symbols-outlined text-lg">add</span>
               New Sprint
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -331,17 +335,17 @@ const SprintPage = () => {
 
         {loading && sprints.length === 0 ? (
           <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
-            <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-spin">progress_activity</span>
+            <span className="material-symbols-outlined text-5xl text-primary animate-spin">progress_activity</span>
             <p className="mt-4 text-sm font-bold text-on-surface-variant">Loading sprints...</p>
           </section>
         ) : sprints.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest p-12 text-center">
-            <span className="material-symbols-outlined text-5xl text-[#1E707D]">event_available</span>
+            <span className="material-symbols-outlined text-5xl text-primary">event_available</span>
             <h3 className="mt-4 text-xl font-black text-on-surface">No sprints yet</h3>
             <p className="mt-2 text-sm text-on-surface-variant">Create the first sprint, then assign existing Task Board items into it.</p>
-            <button className="mt-5 px-4 py-2 rounded-lg bg-[#1E707D] text-white hover:bg-[#D7EEF1] font-black" onClick={openCreate}>
+            <Button variant="primary" className="mt-5" onClick={openCreate}>
               Create Sprint
-            </button>
+            </Button>
           </section>
         ) : (
           <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">

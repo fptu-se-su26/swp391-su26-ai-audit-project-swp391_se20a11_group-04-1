@@ -44,11 +44,15 @@ import ArchitecturePage from '@features/architecture-viz/pages/ArchitecturePage'
 
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
+import ReliabilityDashboardPage from '@features/analytics/pages/ReliabilityDashboardPage'
+import SchedulerJobsPage from '@features/analytics/pages/SchedulerJobsPage'
+import RecoveryPlanDashboardPage from '@features/sla/pages/RecoveryPlanDashboardPage'
 import ProfilePage from '@features/profile/pages/ProfilePage'
 
 // Feature Pages - System Admin
 import AdminDashboardPage from '@features/system-admin/pages/AdminDashboardPage'
 import AuditLogsPage from '@features/system-admin/pages/AuditLogsPage'
+import JobDashboardPage from '@features/system-admin/pages/JobDashboardPage'
 import UserManagementPage from '@features/system-admin/pages/UserManagementPage'
 import MentorVerificationPage from '@features/system-admin/pages/MentorVerificationPage'
 
@@ -96,6 +100,7 @@ export function AppRoutes() {
         <Route path="/admin/users" element={<UserManagementPage />} />
         <Route path="/admin/mentor-verifications" element={<MentorVerificationPage />} />
         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/admin/jobs" element={<JobDashboardPage />} />
 
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
@@ -155,6 +160,9 @@ export function AppRoutes() {
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />
             <Route path="weekly-reports" element={<Navigate to="sprint-reports" replace />} />
+            <Route path="reliability" element={<ReliabilityDashboardPage />} />
+            <Route path="scheduler-logs" element={<SchedulerJobsPage />} />
+            <Route path="recovery-plans" element={<RecoveryPlanDashboardPage />} />
 
           </Route>
         </Route>

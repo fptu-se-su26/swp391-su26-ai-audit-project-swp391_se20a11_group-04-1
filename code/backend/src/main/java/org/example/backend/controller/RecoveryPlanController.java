@@ -49,6 +49,23 @@ public class RecoveryPlanController {
         return ResponseEntity.ok(ApiResponse.success(response, "Latest recovery plan retrieved successfully"));
     }
 
+    @GetMapping("/projects/{projectId}/recovery-plans")
+    public ResponseEntity<ApiResponse<List<RecoveryPlanResponse>>> getProjectRecoveryPlans(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) Long sprintId,
+            @RequestParam(required = false) String status,
+            HttpSession session) {
+        
+        Long userId = requireUser(session);
+        List<String> statuses = null;
+        if (status != null && !status.trim().isEmpty()) {
+            statuses = java.util.Arrays.asList(status.split(","));
+        }
+        
+        List<RecoveryPlanResponse> response = recoveryPlanService.getProjectPlans(projectId, sprintId, statuses, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Recovery plans retrieved successfully"));
+    }
+
     @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/approve")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> approveRecoveryPlan(

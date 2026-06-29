@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.SprintService;
+import org.example.backend.service.SprintCompletionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,9 +16,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/sprints")
 @RequiredArgsConstructor
+@org.example.backend.annotation.PreAuthorizeProjectMember
 public class SprintController {
 
     private final SprintService sprintService;
+    private final SprintCompletionService sprintCompletionService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SprintResponse>>> getProjectSprints(
@@ -27,7 +30,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.getProjectSprints(projectId, userId), "Sprints retrieved"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PostMapping
     public ResponseEntity<ApiResponse<SprintResponse>> createSprint(
             @PathVariable Long projectId,
@@ -47,7 +49,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.getSprint(projectId, sprintId, userId), "Sprint retrieved"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PutMapping("/{sprintId}")
     public ResponseEntity<ApiResponse<SprintResponse>> updateSprint(
             @PathVariable Long projectId,
@@ -58,7 +59,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.updateSprint(projectId, sprintId, request, userId), "Sprint updated"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @DeleteMapping("/{sprintId}")
     public ResponseEntity<ApiResponse<Void>> deleteSprint(
             @PathVariable Long projectId,
@@ -69,7 +69,6 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(null, "Sprint deleted"));
     }
 
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/{sprintId}/status")
     public ResponseEntity<ApiResponse<SprintResponse>> updateSprintStatus(
             @PathVariable Long projectId,
@@ -120,6 +119,27 @@ public class SprintController {
         return ResponseEntity.ok(ApiResponse.success(sprintService.updateTaskPlanDate(projectId, sprintId, taskId, request, userId), "Sprint task plan date updated"));
     }
 
+    @GetMapping("/{sprintId}/completion-summary")
+    public ResponseEntity<ApiResponse<SprintCompletionSummaryResponse>> getCompletionSummary(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        return ResponseEntity.ok(ApiResponse.success(sprintCompletionService.getSummary(projectId, sprintId, userId), "Sprint completion summary retrieved"));
+    }
+
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
+    @PostMapping("/{sprintId}/completion-summary/regenerate")
+    public ResponseEntity<ApiResponse<Void>> regenerateCompletionSummary(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        sprintCompletionService.deleteForSprint(sprintId);
+        sprintCompletionService.generate(sprintId, "USER_" + userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "AI evaluation is being regenerated"));
+    }
+
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
@@ -128,3 +148,4 @@ public class SprintController {
         return userId;
     }
 }
+

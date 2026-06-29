@@ -15,13 +15,13 @@ const RequirementHeader = ({ onOpenCreateModal }) => {
         <p className="font-body-md text-body-md text-secondary">Manage and track system requirements and coverage.</p>
       </div>
       <div className="flex items-center gap-3">
-        <Button 
-          variant="outline"
+        <button 
+          type="button"
           onClick={() => setIsAiModalOpen(true)}
+          className="h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-[14px] shadow-sm"
         >
-          <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
           AI Import
-        </Button>
+        </button>
         <Button 
           variant="primary"
           onClick={onOpenCreateModal}

@@ -150,11 +150,14 @@ public class CodeInsightEvidenceLinkServiceImpl implements CodeInsightEvidenceLi
     private List<String> taskCodeCandidates(Integer number) {
         String plain = String.valueOf(number);
         String twoDigit = String.format("%02d", number);
+        String threeDigit = String.format("%03d", number);
         return List.of(
                 "TASK-" + plain,
                 "TSK-" + plain,
                 "TASK-" + twoDigit,
-                "TSK-" + twoDigit);
+                "TSK-" + twoDigit,
+                "TASK-" + threeDigit,
+                "TSK-" + threeDigit);
     }
 
     private void copyExistingLinks(

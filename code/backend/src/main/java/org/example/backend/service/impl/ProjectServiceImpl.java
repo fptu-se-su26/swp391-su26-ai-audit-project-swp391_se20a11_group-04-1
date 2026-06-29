@@ -7,15 +7,23 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.dto.ProjectClosureCheckResponse;
+import org.example.backend.dto.ProjectCloseRequest;
+import org.example.backend.dto.ProjectReopenRequest;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.entity.*;
 import org.example.backend.exception.CustomException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.exception.BadRequestException;
+import org.example.backend.entity.enums.BugStatus;
+import org.example.backend.repository.AuditLogRepository;
+import org.example.backend.repository.BugReportRepository;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.ProjectRoleRepository;
+import org.example.backend.repository.SprintRepository;
+import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.ProjectInvitationRepository;
 import org.example.backend.repository.NotificationRepository;
@@ -60,9 +68,16 @@ public class ProjectServiceImpl implements ProjectService {
     private final ObjectMapper objectMapper;
     private final org.example.backend.service.github.GitHubApiService gitHubApiService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
+    private final TaskRepository taskRepository;
+    private final SprintRepository sprintRepository;
+    private final BugReportRepository bugReportRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final org.example.backend.service.event.OutboxEventService outboxEventService;
 
     @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
     private String projectJoinLockPrefix;
+
+
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
     private String appBaseUrl;
@@ -931,6 +946,7 @@ public class ProjectServiceImpl implements ProjectService {
 
                 memberDtos.add(ProjectResponse.MemberDto.builder()
                         .id(member.getUser().getId())
+                        .username(member.getUser().getUsername())
                         .name(name)
                         .role(roleName)
                         .build());
@@ -950,5 +966,215 @@ public class ProjectServiceImpl implements ProjectService {
                 .aiInsight(project.getAiInsight() != null ? project.getAiInsight() : "On Track")
                 .members(memberDtos)
                 .build();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Project Closure Flow
+    // ─────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectClosureCheckResponse checkProjectClosure(Long projectId, Long userId) {
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
+        ensureLeaderOrMentor(projectId, userId);
+
+        List<Task> openTasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
+                .filter(t -> t.getStatus() != TaskStatus.DONE && t.getStatus() != TaskStatus.CANCELLED)
+                .toList();
+
+        List<Sprint> activeSprints = sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId).stream()
+                .filter(s -> s.getStatus() == SprintStatus.ACTIVE || s.getStatus() == SprintStatus.PLANNED)
+                .toList();
+
+        long openBugCount = bugReportRepository.findByProjectId(projectId).stream()
+                .filter(b -> b.getStatus() != BugStatus.CLOSED
+                          && b.getStatus() != BugStatus.VERIFIED)
+                .count();
+
+        List<ProjectClosureCheckResponse.OpenTaskItem> taskItems = openTasks.stream().map(t -> {
+            String assigneeName = t.getPrimaryAssignee() != null
+                    ? (t.getPrimaryAssignee().getProfile() != null && t.getPrimaryAssignee().getProfile().getFullName() != null
+                        ? t.getPrimaryAssignee().getProfile().getFullName()
+                        : t.getPrimaryAssignee().getUsername())
+                    : "Chưa giao";
+            String sprintName = t.getSprintId() != null
+                    ? sprintRepository.findById(t.getSprintId()).map(Sprint::getName).orElse("Sprint #" + t.getSprintId())
+                    : "Backlog";
+            return ProjectClosureCheckResponse.OpenTaskItem.builder()
+                    .id(t.getId())
+                    .taskCode(t.getTaskCode())
+                    .title(t.getTitle())
+                    .status(t.getStatus().name())
+                    .assigneeName(assigneeName)
+                    .sprintName(sprintName)
+                    .build();
+        }).toList();
+
+        return ProjectClosureCheckResponse.builder()
+                .openTaskCount(openTasks.size())
+                .openBugCount((int) openBugCount)
+                .activeSprintCount(activeSprints.size())
+                .canCloseSafely(openTasks.isEmpty() && openBugCount == 0 && activeSprints.isEmpty())
+                .openTasks(taskItems)
+                .activeSprints(activeSprints.stream().map(Sprint::getName).toList())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void closeProject(Long projectId, ProjectCloseRequest request, Long userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
+        ensureLeaderOrMentor(projectId, userId);
+
+        if (project.getStatus() == ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Project đã được đóng trước đó.");
+        }
+
+        // Xử lý task chưa hoàn thành
+        List<Task> openTasks = taskRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
+                .filter(t -> t.getStatus() != TaskStatus.DONE && t.getStatus() != TaskStatus.CANCELLED)
+                .toList();
+
+        if (request.getUnfinishedTaskAction() == ProjectCloseRequest.UnfinishedTaskAction.MOVE_TO_PROJECT) {
+            if (request.getTargetProjectId() == null) {
+                throw new BadRequestException("Vui lòng chọn project đích để chuyển task.");
+            }
+            Project target = projectRepository.findById(request.getTargetProjectId())
+                    .orElseThrow(() -> new BadRequestException("Project đích không tồn tại."));
+            for (Task t : openTasks) {
+                t.setProject(target);
+                t.setSprintId(null);
+            }
+        } else {
+            for (Task t : openTasks) {
+                t.setStatus(TaskStatus.CANCELLED);
+            }
+        }
+        taskRepository.saveAll(openTasks);
+
+        // Đóng toàn bộ bug còn mở
+        List<BugReport> openBugs = bugReportRepository.findByProjectId(projectId).stream()
+                .filter(b -> b.getStatus() != BugStatus.CLOSED
+                          && b.getStatus() != BugStatus.VERIFIED)
+                .toList();
+        for (BugReport bug : openBugs) {
+            bug.setStatus(BugStatus.CLOSED);
+        }
+        bugReportRepository.saveAll(openBugs);
+
+        // Hoàn thành sprint đang chạy
+        List<Sprint> activeSprints = sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId).stream()
+                .filter(s -> s.getStatus() == SprintStatus.ACTIVE || s.getStatus() == SprintStatus.PLANNED)
+                .toList();
+        for (Sprint s : activeSprints) {
+            s.setStatus(SprintStatus.COMPLETED);
+        }
+        sprintRepository.saveAll(activeSprints);
+
+        // Chuyển project → ARCHIVED
+        String oldStatus = project.getStatus().name();
+        project.setStatus(ProjectStatus.ARCHIVED);
+        project.setClosedAt(LocalDateTime.now());
+        project.setClosedReason(request.getReason());
+        projectRepository.save(project);
+
+        // Ghi audit log
+        UserAccount caller = userAccountRepository.findById(userId).orElse(null);
+        AuditLog log = AuditLog.builder()
+                .userId(userId)
+                .username(caller != null ? caller.getUsername() : "unknown")
+                .action("PROJECT_CLOSED")
+                .entityType("PROJECT")
+                .entityId(projectId)
+                .oldValue("{\"status\":\"" + oldStatus + "\"}")
+                .newValue("{\"status\":\"ARCHIVED\",\"reason\":\"" + request.getReason().replace("\"", "'") + "\"}")
+                .projectId(projectId)
+                .status("SUCCESS")
+                .build();
+        auditLogRepository.save(log);
+
+        // Publish PROJECT_CLOSED event — consumer gửi notification cho toàn nhóm
+        outboxEventService.createEvent("PROJECT_CLOSED", "Project", projectId, Map.of(
+                "projectName",        project.getName(),
+                "closedByUserId",     userId,
+                "closedByUsername",   caller != null ? caller.getUsername() : "unknown",
+                "cancelledTaskCount", openTasks.size(),
+                "closedBugCount",     openBugs.size(),
+                "completedSprintCount", activeSprints.size(),
+                "reason",             request.getReason(),
+                "occurredAt",         project.getClosedAt().toString()
+        ));
+
+        // Gửi notification real-time tới tất cả thành viên trong project
+        String closedByName = caller != null ? caller.getUsername() : "Leader";
+        String notifTitle = "Project \"" + project.getName() + "\" đã được đóng";
+        String notifMessage = "Project được đóng bởi " + closedByName + ". Lý do: " + request.getReason();
+        List<ProjectMember> allMembers = projectMemberRepository.findByProjectId(projectId);
+        for (ProjectMember member : allMembers) {
+            Notification notif = Notification.builder()
+                    .recipient(member.getUser())
+                    .title(notifTitle)
+                    .message(notifMessage)
+                    .type(NotificationType.SYSTEM)
+                    .project(project)
+                    .entityType(org.example.backend.entity.NotificationEntityType.PROJECT)
+                    .relatedId(projectId)
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            Notification savedNotif = notificationRepository.save(notif);
+            String jsonPayload = String.format(
+                    "{\"type\":\"NOTIFICATION\",\"data\":{\"id\":%d,\"title\":\"%s\",\"message\":\"%s\",\"type\":\"SYSTEM\",\"relatedId\":%d,\"projectId\":%d,\"entityType\":\"PROJECT\",\"isRead\":false,\"createdAt\":\"%s\"}}",
+                    savedNotif.getId(),
+                    savedNotif.getTitle(),
+                    savedNotif.getMessage().replace("\"", "'"),
+                    savedNotif.getRelatedId(),
+                    project.getId(),
+                    savedNotif.getCreatedAt().toString());
+            notificationWebSocketHandler.sendToUser(member.getUser().getId(), jsonPayload);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void reopenProject(Long projectId, ProjectReopenRequest request, Long userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
+        ensureLeaderOrMentor(projectId, userId);
+
+        if (project.getStatus() != ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Chỉ project đang ở trạng thái ARCHIVED mới có thể mở lại.");
+        }
+
+        project.setStatus(ProjectStatus.ACTIVE);
+        project.setClosedAt(null);
+        project.setClosedReason(null);
+        projectRepository.save(project);
+
+        UserAccount caller = userAccountRepository.findById(userId).orElse(null);
+        AuditLog log = AuditLog.builder()
+                .userId(userId)
+                .username(caller != null ? caller.getUsername() : "unknown")
+                .action("PROJECT_REOPENED")
+                .entityType("PROJECT")
+                .entityId(projectId)
+                .oldValue("{\"status\":\"ARCHIVED\"}")
+                .newValue("{\"status\":\"ACTIVE\",\"reason\":\"" + request.getReason().replace("\"", "'") + "\"}")
+                .projectId(projectId)
+                .status("SUCCESS")
+                .build();
+        auditLogRepository.save(log);
+    }
+
+    private void ensureLeaderOrMentor(Long projectId, Long userId) {
+        List<ProjectMember> memberships = projectMemberRepository.findByProjectId(projectId);
+        boolean authorized = memberships.stream()
+                .filter(m -> m.getUser().getId().equals(userId))
+                .anyMatch(m -> isLeaderRole(m.getRole().getName()) || "MENTOR".equalsIgnoreCase(m.getRole().getName()));
+        if (!authorized) {
+            throw new CustomException("Chỉ Leader hoặc Mentor mới có quyền thực hiện thao tác này.", HttpStatus.FORBIDDEN);
+        }
     }
 }

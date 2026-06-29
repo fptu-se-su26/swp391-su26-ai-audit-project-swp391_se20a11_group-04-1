@@ -5,6 +5,8 @@ import useAuthStore from '@store/useAuthStore'
 import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
 import { getInitials } from '@utils/avatarHelper'
+import { recoveryPlanService } from '@features/sla/services/recoveryPlanService'
+import SyncStatusBadge from '../common/SyncStatusBadge'
 
 const W_FULL = 272
 const W_RAIL = 68
@@ -69,17 +71,17 @@ function NavGroup({ items, activeKey, collapsed }) {
         opacity:       0, pointerEvents: 'none', zIndex: 0, willChange: 'transform, height',
       }} />
 
-      {items.map(({ key, icon, label, onClick }) => (
+      {items.map(({ key, icon, label, onClick, badge }) => (
         <NavRow key={key} navKey={key} icon={icon} label={label}
           isActive={key === activeKey} onClick={onClick}
-          itemRefs={itemRefs} collapsed={collapsed} />
+          itemRefs={itemRefs} collapsed={collapsed} badge={badge} />
       ))}
     </div>
   )
 }
 
 /* ─── Single nav row ────────────────────────────────────────── */
-function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed }) {
+function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, badge }) {
   const [hov, setHov] = useState(false)
   return (
     <div
@@ -127,8 +129,17 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed })
         )}
       </AnimatePresence>
 
-      {/* Glow dot */}
-      {isActive && !collapsed && (
+      {/* Glow dot OR Badge */}
+      {!collapsed && badge > 0 && (
+          <div style={{
+            background: '#EF4444', color: '#FFF', fontSize: 10, fontWeight: 700,
+            padding: '2px 6px', borderRadius: 10, flexShrink: 0,
+            boxShadow: '0 0 6px rgba(239, 68, 68, 0.4)'
+          }}>
+            {badge > 99 ? '99+' : badge}
+          </div>
+      )}
+      {isActive && !collapsed && !(badge > 0) && (
         <div style={{
           width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
           background: '#4EC6D8',
@@ -172,6 +183,21 @@ export default function Sidebar() {
   const clearActiveProject = useProjectStore(s => s.clearActiveProject)
 
   const [collapsed, setCollapsed] = useState(false)
+  const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0)
+
+  useEffect(() => {
+    if (activeProject?.id && (activeProject?.role === 'LEADER' || activeProject?.role === 'PROJECT_LEADER' || userRole === 'MENTOR')) {
+      recoveryPlanService.getProjectRecoveryPlans(activeProject.id, { status: 'PENDING_APPROVAL' })
+        .then(plans => {
+          if (Array.isArray(plans)) {
+            setPendingRecoveryCount(plans.length)
+          }
+        })
+        .catch(() => setPendingRecoveryCount(0))
+    } else {
+      setPendingRecoveryCount(0)
+    }
+  }, [activeProject?.id, userRole])
 
   // Keep main content in sync via CSS custom property (single source of truth)
   useEffect(() => {
@@ -205,6 +231,7 @@ export default function Sidebar() {
     { key: 'ai-assistant',  icon: 'smart_toy',  label: 'AI Assistant',  path: `/projects/${pid}/ai-assistant` },
     { key: 'github-config', icon: 'hub',        label: 'GitHub Config', path: `/projects/${pid}/github-config` },
     { key: 'task-reviews',  icon: 'fact_check', label: 'Task Review',   path: `/projects/${pid}/task-reviews` },
+    { key: 'recovery-plans',icon: 'shield',     label: 'Recovery Plans',path: `/projects/${pid}/recovery-plans`, badge: pendingRecoveryCount },
     { key: 'architecture',  icon: 'schema',     label: 'Kiến trúc hệ thống', path: `/projects/${pid}/architecture` },
   ]
   const buildTeamItems = (pid, role) => {
@@ -236,6 +263,10 @@ export default function Sidebar() {
     { key: 'settings',   icon: 'settings',     label: 'Global Settings', path: '#' },
   ]
   if (userRole !== 'ADMIN') portfolioRaw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
+  if (userRole === 'ADMIN') {
+    portfolioRaw.push({ key: 'admin', icon: 'admin_panel_settings', label: 'Admin Dashboard', path: '/admin' })
+    portfolioRaw.push({ key: 'admin-jobs', icon: 'monitor_heart', label: 'Job Dashboard', path: '/admin/jobs' })
+  }
 
   const portfolioItems = portfolioRaw.map(item => ({
     ...item,
@@ -249,6 +280,8 @@ export default function Sidebar() {
     if (p === '/dashboard') return 'projects'
     if (p.startsWith('/classrooms')) return 'classrooms'
     if (p.startsWith('/verify')) return 'verify'
+    if (p === '/admin') return 'admin'
+    if (p.startsWith('/admin/jobs')) return 'admin-jobs'
     return null
   })()
 
@@ -312,11 +345,15 @@ export default function Sidebar() {
                     }} title={activeProject.title}>
                       {activeProject.title.length > 18 ? activeProject.title.slice(0, 16) + '…' : activeProject.title}
                     </p>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: '#1E707D',
-                      background: 'rgba(30,112,125,0.10)', padding: '1px 5px',
-                      borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>{activeProject.role}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 3 }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#1E707D',
+                        background: 'rgba(30,112,125,0.10)', padding: '1px 5px',
+                        borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        display: 'inline-block'
+                      }}>{activeProject.role}</span>
+                      <SyncStatusBadge projectId={activeProject.id} />
+                    </div>
                   </>
                 )}
               </motion.div>

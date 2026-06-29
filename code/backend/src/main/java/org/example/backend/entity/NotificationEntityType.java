@@ -11,5 +11,6 @@ public enum NotificationEntityType {
     REQUIREMENT,
     WEEKLY_REPORT,
     MENTOR_VERIFICATION,
+    PROJECT,
     ANNOUNCEMENT
 }

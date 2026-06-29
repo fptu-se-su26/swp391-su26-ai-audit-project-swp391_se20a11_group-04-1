@@ -10,6 +10,7 @@ const STATUS_COLORS = {
   EXECUTED: 'bg-green-100 text-green-800 border-green-200',
   FAILED: 'bg-red-100 text-red-800 border-red-200',
   REJECTED: 'bg-gray-100 text-gray-800 border-gray-200',
+  DECLINED: 'bg-orange-100 text-orange-800 border-orange-200',
 };
 
 const ACTION_STATUS_ICONS = {
@@ -153,7 +154,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
             <div className="mt-0.5">{ACTION_STATUS_ICONS[action.status]}</div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-800 line-clamp-1">{action.actionType.replace(/_/g, ' ')}</p>
-              <p className="text-gray-500 line-clamp-1">{action.resultMessage || action.message}</p>
+              <p className="text-gray-500 whitespace-pre-wrap break-words">{action.resultMessage || action.message}</p>
             </div>
           </div>
         ))}
@@ -178,12 +179,41 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
             <div key={log.id} className="relative">
               <div className="absolute -left-[13px] top-1.5 w-2 h-2 rounded-full bg-gray-300"></div>
               <p className="text-gray-700 font-medium">{log.eventType.replace(/_/g, ' ')}</p>
-              <p className="text-gray-500 line-clamp-1">{log.message}</p>
+              <p className="text-gray-500 whitespace-pre-wrap break-words">{log.message}</p>
               <p className="text-gray-400 text-[10px]">{new Date(log.createdAt).toLocaleString()}</p>
             </div>
           ))}
         </div>
       </details>
+    );
+  };
+
+  const renderEffectiveness = () => {
+    if (!plan || plan.scoreBeforeExecution == null || plan.status !== 'EXECUTED') return null;
+
+    const hasAfterScore = plan.scoreAfterExecution != null;
+    const improved = hasAfterScore && plan.scoreAfterExecution > plan.scoreBeforeExecution;
+    const declined = hasAfterScore && plan.scoreAfterExecution < plan.scoreBeforeExecution;
+    const afterClass = improved
+      ? 'text-green-600'
+      : declined
+        ? 'text-red-600'
+        : 'text-gray-700';
+
+    return (
+      <div className="mb-2 text-xs bg-white border border-gray-100 rounded p-2 text-center shadow-sm">
+        <span className="text-gray-500">SLA Score: </span>
+        <span className="font-bold text-gray-800">{plan.scoreBeforeExecution}</span>
+        <span className="text-gray-400 mx-1">-&gt;</span>
+        {hasAfterScore ? (
+          <span className={`font-bold ${afterClass}`}>
+            {plan.scoreAfterExecution}
+            {improved ? ' improved' : declined ? ' declined' : ' unchanged'}
+          </span>
+        ) : (
+          <span className="text-gray-400 italic">tracking...</span>
+        )}
+      </div>
     );
   };
 
@@ -216,7 +246,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
         <div className="flex flex-col">
           {plan.status === 'PENDING_APPROVAL' && (
             <>
-              <p className="text-xs text-gray-600 line-clamp-2 mb-2">{plan.summary}</p>
+              <p className="text-xs text-gray-600 whitespace-pre-wrap break-words mb-2">{plan.summary}</p>
               <div className="flex justify-between items-center text-xs font-medium text-gray-500 mb-1">
                 <span>{plan.actions?.length || 0} Actions</span>
               </div>
@@ -300,6 +330,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
                 <span className="text-gray-500">Skipped: {plan.actions?.filter(a => a.status === 'SKIPPED').length || 0}</span>
                 <span className="text-red-600">Failed: {plan.actions?.filter(a => a.status === 'FAILED').length || 0}</span>
               </div>
+              {renderEffectiveness()}
               {renderActionsList(plan.actions, 2, true)}
               {plan.status === 'FAILED' && isLeader && (
                 <button
@@ -318,7 +349,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
             <>
               <div className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 mb-2 shadow-sm">
                 <span className="font-semibold">Reason:</span>
-                <p className="line-clamp-2 text-gray-600 mt-0.5">{plan.rejectReason}</p>
+                <p className="text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{plan.rejectReason}</p>
               </div>
               {isLeader && (
                 <button

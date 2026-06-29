@@ -139,6 +139,34 @@ export const taskService = {
     const response = await axiosInstance.post(`/v1/tasks/${taskId}/request-rework`, { reason })
     return unwrap(response)
   },
+
+  // --- AI Task Generation Endpoints ---
+
+  generateAITasks: async (projectId, payload, options = {}) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/ai/tasks/generate`, payload, { timeout: 300000, ...options })
+    return response.data
+  },
+
+  getAIGenerationStatus: async (generationId) => {
+    const response = await axiosInstance.get(`/ai/staging/generation/${generationId}`)
+    return response.data
+  },
+
+  splitAITask: async (projectId, taskData, options = {}) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/ai/tasks/split`, taskData, { timeout: 180000, ...options })
+    return response.data
+  },
+
+  mergeAITasks: async (projectId, tasksData, options = {}) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/ai/tasks/merge`, tasksData, { timeout: 180000, ...options })
+    return response.data
+  },
+
+  approveAITasks: async (projectId, generationId, payload) => {
+    // payload: { selectedIndices: [], modifiedPayload: [] }
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/ai/tasks/approve/${generationId}`, payload)
+    return response.data
+  },
 }
 
 export default taskService

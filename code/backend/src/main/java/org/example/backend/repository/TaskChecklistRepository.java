@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaskChecklistRepository extends JpaRepository<TaskChecklist, Long> {
+    void deleteByTaskId(Long taskId);
 }

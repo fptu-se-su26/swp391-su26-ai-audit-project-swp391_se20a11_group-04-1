@@ -35,6 +35,10 @@ import org.example.backend.service.sla.TaskSlaPauseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
+import org.example.backend.dto.event.SyncEvent;
+import org.example.backend.constant.SyncTriggerType;
+import java.util.Map;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -83,6 +87,7 @@ public class TaskServiceImpl implements TaskService {
     private final NotificationService notificationService;
     private final OutboxEventService outboxEventService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -156,12 +161,17 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="CREATE_TASK", entityType="Task")
     public TaskResponse createTask(Long projectId, TaskRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
-        Project project = projectRepository.findById(projectId)
+        // Pessimistic write lock to prevent concurrent projectSubId collision
+        Project project = projectRepository.findByIdWithPessimisticWrite(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
         UserAccount creator = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        int nextSubId = taskRepository.findMaxProjectSubIdByProjectId(projectId) + 1;
+        String tCode = String.format("TSK-%03d", nextSubId);
 
         Task task = Task.builder()
                 .project(project)
@@ -172,6 +182,8 @@ public class TaskServiceImpl implements TaskService {
                 .startDate(request.getStartDate() != null ? request.getStartDate() : java.time.LocalDate.now())
                 .weight(request.getWeight() != null ? validateWeight(request.getWeight()) : BigDecimal.ONE)
                 .status(parseEnum(request.getStatus(), TaskStatus.class, TaskStatus.TODO))
+                .projectSubId(nextSubId)
+                .taskCode(tCode)
                 .checklist(new ArrayList<>())
                 .build();
 
@@ -304,6 +316,9 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
+        if (task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Project đã đóng, không thể chỉnh sửa task.");
+        }
         TaskStatus oldStatus = task.getStatus();
         TaskStatus nextStatus = null;
         if (request.getColumnId() != null) {
@@ -614,8 +629,13 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId) {
         // Queue is built from live IN_REVIEW tasks, then decorated with the latest review decision if available.
-        ensureProjectMember(projectId, userId);
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+        
+        boolean isMemberRole = member.getRole() != null && "MEMBER".equalsIgnoreCase(member.getRole().getName());
+        
         return taskRepository.findByProjectIdAndStatusOrderByUpdatedAtDesc(projectId, TaskStatus.IN_REVIEW).stream()
+                .filter(task -> !isMemberRole || (task.getPrimaryAssignee() != null && task.getPrimaryAssignee().getId().equals(userId)))
                 .map(task -> taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId())
                         .map(this::toReviewDecisionResponse)
                         .orElseGet(() -> toSyntheticReviewQueueItem(task)))
@@ -719,6 +739,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public DailyViewResponse getDailyView(Long projectId, Long userId, LocalDate date) {
         ensureProjectMember(projectId, userId);
+        boolean isLeader = isProjectLeader(projectId, userId);
 
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay   = date.plusDays(1).atStartOfDay();
@@ -729,6 +750,15 @@ public class TaskServiceImpl implements TaskService {
         List<Task> due      = taskRepository.findDueTasks(projectId, date);
         List<Task> ongoing  = taskRepository.findOngoingTasks(projectId, date);
         List<Task> done     = taskRepository.findDoneTasksOnDate(projectId, startOfDay, endOfDay);
+        
+        if (!isLeader) {
+            overdue.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            blocked.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            due.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            ongoing.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+            done.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
+        
         int inProgressCount = taskRepository.countInProgressTasks(projectId);
 
         // Gộp overdue + blocked (tránh trùng)
@@ -762,6 +792,9 @@ public class TaskServiceImpl implements TaskService {
 
         // 3. Member progress (chỉ tính khối lượng công việc của ngày hôm nay)
         List<ProjectMember> members = projectMemberRepository.findByProjectId(projectId);
+        if (!isLeader) {
+            members = members.stream().filter(m -> m.getUser().getId().equals(userId)).collect(Collectors.toList());
+        }
         List<Task> dailyTasks = new ArrayList<>();
         dailyTasks.addAll(overdueAndBlocked);
         dailyTasks.addAll(due);
@@ -794,6 +827,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional(readOnly = true)
     public WeeklyViewResponse getWeeklyView(Long projectId, Long userId, LocalDate weekStart) {
         ensureProjectMember(projectId, userId);
+        boolean isLeader = isProjectLeader(projectId, userId);
 
         // Chuẩn hóa weekStart về Thứ 2
         LocalDate monday = weekStart.with(java.time.DayOfWeek.MONDAY);
@@ -801,6 +835,9 @@ public class TaskServiceImpl implements TaskService {
 
         // 1. Task trong tuần
         List<Task> weekTasks = taskRepository.findTasksInWeek(projectId, monday, sunday);
+        if (!isLeader) {
+            weekTasks.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
 
         // Phân tách spanTasks và dayTasks
         List<TaskCalendarItemResponse> spanTasks = new ArrayList<>();
@@ -844,7 +881,11 @@ public class TaskServiceImpl implements TaskService {
         int overdue   = (int) weekTasks.stream()
                 .filter(t -> t.getDeadline() != null && t.getDeadline().isBefore(today)
                         && t.getStatus() != TaskStatus.DONE).count();
-        int blocked   = (int) taskRepository.findBlockedTasks(projectId, today).size();
+        List<Task> allBlocked = taskRepository.findBlockedTasks(projectId, today);
+        if (!isLeader) {
+            allBlocked.removeIf(t -> t.getPrimaryAssignee() == null || !t.getPrimaryAssignee().getId().equals(userId));
+        }
+        int blocked   = allBlocked.size();
 
         // RTM coverage: % requirement có ít nhất 1 task
         int rtmCoverage = calcRtmCoverage(projectId);
@@ -1395,10 +1436,16 @@ public class TaskServiceImpl implements TaskService {
         setColumnFromStatus(task, task.getProject().getId(), nextStatus);
         syncSlaPauseForStatusChange(task, oldStatus, nextStatus);
 
+        // Ghi mốc bắt đầu lần đầu tiên task vào IN_PROGRESS
+        if (nextStatus == TaskStatus.IN_PROGRESS && task.getStartedAt() == null) {
+            task.setStartedAt(LocalDateTime.now());
+        }
+
         if (nextStatus == TaskStatus.DONE) {
             if (task.getCompletedAt() == null) {
                 task.setCompletedAt(LocalDateTime.now());
             }
+            autoCalculateTracking(task);
         } else {
             task.setCompletedAt(null);
         }
@@ -1437,6 +1484,13 @@ public class TaskServiceImpl implements TaskService {
                 sendNotification(task.getPrimaryAssignee(), title, msg, task);
             }
         }
+
+        eventPublisher.publishEvent(new SyncEvent(this, 
+            SyncTriggerType.TASK_STATUS_CHANGED, 
+            "Task", 
+            task.getId(), 
+            Map.of("projectId", task.getProject().getId())
+        ));
     }
 
     private void notifyAssignee(Task task, String title, String message) {
@@ -1576,16 +1630,6 @@ public class TaskServiceImpl implements TaskService {
                 .build());
     }
 
-    private boolean isProjectLeader(Long projectId, Long userId) {
-        if (projectId == null || userId == null) return false;
-        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
-                .map(m -> m.getRole() != null &&
-                        m.getRole().getName() != null &&
-                        (m.getRole().getName().toLowerCase().contains("leader") || 
-                         m.getRole().getName().toLowerCase().contains("mentor")))
-                .orElse(false);
-    }
-
     private boolean isTightlyBoundToIssue(Task task) {
         if (task == null) return false;
         if (task.getGithubIssueNumber() != null) return true;
@@ -1720,9 +1764,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private TaskResponse toResponse(Task task, TaskResponseContext context) {
-        var sla = context != null
-                ? taskSlaRuleService.evaluate(task, context.hasAcceptedEvidence(task.getId()))
-                : taskSlaRuleService.evaluate(task);
+        var sla = taskSlaRuleService.evaluate(task);
         Optional<TaskReviewDecision> latestDecision = taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId());
         return TaskResponse.builder()
                 .id(task.getId())
@@ -1754,7 +1796,7 @@ public class TaskServiceImpl implements TaskService {
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
-                .hasAcceptedEvidence(sla.hasAcceptedEvidence())
+                .hasAcceptedEvidence(context != null && context.hasAcceptedEvidence(task.getId()))
                 .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ?
@@ -2002,7 +2044,11 @@ public class TaskServiceImpl implements TaskService {
                 log.info("Auto-approving Leader Task ID {} (\"{}\") as it has been in review since {}",
                         task.getId(), task.getTitle(), timestamp);
                 try {
-                    codeInsightApprovalGateService.assertCanApprove(task);
+                    var gate = codeInsightApprovalGateService.evaluate(task);
+                    if ("BLOCKED".equals(gate.getApprovalStatus())) {
+                        log.warn("Failed to auto-approve Task ID: {} because gate is BLOCKED: {}", task.getId(), String.join(" ", gate.getBlockers()));
+                        continue;
+                    }
                     changeTaskStatus(task, TaskStatus.DONE, null);
                     taskRepository.save(task);
 
@@ -2043,5 +2089,60 @@ public class TaskServiceImpl implements TaskService {
         } else if (oldStatus == TaskStatus.BLOCKED && newStatus != TaskStatus.BLOCKED) {
             taskSlaPauseService.resumeOpenPauseIfNeeded(task);
         }
+    }
+    
+    private void autoCalculateTracking(Task task) {
+        LocalDateTime end = task.getCompletedAt();
+        if (end == null) return;
+
+        // Actual hours: startedAt nếu có, fallback sang startDate
+        LocalDateTime start = task.getStartedAt();
+        if (start == null && task.getStartDate() != null) {
+            start = task.getStartDate().atStartOfDay();
+        }
+        java.math.BigDecimal actual = null;
+        if (start != null) {
+            long minutes = java.time.Duration.between(start, end).toMinutes();
+            if (minutes > 0) {
+                actual = java.math.BigDecimal.valueOf(minutes)
+                        .divide(java.math.BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP);
+                task.setActualHours(actual);
+            }
+        }
+
+        task.setQualityScore(computeQualityScore(task, actual));
+    }
+
+    // Graduated quality score — dùng cả khi persist lẫn khi tính trong export
+    public static int computeQualityScore(Task task, java.math.BigDecimal ignoredActualHours) {
+        LocalDateTime end = task.getCompletedAt();
+        if (end == null) return 0;
+
+        int score = 10;
+
+        // Tiêu chí 1: Đúng hạn (graduated -1 / -2 / -3)
+        if (task.getDeadline() != null) {
+            long daysLate = java.time.temporal.ChronoUnit.DAYS.between(task.getDeadline(), end.toLocalDate());
+            if (daysLate > 0) {
+                if (daysLate <= 3) score -= 1;
+                else if (daysLate <= 7) score -= 2;
+                else score -= 3;
+            }
+        }
+
+        // Tiêu chí 2: SLA overdue penalty
+        if (task.isOverduePenaltyApplied()) score -= 2;
+
+        return Math.max(1, score);
+    }
+
+    private boolean isProjectLeader(Long projectId, Long userId) {
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .map(pm -> {
+                    if (pm.getRole() == null) return false;
+                    String roleName = pm.getRole().getName().toUpperCase();
+                    return roleName.equals("LEADER") || roleName.equals("PROJECT_LEADER") || roleName.equals("PROJECT LEADER") || roleName.equals("MENTOR");
+                })
+                .orElse(false);
     }
 }

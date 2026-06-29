@@ -198,3 +198,209 @@ Ngay mai no co nhac lai khong? Hay sua de trong cung ngay khong spam nhung khac 
 ```
 
 **Ket qua su dung:** Dung de sua `SlaActionService`, bo duplicate check dua tren notification title cho assignee reminder va chi dung `action_key` lam co che chong spam chinh.
+
+---
+
+## 6. Prompt bo sung - Recovery Plan, Adaptive SLA va Reliability Evidence
+
+Phan nay ghi cac prompt quan trong sau Full SLA Core. Cac prompt duoc loc theo tieu chi: co anh huong den architecture, code, test, commit hoac cach defend module. Cac cau hoi nho ve IDE, GitHub chart, quota, file agent, hoac giai thich thuat ngu don le khong dua vao.
+
+### Prompt 22 - Thiet ke Recovery Plan theo Human-in-the-loop
+
+```text
+SLA hien tai da co risk/state/log/decision pack. Bay gio muon len Level 5 thi lam Recovery Plan nhu the nao cho dung SWP391, khong over-engineer? Can co generate plan, leader approve/reject, execute safe actions va audit log. Hay doc code hien tai, de xuat backend flow phu hop va chi ro file/entity/repository/service/controller can co.
+```
+
+**Ket qua su dung:** Dung de thiet ke Recovery Plan backend flow theo Human-in-the-loop, them plan/action/audit log, approve/reject/execute va unique active plan per task.
+
+### Prompt 23 - Dua AI vao Recovery Plan nhung khong cho AI tu y thay doi du lieu
+
+```text
+Recovery Plan rule-based da chay duoc nhung summary/action message con cung va de gay cam giac bi he thong phat. Co nen dua AI vao khong? Hay de xuat cach dung Gemini de sinh summary/message mem hon, nhung backend van giu rule va leader van approve truoc khi execute.
+```
+
+**Ket qua su dung:** Dung de dinh huong AI chi lam lop reasoning/message, backend rule van la nguon quyet dinh chinh, va human approval gate van bat buoc.
+
+### Prompt 24 - Adaptive AI Recovery Loop va follow-up plan
+
+```text
+Toi muon Recovery Plan thong minh hon: Gemini co the de xuat action, nhung action phai nam trong whitelist. Neu execute xong ma score khong cai thien thi scheduler sau 24h phai detect ineffective va tao follow-up plan. Hay thiet ke flow, guard an toan va noi ro phan nao AI duoc lam, phan nao backend rule quyet dinh.
+```
+
+**Ket qua su dung:** Dung de them AI selectedActions co whitelist, fallback rule-based, effectiveness tracking va follow-up recovery plan co guard chong lap.
+
+### Prompt 25 - Hybrid Rule-based SLA Scoring va burn rate prediction
+
+```text
+SLA score hien tai con tho. Hay nang cap theo huong deterministic, khong dung AI de tinh diem. Can co burn rate, progress percent, SPI, predicted risk level, prediction reasons va score breakdown. Luu y AI chi giai thich/de xuat, core score phai rule-based de defend duoc.
+```
+
+**Ket qua su dung:** Dung de refactor SLA scoring sang hybrid rule-based scoring, them burn rate, SPI, predicted risk va score breakdown vao Decision Pack.
+
+### Prompt 26 - Lay code moi nhat va kiem tra 3 prompt SLA
+
+```text
+Len GitHub lay code moi nhat ve. Sau do toi se dua 3 prompt SLA, ban doc code that va kiem tra da lam dung chua, thieu gi thi bao ro. Khong de xuat lung tung neu khong can.
+```
+
+**Ket qua su dung:** Dung de merge latest `develop`, kiem tra Scheduler Logs UI, Async SLA Analysis Job, Recovery Plan Dashboard va xac dinh cac gap can fix.
+
+### Prompt 27 - Fix duplicate SLA Analysis Job
+
+```text
+SlaAnalysisJobService.createJob() hien tai luon tao job moi. Neu user bam Refresh 2 lan nhanh thi co 2 job cung projectId/sprintId, goi Gemini 2 lan va snapshot co the bi ghi de. Hay them query find job PENDING/RUNNING, neu co thi tra job cu, khong tao moi, log warn.
+```
+
+**Ket qua su dung:** Dung de them duplicate job prevention trong service, skip duplicate async execution va sau do bo sung DB unique index cho active SLA job.
+
+### Prompt 28 - Evidence Snapshot cho Recovery Plan
+
+```text
+Sau khi leader execute recovery plan, scheduler checkEffectivenessForExecutedPlans() chi luu scoreBeforeExecution va scoreAfterExecution. Hay them evidenceSnapshotId bang cach computeAndPersist reliability snapshot sau effectiveness check, fail thi log warn khong lam hong luong chinh, va UI hien link reliability khi co evidence.
+```
+
+**Ket qua su dung:** Dung de them `evidenceSnapshotId`, migration, mapping response va UI evidence link trong Recovery Plan Dashboard.
+
+### Prompt 29 - Recovery Gate Result
+
+```text
+EXECUTED dang dong 2 vai: action da chay xong va ket qua ok. Huong clean la giu status lam process state, them gateResult PASSED/FAILED/INSUFFICIENT_DATA va gateReason. Hay sua checkEffectivenessForExecutedPlans(), evaluateGate(), response mapping va frontend card.
+```
+
+**Ket qua su dung:** Dung de them gate result/gate reason, tach status voi outcome verdict, hien gate result UI va tao follow-up khi gate FAILED.
+
+### Prompt 30 - Hoc tu phan Distributed lock/Redis cua Dat nhung ap dung dung code hien tai
+
+```text
+Xem code that xem co can them Distributed lock/Redis khong. Neu khong can thi noi khong, dung de xuat lung tung. Neu can thi noi ro cho phan nao cua SLA/Recovery Plan.
+```
+
+**Ket qua su dung:** Dung de ket luan chua can Redis lock, nen uu tien DB constraint va row lock. Sau do them `findByIdForUpdate()` voi `PESSIMISTIC_WRITE` cho approve/reject/execute recovery plan va unique partial index cho active SLA analysis job.
+
+### Prompt 31 - Ghi lai du lieu cho AI Audit
+
+```text
+Ghi vao folder Tin de co du lieu sau nay dua vao AI Audit. Sau do loc tat ca cuoc tro chuyen chua dua vao audit, chi lay phan co gia tri code/thiet ke/test/commit, bo qua cau hoi nho.
+```
+
+**Ket qua su dung:** Dung de tao file local `Tin/SLA_RELIABILITY_RECOVERY_SESSION_20260619.md`, sau do cap nhat `Nguyen_Le_Trung_Tin/AI_AUDIT_LOG.md`, `CHANGELOG.md`, `PROMPTS.md` va `REFLECTION.md`.
+
+## 7. Prompt dang gia nhat sau phan bo sung
+
+Prompt 30 la prompt dang gia nhat ve mat engineering vi no giup em khong them Redis lock theo phong trao. Thay vao do, em hoc cach chon giai phap vua du voi codebase: idempotency o service, DB unique constraint lam hang rao cuoi, va row lock cho cac thao tac doi trang thai quan trong. Day la bai hoc giup code an toan hon ma khong lam he thong phuc tap qua muc.
+
+---
+
+## 8. Prompt bo sung - Nang cap Outbox Pattern va Admin Job Dashboard
+
+### Prompt 32 - Trien khai kien truc Outbox Pattern Production-ready
+
+```text
+Toi co mot du an Spring Boot + React (Vite). Hien tai da co Outbox Pattern ban dau, nhung de len production can xu ly them: Idempotency Key, Graceful Shutdown cho cac ThreadPoolTaskExecutor, Dead Letter Queue (DLQ), Job Cleanup rác, tao Admin REST APIs de monitor va xay dung Frontend UI (React + Tailwind). Hay dua ra ke hoach trien khai chi tiet va day du.
+```
+
+**Ket qua su dung:** Dung de xac dinh cac buoc can lam de nang cap Outbox Pattern cho chuan production: tu Database, Logic, API den UI.
+
+### Prompt 33 - Unit Test cho Idempotency Key
+
+```text
+Hay viet Unit Test (JUnit 5 + Mockito) cho viec tao Idempotency Key, kiem chung duplicate handling khi save event thu 2 (xu ly `DataIntegrityViolationException` an toan) trong `OutboxEventServiceTest`.
+```
+
+**Ket qua su dung:** Dung de bao dam code hoat dong dung luong nghiep vu ngay ca khi xay ra tranh chap luu data.
+
+## 9. Prompt dang gia nhat cho phan Outbox
+
+Prompt 32 mang tinh he thong nhat boi no khong chi xu ly loi don le ma nang cap ca mot kien truc he thong quan trong giup he thong de dang bao tri va van hanh (monitor/retry) thong qua giao dien.
+
+---
+
+## 10. Prompt bo sung - Co che Data Synchronization va WebSocket Realtime
+
+### Prompt 34 - Trien khai kien truc Data Sync cho Sprint va Task
+
+```text
+Toi can xay dung mot Data Synchronization Mechanism. Hien tai khi Task thay doi trang thai, Sprint khong tu dong cap nhat progress va Frontend cung khong nhan duoc thong bao realtime. Toi muon dung Spring ApplicationEvent de decouple, luu log (EntitySyncLog) va STOMP WebSocket de bao Frontend. O Frontend, tao hook `useSyncStatus` va hien thi badge tren Sidebar. Hay lap plan trien khai cho chuc nang nay nhe.
+```
+
+**Ket qua su dung:** Dung de len plan kien truc tong the cho chuc nang Data Synchronization, giup viec ket noi trang thai giua Frontend va Backend duoc dong bo qua websocket, giu tinh loose coupling cho DB.
+
+### Prompt 35 - Viet Unit Test cho DataSyncService
+
+```text
+Hay viet `DataSyncServiceTest` (su dung Mockito) de test luong `handleSyncEvent` khi Task thay doi trang thai thanh COMPLETED. Dam bao no goi `syncStatusRepository.upsert` de cap nhat Sprint va `messagingTemplate.convertAndSend` ban dung STOMP payload xuong Frontend.
+```
+
+**Ket qua su dung:** Bao dam service lang nghe su kien va thuc thi dung 2 nhiem vu quan trong nhat la database upsert va ban STOMP message.
+
+---
+
+## 11. Prompt bo sung - Custom System Health Checks and Job Monitoring
+
+### Prompt 36 - Xay dung Custom Monitoring & Health Check
+
+```text
+Tôi có dự án Spring Boot 3 (package: org.example.backend) quản lý dự án học thuật. Spring Actuator CHƯA có — tự implement custom health checks. Hãy giúp tôi tạo Flyway migration, Entity, Repository, Monitoring Executor, @MonitoredJob annotation, MonitoringAspect, HealthCheckService, AlertService qua email, System Monitor Scheduler, DTOs, Admin REST API, và React Frontend update cho trang JobDashboardPage.jsx. Và nhớ viết Unit tests nữa nhé.
+```
+
+**Ket qua su dung:** Dung de xay dung he thong giam sat chu dong tu custom code (khong phu thuoc vao Actuator), giup nguoi quan tri de dang theo doi suc khoe cua database, disk, memory va lich trinh cac job quan trong tu Admin UI.
+
+---
+
+## 12. Prompt bo sung - AI Training Foundation va Sprint Summary
+
+### Prompt 37 - Xay dung nen tang du lieu cho AI Training
+
+```text
+He thong SLA hien co risk level va decision log nhung khong co co che kiem tra xem du doan co chinh xac hay khong sau khi sprint ket thuc. Hay giup em them: (1) predictionConfidence tinh tu khoang cach score den ranh gioi zone, (2) backfill predictionAccurate trong DataSyncScheduler khi sprint auto-complete bang cach so sanh predictedRiskLevel vs ket qua task thuc te, (3) projectId vao AuditLog extract tu request URI bang regex /projects/(\d+), (4) DB view v_member_ai_features join weekly_report_members va task_sla_states de lay feature vector san cho ML model.
+```
+
+**Ket qua su dung:** Dung de xay dung luong thu thap training data co label cho ML model, dam bao co co che kiem tra accuracy de evaluate model sau nay.
+
+### Prompt 38 - AI Sprint Completion Summary + Member Evaluation 4 section
+
+```text
+Khi sprint chuyen sang COMPLETED, hay tu dong goi Gemini sinh mot bao cao tong ket sprint theo 6 tieu chi: Goal Achievement, Delivery, Quality, Teamwork, Process, Improvement Areas. Chi generate mot lan, luu vao bang rieng. Ngoai ra phan danh gia thanh vien hien tra ve text thang, hay cau truc lai thanh 4 phan: Performance Summary, Strengths, Areas for Improvement, Potential Risks. Frontend render moi phan la mot card co mau rieng.
+```
+
+**Ket qua su dung:** Dung de tao `SprintCompletionService`, `GeminiSprintNarrativeService`, `GeminiMemberNarrativeService` va cap nhat Sprint Health UI.
+
+---
+
+## 13. Prompt bo sung - 5-criteria Evaluation va Project Closure
+
+### Prompt 39 - Danh gia thanh vien 5 tieu chi khach quan + WebSocket done signal
+
+```text
+Danh gia thanh vien hien tai chi dua vao text Gemini sinh ra, thieu so lieu do luong. Hay them 5 tieu chi truoc khi goi Gemini: delivery reliability, task weight, proactiveness (so ngay trung binh som/tre), priority handling, workload volume. Gemini chi sinh 2 cau ngan max 35 tu, goi ten thanh vien truc tiep, tranh noi chung chung. Them WebSocket broadcast khi AI generate xong de frontend tu refresh thay vi hardcode wait 60s.
+```
+
+**Ket qua su dung:** Dung de nang cap `SprintCompletionService` tinh 5 tieu chi, cap nhat Gemini prompt trong `GeminiMemberNarrativeService`, them `broadcastSprintAiDone` va cap nhat frontend lang nghe WebSocket.
+
+### Prompt 40 - Quy trinh dong project hoan chinh + Quality Score + Excel 3 sheet
+
+```text
+Project hien chua co quy trinh dong chinh thuc. Hay xay dung: pre-close check task/bug/sprint chua xong, trang thai ARCHIVED khoa CRUD, reopen voi ly do luu AuditLog, ma task TSK-001 tuan tu theo project, auto-track actualHours va qualityScore khi task DONE, Quality Score (1-10) tu deadline penalty va SLA penalty, Task Points = Weight * Priority Factor * (Quality/10), Excel 3 sheet (Tasks by sprint, Member Summary, Formula), ProjectClosureModal wizard 4 buoc, BugReport lock khi ARCHIVED, notification realtime + PROJECT_CLOSED outbox event khi dong.
+```
+
+**Ket qua su dung:** Dung de xay dung toan bo `ProjectTrackingExportService`, `ProjectServiceImpl.closeProject()`, `ProjectClosureModal.jsx` va migration closure.
+
+---
+
+## 14. Prompt bo sung - FastAPI ML Microservice + RAG + RLHF
+
+### Prompt 41 - Kien truc FastAPI ML Microservice tach biet
+
+```text
+Em muon tach phan ML du doan SLA risk ra microservice rieng, khong embed vao Spring Boot. Hay de xuat kien truc: FastAPI port 8001, PyTorch multi-task model du bao risk level + penalty probability + recovery priority tu 37 features (deadline gap, burn rate, evidence count, blocker, workload...). Spring Boot can MlFeatureBuilder chuan bi vector va MlServiceClient goi HTTP voi fallback rule-based neu service down. Them Dockerfile + docker-compose.
+```
+
+**Ket qua su dung:** Dung de xay dung toan bo `ml-service/` voi FastAPI, PyTorch model 86.5% accuracy, `MlFeatureBuilder.java`, `MlServiceClient.java` va Dockerfile.
+
+### Prompt 42 - RAG context injection cho Gemini Recovery Plan + RLHF feedback loop
+
+```text
+Gemini dang sinh recovery plan tu prompt thuan tuy, khong biet plan nao da tung hieu qua. Hay them RAG: FAISS vector store tu 500 plan lich su dung sentence-transformers all-MiniLM-L6-v2 (384-dim), khi generate plan moi thi tim top-3 plan tuong tu va inject vao Gemini prompt. Them RLHF: leader approve/reject/gate_result gui signal, phan loai STRONG/WEAK POSITIVE/NEGATIVE, tu dong rebuild FAISS khi du 50 strong signals. Chu y fix van de Unicode path cua FAISS tren Windows.
+```
+
+**Ket qua su dung:** Dung de xay dung `app/rag/` (embedder, faiss_store, build_index), cac endpoint /recovery/similar, /feedback/signal, /train/trigger, /train/status, them `generateWithRagContext()` va hook RLHF vao `RecoveryPlanService`.

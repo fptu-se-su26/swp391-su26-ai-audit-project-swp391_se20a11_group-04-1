@@ -1,0 +1,231 @@
+package org.example.backend.service.impl;
+
+import org.example.backend.service.AiRoutingService;
+import org.example.backend.service.TaskGeminiService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TaskGeminiServiceImpl implements TaskGeminiService {
+
+    private final AiRoutingService geminiService;
+
+    @Autowired
+    public TaskGeminiServiceImpl(AiRoutingService geminiService) {
+        this.geminiService = geminiService;
+    }
+
+    @Override
+    public String generateTasksBatch(String contextDataJson) {
+        String prompt = "SYSTEM:\n" +
+                "You are an expert Technical Project Manager. Your job is to break down Use Cases into logical technical tasks.\n\n" +
+                "DUPLICATION PREVENTION RULES (CRITICAL):\n" +
+                "- You will be provided with 'existingTasks'. You MUST NOT generate any new tasks for scopes/features that are already covered by these 'existingTasks'.\n" +
+                "- Only generate tasks for the MISSING gaps in the Use Cases.\n" +
+                "- If a Use Case is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
+                "COMPLEXITY & DEADLINE RULES:\n" +
+                "- Simple (UI fix, small API): 1-2 days.\n" +
+                "- Medium (full feature): 3-5 days.\n" +
+                "- Complex (module with multiple flows): 5-7 days.\n" +
+                "- If a task takes > 7 days, YOU MUST split it into smaller sub-tasks.\n\n" +
+                "WEIGHT RULES (Cognitive Complexity):\n" +
+                "- 1.0: Routine/Basic (CRUD, simple UI, repetitive).\n" +
+                "- 1.2 to 1.4: Moderate (Business logic, API integration).\n" +
+                "- 1.5 to 1.7: High/Core (Core architecture, complex flows, optimization).\n" +
+                "- 1.8 to 2.0: Critical/Extreme (Algorithms, security, integrations).\n\n" +
+                "TASK TYPE CLASSIFICATION RULES:\n" +
+                "- DEVELOPMENT: Building APIs, backend logic, DB setup, standard functional coding.\n" +
+                "- UI_UX: Frontend layouts, HTML/CSS, React components, wireframing.\n" +
+                "- TESTING: Writing unit/integration tests, QA, or defining test cases.\n" +
+                "- DOCUMENTATION: Writing API Swagger docs, architecture documents, user guides.\n" +
+                "- RESEARCH: Investigating libraries, Proof of Concept (POC), technical feasibility.\n" +
+                "- DEPLOYMENT: Docker, CI/CD pipelines, server configuration.\n" +
+                "- BUG_FIX: Resolving specific issues or refactoring bad code.\n" +
+                "- REVIEW: Code review, architecture evaluation, security audit.\n\n" +
+                "TIMELINE RULES (Strictly enforced):\n" +
+                "- NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "- suggested_deadline MUST BE >= start_date.\n" +
+                "- Base tasks (no dependencies) MUST have start_date = today.\n" +
+                "- Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
+                "- start_date >= today AND suggested_deadline <= projectDeadline.\n" +
+                "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap!\n\n" +
+                "PRIORITY RULES:\n" +
+                "- Core tasks (Database, Core API) MUST inherit the exact priority of their parent Requirement.\n" +
+                "- Secondary tasks (Documentation, minor UI) can be one level lower than the parent Requirement's priority.\n" +
+                "- Bottleneck tasks (which many others depend on) should be elevated to HIGH or CRITICAL.\n\n" +
+                "ASSIGNMENT RULES:\n" +
+                "- You MUST assign a 'suggested_assignee' to every task.\n" +
+                "- Balance the workload evenly among members based on their 'current_task_count' and 'current_workload_weight'. Assign new tasks to members with the lowest workload first.\n" +
+                "- Ignore their role completely for assignment. The ONLY priority is balancing workload and difficulty (weight) fairly.\n" +
+                "- The 'member_name' in 'suggested_assignee' MUST EXACTLY match the 'username' field of the chosen member.\n\n" +
+                "CHECKLIST RULES:\n" +
+                "- You MUST generate 3 to 5 'checklists' items for each task. These act as the Definition of Done (DoD).\n" +
+                "- Each checklist item must be specific, actionable, and testable (e.g., 'Validate email format', 'Hash password using bcrypt', 'Return JWT token').\n\n" +
+                "JSON FORMATTING RULES:\n" +
+                "- Return JSON only. No extra text, no markdown code fences.\n" +
+                "- DO NOT include comments inside the JSON.\n\n" +
+                "USER:\n" +
+                "Here is the context data:\n" +
+                contextDataJson + "\n\n" +
+                "Return ONLY a valid JSON object with the exact following structure:\n" +
+                "{\n" +
+                "  \"tasks\": [\n" +
+                "    {\n" +
+                "      \"temp_id\": \"Unique string like t1, t2\",\n" +
+                "      \"requirement_code\": \"Code of the parent Requirement\",\n" +
+                "      \"use_case_code\": \"Code of the parent Use Case\",\n" +
+                "      \"title\": \"Clear technical action\",\n" +
+                "      \"description\": \"Detailed scope and acceptance criteria\",\n" +
+                "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
+                "      \"estimated_hours\": 16.0,\n" +
+                "      \"weight\": 1.5,\n" +
+                "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
+                "      \"priority\": \"LOW | MEDIUM | HIGH | CRITICAL\",\n" +
+                "      \"start_date\": \"YYYY-MM-DD\",\n" +
+                "      \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
+                "      \"depends_on\": [\"Array of temp_id, e.g. t1\"],\n" +
+                "      \"suggested_assignee\": {\n" +
+                "        \"member_name\": \"Name from members list\",\n" +
+                "        \"reason\": \"Why this person?\"\n" +
+                "      }\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+        return geminiService.generateText(prompt);
+    }
+
+    @Override
+    public String auditTasks(String contextDataJson) {
+        String prompt = "SYSTEM:\n" +
+                "You are an expert Technical Auditor. Your job is to review a freshly generated list of technical tasks against the original Use Cases and existing tasks.\n" +
+                "Do not generate new tasks. Only analyze the provided tasks.\n" +
+                "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in Vietnamese. Be extremely concise and direct.\n\n" +
+                "Identify risks in these specific categories:\n" +
+                "1. Coverage Gaps: Are there any steps in the Use Case mainFlow/alternativeFlows that are not covered by any generated task?\n" +
+                "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks?\n" +
+                "3. Technical & Workload Risks: Security vulnerabilities, architectural gaps, or severe workload imbalances.\n\n" +
+                "JSON FORMATTING RULES:\n" +
+                "- Return JSON only. No extra text, no markdown code fences.\n" +
+                "- DO NOT include comments inside the JSON.\n\n" +
+                "USER:\n" +
+                "Here is the context data:\n" +
+                contextDataJson + "\n\n" +
+                "Return ONLY a valid JSON object with the exact following structure:\n" +
+                "{\n" +
+                "  \"ai_critical_assessment\": {\n" +
+                "    \"coverage_gaps\": [\n" +
+                "      {\n" +
+                "        \"use_case_code\": \"UC-...\",\n" +
+                "        \"missing_step\": \"Detailed description\",\n" +
+                "        \"severity\": \"CRITICAL|HIGH|MEDIUM|LOW\",\n" +
+                "        \"recommendation\": \"How to cover this gap\"\n" +
+                "      }\n" +
+                "    ],\n" +
+                "    \"duplication_risks\": [\n" +
+                "      {\n" +
+                "        \"generated_task_temp_id\": \"t1\",\n" +
+                "        \"existing_task_id\": \"TASK-123\",\n" +
+                "        \"similarity_reason\": \"Why these are considered duplicates\",\n" +
+                "        \"severity\": \"CRITICAL|HIGH|MEDIUM|LOW\",\n" +
+                "        \"recommendation\": \"Actionable recommendation\"\n" +
+                "      }\n" +
+                "    ],\n" +
+                "    \"identified_risks\": [\n" +
+                "      {\n" +
+                "        \"related_task_ids\": [\"t2\", \"t3\"],\n" +
+                "        \"related_member_name\": \"Member Name\",\n" +
+                "        \"risk\": \"Description of risk\",\n" +
+                "        \"severity\": \"CRITICAL|HIGH|MEDIUM|LOW\",\n" +
+                "        \"recommendation\": \"Actionable recommendation\"\n" +
+                "      }\n" +
+                "    ]\n" +
+                "  }\n" +
+                "}";
+        return geminiService.generateText(prompt);
+    }
+
+    @Override
+    public String splitTask(String taskDataJson) {
+        String prompt = "SYSTEM:\n" +
+                "You are an AI that ONLY outputs JSON. Your sole purpose is to forcibly slice a task into 2 or more smaller sub-tasks.\n\n" +
+                "CRITICAL INSTRUCTIONS (FAILURE IS NOT AN OPTION):\n" +
+                "1. You MUST return a JSON object with a 'sub_tasks' array containing AT LEAST 2 items.\n" +
+                "2. NEVER return an empty array []. NEVER return a 'reason'. NEVER refuse to split.\n" +
+                "3. If the task is already extremely small (e.g., 'Update color to red'), you MUST still split it by phases. For example: Subtask 1: 'Research exact hex code', Subtask 2: 'Apply color code to CSS'.\n" +
+                "4. All text outputs MUST be in English.\n" +
+                "5. Inherit priority exactly.\n" +
+                "6. Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
+                "7. Provide 3-5 'checklists' per sub-task.\n" +
+                "8. NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "9. suggested_deadline MUST BE >= start_date.\n" +
+                "10. Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
+                "11. The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n\n" +
+                "EXAMPLE OF FORCED SPLITTING FOR A TINY TASK:\n" +
+                "Input: {\"title\": \"Change button color to red\", \"description\": \"Update the hex code.\"}\n" +
+                "Output:\n" +
+                "{\n" +
+                "  \"sub_tasks\": [\n" +
+                "    {\"temp_id\": \"sub1\", \"title\": \"Determine hex code\", \"description\": \"Find the exact red hex code.\", \"checklists\": [\"Get color code\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"RESEARCH\", \"priority\": \"LOW\"},\n" +
+                "    {\"temp_id\": \"sub2\", \"title\": \"Update CSS\", \"description\": \"Change the color in CSS file.\", \"checklists\": [\"Modify code\", \"Test\"], \"estimated_hours\": 0.5, \"weight\": 1.0, \"task_type\": \"DEVELOPMENT\", \"priority\": \"LOW\", \"depends_on\": [\"sub1\"]}\n" +
+                "  ]\n" +
+                "}\n\n" +
+                "USER:\n" +
+                "Original Task data:\n" +
+                taskDataJson + "\n\n" +
+                "Return ONLY a valid JSON object in this exact structure. DO NOT wrap in markdown blocks, just raw JSON:\n" +
+                "{\n" +
+                "  \"sub_tasks\": [\n" +
+                "    {\n" +
+                "      \"temp_id\": \"New unique string like sub1, sub2\",\n" +
+                "      \"title\": \"Clear action in Vietnamese\",\n" +
+                "      \"description\": \"Detailed scope in Vietnamese\",\n" +
+                "      \"checklists\": [\"Actionable step 1\"],\n" +
+                "      \"estimated_hours\": 8.0,\n" +
+                "      \"weight\": 1.0,\n" +
+                "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
+                "      \"priority\": \"Must match original\",\n" +
+                "      \"start_date\": \"YYYY-MM-DD\",\n" +
+                "      \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
+                "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks\"]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+        return geminiService.generateText(prompt);
+    }
+
+    @Override
+    public String mergeTasks(String tasksDataJson) {
+        String prompt = "SYSTEM:\n" +
+                "You are an expert Technical Project Manager. Your job is to merge multiple small tasks into one comprehensive task.\n\n" +
+                "RULES:\n" +
+                "- Combine scopes without losing details.\n" +
+                "- Establish a logical title and description.\n" +
+                "- Sum the estimated_hours of all original tasks.\n" +
+                "- You MUST generate 3 to 5 'checklists' items as the combined Definition of Done. Consolidate criteria from the original tasks.\n" +
+                "- NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "- suggested_deadline MUST BE >= start_date.\n" +
+                "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n" +
+                "- If the tasks CANNOT be logically merged (e.g., completely unrelated), return null for merged_task AND provide a 'reason' string explaining why briefly.\n" +
+                "- Return JSON only. No extra text.\n\n" +
+                "USER:\n" +
+                "Tasks to merge:\n" +
+                tasksDataJson + "\n\n" +
+                "Return ONLY a valid JSON object of the merged task:\n" +
+                "{\n" +
+                "  \"merged_task\": {\n" +
+                "    \"temp_id\": \"New unique string like merged1\",\n" +
+                "    \"title\": \"Combined action\",\n" +
+                "    \"description\": \"Combined detailed scope\",\n" +
+                "    \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
+                "    \"estimated_hours\": 16.0, // MUST BE A NUMBER ONLY, DO NOT ADD 'h'\n" +
+                "    \"weight\": 1.0, // MUST BE A NUMBER ONLY\n" +
+                "    \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
+                "    \"priority\": \"Highest priority among merged tasks\",\n" +
+                "    \"start_date\": \"YYYY-MM-DD\",\n" +
+                "    \"suggested_deadline\": \"YYYY-MM-DD\"\n" +
+                "  },\n" +
+                "  \"reason\": \"(Optional) Explain briefly why they cannot be merged if merged_task is null\"\n" +
+                "}";
+        return geminiService.generateText(prompt);
+    }
+}

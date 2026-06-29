@@ -4,6 +4,8 @@ import { FiX, FiCheck, FiRefreshCw, FiAlertTriangle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import api from '../../../api/axiosConfig';
 
+const formatFlow = (flow) => normalizeFlowToText(flow);
+
 const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -91,7 +93,6 @@ const AiSmartSyncAllModal = ({ requirementId, existingUseCases, isOpen, onClose,
     };
   }, [isOpen, requirementId]);
 
-  const formatFlow = (flow) => normalizeFlowToText(flow);
 
   const handleUpdatedChange = (id, field, value) => {
     setPreviewData(prev => ({

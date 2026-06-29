@@ -29,6 +29,9 @@ public class OutboxEvent {
     @Column(name = "aggregate_id", nullable = false)
     private Long aggregateId;
 
+    @Column(name = "idempotency_key", nullable = false, unique = true, length = 64)
+    private String idempotencyKey;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String payload;

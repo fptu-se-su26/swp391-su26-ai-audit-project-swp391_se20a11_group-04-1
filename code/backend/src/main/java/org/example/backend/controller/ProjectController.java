@@ -1,15 +1,23 @@
 package org.example.backend.controller;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.ApiResponse;
+import org.example.backend.dto.ProjectClosureCheckResponse;
+import org.example.backend.dto.ProjectCloseRequest;
+import org.example.backend.dto.ProjectReopenRequest;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.service.ProjectService;
+import org.example.backend.service.ProjectTrackingExportService;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +30,7 @@ import java.util.Map;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final ProjectTrackingExportService exportService;
 
     /**
      * Lấy danh sách phân trang các dự án của tài khoản đang đăng nhập hiện tại.
@@ -299,5 +308,89 @@ public class ProjectController {
         projectService.joinProject(projectId, userId);
 
         return ResponseEntity.ok(ApiResponse.success(null, "Tham gia nhóm thành công!"));
+    }
+
+    /**
+     * GET /api/v1/projects/{projectId}/closure-check
+     * Kiểm tra các hạng mục chưa hoàn thành trước khi đóng project.
+     */
+    @GetMapping("/{projectId}/closure-check")
+    public ResponseEntity<ApiResponse<ProjectClosureCheckResponse>> closureCheck(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        ProjectClosureCheckResponse result = projectService.checkProjectClosure(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(result, "Kiểm tra trạng thái đóng project thành công."));
+    }
+
+    /**
+     * POST /api/v1/projects/{projectId}/close
+     * Đóng project: xử lý task còn mở, chuyển trạng thái → ARCHIVED, ghi audit log.
+     */
+    @PostMapping("/{projectId}/close")
+    public ResponseEntity<ApiResponse<Void>> closeProject(
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectCloseRequest request,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("🔒 Request to close project ID: {} by user ID: {}", projectId, userId);
+        projectService.closeProject(projectId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Project đã được đóng thành công."));
+    }
+
+    /**
+     * POST /api/v1/projects/{projectId}/reopen
+     * Mở lại project đã đóng (ARCHIVED → ACTIVE).
+     */
+    @PostMapping("/{projectId}/reopen")
+    public ResponseEntity<ApiResponse<Void>> reopenProject(
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectReopenRequest request,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("🔓 Request to reopen project ID: {} by user ID: {}", projectId, userId);
+        projectService.reopenProject(projectId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Project đã được mở lại thành công."));
+    }
+
+    /**
+     * GET /api/v1/projects/{projectId}/export-tracking
+     * Xuất file Excel theo dõi đóng góp toàn project (2 sheet: Tasks + Member Summary).
+     */
+    @GetMapping("/{projectId}/export-tracking")
+    public ResponseEntity<byte[]> exportTracking(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("📊 Export tracking request for project ID: {} by user ID: {}", projectId, userId);
+        byte[] data = exportService.exportProjectTracking(projectId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(
+                ContentDisposition.attachment().filename("project-tracking-" + projectId + ".xlsx").build());
+
+        return ResponseEntity.ok().headers(headers).body(data);
     }
 }

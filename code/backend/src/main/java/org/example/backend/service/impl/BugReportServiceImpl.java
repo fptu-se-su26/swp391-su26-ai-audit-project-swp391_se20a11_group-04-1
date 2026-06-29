@@ -64,6 +64,11 @@ public class BugReportServiceImpl implements BugReportService {
         ensureProjectMember(projectId, userId);
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
+
+        if (project.getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Project đã đóng, không thể tạo bug report mới.");
+        }
+
         UserAccount creator = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
 
@@ -152,6 +157,10 @@ public class BugReportServiceImpl implements BugReportService {
                 .orElseThrow(() -> new CustomException("Bug report not found", HttpStatus.NOT_FOUND));
 
         Long projectId = bug.getProject().getId();
+
+        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Project đã đóng, không thể duyệt bug report.");
+        }
 
         // 1. Authorize - only PROJECT_LEADER may approve a DRAFT bug report
         ProjectMember caller = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
