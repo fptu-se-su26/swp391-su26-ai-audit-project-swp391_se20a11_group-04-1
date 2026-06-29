@@ -309,8 +309,6 @@ public class ProjectController {
 
         return ResponseEntity.ok(ApiResponse.success(null, "Tham gia nhóm thành công!"));
     }
-<<<<<<< HEAD
-=======
 
     /**
      * GET /api/v1/projects/{projectId}/closure-check
@@ -395,5 +393,4 @@ public class ProjectController {
 
         return ResponseEntity.ok().headers(headers).body(data);
     }
->>>>>>> cd59da31620b1e3de7e82d3dcd4f88c84778ef7c
 }

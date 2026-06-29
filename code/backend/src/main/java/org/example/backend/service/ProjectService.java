@@ -69,8 +69,6 @@ public interface ProjectService {
      * Cho phép một sinh viên tự tham gia vào dự án
      */
     void joinProject(Long projectId, Long userId);
-<<<<<<< HEAD
-=======
 
     /**
      * Kiểm tra các hạng mục chưa hoàn thành trước khi đóng project
@@ -86,6 +84,5 @@ public interface ProjectService {
      * Mở lại project đã đóng (ARCHIVED → ACTIVE)
      */
     void reopenProject(Long projectId, ProjectReopenRequest request, Long userId);
->>>>>>> cd59da31620b1e3de7e82d3dcd4f88c84778ef7c
 }
 
