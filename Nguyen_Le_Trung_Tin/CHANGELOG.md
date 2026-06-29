@@ -189,3 +189,104 @@ Ket qua: pass
 Backend compile: pass
 Frontend build: pass
 ```
+
+---
+
+## 6. Cap nhat bo sung - Adaptive Recovery, Reliability Monitoring va Evidence Gate
+
+### [12-13/06/2026] Added
+
+- Them Human-in-the-loop Recovery Plan backend flow:
+  - Generate recovery plan tu SLA risk.
+  - Leader/Mentor approve hoac reject.
+  - Execute safe actions sau khi duyet.
+  - Audit log cho generate/approve/reject/execute/action.
+- Them cac bang/backend component chinh:
+  - `recovery_plans`.
+  - `recovery_plan_actions`.
+  - `recovery_plan_audit_logs`.
+  - `RecoveryPlanService`.
+  - `RecoveryPlanController`.
+- Them partial unique index `uk_active_recovery_plan_per_task` de tranh tao nhieu active recovery plan cho cung mot task.
+- Them tai lieu local:
+  - `Tin/recovery_plan_backend_flow_changes.md`
+  - `Tin/SLA_LEVEL5_AI_RECOVERY_IDEA.md`
+
+### [18/06/2026] Added
+
+- Them Adaptive AI Recovery Loop:
+  - Gemini co the de xuat `selectedActions`.
+  - Backend validate action theo whitelist truoc khi tao action that.
+  - Neu AI tra action khong hop le thi fallback ve rule-based actions.
+- Them follow-up plan sau execution:
+  - Scheduler kiem tra hieu qua sau 24h.
+  - Neu plan khong hieu qua thi mark `DECLINED`, notify leader va tao follow-up plan.
+  - Guard de khong tao follow-up qua nhieu trong cung task/sprint.
+- Them Hybrid Rule-based SLA Scoring:
+  - burn rate.
+  - SPI.
+  - predicted risk level.
+  - prediction reasons.
+  - score breakdown.
+- Cap nhat Decision Pack UI de hien thi burn rate, SPI, predicted risk va score breakdown.
+- Them tai lieu local:
+  - `Tin/SLA_ADAPTIVE_AI_AND_HYBRID_SCORING_20260618.md`
+
+### [19/06/2026] Added
+
+- Them SLA Reliability Monitoring:
+  - Reliability snapshot theo project/sprint.
+  - MTTR.
+  - MTBF.
+  - Availability.
+  - Error Budget.
+  - Gemini narrative cho reliability report.
+- Them Async SLA Analysis Job:
+  - Tao job refresh reliability.
+  - Poll job status tu frontend.
+  - Tra report khi job `DONE`.
+- Them frontend:
+  - `ReliabilityDashboardPage.jsx`.
+  - `SchedulerJobsPage.jsx`.
+  - cac component chart/card cho reliability.
+
+### [19/06/2026] Changed
+
+- Recovery Plan effectiveness check khong chi luu score before/after nua, ma con capture evidence snapshot.
+- Them `evidenceSnapshotId` vao Recovery Plan response/UI.
+- Them `gateResult` va `gateReason` de tach:
+  - `status`: process state (`EXECUTED`, `DECLINED`, ...)
+  - `gateResult`: outcome verdict (`PASSED`, `FAILED`, `INSUFFICIENT_DATA`)
+- Frontend Recovery Plan Dashboard hien gate result card, score before -> after va link sang reliability.
+
+### [19/06/2026] Fixed
+
+- Fix duplicate SLA Analysis Job:
+  - Neu da co job `PENDING/RUNNING` cung project/sprint thi tra ve job cu.
+  - Them DB unique partial index cho active job:
+    - `uk_active_sla_analysis_job_per_sprint`
+  - Catch duplicate race condition va tra ve job dang chay thay vi loi 500.
+- Them row lock cho Recovery Plan approve/reject/execute:
+  - `findByIdForUpdate()`.
+  - `LockModeType.PESSIMISTIC_WRITE`.
+- Fix Flyway migration local bi loi duplicate table/column:
+  - `CREATE TABLE IF NOT EXISTS`.
+  - `ADD COLUMN IF NOT EXISTS`.
+
+### [19/06/2026] Verification
+
+```text
+Backend compile: mvnw.cmd -DskipTests compile
+Ket qua: pass
+```
+
+Ghi chu:
+
+- `clean compile` bi fail do file jar trong `target` dang bi backend process giu, khong phai loi compile code.
+
+### Commit lien quan
+
+- `8d690a8` - merge latest `origin/develop`.
+- `8db5058` - `[DE190364] feat: add SLA reliability monitoring`.
+- `f5ec7f6` - `[DE190364] feat: add recovery plan evidence gate`.
+- `ae2dfc1` - `[DE190364] fix: make migrations idempotent`.

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.SlaDecisionPackResponse;
+import org.example.backend.dto.SprintHealthTaskResponse;
 import org.example.backend.entity.SlaActionLog;
 import org.example.backend.entity.SlaDecisionLog;
 import org.example.backend.entity.Task;
@@ -56,6 +57,8 @@ public class SlaDecisionPackService {
 
         List<String> slaCategories = new ArrayList<>();
         List<String> reasons = new ArrayList<>();
+        List<String> predictionReasons = new ArrayList<>();
+        SlaDecisionPackResponse.ScoreBreakdown scoreBreakdown = null;
 
         if (state != null) {
             try {
@@ -72,6 +75,22 @@ public class SlaDecisionPackService {
                 }
             } catch (Exception ex) {
                 log.error("Failed to parse reasonsJson for taskId {}", taskId, ex);
+            }
+
+            try {
+                if (state.getPredictionReasonsJson() != null) {
+                    predictionReasons = objectMapper.readValue(state.getPredictionReasonsJson(), new TypeReference<List<String>>() {});
+                }
+            } catch (Exception ex) {
+                log.error("Failed to parse predictionReasonsJson for taskId {}", taskId, ex);
+            }
+
+            try {
+                if (state.getScoreBreakdownJson() != null) {
+                    scoreBreakdown = objectMapper.readValue(state.getScoreBreakdownJson(), SlaDecisionPackResponse.ScoreBreakdown.class);
+                }
+            } catch (Exception ex) {
+                log.error("Failed to parse scoreBreakdownJson for taskId {}", taskId, ex);
             }
         }
 
@@ -106,6 +125,9 @@ public class SlaDecisionPackService {
                     .projectId(projectId)
                     .currentScore(100)
                     .currentRiskLevel("NORMAL")
+                    .burnRateLevel("LOW")
+                    .predictedRiskLevel("NORMAL")
+                    .predictionReasons(List.of())
                     .slaCategories(List.of("NORMAL"))
                     .reasons(List.of("SLA has not been evaluated yet."))
                     .recommendedAction("No action required.")
@@ -126,13 +148,64 @@ public class SlaDecisionPackService {
                 .recommendedAction(state.getRecommendedAction())
                 .overdueDays(state.getOverdueDays())
                 .daysUntilDeadline(state.getDaysUntilDeadline())
-                .hasAcceptedEvidence(state.isHasAcceptedEvidence())
                 .penaltyApplied(state.isPenaltyApplied())
+                .burnGap(state.getBurnGap() != null ? state.getBurnGap() : 0.0)
+                .burnRateLevel(state.getBurnRateLevel())
+                .spi(state.getSpi() != null ? state.getSpi() : 1.0)
+                .predictedRiskLevel(state.getPredictedRiskLevel())
+                .predictionReasons(predictionReasons)
+                .scoreBreakdown(scoreBreakdown)
                 .evaluatedAt(state.getEvaluatedAt())
                 .latestEventType(latestEventType)
                 .latestActionTaken(latestActionTaken)
                 .recentDecisions(recentDecisions)
                 .recentActions(recentActions)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SprintHealthTaskResponse> getSprintHealth(Long projectId, Long sprintId) {
+        List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
+        
+        return states.stream()
+                .filter(state -> !"NORMAL".equals(state.getCurrentRiskLevel()))
+                .map(state -> {
+                    Task task = state.getTask();
+                    long daysUntilDeadline = -1;
+                    long overdueDays = 0;
+                    
+                    if (task.getDeadline() != null) {
+                        java.time.LocalDate today = java.time.LocalDate.now();
+                        java.time.LocalDate deadline = task.getDeadline();
+                        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(today, deadline);
+                        daysUntilDeadline = daysBetween;
+                        if (daysBetween < 0) {
+                            overdueDays = Math.abs(daysBetween);
+                        }
+                    }
+                    
+                    String assigneeName = "Unassigned";
+                    if (task.getPrimaryAssignee() != null) {
+                        if (task.getPrimaryAssignee().getProfile() != null && 
+                            task.getPrimaryAssignee().getProfile().getFullName() != null && 
+                            !task.getPrimaryAssignee().getProfile().getFullName().trim().isEmpty()) {
+                            assigneeName = task.getPrimaryAssignee().getProfile().getFullName();
+                        } else {
+                            assigneeName = task.getPrimaryAssignee().getUsername();
+                        }
+                    }
+
+                    return SprintHealthTaskResponse.builder()
+                            .taskId(task.getId())
+                            .taskTitle(task.getTitle())
+                            .assigneeName(assigneeName)
+                            .currentRiskLevel(state.getCurrentRiskLevel())
+                            .predictedRiskLevel(state.getPredictedRiskLevel())
+                            .overdueDays(overdueDays)
+                            .daysUntilDeadline(daysUntilDeadline)
+                            .penaltyApplied(state.isPenaltyApplied())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

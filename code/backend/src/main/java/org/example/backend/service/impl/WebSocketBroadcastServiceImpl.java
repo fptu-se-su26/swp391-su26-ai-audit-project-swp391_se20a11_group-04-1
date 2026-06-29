@@ -74,6 +74,13 @@ public class WebSocketBroadcastServiceImpl implements WebSocketBroadcastService 
         send(destination, payload);
     }
 
+    @Override
+    public void broadcastSprintAiDone(Long projectId, Long sprintId) {
+        String destination = "/topic/project/" + projectId + "/sprint-ai";
+        Map<String, Object> payload = Map.of("type", "AI_SPRINT_DONE", "sprintId", sprintId);
+        send(destination, payload);
+    }
+
     private void send(String destination, Object payload) {
         try {
             log.info("Broadcasting websocket message to destination {}: {}", destination, payload);

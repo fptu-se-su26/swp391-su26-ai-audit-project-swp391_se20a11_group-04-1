@@ -1,5 +1,8 @@
 package org.example.backend.service;
 
+import org.example.backend.dto.ProjectClosureCheckResponse;
+import org.example.backend.dto.ProjectCloseRequest;
+import org.example.backend.dto.ProjectReopenRequest;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
 
@@ -66,5 +69,23 @@ public interface ProjectService {
      * Cho phép một sinh viên tự tham gia vào dự án
      */
     void joinProject(Long projectId, Long userId);
+<<<<<<< HEAD
+=======
+
+    /**
+     * Kiểm tra các hạng mục chưa hoàn thành trước khi đóng project
+     */
+    ProjectClosureCheckResponse checkProjectClosure(Long projectId, Long userId);
+
+    /**
+     * Đóng project: xử lý task/bug còn mở, chuyển status → ARCHIVED, ghi audit log
+     */
+    void closeProject(Long projectId, ProjectCloseRequest request, Long userId);
+
+    /**
+     * Mở lại project đã đóng (ARCHIVED → ACTIVE)
+     */
+    void reopenProject(Long projectId, ProjectReopenRequest request, Long userId);
+>>>>>>> cd59da31620b1e3de7e82d3dcd4f88c84778ef7c
 }
 

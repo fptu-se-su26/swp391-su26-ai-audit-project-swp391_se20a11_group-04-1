@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
 import axiosInstance from '@/api/axiosConfig'
+import ProjectClosureModal from '../components/ProjectClosureModal'
 
 /**
  * DashboardPage - Trang tổng quan không gian làm việc dự án DevTrackAI
@@ -13,6 +14,11 @@ import axiosInstance from '@/api/axiosConfig'
 export function DashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Trạng thái modal đóng project
+  const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
+  const [exportingTracking, setExportingTracking] = useState(false)
+  const [reopening, setReopening] = useState(false)
 
   // Trạng thái modal và form tạo dự án mới
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -73,6 +79,44 @@ export function DashboardPage() {
   const openProject = (project) => {
     selectProject(project)
     navigate(`/projects/${project.id}/dashboard`)
+  }
+
+  const handleExportTracking = async (projectId) => {
+    setExportingTracking(true)
+    try {
+      const res = await axiosInstance.get(`/v1/projects/${projectId}/export-tracking`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `project-tracking-${projectId}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Xuất file Excel thành công!')
+    } catch {
+      toast.error('Không thể xuất file Excel.')
+    } finally {
+      setExportingTracking(false)
+    }
+  }
+
+  const handleReopen = async (projectId) => {
+    const reason = window.prompt('Nhập lý do mở lại project (tối thiểu 10 ký tự):')
+    if (!reason || reason.trim().length < 10) {
+      toast.error('Lý do phải ít nhất 10 ký tự.')
+      return
+    }
+    setReopening(true)
+    try {
+      await axiosInstance.post(`/v1/projects/${projectId}/reopen`, { reason: reason.trim() })
+      toast.success('Project đã được mở lại!')
+      fetchProjects()
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Mở lại project thất bại.')
+    } finally {
+      setReopening(false)
+    }
   }
 
   // Lấy trạng thái OAuth và Repo
@@ -1178,21 +1222,78 @@ export function DashboardPage() {
       <div className="relative z-10 w-full space-y-8">
 
         {/* Banner Dự án đầu trang */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-2">
-            <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
-              {activeProject.major} • {activeProject.semester}
-            </span>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">{activeProject.title}</h1>
-            <p className="text-white/80 text-sm font-medium">
-              Chào mừng bạn trở lại dự án với vai trò: <strong className="text-white font-black">{activeProject.role}</strong>
-            </p>
-          </div>
-          <div className="bg-white/10 p-4 rounded-xl border border-white/10 text-center shrink-0">
-            <div className="text-xs uppercase tracking-wider font-semibold opacity-85">Tiến độ Sprint</div>
-            <div className="text-3xl font-black mt-1">{activeProject.progress}%</div>
-          </div>
-        </div>
+        {(() => {
+          const role = (activeProject.role || '').toUpperCase()
+          const isLeaderOrMentor = role.includes('LEADER') || role === 'MENTOR'
+          const isArchived = activeProject.status === 'ARCHIVED'
+          return (
+            <div className={`p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 ${isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container'}`}>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
+                      {activeProject.major} • {activeProject.semester}
+                    </span>
+                    {isArchived && (
+                      <span className="bg-gray-400/30 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase border border-white/20">
+                        ARCHIVED — Chỉ đọc
+                      </span>
+                    )}
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight">{activeProject.title}</h1>
+                  <p className="text-white/80 text-sm font-medium">
+                    Chào mừng bạn trở lại dự án với vai trò: <strong className="text-white font-black">{activeProject.role}</strong>
+                  </p>
+                </div>
+                <div className="bg-white/10 p-4 rounded-xl border border-white/10 text-center shrink-0">
+                  <div className="text-xs uppercase tracking-wider font-semibold opacity-85">Tiến độ Sprint</div>
+                  <div className="text-3xl font-black mt-1">{activeProject.progress}%</div>
+                </div>
+              </div>
+
+              {/* Action buttons — chỉ hiện với Leader/Mentor */}
+              {isLeaderOrMentor && (
+                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/10">
+                  {/* Export Tracking */}
+                  <button
+                    onClick={() => handleExportTracking(activeProject.id)}
+                    disabled={exportingTracking}
+                    className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.3)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                    <span className="material-symbols-outlined text-base group-hover:-translate-y-0.5 transition-transform duration-300 relative z-10">download</span>
+                    <span className="relative z-10">{exportingTracking ? 'Đang xuất...' : 'Xuất Tracking'}</span>
+                  </button>
+
+                  {/* Close Project */}
+                  {!isArchived && (
+                    <button
+                      onClick={() => setIsClosureModalOpen(true)}
+                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(239,68,68,0.2)] hover:shadow-[0_4px_20px_rgba(239,68,68,0.5)] active:scale-95 transition-all duration-300 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                      <span className="material-symbols-outlined text-base group-hover:rotate-12 transition-transform duration-300 relative z-10">lock</span>
+                      <span className="relative z-10">Đóng Project</span>
+                    </button>
+                  )}
+
+                  {/* Reopen Project */}
+                  {isArchived && (
+                    <button
+                      onClick={() => handleReopen(activeProject.id)}
+                      disabled={reopening}
+                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/80 hover:bg-emerald-500 backdrop-blur-md border border-emerald-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                    >
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                      <span className="material-symbols-outlined text-base group-hover:scale-110 transition-transform duration-300 relative z-10">lock_open</span>
+                      <span className="relative z-10">{reopening ? 'Đang mở lại...' : 'Mở Lại Project'}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Các Chỉ Số KPI Nghiệp Vụ */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1321,6 +1422,17 @@ export function DashboardPage() {
         </section>
 
       </div>
+
+      {/* Modal đóng project */}
+      {isClosureModalOpen && activeProject && (
+        <ProjectClosureModal
+          projectId={activeProject.id}
+          projectTitle={activeProject.title}
+          onClose={() => setIsClosureModalOpen(false)}
+          onClosed={() => fetchProjects()}
+        />
+      )}
+
     </main>
   )
 }

@@ -11,5 +11,9 @@ public enum NotificationEntityType {
     REQUIREMENT,
     WEEKLY_REPORT,
     MENTOR_VERIFICATION,
+<<<<<<< HEAD
+=======
+    PROJECT,
+>>>>>>> cd59da31620b1e3de7e82d3dcd4f88c84778ef7c
     ANNOUNCEMENT
 }

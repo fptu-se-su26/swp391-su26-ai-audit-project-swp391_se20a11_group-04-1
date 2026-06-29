@@ -8,6 +8,20 @@ export const sprintReportService = {
       params: sprintId ? { sprintId } : undefined,
     }).then(unwrap),
 
+  getSprintSummary: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/reports/sprints/${sprintId}/summary`).then(unwrap),
+
+  getCompletionSummary: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/sprints/${sprintId}/completion-summary`).then(unwrap),
+
+  getSprintHealth: (projectId, sprintId) =>
+    axiosInstance.get(`/v1/projects/${projectId}/sla/sprint-health`, { params: { sprintId } }).then(unwrap),
+
+  saveSprintReport: (projectId, sprintId, reportData) =>
+    axiosInstance.post(`/v1/projects/${projectId}/weekly-reports/generate`, null, {
+      params: sprintId ? { sprintId } : undefined,
+    }).then(unwrap),
+
   getReport: (projectId, reportId) =>
     axiosInstance.get(`/v1/projects/${projectId}/weekly-reports/${reportId}`).then(unwrap),
 
@@ -18,6 +32,9 @@ export const sprintReportService = {
 
   triggerDailyDigest: (projectId) =>
     axiosInstance.post(`/v1/projects/${projectId}/digests/test-trigger`).then(res => res.data),
+
+  regenerateCompletionSummary: (projectId, sprintId) =>
+    axiosInstance.post(`/v1/projects/${projectId}/sprints/${sprintId}/completion-summary/regenerate`).then(res => res.data),
 }
 
 export default sprintReportService

@@ -169,10 +169,6 @@ public class DailyDigestService {
 
     private void addDigestItems(DailyDigest digest, Task task, LocalDate today) {
         if (task.getStatus() == TaskStatus.DONE) {
-            TaskSlaEvaluation evaluation = taskSlaRuleService.evaluate(task);
-            if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-                digest.addItem(item(task, "MISSING_EVIDENCE", null, "Task is missing accepted evidence in Evidence Vault."));
-            }
             return;
         }
 
@@ -181,7 +177,7 @@ public class DailyDigestService {
 
         boolean penalized = evaluation.has(TaskSlaCategory.OVERDUE_PENALTY) || task.isOverduePenaltyApplied();
         if (penalized) {
-            digest.addItem(item(task, "PENALTY", "OVERDUE_PENALTY", "Task is overdue by 3+ days or missing valid evidence after deadline."));
+            digest.addItem(item(task, "PENALTY", "OVERDUE_PENALTY", "Task is overdue by 3+ days."));
             addedToMajorSection = true;
         } else if (evaluation.has(TaskSlaCategory.OVERDUE_SHORT)) {
             digest.addItem(item(task, "OVERDUE_WARNING", null, "Task is recently overdue."));
@@ -205,11 +201,6 @@ public class DailyDigestService {
 
         if (evaluation.has(TaskSlaCategory.BLOCKED)) {
             digest.addItem(item(task, "BLOCKED", null, "Task is blocked" + (task.getBlockedReason() != null ? ": " + task.getBlockedReason() : ".")));
-            addedToMajorSection = true;
-        }
-
-        if (evaluation.has(TaskSlaCategory.MISSING_EVIDENCE)) {
-            digest.addItem(item(task, "MISSING_EVIDENCE", null, "Task is missing accepted evidence in Evidence Vault."));
             addedToMajorSection = true;
         }
 
@@ -265,7 +256,6 @@ public class DailyDigestService {
         appendSection(html, digest, "DUE_TOMORROW", "Due Tomorrow", "#3b82f6", "#eff6ff");
         appendSection(html, digest, "UPCOMING", "Upcoming", "#0ea5e9", "#f0f9ff");
         appendSection(html, digest, "BLOCKED", "Blocked", "#8b5cf6", "#f5f3ff");
-        appendSection(html, digest, "MISSING_EVIDENCE", "Missing Evidence", "#d946ef", "#fdf4ff");
         appendSection(html, digest, "PLANNED_TODAY", "Planned Today", "#10b981", "#ecfdf5");
 
         html.append("</div>");

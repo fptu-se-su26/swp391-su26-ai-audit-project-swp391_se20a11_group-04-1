@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.entity.TaskSlaState;
+import org.example.backend.repository.TaskSlaStateRepository;
+import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaStateService;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
@@ -18,6 +21,8 @@ public class SlaEventConsumer {
 
     private final ObjectMapper objectMapper;
     private final SlaStateService slaStateService;
+    private final TaskSlaStateRepository taskSlaStateRepository;
+    private final RecoveryPlanService recoveryPlanService;
 
     @KafkaListener(
             topics = {"devtrack.task.events", "devtrack.sla.events"},
@@ -58,9 +63,28 @@ public class SlaEventConsumer {
             }
 
             slaStateService.evaluateAndPersist(taskId, eventType);
+            maybeAutoGenerateRecoveryPlan(taskId);
         } catch (Exception ex) {
             log.error("Failed to process SLA event from Kafka. Payload: {}", payload, ex);
             throw new RuntimeException("Error processing SLA event from Kafka. Payload: " + payload, ex);
+        }
+    }
+
+    private void maybeAutoGenerateRecoveryPlan(Long taskId) {
+        try {
+            TaskSlaState state = taskSlaStateRepository.findById(taskId).orElse(null);
+            if (state == null) {
+                return;
+            }
+
+            String riskLevel = state.getCurrentRiskLevel();
+            if (!"HIGH".equalsIgnoreCase(riskLevel) && !"CRITICAL".equalsIgnoreCase(riskLevel)) {
+                return;
+            }
+
+            recoveryPlanService.autoGenerateForTask(state.getProjectId(), taskId);
+        } catch (Exception ex) {
+            log.warn("AI background recovery plan generation skipped for task {}: {}", taskId, ex.getMessage());
         }
     }
 

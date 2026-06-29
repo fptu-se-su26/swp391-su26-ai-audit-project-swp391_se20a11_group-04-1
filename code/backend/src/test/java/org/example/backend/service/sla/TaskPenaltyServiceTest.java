@@ -3,7 +3,6 @@ package org.example.backend.service.sla;
 import org.example.backend.entity.Project;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.UserAccount;
-import org.example.backend.repository.NotificationRepository;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.TaskPenaltyLogRepository;
 import org.example.backend.repository.TaskRepository;
@@ -34,9 +33,6 @@ class TaskPenaltyServiceTest {
 
     @Mock
     private ProjectMemberRepository projectMemberRepository;
-
-    @Mock
-    private NotificationRepository notificationRepository;
 
     @Mock
     private OutboxEventService outboxEventService;
@@ -71,8 +67,7 @@ class TaskPenaltyServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.OVERDUE_PENALTY),
-                3,
-                false
+                3
         );
 
         when(taskPenaltyLogRepository.existsByTaskIdAndReason(any(), any())).thenReturn(false);
@@ -100,8 +95,7 @@ class TaskPenaltyServiceTest {
 
         TaskSlaEvaluation evaluation = new TaskSlaEvaluation(
                 EnumSet.of(TaskSlaCategory.OVERDUE_PENALTY),
-                3,
-                false
+                3
         );
 
         taskPenaltyService.applyPenaltyIfNeeded(task, evaluation);

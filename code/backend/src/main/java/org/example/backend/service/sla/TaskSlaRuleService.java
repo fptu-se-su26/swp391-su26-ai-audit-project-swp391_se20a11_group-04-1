@@ -1,11 +1,8 @@
 package org.example.backend.service.sla;
 
 import lombok.RequiredArgsConstructor;
-import org.example.backend.entity.EvidenceEntityType;
-import org.example.backend.entity.EvidenceStatus;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskStatus;
-import org.example.backend.repository.EvidenceLinkRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -17,25 +14,16 @@ import java.util.EnumSet;
 @RequiredArgsConstructor
 public class TaskSlaRuleService {
 
-    private final EvidenceLinkRepository evidenceLinkRepository;
     private final TaskSlaPauseService taskSlaPauseService;
     private final Clock clock;
 
     public TaskSlaEvaluation evaluate(Task task) {
-        return evaluate(task, hasAcceptedEvidence(task));
-    }
-
-    public TaskSlaEvaluation evaluate(Task task, boolean hasAcceptedEvidence) {
         EnumSet<TaskSlaCategory> categories = EnumSet.noneOf(TaskSlaCategory.class);
         LocalDate today = LocalDate.now(clock);
         long overdueDays = calculateOverdueDays(task, today);
 
         if (task.getStatus() == TaskStatus.BLOCKED) {
             categories.add(TaskSlaCategory.BLOCKED);
-        }
-
-        if (task.getStatus() == TaskStatus.DONE && !hasAcceptedEvidence) {
-            categories.add(TaskSlaCategory.MISSING_EVIDENCE);
         }
 
         if (task.getDeadline() != null && task.getStatus() != TaskStatus.DONE) {
@@ -59,8 +47,7 @@ public class TaskSlaRuleService {
 
         boolean penaltyDeadlineBreached = task.getDeadline() != null
                 && overdueDays >= 3;
-        boolean incompleteOrMissingEvidence = task.getStatus() != TaskStatus.DONE || !hasAcceptedEvidence;
-        if (penaltyDeadlineBreached && incompleteOrMissingEvidence) {
+        if (penaltyDeadlineBreached && task.getStatus() != TaskStatus.DONE) {
             categories.add(TaskSlaCategory.OVERDUE_PENALTY);
         }
 
@@ -68,18 +55,7 @@ public class TaskSlaRuleService {
             categories.add(TaskSlaCategory.NORMAL);
         }
 
-        return new TaskSlaEvaluation(categories, overdueDays, hasAcceptedEvidence);
-    }
-
-    private boolean hasAcceptedEvidence(Task task) {
-        if (task.getId() == null) {
-            return false;
-        }
-        return evidenceLinkRepository.existsAcceptedEvidenceForEntity(
-                EvidenceEntityType.TASK,
-                task.getId(),
-                EvidenceStatus.ACCEPTED
-        );
+        return new TaskSlaEvaluation(categories, overdueDays);
     }
 
     private long calculateOverdueDays(Task task, LocalDate today) {

@@ -69,6 +69,31 @@ public class RecoveryPlan {
     @Column(name = "reject_reason", columnDefinition = "TEXT")
     private String rejectReason;
 
+    @Column(name = "executed_at")
+    private LocalDateTime executedAt;
+
+    @Column(name = "score_before_execution")
+    private Integer scoreBeforeExecution;
+
+    @Column(name = "score_after_execution")
+    private Integer scoreAfterExecution;
+
+    @Column(name = "effectiveness_checked_at")
+    private LocalDateTime effectivenessCheckedAt;
+
+    @Column(name = "evidence_snapshot_id")
+    private Long evidenceSnapshotId;
+
+    @Column(name = "gate_result", length = 30)
+    private String gateResult;
+
+    @Column(name = "gate_reason", columnDefinition = "TEXT")
+    private String gateReason;
+
+    @Column(name = "is_follow_up", nullable = false)
+    @Builder.Default
+    private boolean followUp = false;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

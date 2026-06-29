@@ -6,5 +6,6 @@ public enum RecoveryPlanStatus {
     REJECTED,
     EXECUTING,
     EXECUTED,
+    DECLINED,
     FAILED
 }

@@ -60,6 +60,8 @@ public class SlaStateService {
         List<String> categoriesList = evaluation.categories().stream().map(Enum::name).collect(Collectors.toList());
         String categoriesJson = toJson(categoriesList);
         String reasonsJson = toJson(reasons);
+        String predictionReasonsJson = toJson(assessment.getPredictionReasons());
+        String scoreBreakdownJson = toJson(assessment.getScoreBreakdown());
 
         // Load existing state
         TaskSlaState oldState = taskSlaStateRepository.findById(taskId).orElse(null);
@@ -68,9 +70,15 @@ public class SlaStateService {
                 || oldState.getCurrentScore() != score
                 || !Objects.equals(oldState.getCurrentRiskLevel(), riskLevel)
                 || oldState.getOverdueDays() != evaluation.overdueDays()
-                || oldState.isHasAcceptedEvidence() != evaluation.hasAcceptedEvidence()
                 || oldState.isPenaltyApplied() != task.isOverduePenaltyApplied()
-                || !Objects.equals(oldState.getCategoriesJson(), categoriesJson);
+                || !Objects.equals(oldState.getCategoriesJson(), categoriesJson)
+                || !Objects.equals(oldState.getBurnGap(), assessment.getBurnGap())
+                || !Objects.equals(oldState.getBurnRateLevel(), assessment.getBurnRateLevel())
+                || !Objects.equals(oldState.getSpi(), assessment.getSpi())
+                || !Objects.equals(oldState.getPredictedRiskLevel(), assessment.getPredictedRiskLevel())
+                || !Objects.equals(oldState.getPredictionReasonsJson(), predictionReasonsJson)
+                || !Objects.equals(oldState.getScoreBreakdownJson(), scoreBreakdownJson)
+                || !Objects.equals(oldState.getPredictionConfidence(), assessment.getPredictionConfidence());
 
         String previousRiskLevel = oldState != null ? oldState.getCurrentRiskLevel() : null;
         Integer previousScore = oldState != null ? oldState.getCurrentScore() : null;
@@ -92,15 +100,24 @@ public class SlaStateService {
             newState.setRecommendedAction(recommendedAction);
             newState.setOverdueDays(evaluation.overdueDays());
             newState.setDaysUntilDeadline(daysUntilDeadline);
-            newState.setHasAcceptedEvidence(evaluation.hasAcceptedEvidence());
             newState.setPenaltyApplied(task.isOverduePenaltyApplied());
+            newState.setBurnGap(assessment.getBurnGap());
+            newState.setBurnRateLevel(assessment.getBurnRateLevel());
+            newState.setSpi(assessment.getSpi());
+            newState.setPredictedRiskLevel(assessment.getPredictedRiskLevel());
+            newState.setPredictionReasonsJson(predictionReasonsJson);
+            newState.setScoreBreakdownJson(scoreBreakdownJson);
+            newState.setPredictionConfidence(assessment.getPredictionConfidence());
             newState.setEvaluatedAt(LocalDateTime.now());
 
             taskSlaStateRepository.save(newState);
         }
 
         // Execute actions via SlaActionService
-        String actionTaken = slaActionService.executeActions(task, evaluation);
+        String actionTaken = slaActionService.executeActions(task, evaluation, assessment);
+        if (actionTaken != null && actionTaken.length() > 100) {
+            actionTaken = actionTaken.substring(0, 97) + "...";
+        }
 
         // Record log if state changed OR a significant action occurred
         if (changed || isExecutedAction(actionTaken)) {
