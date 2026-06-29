@@ -10,7 +10,6 @@ import ConfirmModal from '../../../components/ui/ConfirmModal';
 
 // Helper for auto-mapping sprints based on task deadline vs sprint dates
 const autoMapSprint = (t, sprintList) => {
-  let bestSprintId = null;
   const targetDate = t.suggested_deadline || t.deadline || t.start_date;
   if (targetDate && sprintList && sprintList.length > 0) {
      const tDate = new Date(targetDate);
@@ -23,18 +22,10 @@ const autoMapSprint = (t, sprintList) => {
        return false;
      });
      if (matchedSprint) {
-       bestSprintId = matchedSprint.id;
-     } else {
-       const firstSprint = sprintList[0];
-       const lastSprint = sprintList[sprintList.length - 1];
-       if (firstSprint.startDate && tDate < new Date(firstSprint.startDate)) {
-          bestSprintId = firstSprint.id;
-       } else if (lastSprint.endDate && tDate > new Date(lastSprint.endDate)) {
-          bestSprintId = lastSprint.id;
-       }
+       return matchedSprint.id;
      }
   }
-  return bestSprintId;
+  return '';
 };
 
 const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess }) => {
@@ -98,6 +89,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       
       if (generatedTasks.length === 0) {
         setTasks([]);
+        setAssessment(payloadData.ai_critical_assessment || null);
         setLoading(false);
         return;
       }
@@ -112,7 +104,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
       // Auto-map sprints based on task deadline vs sprint dates
       const mappedTasks = generatedTasks.map(t => {
-        return { ...t, sprint_id: autoMapSprint(t, fetchedSprints) || t.sprint_id };
+        const matched = autoMapSprint(t, fetchedSprints);
+        return { ...t, sprint_id: matched !== '' ? matched : (t.sprint_id || '') };
       });
 
       setTasks(mappedTasks);
@@ -171,14 +164,52 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       return;
     }
 
+
+    const invalidTaskIdx = Array.from(selectedIndices).find(idx => {
+      const task = tasks[idx];
+      
+      if (task.estimated_hours !== undefined && task.estimated_hours !== null && task.estimated_hours !== '') {
+        const hours = Number(task.estimated_hours);
+        if (isNaN(hours) || hours <= 0 || hours > 999) return true;
+      }
+
+      const tStart = task.start_date || task.startDate;
+      const tEnd = task.deadline || task.suggested_deadline || task.endDate;
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      
+      // Removed tStart < todayDateStr to allow users to review tasks spanning across midnight without being blocked
+      if (tStart && tEnd && tStart > tEnd) return true;
+
+      const sprintId = task.sprint_id || task.sprintId;
+      if (sprintId) {
+        const sprint = sprints.find(s => String(s.id) === String(sprintId));
+        if (sprint) {
+          const sStart = sprint.startDate || sprint.start_date;
+          const sEnd = sprint.endDate || sprint.end_date;
+          if (sStart && tStart && tStart < sStart) return true;
+          if (sEnd && tEnd && tEnd > sEnd) return true;
+        }
+      }
+      return false;
+    });
+
+    if (invalidTaskIdx !== undefined) {
+      toast.error(`Task "${tasks[invalidTaskIdx].title}" có ngày tháng không hợp lệ (lọt ngoài Sprint, quá khứ, sai Deadline) hoặc số giờ sai. Vui lòng sửa lại!`);
+      return;
+    }
+
     setApproving(true);
     try {
       const finalTasks = tasks.map((t, idx) => {
+        let taskCopy = { ...t };
         if (selectedIndices.has(idx)) {
-          // Sprint logic is now handled per-task or via bulk override, so we just use what's on the task state
-          return t;
+          if (taskCopy.depends_on && Array.isArray(taskCopy.depends_on) && taskCopy.depends_on.length > 0) {
+            taskCopy.description = (taskCopy.description || '') + `\n\n[Liên kết]: Phụ thuộc vào các task: ${taskCopy.depends_on.join(', ')}`;
+          }
+          delete taskCopy.temp_id;
+          delete taskCopy.depends_on;
         }
-        return t;
+        return taskCopy;
       });
       await taskService.approveAITasks(projectId, generationId, {
         selectedIndices: Array.from(selectedIndices),
@@ -195,26 +226,67 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   };
 
   const handleApproveSplit = (finalSubTasks) => {
-    const newTasks = [...tasks];
+    const originalTask = tasks[splitSelectedIndex];
+    const oldId = originalTask.temp_id;
+    const newIds = finalSubTasks.map(t => t.temp_id).filter(id => id);
+
+    let newTasks = [...tasks];
     newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
+    
+    if (oldId) {
+        newTasks = newTasks.map(t => {
+            if (!finalSubTasks.includes(t) && t.depends_on && Array.isArray(t.depends_on)) {
+                if (t.depends_on.includes(oldId)) {
+                   const deps = new Set(t.depends_on);
+                   deps.delete(oldId);
+                   newIds.forEach(id => deps.add(id));
+                   return { ...t, depends_on: Array.from(deps) };
+                }
+            }
+            return t;
+        });
+    }
+
     setTasks(newTasks);
     
     setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
     
     setReviewingSplitData(null);
-    setSplitSelectedIndex(null); // Clear after apply
+    setSplitSelectedIndex(null);
     toast.success("Đã áp dụng Split!");
   };
 
   const handleApproveMerge = (finalMergedTask) => {
-    const newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
+    const originalMergedTasks = Array.from(mergeSelectedSet).map(idx => tasks[idx]);
+    const masterId = finalMergedTask.temp_id;
+    const allOldIds = originalMergedTasks.map(t => t.temp_id).filter(id => id);
+
+    let newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
+    
+    newTasks = newTasks.map(t => {
+       if (t.depends_on && Array.isArray(t.depends_on)) {
+           let changed = false;
+           let newDeps = t.depends_on.map(dep => {
+               if (allOldIds.includes(dep)) {
+                   changed = true;
+                   return masterId;
+               }
+               return dep;
+           });
+           if (changed) {
+               return { ...t, depends_on: [...new Set(newDeps)] };
+           }
+       }
+       return t;
+    });
+
     newTasks.unshift(finalMergedTask);
     setTasks(newTasks);
     
     setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
     
     setReviewingMergeData(null);
-    setMergeSelectedSet(new Set()); // Clear after apply
+    setMergeSelectedSet(new Set());
     toast.success("Đã áp dụng Merge!");
   };
 
@@ -242,15 +314,33 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       }
 
       if (subTasks && Array.isArray(subTasks) && subTasks.length > 0) {
+        const oldId = fullTask.temp_id;
+        const baseId = oldId || `t${Date.now()}`;
+        
+        const idMap = {};
+        subTasks.forEach((st, i) => {
+            const aiId = st.temp_id || `ai_sub_${i}`;
+            const newId = `${baseId}_${i+1}`;
+            idMap[aiId] = newId;
+        });
+
         // Preserve metadata from original task
-        const enrichedSubTasks = subTasks.map(st => {
+        const enrichedSubTasks = subTasks.map((st, i) => {
           const newSub = {
             ...fullTask, // keep requirement, use_case, assignees by default
             ...st, // overwrite with AI generated fields
             title: st.title || st.task_title || st.task_name || `${fullTask.title} (Phần nhỏ)`,
             description: st.description || st.task_description || `${fullTask.description}\n\n(Tách từ task gốc)`
           };
-          newSub.sprint_id = autoMapSprint(newSub, sprints) || newSub.sprint_id;
+          
+          newSub.temp_id = idMap[st.temp_id || `ai_sub_${i}`];
+          
+          if (newSub.depends_on && Array.isArray(newSub.depends_on)) {
+              newSub.depends_on = newSub.depends_on.map(dep => idMap[dep] || dep);
+          }
+          
+          const matched = autoMapSprint(newSub, sprints);
+          newSub.sprint_id = matched !== '' ? matched : '';
           return newSub;
         });
 
@@ -307,18 +397,34 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         // Preserve metadata from original tasks
         const baseTask = fullTasksToMerge[0];
         const aiMerged = mergedTask || {};
-        mergedTask = {
+        const masterId = baseTask.temp_id || `t${Date.now()}`;
+        const allOldIds = fullTasksToMerge.map(t => t.temp_id).filter(id => id);
+
+        const enrichedMerge = {
             ...baseTask, // keep requirement, use_case, assignees by default
             ...aiMerged, // overwrite with AI generated fields
             title: aiMerged.title || aiMerged.task_title || aiMerged.task_name || `${baseTask.title} (Đã gộp)`,
             description: aiMerged.description || aiMerged.task_description || `${baseTask.description}\n\n(Đã gộp từ các task khác)`
         };
-        mergedTask.sprint_id = autoMapSprint(mergedTask, sprints) || mergedTask.sprint_id;
+        
+        enrichedMerge.temp_id = masterId;
+        
+        let mergedDeps = new Set();
+        fullTasksToMerge.forEach(t => {
+            if (t.depends_on && Array.isArray(t.depends_on)) {
+                t.depends_on.forEach(dep => mergedDeps.add(dep));
+            }
+        });
+        allOldIds.forEach(id => mergedDeps.delete(id));
+        enrichedMerge.depends_on = mergedDeps.size > 0 ? Array.from(mergedDeps) : [];
+
+        const matched = autoMapSprint(enrichedMerge, sprints);
+        enrichedMerge.sprint_id = matched !== '' ? matched : '';
 
         // Instead of applying immediately, open the review modal
         setReviewingMergeData({
           originalTasks: fullTasksToMerge,
-          mergedTask: mergedTask
+          mergedTask: enrichedMerge
         });
         toast.success("AI đã gộp xong, vui lòng kiểm tra lại!");
       } else {
