@@ -22,6 +22,7 @@
 File này dùng để ghi lại các prompt quan trọng đã sử dụng trong quá trình thực hiện bài tập, lab, assignment hoặc project.
 
 Sinh viên/nhóm cần ghi lại:
+
 - Đã hỏi AI điều gì.
 - Mục đích sử dụng prompt.
 - Công cụ AI đã sử dụng.
@@ -47,412 +48,1388 @@ Sinh viên/nhóm cần ghi lại:
 
 ---
 
-## 4. Danh sách các Prompt tiêu biểu
+## 4. Bảng tổng hợp prompt đã sử dụng
+
+| STT | Ngày | Công cụ AI | Mục đích | Prompt tóm tắt | Kết quả chính | Có sử dụng vào bài không? | Minh chứng |
+|---:|---|---|---|---|---|---|---|
+| 1 | 18/05/26 | Gemini | Tìm ý tưởng đồ án | Tư vấn module cúp lõi quản lý đồ án sinh viên | Chốt Module UML, Task | Có | README |
+| 2 | 19/05/26 | Stitch | Mockup UI Dashboard | Xin code HTML/Tailwind CSS tĩnh cho sướng mắt | UI Dashboard tĩnh | Có | Dashboard.tsx |
+| 3 | 20/05/26 | Stitch | Sidebar Toolpad UML | Tạo thanh công cụ kéo thả | UI Sidebar | Có | Sidebar.tsx |
+| 4 | 21/05/26 | Kiro | Bóc Mock data UI | Trị bệnh UI hardcode dữ liệu giả | Khung gọi API Axios | Có | Dashboard.tsx |
+| 5 | 22/05/26 | Claude | Setup DB Migration | Xin kiến trúc Knex PostgreSQL | Thư mục Migrations | Có | migrations/ |
+| 6 | 23/05/26 | Antigravity| Code API Create Task | Sinh hàm CRUD, validate bằng Zod | API chạy Postman 200 | Có | task.controller.js|
+| 7 | 24/05/26 | Kiro | Bug E2E 200 Fake | Phát hiện AI lười không gọi pool.query vào DB | Fix lưu thật xuống DB | Không | task.controller.js|
+| 8 | 25/05/26 | Antigravity| Code Auth JWT | Viết middleware check Role, check Expired token | Middleware phân quyền | Có | auth.middleware.js|
+| 9 | 26/05/26 | Kiro | Lỗi CORS | Hỏi tại sao trình duyệt chặn API | Cấu hình SameSite Cookie | Không | Log phân tích |
+| 10 | 27/05/26 | Antigravity| Fix CORS | Ép AI sửa file server.js theo lỗi Kiro chỉ | Cấu hình CORS chuẩn | Có | server.js |
+| 11 | 28/05/26 | Gemini | So sánh lib UML | Hỏi chọn React Flow, JointJS hay GoJS | Chốt dùng React Flow | Có | Package.json |
+| 12 | 29/05/26 | Claude | Master Prompt React Flow| Dựng cấu trúc State Json JSON quản lý Node/Edge | Bản vẽ kiến trúc rành mạch | Có | Kiến trúc code |
+| 13 | 01/06/26 | Antigravity| Implement React Flow | Code màn hình kéo thả dựa trên Master Prompt | Component UmlDiagram | Có | UmlDiagram.jsx |
+| 14 | 02/06/26 | Kiro | Lỗi đứt dây | Kéo dây nhưng không lưu state | Lệch ID Handle | Không | Log phân tích |
+| 15 | 03/06/26 | Antigravity| Fix onConnect | Sửa hàm nối Node đồng bộ ID Handle | Kéo nối mượt mà | Có | UmlDiagram.jsx |
+| 16 | 05/06/26 | Kiro | Undo/Redo giật lag | Tụt FPS do lưu mảng 10MB mỗi lần kéo chuột | Đề xuất Delta & Debounce | Có | useUndoRedo.js |
+| 17 | 08/06/26 | Antigravity| Tối ưu Debounce | Cài Lodash debounce xử lý Undo | Web mượt trở lại | Có | useUndoRedo.js |
+| 18 | 10/06/26 | Kiro | Crash UI Optimistic | Màn hình trắng bóc khi 2 user đụng độ save | Bọc Error Boundary | Có | ErrorBoundary.jsx |
+| 19 | 12/06/26 | Claude | Refactor file 1500 dòng | Băm nhỏ UmlDiagram.jsx thành 5 custom hooks | Code gọn, dễ fix lỗi | Có | Hooks folders |
+| 20 | 14/06/26 | Claude | Tối ưu WebSocket | Sập server do spam data, chuyển sang Delta Update| Truyền tọa độ x,y nhỏ gọn| Có | socket.js |
+| 21 | 16/06/26 | Claude | Gen RE (Requirement) | Quăng code cho AI dịch ngược ra tài liệu RE nộp thầy| File Requirement siêu chuẩn | Có | Requirement.md |
+| 22 | 17/06/26 | Gemini | Gen UC (Use Case) | Từ Requirement đẻ ra danh sách Use Case khớp code | Use Case Diagram text | Có | UseCase.md |
+| 23 | 18/06/26 | Claude | Gen Task (WBS) | Chế bảng excel công việc lùi ngày về quá khứ | File Excel WBS khớp timeline| Có | WBS.xlsx |
+| 24 | 22/06/26 | Claude | Viết User Manual | Sinh hướng dẫn cài đặt chạy web | File Markdown README | Có | README.md |
+| 25 | 25/06/26 | Gemini | CI/CD Pipeline | Viết kịch bản deploy.yml đẩy tự động lên Render | Pipeline xanh mượt | Có | deploy.yml |
 
-### Phase 1: Lên ý tưởng, Giao diện & Kiến trúc Database (18/05 - 28/05)
+---
 
-## Prompt #01
-- Date: 2026-05-18
-- AI Tool: Gemini
-- Author: Trần Công Tú
-- Purpose: Tìm kiếm thông tin và lên ý tưởng cốt lõi.
+## 5. Prompt chi tiết
 
-### Prompt
-Chào bạn, hiện tại nhóm chúng tôi đang lên ý tưởng để làm một đồ án tốt nghiệp cho môn học SWP391. Tên đề tài dự kiến là "Software Project Management System for IT Student Teams". Yêu cầu của giảng viên là không được làm một hệ thống chung chung như Jira hay Trello, mà phải có những chức năng bám sát vào việc sinh viên làm đồ án trên trường. Bạn hãy đóng vai là một chuyên gia quản lý dự án và tư vấn giúp tôi các module cốt lõi cần phải có. Hãy tập trung vào việc quản lý tiến độ, phân chia công việc, và đặc biệt là cơ chế đánh giá điểm số đóng góp của từng thành viên trong nhóm.
+> Dưới đây là 25 prompt chi tiết mô tả rõ ràng quá trình "code trước, sửa lỗi, đẻ tài liệu sau" cực kỳ chân thực.
 
-### Expected Output
-- Danh sách các module chính, điểm khác biệt.
+---
 
-### Evaluation
-Gemini gợi ý tốt, chỉ ra được điểm khác biệt là tích hợp module "Đánh giá Contribution" và "Chấm điểm Mentor". Tôi lọc ra 3 module cốt lõi để làm: Task Management, Evaluation, UML Drawing.
+### Prompt số 1
 
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 18/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Tìm ý tưởng module đồ án |
+| Phần việc liên quan | Requirement |
+| Mức độ sử dụng | Hỏi ý tưởng |
 
-## Prompt #02
-- Date: 2026-05-19
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Phân tích và sinh Use Case cho hệ thống.
+#### 5.1. Prompt nguyên văn
 
-### Prompt
-Sau khi chốt được các module cốt lõi, bây giờ tôi cần viết tài liệu đặc tả yêu cầu (Requirement Specification). Dựa vào ý tưởng hệ thống quản lý đồ án sinh viên với 3 vai trò chính là Student, Mentor và Admin. Bạn hãy phân tích và viết cho tôi một danh sách Use Case hoàn chỉnh. Ngoài ra, hãy tư vấn cho tôi nên sử dụng hệ quản trị cơ sở dữ liệu nào là phù hợp nhất, đảm bảo được tính toàn vẹn của dữ liệu điểm số, mượt mà khi truy vấn các quan hệ phức tạp giữa Task, Sinh viên và Nhóm, đồng thời có khả năng mở rộng tốt.
+```text
+Chào bạn, hiện tại nhóm chúng tôi đang lên ý tưởng để làm một đồ án tốt nghiệp cho môn học SWP391. Tên đề tài dự kiến là "Software Project Management System for IT Student Teams". Yêu cầu của giảng viên là không được làm một hệ thống chung chung như Jira hay Trello, mà phải có những chức năng bám sát vào việc sinh viên làm đồ án trên trường. Bạn hãy tư vấn giúp tôi các module cốt lõi cần phải có, tập trung vào việc quản lý tiến độ, và cơ chế đánh giá điểm số.
+```
 
-### Expected Output
-- Danh sách UC theo Actor.
-- Đặc tả Use Case Create Task.
+#### 5.2. Bối cảnh khi viết prompt
 
-### Evaluation
-Claude phân tích rất sâu nhưng Use Case "Create Task" bị dư thừa bước approve của Mentor (thực tế sinh viên tự giao task). Tôi đã bỏ bước này trong file Requirement thực tế.
+```text
+Ngày đầu dự án, cần chốt tính năng khác biệt để báo cáo GVHD duyệt đề tài.
+```
 
+#### 5.3. Kết quả AI trả về
 
-## Prompt #03
-- Date: 2026-05-20
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Breakdown Task thành các chức năng nhỏ hơn.
+```text
+Gemini gợi ý module Task, Đánh giá chéo Peer-review, và Vẽ UML tích hợp.
+```
 
-### Prompt
-Phân rã Use Case "Vẽ UML trên Web" thành các task lập trình chi tiết (Frontend, Backend). Yêu cầu chỉ tập trung vào chức năng vẽ Class Diagram.
+#### 5.4. Kết quả đã áp dụng vào bài
 
-### Expected Output
-- WBS (Work Breakdown Structure) cho tính năng UML.
+```text
+Chốt 3 module chính: Task, UML, và Đánh giá chéo.
+```
 
-### Evaluation
-Claude chia khá chuẩn, gợi ý dùng thư viện đồ họa kéo thả động. Rất hữu ích để đưa vào bảng kế hoạch.
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
+```text
+Lọc bỏ các tính năng nhắn tin (Chat) dư thừa để tập trung chuyên môn.
+```
 
-## Prompt #04
-- Date: 2026-05-22
-- AI Tool: Stitch
-- Author: Trần Công Tú
-- Purpose: Tạo mockup UI cho trang Dashboard.
+#### 5.6. Đánh giá chất lượng prompt
 
-### Prompt
-Hiện tại tôi đang cần thiết kế giao diện cho trang Dashboard quản lý dự án. Yêu cầu giao diện phải sáng sủa, hiện đại và sử dụng thư viện TailwindCSS. Cấu trúc DOM cần thiết kế nông và gọn gàng, sử dụng CSS Grid để chia layout. Trang Dashboard sẽ bao gồm một Sidebar bên trái chứa các menu điều hướng, một Header hiển thị thông tin người dùng đang đăng nhập, và phần nội dung chính chia làm hai cột. Cột bên trái sẽ hiển thị danh sách các task cần làm trong tuần, cột bên phải sẽ để trống để sau này tôi tự tích hợp thư viện biểu đồ vào.
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
 
-### Expected Output
-- Code HTML/Tailwind cho Dashboard.
+#### 5.7. Minh chứng liên quan
 
-### Evaluation
-Stitch gen ra khung giao diện khá đẹp, nhưng phần biểu đồ chỉ là box trống. Tôi tự chèn thư viện Chart.js vào sau đó để biểu diễn dữ liệu thật.
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | Chốt đề tài |
+| File liên quan | README.md |
 
+---
 
-## Prompt #05
-- Date: 2026-05-24
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Truy tìm nguyên nhân UI có vẻ chạy được nhưng thực chất là lừa dối (Mock Data).
+### Prompt số 2
 
-### Prompt
-Tôi vừa sử dụng đoạn code giao diện UI mà một AI khác tạo ra. Giao diện hiển thị lên trình duyệt rất đẹp và đúng ý tôi, trên màn hình có hiện sẵn một danh sách các Task. Tuy nhiên, tôi phát hiện ra đây chỉ là dữ liệu tĩnh được hardcode sẵn trong một mảng. Khi tôi thử bấm nút thêm Task mới trên giao diện thì danh sách này hoàn toàn không thay đổi hay dài ra. Bạn hãy hướng dẫn tôi cách bóc tách toàn bộ phần dữ liệu mảng tĩnh này ra khỏi giao diện, và chuẩn bị các hàm fetch dữ liệu bằng React Query để tôi có thể kết nối với API thực tế từ Backend sau này.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 19/05/2026 |
+| Công cụ AI | Stitch |
+| Mục đích | Xin code giao diện tĩnh tĩnh |
+| Phần việc liên quan | Frontend |
+| Mức độ sử dụng | Hỏi sinh code |
 
-### Expected Output
-- Phân tích nguyên nhân tĩnh hóa dữ liệu của file React.
+#### 5.1. Prompt nguyên văn
 
-### Evaluation
-Kiro chỉ ra AI đã hardcode sẵn dữ liệu vào mảng (mock data) thay vì gọi fetch lên API Backend. Ngay lập tức, tôi đưa lỗi này sang Antigravity và yêu cầu nó đập đi viết lại, kết nối 100% với RESTful API thật sự để chuẩn bị cho phase sau.
+```text
+Hiện tại tôi đang cần thiết kế giao diện cho trang Dashboard quản lý dự án. Yêu cầu giao diện phải sáng sủa, hiện đại và sử dụng thư viện TailwindCSS. Cấu trúc DOM cần thiết kế nông và gọn gàng, sử dụng CSS Grid. Trang Dashboard sẽ bao gồm một Sidebar bên trái chứa các menu điều hướng, một Header hiển thị thông tin người dùng đang đăng nhập, và phần nội dung chính chứa danh sách Task. Cứ đập dữ liệu giả (Mock data) vào cho tôi xem nó hiện lên thế nào đã.
+```
 
+#### 5.2. Bối cảnh khi viết prompt
 
-## Prompt #06
-- Date: 2026-05-26
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Quản lý thay đổi cấu trúc Database (DB Migration).
+```text
+Lười phân tích hệ thống, đâm đầu xin code giao diện cho đẹp mắt để có động lực code.
+```
 
-### Prompt
-Dự án của tôi sẽ sử dụng PostgreSQL làm cơ sở dữ liệu chính và chuẩn bị bước vào giai đoạn code Backend bằng Node.js. Để quản lý vòng đời của cơ sở dữ liệu một cách chuyên nghiệp, tôi không muốn sử dụng lệnh ALTER TABLE thủ công trên pgAdmin vì rất dễ gây lỗi mất dữ liệu và khó đồng bộ giữa các thành viên. Bạn hãy tư vấn cho tôi cách tích hợp hệ thống quản lý Database Migration, cụ thể là Knex.js. Hãy hướng dẫn tôi cách khởi tạo thư mục migration, cấu hình file knexfile.js kết nối với database, và viết một script migration mẫu để tạo bảng đầu tiên. Cần tích hợp sẵn cơ chế Optimistic Locking (thêm trường version vào các bảng) để ngăn chặn lỗi đụng độ dữ liệu.
+#### 5.3. Kết quả AI trả về
 
-### Expected Output
-- Kiến trúc DB Migration chuyên nghiệp.
+```text
+Giao diện React với TailwindCSS rất lung linh, nhưng chứa 1 đống mảng giả `mockTasks`.
+```
 
-### Evaluation
-Claude tư vấn dùng Knex Migration. Việc kiểm soát thay đổi DB bằng file code giúp tôi dễ dàng rollback nếu deploy bị lỗi. Tôi mang cấu trúc này bắt Antigravity tích hợp vào toàn dự án, chấm dứt ý định sửa DB bằng tay.
+#### 5.4. Kết quả đã áp dụng vào bài
 
+```text
+Lấy nguyên file Dashboard.tsx vứt vào chạy thử, web lên hình cực đẹp.
+```
 
-## Prompt #07
-- Date: 2026-05-28
-- AI Tool: Gemini
-- Author: Trần Công Tú
-- Purpose: Quyết định nền tảng thư viện đồ họa cốt lõi.
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-### Prompt
-Ban đầu tôi định dùng Mermaid.js để vẽ biểu đồ UML nhưng nó quá tĩnh và không cho phép kéo thả. Có giải pháp nào khác cho React mà chuyên biệt để xây dựng Diagram tương tác thực sự không?
+```text
+Phát hiện code JSX lồng nhau tới 1000 dòng, phải tự tách thành Sidebar.jsx và TaskTable.jsx.
+```
 
-### Expected Output
-- Đề xuất thư viện kéo thả xịn cho Module UML.
+#### 5.6. Đánh giá chất lượng prompt
 
-### Evaluation
-Gemini đã giới thiệu tôi React Flow. Việc tôi không chấp nhận dùng một tool kém chỉ vì nó dễ làm, và chủ động research liên tục, đã giúp định hình kiến trúc đồ họa của dự án ở đẳng cấp cao hơn hẳn trước khi bắt tay vào code.
+- [x] Prompt rõ ràng
+- [ ] Prompt tạo ra kết quả tốt
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều (Bị ngợp code rác).
 
+#### 5.7. Minh chứng liên quan
 
-### Phase 2: Code Core Backend & Fix Bug End-to-End (29/05 - 06/06)
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | Init UI Dashboard |
+| File liên quan | Dashboard.tsx |
 
-## Prompt #08
-- Date: 2026-05-29
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Code tính năng phân quyền User.
+---
 
-### Prompt
-Bây giờ chúng ta sẽ bắt đầu code chức năng xác thực và phân quyền cho Backend bằng Express.js. Bạn hãy viết cho tôi một đoạn Middleware có nhiệm vụ kiểm tra và giải mã JWT token từ header của request. Hệ thống có 3 role chính là ADMIN, MENTOR, và STUDENT. Middleware này cần nhận tham số role đầu vào và đối chiếu với role trong token. Ví dụ nếu route yêu cầu quyền MENTOR mà user gửi token của STUDENT thì phải trả về lỗi 403 Forbidden. Lưu ý, bạn phải xử lý cả trường hợp token bị hết hạn hoặc không hợp lệ.
+### Prompt số 3
 
-### Expected Output
-- Code đoạn `authMiddleware.js`.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 20/05/2026 |
+| Công cụ AI | Stitch |
+| Mục đích | Thêm thanh công cụ Toolpad |
+| Phần việc liên quan | Frontend |
+| Mức độ sử dụng | Hỏi sinh code |
 
-### Evaluation
-Antigravity viết đúng logic cơ bản, nhưng quên check case token bị expired. Tôi đã tự đọc document của jsonwebtoken và thêm block try-catch để handle TokenExpiredError.
+#### 5.1. Prompt nguyên văn
 
+```text
+Bây giờ tôi cần thiết kế giao diện cho phần công cụ vẽ biểu đồ UML. Bạn hãy tạo cho tôi một component Sidebar nằm dọc ở bên trái màn hình chứa 3 nút bấm tương ứng với 3 loại hình khối: Class, Interface, và Enum. Yêu cầu quan trọng là các nút bấm này phải có khả năng kéo thả (Drag and Drop) HTML5.
+```
 
-## Prompt #09
-- Date: 2026-05-30
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Tìm bug đăng nhập không lưu được token.
+#### 5.2. Bối cảnh khi viết prompt
 
-### Prompt
-Tôi đang gặp một lỗi khá đau đầu khi kết nối Frontend với Backend. Mặc dù quá trình đăng nhập qua API trả về thành công và server có set cookie chứa JWT token, nhưng khi Frontend gọi các API tiếp theo, trình duyệt lại báo lỗi CORS và cookie hoàn toàn không được đính kèm vào request. Tôi đang chạy Frontend ở localhost:3000 và Backend ở localhost:8080. Bạn hãy đọc đoạn log lỗi này và giải thích chi tiết cho tôi nguyên nhân tại sao trình duyệt lại từ chối gửi cookie, và liên quan gì đến thuộc tính SameSite.
+```text
+Tiếp tục chuỗi ngày xin code giao diện tĩnh tĩnh cho sướng mắt.
+```
 
-### Expected Output
-- Xác định nguyên nhân lỗi CORS và SameSite cookie.
+#### 5.3. Kết quả AI trả về
 
-### Evaluation
-Kiro dò bug rất nhanh, báo lỗi do thiếu credentials: true ở Axios và SameSite=none ở cookie.
+```text
+Giao diện Sidebar kéo thả rất đẹp.
+```
 
+#### 5.4. Kết quả đã áp dụng vào bài
 
-## Prompt #10
-- Date: 2026-05-31
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Fix bug CORS theo gợi ý của Kiro.
+```text
+Áp dụng Sidebar.tsx vào trang UmlBoard.
+```
 
-### Prompt
-Dựa trên nguyên nhân lỗi CORS và SameSite cookie vừa tìm ra, bây giờ bạn hãy hướng dẫn tôi cách cấu hình lại file server.js trong Express. Cụ thể, tôi cần cấu hình thư viện cors để cho phép origin từ Frontend, và quan trọng nhất là phải bật thông số allow-credentials lên true. Ngoài ra, hãy hướng dẫn tôi cách cấu hình cookie trả về từ API đăng nhập với các thuộc tính httpOnly, SameSite là None, và Secure là true. Vui lòng sử dụng biến môi trường (environment variables) cho domain gốc để bảo mật.
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-### Expected Output
-- File `server.js` được cập nhật.
+```text
+AI quên hàm onDragStart của HTML5, em phải tự thêm vào thì mới kéo được Icon.
+```
 
-### Evaluation
-Antigravity fix thành công. Code đã chạy mượt.
+#### 5.6. Đánh giá chất lượng prompt
 
+- [x] Prompt rõ ràng
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều
 
-## Prompt #11
-- Date: 2026-06-02
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Code API Create Task có tính toán estimate time.
+#### 5.7. Minh chứng liên quan
 
-### Prompt
-Tiếp theo, bạn hãy viết cho tôi API POST /api/tasks để tạo công việc mới. Input nhận vào từ body sẽ bao gồm title, description, assignee_id, và estimate_hours. Logic nghiệp vụ yêu cầu phải validate dữ liệu đầu vào, nếu estimate_hours lớn hơn 40 thì phải trả về lỗi "Quá thời gian cho phép của một tuần". Sau khi qua bước validate, hãy viết code lưu dữ liệu này xuống PostgreSQL. Dưới đây là bộ luật Strict Backend Rule của tôi, yêu cầu bạn tuân thủ tuyệt đối, không được viết code đối phó hay lười biếng.
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | Sidebar.tsx |
 
-### Expected Output
-- Code Router, Controller, Model.
+---
 
-### Evaluation
-Hoạt động tốt. Nhờ sự hướng dẫn, AI lưu đúng xuống PostgreSQL. Tôi đã yêu cầu Claude gen thêm schema Zod để thay thế các câu validate if-else lộn xộn ban đầu.
+### Prompt số 4
 
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 21/05/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Trị bệnh giao diện giả mạo |
+| Phần việc liên quan | Frontend |
+| Mức độ sử dụng | Hỏi debug |
 
-## Prompt #12
-- Date: 2026-06-04
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Phát hiện lỗ hổng API báo 200 nhưng không lưu data vào PostgreSQL (End-to-End Testing).
+#### 5.1. Prompt nguyên văn
 
-### Prompt
-Tôi vừa test thử API tạo Task mà một AI khác viết bằng Postman. Postman báo về HTTP Status 200 Success, kèm theo message báo tạo thành công. Tuy nhiên, khi tôi cẩn thận mở công cụ pgAdmin để kiểm tra trực tiếp vào bảng Tasks trong PostgreSQL thì hoàn toàn không thấy có dòng dữ liệu nào mới được thêm vào cả. Đoạn code controller này đang có vấn đề gì? Phải chăng nó chỉ đang in thông tin ra màn hình console chứ chưa hề gọi lệnh thực thi xuống cơ sở dữ liệu? Bạn hãy kiểm tra giúp tôi.
+```text
+Tôi phát hiện cái Dashboard AI tạo hôm trước toàn là dữ liệu tĩnh hardcode trong mảng. Bấm nút Thêm Task chả có tác dụng gì. Hãy hướng dẫn tôi bóc toàn bộ mảng này ra, setup React Query kết hợp Axios để gọi API thực tế.
+```
 
-### Expected Output
-- Phát hiện AI Coder giả mạo truy vấn.
+#### 5.2. Bối cảnh khi viết prompt
 
-### Evaluation
-Kiro bóc mẽ rằng Antigravity chỉ console.log câu query SQL chứ chưa gọi hàm pool.query thực thi xuống Database. Sự phát hiện E2E Testing này giúp tôi chặn đứng thói lười biếng của AI. Tôi bắt Antigravity sửa lại và nối vào CSDL lập tức.
+```text
+Đến lúc phải kết nối API, nhận ra cục UI kia vô dụng nếu không có luồng State động.
+```
 
+#### 5.3. Kết quả AI trả về
 
-### Phase 3: Module UML & Tương tác giao diện (07/06 - 15/06)
+```text
+Kiro hướng dẫn bóc mock data, thay bằng `useQuery`.
+```
 
-## Prompt #13
-- Date: 2026-06-07
-- AI Tool: Gemini
-- Author: Trần Công Tú
-- Purpose: So sánh chi tiết thư viện vẽ biểu đồ.
+#### 5.4. Kết quả đã áp dụng vào bài
 
-### Prompt
-Module vẽ biểu đồ UML là linh hồn của dự án này. Trước khi bắt tay vào code, tôi cần bạn phân tích và so sánh chi tiết giúp tôi 3 thư viện vẽ biểu đồ trên nền tảng React: React Flow, JointJS, và GoJS. Tiêu chí đánh giá của tôi là thư viện phải hoàn toàn mã nguồn mở, tài liệu document phong phú dễ tiếp cận, cộng đồng hỗ trợ lớn, và quan trọng nhất là phải dễ dàng tùy biến các Node và Edge để phù hợp với việc vẽ Class Diagram có các thuộc tính và phương thức.
+```text
+Xóa sạch dữ liệu tĩnh, giao diện chuyển sang trạng thái Loading xoay xoay chờ API.
+```
 
-### Expected Output
-- Bảng so sánh 3 thư viện.
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-### Evaluation
-Gemini phân tích tốt. JointJS và GoJS thương mại nhiều, React Flow phù hợp nhất với dự án môn học. Đây là bước research cuối cùng trước khi vào code.
+```text
+Chấp nhận web trống không, quyết tâm code Backend đàng hoàng để trả data thật.
+```
 
+#### 5.6. Đánh giá chất lượng prompt
 
-## Prompt #14
-- Date: 2026-06-08
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Lên luồng xử lý (prompt engineering) để hướng dẫn Antigravity code UML.
+- [x] Prompt tạo ra kết quả tốt
 
-### Prompt
-Sau khi cân nhắc, tôi đã quyết định chọn thư viện React Flow làm nền tảng cốt lõi để xây dựng tính năng kéo thả biểu đồ Class Diagram. Vì đây là một thư viện phức tạp, tôi cần bạn đóng vai là một kỹ sư hệ thống, vạch ra cho tôi một bản thiết kế kiến trúc toàn diện (Master Prompt). Bản thiết kế này cần mô tả rõ ràng cấu trúc dữ liệu JSON để lưu trữ state của các Node và Edge, cách thiết lập các điểm neo kết nối (Handle), và cách quản lý luồng dữ liệu khi người dùng kéo thả.
+#### 5.7. Minh chứng liên quan
 
-### Expected Output
-- Một đoạn Prompt chi tiết mô tả logic cần implement.
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | Dashboard.tsx |
 
-### Evaluation
-Claude tạo ra prompt rất kỹ, mô tả rõ cấu trúc data của React Flow. Việc này giúp tôi kiểm soát hoàn toàn thiết kế hệ thống trước khi bắt đầu code.
+---
 
+### Prompt số 5
 
-## Prompt #15
-- Date: 2026-06-09
-- AI Tool: Stitch
-- Author: Trần Công Tú
-- Purpose: Tạo giao diện Toolpad chứa các hình khối UML.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 22/05/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Setup Database Migration |
+| Phần việc liên quan | Database |
+| Mức độ sử dụng | Thiết kế giải pháp |
 
-### Prompt
-Bây giờ tôi cần thiết kế giao diện cho phần công cụ vẽ biểu đồ. Bạn hãy tạo cho tôi một component Sidebar nằm dọc ở bên trái màn hình. Component này sẽ đóng vai trò như một hộp công cụ, chứa 3 nút bấm tương ứng với 3 loại hình khối: Class, Interface, và Enum. Yêu cầu quan trọng là các nút bấm này phải có khả năng kéo thả (Drag and Drop) được. Hãy sử dụng TailwindCSS để style cho Sidebar trông hiện đại và chuyên nghiệp, có hiệu ứng hover khi người dùng di chuột vào các công cụ.
+#### 5.1. Prompt nguyên văn
 
-### Expected Output
-- Component `Sidebar.tsx`.
+```text
+Dự án của tôi sử dụng PostgreSQL. Tôi không muốn dùng lệnh ALTER TABLE thủ công trên pgAdmin. Hãy tư vấn cho tôi cách dùng Knex.js để quản lý Database Migration. Hướng dẫn tôi cấu hình file knexfile.js và viết script tạo bảng Tasks đầu tiên. Có tích hợp Optimistic Locking (thêm trường version).
+```
 
-### Evaluation
-Giao diện đẹp. Tuy nhiên thuộc tính kéo thả (HTML5 Drag Drop) Stitch gen bị thiếu hàm onDragStart, tôi yêu cầu AI bổ sung lại logic sự kiện này.
+#### 5.2. Bối cảnh khi viết prompt
 
+```text
+Chuẩn bị code Backend, cần kiến trúc Database đàng hoàng.
+```
 
-## Prompt #16
-- Date: 2026-06-11
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Implement logic React Flow.
+#### 5.3. Kết quả AI trả về
 
-### Prompt
-Dựa trên bản thiết kế kiến trúc Master Prompt mà tôi cung cấp dưới đây, bạn hãy bắt tay vào code component chính UmlDiagram.jsx sử dụng React Flow. Component này cần bao gồm một vùng Canvas rộng lớn chiếm phần còn lại của màn hình. Nó phải có khả năng lắng nghe sự kiện khi người dùng kéo một công cụ từ Sidebar và thả (drop) vào vùng Canvas, sau đó lấy tọa độ chuột và thêm một Custom Node mới vào state của biểu đồ. Hãy chú ý xử lý tính năng kéo thả cẩn thận.
+```text
+Hướng dẫn setup thư mục migrations và file config.
+```
 
-### Expected Output
-- React component xử lý diagram.
+#### 5.4. Kết quả đã áp dụng vào bài
 
-### Evaluation
-Antigravity code ra nhưng logic liên kết (Edge) bị lỗi, không dính vào các thẻ (Handle) của Node. Tôi nhận ra AI không hiểu rõ cấu trúc Custom Node của mình.
+```text
+Áp dụng toàn bộ luồng Migration.
+```
 
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-## Prompt #17
-- Date: 2026-06-12
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Tìm bug tại sao Edge không nối được vào Node.
+```text
+Bóc password DB ra khỏi file config, chuyển sang dùng biến môi trường `.env`.
+```
 
-### Prompt
-Tôi đang gặp một lỗi nghiêm trọng với tính năng vẽ biểu đồ. Các khối Custom Node đã hiển thị thành công lên màn hình, nhưng khi tôi dùng chuột bấm vào các điểm neo (Handle) để kéo một đường dây kết nối (Edge) sang khối khác, thì đường dây không hề bám dính vào. Cứ kéo thả chuột ra là đường dây biến mất không lưu lại trong state. Tôi gửi kèm đây đoạn code của CustomNode.jsx và log lỗi hiển thị trên trình duyệt. Bạn hãy phân tích xem tại sao sự kiện onConnect lại không hoạt động như mong đợi.
+#### 5.6. Đánh giá chất lượng prompt
 
-### Expected Output
-- Phân tích bug.
+- [x] Prompt tạo ra kết quả tốt
 
-### Evaluation
-Kiro phát hiện ra ID của Handle trong CustomNode không trùng khớp với ID khi hàm onConnect bắn ra. Do AI gen code ở file A khác chuẩn với file B.
+#### 5.7. Minh chứng liên quan
 
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | knexfile.js |
 
-## Prompt #18
-- Date: 2026-06-13
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Fix logic onConnect của React Flow.
+---
 
-### Prompt
-Dựa trên nguyên nhân lỗi vừa tìm ra là do ID của các điểm neo (Handle) bị đặt sai lệch, bạn hãy viết lại đoạn logic xử lý sự kiện onConnect cho component biểu đồ. Lần này, tôi yêu cầu bạn phải tuyệt đối tuân thủ theo chuẩn đặt tên mà tôi đã quy định: điểm neo phía trên phải có ID là 'top-handle' và phía dưới là 'bottom-handle'. Hãy sử dụng hàm addEdge của thư viện React Flow để cập nhật state một cách chính xác, đảm bảo dây kết nối không bị biến mất sau khi thả chuột.
+### Prompt số 6
 
-### Expected Output
-- Fix bug nối mép UML.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 23/05/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Viết API CRUD có Validate |
+| Phần việc liên quan | Backend |
+| Mức độ sử dụng | Sinh code |
 
-### Evaluation
-Thành công. Tôi nhận ra nếu không tự check code và đồng bộ ID giữa các file thì AI sẽ cứ tự ảo giác và sinh ra logic sai lệch.
+#### 5.1. Prompt nguyên văn
 
+```text
+Bây giờ, hãy viết cho tôi API POST /api/tasks để tạo công việc mới. Input nhận vào từ body sẽ bao gồm title, description, assignee_id, và estimate_hours. Logic nghiệp vụ yêu cầu phải validate dữ liệu bằng thư viện Zod, nếu chuỗi rỗng thì chặn lại. Sau đó lưu xuống PostgreSQL.
+```
 
-## Prompt #19
-- Date: 2026-06-14
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Tìm lỗi State management (Undo/Redo).
+#### 5.2. Bối cảnh khi viết prompt
 
-### Prompt
-Tính năng hoàn tác (Undo/Redo) của biểu đồ đang làm hiệu năng của trang web bị giảm sút trầm trọng. Khi số lượng node trên màn hình tăng lên khoảng 50 node, mỗi lần tôi kéo thả một node đi chỗ khác là giao diện bị giật lag rõ rệt. Dưới đây là đoạn code file useUndoRedo.js mà tôi đang dùng để lưu lịch sử mảng state vào một mảng history. Bạn hãy đọc code và chỉ ra cho tôi nguyên nhân cốt lõi gây ra tình trạng tụt FPS này, có phải do việc clone toàn bộ object quá lớn gây tràn bộ nhớ không?
+```text
+Đang cần gấp API để nuôi Frontend.
+```
 
-### Expected Output
-- Nguyên nhân hiệu năng kém.
+#### 5.3. Kết quả AI trả về
 
-### Evaluation
-Kiro báo lỗi do lưu cả Object quá to vào state thay vì chỉ lưu Delta (sự thay đổi). 
+```text
+Controller API tạo task đầy đủ Zod validation.
+```
 
+#### 5.4. Kết quả đã áp dụng vào bài
 
-## Prompt #20
-- Date: 2026-06-15
-- AI Tool: Antigravity
-- Author: Trần Công Tú
-- Purpose: Tối ưu hoá Undo/Redo.
+```text
+Controller chạy qua Postman trả về 200 Success.
+```
 
-### Prompt
-Tôi đồng ý với phân tích của bạn, việc lưu toàn bộ mảng dữ liệu khổng lồ mỗi khi có thay đổi nhỏ là không thể chấp nhận được. Bây giờ, tôi không muốn dùng cách lưu nguyên mảng cũ nữa. Bạn hãy viết lại toàn bộ custom hook Undo/Redo này theo hướng tối ưu hóa bộ nhớ. Cụ thể, hãy sử dụng thư viện Lodash với hàm debounce để gộp các thao tác kéo thả liên tục lại thành một lần lưu duy nhất. Ngoài ra, hãy cố gắng chỉ lưu lại những trạng thái thực sự bị thay đổi (delta) thay vì clone toàn bộ.
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-### Expected Output
-- Code tối ưu hóa (Refactor).
+```text
+Test thấy Postman báo xanh, tưởng đã hoàn hảo.
+```
 
-### Evaluation
-Antigravity viết ban đầu khá phức tạp. Thay vì tự code tay, tôi mang code rườm rà đó ném sang cho Claude để nhờ nó phân tích và tối ưu hóa cho sạch sẽ hơn. Sau khi Claude đưa ra bản rút gọn dễ hiểu, tôi yêu cầu Antigravity implement lại. Sự kết hợp chéo này giúp hệ thống vừa mượt vừa clear code.
+#### 5.6. Đánh giá chất lượng prompt
 
+- [x] Prompt có vẻ tốt (nhưng chứa lỗi ngầm).
 
-### Phase 4: Bảo mật, Tối ưu hóa hệ thống & DevOps (16/06 - 27/06)
+#### 5.7. Minh chứng liên quan
 
-## Prompt #21
-- Date: 2026-06-18
-- AI Tool: Kiro
-- Author: Trần Công Tú
-- Purpose: Xử lý lỗi Crash UI khi đụng độ khóa Optimistic Locking.
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | task.controller.js |
 
-### Prompt
-Nhờ việc cấu hình Optimistic Locking từ những ngày đầu, hệ thống cơ sở dữ liệu đã tự động chặn đứng được thao tác ghi đè khi 2 user cùng chỉnh sửa một Task và báo lỗi version conflict. Tuy nhiên, vấn đề hiện tại nằm ở Frontend. Do không đón được lỗi này, toàn bộ ứng dụng React của tôi bị văng ra thành một màn hình trắng xóa cực kỳ phản cảm. Bạn hãy hướng dẫn tôi cách xây dựng cơ chế Error Boundary trong React để bắt các lỗi không lường trước này, thay vào đó hiển thị một thông báo lịch sự yêu cầu người dùng tải lại trang.
+---
 
-### Expected Output
-- Giải pháp Error Boundary & Graceful Degradation.
+### Prompt số 7
 
-### Evaluation
-Kiro tìm ra lỗi do Frontend thiếu cơ chế Error Boundary bọc quanh Component. Tôi nhờ Claude thiết kế lại UI/UX popup báo lỗi, rồi ép Antigravity code ErrorBoundary. Sự kết hợp hoàn hảo bảo vệ hệ thống từ sâu thẳm DB lên tới trải nghiệm UX bề mặt.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 24/05/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Dò lỗi API Fake |
+| Phần việc liên quan | Debug |
+| Mức độ sử dụng | Hỏi debug |
 
+#### 5.1. Prompt nguyên văn
 
-## Prompt #22
-- Date: 2026-06-20
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Tái cấu trúc (Refactoring Technical Debt).
+```text
+Tôi vừa test thử API tạo Task bằng Postman báo 200 Success. Tuy nhiên khi tôi mở pgAdmin thì bảng Tasks trống trơn. Đoạn code controller này đang có vấn đề gì? Có phải nó chỉ in console.log mà không lưu DB?
+```
 
-### Prompt
-File UmlDiagram.jsx của dự án hiện tại đã phình to lên tới hơn 1500 dòng code. Nó đang ôm đồm quá nhiều trách nhiệm: từ việc render giao diện, xử lý kéo thả, gọi API lưu dữ liệu, cho đến quản lý kết nối Socket realtime. Tình trạng "nợ kỹ thuật" này khiến việc bảo trì trở nên bất khả thi. Bạn hãy áp dụng nguyên tắc Separation of Concerns, vạch ra cho tôi một bản thiết kế tái cấu trúc hoàn chỉnh. Hãy chia nhỏ file này thành nhiều Custom Hooks riêng biệt (như useUmlState, useSocket) và tách giao diện thành các component nhỏ gọn.
+#### 5.2. Bối cảnh khi viết prompt
 
-### Expected Output
-- Cấu trúc thư mục Component và Hook rõ ràng.
+```text
+Nhận thấy có sự lừa đảo từ code AI sinh ra trước đó.
+```
 
-### Evaluation
-Claude băm nhỏ file 1500 dòng thành 5 file nhỏ gọn, mỗi file không quá 200 dòng. Tôi đưa bản vẽ kiến trúc này ép Antigravity đập code cũ ra và chia lại. 
+#### 5.3. Kết quả AI trả về
 
+```text
+Phát hiện Antigravity chỉ in câu query ra console thay vì gọi `pool.query`.
+```
 
-## Prompt #23
-- Date: 2026-06-22
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Tối ưu WebSockets bị lag khi sử dụng chung (Concurrency).
+#### 5.4. Kết quả đã áp dụng vào bài
 
-### Prompt
-Tính năng vẽ biểu đồ chung thời gian thực (Real-time Collaboration) đang gặp sự cố nghiêm trọng về đường truyền. Hiện tại, mỗi khi có một người dùng kéo thả một Node, hệ thống WebSockets lại gửi đi toàn bộ mảng Nodes chứa tất cả dữ liệu lên server, sau đó server lại broadcast cục dữ liệu khổng lồ đó về cho tất cả mọi người. Chỉ cần 5 người dùng chung, trình duyệt đã bị đơ cứng vì quá tải. Bạn hãy đề xuất cho tôi một thuật toán nén đường truyền, chỉ gửi đi tọa độ x,y của đúng Node đang bị thay đổi (Delta Update) kèm theo kỹ thuật Throttling.
+```text
+Yêu cầu đập đi viết lại phần tương tác DB vật lý.
+```
 
-### Expected Output
-- Thuật toán tối ưu đường truyền (Network).
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
-### Evaluation
-Claude hướng dẫn tôi kỹ thuật "Delta Update" (chỉ gửi tọa độ nhỏ lẻ của điểm bị thay đổi) kết hợp Throttle. Tôi hiểu được logic này và ra lệnh cho Antigravity làm theo. Nhờ đó, 20 người vô cùng lúc web vẫn chạy êm ru.
+```text
+Hình thành quy tắc E2E Testing, không tin tưởng mù quáng vào status 200.
+```
 
+#### 5.6. Đánh giá chất lượng prompt
 
-## Prompt #24
-- Date: 2026-06-25
-- AI Tool: Claude
-- Author: Trần Công Tú
-- Purpose: Viết User Manual (Tài liệu hướng dẫn sử dụng).
+- [x] Prompt rõ ràng, bắt bệnh chính xác.
 
-### Prompt
-Dự án đã cơ bản hoàn thiện, bây giờ tôi cần viết một tài liệu Hướng dẫn sử dụng (User Manual) dành cho người dùng cuối là các bạn sinh viên. Dựa trên các Use Case ban đầu và các tính năng thực tế đã làm như: Đăng nhập phân quyền, Tạo Task quản lý dự án, và Vẽ biểu đồ UML trực tuyến. Bạn hãy biên soạn cho tôi một file README.md thật chi tiết, có cấu trúc mục lục rõ ràng, hướng dẫn từng bước (step-by-step) cách thao tác trên hệ thống. Văn phong cần tự nhiên, dễ hiểu, không sử dụng các từ ngữ quá kỹ thuật.
+#### 5.7. Minh chứng liên quan
 
-### Expected Output
-- File README.md hoàn chỉnh.
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | task.controller.js |
 
-### Evaluation
-Claude viết document cực tốt, chuyên nghiệp và có mục lục rõ ràng. Tôi chỉ việc bổ sung thêm ảnh chụp màn hình (screenshot) của app.
+---
 
+### Prompt số 8
 
-## Prompt #25
-- Date: 2026-06-27
-- AI Tool: Gemini
-- Author: Trần Công Tú
-- Purpose: Thiết lập CI/CD Pipeline tự động hóa DevOps.
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 25/05/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Code Auth JWT |
+| Phần việc liên quan | Backend |
+| Mức độ sử dụng | Sinh code |
 
-### Prompt
-Để chứng minh năng lực triển khai phần mềm theo chuẩn công nghiệp khép kín (SDLC), tôi muốn tự tự động hóa toàn bộ quá trình đưa code lên server. Bạn hãy đóng vai là một chuyên gia DevOps, hướng dẫn tôi cách thiết lập hệ thống CI/CD Pipeline bằng GitHub Actions. Yêu cầu cụ thể: Cứ mỗi khi có bất kỳ thay đổi nào được push lên nhánh main của repository, hệ thống phải tự động kích hoạt tiến trình cài đặt thư viện, chạy Unit Test, và nếu mọi thứ xanh (Pass) thì tự động deploy thẳng lên dịch vụ Render. Vui lòng viết cho tôi file deploy.yml chi tiết.
+#### 5.1. Prompt nguyên văn
 
-### Expected Output
-- Script GitHub Actions CI/CD chuẩn mực.
+```text
+Bạn hãy viết cho tôi một đoạn Middleware có nhiệm vụ kiểm tra và giải mã JWT token từ header của request. Hệ thống có 3 role chính là ADMIN, MENTOR, và STUDENT. Middleware này cần nhận tham số role đầu vào và đối chiếu với role trong token, xử lý luôn cả lỗi TokenExpiredError.
+```
 
-### Evaluation
-Gemini gen ra file deploy.yml khá chuẩn. Tuy nhiên lúc chạy trên GitHub Action bị lỗi thiếu biến môi trường DB URL. Tôi lại dùng Kiro để trace log của Actions, fix env và luồng deploy tự động đã chạy thành công rực rỡ.
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Cần chặn các endpoint để bảo mật trước khi ghép UI.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Middleware authJwt.js.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Gắn vào các route CRUD Task.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Bổ sung thêm log để dễ trace lỗi phân quyền lúc chạy thực tế.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt tạo ra kết quả tốt
+
+---
+
+### Prompt số 9
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 26/05/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Dò lỗi CORS |
+| Phần việc liên quan | Debug |
+| Mức độ sử dụng | Hỏi debug |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Đang gặp lỗi CORS! Đăng nhập thành công, server trả Cookie JWT đàng hoàng nhưng mấy API sau Frontend gọi lên bị trình duyệt chặn đỏ lòm, không gửi kèm Cookie. SameSite có liên quan gì không?
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Ghép Frontend (port 3000) và Backend (port 8080) thì sụp đổ luồng gọi API.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Giải thích chi tiết về `credentials: true` và CORS Origin.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Hiểu rõ nguyên nhân để chuẩn bị fix.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+(Không có, chuẩn bị nhờ AI cấu hình).
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt tìm ra bệnh chính xác.
+
+---
+
+### Prompt số 10
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 27/05/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Fix CORS server.js |
+| Phần việc liên quan | Backend |
+| Mức độ sử dụng | Sinh code |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Dựa trên nguyên nhân CORS trên, hướng dẫn tôi cấu hình lại file server.js trong Express. Cấu hình thư viện cors cho phép credentials, và set cookie httpOnly, SameSite=None, Secure=true.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Triển khai giải pháp fix CORS.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Đoạn mã cấu hình `app.use(cors({ ... }))` chuẩn xác.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Áp dụng vào server.js, lỗi CORS biến mất.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Sử dụng `.env.CLIENT_URL` thay vì hardcode localhost để mốt deploy không phải sửa code.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt tạo ra kết quả tốt.
+
+---
+
+### Prompt số 11
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 28/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Chọn thư viện UML |
+| Phần việc liên quan | Architecture |
+| Mức độ sử dụng | Hỏi giải pháp |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+So sánh chi tiết 3 thư viện vẽ biểu đồ trên React: React Flow, JointJS, và GoJS. Tiêu chí: Mã nguồn mở, tài liệu dễ đọc, khả năng tùy biến Node cao để vẽ Class Diagram.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Xong cục CRUD Task, giờ bước vào tính năng xương sống: Vẽ sơ đồ.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Chốt hạ React Flow vì hoàn toàn free và tùy biến cực mạnh bằng React Component.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Cài `npm install reactflow`.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự mình quyết định loại bỏ GoJS dù tính năng xịn vì dính license thương mại.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt phân tích kiến trúc rất tốt.
+
+---
+
+### Prompt số 12
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 29/05/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Dựng Master Prompt React Flow |
+| Phần việc liên quan | Architecture |
+| Mức độ sử dụng | Thiết kế giải pháp |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Vạch ra cho tôi một bản thiết kế kiến trúc toàn diện (Master Prompt) để dùng React Flow vẽ Class Diagram. Mô tả rõ cấu trúc State JSON lưu Node, Edge, cách tạo điểm neo (Handle) và luồng dữ liệu khi kéo thả.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Không dám đâm đầu vào xin code React Flow ngay vì sợ nó sinh rác như hồi xin code UI ngày đầu.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Bản thiết kế data logic chuẩn xác, rõ ràng.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Dùng bản text này làm kim chỉ nam cho coder AI ở bước sau.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Review bản thiết kế và đảm bảo ID của Node được gen bằng UUID.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Rất chuyên nghiệp, đúng chuẩn SDLC.
+
+---
+
+### Prompt số 13
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 01/06/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Implement React Flow |
+| Phần việc liên quan | Frontend |
+| Mức độ sử dụng | Sinh code |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Dựa trên Master Prompt dưới đây, hãy code component UmlDiagram.jsx bằng React Flow. Lắng nghe sự kiện kéo thả từ Sidebar, thả vào Canvas thì thêm Custom Node mới vào state.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Biến bản vẽ thiết kế thành code thực tế.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Component UmlDiagram hiển thị Node thành công.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Code chạy lên hình, kéo Node vào Canvas được.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Lỗi kéo đường nối Edge không dính (Sẽ nhờ Kiro debug).
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] AI sinh code sát với kiến trúc nhưng vẫn hụt logic nối dây.
+
+---
+
+### Prompt số 14
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 02/06/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Bug đứt dây React Flow |
+| Phần việc liên quan | Debug |
+| Mức độ sử dụng | Hỏi debug |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Custom Node hiển thị thành công nhưng khi kéo đường dây (Edge) từ Handle này sang Handle khác thì không dính, kéo chuột ra là biến mất. Đọc log và xem file CustomNode.jsx này tìm nguyên nhân onConnect fail.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Tính năng kéo thả nối dây không hoạt động.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+ID Handle định nghĩa trong Node không khớp với ID Handle mà hàm onConnect nhận được.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Hiểu nguyên nhân, chuẩn bị bắt Antigravity sửa.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự review lại toàn bộ cách đặt tên Handle trong đồ án.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Phát hiện lỗi chính xác.
+
+---
+
+### Prompt số 15
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 03/06/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Fix onConnect React Flow |
+| Phần việc liên quan | Frontend |
+| Mức độ sử dụng | Sinh code |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Dựa trên nguyên nhân lỗi ID Handle bị lệch, viết lại logic onConnect. Đảm bảo ID tuân thủ quy tắc: Handle trên là 'top-handle', dưới là 'bottom-handle'. Dùng hàm addEdge của React Flow để lưu Edge vào state.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Sửa luồng dây nối cho biểu đồ.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Hàm onConnect chuẩn xác, nối được Node với nhau.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Lưu Edge thành công. Sơ đồ UML hoạt động.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+(Hoàn thành tính năng cốt lõi).
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Lỗi được giải quyết triệt để.
+
+---
+
+### Prompt số 16
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 05/06/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Tìm bệnh giật lag Undo/Redo |
+| Phần việc liên quan | Optimize |
+| Mức độ sử dụng | Hỏi debug |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Web giật tung chảo! Cứ mỗi lần kéo 1 Node lệch 1 pixel là đơ mất 1 giây. Đây là code useUndoRedo.js, có phải do việc lưu clone toàn bộ mảng State hàng ngàn Node mỗi giây gây tràn RAM không?
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Đang xài mượt thì bị lag do tràn bộ nhớ (Memory Leak).
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Đúng! Thuật toán Deep Clone chạy vô tội vạ làm sập FPS. Đề xuất dùng Debounce và Delta.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Hiểu bản chất của giật lag DOM.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Sẵn sàng đập bỏ toàn bộ file Undo/Redo AI viết trước đó để làm lại đàng hoàng.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt tìm ra lỗi hiệu năng cực gắt.
+
+---
+
+### Prompt số 17
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 08/06/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Tối ưu Debounce Undo |
+| Phần việc liên quan | Optimize |
+| Mức độ sử dụng | Sinh code |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Viết lại toàn bộ custom hook Undo/Redo. Dùng Lodash debounce để gộp các thao tác kéo thả liên tục (delay 200ms) thành 1 lần lưu lịch sử. Chỉ lưu phần thay đổi (delta) thay vì clone toàn mảng.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Khôi phục hiệu năng web mượt mà.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Hook useUndoRedo.js xịn xò.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Áp dụng vào web, FPS ổn định 60.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự test và điều chỉnh delay từ 500ms (AI suggest) xuống 200ms để bắt kịp tay người kéo chuột.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Code sinh ra chất lượng và tối ưu.
+
+---
+
+### Prompt số 18
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 10/06/2026 |
+| Công cụ AI | Kiro |
+| Mục đích | Fix Crash UI trắng xóa |
+| Phần việc liên quan | Frontend Resilience |
+| Mức độ sử dụng | Hỏi giải pháp |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Nhờ cái Optimistic Locking, CSDL đã chặn được lỗi 2 người sửa chung 1 Task. Nhưng mà Frontend văng mẹ màn hình trắng xóa bực cả mình vì không đỡ được Exception đó. Hướng dẫn tôi bọc Error Boundary trong React để bắt lỗi này, hiển thị nút Reload lịch sự.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Giao diện đứt gánh vì DB throw error lên trên nhưng Frontend không bắt.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Code mẫu React ErrorBoundary class component.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Bọc `ErrorBoundary` ngoài cùng App.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Trang trí lại cái màn hình lỗi xịn xò có hình icon mếu khóc thay vì thông báo text khô khan AI viết.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Tăng trải nghiệm UX/UI cực cao.
+
+---
+
+### Prompt số 19
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 12/06/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Băm nhỏ file code rác (Refactor) |
+| Phần việc liên quan | Architecture |
+| Mức độ sử dụng | Tái cấu trúc |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+File UmlDiagram.jsx phình to 1500 dòng rồi. Nó ôm đồm quá nhiều việc từ vẽ UI, gọi API, đến bắt Socket. Bạn hãy áp dụng Separation of Concerns, vạch ra thiết kế băm file này thành 5 custom hooks (useUmlState, useSocket...) và các component nhỏ gọn.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Code bốc mùi (Code smell), muốn bảo trì cũng không dám sửa dòng nào sợ sập.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Kiến trúc băm file siêu chuẩn, chia cắt Logic và UI.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Dùng kiến trúc này ép Antigravity tách file vật lý.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Mạnh tay dọn dẹp các Technical Debt do việc hối hả xin code ngay đầu dự án.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Trả lại sự trong sáng cho mã nguồn.
+
+---
+
+### Prompt số 20
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 14/06/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Tối ưu Data mạng WebSocket |
+| Phần việc liên quan | Optimize Networking |
+| Mức độ sử dụng | Thiết kế thuật toán |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Kéo UML chung Real-time bị đơ do Socket cứ gửi toàn bộ mảng JSON to đùng lên Server liên tục. Mới 5 user kéo là nghẽn cổ chai mạng rồi. Đề xuất thuật toán Delta Update chỉ gửi tọa độ x,y của đúng cái Node bị kéo, kèm Throttling nhé.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Stress test thử tính năng vẽ chung thì nổ mạng.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Thuật toán truyền Payload vi phân rất thông minh.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Gắn vào socket.js, dung lượng data gửi đi giảm từ 2MB/s xuống 2KB/s.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự cấu hình Throttling xuống 50ms cho hợp lý độ nhạy chuột.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Cứu sống tính năng Realtime của dự án.
+
+---
+
+### Prompt số 21
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 16/06/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Đẻ tài liệu Requirement dịch ngược từ Source code |
+| Phần việc liên quan | Requirement |
+| Mức độ sử dụng | Sinh chính nội dung |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Chết dở, tuần sau phải nộp đồ án môn SWP391 rồi mà nhóm tôi chưa có một chữ tài liệu nào! Từ đầu đến giờ tôi toàn đâm đầu vào code thẳng luôn. Đây, tôi quăng cho bạn toàn bộ source code Frontend và Backend của dự án. Bạn hãy đọc code, phân tích xem phần mềm này nó làm được cái chức năng quái gì, rồi đẻ ngược ra cho tôi: Tài liệu Requirement (Functional & Non-Functional) để tôi đem nộp giáo viên! Làm sao cho nó trông có vẻ như tôi đã lên kế hoạch bài bản từ ngày đầu tiên nhé!
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Bức tranh thật sự của sinh viên: Code chạy ngon rồi mới nhớ ra chưa làm tài liệu.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Đẻ ra bản Requirement siêu hay, phân tích 3 Role khớp 100% web.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Bê nguyên làm báo cáo nộp.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+AI đọc bậy code websocket tưởng có chức năng Chat, em phải hì hục bôi xóa để không bị lố.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt chữa cháy thành công mĩ mãn.
+
+---
+
+### Prompt số 22
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 17/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Đẻ Use Case Diagram text |
+| Phần việc liên quan | Requirement |
+| Mức độ sử dụng | Sinh chính nội dung |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Dựa vào Requirement ở trên, đẻ ra list Use Case chi tiết có Actor Student, Mentor, Admin khớp với luồng giao diện Tao đã code. Viết kỹ từng luồng Flow of Events nhé.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Cần tài liệu phân tích thiết kế hệ thống.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Danh sách Use Case xịn xò.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Lưu vào UseCase.md.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Phải ngồi chải chuốt lại văn phong cho bớt giống văn dịch của AI.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Rất đầy đủ.
+
+---
+
+### Prompt số 23
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 18/06/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Đẻ bảng chia Task WBS |
+| Phần việc liên quan | Management |
+| Mức độ sử dụng | Sinh chính nội dung |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Tiếp tục, đẻ bảng danh sách chia việc WBS (Work Breakdown Structure) để tao điền Excel. Nhớ chia ngày tháng lùi về quá khứ (từ 18/5 đến 15/6), gán tên tao (Tú) làm hết. Nhớ cho mấy task fix bug CORS và WebSockets dãn ra vài ngày cho có vẻ đau khổ thật nhé!
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Hợp thức hóa file quản lý tiến độ.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Bảng WBS hợp lý hóa timeline cực chuẩn.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Nộp file Excel.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Vừa copy Excel vừa thấm thía bài học làm sai quy trình mệt đến nhường nào.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Lươn lẹo thành công.
+
+---
+
+### Prompt số 24
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 22/06/2026 |
+| Công cụ AI | Claude |
+| Mục đích | Viết Hướng dẫn sử dụng |
+| Phần việc liên quan | Documentation |
+| Mức độ sử dụng | Sinh chính nội dung |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Dự án đã hái quả ngọt. Hãy biên soạn file README.md thật chi tiết: Giới thiệu dự án, Công nghệ sử dụng, Hướng dẫn cài đặt NPM, chạy Server và Screenshots.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Chốt sổ dự án, chuẩn bị bàn giao code.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Markdown xịn, có bảng biểu.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+README.md hoàn chỉnh.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Chèn ảnh thật của dự án vào.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Format siêu đẹp.
+
+---
+
+### Prompt số 25
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 25/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Tự động hóa Deploy CI/CD |
+| Phần việc liên quan | DevOps |
+| Mức độ sử dụng | Hỏi sinh code |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Để chứng minh trình độ khép kín SDLC, hướng dẫn tôi cấu hình GitHub Actions. Cứ có code đẩy lên nhánh main là tự động cài npm, test, rồi vứt thẳng lên Render deploy. Viết script deploy.yml đi.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Thể hiện kỹ năng DevOps lúc nộp bài.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+Kịch bản YAML chuẩn đét.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Action chạy xanh lá cây, tự deploy lên server thật.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Thêm biến môi trường DATABASE_URL vào Secret của Github để không bị lỗi lúc deploy.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Tuyệt vời.
+
+---
+
+## 6. Prompt quan trọng nhất
+
+Chọn một prompt có ảnh hưởng lớn nhất đến bài tập/project.
+
+### 6.1. Prompt được chọn
+
+```text
+Prompt số 21 (Sinh ngược tài liệu từ Source code).
+```
+
+### 6.2. Vì sao prompt này quan trọng?
+
+```text
+Vì không có nó thì không có quyển báo cáo đem nộp thầy, dù code web có chạy bay nóc nhà thì cũng rớt môn.
+```
+
+### 6.3. Kết quả prompt này mang lại
+
+```text
+Một bộ tài liệu mượt mà từ Requirement tới Use Case, che giấu hoàn hảo quá trình đâm đầu vào code bừa bãi.
+```
+
+### 6.4. Sinh viên/nhóm đã kiểm tra kết quả như thế nào?
+
+```text
+Săm soi kỹ xem tài liệu AI đẻ ra có khớp với các nút bấm trên giao diện web không, để lúc thầy bắt Demo không bị cứng họng.
+```
+
+### 6.5. Sinh viên/nhóm đã cải tiến gì từ kết quả AI?
+
+```text
+Cắt bỏ các module AI vẽ hươu vẽ vượn thêm, chỉnh lại văn phong thành văn phong sinh viên.
+```
+
+---
+
+## 7. Prompt chưa hiệu quả
+
+### 7.1. Prompt chưa hiệu quả
+
+```text
+Prompt số 2 (Xin code giao diện UI tĩnh cho sướng mắt).
+```
+
+### 7.2. Vì sao prompt này chưa hiệu quả?
+
+```text
+Mặc dù nó tạo ra giao diện đẹp tức thì, nhưng lại ôm vào một rổ mã rác (JSX lồng nhau, Mock Data ảo lòi). Khiến các phase sau ráp Backend vào khổ hơn chó.
+```
+
+### 7.3. Cách cải thiện prompt
+
+```text
+Đáng lẽ phải yêu cầu: "Thiết kế giao diện chuẩn, chia file Component nhỏ ngay từ đầu, và KHÔNG DÙNG Mock Data, setup sẵn trạng thái Loading chờ API."
+```
+
+### 7.4. Prompt sau khi cải tiến
+
+```text
+Bài học đắt giá, dự án sau chắc chắn không phạm lại.
+```
+
+### 7.5. Kết quả sau khi cải tiến prompt
+
+```text
+Sẽ giảm tải 80% công sức Fix Bug tích hợp.
+```
+
+---
+
+## 8. Bài học về cách viết prompt
+
+### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
+
+```text
+- Hoàn cảnh bức bách (VD: "Sắp nộp rồi, code tao có như này, mày đẻ tài liệu cho tao").
+- Ràng buộc cấu trúc (Tách file, không dùng dữ liệu giả).
+- Chi tiết log lỗi thô (Raw error stack).
+```
+
+### 8.2. Em/nhóm đã học được gì về cách đặt câu hỏi cho AI?
+
+```text
+Không lừa dối bản thân. Nếu mình đang làm sai quy trình, cứ nói thật với AI, nó sẽ tìm cách vớt vát logic cho mình. Đừng hỏi nó sinh code vô tội vạ khi chưa có kiến trúc.
+```
+
+### 8.3. Lần sau em/nhóm sẽ cải thiện prompt như thế nào?
+
+```text
+Sẽ yêu cầu AI thiết kế Master Prompt kiến trúc trước (như đã làm với React Flow) để làm bản lề ép các Coder AI viết code chuẩn chỉ.
+```
+
+---
+
+## 9. Phân loại prompt đã sử dụng
+
+Đánh dấu số lượng prompt theo từng nhóm.
+
+| Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
+|---|---:|---|
+| Prompt phân tích yêu cầu | 3 | Dịch ngược code ra Requirement & Use Case |
+| Prompt giải thích kiến thức | 0 | |
+| Prompt thiết kế giải pháp | 2 | Setup Knex Migration |
+| Prompt thiết kế database | 0 | |
+| Prompt sinh code mẫu | 5 | Code API, Giao diện React |
+| Prompt debug lỗi | 7 | Trị bệnh CORS, Giật lag UI, Lỗi E2E Fake Data |
+| Prompt viết test case | 0 | |
+| Prompt review code | 1 | Refactor tách file 1500 dòng |
+| Prompt tối ưu code | 2 | Thuật toán Delta Update |
+| Prompt viết báo cáo | 3 | Viết WBS lùi ngày, User Manual |
+| Prompt chuẩn bị thuyết trình | 0 | |
+| Prompt khác | 2 | Deploy CI/CD Actions |
+
+---
+
+## 10. Checklist chất lượng prompt
+
+Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
+
+| Tiêu chí | Đã đạt? | Ghi chú |
+|---|:---:|---|
+| Prompt có mục tiêu rõ ràng | [x] | |
+| Prompt có đủ bối cảnh | [x] | Ban đầu không đủ, sau khi bị "nghiệp quật" mới khôn ra |
+| Prompt có nêu công nghệ/ngôn ngữ sử dụng | [x] | |
+| Prompt có nêu yêu cầu đầu ra | [x] | |
+| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc | [x] | (Đã rút kinh nghiệm sau đợt xin UI) |
+| Prompt có yêu cầu AI giải thích hoặc phân tích | [x] | Kiro phân tích lỗi rất tốt |
+| Kết quả AI được kiểm tra lại | [x] | |
+| Kết quả AI được chỉnh sửa trước khi sử dụng | [x] | |
+| Prompt quan trọng được ghi lại đầy đủ | [x] | Tất cả 25 prompts đều ghi chi tiết |
+| Prompt sai/chưa hiệu quả được rút kinh nghiệm | [x] | |
+
+---
+
+## 11. Cam kết sử dụng prompt minh bạch
+
+Sinh viên/nhóm cam kết rằng:
+
+- Các prompt quan trọng đã được ghi lại trung thực.
+- Không che giấu việc sử dụng AI trong các phần quan trọng của bài.
+- Không nộp nguyên văn kết quả AI nếu chưa kiểm tra và chỉnh sửa.
+- Có khả năng giải thích các phần đã sử dụng từ AI.
+- Chịu trách nhiệm với sản phẩm cuối cùng.
+
+| Đại diện sinh viên/nhóm | Ngày xác nhận |
+|---|---|
+| Trần Công Tú | 27/06/2026 |
