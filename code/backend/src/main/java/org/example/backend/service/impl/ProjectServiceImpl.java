@@ -77,8 +77,7 @@ public class ProjectServiceImpl implements ProjectService {
     @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
     private String projectJoinLockPrefix;
 
-    @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
-    private String projectJoinLockPrefix;
+
 
     @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
     private String appBaseUrl;
