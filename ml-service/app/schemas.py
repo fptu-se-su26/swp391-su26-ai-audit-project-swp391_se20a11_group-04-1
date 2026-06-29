@@ -130,6 +130,28 @@ class MlFeedbackResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# RLHF Recovery Plan Signal  (Sprint 4)
+# ---------------------------------------------------------------------------
+
+class RecoverySignalRequest(BaseModel):
+    plan_id: int
+    signal: str                         # APPROVE / REJECT / GATE_RESULT
+    gate_result: str | None = None      # PASSED / FAILED (khi signal=GATE_RESULT)
+    score_before: int | None = None
+    score_after: int | None = None
+    reject_reason: str | None = None
+    risk_level: str | None = None
+    categories: List[str] = []
+    summary: str | None = None
+
+
+class RecoverySignalResponse(BaseModel):
+    accepted: bool
+    signal_strength: str                # STRONG_POSITIVE / WEAK_POSITIVE / WEAK_NEGATIVE / STRONG_NEGATIVE
+    buffer_size: int
+
+
+# ---------------------------------------------------------------------------
 # Health Check
 # ---------------------------------------------------------------------------
 

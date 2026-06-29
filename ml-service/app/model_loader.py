@@ -15,13 +15,17 @@ MODELS_DIR = os.path.join(os.path.dirname(__file__), "../saved_models")
 
 
 class ModelRegistry:
-    sla_model:    MultiTaskSLAModel | None = None
-    sla_scaler:   object | None = None
+    sla_model:     MultiTaskSLAModel | None = None
+    sla_scaler:    object | None = None
     sprint_bundle: dict | None = None
     anomaly_model: LSTMAutoencoder | None = None
     anomaly_meta:  dict | None = None
 
-    # Feedback buffer for RLHF (in-memory, flush to disk periodically)
+    # Sprint 4: RAG
+    faiss_index:   object | None = None   # faiss.Index
+    plan_metadata: list = []              # list of plan dicts
+
+    # RLHF feedback buffer (in-memory)
     feedback_buffer: list = []
 
 
@@ -61,6 +65,22 @@ def load_all() -> ModelRegistry:
         log.info("Anomaly model v1 loaded. Threshold=%.4f", reg.anomaly_meta["threshold"])
     else:
         log.warning("Anomaly model not found at %s", anomaly_pt)
+
+    # --- FAISS Recovery Index (Sprint 4) ---
+    bundle_path = os.path.join(MODELS_DIR, "faiss_bundle.pkl")
+    if os.path.exists(bundle_path):
+        try:
+            import faiss
+            import numpy as np
+            bundle = joblib.load(bundle_path)
+            reg.faiss_index   = faiss.deserialize_index(
+                np.frombuffer(bundle["index_bytes"], dtype=np.uint8))
+            reg.plan_metadata = bundle["plans"]
+            log.info("FAISS recovery index loaded: %d plans", reg.faiss_index.ntotal)
+        except Exception as e:
+            log.warning("Failed to load FAISS index: %s", e)
+    else:
+        log.warning("FAISS index not found — run: python -m app.rag.build_index")
 
     return reg
 

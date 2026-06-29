@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.model_loader import get_registry
-from app.routers import sla, sprint, anomaly
+from app.routers import sla, sprint, anomaly, recovery, feedback, training
 from app.schemas import MlFeedbackRequest, MlFeedbackResponse, HealthResponse
 
 logging.basicConfig(level=logging.INFO,
@@ -53,6 +53,9 @@ app.add_middleware(
 app.include_router(sla.router)
 app.include_router(sprint.router)
 app.include_router(anomaly.router)
+app.include_router(recovery.router)
+app.include_router(feedback.router)
+app.include_router(training.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])

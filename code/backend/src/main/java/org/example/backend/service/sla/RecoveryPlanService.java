@@ -70,6 +70,7 @@ public class RecoveryPlanService {
     private final ObjectMapper objectMapper;
     private final List<RecoveryActionExecutor> executorList;
     private final GeminiRecoveryService geminiRecoveryService;
+    private final org.example.backend.service.ml.MlServiceClient mlServiceClient;
 
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -217,8 +218,15 @@ public class RecoveryPlanService {
             throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only WARNING or BREACH tasks can have recovery plans.");
         }
 
-        GeminiRecoveryResult aiContent = geminiRecoveryService.generateContent(
-                buildGeminiContext(task, slaState, categories, isFollowUp, previousPlanId));
+        // Sprint 4: fetch RAG context trước khi gọi Gemini
+        int slaScore = slaState.getSlaScore() != null ? slaState.getSlaScore() : 50;
+        java.util.List<java.util.Map<String, Object>> similarPlans =
+                mlServiceClient.findSimilarPlans(riskLevel, categories, slaScore);
+
+        GeminiRecoveryContext geminiCtx = buildGeminiContext(task, slaState, categories, isFollowUp, previousPlanId);
+        GeminiRecoveryResult aiContent = similarPlans.isEmpty()
+                ? geminiRecoveryService.generateContent(geminiCtx)
+                : geminiRecoveryService.generateWithRagContext(geminiCtx, similarPlans);
         String summary = aiContent != null && aiContent.getSummary() != null && !aiContent.getSummary().isBlank()
                 ? aiContent.getSummary()
                 : String.format("Task is %s risk because of %s. The system recommends recovery actions for leader approval.",
@@ -649,6 +657,13 @@ public class RecoveryPlanService {
         }
 
         plan = recoveryPlanRepository.save(plan);
+
+        // RLHF: gửi APPROVE signal — fire-and-forget
+        mlServiceClient.sendRecoverySignal(
+                plan.getId(), "APPROVE", null, null,
+                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                plan.getSummary(), null);
+
         return mapToResponse(plan);
     }
 
@@ -694,6 +709,13 @@ public class RecoveryPlanService {
         }
 
         plan = recoveryPlanRepository.save(plan);
+
+        // RLHF: gửi REJECT signal — fire-and-forget
+        mlServiceClient.sendRecoverySignal(
+                plan.getId(), "REJECT", null, null,
+                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                plan.getSummary(), trimmedReason);
+
         return mapToResponse(plan);
     }
 
@@ -842,6 +864,13 @@ public class RecoveryPlanService {
                 GateVerdict verdict = evaluateGate(plan, currentState);
                 plan.setGateResult(verdict.result());
                 plan.setGateReason(verdict.reason());
+
+                // RLHF: gửi GATE_RESULT signal — fire-and-forget
+                mlServiceClient.sendRecoverySignal(
+                        plan.getId(), "GATE_RESULT",
+                        plan.getScoreBeforeExecution(), plan.getScoreAfterExecution(),
+                        plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                        null, null);
 
                 if ("FAILED".equals(verdict.result())) {
                     plan.setStatus(RecoveryPlanStatus.DECLINED);
@@ -1045,6 +1074,17 @@ public class RecoveryPlanService {
     }
 
     private record GateVerdict(String result, String reason) {}
+
+    /** Parse riskCategoriesJson → List<String>. Returns empty list on any error. */
+    private java.util.List<String> parseCategoryList(String json) {
+        try {
+            if (json == null || json.isBlank()) return java.util.List.of();
+            return objectMapper.readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {});
+        } catch (Exception e) {
+            return java.util.List.of();
+        }
+    }
 
     private GateVerdict evaluateGate(RecoveryPlan plan, TaskSlaState currentState) {
         if (plan.getScoreBeforeExecution() == null || plan.getScoreAfterExecution() == null) {
