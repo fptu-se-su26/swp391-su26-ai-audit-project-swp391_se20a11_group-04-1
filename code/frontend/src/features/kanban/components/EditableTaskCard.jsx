@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 
 const EditableTaskCard = ({
   task,
@@ -31,6 +32,20 @@ const EditableTaskCard = ({
     if (tEnd && tEnd > sEnd) return `Kết thúc sau Sprint (${sEnd})`;
     return null;
   };
+
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  let sprintMin = todayDateStr;
+  let sprintMax = '';
+  const currentSprintId = isEditing ? (editForm.sprint_id || task.sprint_id || task.sprintId) : (task.sprint_id || task.sprintId);
+  if (currentSprintId) {
+    const selectedSprint = sprints.find(s => String(s.id) === String(currentSprintId));
+    if (selectedSprint) {
+      const sStart = selectedSprint.startDate || selectedSprint.start_date;
+      const sEnd = selectedSprint.endDate || selectedSprint.end_date;
+      if (sStart && sStart > sprintMin) sprintMin = sStart;
+      if (sEnd) sprintMax = sEnd;
+    }
+  }
 
   const isSprintValid = (sprintId, tStart, tEnd) => {
     if (!sprintId) return true;
@@ -79,6 +94,28 @@ const EditableTaskCard = ({
   };
 
   const handleSaveEdit = () => {
+    if (editForm.estimated_hours !== undefined && editForm.estimated_hours !== '') {
+      const hours = Number(editForm.estimated_hours);
+      if (isNaN(hours) || hours <= 0 || hours > 999) {
+        toast.error('Số giờ ước tính phải lớn hơn 0 và nhỏ hơn 1000!');
+        return;
+      }
+    }
+
+    const tStart = editForm.start_date || task.start_date;
+    const tEnd = editForm.deadline || editForm.suggested_deadline || task.deadline || task.suggested_deadline;
+    
+    if (tStart && tEnd && tStart > tEnd) {
+      toast.error('Ngày bắt đầu không được lớn hơn Deadline!');
+      return;
+    }
+    
+    const sprintErr = checkSprintDateError({ ...task, ...editForm });
+    if (sprintErr) {
+      toast.error('Ngày tháng không hợp lệ với Sprint: ' + sprintErr);
+      return;
+    }
+
     if (onUpdate) {
       onUpdate({ ...task, ...editForm });
     }
@@ -121,6 +158,9 @@ const EditableTaskCard = ({
               <span className="text-xs font-medium text-slate-500">Giờ:</span>
               <input 
                 type="number"
+                min="0.1"
+                max="999"
+                step="0.1"
                 className="border border-slate-300 rounded px-2 py-1 text-sm w-16 outline-none focus:border-indigo-500"
                 value={editForm.estimated_hours || ''}
                 onChange={(e) => setEditForm({...editForm, estimated_hours: e.target.value})}
@@ -177,6 +217,8 @@ const EditableTaskCard = ({
                 type="date"
                 className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
                 value={editForm.start_date || ''}
+                min={sprintMin}
+                max={sprintMax || undefined}
                 onChange={(e) => setEditForm({...editForm, start_date: e.target.value})}
               />
             </div>
@@ -186,6 +228,8 @@ const EditableTaskCard = ({
                 type="date"
                 className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
                 value={editForm.deadline || editForm.suggested_deadline || ''}
+                min={editForm.start_date || sprintMin}
+                max={sprintMax || undefined}
                 onChange={(e) => setEditForm({...editForm, deadline: e.target.value, suggested_deadline: e.target.value})}
               />
             </div>
@@ -295,8 +339,13 @@ const EditableTaskCard = ({
     <>
       {/* Read-only Content */}
       <div className="flex justify-between items-start gap-4">
-        <h4 className="font-bold text-slate-800 text-lg leading-snug">
+        <h4 className="font-bold text-slate-800 text-lg leading-snug flex items-center gap-2">
           {task.title}
+          {task.temp_id && (
+            <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+              #{task.temp_id}
+            </span>
+          )}
         </h4>
         {!readOnlyMode && (
           <button 
@@ -442,6 +491,13 @@ const EditableTaskCard = ({
           </div>
         
       </div>
+      
+      {task.depends_on && Array.isArray(task.depends_on) && task.depends_on.length > 0 && (
+        <div className="mt-2 text-[12px] text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200 flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[14px]">link</span>
+          <span className="font-semibold">Phụ thuộc vào:</span> {task.depends_on.join(', ')} (Cần làm xong trước khi bắt đầu)
+        </div>
+      )}
     </>
   );
 };

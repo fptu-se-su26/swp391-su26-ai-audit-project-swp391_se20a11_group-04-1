@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import EditableTaskCard from './EditableTaskCard';
+import { toast } from 'react-hot-toast';
 
 const MergeTaskReviewModal = ({
   isOpen,
@@ -103,6 +104,42 @@ const MergeTaskReviewModal = ({
               if (isEditingTask) {
                 alert("Vui lòng bấm '✓ Lưu' ở khung chỉnh sửa Task trước khi gộp nhé!");
                 return;
+              }
+              if (mergedTask.estimated_hours !== undefined && mergedTask.estimated_hours !== null && mergedTask.estimated_hours !== '') {
+                const hours = Number(mergedTask.estimated_hours);
+                if (isNaN(hours) || hours <= 0 || hours > 999) {
+                  toast.error("Task có số giờ ước tính không hợp lệ. Vui lòng sửa lại!");
+                  return;
+                }
+              }
+
+              const tStart = mergedTask.start_date || mergedTask.startDate;
+              const tEnd = mergedTask.deadline || mergedTask.suggested_deadline || mergedTask.endDate;
+              const todayDateStr = new Date().toISOString().split('T')[0];
+              if (tStart && tStart < todayDateStr) {
+                toast.error("Task có ngày bắt đầu nằm trong quá khứ. Vui lòng sửa lại!");
+                return;
+              }
+              if (tStart && tEnd && tStart > tEnd) {
+                toast.error("Task có ngày bắt đầu lớn hơn Deadline. Vui lòng sửa lại!");
+                return;
+              }
+
+              const sprintId = mergedTask.sprint_id || mergedTask.sprintId;
+              if (sprintId) {
+                const sprint = sprints.find(s => String(s.id) === String(sprintId));
+                if (sprint) {
+                  const sStart = sprint.startDate || sprint.start_date;
+                  const sEnd = sprint.endDate || sprint.end_date;
+                  if (sStart && tStart && tStart < sStart) {
+                    toast.error("Task lọt ra khỏi khoảng thời gian của Sprint. Vui lòng sửa lại!");
+                    return;
+                  }
+                  if (sEnd && tEnd && tEnd > sEnd) {
+                    toast.error("Task lọt ra khỏi khoảng thời gian của Sprint. Vui lòng sửa lại!");
+                    return;
+                  }
+                }
               }
               onApprove(mergedTask);
             }}

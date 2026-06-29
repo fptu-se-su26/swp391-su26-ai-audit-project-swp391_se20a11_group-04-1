@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import EditableTaskCard from './EditableTaskCard';
+import { toast } from 'react-hot-toast';
 
 const SplitTaskReviewModal = ({
   isOpen,
@@ -119,6 +120,34 @@ const SplitTaskReviewModal = ({
             onClick={() => {
               if (editingTaskIndices.size > 0) {
                 alert("Please click '✓ Save' on editing tasks before splitting!");
+                return;
+              }
+              const invalidDateIdx = subTasks.findIndex(task => {
+                if (task.estimated_hours !== undefined && task.estimated_hours !== null && task.estimated_hours !== '') {
+                  const hours = Number(task.estimated_hours);
+                  if (isNaN(hours) || hours <= 0 || hours > 999) return true;
+                }
+
+                const tStart = task.start_date || task.startDate;
+                const tEnd = task.deadline || task.suggested_deadline || task.endDate;
+                const todayDateStr = new Date().toISOString().split('T')[0];
+                if (tStart && tStart < todayDateStr) return true;
+                if (tStart && tEnd && tStart > tEnd) return true;
+
+                const sprintId = task.sprint_id || task.sprintId;
+                if (sprintId) {
+                  const sprint = sprints.find(s => String(s.id) === String(sprintId));
+                  if (sprint) {
+                    const sStart = sprint.startDate || sprint.start_date;
+                    const sEnd = sprint.endDate || sprint.end_date;
+                    if (sStart && tStart && tStart < sStart) return true;
+                    if (sEnd && tEnd && tEnd > sEnd) return true;
+                  }
+                }
+                return false;
+              });
+              if (invalidDateIdx !== -1) {
+                toast.error(`Sub-task "${subTasks[invalidDateIdx].title}" có ngày tháng hoặc số giờ không hợp lệ. Vui lòng sửa lại!`);
                 return;
               }
               onApprove(subTasks);
