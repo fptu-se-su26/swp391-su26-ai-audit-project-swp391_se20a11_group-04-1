@@ -28,6 +28,7 @@ public class MentorVerificationController {
 
     private final MentorVerificationService verificationService;
     private final FileStorageService fileStorageService;
+    private final org.example.backend.repository.AcademicContextRepository academicContextRepository;
 
     @PostMapping("/request")
     public ResponseEntity<?> submitRequest(
@@ -101,6 +102,10 @@ public class MentorVerificationController {
             map.put("createdAt", req.getCreatedAt());
             map.put("message", req.getMessage());
             map.put("cardImageUrl", "/api/v1/mentor-verifications/requests/" + req.getId() + "/card-image");
+            
+            long classroomCount = academicContextRepository.countByOwnerId(req.getUser().getId());
+            map.put("classroomCount", classroomCount);
+            
             return map;
         }).toList();
 
@@ -123,6 +128,10 @@ public class MentorVerificationController {
             map.put("createdAt", req.getCreatedAt());
             // Use internal proxy URL to ensure 100% security
             map.put("cardImageUrl", "/api/v1/mentor-verifications/requests/" + req.getId() + "/card-image");
+            
+            long classroomCount = academicContextRepository.countByOwnerId(req.getUser().getId());
+            map.put("classroomCount", classroomCount);
+            
             return map;
         }).toList();
 

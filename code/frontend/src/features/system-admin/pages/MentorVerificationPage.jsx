@@ -515,6 +515,7 @@ const MentorVerificationPage = () => {
                     <th className="w-10 px-4 py-4"></th>
                     <th className="px-6 py-4">Người dùng</th>
                     <th className="px-6 py-4">Trạng thái gần nhất</th>
+                    <th className="px-6 py-4 text-center">Số classroom đã tạo</th>
                     <th className="px-6 py-4">Ảnh thẻ gần nhất</th>
                     <th className="px-6 py-4">Cập nhật cuối</th>
                     <th className="px-6 py-4 text-right">Hành động nhanh</th>
@@ -561,6 +562,13 @@ const MentorVerificationPage = () => {
                             {/* Latest Status */}
                             <td className="px-6 py-4">
                               {renderStatusBadge(latest.status, latest.message)}
+                            </td>
+
+                            {/* Classroom Count */}
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-bold bg-[#EBF5F7] text-[#1E707D]">
+                                {latest.classroomCount !== undefined ? latest.classroomCount : 0}
+                              </span>
                             </td>
 
                             {/* Latest Attachment */}

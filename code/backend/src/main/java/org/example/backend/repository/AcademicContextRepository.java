@@ -19,4 +19,6 @@ public interface AcademicContextRepository extends JpaRepository<AcademicContext
     Page<AcademicContext> findByUserIdWithFilters(Long userId, AcademicSeason semester, String search, Pageable pageable);
 
     Optional<AcademicContext> findBySubjectAndSemesterAndAcademicYear(String subject, AcademicSeason semester, String academicYear);
+
+    long countByOwnerId(Long ownerId);
 }
