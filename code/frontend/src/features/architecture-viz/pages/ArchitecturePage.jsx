@@ -151,7 +151,7 @@ export default function ArchitecturePage() {
     <ReactFlowProvider>
       <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 dark:bg-slate-950/20 text-slate-800 dark:text-slate-100">
         {/* Sleek Minimalist Top Bar */}
-        <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 font-sans gap-4">
+        <div className="flex justify-between items-center pl-4 pr-36 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 font-sans gap-4">
           <div className="flex items-center gap-4 flex-1">
             <h1 className="text-sm font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap">System Architecture</h1>
             
