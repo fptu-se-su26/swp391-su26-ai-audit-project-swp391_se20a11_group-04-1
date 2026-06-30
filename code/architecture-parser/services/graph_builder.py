@@ -2,6 +2,7 @@ import os
 import re
 import json
 import hashlib
+from services.diagram_vision_check import DiagramVisionChecker
 
 class GraphBuilder:
     @staticmethod
@@ -711,6 +712,14 @@ JSON Schema to follow strictly:
         stats["totalNodes"] = len(nodes)
         stats["totalEdges"] = len(edges)
         stats["godNodes"] = []
+
+        try:
+            checker = DiagramVisionChecker(api_key=gemini_api_key, api_url=gemini_api_url)
+            hints = checker.check_and_fix(nodes, edges, stats)
+            stats["layoutHints"] = hints
+        except Exception as e:
+            print(f"Error running Vision AI density analysis: {e}")
+            stats["layoutHints"] = {"extra_padding": 0, "extra_edge_spacing": 0, "extra_node_spacing": 0}
 
         return nodes, edges, stats
 

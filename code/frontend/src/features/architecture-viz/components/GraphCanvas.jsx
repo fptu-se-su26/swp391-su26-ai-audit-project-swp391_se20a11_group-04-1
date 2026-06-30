@@ -16,6 +16,8 @@ import useGraphLayout from '../hooks/useGraphLayout';
 import ServiceNode from './nodes/ServiceNode';
 import InfraGroupNode from './nodes/InfraGroupNode';
 import ElkEdge from './edges/ElkEdge';
+import { saveNodePositions } from '../api/architectureApi';
+import EdgeLegend from './EdgeLegend';
 
 const nodeTypes = {
   CLASS: ServiceNode,
@@ -29,6 +31,7 @@ const edgeTypes = {
 
 export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch }) {
   const { 
+    projectId,
     setSelectedNode, 
     collapsedZones,
     toggleZoneCollapse
@@ -45,7 +48,7 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
     nodeList.forEach(n => {
       const x = n.position?.x ?? 0;
       const y = n.position?.y ?? 0;
-      const w = n.width  ?? n.style?.width  ?? 160;
+      const w = n.width  ?? n.style?.width  ?? 180;
       const h = n.height ?? n.style?.height ?? 52;
       if (x < minX) minX = x;
       if (y < minY) minY = y;
@@ -178,6 +181,35 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
     fitToNodes(nodes);
   }, [fitToNodes, nodes]);
 
+  // Save manual position on drag stop
+  const onNodeDragStop = useCallback(async (event, node) => {
+    if (!projectId) return;
+    try {
+      await saveNodePositions(projectId, {
+        [node.id]: {
+          x: node.position.x,
+          y: node.position.y
+        }
+      });
+      // Update local ZUSTAND state immediately to prevent visual jumps on parent re-renders
+      const storeGraphData = useArchitectureStore.getState().graphData;
+      const updatedPositions = {
+        ...(storeGraphData.manualPositions || {}),
+        [node.id]: {
+          x: node.position.x,
+          y: node.position.y
+        }
+      };
+      useArchitectureStore.setState({
+        graphData: {
+          ...storeGraphData,
+          manualPositions: updatedPositions
+        }
+      });
+    } catch (err) {
+      console.error('Lỗi khi lưu vị trí node:', err);
+    }
+  }, [projectId]);
 
   return (
     <div className="w-full h-full relative bg-white dark:bg-slate-900">
@@ -190,6 +222,7 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        onNodeDragStop={onNodeDragStop}
         minZoom={0.05}
         maxZoom={2.0}
         elevateEdgesOnSelect
@@ -209,6 +242,7 @@ export default function GraphCanvas({ rawNodes, rawEdges, searchQuery, onSearch 
         />
         <Background color="#94a3b8" gap={16} size={1} opacity={0.3} />
       </ReactFlow>
+      <EdgeLegend />
     </div>
   );
 }

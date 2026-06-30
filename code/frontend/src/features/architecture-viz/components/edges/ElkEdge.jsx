@@ -112,8 +112,8 @@ export function ElkEdge({
   let labelCenter;
 
   if (points && points.length >= 2 && !hasDrifted) {
-    // ── Use ELK's pre-computed orthogonal path ──────────────────────────────
-    path = getRoundedPath(points, 8);
+    // ── Use ELK's pre-computed orthogonal path with 4px corner radius ───────
+    path = getRoundedPath(points, 4);
     labelCenter = getPolylineCenter(points);
   } else {
     // ── Fallback: React Flow's smoothstep that always tracks node positions ──
@@ -124,7 +124,7 @@ export function ElkEdge({
       targetX,
       targetY,
       targetPosition,
-      borderRadius: 8,
+      borderRadius: 4, // 4px corner radius for sharp AWS look
     });
     path = smoothPath;
     labelCenter = { x: labelX, y: labelY };
@@ -133,11 +133,18 @@ export function ElkEdge({
   const label = data.protocol || '';
   const labelColor = style.stroke || '#94a3b8';
 
+  // ── Dotted line for async / event streaming protocols ───────────────────
+  const isAsync = /kafka|rabbitmq|mqtt|sns|sqs|event|stream|pubsub/i.test(label);
+  const edgeStyle = {
+    ...style,
+    strokeDasharray: isAsync ? '5 4' : 'none',
+  };
+
   return (
     <>
       <path
         id={id}
-        style={style}
+        style={edgeStyle}
         className="react-flow__edge-path"
         d={path}
         markerEnd={markerEnd}
@@ -150,12 +157,12 @@ export function ElkEdge({
               transform: `translate(-50%, -50%) translate(${labelCenter.x}px,${labelCenter.y}px)`,
               fontSize: 9,
               fontFamily: 'monospace',
-              fontWeight: 600,
+              fontWeight: 650,
               color: labelColor,
               background: 'white',
-              padding: '2px 5px',
+              padding: '2.5px 5px',
               borderRadius: 4,
-              border: `1px solid ${labelColor}30`,
+              border: `1.5px solid ${labelColor}60`, // Slightly thicker border with 60% opacity
               pointerEvents: 'all',
             }}
             className="nodrag nopan select-none shadow-sm"

@@ -26,4 +26,15 @@ public class ArchitectureGraph {
     private GraphStats stats;
     private List<GraphNode> nodes;
     private List<GraphEdge> edges;
+    
+    private java.util.Map<String, Position2D> manualPositions;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Position2D {
+        private Double x;
+        private Double y;
+    }
 }

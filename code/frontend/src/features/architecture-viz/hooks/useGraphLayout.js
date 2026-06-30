@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import ELK from 'elkjs/lib/elk.bundled.js';
+import { useArchitectureStore } from '../store/architectureStore';
 
 const elk = new ELK();
 
@@ -127,6 +128,9 @@ const findLCA = (node1Id, node2Id, nodes) => {
 };
 
 export const useGraphLayout = () => {
+  const graphData = useArchitectureStore(state => state.graphData);
+  const manualPositions = graphData?.manualPositions || {};
+
   const getLayoutedElements = useCallback(async (nodes, edges, collapsedZones = new Set(), toggleZoneCollapse) => {
 
     // 1. Filter hidden nodes
@@ -146,24 +150,27 @@ export const useGraphLayout = () => {
       };
 
       if (isGroup) {
+        const groupType = node.data?.metadata?.groupType || node.data?.groupType || 'default';
+        const direction = (groupType === 'CI_CD' || groupType === 'MONITORING' || groupType === 'EXTERNAL') ? 'RIGHT' : 'DOWN';
+        const nodeSpacing = (groupType === 'CI_CD' || groupType === 'EXTERNAL') ? '60' : '48';
+        const layerSpacing = (groupType === 'CI_CD' || groupType === 'EXTERNAL') ? '60' : '64';
+
         elkNode.layoutOptions = {
           'elk.algorithm': 'layered',
-          'elk.direction': 'DOWN',
+          'elk.direction': direction,
           'elk.padding': '[top=48,left=32,bottom=32,right=32]',
-          'elk.spacing.nodeNode': '48',
-          'elk.layered.spacing.nodeNodeBetweenLayers': '64',
+          'elk.spacing.nodeNode': nodeSpacing,
+          'elk.layered.spacing.nodeNodeBetweenLayers': layerSpacing,
           'elk.edgeRouting': 'ORTHOGONAL',
           'elk.layered.unnecessaryBendpoints': 'true',
-          // NOTE: do NOT set hierarchyHandling here; it is set on the root only.
-          // Setting it per-group causes ELK to mix coordinate spaces.
         };
         if (isCollapsed) {
           elkNode.width  = 220;
           elkNode.height = 72;
         }
       } else {
-        // Match compact ServiceNode: 160×52
-        elkNode.width  = 160;
+        // Expand ServiceNode size slightly: 180×52 (to hold longer labels cleanly)
+        elkNode.width  = 180;
         elkNode.height = 52;
       }
 
@@ -204,20 +211,30 @@ export const useGraphLayout = () => {
       }
     });
 
-    // 5. Build root ELK graph
+    // 5. Build root ELK graph with layout hints support
+    const extra_padding = graphData?.stats?.layoutHints?.extra_padding || 0;
+    const extra_edge_spacing = graphData?.stats?.layoutHints?.extra_edge_spacing || 0;
+    const extra_node_spacing = graphData?.stats?.layoutHints?.extra_node_spacing || 0;
+
     const rootGraph = {
       id: 'root',
       layoutOptions: {
         'elk.algorithm': 'layered',
-        'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': '80',
+        'elk.direction': 'DOWN', // Top-to-Bottom primary layout flow
+        'elk.spacing.nodeNode': String(80 + extra_node_spacing),
         'elk.layered.spacing.nodeNodeBetweenLayers': '110',
-        'elk.padding': '[top=48,left=48,bottom=48,right=48]',
+        'elk.padding': `[top=${48 + extra_padding},left=48,bottom=48,right=48]`,
         'elk.edgeRouting': 'ORTHOGONAL',
         'elk.layered.unnecessaryBendpoints': 'true',
         'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
         'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
         'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+        'elk.layered.mergeEdges': 'true', // Trunk routing (comb)
+        'elk.layered.mergeHierarchyEdges': 'true',
+        'elk.layered.spacing.edgeNodeBetweenLayers': '30',
+        'elk.layered.spacing.edgeEdgeBetweenLayers': String(20 + extra_edge_spacing),
+        'elk.spacing.edgeNode': '25',
+        'elk.spacing.edgeEdge': String(15 + extra_edge_spacing),
       },
       children: rootChildren,
       edges: rootEdges,
@@ -329,9 +346,16 @@ export const useGraphLayout = () => {
           n.data?.parentId === node.id || n.parentId === node.id
         ).length;
 
+        let posX = layout.x;
+        let posY = layout.y;
+        if (manualPositions && manualPositions[node.id]) {
+          posX = manualPositions[node.id].x;
+          posY = manualPositions[node.id].y;
+        }
+
         const updatedNode = {
           ...node,
-          position: { x: layout.x, y: layout.y },
+          position: { x: posX, y: posY },
           parentId: layout.parentId ?? undefined,
         };
 
@@ -344,7 +368,7 @@ export const useGraphLayout = () => {
           groupNodes.push(updatedNode);
         } else {
           updatedNode.extent = 'parent';
-          updatedNode.width = 160;
+          updatedNode.width = 180; // Match the expanded size in layout options
           updatedNode.height = 52;
           serviceNodes.push(updatedNode);
         }

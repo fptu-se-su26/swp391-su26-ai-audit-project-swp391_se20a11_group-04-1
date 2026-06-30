@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useArchitectureStore } from '../store/architectureStore';
-import { getSyncStatus, getGraphData } from '../api/architectureApi';
+import { getSyncStatus, getGraphData, resetNodePositions } from '../api/architectureApi';
 import SyncButton from '../components/SyncButton';
 import GraphCanvas from '../components/GraphCanvas';
 import NodeDetailPanel from '../components/NodeDetailPanel';
@@ -10,7 +10,9 @@ import OnboardingTooltip from '../components/OnboardingTooltip';
 import ManualServiceModal from '../components/ManualServiceModal';
 import toast from 'react-hot-toast';
 import { ReactFlowProvider } from '@xyflow/react';
-import { Network } from 'lucide-react';
+import { Network, Download } from 'lucide-react';
+import { exportToPng, exportToSvg } from '../utils/imageExporter';
+import { exportToDrawioXML } from '../utils/drawioExporter';
 
 export default function ArchitecturePage() {
   const { projectId } = useParams();
@@ -27,6 +29,7 @@ export default function ArchitecturePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -81,6 +84,66 @@ export default function ArchitecturePage() {
     }
   }, [projectId]);
 
+  const handleResetLayout = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn khôi phục bố cục tự động mặc định? Mọi vị trí kéo thả trước đó sẽ bị xóa.")) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await resetNodePositions(projectId);
+      if (res.success) {
+        toast.success("Đã khôi phục bố cục mặc định thành công");
+        await fetchGraph();
+      } else {
+        toast.error("Không thể khôi phục bố cục");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi khôi phục bố cục");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExportPng = async () => {
+    const loadingToast = toast.loading("Đang xuất ảnh PNG...");
+    try {
+      await exportToPng(projectId);
+      toast.success("Xuất ảnh PNG thành công", { id: loadingToast });
+    } catch (err) {
+      toast.error("Lỗi khi xuất ảnh PNG", { id: loadingToast });
+    }
+  };
+
+  const handleExportSvg = async () => {
+    const loadingToast = toast.loading("Đang xuất ảnh SVG...");
+    try {
+      await exportToSvg(projectId);
+      toast.success("Xuất ảnh SVG thành công", { id: loadingToast });
+    } catch (err) {
+      toast.error("Lỗi khi xuất ảnh SVG", { id: loadingToast });
+    }
+  };
+
+  const handleExportDrawio = () => {
+    try {
+      const xml = exportToDrawioXML(graphData.nodes, graphData.edges);
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `project-${projectId}-architecture.drawio`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Tải tệp tin .drawio thành công! Bạn có thể nhập tệp tin này vào app.diagrams.net");
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi tạo file Draw.io");
+    }
+  };
+
   const hasData = graphData.nodes && graphData.nodes.length > 0;
   const isSyncing = syncStatus.status === 'SYNCING';
 
@@ -107,14 +170,55 @@ export default function ArchitecturePage() {
             )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             {hasData && (
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 bg-white dark:bg-slate-900 cursor-pointer shadow-sm select-none"
-              >
-                ✏️ Edit Diagram
-              </button>
+              <>
+                <button
+                  onClick={handleResetLayout}
+                  className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 bg-white dark:bg-slate-900 cursor-pointer shadow-sm select-none"
+                  title="Khôi phục về bố cục tự động mặc định"
+                >
+                  📐 Reset Layout
+                </button>
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 bg-white dark:bg-slate-900 cursor-pointer shadow-sm select-none"
+                >
+                  ✏️ Edit Diagram
+                </button>
+
+                {/* Export Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                    className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 bg-white dark:bg-slate-900 cursor-pointer shadow-sm select-none"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                  {isExportDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg py-1 z-50 text-left">
+                      <button
+                        onClick={() => { setIsExportDropdownOpen(false); handleExportPng(); }}
+                        className="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Tải ảnh PNG
+                      </button>
+                      <button
+                        onClick={() => { setIsExportDropdownOpen(false); handleExportSvg(); }}
+                        className="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Tải ảnh SVG
+                      </button>
+                      <button
+                        onClick={() => { setIsExportDropdownOpen(false); handleExportDrawio(); }}
+                        className="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Tải file Draw.io (.drawio)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             <SyncButton projectId={projectId} onSyncSuccess={handleSyncSuccess} />
           </div>
