@@ -18,6 +18,7 @@ const LandingTeam = () => {
           <style>{`
               .fan-stage{
               position:relative;height:540px;overflow:hidden;
+              perspective: 1200px;
               /* teal fog top and bottom */
               mask-image:linear-gradient(180deg,
               rgba(30,112,125,.15) 0%,
@@ -56,7 +57,16 @@ const LandingTeam = () => {
               position:absolute;inset:0;
               display:flex;align-items:center;justify-content:center;
               transform-style:preserve-3d;
-              perspective:1200px;
+          }
+              @keyframes fanFlow {
+              0% { transform: translateX(580px) translateZ(-120px) rotateY(-35deg) scale(.82); opacity: .55; filter: saturate(.5); box-shadow: 0 6px 20px rgba(0,0,0,.08); border: 1.5px solid var(--g200); }
+              20% { transform: translateX(320px) translateZ(0px) rotateY(-20deg) scale(.93); opacity: .85; filter: saturate(.8); box-shadow: 0 10px 32px rgba(0,0,0,.1); border: 1.5px solid var(--g200); }
+              40% { transform: translateX(0) translateZ(80px) rotateY(0deg) scale(1.05); opacity: 1; filter: saturate(1); box-shadow: 0 24px 64px rgba(0,0,0,.16), 0 0 0 2px rgba(30,112,125,.4); border: 1.5px solid rgba(30,112,125,.35); }
+              60% { transform: translateX(-320px) translateZ(0px) rotateY(20deg) scale(.93); opacity: .85; filter: saturate(.8); box-shadow: 0 10px 32px rgba(0,0,0,.1); border: 1.5px solid var(--g200); }
+              80% { transform: translateX(-580px) translateZ(-120px) rotateY(35deg) scale(.82); opacity: .55; filter: saturate(.5); box-shadow: 0 6px 20px rgba(0,0,0,.08); border: 1.5px solid var(--g200); }
+              85% { transform: translateX(-580px) translateZ(-300px) rotateY(0deg) scale(.5); opacity: 0; filter: saturate(.5); border: 1.5px solid var(--g200); }
+              95% { transform: translateX(580px) translateZ(-300px) rotateY(0deg) scale(.5); opacity: 0; filter: saturate(.5); border: 1.5px solid var(--g200); }
+              100% { transform: translateX(580px) translateZ(-120px) rotateY(-35deg) scale(.82); opacity: .55; filter: saturate(.5); box-shadow: 0 6px 20px rgba(0,0,0,.08); border: 1.5px solid var(--g200); }
           }
               .fan-card{
               position:absolute;
@@ -64,41 +74,15 @@ const LandingTeam = () => {
               background:#fff;
               border-radius:24px;
               overflow:hidden;
-              box-shadow:0 8px 32px rgba(0,0,0,.1);
-              border:1.5px solid var(--g200);
               cursor:pointer;
-              transition:all .55s cubic-bezier(.4,0,.2,1);
+              animation: fanFlow 25s linear infinite;
               transform-origin:center bottom;
           }
-              .fan-card.fc-center{
-              transform:translateX(0) translateZ(80px) rotateY(0deg) scale(1.05);
-              box-shadow:0 24px 64px rgba(0,0,0,.16),0 0 0 2px rgba(30,112,125,.4);
-              border-color:rgba(30,112,125,.35);
-              z-index:10;
-          }
-              .fan-card.fc-l1{
-              transform:translateX(-320px) translateZ(0px) rotateY(20deg) scale(.93);
-              box-shadow:0 10px 32px rgba(0,0,0,.1);
-              z-index:7;opacity:.85;filter:saturate(.8)
-          }
-              .fan-card.fc-l2{
-              transform:translateX(-580px) translateZ(-120px) rotateY(35deg) scale(.82);
-              box-shadow:0 6px 20px rgba(0,0,0,.08);
-              z-index:5;opacity:.55;filter:saturate(.5)
-          }
-              .fan-card.fc-r1{
-              transform:translateX(320px) translateZ(0px) rotateY(-20deg) scale(.93);
-              box-shadow:0 10px 32px rgba(0,0,0,.1);
-              z-index:7;opacity:.85;filter:saturate(.8)
-          }
-              .fan-card.fc-r2{
-              transform:translateX(580px) translateZ(-120px) rotateY(-35deg) scale(.82);
-              box-shadow:0 6px 20px rgba(0,0,0,.08);
-              z-index:5;opacity:.55;filter:saturate(.5)
-          }
-              .fan-card.fc-hidden{
-              opacity:0;transform:translateX(0) translateZ(-300px) scale(.5);z-index:1;pointer-events:none
-          }
+              .fan-card[data-fi="0"] { animation-delay: -10s; }
+              .fan-card[data-fi="1"] { animation-delay: -5s; }
+              .fan-card[data-fi="2"] { animation-delay: -0s; }
+              .fan-card[data-fi="3"] { animation-delay: -20s; }
+              .fan-card[data-fi="4"] { animation-delay: -15s; }
               /* photo area — taller now, info box below shortened */
               .fc-photo{
               width:100%;height:268px;
@@ -125,7 +109,7 @@ const LandingTeam = () => {
               box-shadow:0 2px 8px rgba(0,0,0,.2);
           }
               .fc-shimmer{position:absolute;inset:0;background:linear-gradient(135deg,transparent 35%,rgba(255,255,255,.25) 50%,transparent 65%);transform:translateX(-100%);transition:transform .7s ease;z-index:3}
-              .fan-card.fc-center .fc-shimmer{animation:shimmer-once .8s ease .3s forwards}
+              .fan-card:hover .fc-shimmer{animation:shimmer-once .8s ease forwards}
               @keyframes shimmer-once{to{transform:translateX(100%)}}
               .fc-info{padding:10px 18px 14px}
               .fc-name{font-size:14px;font-weight:800;color:var(--g900);margin-bottom:2px;letter-spacing:-.3px}
@@ -140,7 +124,7 @@ const LandingTeam = () => {
               .fan-dot.a{background:var(--t);width:22px;border-radius:100px}
           `}</style>
 
-          <div className="fan-stage" id="fanStage">
+          <div className="fan-stage" id="teamStage">
               <div className="fan-fade-l"></div>
               <div className="fan-fade-r"></div>
               <div className="fan-inner" id="fanInner">
@@ -210,18 +194,6 @@ const LandingTeam = () => {
                       </div>
                   </div>
               </div>
-          </div>
-
-          <div className="fan-nav">
-              <button className="fan-btn" id="fanPrev">←</button>
-              <div style={{display:"flex",gap:"7px",alignItems:"center"}} id="fanDots">
-                  <div className="fan-dot a" data-fi="0"></div>
-                  <div className="fan-dot" data-fi="1"></div>
-                  <div className="fan-dot" data-fi="2"></div>
-                  <div className="fan-dot" data-fi="3"></div>
-                  <div className="fan-dot" data-fi="4"></div>
-              </div>
-              <button className="fan-btn" id="fanNext">→</button>
           </div>
       </section>
     </>

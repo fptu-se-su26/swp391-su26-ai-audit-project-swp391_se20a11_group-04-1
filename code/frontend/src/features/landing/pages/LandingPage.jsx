@@ -133,6 +133,10 @@ const LandingPage = () => {
 
     /* ── FAN CAROUSEL ── */
     (function(){
+        const stage = document.getElementById('fanStage');
+        if (!stage || stage.dataset.fanInit) return;
+        stage.dataset.fanInit = 'true';
+        
         const cards = document.querySelectorAll('.fan-card');
         const dots  = document.querySelectorAll('#fanDots .fan-dot');
         const N = cards.length;
@@ -169,8 +173,8 @@ const LandingPage = () => {
 
         // auto-rotate
         let fanTimer = setInterval(()=>go(1), 3000);
-        document.getElementById('fanStage')?.addEventListener('mouseenter',()=>clearInterval(fanTimer));
-        document.getElementById('fanStage')?.addEventListener('mouseleave',()=>{fanTimer=setInterval(()=>go(1),3000);});
+        stage.addEventListener('mouseenter',()=>clearInterval(fanTimer));
+        stage.addEventListener('mouseleave',()=>{fanTimer=setInterval(()=>go(1),3000);});
     })();
 
     /* ── SMOOTH SCROLL + NAV ACTIVE ── */
@@ -223,10 +227,10 @@ const LandingPage = () => {
       <div className="nums-wrap">
           <div className="nums-in">
               <div className="ni"><div className="nv" data-count="500" data-suffix="+">500+</div><div className="nl">Active Students</div></div>
-              <div className="ni"><div className="nv" data-count="10" data-suffix="">10</div><div className="nl">AI Modules</div></div>
+              <div className="ni"><div className="nv" data-count="10" data-suffix="">10</div><div className="nl">Modules</div></div>
               <div className="ni"><div className="nv" data-count="100" data-suffix="%">100%</div><div className="nl">Traceability</div></div>
-              <div className="ni"><div className="nv" data-count="6" data-suffix="">6</div><div className="nl">Universities</div></div>
-              <div className="ni" style={{borderRight:"none"}}><div className="nv" style={{fontSize:"22px",letterSpacing:"-.5px"}}>Gemini</div><div className="nl">AI Powered</div></div>
+              <div className="ni"><div className="nv" data-count={universities.length} data-suffix="">{universities.length}</div><div className="nl">Universities</div></div>
+              <div className="ni" style={{borderRight:"none"}}><div className="nv">AI</div><div className="nl">Powered</div></div>
           </div>
           <div className="marquee-wrap">
               <div className="marquee-inner">
