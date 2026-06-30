@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
 import VerificationPage from '@features/auth/pages/VerificationPage'
+import LandingPage from '@features/landing/pages/LandingPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
@@ -155,7 +156,7 @@ export function AppRoutes() {
       </Route>
 
       {/* 4. Redirect & 404 Pages */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
