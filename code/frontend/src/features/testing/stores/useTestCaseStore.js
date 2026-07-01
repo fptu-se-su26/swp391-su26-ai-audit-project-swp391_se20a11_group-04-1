@@ -8,11 +8,15 @@ export const useTestCaseStore = create((set, get) => ({
   // State
   testCases: [],
   selectedTestCase: null,
+  requirementsTree: [],
+  selectedRequirementId: null,
+  isDrawerOpen: false,
+  drawerTestCaseId: null,
   isLoading: false,
   error: null,
   pagination: {
     page: 0,
-    size: 10,
+    size: 15,
     totalElements: 0,
     totalPages: 0,
   },
@@ -28,7 +32,7 @@ export const useTestCaseStore = create((set, get) => ({
   isAiGenModalOpen: false,
   isAiReviewOpen: false,
   currentGenerationId: null,
-  generatedTestCases: [],
+  aiGenerationResult: null,
   editingTestCase: null,
   deletingTestCase: null,
 
@@ -47,18 +51,43 @@ export const useTestCaseStore = create((set, get) => ({
   openAiGenModal: () => set({ isAiGenModalOpen: true }),
   closeAiGenModal: () => set({ isAiGenModalOpen: false }),
 
-  openAiReview: (generationId, testCases) => set({
+  openAiReview: (generationId, data) => set({
     isAiReviewOpen: true,
     currentGenerationId: generationId,
-    generatedTestCases: testCases,
+    aiGenerationResult: data,
   }),
   closeAiReview: () => set({
     isAiReviewOpen: false,
     currentGenerationId: null,
-    generatedTestCases: [],
+    aiGenerationResult: null,
   }),
 
   setSelectedTestCase: (testCase) => set({ selectedTestCase: testCase }),
+
+  selectRequirement: (reqId) => set((state) => ({
+    selectedRequirementId: reqId,
+    filters: { ...state.filters, requirementId: reqId },
+    pagination: {
+      ...state.pagination,
+      page: 0,
+      size: reqId ? 1000 : 15
+    }
+  })),
+
+  openDrawer: (testCaseId) => set({ isDrawerOpen: true, drawerTestCaseId: testCaseId }),
+  closeDrawer: () => set({ isDrawerOpen: false, drawerTestCaseId: null }),
+
+  /**
+   * Fetch Requirements Tree
+   */
+  fetchRequirementsTree: async (projectId) => {
+    try {
+      const data = await testCaseService.getRequirementsTree(projectId)
+      set({ requirementsTree: data })
+    } catch (error) {
+      console.error('[TestCaseStore] fetchRequirementsTree error:', error)
+    }
+  },
 
   /**
    * Fetch danh sách test case với filter và phân trang
@@ -69,7 +98,7 @@ export const useTestCaseStore = create((set, get) => ({
       const { filters, pagination } = get()
       const params = {
         page,
-        size: pagination.size,
+        size: filters.requirementId ? 1000 : (pagination.size > 100 ? 15 : pagination.size),
         ...(filters.status && { status: filters.status }),
         ...(filters.type && { type: filters.type }),
         ...(filters.requirementId && { requirementId: filters.requirementId }),
@@ -177,18 +206,6 @@ export const useTestCaseStore = create((set, get) => ({
     }
   },
 
-  /**
-   * Generate Test Case using AI
-   */
-  generateTestCaseWithAi: async (projectId, payload) => {
-    try {
-      const generatedTestCase = await testCaseService.generateTestCaseWithAi(projectId, payload)
-      return generatedTestCase
-    } catch (error) {
-      console.error('[TestCaseStore] generateTestCaseWithAi error:', error)
-      throw error
-    }
-  },
 }))
 
 export default useTestCaseStore

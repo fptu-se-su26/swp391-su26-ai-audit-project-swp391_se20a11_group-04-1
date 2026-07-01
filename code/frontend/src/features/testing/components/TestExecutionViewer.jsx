@@ -4,6 +4,7 @@ import {
   X, Copy, Check, Zap
 } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import AiAnalyzeButton from './AiAnalyzeButton';
 
 /* ─── Utility ────────────────────────────────────────────────────── */
@@ -269,7 +270,7 @@ function BrowserChrome({ url, isRunning, children }) {
 
 /* ─── Main Component ─────────────────────────────────────────────── */
 export default function TestExecutionViewer({
-  testCase, stepsArr, screenshots, error, status, durationMs,
+  projectId, testCase, stepsArr, screenshots, error, status, durationMs,
   bugReportId, isSaved, focusedStepIndex, onFocusStep,
   currentStepIndex, lastRunningStepIndex, liveFrame, browserBarUrl,
   isReadOnly = false, onStartRun, onReset, onSaveRun,
@@ -431,10 +432,19 @@ export default function TestExecutionViewer({
 
             {/* Bug hint */}
             {bugReportId && (
-              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-2xl text-[11px]"
+              <div className="mt-2 flex items-center justify-between px-3 py-2 rounded-2xl text-[11px]"
                 style={{ background: 'rgba(255,149,0,0.09)', border: '1px solid rgba(255,149,0,0.20)', color: '#b25000' }}>
-                <AlertTriangle size={11} style={{ color: '#ff9500' }} />
-                Auto-created Bug Report #{bugReportId}
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={11} style={{ color: '#ff9500' }} />
+                  Auto-created Bug Report #{bugReportId}
+                </div>
+                {projectId && (
+                  <Link to={`/projects/${projectId}/bugs/${bugReportId}`} 
+                    className="hover:underline font-semibold"
+                    style={{ color: '#b25000' }}>
+                    View Bug Report
+                  </Link>
+                )}
               </div>
             )}
 

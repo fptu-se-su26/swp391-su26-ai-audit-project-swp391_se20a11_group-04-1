@@ -22,7 +22,7 @@
 Đánh dấu các công cụ AI đã sử dụng trong quá trình thực hiện bài tập/project.
 
 - [ ] ChatGPT
-- [ ] Gemini
+- [x] Gemini
 - [ ] Claude
 - [ ] GitHub Copilot
 - [ ] Cursor
@@ -55,7 +55,12 @@ Ví dụ:
 ### Mô tả mục tiêu sử dụng AI
 
 ```text
-Viết tại đây...
+- Tư vấn giải pháp kiến trúc bảo mật: progressive lockout chống brute-force, gửi link mở khóa email qua token secure và hệ thống kháng cáo (appeals).
+- Hỗ trợ thiết kế cấu trúc database thực thể (UserAppeals, MentorVerificationRequest) và thiết kế API rẽ nhánh sạch.
+- Hỗ trợ xây dựng khung sườn xử lý tranh chấp tài nguyên (Concurrency) sử dụng Redis Lock và TransactionTemplate.
+- Hỗ trợ tối ưu hóa hiệu suất tải file lớn bằng chunked upload Cloudinary và nén tài nguyên zip động.
+- Hỏi ý tưởng thiết kế giao diện động (LockOverlay, AnnouncementCarousel) và gom nhóm biểu đồ contribution heatmap 365 ngày.
+- Debug và khắc phục các sự cố bất đồng bộ (Distributed Lock bị nhả sớm), lỗi kiểu dữ liệu custom enum của PostgreSQL, và lỗi Axios redirect loop.
 ```
 
 ## 4. Nhật ký sử dụng AI chi tiết
@@ -1204,24 +1209,163 @@ Việc phân chia ranh giới xử lý file theo dung lượng (dưới 6MB uplo
 
 ---
 
+### Lần sử dụng AI số 14
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 28/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế Trang quản lý tài khoản của Admin, Hệ thống kháng cáo tự phục hồi và Cơ chế thu hồi Session thời gian thực |
+| Phần việc liên quan | Backend / Security / Database / Frontend / WebSocket / HttpSession |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 14.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang muốn xây dựng tính năng Admin quản lý người dùng (Block/Unblock tài khoản). Khi tài khoản bị block, hệ thống cần hỗ trợ họ gửi đơn kháng cáo kèm theo lý do giải trình và tài liệu minh chứng (upload ảnh/PDF lên Cloudinary). Anh thiết kế cho em API và Database của phần này.
+[AI Lần 1]: 
+AI đề xuất thêm trực tiếp các trường thông tin kháng cáo vào bảng `user_accounts` (như `appeal_reason`, `appeal_evidence_url`, `appeal_status`, `appeal_comment`). Đồng thời, thiết lập API upload tài liệu minh chứng nằm ở Controller Admin hoặc yêu cầu authenticated để bảo mật.
+
+// Suy nghĩ của em:
+// 1. Việc lưu các cột appeal trực tiếp trong bảng `user_accounts` là một lỗi thiết kế nghiêm trọng. Nếu người dùng vi phạm nhiều lần, bị khóa rồi mở khóa nhiều lần, việc ghi đè trực tiếp sẽ làm mất hoàn toàn lịch sử kháng cáo trước đó của họ, vi phạm quy tắc chuẩn hóa dữ liệu.
+// 2. API upload tài liệu minh chứng nếu yêu cầu xác thực (authenticated) thì làm sao người dùng đang bị khóa tài khoản (lúc này đã bị đăng xuất và không thể đăng nhập) có thể gọi API upload ảnh minh chứng để gửi đơn giải trình? API upload minh chứng kháng cáo bắt buộc phải nằm ngoài cổng bảo mật (permitAll) nhưng phải giới hạn dung lượng nghiêm ngặt chống spam ổ đĩa.
+// 3. Cơ chế block truyền thống của AI chỉ đổi trạng thái `isActive = false` trong DB và đợi người dùng request tiếp theo để kiểm tra là quá chậm. Hacker vẫn có thể dùng Session đang có sẵn trên RAM/Redis để tiếp tục phá hoại. Cần một cơ chế ngắt phiên ngay lập tức (Active Revocation).
+
+[Em - Lần 2 (Phản biện thiết kế Database, API Upload và Thu hồi Session)]:
+Hãy thiết kế lại cho em:
+1. Tạo bảng riêng `user_appeals` liên kết Many-to-One với `user_accounts` để lưu trữ lịch sử kháng cáo của mỗi tài khoản. Viết migration SQL tách biệt.
+2. Cho phép API upload file minh chứng kháng cáo `/api/v1/auth/upload` đi qua không cần token (permitAll), giới hạn đuôi file tài liệu đính kèm (pdf, zip, png, jpg) và dung lượng tối đa 10MB.
+3. Khi Admin block user, làm sao để hủy toàn bộ Session đang hoạt động của user đó trên Redis ngay lập tức (Real-time Session Revocation) và hiển thị màn hình khóa tức thì bên Frontend?
+[AI Lần 2]: 
+AI đồng ý và đề xuất:
+1. Viết file Flyway migration tạo bảng `user_appeals` và gỡ các cột tạm thời khỏi `user_accounts`.
+2. Đưa endpoint `/v1/auth/upload` sang Controller Auth cấu hình permitAll, sử dụng FileStorageService đẩy lên Cloudinary.
+3. Thiết lập lớp `SessionRegistryListener` để theo dõi các active session của từng userId. Khi Admin gọi toggle-lock block tài khoản, thực hiện gọi `SessionRegistryListener.invalidateSessionsForUser(id)` để kết thúc và hủy bỏ hoàn toàn các HttpSession tương ứng trên Redis Session đệm, đồng thời bắn thêm một sự kiện WebSocket `USER_LOCKED` để báo Frontend dựng màn hình LockOverlay ngay lập tức.
+```
+
+#### 14.2. Kết quả AI gợi ý
+
+```text
+AI cung cấp cấu trúc thực thể UserAppeal, logic thu hồi Session qua SessionRegistryListener và mã nguồn component LockOverlay đón nhận lý do khóa để người dùng điền đơn giải trình.
+```
+
+#### 14.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng cấu trúc thực thể UserAppeal, logic cấu hình mapping ResponseEntity của các đơn kháng cáo và cấu trúc WebSocket Handler đẩy tin nhắn thời gian thực.
+```
+
+#### 14.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+1. Tự thiết kế logic tự động đóng hồ sơ kháng cáo: Ở `SystemAdminService.java`, nếu Admin chủ động mở khóa tài khoản cho người dùng mà không qua duyệt đơn (mở khóa chay), hệ thống tự động tìm đơn kháng cáo `PENDING` gần nhất của user đó và đổi trạng thái thành `RESOLVED` kèm mốc thời gian thực tế để tránh dữ liệu bị treo.
+2. Tích hợp Axios Interceptor ở React Store để bắt mã lỗi 423 Locked: Nếu đang thao tác trên giao diện mà nhận tin báo block qua WebSocket, hệ thống tự động lưu trạng thái `lockReason` vào RAM Store và hiển thị ngay lớp phủ LockOverlay che chắn toàn bộ workspace làm việc của user đó.
+3. Tự phát triển cơ chế mở khóa phản hồi thời gian thực: Khi Admin phê duyệt kháng cáo của user, Backend gửi sự kiện `USER_UNLOCKED` qua WebSocket. Frontend (`useNotificationStore.js`) bắt sự kiện này để đổi trạng thái `isLockedOut` trong Zustand Store thành `false`, qua đó tự động gỡ bỏ (unmount) lớp phủ `LockOverlay.jsx` trong `App.jsx` ngay lập tức mà không cần người dùng tải lại trang F5.
+4. Triển khai cơ chế Email thông báo bất đồng bộ kết quả kháng cáo: Hệ thống tự động gửi email thông báo chúc mừng khi kháng cáo thành công (kèm phản hồi lý do giải trình từ Admin) hoặc email thông báo từ chối kèm phản hồi từ Admin để người dùng nắm bắt thông tin nhanh nhất mà không cần kiểm tra app thủ công.
+```
+
+#### 14.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | [SystemAdminService.java](file:///e:/swp/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/code/backend/src/main/java/org/example/backend/service/SystemAdminService.java), [SystemAdminUserController.java](file:///e:/swp/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/code/backend/src/main/java/org/example/backend/controller/SystemAdminUserController.java), [LockOverlay.jsx](file:///e:/swp/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/code/frontend/src/components/feedback/LockOverlay.jsx) |
+| Kết quả chạy/test | Khi Admin nhấn khóa một user đang hoạt động, lập tức trên màn hình của user đó xuất hiện LockOverlay báo đỏ và session đăng nhập của họ bị xóa hoàn toàn trên Redis. User không thể dùng token cũ để gọi API. Đơn kháng cáo gửi lên Cloudinary lưu link DB thành công, Admin nhận thông báo realtime và phê duyệt thành công. |
+
+#### 14.6. Nhận xét cá nhân/nhóm
+
+```text
+Học hỏi được cơ chế quản lý vòng đời Session phân tán trên Redis và việc phối hợp chặt chẽ giữa WebSocket với API bảo mật. Việc tách biệt bảng lịch sử kháng cáo giúp hệ thống chuẩn hóa dữ liệu tốt hơn.
+```
+
+---
+
+### Lần sử dụng AI số 15
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 29/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế Dashboard quản lý xác thực Mentor của Admin, bổ sung cột số lớp học và xây dựng cơ chế thu hồi quyền hạn (Revocation) |
+| Phần việc liên quan | Backend / Frontend / Role-based Access Control / Real-time Notification / SSE / Cloudinary Cleanup |
+| Mức độ sử dụng | Hỗ trợ nhiều / Sinh chính nội dung |
+
+#### 15.1. Prompt đã sử dụng
+
+```text
+[Em - Lần 1]: Em đang làm giao diện Admin quản lý danh sách yêu cầu xác thực Mentor (để duyệt hoặc từ chối). Em muốn bổ sung một tính năng "Thu hồi" (Revoke). Khi Admin click thu hồi yêu cầu đã duyệt trước đó, hệ thống sẽ đổi trạng thái request thành CANCELLED. Anh viết code API cho em.
+[AI Lần 1]: Đề xuất viết endpoint `@PostMapping("/{id}/revoke")` và chỉ cập nhật trường trạng thái của request thành CANCELLED trong database.
+
+// Suy nghĩ của em (Loopholes phát hiện):
+// 1. Việc thu hồi quyền Mentor không chỉ đơn giản là đổi trạng thái đơn. Nếu chỉ đổi trạng thái đơn mà không hạ cấp quyền (System Role) của họ từ MENTOR về lại USER trong bảng `user_accounts`, họ vẫn tiếp tục có quyền tạo lớp học và xem tài nguyên giảng viên, gây rò rỉ quyền hạn nghiêm trọng.
+// 2. Tệp ảnh thẻ giảng viên nhạy cảm (Private file) trên Cloudinary của đơn đó cần được xóa bỏ hoàn toàn ngay khi bị thu hồi để tránh rác ổ đĩa và rò rỉ dữ liệu cá nhân của giảng viên bị tước quyền.
+// 3. Cần gửi thông điệp WebSocket realtime báo cho client của Mentor biết họ đã bị thu hồi quyền để Frontend tự động hạ cấp giao diện và ép dọn dẹp các quyền hạn trên RAM.
+// 4. API stream SSE và API lấy danh sách requests đang bị trùng lặp đường dẫn nếu cấu hình chung, dẫn đến lỗi Duplicate API mapping trên Spring Boot và gây nghẽn luồng.
+
+[Em - Lần 2 (Phản biện thiết kế Revoke, tách biệt API SSE và thống kê số lớp)]:
+Hãy thiết kế lại cho em:
+1. Trong phương thức `revokeRequest`, thực hiện cập nhật `verifyStatus = UNVERIFIED` và hạ cấp role hệ thống của user về `USER`. Đồng thời gọi fileStorageService xóa file ảnh thẻ trên Cloudinary, gửi WebSocket thông báo `VERIFICATION_UPDATE` trực tiếp đến userId bị thu hồi.
+2. Tách biệt API SSE stream sang endpoint riêng `/api/v1/mentor-verifications/stream` để tránh lỗi trùng lặp mapping.
+3. Khi Admin lấy danh sách request (ở cả API `/requests` và `/pending`), hãy thực hiện truy vấn đếm số lượng lớp học (`classroomCount`) mà user đó đang sở hữu thông qua `academicContextRepository.countByOwnerId` để Admin có số liệu thâm niên giảng dạy đối chứng trực tiếp trước khi duyệt.
+[AI Lần 2]: 
+AI đồng ý và cung cấp:
+1. Mã nguồn hoàn chỉnh cho `revokeRequest` ở Service thực hiện hạ cấp role, xóa ảnh trên Cloudinary, lưu thông báo và đẩy WebSocket realtime.
+2. Tách biệt API endpoint stream SSE tại Controller.
+3. Bổ sung trường `classroomCount` vào Map dữ liệu trả về cho danh sách Admin.
+```
+
+#### 15.2. Kết quả AI gợi ý
+
+```text
+AI đề xuất code backend rẽ nhánh hạ cấp role Spring Security, tích hợp gọi hàm deleteFile Cloudinary và API đếm số lượng bản ghi classroomCount theo user.
+```
+
+#### 15.3. Phần sinh viên/nhóm đã sử dụng từ AI
+
+```text
+Áp dụng logic rẽ nhánh vai trò, gọi dọn dẹp file Cloudinary và cấu trúc JSON trả về đính kèm số lượng lớp học.
+```
+
+#### 15.4. Phần sinh viên/nhóm tự chỉnh sửa hoặc cải tiến
+
+```text
+1. Frontend refactor hiển thị UI: Trên giao diện quản lý của Admin (`VerificationPage.jsx`), tự thiết kế cơ chế nhóm (Group by User) hiển thị request mới nhất của từng giảng viên để tránh việc một người gửi spam 5-6 đơn liên tục làm tràn ngập bảng điều khiển của Admin.
+2. Tích hợp nút Revoke động: Chỉ hiển thị nút "Thu hồi" đối với các yêu cầu đang có trạng thái là `APPROVED` (đã được duyệt). Khi bấm, hiển thị Popup nhập lý do thu hồi, nội dung lý do này được lưu trực tiếp vào cột `message` của request để phục vụ đối soát lịch sử.
+```
+
+#### 15.5. Minh chứng
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | [MentorVerificationServiceImpl.java](file:///e:/swp/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/code/backend/src/main/java/org/example/backend/service/impl/MentorVerificationServiceImpl.java), [MentorVerificationController.java](file:///e:/swp/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/code/backend/src/main/java/org/example/backend/controller/MentorVerificationController.java) |
+| Kết quả chạy/test | Khi bấm Thu hồi trên Dashboard Admin, vai trò của Mentor lập tức bị hạ cấp xuống USER. Ảnh thẻ private trên Cloudinary biến mất hoàn toàn. Màn hình của Mentor nhận event WebSocket và tự động khóa tính năng tạo lớp học tức thì. |
+
+#### 15.6. Nhận xét cá nhân/nhóm
+
+```text
+Cơ chế thu hồi quyền hạn chủ động kết hợp dọn dẹp file nhạy cảm vật lý giúp hệ thống đạt tiêu chuẩn bảo mật khép kín, ngăn ngừa tối đa rò rỉ quyền hạn và rác lưu trữ.
+```
+
+---
+
 ## 5. Bảng tổng hợp mức độ sử dụng AI
 
 Đánh dấu mức độ AI hỗ trợ ở từng hạng mục.
 
 | Hạng mục | Không dùng AI | AI hỗ trợ ít | AI hỗ trợ nhiều | AI sinh chính | Ghi chú |
-| Phân tích yêu cầu |  |  |  |  |  |
-| Viết user story/use case |  |  |  |  |  |
-| Thiết kế database |  |  |  |  |  |
-| Thiết kế kiến trúc hệ thống |  |  |  |  |  |
-| Thiết kế giao diện |  |  |  |  |  |
-| Code frontend |  |  |  |  |  |
-| Code backend |  |  |  |  |  |
-| Debug lỗi |  |  |  |  |  |
-| Viết test case |  |  |  |  |  |
-| Kiểm thử sản phẩm |  |  |  |  |  |
-| Tối ưu code |  |  |  |  |  |
-| Viết báo cáo |  |  |  |  |  |
-| Làm slide thuyết trình |  |  |  |  |  |
+|---|:---:|:---:|:---:|:---:|---|
+| Phân tích yêu cầu |  | X |  |  | Tham khảo giải pháp progressive lockout và active session revocation. |
+| Viết user story/use case |  | X |  |  | Nhóm tự viết dựa trên phân rã chức năng. |
+| Thiết kế database |  |  | X |  | Tham khảo thiết kế thực thể UserAppeal, MentorVerification. |
+| Thiết kế kiến trúc hệ thống |  | X |  |  | Tự phân rã các service và tích hợp WebSocket, Redis. |
+| Thiết kế giao diện |  |  | X |  | Tham khảo giao diện LockOverlay và AnnouncementCarousel. |
+| Code frontend |  |  | X |  | Nhóm tự hoàn thiện logic bắt WebSocket, quản lý state và CSS. |
+| Code backend |  |  | X |  | Chỉnh sửa rẽ nhánh phân quyền, dọn dẹp file Cloudinary. |
+| Debug lỗi |  |  | X |  | Rất hữu ích khi tìm lỗi CORS, lỗi kiểu dữ liệu PostgreSQL Enum. |
+| Viết test case | X |  |  |  | Tự viết JUnit test case cho Concurrency. |
+| Kiểm thử sản phẩm | X |  |  |  | Kiểm thử thủ công E2E và Postman. |
+| Tối ưu code |  |  | X |  | Tối ưu hóa dung lượng Chunked upload, đóng gói file ZIP. |
+| Viết báo cáo |  | X |  |  | Tự viết nội dung audit và prompt log. |
+| Làm slide thuyết trình | X |  |  |  | Nhóm tự làm slide thuyết trình. |
 
 ---
 
@@ -1235,6 +1379,9 @@ Ghi lại các trường hợp AI trả lời sai, thiếu, chưa phù hợp ho�
 | 2 | Code phân tích User-Agent nhận diện iPhone là Macbook. | Test thực tế bằng iPhone cá nhân. | AI giải thích do tính năng ẩn của iOS 13+. Nhóm chọn cách giữ nguyên thư viện và nhắc người dùng tắt giả lập PC trên điện thoại. |
 | 3 | Xóa key Redis chung làm mở khóa cho cả hacker. | Đặt câu hỏi phản biện về việc máy hacker có được mở khóa không. | Chuyển sang dùng Redis Hash để quản lý đếm lỗi theo từng IP. |
 | 4 | AI chỉ sinh code CRUD cơ bản cho phép update trạng thái Task tự do. | Rà soát quy trình nghiệp vụ (Business Logic). | Cung cấp ngữ cảnh về "Review Gate" và ép AI viết State Machine chặn chuyển trạng thái sai. |
+| 5 | Gợi ý lưu các trường appeal trực tiếp trên bảng user_accounts và bắt authenticated trên API upload minh chứng kháng cáo. | Phân tích tính toàn vẹn dữ liệu (sẽ bị ghi đè mất lịch sử kháng cáo của các lần khóa trước) và trải nghiệm của người dùng đang bị khóa (không thể upload ảnh nếu bắt đăng nhập). | Từ chối lưu chung bảng, tạo bảng riêng `user_appeals` để lưu lịch sử. Đưa API upload minh chứng ra permitAll nhưng giới hạn dung lượng file (10MB) và whitelist định dạng đuôi file. |
+| 6 | Đề xuất cơ chế block thụ động (Passive block): Chỉ đổi isActive = false trong DB và chờ request tiếp theo để kiểm tra. | Đánh giá bảo mật thời gian thực: Hacker có session cũ vẫn tiếp tục phá hoại được cho đến khi session hết hạn. | Triển khai SessionRegistryListener chủ động thu hồi (invalidate) Session của user trên Redis ngay lập tức khi block, đồng thời bắn WebSocket khóa UI. |
+| 7 | Đề xuất sử dụng cú pháp CAST trong JPQL hoặc chuyển Entity sang @Enumerated(EnumType.STRING) để xử lý lỗi so sánh Null của Custom Enum. | Hibernate Parser báo lỗi biên dịch khi dùng CAST cho kiểu dữ liệu custom. Chuyển sang EnumType.STRING bị driver JDBC của Postgres chặn đứng khi ghi dữ liệu. | Từ chối ép kiểu phức tạp dưới DB, thực hiện rẽ nhánh truy vấn ở Repository thành 4 hàm JPA độc lập (Query Specialization) để xử lý logic sạch ở Java. |
 
 ---
 
@@ -1258,7 +1405,10 @@ Có thể bao gồm:
 ### Nội dung kiểm chứng
 
 ```text
-Viết tại đây...
+1. Chạy thử E2E trực tiếp trên môi trường Local: Khi test bảo mật OTP hoặc khóa tài khoản, mở song song giao diện React (Frontend), cửa sổ ẩn danh khác, bảng điều khiển Redis (redis-cli keys '*') và pgAdmin để đối chiếu dữ liệu thay đổi thực tế.
+2. Viết kiểm thử tự động (Concurrency Integration Tests): Viết lớp `ClassroomServiceConcurrencyTest` chạy 10-20 luồng đồng thời để ép xảy ra tranh chấp dữ liệu (Race Condition) và kiểm chứng tính đúng đắn của Redis Lock + TransactionTemplate.
+3. Review mã nguồn chéo (Peer Review): Trình bày code do AI gợi ý cho các thành viên khác trong nhóm phản biện trước khi merge vào nhánh develop.
+4. Kiểm thử thâm nhập thủ công (Manual Penetration Testing): Cố tình chỉnh sửa ID trên URL hoặc dùng Postman giả lập vai trò USER gọi các API đặc quyền (như stream ảnh thẻ giảng viên, approve task) để kiểm định tính chống IDOR và phân quyền JWT.
 ```
 
 ---
@@ -1270,17 +1420,16 @@ Viết tại đây...
 Mô tả phần sinh viên tự làm, phần AI hỗ trợ và phần đã tự cải tiến.
 
 ```text
-Viết tại đây...
+- Phần sinh viên tự làm: Phân tích nghiệp vụ kiểm soát phân quyền (Access Control), tự cấu hình whitelist CORS của IP LAN nội bộ để test trên di động diệt lỗi kết nối mạng. Tự viết lớp SessionRegistryListener xử lý vòng đời Session và tự thiết kế giao diện nhóm yêu cầu phê duyệt giảng viên để tránh spam Admin.
+- Phần AI hỗ trợ: Gợi ý các cú pháp Spring Boot, cấu trúc các hàm xử lý ảnh MultipartFile sang Private Storage Cloudinary và cách lấy luồng Stream file.
+- Phần tự cải tiến sau phản biện: Sửa lỗi nhả Distributed Lock trước khi commit Transaction của AI bằng cách viết TransactionTemplate. Chuyển đổi toàn bộ giải pháp ép kiểu CAST JPQL lỗi của AI thành Query Specialization ở Repository.
 ```
 
 ### 8.2. Đối với bài nhóm
 
 | Thành viên | MSSV | Nhiệm vụ chính | Có sử dụng AI không? | Minh chứng đóng góp |
 |---|---|---|---|---|
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
-|  |  |  | Có / Không |  |
+| Nguyễn Thành Đạt | DE190465 | Quản trị tài khoản, bảo mật OTP, kháng cáo & thu hồi session, phê duyệt giảng viên, Concurrency locking, Dashboard & Charts, Chunked upload. | Có | Các commit nhánh feature/de190465-... |
 
 ---
 
@@ -1289,37 +1438,37 @@ Viết tại đây...
 ### 9.1. AI đã hỗ trợ em/nhóm ở điểm nào?
 
 ```text
-Viết tại đây...
+AI hỗ trợ viết các đoạn code cấu trúc lặp đi lặp lại rất nhanh (như tạo các Controller, DTO, Mapper, viết cấu trúc CSS giao diện React). Đồng thời đóng vai trò tư vấn các mẫu thiết kế bảo mật để nâng cao tính an toàn cho hệ thống.
 ```
 
 ### 9.2. Phần nào em/nhóm không sử dụng theo gợi ý của AI? Vì sao?
 
 ```text
-Viết tại đây...
+Không sử dụng đề xuất lưu thông tin kháng cáo trực tiếp trên bảng user_accounts vì làm mất lịch sử các lần khóa trước. Không dùng cú pháp CAST JPQL của AI vì làm crash Hibernate Compiler. Không dùng cơ chế block thụ động (Passive block) vì tạo lỗ hổng bảo mật session hacker vẫn hoạt động.
 ```
 
 ### 9.3. Em/nhóm đã kiểm tra tính đúng đắn của kết quả AI như thế nào?
 
 ```text
-Viết tại đây...
+Mọi đoạn code AI viết ra đều được kiểm thử thông qua chạy thực tế, theo dõi log SQL xuất xuống database Postgres để đảm bảo không có câu lệnh thừa hoặc lỗi nplusone. Viết Unit/Integration Test riêng cho các đoạn xử lý concurrency phức tạp.
 ```
 
 ### 9.4. Nếu không có AI, phần nào sẽ khó khăn nhất?
 
 ```text
-Viết tại đây...
+Khó khăn nhất là việc dựng cấu trúc khung mã nguồn ban đầu và thiết kế các giao diện đồ thị Chart/Heatmap trực quan trên React vì tốn nhiều công sức căn chỉnh CSS và định dạng cấu trúc data mảng.
 ```
 
 ### 9.5. Sau bài tập/project này, em/nhóm học được gì về môn học?
 
 ```text
-Viết tại đây...
+Học được tầm quan trọng của việc xây dựng quy trình phát triển khép kín, phân quyền truy cập nghiêm ngặt và giải quyết triệt để các vấn đề tranh chấp luồng dữ liệu khi có nhiều người dùng thao tác đồng thời.
 ```
 
 ### 9.6. Sau bài tập/project này, em/nhóm học được gì về cách sử dụng AI có trách nhiệm?
 
 ```text
-Viết tại đây...
+Sử dụng AI có trách nhiệm là luôn hoài nghi các đoạn code AI sinh ra, tự mình đọc và phân tích kỹ từng dòng code để hiểu cơ chế hoạt động, phản biện lại các thiết kế hời hợt để hệ thống đạt chất lượng chuẩn kỹ nghệ phần mềm.
 ```
 
 ---
@@ -1336,4 +1485,4 @@ Sinh viên/nhóm cam kết rằng:
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-|  |  |
+| Nguyễn Thành Đạt | 30/06/2026 |

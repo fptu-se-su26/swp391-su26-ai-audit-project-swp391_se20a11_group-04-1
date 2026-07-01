@@ -100,6 +100,7 @@ public class TestRunServiceImpl implements TestRunService {
                 .eventType("TEST_RUN_JOB")
                 .aggregateType("TestRun")
                 .aggregateId(testRun.getId())
+                .idempotencyKey(java.util.UUID.randomUUID().toString())
                 .payload(objectMapper.writeValueAsString(command))
                 .build();
             outboxEventRepository.save(outboxEvent);
@@ -469,6 +470,18 @@ public class TestRunServiceImpl implements TestRunService {
             .orElseThrow(() -> new ResourceNotFoundException("TestRun not found"));
         testRun.setIsSaved(true);
         testRunRepository.save(testRun);
+
+        List<TestExecution> executions = testExecutionRepository.findByTestRunIdWithTestCase(testRunId);
+        for (TestExecution execution : executions) {
+            org.example.backend.entity.TestCase testCase = execution.getTestCase();
+            if (execution.getStatus() == TestExecutionStatus.PASSED) {
+                testCase.setStatus(org.example.backend.entity.enums.TestCaseStatus.PASS);
+                testCaseRepository.save(testCase);
+            } else if (execution.getStatus() == TestExecutionStatus.FAILED) {
+                testCase.setStatus(org.example.backend.entity.enums.TestCaseStatus.FAIL);
+                testCaseRepository.save(testCase);
+            }
+        }
     }
 
     @Override

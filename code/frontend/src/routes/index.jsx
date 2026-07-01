@@ -58,7 +58,7 @@ import MentorVerificationPage from '@features/system-admin/pages/MentorVerificat
 import ProjectManagementPage from '@features/system-admin/pages/ProjectManagementPage'
 
 // Feature Pages - Issue Tracker
-import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage } from '@features/issue-tracker'
+import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage, BugsPage, BugDetailPage } from '@features/issue-tracker'
 
 // Layouts
 import MainLayout from '@components/layout/MainLayout'
@@ -148,8 +148,8 @@ export function AppRoutes() {
             {/* Module 7: Issue Tracker */}
             <Route path="issues" element={<IssueTrackerDashboard />} />
             <Route path="issues/:bugId" element={<IssueDetailView />} />
-            <Route path="bugs" element={<NotFoundPage />} />
-            <Route path="bugs/:bugId" element={<IssueDetailView />} />
+            <Route path="bugs" element={<BugsPage />} />
+            <Route path="bugs/:bugId" element={<BugDetailPage />} />
             <Route path="features/:id/discuss" element={<FeatureDiscussionPage />} />
             <Route path="github-config" element={<ProjectGithubConfig />} />
 

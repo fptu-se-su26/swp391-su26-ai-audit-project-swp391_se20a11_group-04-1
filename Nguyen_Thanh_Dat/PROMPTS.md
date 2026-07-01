@@ -56,16 +56,18 @@ Sinh viên/nhóm cần ghi lại:
 | 2 | 16/05/2026 | ChatGPT | Lưu nháp form đăng ký (Form State Persistence) | Thiết kế giải pháp JavaScript lưu trạng thái form nhập liệu vào sessionStorage và tự động loại bỏ mật khẩu/OTP | Module JS tự động lưu và khôi phục nháp, tự động dọn dẹp khi submit thành công | Có | RegisterPage.jsx, formPersister.js |
 | 3 | 17/05/2026 | Gemini | Phân trang danh sách dự án | Phân trang dự án kèm theo lọc status và tìm kiếm name, tối ưu hóa kiểu dữ liệu enum của PostgreSQL | Thiết kế PaginatedResponse DTO, Pageable JPA, Composite Index và Query Specialization tránh lỗi cast enum PostgreSQL | Có | ProjectServiceImpl.java, ProjectRepository.java |
 | 4 | 18/05/2026 | Gemini | Tìm giải pháp chống Brute Force tối ưu | Hỏi cách chống brute force và tối ưu hiệu năng DB | Đề xuất Progressive Lockout + Fast-Fail bằng Redis | Có | Commit 8d340e6 |
-| 5 | 19/05/2026 | Antigravity | Thiết kế Khóa kép Đa IP & Action Link Email | Yêu cầu lấy thông tin thiết bị, vị trí và tạo nút bấm mở khóa từ Email | Đề xuất phân tích User-Agent, GeoIP API và tạo Secure Token. | Có |  |
+| 5 | 19/05/2026 | Gemini | Thiết kế Khóa kép Đa IP & Action Link Email | Yêu cầu lấy thông tin thiết bị, vị trí và tạo nút bấm mở khóa từ Email | Đề xuất phân tích User-Agent, GeoIP API và tạo Secure Token. | Có |  |
 | 6 | 19/05/2026 | Gemini | Xử lý Reset Trạng Thái Bảo Mật & Cô lập Hacker | Yêu cầu làm rõ cơ chế xóa đếm lỗi và khóa IP | Đề xuất cơ chế Security State Reset thông minh, chỉ xóa IP thật. | Có |  |
 | 7 | 20/05/2026 | Gemini | Bảo mật Token GitHub (OAuth 2.0) & Encryption | Cách lưu trữ token an toàn và xử lý lỗi 401 | Đề xuất mã hóa AES, log an toàn và luồng re-link. | Có |  |
-| 8 | 20/05/2026 | Antigravity | Đồng bộ GitHub Issues & Logic duyệt Task | Xử lý Webhook rác và chặn cập nhật trạng thái láo | Đề xuất Fast-Fail Webhook và State Machine chặn HTTP 400. | Có |  |
+| 8 | 20/05/2026 | Gemini | Đồng bộ GitHub Issues & Logic duyệt Task | Xử lý Webhook rác và chặn cập nhật trạng thái láo | Đề xuất Fast-Fail Webhook và State Machine chặn HTTP 400. | Có |  |
 | 9 | 22/05/2026 | Gemini | Cơ chế Join Classroom Concurrency & Random Grouping | Hỏi cách xử lý race condition khi nhiều học sinh join lớp học cùng lúc và cơ chế chia nhóm ngẫu nhiên xóa cache Redis | Đề xuất giải pháp Redis lock (setIfAbsent) TTL 1s kết hợp TransactionTemplate, chia nhóm shuffle và quét xóa cache Redis | Có | ClassroomServiceImpl.java, ClassroomServiceConcurrencyTest.java |
 | 10 | 23/05/2026 | Gemini | Thiết lập luật biểu quyết (Voting Rules) cho Task & Proposal | Đề xuất luật biểu quyết 2/3 thành viên tán thành để tăng tinh thần trách nhiệm nhóm | Triển khai luật 2/3 biểu quyết bằng phép toán số nguyên, bọc CustomException trong approveProposal và approveAndSyncTask | Có | TaskProposalService.java |
 | 11 | 24/05/2026 | Gemini | Thiết lập SSE realtime & Proxy bảo vệ ảnh thẻ Mentor | Hỏi giải pháp truyền tin realtime yêu cầu Mentor và cách lưu trữ ảnh thẻ bảo mật chống IDOR | Đề xuất dùng SSE SseEmitter, lưu private và viết Proxy Endpoint kiểm soát quyền xem ảnh | Có | MentorVerificationController.java, MentorVerificationServiceImpl.java |
 | 12 | 25/05/2026 | Gemini | Thiết kế banner động & Băng chuyền thông báo lớp học | Hỏi cấu trúc băng chuyền Carousel hiển thị thông tin lớp học và các thông báo trong React | Đề xuất component AnnouncementCarousel sử dụng timer useEffect và bộ lọc ngày gần nhất | Có | AnnouncementCarousel.jsx, ClassroomDetailPage.jsx |
 | 13 | 26/05/2026 | Gemini | Thống kê Dashboard & Biểu đồ đóng góp lớp học | Hỏi cách tính sĩ số, đếm task, commit và vẽ Line Chart tuần tự, Contribution Heatmap | Đề xuất getClassroomDashboard gom nhóm HashMap hoạt động trong tuần và gom nhóm commit 365 ngày | Có | ClassroomServiceImpl.java, ClassroomController.java |
 | 14 | 27/05/2026 | Gemini | Tải tài nguyên học tập & Tối ưu file dung lượng lớn | Hỏi giải pháp tải file dung lượng lớn tránh OutOfMemory và các ràng buộc kiểm tra đuôi file | Đề xuất chunk_size 6MB dùng uploadLarge Cloudinary API và logic lọc Whitelist phần mở rộng | Có | ResourceServiceImpl.java, CloudinaryFileStorageServiceImpl.java |
+| 15 | 28/06/2026 | Gemini | Thiết kế Trang quản trị tài khoản Admin, Kháng cáo & Thu hồi Session tức thời | Thiết kế hệ thống kháng cáo (UserAppeal) có lịch sử riêng biệt, cho phép upload minh chứng không cần đăng nhập và thu hồi session của hacker tức thì trên Redis. | Cấu trúc bảng user_appeals, logic invalidation session trong SessionRegistryListener, gửi thông báo khóa qua WebSocket và dựng giao diện LockOverlay. | Có | SystemAdminService.java, LockOverlay.jsx |
+| 16 | 29/06/2026 | Gemini | Thiết kế Dashboard quản lý Mentor & Thu hồi (Revoke) | Thiết kế API thu hồi quyền Mentor, hạ cấp xuống USER, dọn dẹp file Cloudinary vật lý và gửi thông báo WebSocket realtime kết hợp API SSE rẽ nhánh. | Mã nguồn hàm revokeRequest, API stream SSE độc lập và chèn trường đếm classroomCount của Mentor. | Có | MentorVerificationServiceImpl.java, MentorVerificationController.java |
 
 ---
 
@@ -436,7 +438,7 @@ Việc phản biện lại AI giúp tìm ra giải pháp tốt hơn rất nhiề
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 19/05/2026 |
-| Công cụ AI | Antigravity |
+| Công cụ AI | Gemini |
 | Mục đích | Thiết kế cơ chế Khóa Kép Đa IP và Action Link qua Email |
 | Phần việc liên quan | Security / Backend / Email Service |
 | Mức độ sử dụng | Hỏi ý tưởng / Lên kiến trúc / Sinh mã nguồn |
@@ -644,7 +646,7 @@ Sự kiên quyết trong phản biện "Không chấp nhận lưu plain-text" đ
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 20/05/2026 |
-| Công cụ AI | Antigravity |
+| Công cụ AI | Gemini |
 | Mục đích | Đồng bộ GitHub Issues qua Webhook & Ràng buộc Review Gate |
 | Phần việc liên quan | Webhook / Business Logic / State Machine |
 | Mức độ sử dụng | Phản biện logic / Ép AI làm theo Domain Knowledge |
@@ -896,179 +898,85 @@ Quy tắc so sánh tỷ lệ bằng số nguyên (3 * totalVotes <= 2 * totalMem
 #### 5.1. Prompt nguyên văn
 
 ```text
-[Em - Lần 1]: Em đang làm tính năng Mentor gửi yêu cầu xác thực tài khoản lên Admin. Khi có yêu cầu mới, Admin cần nhận được thông báo thời gian thực ngay lập tức. Em định dùng WebSockets cho realtime, và lưu ảnh thẻ giảng viên công khai để Admin xem qua URL. Anh thấy có cách nào tối ưu hơn không?
-[AI Lần 1]: 
-1. Real-time: Khuyên dùng Server-Sent Events (SSE) thay vì WebSockets. Vì đây là luồng thông báo một chiều từ Server tới Admin (one-way server push). WebSockets là giao thức hai chiều (bidirectional), đòi hỏi handshake phức tạp, heartbeat giữ kết nối và tốn tài nguyên hơn cho các nghiệp vụ không cần client gửi ngược dữ liệu qua kênh đó. SSE chạy trên HTTP tiêu chuẩn, nhẹ hơn và tự động kết nối lại khi rớt mạng.
-2. Bảo mật hình ảnh: Cảnh báo việc lưu ảnh thẻ giảng viên công khai trên Cloudinary/S3 và phơi bày URL là rò rỉ thông tin cá nhân (lỗi IDOR). AI khuyên lưu ảnh thẻ ở chế độ riêng tư (Private Storage), sau đó tạo một endpoint nội bộ (Proxy Endpoint) ở Backend. Khi Admin gọi URL này, Backend sẽ xác thực quyền ADMIN hoặc chính chủ của Mentor trước khi tải stream ảnh từ Private Storage trả về client.
+[Em - Lần 1]: Em đang làm tính năng Mentor gửi yêu cầu xác thực tài khoản lên Admin. Khi có yêu cầu mới, Admin cần nhận được thông báo thời gian thực ngay lập tức. Em định dùng WebSockets cho realtime, và lưu ảnh thẻ giảng viên công khai để### Prompt số 14
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 27/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Tải tài nguyên học tập & Tối ưu file dung lượng lớn |
+| Phần việc liên quan | Backend / Files Storage / Cloudinary API |
+| Mức độ sử dụng | Hỏi sinh code / Tối ưu giải pháp |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+[Em - Lần 1]: Em đang xây dựng chức năng Upload tài liệu học tập (Resources) lên Cloudinary cho lớp học. Khi học sinh hoặc giáo viên tải lên các file tài liệu lớn (như tài liệu hướng dẫn zip, slide pptx lớn), hệ thống thỉnh thoảng bị lỗi Timeout mạng hoặc báo lỗi bộ nhớ JVM OutOfMemory do tải toàn bộ file vào RAM trước khi gửi đi. Đồng thời em muốn giới hạn dung lượng tối đa 10MB và chỉ cho phép một số định dạng file tài liệu phổ biến. Hãy viết code tối ưu cho em.
+[AI Lần 1]: Đề xuất kiểm tra file.getSize() trước khi xử lý, ném ngoại lệ nếu quá 10MB. Về lưu trữ, khuyên dùng upload stream thông thường của Cloudinary.
 
 // Suy nghĩ của em:
-// Giải pháp của AI cực kỳ chuẩn xác và có chiều sâu bảo mật tốt. 
-// Việc dùng SSE sẽ giúp mã nguồn frontend/backend tối giản hơn rất nhiều so với thiết lập cụm STOMP/WebSocket cồng kềnh. 
-// Quan trọng hơn là phần bảo vệ hình ảnh thẻ giảng viên: nếu không có proxy kiểm tra quyền `!ADMIN && !owner`, hacker chỉ cần quét ID là lấy được ảnh nhạy cảm của toàn bộ giảng viên. Em sẽ triển khai theo cấu trúc này.
-[Em - Lần 2 (Thiết kế mã nguồn chi tiết)]:
-Hãy viết code cho MentorVerificationController có:
-1. API submitRequest lưu ảnh ở chế độ private.
-2. API getCardImage nhận ID, kiểm tra nếu userRole không phải ADMIN và userId không trùng với userId của yêu cầu phê duyệt thì trả về 403 Forbidden. Nếu hợp lệ thì stream file private đó về.
-3. API stream /stream trả về SseEmitter để Admin subscribe.
-[AI Lần 2]: Cung cấp code MentorVerificationController hoàn chỉnh sử dụng SseEmitter và FileStorageService (storePrivateFile, downloadPrivateFileStream), tích hợp kiểm tra phân quyền chặt chẽ:
-`if (!"ADMIN".equals(userRole) && !request.getUser().getId().equals(userId)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();`
+// Gợi ý upload stream thông thường của AI vẫn có thể gây lỗi nghẽn hoặc timeout khi đường truyền mạng của sinh viên không ổn định với các file lớn (tầm 6MB - 10MB). 
+// Phương án tốt nhất để xử lý file lớn là sử dụng cơ chế tải lên phân mảnh (Chunked Upload) của Cloudinary bằng phương thức `uploadLarge`. Bằng cách thiết lập kích thước phân mảnh (ví dụ `chunk_size` = 6MB), file sẽ được chia nhỏ và truyền đi liên tục, tốn ít thời gian nhất và tuyệt đối không bao giờ làm tràn bộ nhớ JVM RAM vì luồng dữ liệu được stream trực tiếp từ Client qua Server tới Cloud Storage.
+// Đồng thời, tài nguyên lớp học không chỉ có dạng "file tải lên" mà giáo viên/học sinh có thể chia sẻ các đường "link liên kết" (dạng ResourceType.LINK như Google Drive, Figma, slide online). Nếu là link liên kết thì không cần upload gì cả, chỉ lưu URL với kích thước 0. Và khi người dùng bấm nút tải xuống tài nguyên lớp học, hệ thống bắt buộc phải kiểm tra quyền, nếu là tài nguyên dạng LINK thì phải chặn tải xuống và quăng BusinessException ("Không thể tải xuống tài liệu dạng link"), yêu cầu họ mở trực tiếp trên trình duyệt.
+
+[Em - Lần 2 (Tối ưu tải lên phân mảnh, whitelist và xử lý tài nguyên dạng Link)]:
+Hãy cải tiến mã nguồn lưu trữ file:
+1. Thêm bộ lọc Whitelist định dạng file tài liệu ở Service: kiểm tra phần mở rộng file có thuộc danh sách `.doc, .docx, .xls, .xlsx, .pdf, .txt, .jpg, .jpeg, .png, .ppt, .pptx` không.
+2. Tại CloudinaryFileStorageServiceImpl, nếu kích thước file > 6MB, hãy kích hoạt `cloudinary.uploader().uploadLarge` với cấu hình `"chunk_size", 6000000` (6MB) để chia nhỏ gói tin và stream trực tiếp. Dưới 6MB thì dùng `upload` thông thường để tiết kiệm số request mạng.
+3. Tạo publicId không chứa phần mở rộng để tránh Cloudinary chặn các tệp nén (.zip).
+4. Viết thêm phương thức addLinkResource để hỗ trợ tài nguyên liên kết. Trong phương thức downloadResource, kiểm tra nếu resource.getType() != ResourceType.FILE thì ném BusinessException chặn tải xuống.
+[AI Lần 2]: Đồng ý. AI đã sửa lại logic ResourceServiceImpl và CloudinaryFileStorageServiceImpl: Áp dụng phương thức `uploadLarge` khi file > 6MB; sinh mã lọc Whitelist; thêm phương thức addLinkResource; và viết logic kiểm soát tại downloadResource chặn tải xuống đối với tài nguyên dạng Link.
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Thiết kế hệ thống thông báo realtime cho Admin và bảo mật tài liệu nhạy cảm (thẻ giảng viên) chống rò rỉ thông tin cá nhân.
+Tối ưu hóa tốc độ tải tệp và tiết kiệm bộ nhớ máy chủ (JVM RAM) khi upload file tài liệu học tập dung lượng lớn lên Cloud Storage.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI đề xuất sử dụng SseEmitter kết hợp với CopyOnWriteArrayList để quản lý kết nối, và proxy endpoint kiểm tra quyền bảo mật trước khi stream file private.
+AI đề xuất phương án sử dụng phương thức uploadLarge của API Cloudinary kết hợp việc truyền InputStream trực tiếp thay vì nạp mảng byte RAM, cùng với regex kiểm tra đuôi mở rộng file.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Áp dụng Server-Sent Events để cập nhật danh sách phê duyệt theo thời gian thực và API getCardImage kiểm tra phân quyền chặt chẽ.
+Tích hợp thuật toán upload phân mảnh vào CloudinaryFileStorageServiceImpl.java và bộ lọc mở rộng file tài liệu tại ResourceServiceImpl.java.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Tự thiết lập cơ chế quản lý vòng đời Emitter ở Service: dọn dẹp các SseEmitter bị timeout hoặc báo lỗi kết nối nhằm ngăn ngừa rò rỉ bộ nhớ (Memory Leak) cho server.
+Tự thiết kế thêm logic đóng gói file nén zip động khi tải tài liệu học tập về: Server tự động stream file từ Cloudinary, tạo một thư mục tạm cùng tên với tài liệu bên trong file `.zip` và đóng gói nén zip trả về stream cho client, giúp cấu trúc file tải về luôn gọn gàng và không bị lỗi giải nén.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
 
 - [x] Prompt rõ ràng
 - [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin (Lý do: Đã cung cấp đủ yêu cầu về realtime và lưu trữ ảnh thẻ giảng viên)
+- [ ] Prompt còn thiếu thông tin (Lý do: Đã nêu rõ dung lượng lớn, nguy cơ tràn bộ nhớ và nhu cầu lọc đuôi file)
 - [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI tư vấn đúng đắn về sự khác biệt kiến trúc giữa WebSockets và SSE)
-- [ ] Cần hỏi lại AI nhiều lần (Lý do: AI trả lời đúng hướng phân quyền và kỹ thuật stream file private ngay lập tức)
+- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI cung cấp đúng hướng đi kết hợp stream phân mảnh)
+- [ ] Cần hỏi lại AI nhiều lần (Lý do: AI tiếp thu phản biện và chuyển đổi sang uploadLarge nhanh chóng)
 - [x] Cần tự kiểm tra và chỉnh sửa nhiều
-- [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: Gợi ý ban đầu của tôi sử dụng WebSockets và ảnh công khai không đảm bảo tính bảo mật và tối ưu hệ thống)
+- [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: AI lúc đầu gợi ý stream upload thông thường vẫn tải toàn bộ dữ liệu vào buffer tạm gây tốn tài nguyên RAM của server khi chịu tải lớn)
 
 #### 5.7. Minh chứng liên quan
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| File liên quan | MentorVerificationController.java, MentorVerificationServiceImpl.java |
-| Kết quả chạy/test | Admin nhận tin realtime chính xác qua SSE. Khi cố truy cập URL ảnh thẻ giảng viên bằng tài khoản thường hoặc ẩn danh, Server lập tức trả về 403 Forbidden. |
+| File liên quan | ResourceServiceImpl.java, CloudinaryFileStorageServiceImpl.java |
+| Kết quả chạy/test | Upload tệp nén dự án 9.5MB thành công chỉ trong vài giây, bộ nhớ JVM RAM cực kì ổn định. Tải lên tệp độc hại hoặc sai mở rộng (như .exe) bị hệ thống phát hiện và chặn tức thì. |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Việc thiết kế proxy file stream bảo vệ dữ liệu nhạy cảm giúp hệ thống đạt tiêu chuẩn bảo mật dữ liệu cá nhân cao.
+Việc phân chia kích thước tải lên (chunk size) là mẫu thiết kế tối ưu khi lưu trữ tệp trên Cloud Storage.
 ```
 
----
-
-### Prompt số 12
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 25/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích | Thiết kế banner động và Băng chuyền thông báo lớp học |
-| Phần việc liên quan | Frontend / UI-UX / Carousel Component |
-| Mức độ sử dụng | Hỏi sinh code / Tối ưu giải pháp |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-[Em - Lần 1]: Em đang muốn nâng cao trải nghiệm người dùng ở trang chi tiết lớp học. Em muốn thiết kế một banner đầu trang dạng băng chuyền (Carousel) tự động chạy. Slide đầu tiên hiển thị thông tin tổng quan của lớp (Tên môn, học kỳ, mentor, số nhóm, số học sinh) kèm nút chia sẻ link mời nhanh. Các slide sau hiển thị danh sách thông báo từ mentor. Anh gợi ý cho em cấu trúc component này trong React.
-[AI Lần 1]: Đề xuất viết component AnnouncementCarousel nhận dữ liệu lớp và danh sách thông báo. Sử dụng Hook useState và useEffect với setInterval 5s để tự động chuyển slide, cấu trúc giao diện banner dùng CSS flex/grid.
-
-// Suy nghĩ của em:
-// Thiết kế của AI chạy được nhưng các banner đơn sắc rất nhàm chán. Để tạo ấn tượng mạnh cho người dùng, em muốn thiết kế màu nền của banner sinh động hơn. 
-// Em sẽ sử dụng các màu gradient chuyển sắc mềm mại theo sắc thái thông báo (ví dụ màu xanh dương cho slide thông tin lớp, màu tím cho thông báo thường, màu cam cho cảnh báo và màu lục cho thông báo thành công). 
-// Ngoài ra, để tránh spam thông báo quá cũ, em chỉ lọc ra các thông báo được tạo trong vòng 7 ngày gần nhất để đưa lên carousel. Khi Admin/Mentor di chuột vào banner thì tạm dừng chuyển động để người dùng dễ đọc.
-[Em - Lần 2 (Thiết kế chi tiết giao diện chuyển sắc)]:
-Gợi ý của bạn còn hơi đơn giản. Hãy sửa lại code AnnouncementCarousel:
-1. Lọc thông báo từ API: Chỉ lấy các thông báo được tạo trong vòng 7 ngày gần nhất.
-2. Thêm map màu gradient cho từng loại thông báo (success, info, warning, classroom_info) để làm màu nền banner.
-3. Bổ sung sự kiện onMouseEnter/onMouseLeave để dừng tự động chuyển slide khi người dùng rê chuột vào đọc, và onClick để chuyển sang xem chi tiết thông báo đó.
-[AI Lần 2]: Tiếp thu và sinh mã nguồn component AnnouncementCarousel hoàn chỉnh. Bổ sung bộ lọc ngày bằng JS Date, map màu gradient-to-r sặc sỡ (như bg-gradient-to-r from-[#0369a1] via-[#0284c7] to-[#38bdf8] cho classroom_info), và cài đặt quản lý trạng thái hover để tắt/bật timer.
-```
-
-#### 5.2. Bối cảnh khi viết prompt
-
-```text
-Cải thiện giao diện lớp học trực quan bằng banner động, kết hợp hiển thị thông tin lớp học và các thông báo mới nhất từ Mentor.
-```
-
-#### 5.3. Kết quả AI trả về
-
-```text
-AI đề xuất sử dụng React hook, lập trình timer tự động trượt slide và gán class Tailwind chuyển sắc cho từng slide.
-```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
-```text
-Áp dụng component AnnouncementCarousel.jsx vào ClassroomDetailPage.jsx để thay thế khu vực banner tĩnh cũ.
-```
-
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
-
-```text
-Tự viết thêm hiệu ứng động CSS Keyframes fadeIn lướt chữ khi slide chuyển đổi, đồng thời căn chỉnh giao diện responsive để nội dung co giãn đẹp mắt trên các thiết bị di động.
-```
-
-#### 5.6. Đánh giá chất lượng prompt
-
-- [x] Prompt rõ ràng
-- [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin (Lý do: Đã cung cấp chi tiết mục tiêu cải tiến trải nghiệm banner và yêu cầu phân trang thông báo)
-- [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI đề xuất giải pháp viết Carousel logic chặt chẽ, tối giản)
-- [ ] Cần hỏi lại AI nhiều lần (Lý do: AI tích hợp nhanh chóng các điều kiện lọc và màu chuyển sắc theo yêu cầu)
-- [x] Cần tự kiểm tra và chỉnh sửa nhiều
-- [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: Các bản thiết kế ban đầu của AI không có hiệu ứng chuyển cảnh mượt mà và dễ bị tràn chữ khi xem trên màn hình nhỏ)
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| File liên quan | AnnouncementCarousel.jsx, ClassroomDetailPage.jsx |
-| Kết quả chạy/test | Banner hiển thị các mảng màu gradient mượt mà, tự động chuyển trang sau 5 giây và dừng hoạt động khi rê chuột. |
-
-#### 5.8. Ghi chú thêm
-
-```text
-Màu gradient giúp nâng cao tính thẩm mỹ của sản phẩm lên rất nhiều.
-```
-
----
-
-### Prompt số 13
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 26/05/2026 |
-| Công cụ AI | Gemini |
-| Mục đích | Thống kê Dashboard & Biểu đồ đóng góp lớp học |
-| Phần việc liên quan | Backend / Database / Charting / Analytics |
-| Mức độ sử dụng | Hỏi sinh code / Tối ưu giải pháp |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-[Em - Lần 1]: Em cần làm API thống kê Dashboard cho lớp học (getClassroomDashboard). Yêu cầu trả về các số liệu: Sĩ số, số task xong, số issue đang mở, số commit. Thêm nữa là biểu đồ xếp hạng đóng góp của các nhóm, tần suất hoạt động trong tuần và bản đồ đóng góp heatmap của project được chọn. Hãy viết code Service Spring Boot tính toán các chỉ số này.
-[AI Lần 1]: Sinh code Service sử dụng các câu lệnh count của JPA Repository để đếm số lượng task, commit theo projectId và trả về một DTO tổng hợp dữ liệu đơn giản.
-
-// Suy nghĩ của em:
-// Kết quả thống kê của AI còn nhiều điểm thiếu sót:
-// 1. Biểu đồ Line Chart hoạt động trong tuần (Monday - Sunday) của các dự án sẽ bị lệch hoặc lỗi hiển thị trên UI nếu một dự án nào đó không có commit nào trong ngày. Cần điền sẵn giá trị mặc định là 0 (fill zeros) cho các ngày không hoạt động.
-// 2. Bản đồ đóng góp Heatmap 365 ngày cần trả về danh sách các ngày kèm theo số lượng commit tương ứng để vẽ biểu đồ mật độ (như contribution grid của GitHub).
-// 3. Lọc bỏ các project đã lưu trữ (ARCHIVED) khỏi danh sách thống kê để thông tin hiển thị chính xác.
-[Em - Lần 2 (Tối ưu hóa hoạt động Dashboard)]:
-Hãy cải tiến code Service:
-1. Thêm vòng lặp điền sẵn giá trị 0 cho các project trống commit trong tuần (`putIfAbsent(projectName, 0)`) để bảo toàn định dạng dữ liệu cho Line Chart.
-2. Viết câu truy vấn lấy danh sách ngày commit trong 365 ngày qua của project được chọn, sau đó gom nhóm (group by date) để tạo Map dữ liệu cho Heatmap đóng góp.
-3. Chỉ lấy các project có status khác ARCHIVED.
-[AI Lần 2]: Đồng ý. AI đã sửa lại phương thức getClassroomDashboard: Bổ sung logic gom nhóm commit bằng HashMap (`activityHeatmap.put(dateStr, count + 1)`), tạo mảng tuần tự từ thứ Hai đến Chủ Nhật và thực hiện `putIfAbsent` để chuẩn hóa Line Chart, đồng thời thêm điều kiện lọc dự án hoạt động.
+--- Chart, đồng thời thêm điều kiện lọc dự án hoạt động.
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
@@ -1140,47 +1048,173 @@ Việc chuẩn hóa dữ liệu trống trước khi gửi về frontend là b�
 // Suy nghĩ của em:
 // Gợi ý upload stream thông thường của AI vẫn có thể gây lỗi nghẽn hoặc timeout khi đường truyền mạng của sinh viên không ổn định với các file lớn (tầm 6MB - 10MB). 
 // Phương án tốt nhất để xử lý file lớn là sử dụng cơ chế tải lên phân mảnh (Chunked Upload) của Cloudinary bằng phương thức `uploadLarge`. Bằng cách thiết lập kích thước phân mảnh (ví dụ `chunk_size` = 6MB), file sẽ được chia nhỏ và truyền đi liên tục, tốn ít thời gian nhất và tuyệt đối không bao giờ làm tràn bộ nhớ JVM RAM vì luồng dữ liệu được stream trực tiếp từ Client qua Server tới Cloud Storage.
-// Đồng thời, tài nguyên lớp học không chỉ có dạng "file tải lên" mà giáo viên/học sinh có thể chia sẻ các đường "link liên kết" (dạng ResourceType.LINK như Google Drive, Figma, slide online). Nếu là link liên kết thì không cần upload gì cả, chỉ lưu URL với kích thước 0. Và khi người dùng bấm nút tải xuống tài nguyên lớp học, hệ thống bắt buộc phải kiểm tra quyền, nếu là tài nguyên dạng LINK thì phải chặn tải xuống và quăng BusinessException ("Không thể tải xuống tài liệu dạng link"), yêu cầu họ mở trực tiếp trên trình duyệt.
-[Em - Lần 2 (Tối ưu tải lên phân mảnh, whitelist và xử lý tài nguyên dạng Link)]:
-Hãy cải tiến mã nguồn lưu trữ file:
-1. Thêm bộ lọc Whitelist định dạng file tài liệu ở Service: kiểm tra phần mở rộng file có thuộc danh sách `.doc, .docx, .xls, .xlsx, .pdf, .txt, .jpg, .jpeg, .png, .ppt, .pptx` không.
-2. Tại CloudinaryFileStorageServiceImpl, nếu kích thước file > 6MB, hãy kích hoạt `cloudinary.uploader().uploadLarge` với cấu hình `"chunk_size", 6000000` (6MB) để chia nhỏ gói tin và stream trực tiếp. Dưới 6MB thì dùng `upload` thông thường để tiết kiệm số request mạng.
-3. Tạo publicId không chứa phần mở rộng để tránh Cloudinary chặn các tệp nén (.zip).
-4. Viết thêm phương thức addLinkResource để hỗ trợ tài nguyên liên kết. Trong phương thức downloadResource, kiểm tra nếu resource.getType() != ResourceType.FILE thì ném BusinessException chặn tải xuống.
-[AI Lần 2]: Đồng ý. AI đã sửa lại logic ResourceServiceImpl và CloudinaryFileStorageServiceImpl: Áp dụng phương thức `uploadLarge` khi file > 6MB; sinh mã lọc Whitelist; thêm phương thức addLinkResource; và viết logic kiểm soát tại downloadResource chặn tải xuống đối với tài nguyên dạng Link.
-```
+// Đồng thời, tài nguyên lớp học không chỉ có dạng "file tải lên" mà giáo viên/học sinh có thể chia sẻ các đường "liChọn một prompt có ảnh hưởng lớn nhất đến bài tập/project.
 
-#### 5.2. Bối cảnh khi viết prompt
+### 6.1. Prompt được chọn
 
 ```text
-Tối ưu hóa tốc độ tải tệp và tiết kiệm bộ nhớ máy chủ (JVM RAM) khi upload file tài liệu học tập dung lượng lớn lên Cloud Storage.
+Hãy phân tích cơ chế trục xuất Session của người dùng bị khóa tài khoản ngay lập tức (Active Session Revocation) trong Spring Security sử dụng Redis Session Registry kết hợp gửi WebSocket notify để Frontend cập nhật ngay lập tức mà không cần F5 trang.
 ```
 
-#### 5.3. Kết quả AI trả về
+### 6.2. Vì sao prompt này quan trọng?
 
 ```text
-AI đề xuất phương án sử dụng phương thức uploadLarge của API Cloudinary kết hợp việc truyền InputStream trực tiếp thay vì nạp mảng byte RAM, cùng với regex kiểm tra đuôi mở rộng file.
+Prompt này giải quyết một lỗ hổng bảo mật nghiêm trọng (Passive Lockout) của AI. Nó mở ra hướng đi kết hợp giữa Stateful Token Invalidation và WebSocket Reactive Push để giải quyết triệt để bài toán đồng bộ hóa trạng thái tài khoản thời gian thực.
 ```
 
-#### 5.4. Kết quả đã áp dụng vào bài
+### 6.3. Kết quả prompt này mang lại
 
 ```text
-Tích hợp thuật toán upload phân mảnh vào CloudinaryFileStorageServiceImpl.java và bộ lọc mở rộng file tài liệu tại ResourceServiceImpl.java.
+AI cung cấp cấu trúc `SessionRegistryListener` để quản lý danh sách session của từng User, và tích hợp gửi tín hiệu qua `NotificationWebSocketHandler` về Client.
 ```
 
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+### 6.4. Sinh viên/nhóm đã kiểm tra kết quả như thế nào?
 
 ```text
-Tự thiết kế thêm logic đóng gói file nén zip động khi tải tài liệu học tập về: Server tự động stream file từ Cloudinary, tạo một thư mục tạm cùng tên với tài liệu bên trong file `.zip` và đóng gói nén zip trả về stream cho client, giúp cấu trúc file tải về luôn gọn gàng và không bị lỗi giải nén.
+Nhóm chạy thử E2E: đăng nhập trên 2 trình duyệt độc lập bằng cùng một tài khoản, thực hiện block tài khoản đó trên màn hình Admin, và kiểm tra xem cả hai trình duyệt có bị buộc đăng xuất và hiển thị LockOverlay tức thì hay không.
 ```
 
-#### 5.6. Đánh giá chất lượng prompt
+### 6.5. Sinh viên/nhóm đã cải tiến gì từ kết quả AI?
 
-- [x] Prompt rõ ràng
-- [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin (Lý do: Đã nêu rõ dung lượng lớn, nguy cơ tràn bộ nhớ và nhu cầu lọc đuôi file)
-- [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI cung cấp đúng hướng đi kết hợp stream phân mảnh)
+```text
+AI viết thiếu phần đồng bộ lưu trạng thái khóa cục bộ trong React Store khiến F5 bị mất màn hình khóa. Nhóm đã tự bổ sung Axios Interceptor để bắt lỗi 423 Locked và lưu cứng trạng thái `isLockedOut` vào Zustand Store.
+```
+
+---
+
+## 7. Prompt chưa hiệu quả
+
+Ghi lại ít nhất một prompt chưa tạo ra kết quả tốt hoặc chưa phù hợp.
+
+### 7.1. Prompt chưa hiệu quả
+
+```text
+Viết code API lọc danh sách dự án có kèm theo phân trang và lọc theo trạng thái status.
+```
+
+### 7.2. Vì sao prompt này chưa hiệu quả?
+
+```text
+Prompt quá ngắn, thiếu bối cảnh cấu trúc Entity và không nêu rõ cột status là kiểu dữ liệu custom enum của PostgreSQL, dẫn đến AI sinh ra câu lệnh CAST sai cú pháp làm crash ứng dụng Spring Boot.
+```
+
+Gợi ý nguyên nhân:
+
+- Prompt quá ngắn.
+- Thiếu bối cảnh bài toán.
+- Không nêu rõ yêu cầu đầu ra.
+- Không cung cấp ngôn ngữ lập trình/công nghệ đang dùng.
+- Không đưa lỗi cụ thể.
+- Không đưa ví dụ input/output.
+- Không yêu cầu AI giải thích.
+- Hỏi AI làm toàn bộ thay vì hỏi từng phần.
+
+### 7.3. Cách cải thiện prompt
+
+```text
+Cung cấp rõ định nghĩa thực thể Entity Project, tên cột, kiểu dữ liệu custom enum, và yêu cầu AI sử dụng các hàm JPA Repository riêng biệt thay vì gộp CAST dưới database.
+```
+
+### 7.4. Prompt sau khi cải tiến
+
+```text
+Tôi đang sử dụng Spring Data JPA kết hợp PostgreSQL. Cột status trong bảng projects là kiểu custom enum 'project_status_enum'. Khi viết API tìm kiếm phân trang có bộ lọc status (có thể null), câu lệnh HQL/JPQL gộp OR null sẽ báo lỗi không khớp kiểu dữ liệu VARCHAR và Custom Enum. Hãy hướng dẫn tôi viết các hàm JPA Repository chuyên biệt hóa (Query Specialization) tương ứng với từng tổ hợp tham số status và name để rẽ nhánh xử lý ở Service.
+```
+
+### 7.5. Kết quả sau khi cải tiến prompt
+
+```text
+AI sinh ra 4 phương thức truy vấn Repository độc lập và rõ ràng, giúp mã nguồn biên dịch thành công và loại bỏ hoàn toàn lỗi JDBC enum casting.
+```
+
+---
+
+## 8. Bài học về cách viết prompt
+
+### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
+
+```text
+Mục tiêu, bối cảnh nghiệp vụ của dự án (đặc biệt là các ràng buộc như Review Gate), công nghệ đang sử dụng (Spring Boot, Postgres custom enum), cấu trúc bảng, lỗi cụ thể (kèm stacktrace) và ràng buộc đầu ra.
+```
+
+Gợi ý:
+
+- Mục tiêu cần đạt.
+- Bối cảnh bài toán.
+- Công nghệ/ngôn ngữ lập trình đang dùng.
+- Input/output mong muốn.
+- Ràng buộc của đề bài.
+- Lỗi đang gặp.
+- Format kết quả mong muốn.
+- Yêu cầu AI giải thích từng bước.
+
+### 8.2. Em/nhóm đã học được gì về cách đặt câu hỏi cho AI?
+
+```text
+Đặt câu hỏi từng bước (step-by-step), không nên bắt AI viết cả một tính năng lớn ngay từ đầu. Luôn chủ động phản biện thiết kế hời hợt của AI để vá bảo mật.
+```
+
+### 8.3. Lần sau em/nhóm sẽ cải thiện prompt như thế nào?
+
+```text
+Chuẩn bị tài liệu thiết kế database và đặc tả API rõ ràng trước khi prompt AI viết code logic.
+```
+
+---
+
+## 9. Phân loại prompt đã sử dụng
+
+Đánh dấu số lượng prompt theo từng nhóm.
+
+| Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
+|---|---:|---|
+| Prompt phân tích yêu cầu | 1 | Thiết lập hệ thống kháng cáo (UserAppeal) có lịch sử |
+| Prompt giải thích kiến thức | 1 | Hỏi về sự khác biệt kiến trúc giữa WebSockets và SSE |
+| Prompt thiết kế giải pháp | 3 | Cơ chế Lock kép đa IP, Progressive Lockout, Active Session Revocation |
+| Prompt thiết kế database | 2 | Cấu trúc bảng user_appeals, bảng dự án |
+| Prompt sinh code mẫu | 5 | Tạo Controller, DTO, Mapper, Component React, Cloudinary Chunked |
+| Prompt debug lỗi | 3 | Debug lỗi CORS di động, lỗi CAST custom enum Postgres, lỗi Axios redirect loop |
+| Prompt viết test case | 0 | (Không sử dụng AI viết test case) |
+| Prompt review code | 1 | Nhờ AI rà soát mã hóa JWT token và token gửi email |
+| Prompt tối ưu code | 2 | Tối ưu hóa dung lượng Chunked upload, dọn dẹp file Cloudinary |
+| Prompt viết báo cáo | 0 | (Không sử dụng AI viết báo cáo) |
+| Prompt chuẩn bị thuyết trình | 0 | (Không sử dụng AI làm slide) |
+| Prompt khác | 0 | |
+
+---
+
+## 10. Checklist chất lượng prompt
+
+Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
+
+| Tiêu chí | Đã đạt? | Ghi chú |
+|---|:---:|---|
+| Prompt có mục tiêu rõ ràng | Đạt | Luôn nêu rõ mục đích xử lý ngay từ câu mở đầu. |
+| Prompt có đủ bối cảnh | Đạt | Đưa bối cảnh bảo mật và vai trò của user liên quan. |
+| Prompt có nêu công nghệ/ngôn ngữ sử dụng | Đạt | Ghi rõ Spring Boot, Java, PostgreSQL, React, Zustand. |
+| Prompt có nêu yêu cầu đầu ra | Đạt | Ép AI xuất cấu trúc DTO, API Path cụ thể. |
+| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc | Đạt | Chỉ hỏi từng phần giải thuật và cấu hình boilerplate. |
+| Prompt có yêu cầu AI giải thích hoặc phân tích | Đạt | Yêu cầu so sánh (như SSE vs WebSocket) trước khi code. |
+| Kết quả AI được kiểm tra lại | Đạt | Kiểm thử E2E và viết Concurrency test case. |
+| Kết quả AI được chỉnh sửa trước khi sử dụng | Đạt | Phản biện vá lỗi bảo mật, sửa lỗi CAST enum. |
+| Prompt quan trọng được ghi lại đầy đủ | Đạt | Ghi lại đầy đủ 16 prompt quan trọng nhất. |
+| Prompt sai/chưa hiệu quả được rút kinh nghiệm | Đạt | Ghi nhận rõ lỗi CAST JPQL ở Prompt chưa hiệu quả. |
+
+---
+
+## 11. Cam kết sử dụng prompt minh bạch
+
+Sinh viên/nhóm cam kết rằng:
+
+- Các prompt quan trọng đã được ghi nhận trung thực.
+- Không che giấu việc sử dụng AI trong các phần quan trọng của bài.
+- Không nộp nguyên văn kết quả AI nếu chưa kiểm tra và chỉnh sửa.
+- Có khả năng giải thích các phần đã sử dụng từ AI.
+- Chịu trách nhiệm với sản phẩm cuối cùng.
+
+| Đại diện sinh viên/nhóm | Ngày xác nhận |
+|---|---|
+| Nguyễn Thành Đạt | 30/06/2026 |hướng đi kết hợp stream phân mảnh)
 - [ ] Cần hỏi lại AI nhiều lần (Lý do: AI tiếp thu phản biện và chuyển đổi sang uploadLarge nhanh chóng)
 - [x] Cần tự kiểm tra và chỉnh sửa nhiều
 - [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: AI lúc đầu gợi ý stream upload thông thường vẫn tải toàn bộ dữ liệu vào buffer tạm gây tốn tài nguyên RAM của server khi chịu tải lớn)
@@ -1198,6 +1232,160 @@ Tự thiết kế thêm logic đóng gói file nén zip động khi tải tài l
 Việc phân chia kích thước tải lên (chunk size) là mẫu thiết kế tối ưu khi lưu trữ tệp trên Cloud Storage.
 ```
 
+```
+
+---
+
+### Prompt số 15
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 28/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Thiết kế Trang quản trị tài khoản Admin, Kháng cáo & Thu hồi Session tức thời |
+| Phần việc liên quan | Security / Session Management / WebSockets |
+| Mức độ sử dụng | Hỏi ý tưởng / Thiết kế kiến trúc / Sinh mã nguồn |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+[Em - Lần 1]: Em đang muốn xây dựng tính năng Admin quản lý người dùng (Block/Unblock tài khoản). Khi tài khoản bị block, hệ thống cần hỗ trợ họ gửi đơn kháng cáo kèm theo lý do giải trình và tài liệu minh chứng (upload ảnh/PDF lên Cloudinary). Anh thiết kế cho em API và Database của phần này.
+[AI Lần 1]: 
+AI đề xuất thêm trực tiếp các trường thông tin kháng cáo vào bảng `user_accounts` (như `appeal_reason`, `appeal_evidence_url`, `appeal_status`, `appeal_comment`). Đồng thời, thiết lập API upload tài liệu minh chứng nằm ở Controller Admin hoặc yêu cầu authenticated để bảo mật.
+
+[Em - Lần 2 (Phản biện thiết kế Database, API Upload và Thu hồi Session)]:
+1. Lưu trực tiếp các cột appeal trên bảng `user_accounts` sẽ làm mất lịch sử kháng cáo nếu user bị khóa và mở khóa nhiều lần. Hãy tách thành bảng riêng `user_appeals` liên kết Many-to-One với `user_accounts` để lưu trữ lịch sử kháng cáo của mỗi tài khoản. Viết migration SQL tách biệt.
+2. API upload file minh chứng kháng cáo `/api/v1/auth/upload` phải đi qua không cần token (permitAll), giới hạn đuôi file tài liệu đính kèm (pdf, zip, png, jpg) và dung lượng tối đa 10MB vì user đang bị khóa tài khoản không có session đăng nhập hợp lệ để gọi API upload.
+3. Khi Admin block user, làm sao để hủy toàn bộ Session đang hoạt động của user đó trên Redis ngay lập tức (Real-time Session Revocation) thay vì đợi request tiếp theo kiểm tra DB? Gửi thông báo WebSocket để dựng giao diện LockOverlay tức thì bên React.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Module quản trị tài khoản cần một cơ chế bảo mật chủ động: trục xuất ngay lập tức các phiên làm việc của tài khoản bị khóa trên Redis để ngăn chặn hacker tiếp tục phá hoại, đồng thời thiết kế luồng kháng cáo bảo mật cho người dùng bị khóa oan.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI cung cấp cấu trúc bảng `user_appeals`, logic gọi `SessionRegistryListener.invalidateSessionsForUser(id)` để quét sạch session trên Redis, code Controller Auth upload file đi qua permitAll, và logic gửi tin nhắn lock qua WebSocket.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Áp dụng cấu trúc bảng user_appeals, logic dọn dẹp session của user bị block trên Redis, và giao diện hiển thị LockOverlay React khi nhận sự kiện khóa.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự viết logic xử lý ở backend: Khi người dùng kháng cáo thành công (Admin approve appeal), hệ thống tự động kích hoạt lại tài khoản đồng thời cập nhật trạng thái đơn kháng cáo thành `APPROVED`, gửi Email thông báo chi tiết kèm lời nhắn giải trình từ Admin. Nếu Admin từ chối, đơn chuyển trạng thái `REJECTED` và gửi tài liệu mail thông báo lý do chi tiết.
+Đồng thời, tự phát triển cơ chế mở khóa phản hồi thời gian thực ở Frontend: Thiết lập bộ nghe sự kiện WebSocket `USER_UNLOCKED` tại `useNotificationStore.js` để tự động chuyển `isLockedOut` thành `false` trong Zustand Store, kích hoạt React gỡ bỏ (unmount) `LockOverlay.jsx` trong `App.jsx` ngay lập tức mà không cần F5.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin (Lý do: Cung cấp đầy đủ các kịch bản khóa, yêu cầu email thông báo và thiết kế bảng dữ liệu)
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI đề xuất đúng giải pháp thu hồi session và tách bảng lịch sử kháng cáo sau phản biện)
+- [ ] Cần hỏi lại AI nhiều lần (Lý do: Chỉ cần qua 1 lượt phản biện để giải quyết trọn vẹn lỗ hổng bảo mật session và database)
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều (phản biện lại AI)
+- [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: Gợi ý ban đầu của lưu cột appeal trực tiếp trong bảng user_accounts gây mất lịch sử, và bắt xác thực ở endpoint upload làm nghẽn luồng kháng cáo)
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | SystemAdminService.java, LockOverlay.jsx, UserManagementPage.jsx |
+| Kết quả chạy/test | Block tài khoản làm bay màu session của user trên Redis ngay lập tức. Màn hình user tự động chuyển sang LockOverlay báo đỏ. Duyệt kháng cáo gửi email thông báo tự động hoạt động tốt. |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Sự kết hợp giữa WebSocket và quản lý session Redis giúp kiểm soát bảo mật hệ thống ở mức thời gian thực (Real-time Security control).
+```
+
+---
+
+### Prompt số 16
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 29/06/2026 |
+| Công cụ AI | Gemini |
+| Mục đích | Thiết kế Dashboard quản lý Mentor & Thu hồi (Revoke) |
+| Phần việc liên quan | Backend / Frontend / Real-time Notification / Cloudinary Cleanup |
+| Mức độ sử dụng | Hỏi ý tưởng / Thiết kế kiến trúc / Sinh mã nguồn |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+[Em - Lần 1]: Em đang làm giao diện Admin quản lý danh sách yêu cầu xác thực Mentor (để duyệt hoặc từ chối). Em muốn bổ sung một tính năng "Thu hồi" (Revoke). Khi Admin click thu hồi yêu cầu đã duyệt trước đó, hệ thống sẽ đổi trạng thái request thành CANCELLED. Anh viết code API cho em.
+[AI Lần 1]: Đề xuất viết endpoint `@PostMapping("/{id}/revoke")` và chỉ cập nhật trường trạng thái của request thành CANCELLED trong database.
+
+[Em - Lần 2 (Phản biện thiết kế Revoke, tách biệt API SSE và thống kê số lớp)]:
+1. Việc thu hồi quyền Mentor không chỉ đơn giản là đổi trạng thái đơn. Nếu chỉ đổi trạng thái đơn mà không hạ cấp quyền (System Role) của họ từ MENTOR về lại USER trong bảng `user_accounts`, họ vẫn tiếp tục có quyền tạo lớp học và xem tài nguyên giảng viên, gây rò rỉ quyền hạn nghiêm trọng.
+2. Tệp ảnh thẻ giảng viên nhạy cảm (Private file) trên Cloudinary của đơn đó cần được xóa bỏ hoàn toàn ngay khi bị thu hồi để tránh rác ổ đĩa và rò rỉ dữ liệu cá nhân của giảng viên bị tước quyền.
+3. Cần gửi thông điệp WebSocket realtime báo cho client của Mentor biết họ đã bị thu hồi quyền để Frontend tự động hạ cấp giao diện và ép dọn dẹp các quyền hạn trên RAM.
+4. API stream SSE và API lấy danh sách requests đang bị trùng lặp đường dẫn nếu cấu hình chung, dẫn đến lỗi Duplicate API mapping trên Spring Boot và gây nghẽn luồng.
+
+Hãy thiết kế lại cho em:
+- Cập nhật `verifyStatus = UNVERIFIED`, hạ cấp role hệ thống của user về `USER`. Đồng thời gọi fileStorageService xóa file ảnh thẻ trên Cloudinary, gửi WebSocket thông báo `VERIFICATION_UPDATE` trực tiếp đến userId bị thu hồi.
+- Tách biệt API SSE stream sang endpoint riêng `/api/v1/mentor-verifications/stream`.
+- Khi Admin lấy danh sách request, hãy thực hiện truy vấn đếm số lượng lớp học (`classroomCount`) mà user đó đang sở hữu thông qua `academicContextRepository.countByOwnerId`.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Cần xây dựng hệ thống quản lý quyền hạn vòng đời của Mentor một cách toàn diện và an toàn: có khả năng thu hồi quyền hạn ngay lập tức, tự động dọn dẹp file nhạy cảm và rẽ nhánh luồng dữ liệu API sạch.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất mã nguồn phương thức `revokeRequest` thực hiện hạ vai trò, xóa file, bắn WebSocket; cung cấp endpoint `/stream` và query đếm số lớp học.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Tích hợp logic thu hồi quyền và dọn dẹp file private vào MentorVerificationServiceImpl.java; tách API stream ở MentorVerificationController.java.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Tự thiết kế Frontend: Nhóm các request theo từng User trên bảng điều khiển để tránh spam giao diện, hiển thị nút Revoke động (chỉ cho phép khi request đã APPROVED) và thiết kế Popup bắt buộc nhập lý do thu hồi để lưu lịch sử phục vụ đối soát sau này.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin (Lý do: Đã chỉ rõ đầy đủ 4 bước thu hồi bảo mật, tách biệt API và thống kê lớp học)
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp (Lý do: AI đề xuất đúng code thực thi rẽ nhánh vai trò và xóa tệp sau phản biện)
+- [ ] Cần hỏi lại AI nhiều lần (Lý do: Chỉ cần qua 1 lượt phản biện để giải quyết trọn vẹn lỗ hổng bảo mật)
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều (phản biện lại AI)
+- [x] Kết quả AI có lỗi hoặc chưa chính xác (Lý do: Đề xuất ban đầu của AI bỏ qua bước hạ cấp vai trò hệ thống và giữ lại file ảnh nhạy cảm trên Cloudinary gây rò rỉ dữ liệu)
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| File liên quan | MentorVerificationServiceImpl.java, MentorVerificationController.java |
+| Kết quả chạy/test | Click thu hồi lập tức hạ role Mentor xuống USER, ảnh thẻ bị xóa khỏi Cloudinary, và UI của Mentor nhận WebSocket báo hạ quyền ngay lập tức. |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Việc kết hợp dọn dẹp file vật lý trong quy trình thu hồi quyền là yếu tố quan trọng để đảm bảo tính gọn nhẹ và an toàn dữ liệu của hệ thống.
+```
+
 ---
 
 ## 7. Prompt quan trọng nhất
@@ -1207,31 +1395,31 @@ Chọn một prompt có ảnh hưởng lớn nhất đến bài tập/project.
 ### 6.1. Prompt được chọn
 
 ```text
-Dán prompt quan trọng nhất tại đây.
+Hãy phân tích cơ chế trục xuất Session của người dùng bị khóa tài khoản ngay lập tức (Active Session Revocation) trong Spring Security sử dụng Redis Session Registry kết hợp gửi WebSocket notify để Frontend cập nhật ngay lập tức mà không cần F5 trang.
 ```
 
 ### 6.2. Vì sao prompt này quan trọng?
 
 ```text
-Viết tại đây...
+Prompt này giải quyết một lỗ hổng bảo mật nghiêm trọng (Passive Lockout) của AI. Nó mở ra hướng đi kết hợp giữa Stateful Token Invalidation và WebSocket Reactive Push để giải quyết triệt để bài toán đồng bộ hóa trạng thái tài khoản thời gian thực.
 ```
 
 ### 6.3. Kết quả prompt này mang lại
 
 ```text
-Viết tại đây...
+AI cung cấp cấu trúc `SessionRegistryListener` để quản lý danh sách session của từng User, và tích hợp gửi tín hiệu qua `NotificationWebSocketHandler` về Client.
 ```
 
 ### 6.4. Sinh viên/nhóm đã kiểm tra kết quả như thế nào?
 
 ```text
-Viết tại đây...
+Nhóm chạy thử E2E: đăng nhập trên 2 trình duyệt độc lập bằng cùng một tài khoản, thực hiện block tài khoản đó trên màn hình Admin, và kiểm tra xem cả hai trình duyệt có bị buộc đăng xuất và hiển thị LockOverlay tức thì hay không.
 ```
 
 ### 6.5. Sinh viên/nhóm đã cải tiến gì từ kết quả AI?
 
 ```text
-Viết tại đây...
+AI viết thiếu phần đồng bộ lưu trạng thái khóa cục bộ trong React Store khiến F5 bị mất màn hình khóa. Nhóm đã tự bổ sung Axios Interceptor để bắt lỗi 423 Locked và lưu cứng trạng thái `isLockedOut` vào Zustand Store.
 ```
 
 ---
@@ -1243,13 +1431,13 @@ Ghi lại ít nhất một prompt chưa tạo ra kết quả tốt hoặc chưa 
 ### 7.1. Prompt chưa hiệu quả
 
 ```text
-Dán prompt chưa hiệu quả tại đây.
+Viết code API lọc danh sách dự án có kèm theo phân trang và lọc theo trạng thái status.
 ```
 
 ### 7.2. Vì sao prompt này chưa hiệu quả?
 
 ```text
-Viết tại đây...
+Prompt quá ngắn, thiếu bối cảnh cấu trúc Entity và không nêu rõ cột status là kiểu dữ liệu custom enum của PostgreSQL, dẫn đến AI sinh ra câu lệnh CAST sai cú pháp làm crash ứng dụng Spring Boot.
 ```
 
 Gợi ý nguyên nhân:
@@ -1266,19 +1454,19 @@ Gợi ý nguyên nhân:
 ### 7.3. Cách cải thiện prompt
 
 ```text
-Viết tại đây...
+Cung cấp rõ định nghĩa thực thể Entity Project, tên cột, kiểu dữ liệu custom enum, và yêu cầu AI sử dụng các hàm JPA Repository riêng biệt thay vì gộp CAST dưới database.
 ```
 
 ### 7.4. Prompt sau khi cải tiến
 
 ```text
-Dán prompt đã được cải tiến tại đây.
+Tôi đang sử dụng Spring Data JPA kết hợp PostgreSQL. Cột status trong bảng projects là kiểu custom enum 'project_status_enum'. Khi viết API tìm kiếm phân trang có bộ lọc status (có thể null), câu lệnh HQL/JPQL gộp OR null sẽ báo lỗi không khớp kiểu dữ liệu VARCHAR và Custom Enum. Hãy hướng dẫn tôi viết các hàm JPA Repository chuyên biệt hóa (Query Specialization) tương ứng với từng tổ hợp tham số status và name để rẽ nhánh xử lý ở Service.
 ```
 
 ### 7.5. Kết quả sau khi cải tiến prompt
 
 ```text
-Viết tại đây...
+AI sinh ra 4 phương thức truy vấn Repository độc lập và rõ ràng, giúp mã nguồn biên dịch thành công và loại bỏ hoàn toàn lỗi JDBC enum casting.
 ```
 
 ---
@@ -1288,7 +1476,7 @@ Viết tại đây...
 ### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
 
 ```text
-Viết tại đây...
+Mục tiêu, bối cảnh nghiệp vụ của dự án (đặc biệt là các ràng buộc như Review Gate), công nghệ đang sử dụng (Spring Boot, Postgres custom enum), cấu trúc bảng, lỗi cụ thể (kèm stacktrace) và ràng buộc đầu ra.
 ```
 
 Gợi ý:
@@ -1305,13 +1493,13 @@ Gợi ý:
 ### 8.2. Em/nhóm đã học được gì về cách đặt câu hỏi cho AI?
 
 ```text
-Viết tại đây...
+Đặt câu hỏi từng bước (step-by-step), không nên bắt AI viết cả một tính năng lớn ngay từ đầu. Luôn chủ động phản biện thiết kế hời hợt của AI để vá bảo mật.
 ```
 
 ### 8.3. Lần sau em/nhóm sẽ cải thiện prompt như thế nào?
 
 ```text
-Viết tại đây...
+Chuẩn bị tài liệu thiết kế database và đặc tả API rõ ràng trước khi prompt AI viết code logic.
 ```
 
 ---
@@ -1322,18 +1510,18 @@ Viết tại đây...
 
 | Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
 |---|---:|---|
-| Prompt phân tích yêu cầu |  |  |
-| Prompt giải thích kiến thức |  |  |
-| Prompt thiết kế giải pháp |  |  |
-| Prompt thiết kế database |  |  |
-| Prompt sinh code mẫu |  |  |
-| Prompt debug lỗi |  |  |
-| Prompt viết test case |  |  |
-| Prompt review code |  |  |
-| Prompt tối ưu code |  |  |
-| Prompt viết báo cáo |  |  |
-| Prompt chuẩn bị thuyết trình |  |  |
-| Prompt khác |  |  |
+| Prompt phân tích yêu cầu | 1 | Thiết lập hệ thống kháng cáo (UserAppeal) có lịch sử |
+| Prompt giải thích kiến thức | 1 | Hỏi về sự khác biệt kiến trúc giữa WebSockets và SSE |
+| Prompt thiết kế giải pháp | 3 | Cơ chế Lock kép đa IP, Progressive Lockout, Active Session Revocation |
+| Prompt thiết kế database | 2 | Cấu trúc bảng user_appeals, bảng dự án |
+| Prompt sinh code mẫu | 5 | Tạo Controller, DTO, Mapper, Component React, Cloudinary Chunked |
+| Prompt debug lỗi | 3 | Debug lỗi CORS di động, lỗi CAST custom enum Postgres, lỗi Axios redirect loop |
+| Prompt viết test case | 0 | (Không sử dụng AI viết test case) |
+| Prompt review code | 1 | Nhờ AI rà soát mã hóa JWT token và token gửi email |
+| Prompt tối ưu code | 2 | Tối ưu hóa dung lượng Chunked upload, dọn dẹp file Cloudinary |
+| Prompt viết báo cáo | 0 | (Không sử dụng AI viết báo cáo) |
+| Prompt chuẩn bị thuyết trình | 0 | (Không sử dụng AI làm slide) |
+| Prompt khác | 0 | |
 
 ---
 
@@ -1343,16 +1531,16 @@ Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
 
 | Tiêu chí | Đã đạt? | Ghi chú |
 |---|:---:|---|
-| Prompt có mục tiêu rõ ràng |  |  |
-| Prompt có đủ bối cảnh |  |  |
-| Prompt có nêu công nghệ/ngôn ngữ sử dụng |  |  |
-| Prompt có nêu yêu cầu đầu ra |  |  |
-| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc |  |  |
-| Prompt có yêu cầu AI giải thích hoặc phân tích |  |  |
-| Kết quả AI được kiểm tra lại |  |  |
-| Kết quả AI được chỉnh sửa trước khi sử dụng |  |  |
-| Prompt quan trọng được ghi lại đầy đủ |  |  |
-| Prompt sai/chưa hiệu quả được rút kinh nghiệm |  |  |
+| Prompt có mục tiêu rõ ràng | Đạt | Luôn nêu rõ mục đích xử lý ngay từ câu mở đầu. |
+| Prompt có đủ bối cảnh | Đạt | Đưa bối cảnh bảo mật và vai trò của user liên quan. |
+| Prompt có nêu công nghệ/ngôn ngữ sử dụng | Đạt | Ghi rõ Spring Boot, Java, PostgreSQL, React, Zustand. |
+| Prompt có nêu yêu cầu đầu ra | Đạt | Ép AI xuất cấu trúc DTO, API Path cụ thể. |
+| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc | Đạt | Chỉ hỏi từng phần giải thuật và cấu hình boilerplate. |
+| Prompt có yêu cầu AI giải thích hoặc phân tích | Đạt | Yêu cầu so sánh (như SSE vs WebSocket) trước khi code. |
+| Kết quả AI được kiểm tra lại | Đạt | Kiểm thử E2E và viết Concurrency test case. |
+| Kết quả AI được chỉnh sửa trước khi sử dụng | Đạt | Phản biện vá lỗi bảo mật, sửa lỗi CAST enum. |
+| Prompt quan trọng được ghi lại đầy đủ | Đạt | Ghi lại đầy đủ 16 prompt quan trọng nhất. |
+| Prompt sai/chưa hiệu quả được rút kinh nghiệm | Đạt | Ghi nhận rõ lỗi CAST JPQL ở Prompt chưa hiệu quả. |
 
 ---
 
@@ -1368,4 +1556,4 @@ Sinh viên/nhóm cam kết rằng:
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-|  |  |
+| Nguyễn Thành Đạt | 30/06/2026 |

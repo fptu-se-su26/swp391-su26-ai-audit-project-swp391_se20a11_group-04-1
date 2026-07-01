@@ -1,15 +1,19 @@
 package org.example.backend.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.example.backend.dto.testing.AiTestCaseGenerateRequest;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.extern.slf4j.Slf4j;
+import org.example.backend.dto.testing.AiTestCaseGenerateRequest;
+import org.example.backend.dto.testing.AiTestCaseGenerateResponse;
 import org.example.backend.dto.testing.TestCaseRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.example.backend.entity.Requirement;
+import org.example.backend.entity.UseCase;
 import org.example.backend.entity.enums.TestType;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.repository.RequirementRepository;
+import org.example.backend.repository.UseCaseRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -35,40 +39,81 @@ public class AiTestCaseGeneratorService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final RequirementRepository requirementRepository;
+    private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.AiGenerationStagingRepository stagingRepository;
+    private final org.example.backend.repository.TestCaseRepository testCaseRepository;
 
     public AiTestCaseGeneratorService(
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
             RequirementRepository requirementRepository,
-            org.example.backend.repository.AiGenerationStagingRepository stagingRepository) {
+            UseCaseRepository useCaseRepository,
+            org.example.backend.repository.AiGenerationStagingRepository stagingRepository,
+            org.example.backend.repository.TestCaseRepository testCaseRepository) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.requirementRepository = requirementRepository;
+        this.useCaseRepository = useCaseRepository;
         this.stagingRepository = stagingRepository;
+        this.testCaseRepository = testCaseRepository;
     }
 
-    public List<TestCaseRequest> generateTestCases(AiTestCaseGenerateRequest request) {
+    public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new BusinessException("Gemini API key is not configured.");
         }
 
         String requirementContext = "";
+        String useCaseContext = "";
         if (request.getRequirementId() != null) {
             Requirement req = requirementRepository.findById(request.getRequirementId()).orElse(null);
             if (req != null) {
-                validateAiGenerationConstraints(req);
+                // validateAiGenerationConstraints is now called before calling this method
 
-                requirementContext = "Requirement Details:\n" +
+
+                requirementContext = "REQUIREMENT DETAILS:\n" +
                         "Title: " + req.getTitle() + "\n" +
-                        "Description: " + req.getDescription() + "\n" +
-                        "Acceptance Criteria: " + req.getAcceptanceCriteria() + "\n\n";
+                        "Description: " + (req.getDescription() != null ? req.getDescription() : "None") + "\n" +
+                        "Priority: " + (req.getPriority() != null ? req.getPriority().name() : "Not set") + "\n" +
+                        "Acceptance Criteria:\n" + formatAcceptanceCriteriaForPrompt(req.getAcceptanceCriteria()) + "\n\n";
+
+                // Fetch linked Use Cases (avoid LazyInitializationException)
+                List<UseCase> useCases = useCaseRepository.findByRequirementId(req.getId());
+                if (!useCases.isEmpty()) {
+                    StringBuilder ucBuilder = new StringBuilder("LINKED USE CASES:\n");
+                    for (int i = 0; i < useCases.size(); i++) {
+                        UseCase uc = useCases.get(i);
+                        ucBuilder.append("Use Case ").append(i + 1).append(": ").append(uc.getName()).append("\n");
+                        ucBuilder.append("  Precondition: ").append(uc.getPrecondition() != null ? uc.getPrecondition() : "None").append("\n");
+                        ucBuilder.append("  Postcondition: ").append(uc.getPostcondition() != null ? uc.getPostcondition() : "None").append("\n");
+                        ucBuilder.append("  Main Flow:\n").append(formatFlowForPrompt(uc.getMainFlow(), "    ")).append("\n");
+                        ucBuilder.append("  Alternative Flow:\n").append(formatFlowForPrompt(uc.getAlternativeFlow(), "    ")).append("\n\n");
+                    }
+                    useCaseContext = ucBuilder.toString();
+                }
             }
         }
 
         String prompt = buildPrompt(request.getTestType(), request.isSmartMode(), requirementContext,
-                request.getAdditionalContext());
+                useCaseContext, request.getAdditionalContext());
 
+        String rawJson = callGemini(prompt, "application/json");
+        AiTestCaseGenerateResponse generatedResponse = parseJsonObject(rawJson, new TypeReference<AiTestCaseGenerateResponse>() {});
+
+        if (generatedResponse != null && generatedResponse.getTestCases() != null) {
+            for (TestCaseRequest generatedRequest : generatedResponse.getTestCases()) {
+                if (!request.isSmartMode() && request.getTestType() != null) {
+                    generatedRequest.setType(request.getTestType());
+                }
+                if (request.getRequirementId() != null) {
+                    generatedRequest.setRequirementId(request.getRequirementId());
+                }
+            }
+        }
+        return generatedResponse;
+    }
+
+    private String callGemini(String prompt, String responseMimeType) {
         String url = geminiApiUrl + "?key=" + apiKey;
 
         Map<String, Object> payload = new HashMap<>();
@@ -78,9 +123,11 @@ public class AiTestCaseGeneratorService {
         content.put("parts", List.of(part));
         payload.put("contents", List.of(content));
 
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("responseMimeType", "application/json");
-        payload.put("generationConfig", generationConfig);
+        if (responseMimeType != null) {
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("responseMimeType", responseMimeType);
+            payload.put("generationConfig", generationConfig);
+        }
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.add("Content-Type", "application/json");
@@ -97,113 +144,290 @@ public class AiTestCaseGeneratorService {
                     Map<String, Object> contentMap = (Map<String, Object>) candidate.get("content");
                     List<Map<String, Object>> parts = (List<Map<String, Object>>) contentMap.get("parts");
                     if (!parts.isEmpty()) {
-                        String rawJson = (String) parts.get(0).get("text");
-                        String cleanJson = rawJson.trim();
-                        if (cleanJson.startsWith("```json")) {
-                            cleanJson = cleanJson.substring(7);
-                        }
-                        if (cleanJson.endsWith("```")) {
-                            cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
-                        }
-                        cleanJson = cleanJson.trim();
-
-                        List<TestCaseRequest> generatedRequests = objectMapper.readValue(cleanJson,
-                                new com.fasterxml.jackson.core.type.TypeReference<List<TestCaseRequest>>() {
-                                });
-
-                        for (TestCaseRequest generatedRequest : generatedRequests) {
-                            if (!request.isSmartMode() && request.getTestType() != null) {
-                                generatedRequest.setType(request.getTestType());
-                            }
-                            if (request.getRequirementId() != null) {
-                                generatedRequest.setRequirementId(request.getRequirementId());
-                            }
-                        }
-                        return generatedRequests;
+                        return (String) parts.get(0).get("text");
                     }
                 }
             }
             throw new BusinessException("Empty response from AI.");
         } catch (Exception e) {
-            log.error("Failed to parse result from AI: ", e);
-            throw new BusinessException("Không thể parse kết quả từ AI, vui lòng thử lại! Lỗi: " + e.getMessage());
+            log.error("Failed to call AI: ", e);
+            throw new BusinessException("Không thể kết nối AI, vui lòng thử lại! Lỗi: " + e.getMessage());
         }
     }
 
-    private String buildPrompt(TestType testType, boolean smartMode, String requirementContext, String additionalContext) {
-        String basePrompt = "You are an elite QA Automation Architect. Your task is to analyze Software Requirements and their Acceptance Criteria to design comprehensive, production-ready Test Cases. " +
-                "Generate between 3 and 8 comprehensive test cases depending on requirement complexity. " +
-                "Cover: happy path, negative cases, edge cases, and boundary values.\n\n" +
-                "CRITICAL RULES FOR TEST GENERATION:\n" +
-                "1. Requirement Traceability: Every test case must directly validate at least one specific condition from the Acceptance Criteria.\n" +
-                "2. Precondition Setup: Clearly define the system state required before the test begins.\n" +
-                "3. Granular Action Mapping: Break down user workflows into atomic steps. Do not use generic steps like 'Login'. Specify the exact inputs, buttons, and navigation paths.\n" +
-                "4. Mandatory Verification: The final step of EVERY test case MUST be a verification step asserting the Expected Result (e.g., verifying an error message, a state change, or a URL redirect). A test without an explicit assertion is a failed test.\n\n";
+    private <T> T parseJsonObject(String rawJson, TypeReference<T> typeRef) {
+        try {
+            String cleanJson = rawJson.trim();
+            if (cleanJson.startsWith("```json")) {
+                cleanJson = cleanJson.substring(7);
+            }
+            if (cleanJson.endsWith("```")) {
+                cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
+            }
+            cleanJson = cleanJson.trim();
+            return objectMapper.readValue(cleanJson, typeRef);
+        } catch (Exception e) {
+            log.error("Failed to parse JSON from AI: \n" + rawJson, e);
+            throw new BusinessException("Không thể parse kết quả từ AI. Định dạng lỗi.");
+        }
+    }
 
+    // ── JSON → Plain Text Formatters ──────────────────────────────────────────
+
+    /**
+     * Parse Acceptance Criteria JSON array (e.g. ["AC1", "AC2"]) into bullet list.
+     */
+    private String formatAcceptanceCriteriaForPrompt(String acJson) {
+        if (acJson == null || acJson.trim().isEmpty() || acJson.trim().equals("[]")) return "  (None provided)";
+        try {
+            JsonNode root = objectMapper.readTree(acJson);
+            StringBuilder sb = new StringBuilder();
+            if (root.isArray()) {
+                int index = 1;
+                for (JsonNode node : root) {
+                    String criterionText = node.isObject() && node.has("criterion") ? node.get("criterion").asText() : node.asText();
+                    sb.append("  AC-").append(index++).append(": ").append(criterionText).append("\n");
+                }
+                return sb.toString().trim();
+            }
+        } catch (Exception e) {
+            log.warn("Could not parse acceptance criteria JSON, using raw string", e);
+        }
+        return "  " + acJson;
+    }
+
+    /**
+     * Parse Use Case flow JSON (mainFlow / alternativeFlow) into readable text.
+     * Supports {"steps":[...]} and {"flows":[{"name":...,"steps":[...]}]} formats.
+     */
+    private String formatFlowForPrompt(String flowJson, String indent) {
+        if (flowJson == null || flowJson.trim().isEmpty() || flowJson.trim().equals("[]")) return indent + "None";
+        try {
+            JsonNode root = objectMapper.readTree(flowJson);
+            StringBuilder sb = new StringBuilder();
+            if (root.has("steps") && root.get("steps").isArray()) {
+                int stepNum = 1;
+                for (JsonNode step : root.get("steps")) {
+                    sb.append(indent).append(stepNum++).append(". ").append(step.asText()).append("\n");
+                }
+                return sb.toString().trim();
+            } else if (root.has("flows") && root.get("flows").isArray()) {
+                for (JsonNode flow : root.get("flows")) {
+                    sb.append(indent).append(flow.has("name") ? flow.get("name").asText() + ":\n" : "");
+                    if (flow.has("steps") && flow.get("steps").isArray()) {
+                        int stepNum = 1;
+                        for (JsonNode step : flow.get("steps")) {
+                            sb.append(indent).append("  ").append(stepNum++).append(". ").append(step.asText()).append("\n");
+                        }
+                    }
+                    sb.append("\n");
+                }
+                return sb.toString().trim();
+            } else if (root.isArray()) {
+                int stepNum = 1;
+                for (JsonNode step : root) {
+                    sb.append(indent).append(stepNum++).append(". ").append(step.asText()).append("\n");
+                }
+                return sb.toString().trim();
+            }
+        } catch (Exception e) {
+            // Fall through to return raw string
+        }
+        return indent + flowJson;
+    }
+
+    // ── Prompt Builder (8-Step QA Engineer Framework) ─────────────────────────
+
+    private String buildPrompt(TestType testType, boolean smartMode, String requirementContext,
+                               String useCaseContext, String additionalContext) {
+
+        String basePrompt =
+                "# ROLE\n" +
+                "You are an AI QA Engineer integrated into DevTrack AI.\n" +
+                "Your responsibility is NOT to immediately generate Test Cases.\n" +
+                "Your first responsibility is to understand the software feature exactly as a human QA Engineer would.\n" +
+                "Think step by step using every artifact linked to the Requirement.\n" +
+                "This system is designed for student software projects (6–8 members per team), so your output must be practical, easy to understand, and easy to execute.\n" +
+                "Do NOT generate unnecessary enterprise-level test cases.\n\n" +
+
+                "====================================================\n" +
+                "STEP 1 — Understand the Requirement\n" +
+                "====================================================\n" +
+                "Read the Requirement Title and Description.\n" +
+                "Determine: What feature is being built? What problem does it solve? Who is the user? What is the expected behavior?\n" +
+                "This gives you the overall business context. Do NOT generate test cases yet.\n\n" +
+
+                "====================================================\n" +
+                "STEP 2 — Analyze Acceptance Criteria\n" +
+                "====================================================\n" +
+                "For every Acceptance Criterion:\n" +
+                "- Identify expected behavior.\n" +
+                "- Identify success conditions.\n" +
+                "- Identify validation rules.\n" +
+                "- Identify possible failure scenarios.\n" +
+                "These become the foundation of your Test Cases.\n\n" +
+
+                "====================================================\n" +
+                "STEP 3 — Analyze Linked Use Cases\n" +
+                "====================================================\n" +
+                "Read every linked Use Case. Identify: Main Flow, Alternative Flow, Exception Flow.\n" +
+                "Understand how users interact with the system. Do not invent new flows unless they are clearly implied.\n\n" +
+
+                "====================================================\n" +
+                "STEP 4 — Extract Business Rules\n" +
+                "====================================================\n" +
+                "Extract only EXPLICITLY stated Business Rules from the Requirement, Acceptance Criteria, and Use Cases.\n" +
+                "Look for: Required fields, Validation rules, Permission rules, Status transitions, Workflow constraints, Unique constraints, Length limits, Number ranges.\n" +
+                "CRITICAL: If no Business Rules are explicitly provided, DO NOT invent them.\n" +
+                "You may infer validation constraints ONLY when they are directly implied by the Acceptance Criteria.\n" +
+                "Otherwise state: 'No explicit Business Rules were found.'\n\n" +
+
+                "====================================================\n" +
+                "STEP 5 — Analyze Additional Context\n" +
+                "====================================================\n" +
+                "Read the user's Additional Context. Treat it as a priority instruction.\n" +
+                "Always follow this instruction while keeping the Requirement unchanged.\n\n" +
+
+                "====================================================\n" +
+                "STEP 6 — Build Understanding\n" +
+                "====================================================\n" +
+                "Before generating Test Cases, combine all information:\n" +
+                "Requirement + Acceptance Criteria + Use Cases + Business Rules + Additional Context.\n" +
+                "These together represent the complete understanding of the feature. Never rely on only one source.\n\n" +
+
+                "====================================================\n" +
+                "STEP 7 — Generate Test Cases\n" +
+                "====================================================\n" +
+                "Generate Test Cases based on your understanding.\n" +
+                "Cover: Positive scenarios, Negative scenarios, Validation scenarios, Boundary scenarios, Business Rule scenarios.\n" +
+                "Do not create duplicated Test Cases.\n" +
+                "CRITICAL RULES:\n" +
+                "1. Every test case must directly validate at least one specific condition from the Acceptance Criteria.\n" +
+                "2. Clearly define the system state required before the test begins (Precondition).\n" +
+                "3. The final step of EVERY test case MUST be a verification step asserting the Expected Result.\n\n" +
+
+                "====================================================\n" +
+                "STEP 8 — Review Before Output\n" +
+                "====================================================\n" +
+                "Before returning the result, verify:\n" +
+                "- Every Acceptance Criterion has at least one Test Case.\n" +
+                "- Every Business Rule is covered.\n" +
+                "- Main Flow is covered. Alternative Flow is covered. Validation is covered.\n" +
+                "- Duplicate Test Cases are removed.\n" +
+                "If coverage is incomplete, generate additional Test Cases before finishing.\n\n";
+
+        // Test type instructions
         if (smartMode) {
             basePrompt += "For each test case, choose the most appropriate test type from: UI, API, MANUAL. Include the 'type' field in each test case JSON.\n\n";
         } else if (testType != null) {
             basePrompt += "Generate test cases matching the requested test type: " + testType.name() + ".\n\n";
         }
 
+        basePrompt += "API TEST CONSTRAINTS:\n" +
+                "- Explicitly define the 'Authorization' header in 'apiHeaders' if the endpoint requires authentication.\n" +
+                "- Include 'apiQueryParams' if the API requires URL parameters.\n" +
+                "- Generate cases that assert 4xx/5xx HTTP status codes along with success cases.\n\n";
+
         basePrompt += "UI TEST CONSTRAINTS (stepsStructured):\n" +
                 "- 'stepsStructured' must perfectly mirror the human-readable 'steps' array.\n" +
-                "- Allowed Actions: 'goto' (requires 'path'), 'fill' (requires 'selector', 'value'), 'click' (requires 'selector'), 'select' (requires 'selector', 'value'), 'wait_for' (requires 'selector').\n" +
-                "- Allowed Assertions (CRITICAL): You MUST append assertion actions at the end of the array to verify the result. Use 'expect_url' (requires 'expected'), 'expect_text' (requires 'selector', 'expected'), 'expect_visible' (requires 'selector'), or 'expect_hidden' (requires 'selector').\n\n";
+                "- Allowed Actions: 'goto', 'fill', 'click', 'select', 'wait_for'.\n" +
+                "- CRITICAL: Use 'data-testid' attributes for selectors whenever possible.\n" +
+                "- Allowed Assertions: 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'.\n\n";
 
-        basePrompt += "Only return a valid JSON array matching this exact structure (NO markdown code blocks, NO extra text):\n\n";
+        // Output format with structured reasoning template
+        basePrompt += "OUTPUT FORMAT\n" +
+                "Return a valid JSON object with this EXACT structure (NO markdown code blocks, NO extra text outside the JSON).\n" +
+                "The 'reasoning' field MUST follow this EXACT template format:\n\n" +
+                "REQUIREMENT ANALYSIS:\n" +
+                "✔ Feature: [feature name]\n" +
+                "✔ Actor: [primary user role]\n" +
+                "✔ Expected Behavior: [what should happen]\n" +
+                "\n" +
+                "ACCEPTANCE CRITERIA:\n" +
+                "✔ AC-1: [criterion]\n" +
+                "✔ AC-2: [criterion]\n" +
+                "...\n" +
+                "\n" +
+                "USE CASES:\n" +
+                "✔ [Use Case Name] - Main Flow: [summary]\n" +
+                "✔ [Use Case Name] - Alternative Flow: [summary]\n" +
+                "(If no Use Cases provided, write: 'No linked Use Cases.')\n" +
+                "\n" +
+                "BUSINESS RULES:\n" +
+                "✔ [rule] (only if explicitly stated)\n" +
+                "(If none found, write: 'No explicit Business Rules were found.')\n" +
+                "\n" +
+                "The 'coverageSummary' field MUST follow this template:\n" +
+                "COVERAGE:\n" +
+                "✔ Positive: [count] cases\n" +
+                "✔ Negative: [count] cases\n" +
+                "✔ Validation: [count] cases\n" +
+                "✔ Boundary: [count] cases\n" +
+                "✔ Total: [count] cases\n\n";
 
-        String structure = "[\n" +
-                "  {\n" +
-                "    \"title\": \"Login fails with unregistered email\",\n" +
-                "    \"type\": \"UI\",\n" +
-                "    \"precondition\": \"User is on the login page. The email 'unregistered@abc.com' does not exist in the database.\",\n" +
-                "    \"expectedResult\": \"System displays a validation error message 'Invalid credentials'.\",\n" +
-                "    \"baseUrl\": \"https://example.com/login\",\n" +
-                "    \"stepsStructured\": [\n" +
-                "      { \"action\": \"goto\", \"path\": \"/login\" },\n" +
-                "      { \"action\": \"fill\", \"selector\": \"input[name='email']\", \"value\": \"unregistered@abc.com\" },\n" +
-                "      { \"action\": \"fill\", \"selector\": \"input[name='password']\", \"value\": \"AnyPassword123!\" },\n" +
-                "      { \"action\": \"click\", \"selector\": \"button[type='submit']\" },\n" +
-                "      { \"action\": \"wait_for\", \"selector\": \".error-toast\" },\n" +
-                "      { \"action\": \"expect_visible\", \"selector\": \".error-toast\" },\n" +
-                "      { \"action\": \"expect_text\", \"selector\": \".error-toast\", \"expected\": \"Invalid credentials\" }\n" +
-                "    ],\n" +
-                "    \"steps\": [\n" +
-                "      { \"stepNumber\": 1, \"description\": \"Navigate to the login page (/login)\" },\n" +
-                "      { \"stepNumber\": 2, \"description\": \"Enter an unregistered email address (e.g., unregistered@abc.com) into the Email field\" },\n" +
-                "      { \"stepNumber\": 3, \"description\": \"Enter any password into the Password field\" },\n" +
-                "      { \"stepNumber\": 4, \"description\": \"Click the Submit button\" },\n" +
-                "      { \"stepNumber\": 5, \"description\": \"Verify that an error toast message appears with the text 'Invalid credentials'\" }\n" +
-                "    ]\n" +
-                "  },\n" +
-                "  {\n" +
-                "    \"title\": \"Test name API\",\n" +
-                "    \"type\": \"API\",\n" +
-                "    \"precondition\": \"Description\",\n" +
-                "    \"expectedResult\": \"Returns 200 OK and JWT token in response body\",\n" +
-                "    \"apiMethod\": \"POST\",\n" +
-                "    \"apiUrl\": \"/api/v1/auth/login\",\n" +
-                "    \"apiHeaders\": { \"Content-Type\": \"application/json\" },\n" +
-                "    \"apiBody\": { \"email\": \"test@abc.com\", \"password\": \"123\" },\n" +
-                "    \"apiAssertions\": [\n" +
-                "      { \"target\": \"status\", \"operator\": \"equals\", \"value\": 200 }\n" +
-                "    ],\n" +
-                "    \"steps\": [\n" +
-                "      { \"stepNumber\": 1, \"description\": \"Send POST request to login endpoint\" }\n" +
-                "    ]\n" +
-                "  }\n" +
-                "]";
+        String structure = "{\n" +
+                "  \"reasoning\": \"Your structured analysis following the template above.\",\n" +
+                "  \"coverageSummary\": \"Your coverage summary following the template above.\",\n" +
+                "  \"testCases\": [\n" +
+                "    {\n" +
+                "      \"title\": \"Login fails with unregistered email\",\n" +
+                "      \"type\": \"UI\",\n" +
+                "      \"precondition\": \"User is on the login page.\",\n" +
+                "      \"expectedResult\": \"System displays error message 'Invalid credentials'.\",\n" +
+                "      \"baseUrl\": \"https://example.com/login\",\n" +
+                "      \"stepsStructured\": [\n" +
+                "        { \"action\": \"goto\", \"path\": \"/login\" },\n" +
+                "        { \"action\": \"fill\", \"selector\": \"[data-testid='email-input']\", \"value\": \"unregistered@abc.com\" },\n" +
+                "        { \"action\": \"click\", \"selector\": \"[data-testid='submit-btn']\" },\n" +
+                "        { \"action\": \"expect_text\", \"selector\": \".error-toast\", \"expected\": \"Invalid credentials\" }\n" +
+                "      ],\n" +
+                "      \"steps\": [\n" +
+                "        { \"stepNumber\": 1, \"description\": \"Navigate to the login page\" },\n" +
+                "        { \"stepNumber\": 2, \"description\": \"Enter unregistered email\" },\n" +
+                "        { \"stepNumber\": 3, \"description\": \"Click Submit\" },\n" +
+                "        { \"stepNumber\": 4, \"description\": \"Verify error message appears\" }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
 
         return basePrompt + structure + "\n\n" +
-                (requirementContext != null && !requirementContext.isEmpty() ? requirementContext : "") + "\n" +
-                "Additional Context/Instructions:\n" +
+                "====================================================\n" +
+                "INPUT DATA\n" +
+                "====================================================\n\n" +
+                (requirementContext != null && !requirementContext.isEmpty() ? requirementContext : "") +
+                (useCaseContext != null && !useCaseContext.isEmpty() ? useCaseContext : "LINKED USE CASES:\n  (None)\n\n") +
+                "ADDITIONAL CONTEXT/INSTRUCTIONS:\n" +
                 (additionalContext != null && !additionalContext.isEmpty() ? additionalContext : "None");
     }
 
-    private void validateAiGenerationConstraints(Requirement req) {
+    public org.example.backend.entity.AiGenerationStaging createProcessingStaging(AiTestCaseGenerateRequest request, Long projectId) {
+        Requirement req = requirementRepository.findById(request.getRequirementId())
+                .orElseThrow(() -> new BusinessException("Requirement not found"));
+        
+        validateAiGenerationConstraints(req, request.isDiscardExisting());
+
+        org.example.backend.entity.Project project = new org.example.backend.entity.Project();
+        project.setId(projectId);
+
+        org.example.backend.entity.AiGenerationStaging staging = new org.example.backend.entity.AiGenerationStaging();
+        staging.setProject(project);
+        staging.setGenerationId(java.util.UUID.randomUUID());
+        staging.setRequirementId(request.getRequirementId());
+        staging.setStage(org.example.backend.entity.AiStage.TEST_CASE);
+        staging.setStatus(org.example.backend.entity.AiGenerationStatus.PROCESSING);
+        staging.setPayload(objectMapper.createObjectNode());
+        
+        return stagingRepository.save(staging);
+    }
+
+    private void validateAiGenerationConstraints(Requirement req, boolean discardExisting) {
         if (req.getProject() == null || req.getProject().getId() == null)
             return;
+            
+        if (stagingRepository.existsByRequirementIdAndStatus(req.getId(), org.example.backend.entity.AiGenerationStatus.PROCESSING)) {
+            throw new BusinessException("A generation is currently in progress. Please wait.");
+        }
 
         List<org.example.backend.entity.AiGenerationStaging> recentStagings = stagingRepository
                 .findRecentByRequirementId(req.getProject().getId(), req.getId());
@@ -222,16 +446,24 @@ public class AiTestCaseGeneratorService {
                     stg.setStatus(org.example.backend.entity.AiGenerationStatus.DISCARDED);
                     stagingRepository.save(stg);
                     log.info("Auto-rejected obsolete PENDING staging {} for requirement {}", stg.getId(), req.getId());
+                } else if (discardExisting) {
+                    stg.setStatus(org.example.backend.entity.AiGenerationStatus.DISCARDED);
+                    stagingRepository.save(stg);
+                    log.info("Discarded existing PENDING staging {} as requested for requirement {}", stg.getId(), req.getId());
                 } else {
                     throw new BusinessException(
-                            "You have an unreviewed PENDING generation for this requirement. Please review or reject it first.");
+                            "You have an unreviewed PENDING generation for this requirement. Please review or reject it first.",
+                            "PENDING_EXISTS");
                 }
             }
         }
 
-        // 2. Cooldown Check (1 minute)
-        org.example.backend.entity.AiGenerationStaging latest = recentStagings.get(0);
-        if (latest.getCreatedAt().plusMinutes(1).isAfter(now)) {
+        // 2. Cooldown Check (1 minute) — only against non-PENDING/non-DISCARDED records
+        org.example.backend.entity.AiGenerationStaging latestActive = recentStagings.stream()
+                .filter(s -> s.getStatus() != org.example.backend.entity.AiGenerationStatus.PENDING
+                          && s.getStatus() != org.example.backend.entity.AiGenerationStatus.DISCARDED)
+                .findFirst().orElse(null);
+        if (latestActive != null && latestActive.getCreatedAt().plusMinutes(1).isAfter(now)) {
             throw new BusinessException(
                     "Please wait at least 1 minute before generating test cases for this requirement again.");
         }
@@ -245,12 +477,66 @@ public class AiTestCaseGeneratorService {
 
         if (countToday >= 3) {
             // Check if Requirement was updated after the latest generation
-            if (reqUpdated != null && reqUpdated.isAfter(latest.getCreatedAt())) {
+            org.example.backend.entity.AiGenerationStaging mostRecent = recentStagings.get(0);
+            if (reqUpdated != null && reqUpdated.isAfter(mostRecent.getCreatedAt())) {
                 log.info("Quota limit reached (3/day) but requirement {} was updated. Resetting quota.", req.getId());
             } else {
                 throw new BusinessException(
                         "Daily generation quota reached (3 times) for this requirement. Please try again tomorrow or update the requirement.");
             }
         }
+    }
+
+    public String analyzeCoverage(Long requirementId, Long projectId) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BusinessException("Gemini API key is not configured.");
+        }
+
+        Requirement req = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new BusinessException("Requirement not found"));
+
+        List<org.example.backend.entity.TestCase> existingTestCases = testCaseRepository.findByRequirementIdAndProjectId(requirementId, projectId);
+
+        String prompt = "You are an elite QA Automation Architect. Your task is to analyze the coverage of the following existing test cases against the given requirement.\n\n" +
+                "Requirement Details:\n" +
+                "Title: " + req.getTitle() + "\n" +
+                "Description: " + (req.getDescription() != null ? req.getDescription() : "None") + "\n" +
+                "Acceptance Criteria:\n" + formatAcceptanceCriteriaForPrompt(req.getAcceptanceCriteria()) + "\n\n" +
+                "Existing Test Cases:\n";
+
+        if (existingTestCases.isEmpty()) {
+            prompt += "(No test cases currently exist for this requirement.)\n\n";
+        } else {
+            for (org.example.backend.entity.TestCase tc : existingTestCases) {
+                prompt += "- [" + tc.getType().name() + "] " + tc.getTitle() + "\n";
+            }
+            prompt += "\n";
+        }
+
+        prompt += "Analyze coverage. Return explicit plain text only. Use simple bullet points (-). DO NOT use Markdown headers (#) or bold (**). Do not return JSON. Provide a concise summary of what is covered and what is missing.";
+
+        return callGemini(prompt, "text/plain");
+    }
+
+    public List<org.example.backend.dto.testing.AiDraftTestCase> refineTestCases(org.example.backend.dto.testing.RefineAiRequest request) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BusinessException("Gemini API key is not configured.");
+        }
+
+        String existingJson;
+        try {
+            existingJson = objectMapper.writeValueAsString(request.getExistingTestCases());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize test cases to JSON", e);
+            throw new BusinessException("Không thể serialize test cases: " + e.getMessage());
+        }
+
+        String prompt = "You are an elite QA Automation Architect. I have a list of draft test cases in JSON format. Modify these JSON test cases according to the instruction below.\n\n" +
+                "Instruction: " + request.getInstruction() + "\n\n" +
+                "Existing Test Cases JSON:\n" + existingJson + "\n\n" +
+                "Return ONLY the updated JSON array matching the exact structure of the input (NO markdown code blocks, NO extra text).";
+
+        String rawJson = callGemini(prompt, "application/json");
+        return parseJsonObject(rawJson, new TypeReference<List<org.example.backend.dto.testing.AiDraftTestCase>>() {});
     }
 }

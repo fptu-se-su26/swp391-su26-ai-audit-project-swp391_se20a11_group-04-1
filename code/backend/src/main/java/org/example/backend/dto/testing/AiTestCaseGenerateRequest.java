@@ -15,4 +15,6 @@ public class AiTestCaseGenerateRequest {
     private String additionalContext;
 
     private boolean smartMode = false;
+    
+    private boolean discardExisting = false;
 }

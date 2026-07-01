@@ -10,6 +10,9 @@ import TestRunHistoryTimeline from '../components/TestRunHistoryTimeline'
 import HistoricalTestRunModal from '../components/HistoricalTestRunModal'
 import ApiTestCaseBuilder from '../components/ApiTestCaseBuilder'
 import { testCaseService } from '../services/testCaseService'
+import { CreateBugModal, bugService } from '../../issue-tracker'
+import useProjectStore from '@store/useProjectStore'
+import toast from 'react-hot-toast'
 
 import Card from '../../../components/ui/Card'
 import SectionTitle from '../../../components/ui/SectionTitle'
@@ -243,6 +246,10 @@ export default function TestCaseDetailPage() {
   const [isApiRunning, setIsApiRunning]     = useState(false)
   const pollingRef = useRef(null)
 
+  // Bug Modal State
+  const [showBugModal, setShowBugModal] = useState(false)
+  const activeProject = useProjectStore((state) => state.activeProject)
+  
   useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current) }, [])
 
   const handleFormSubmit = async (payload) => {
@@ -294,6 +301,16 @@ export default function TestCaseDetailPage() {
   useEffect(() => {
     if (testCaseId) fetchTestCaseDetail(projectId, testCaseId)
   }, [projectId, testCaseId, fetchTestCaseDetail])
+
+  const handleCreateBug = async (payload) => {
+    try {
+      await bugService.createBug(projectId, payload)
+      toast.success('Bug report created successfully!')
+      setShowBugModal(false)
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to create bug')
+    }
+  }
 
   useEffect(() => {
     if (!testCase) return
@@ -379,7 +396,7 @@ export default function TestCaseDetailPage() {
           <BtnSecondary icon="edit" onClick={() => { setFormError(null); openEditForm(testCase) }}>
             Edit Test Case
           </BtnSecondary>
-          <BtnSecondary icon="bug_report" danger>
+          <BtnSecondary icon="bug_report" danger onClick={() => setShowBugModal(true)}>
             Report Bug
           </BtnSecondary>
           {testCase.type === 'API' ? (
@@ -614,11 +631,28 @@ export default function TestCaseDetailPage() {
         isSubmitting={isSubmitting}
         error={formError}
       />
+
       {selectedHistoricalRunId && (
         <HistoricalTestRunModal
           runId={selectedHistoricalRunId}
           testCase={testCase}
+          projectId={projectId}
           onClose={() => setSelectedHistoricalRunId(null)}
+        />
+      )}
+
+      {showBugModal && (
+        <CreateBugModal
+          open={true}
+          onClose={() => setShowBugModal(false)}
+          onSubmit={handleCreateBug}
+          projectMembers={activeProject?.members || []}
+          initialData={{
+            title: `Bug in ${testCase.code || testCase.requirement?.code}: ${testCase.title}`,
+            stepsToReproduce: testCase.type === 'UI' 
+              ? (testCase.stepsStructured || testCase.steps_structured || []).map(s => s.action).join('\n') 
+              : (testCase.steps || []).map((s, i) => `${i + 1}. ${s.description || s.action || ''}`).join('\n'),
+          }}
         />
       )}
     </div>
