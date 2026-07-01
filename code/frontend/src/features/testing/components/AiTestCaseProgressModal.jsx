@@ -40,16 +40,20 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
   const [currentStep, setCurrentStep] = useState(1)
   const [progressWidth, setProgressWidth] = useState(0)
   const [errorMessage, setErrorMessage] = useState(null)
+  const [hasPendingError, setHasPendingError] = useState(false)
   const abortRef = useRef(null)
   const hasCompletedRef = useRef(false)
   const resultRef = useRef(null)
+  const timerRef1 = useRef(null)
+  const timerRef2 = useRef(null)
 
-  const startGeneration = useCallback(async () => {
+  const startGeneration = useCallback(async (forceDiscard = false) => {
     if (!projectId || !payload) return
 
     setCurrentStep(1)
     setProgressWidth(0)
     setErrorMessage(null)
+    setHasPendingError(false)
     hasCompletedRef.current = false
     resultRef.current = null
 
@@ -57,7 +61,8 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
     abortRef.current = new AbortController()
 
     try {
-      const data = await testCaseService.generateTestCaseWithAi(projectId, payload)
+      const currentPayload = { ...payload, discardExisting: forceDiscard || payload.discardExisting }
+      const data = await testCaseService.generateTestCaseWithAi(projectId, currentPayload)
 
       // Check if aborted during the request
       if (abortRef.current?.signal.aborted) return
@@ -71,6 +76,9 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
         return
       }
       setErrorMessage(err.response?.data?.message || err.message || 'An error occurred during generation.')
+      if (err.response?.data?.errorCode === 'PENDING_EXISTS') {
+        setHasPendingError(true)
+      }
     }
   }, [projectId, payload])
 
@@ -104,7 +112,7 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
     if (currentStep === 4 && !hasCompletedRef.current && resultRef.current) {
       hasCompletedRef.current = true
       const timeout = setTimeout(() => {
-        onComplete?.(resultRef.current.generationId, resultRef.current.testCases)
+        onComplete?.(resultRef.current.generationId, resultRef.current)
       }, 1500)
       return () => clearTimeout(timeout)
     }
@@ -117,6 +125,14 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
     }
   }, [errorMessage])
 
+  // Effect to clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      clearTimeout(timerRef1.current)
+      clearTimeout(timerRef2.current)
+    }
+  }, [])
+
   if (!isOpen) return null
 
   const handleCancel = () => {
@@ -126,15 +142,18 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
     onClose?.()
   }
 
-  const handleRetry = () => {
-    startGeneration()
-    // Restart step simulation
-    setCurrentStep(1)
-    setProgressWidth(0)
-    setErrorMessage(null)
-
-    setTimeout(() => setCurrentStep(prev => prev < 2 ? 2 : prev), 3000)
-    setTimeout(() => setCurrentStep(prev => prev < 3 ? 3 : prev), 9000)
+  const handleRetry = (discard = false) => {
+    if (currentStep < 4 && !errorMessage) return; // Prevent spam
+    
+    clearTimeout(timerRef1.current)
+    clearTimeout(timerRef2.current)
+    
+    startGeneration(discard)
+    
+    // Restart step simulation is handled inside startGeneration setting step 1,
+    // we just need to re-trigger the timers.
+    timerRef1.current = setTimeout(() => setCurrentStep(prev => prev < 2 ? 2 : prev), 3000)
+    timerRef2.current = setTimeout(() => setCurrentStep(prev => prev < 3 ? 3 : prev), 9000)
   }
 
   const getStepStatus = (stepId) => {
@@ -306,7 +325,7 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
               <h3 style={{ fontSize: 13, fontWeight: 700, color: errorMessage ? C.danger : C.textPri, margin: 0 }}>
                 {currentDetails.title}
               </h3>
-              <p style={{ fontSize: 12, color: errorMessage ? C.danger : C.textSec, margin: '2px 0 0', wordBreak: 'break-word' }}>
+              <p style={{ fontSize: 12, color: errorMessage ? C.danger : C.textSec, margin: '2px 0 0', wordBreak: 'break-all', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
                 {currentDetails.detail}
               </p>
             </div>
@@ -346,17 +365,31 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
               >
                 Close
               </button>
-              <button
-                onClick={handleRetry}
-                style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none',
-                  background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
-                Retry
-              </button>
+              {hasPendingError ? (
+                <button
+                  onClick={() => handleRetry(true)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, border: 'none',
+                    background: C.danger, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_forever</span>
+                  Discard & Regenerate
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRetry(false)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, border: 'none',
+                    background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+                  Retry
+                </button>
+              )}
             </div>
           ) : (
             <p style={{ textAlign: 'center', fontSize: 12, color: C.textMuted, margin: 0 }}>
