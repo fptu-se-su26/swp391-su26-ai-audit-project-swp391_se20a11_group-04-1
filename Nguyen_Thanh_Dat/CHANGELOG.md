@@ -250,6 +250,8 @@ DD/MM/YYYY
 | 12 | Thiết kế Băng chuyền thông báo (Announcement Carousel) kết hợp thông tin lớp học | Nguyễn Thành Đạt | AnnouncementCarousel.jsx, ClassroomDetailPage.jsx | Hoàn thành |
 | 13 | Triển khai Classroom Dashboard thống kê Line Chart tần suất hoạt động và Heatmap 365 ngày | Nguyễn Thành Đạt | ClassroomServiceImpl.java, ClassroomController.java | Hoàn thành |
 | 14 | Tối ưu hóa upload tài liệu học tập (Resources) dung lượng lớn bằng Cloudinary Chunked Upload và bộ lọc định dạng | Nguyễn Thành Đạt | ResourceServiceImpl.java, CloudinaryFileStorageServiceImpl.java | Hoàn thành |
+| 15 | Triển khai Trang quản trị tài khoản Admin, Hệ thống kháng cáo tự phục hồi (Appeals) và cơ chế Trục xuất Session thời gian thực trên Redis | Nguyễn Thành Đạt | SystemAdminService.java, LockOverlay.jsx, UserManagementPage.jsx, V20260625000300__create_user_appeals_table.sql | Hoàn thành |
+| 16 | Triển khai Dashboard quản trị phê duyệt Mentor, thống kê số lớp học và cơ chế Thu hồi quyền hạn (Revocation) an toàn | Nguyễn Thành Đạt | MentorVerificationServiceImpl.java, MentorVerificationController.java, VerificationPage.jsx | Hoàn thành |
 
 ## AI có hỗ trợ không?
 
@@ -301,11 +303,10 @@ DD/MM/YYYY
 ## Danh sách lỗi đã xử lý
 
 | STT | Lỗi phát hiện | Nguyên nhân | Cách xử lý | Trạng thái |
-|---:|---|---|---|---|
-| 1 |  |  |  | Open / Fixed / Pending |
-| 2 |  |  |  | Open / Fixed / Pending |
-| 3 |  |  |  | Open / Fixed / Pending |
-| 4 |  |  |  | Open / Fixed / Pending |
+| 1 | Tài khoản bị block vẫn tiếp tục hoạt động được do Session cũ còn lưu trên Redis RAM | Cập nhật isActive = false dưới DB nhưng session hiện tại của client vẫn còn TTL hiệu lực, bộ lọc bảo mật không quét lại DB liên tục | Viết SessionRegistryListener và gọi hủy Session của user ngay khi bị lock ở Service, kết hợp bắn thông báo qua WebSocket | Fixed |
+| 2 | Concurrency Race Condition khi nhiều học sinh join Classroom cùng lúc dẫn đến trùng lặp dữ liệu thành viên | Nhả Redis Distributed Lock bên trong `@Transactional` trước khi Database thực hiện commit transaction vật lý | Loại bỏ `@Transactional` khai báo, sử dụng `TransactionTemplate` thủ công để đảm bảo chỉ nhả lock sau khi DB commit hoàn tất | Fixed |
+| 3 | Lỗi PostgreSQL JDBC cast type `VARCHAR` sang `ENUM` khi truyền tham số so sánh Null trong JPA Repository | PostgreSQL so sánh nghiêm ngặt kiểu dữ liệu, truyền Null JPA tự ép kiểu sang VARCHAR và báo lỗi không khớp ENUM | Chuyên biệt hóa truy vấn (Query Specialization) thành 4 hàm JPA độc lập, loại bỏ hoàn toàn các mệnh đề OR Null dưới SQL | Fixed |
+| 4 | Toast thông báo đăng nhập sai bị biến mất lập tức và trình duyệt tự reload trang liên tục | Axios Interceptor chặn mã lỗi 401 chung để tự động chuyển hướng về `/login` làm xóa sạch Toast của React | Tinh chỉnh Axios Interceptor bỏ qua việc reload đối với riêng API `/v1/auth/login` để khối catch cục bộ hiển thị Toast | Fixed |
 | 5 |  |  |  | Open / Fixed / Pending |
 
 ## Thay đổi chi tiết
