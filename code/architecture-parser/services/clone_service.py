@@ -28,14 +28,9 @@ class CloneService:
         # If running on Windows local environment without Docker, we can use a local temp dir.
         # Let's write to a path inside workspace's temp if we want, or os.path.join(tempfile.gettempdir())
         import tempfile
+        import uuid
         temp_dir = tempfile.gettempdir()
-        clone_dir = os.path.join(temp_dir, f"devtrack_repo_sync_{project_id}")
-        
-        if os.path.exists(clone_dir):
-            try:
-                shutil.rmtree(clone_dir, ignore_errors=True)
-            except Exception as e:
-                print(f"Warning: failed to clear directory {clone_dir}: {e}")
+        clone_dir = os.path.join(temp_dir, f"devtrack_repo_sync_{project_id}_{uuid.uuid4().hex}")
             
         reporter.report(5, "SYNCING", "Đang kết nối GitHub và clone repository...")
         
@@ -56,7 +51,11 @@ class CloneService:
     @staticmethod
     def cleanup(clone_dir: str):
         if clone_dir and os.path.exists(clone_dir):
+            import stat
+            def on_rm_error(func, path, exc_info):
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
             try:
-                shutil.rmtree(clone_dir, ignore_errors=True)
+                shutil.rmtree(clone_dir, onerror=on_rm_error)
             except Exception as e:
                 print(f"Warning: failed to delete directory {clone_dir}: {e}")
