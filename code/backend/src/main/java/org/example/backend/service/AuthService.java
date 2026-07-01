@@ -49,5 +49,15 @@ public interface AuthService {
     /**
      * Xử lý đăng nhập / đăng ký bằng tài khoản GitHub OAuth.
      */
-    UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, HttpSession session);
+    UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session);
+
+    /**
+     * Kiểm tra sự tồn tại của Email trong hệ thống.
+     */
+    boolean existsByEmail(String email);
+
+    /**
+     * Đăng ký người dùng mới bằng tài khoản GitHub OAuth sau khi người dùng đồng ý.
+     */
+    UserResponse registerWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session);
 }

@@ -37,7 +37,7 @@ public class AuthGitHubController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> loginWithGitHub(@RequestBody Map<String, String> body, HttpSession session) {
+    public ResponseEntity<ApiResponse<?>> loginWithGitHub(@RequestBody Map<String, String> body, HttpSession session) {
         String code = body.get("code");
         if (code == null || code.trim().isEmpty()) {
             throw new CustomException("Authorization code is required", HttpStatus.BAD_REQUEST);
@@ -65,9 +65,42 @@ public class AuthGitHubController {
             );
         }
 
-        // 4. Authenticate user in system
-        UserResponse userResponse = authService.loginWithGitHub(email, login, avatarUrl, session);
+        // 4. Check if user already exists
+        if (!authService.existsByEmail(email)) {
+            Map<String, String> githubInfo = Map.of(
+                    "email", email,
+                    "username", login,
+                    "avatarUrl", avatarUrl,
+                    "accessToken", accessToken
+            );
+            ApiResponse<Map<String, String>> errResponse = ApiResponse.<Map<String, String>>builder()
+                    .success(false)
+                    .errorCode("USER_NOT_REGISTERED")
+                    .message("Tài khoản GitHub chưa được đăng ký trên hệ thống.")
+                    .data(githubInfo)
+                    .build();
+            return ResponseEntity.ok(errResponse);
+        }
+
+        UserResponse userResponse = authService.loginWithGitHub(email, login, avatarUrl, accessToken, session);
 
         return ResponseEntity.ok(ApiResponse.success(userResponse, "Đăng nhập bằng GitHub thành công"));
+    }
+
+
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<UserResponse>> registerWithGitHub(@RequestBody Map<String, String> body, HttpSession session) {
+        String email = body.get("email");
+        String username = body.get("username");
+        String avatarUrl = body.get("avatarUrl");
+        String accessToken = body.get("accessToken");
+
+        if (email == null || username == null || accessToken == null) {
+            throw new CustomException("Missing required fields for registration", HttpStatus.BAD_REQUEST);
+        }
+
+        UserResponse userResponse = authService.registerWithGitHub(email, username, avatarUrl, accessToken, session);
+        return ResponseEntity.ok(ApiResponse.success(userResponse, "Đăng ký tài khoản bằng GitHub thành công"));
     }
 }

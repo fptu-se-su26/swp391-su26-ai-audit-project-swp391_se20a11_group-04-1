@@ -153,6 +153,7 @@ public class AuthServiceImpl implements AuthService {
                 .systemRole(savedAccount.getSystemRole().getName())
                 .isActive(savedAccount.isActive())
                 .createdAt(savedAccount.getCreatedAt())
+                .passwordSet(isPasswordSet(savedAccount))
                 .build();
     }
 
@@ -271,6 +272,7 @@ public class AuthServiceImpl implements AuthService {
                     .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                     .createdAt(user.getCreatedAt())
                     .lockReason(user.getLockReason())
+                    .passwordSet(isPasswordSet(user))
                     .build();
         } else {
             // Đăng nhập thất bại -> Phân tích thiết bị và vị trí
@@ -467,6 +469,7 @@ public class AuthServiceImpl implements AuthService {
                 .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
                 .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
                 .build();
     }
 
@@ -515,7 +518,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, HttpSession session) {
+    public UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session) {
         log.info("Processing GitHub OAuth login for email: {}, username: {}", email, githubUsername);
 
         // 1. Check if user already exists by email
@@ -542,34 +545,16 @@ public class AuthServiceImpl implements AuthService {
                 );
             }
         } else {
-            // New Registration via GitHub
-            // Ensure username is unique
-            String uniqueUsername = githubUsername;
-            if (userAccountRepository.existsByUsername(uniqueUsername)) {
-                uniqueUsername = githubUsername + "_" + UUID.randomUUID().toString().substring(0, 5);
-            }
-
-            SystemRole defaultRole = systemRoleRepository.findByName("USER")
-                    .orElseThrow(() -> new ResourceNotFoundException("Default system role 'USER' not found"));
-
-            user = UserAccount.builder()
-                    .username(uniqueUsername)
-                    .email(email)
-                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
-                    .systemRole(defaultRole)
-                    .isActive(true)
-                    .verifyStatus(org.example.backend.entity.VerifyStatus.VERIFIED) // Auto-verify OAuth users
-                    .build();
-
-            UserProfile userProfile = UserProfile.builder()
-                    .fullName(githubUsername)
-                    .avatarUrl(avatarUrl)
-                    .build();
-
-            user.setProfile(userProfile);
-            user = userAccountRepository.save(user);
-            log.info("Successfully registered new user via GitHub: {} (ID: {})", user.getUsername(), user.getId());
+            throw new ResourceNotFoundException("Tài khoản chưa được đăng ký trên hệ thống.");
         }
+
+        // Save / update GitHub access token for the user
+        UserGithubToken githubToken = userGithubTokenRepository.findById(user.getId())
+                .orElse(UserGithubToken.builder().user(user).build());
+        githubToken.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
+        githubToken.setUpdatedAt(LocalDateTime.now());
+        userGithubTokenRepository.save(githubToken);
+        log.info("GitHub access token saved/updated for User ID: {}", user.getId());
 
         // Login & Session binding (similar to standard login)
         String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
@@ -603,6 +588,101 @@ public class AuthServiceImpl implements AuthService {
                 .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
                 .createdAt(user.getCreatedAt())
                 .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
                 .build();
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userAccountRepository.existsByEmail(email);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse registerWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session) {
+        log.info("Registering new user via GitHub. Email: {}, Username: {}", email, githubUsername);
+        
+        if (userAccountRepository.existsByEmail(email)) {
+            throw new DuplicateResourceException("Email đã được sử dụng");
+        }
+
+        // Ensure username is unique
+        String uniqueUsername = githubUsername;
+        if (userAccountRepository.existsByUsername(uniqueUsername)) {
+            uniqueUsername = githubUsername + "_" + UUID.randomUUID().toString().substring(0, 5);
+        }
+
+        SystemRole defaultRole = systemRoleRepository.findByName("USER")
+                .orElseThrow(() -> new ResourceNotFoundException("Default system role 'USER' not found"));
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        long epochSecond = now.atZone(java.time.ZoneId.systemDefault()).toInstant().getEpochSecond();
+
+        UserAccount user = UserAccount.builder()
+                .username(uniqueUsername)
+                .email(email)
+                .passwordHash(passwordEncoder.encode(String.valueOf(epochSecond)))
+                .systemRole(defaultRole)
+                .isActive(true)
+                .verifyStatus(org.example.backend.entity.VerifyStatus.VERIFIED) // Auto-verify OAuth users
+                .createdAt(now)
+                .build();
+
+        UserProfile userProfile = UserProfile.builder()
+                .fullName(githubUsername)
+                .avatarUrl(avatarUrl)
+                .build();
+
+        user.setProfile(userProfile);
+        user = userAccountRepository.save(user);
+
+        // Save / update GitHub access token for the user
+        UserGithubToken githubToken = userGithubTokenRepository.findById(user.getId())
+                .orElse(UserGithubToken.builder().user(user).build());
+        githubToken.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
+        githubToken.setUpdatedAt(LocalDateTime.now());
+        userGithubTokenRepository.save(githubToken);
+        log.info("GitHub access token saved/updated for new User ID: {}", user.getId());
+
+        // Login & Session binding
+        String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(),
+                null,
+                AuthorityUtils.createAuthorityList("ROLE_" + roleName));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("userRole", roleName);
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("fullName", user.getProfile() != null && user.getProfile().getFullName() != null 
+                ? user.getProfile().getFullName() : user.getUsername());
+
+        org.example.backend.config.SessionRegistryListener.register(user.getId(), session);
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                .systemRole(roleName)
+                .isActive(user.isActive())
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .createdAt(user.getCreatedAt())
+                .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
+                .build();
+    }
+
+    private boolean isPasswordSet(UserAccount user) {
+        if (user.getPasswordHash() == null || user.getCreatedAt() == null) {
+            return true;
+        }
+        long epochSecond = user.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant().getEpochSecond();
+        return !passwordEncoder.matches(String.valueOf(epochSecond), user.getPasswordHash());
     }
 }

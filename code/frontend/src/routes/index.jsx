@@ -93,6 +93,7 @@ export function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route path="/classrooms/join" element={<JoinClassroomPage />} />
+      <Route path="/github/callback" element={<GitHubCallbackPage />} />
 
       {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>
@@ -110,7 +111,6 @@ export function AppRoutes() {
           <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
           <Route path="/verify" element={<VerificationPage />} />
-          <Route path="/github/callback" element={<GitHubCallbackPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
 

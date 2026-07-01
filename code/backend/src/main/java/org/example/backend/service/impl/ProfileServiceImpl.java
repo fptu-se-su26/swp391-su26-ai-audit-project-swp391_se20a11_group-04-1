@@ -68,6 +68,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .systemRole(user.getSystemRole() != null ? user.getSystemRole().getName() : "USER")
                 .isActive(user.isActive())
                 .createdAt(user.getCreatedAt())
+                .passwordSet(isPasswordSet(user))
                 .projectRoles(projectRoles)
                 .build();
     }
@@ -107,8 +108,11 @@ public class ProfileServiceImpl implements ProfileService {
         UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
-            throw new BadRequestException("Mật khẩu hiện tại không chính xác.");
+        boolean isPwdSet = isPasswordSet(user);
+        if (isPwdSet) {
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+                throw new BadRequestException("Mật khẩu hiện tại không chính xác.");
+            }
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -238,5 +242,13 @@ public class ProfileServiceImpl implements ProfileService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    private boolean isPasswordSet(UserAccount user) {
+        if (user.getPasswordHash() == null || user.getCreatedAt() == null) {
+            return true;
+        }
+        long epochSecond = user.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant().getEpochSecond();
+        return !passwordEncoder.matches(String.valueOf(epochSecond), user.getPasswordHash());
     }
 }
