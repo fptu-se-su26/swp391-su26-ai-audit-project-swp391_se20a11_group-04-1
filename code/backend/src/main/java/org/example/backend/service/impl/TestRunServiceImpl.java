@@ -100,6 +100,7 @@ public class TestRunServiceImpl implements TestRunService {
                 .eventType("TEST_RUN_JOB")
                 .aggregateType("TestRun")
                 .aggregateId(testRun.getId())
+                .idempotencyKey(java.util.UUID.randomUUID().toString())
                 .payload(objectMapper.writeValueAsString(command))
                 .build();
             outboxEventRepository.save(outboxEvent);
