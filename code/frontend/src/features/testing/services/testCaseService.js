@@ -14,6 +14,14 @@ export const testCaseService = {
   },
 
   /**
+   * Lấy cây Requirement kèm thống kê test cases
+   */
+  getRequirementsTree: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/test-cases/requirements-tree`)
+    return response.data.data
+  },
+
+  /**
    * Lấy chi tiết 1 Test Case theo ID
    */
   getTestCaseById: async (projectId, testCaseId) => {
@@ -121,6 +129,22 @@ export const testCaseService = {
    */
   saveApiTestResult: async (projectId, testCaseId, resultId) => {
     const response = await axiosInstance.patch(`/v1/projects/${projectId}/test-cases/${testCaseId}/api-results/${resultId}/save`)
+    return response.data.data
+  },
+
+  /**
+   * Analyze Coverage
+   */
+  analyzeCoverageWithAi: async (projectId, requirementId) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/analyze-coverage`, { requirementId })
+    return response.data.data
+  },
+
+  /**
+   * Refine AI generated Test Cases
+   */
+  refineTestCasesWithAi: async (projectId, payload) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/refine-ai`, payload)
     return response.data.data
   },
 }
