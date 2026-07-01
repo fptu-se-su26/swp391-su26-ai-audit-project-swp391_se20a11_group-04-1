@@ -93,7 +93,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
       
       // Update useCaseService to pass projectId if needed by backend, though it's typically sent in URL
       // Since useCaseService.createUseCase currently expects just the data, we append it if needed, or if API doesn't need it, we don't.
-      await useCaseService.createUseCase(payload);
+      await useCaseService.createUseCase(payload, activeProject?.id);
       toast.success('Use Case created successfully!');
       
       setFormData({

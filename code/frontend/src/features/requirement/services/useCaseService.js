@@ -20,8 +20,8 @@ export const useCaseService = {
   },
 
   // Tạo mới Use Case
-  createUseCase: async (data) => {
-    const response = await axiosInstance.post('/v1/use-cases', data);
+  createUseCase: async (data, projectId) => {
+    const response = await axiosInstance.post('/v1/use-cases', data, { params: { projectId } });
     return response.data.data;
   },
 
