@@ -74,11 +74,11 @@ Ví dụ:
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngày sử dụng | 16/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế API Đăng ký tài khoản 2 bước xác thực OTP qua Email và lưu trữ Redis |
+| Phần việc liên quan | Backend / Database |
+| Mức độ sử dụng | Hỗ trợ một phần |
 
 #### 4.1. Prompt đã sử dụng
 Promt 1: module register
@@ -342,11 +342,11 @@ Nhóm hiểu rõ hơn về luồng đăng ký 2 bước và tầm quan trọng c
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngày sử dụng | 20/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Triển khai phân trang danh sách dự án, lọc theo status custom enum PostgreSQL và name |
+| Phần việc liên quan | Backend |
+| Mức độ sử dụng | Hỗ trợ một phần |
 
 #### 4.1. Prompt đã sử dụng
 
@@ -470,11 +470,11 @@ Hiểu rõ hơn về cơ chế ép kiểu của PostgreSQL đối với các tha
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng |  |
-| Công cụ AI | ChatGPT / Gemini / Claude / GitHub Copilot / Cursor / Antigravity / Khác |
-| Mục đích sử dụng |  |
-| Phần việc liên quan | Requirement / Design / Database / Frontend / Backend / Testing / Debug / Report / Presentation / Other |
-| Mức độ sử dụng | Hỗ trợ ý tưởng / Hỗ trợ một phần / Hỗ trợ nhiều / Sinh chính nội dung |
+| Ngày sử dụng | 24/05/2026 |
+| Công cụ AI | Gemini |
+| Mục đích sử dụng | Thiết kế cơ chế khóa tài khoản lũy tiến (Progressive Lockout) và Rate Limiting IP bằng Redis |
+| Phần việc liên quan | Backend |
+| Mức độ sử dụng | Hỗ trợ nhiều |
 
 #### 4.1. Prompt đã sử dụng
 
