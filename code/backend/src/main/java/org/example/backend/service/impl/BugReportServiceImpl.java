@@ -129,25 +129,9 @@ public class BugReportServiceImpl implements BugReportService {
                 .actualResult((String) request.get("actualResult"))
                 .build();
 
+        // Save as DRAFT only — Task creation happens only when Leader approves (approveAndConvertBug)
         bug = bugReportRepository.save(bug);
-
-        // Auto-create associated Task (BUG_FIX)
-        TaskRequest taskReq = new TaskRequest();
-        taskReq.setTitle("[BUG] " + title);
-        taskReq.setDescription(description);
-        taskReq.setType("BUG_FIX");
-        taskReq.setPriority(mapSeverityToPriority(severity));
-        taskReq.setStatus("TODO");
-        taskReq.setPrimaryAssigneeId(assignee != null ? assignee.getId() : null);
-        taskReq.setChecklist(new ArrayList<>());
-
-        TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
-        Task createdTask = taskRepository.findById(taskResponse.getId())
-                .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
-
-        bug.setRelatedTask(createdTask);
-        bug = bugReportRepository.save(bug);
-
+        log.info("Bug Report DRAFT created: ID={}, title='{}', projectId={}", bug.getId(), title, projectId);
         return bug;
     }
 
@@ -189,6 +173,8 @@ public class BugReportServiceImpl implements BugReportService {
         taskReq.setPriority(mapSeverityToPriority(bug.getSeverity()));
         taskReq.setStatus("TODO");
         taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
+        taskReq.setStartDate(java.time.LocalDate.now());
+        taskReq.setDeadline(java.time.LocalDate.now().plusDays(3));
         taskReq.setChecklist(new ArrayList<>());
 
         // 4. Create the linked Task via existing TaskService
@@ -210,6 +196,103 @@ public class BugReportServiceImpl implements BugReportService {
         }
 
         return bug;
+    }
+
+    @Override
+    public BugReport updateBugReport(Long bugId, Map<String, Object> request, Long userId) {
+        BugReport bug = bugReportRepository.findById(bugId)
+                .orElseThrow(() -> new CustomException("Bug report not found", HttpStatus.NOT_FOUND));
+
+        Long projectId = bug.getProject().getId();
+
+        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+            throw new BadRequestException("Project đã đóng, không thể cập nhật bug report.");
+        }
+
+        // Fetch caller's role for permission checks
+        ProjectMember caller = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+        String callerRole = caller.getRole().getName().toUpperCase();
+        boolean isLeaderOrMentor = callerRole.contains("LEADER") || callerRole.contains("MENTOR");
+        boolean isAssignee = bug.getAssignedTo() != null && bug.getAssignedTo().getId().equals(userId);
+
+        // --- Handle status transition with permission matrix ---
+        if (request.containsKey("status") && request.get("status") != null) {
+            BugStatus newStatus = parseEnum((String) request.get("status"), BugStatus.class, null);
+            if (newStatus != null && newStatus != bug.getStatus()) {
+                validateStatusTransition(bug.getStatus(), newStatus, isLeaderOrMentor, isAssignee, callerRole);
+                BugStatus oldStatus = bug.getStatus();
+                bug.setStatus(newStatus);
+                log.info("Bug {} status changed: {} → {} by userId={}", bugId, oldStatus, newStatus, userId);
+            }
+        }
+
+        // --- Handle field updates (non-status) ---
+        if (request.containsKey("severity") && request.get("severity") != null) {
+            bug.setSeverity(parseEnum((String) request.get("severity"), BugSeverity.class, bug.getSeverity()));
+        }
+        if (request.containsKey("environment") && request.get("environment") != null) {
+            bug.setEnvironment(parseEnum((String) request.get("environment"), Environment.class, bug.getEnvironment()));
+        }
+        if (request.containsKey("description")) {
+            boolean isCreator = bug.getCreatedBy() != null && bug.getCreatedBy().getId().equals(userId);
+            if (!isLeaderOrMentor && !isCreator && !isAssignee) {
+                throw new CustomException("You do not have permission to edit the description.", HttpStatus.FORBIDDEN);
+            }
+            bug.setDescription((String) request.get("description"));
+        }
+        if (request.containsKey("fixCommitHash")) {
+            bug.setFixCommitHash((String) request.get("fixCommitHash"));
+        }
+        if (request.containsKey("assignedToId") && request.get("assignedToId") != null) {
+            if (!isLeaderOrMentor) {
+                throw new CustomException("Only Leader/Mentor can reassign bugs.", HttpStatus.FORBIDDEN);
+            }
+            Long assigneeId = ((Number) request.get("assignedToId")).longValue();
+            ensureProjectMember(projectId, assigneeId);
+            UserAccount newAssignee = userAccountRepository.findById(assigneeId)
+                    .orElseThrow(() -> new CustomException("Assignee not found", HttpStatus.NOT_FOUND));
+            bug.setAssignedTo(newAssignee);
+        }
+
+        bug = bugReportRepository.save(bug);
+        return bug;
+    }
+
+    /**
+     * Validates bug status transitions based on the permission matrix.
+     * Throws 403 Forbidden if the caller doesn't have permission for the requested transition.
+     */
+    private void validateStatusTransition(BugStatus current, BugStatus target,
+                                          boolean isLeaderOrMentor, boolean isAssignee, String callerRole) {
+        // DRAFT status changes are handled exclusively by approveAndConvertBug()
+        if (current == BugStatus.DRAFT) {
+            throw new BadRequestException("DRAFT bugs must be approved via the approve endpoint, not updated directly.");
+        }
+
+        // Leader/Mentor can do any valid transition
+        if (isLeaderOrMentor) return;
+
+        // Developer (assignee only) transitions
+        if (isAssignee) {
+            // Dev can: OPEN → IN_PROGRESS, IN_PROGRESS → FIXED
+            if (current == BugStatus.OPEN && target == BugStatus.IN_PROGRESS) return;
+            if (current == BugStatus.IN_PROGRESS && target == BugStatus.FIXED) return;
+            if (current == BugStatus.REOPENED && target == BugStatus.IN_PROGRESS) return;
+            throw new CustomException(
+                    "Developer can only transition: OPEN→IN_PROGRESS, IN_PROGRESS→FIXED, REOPENED→IN_PROGRESS. " +
+                    "Attempted: " + current + "→" + target, HttpStatus.FORBIDDEN);
+        }
+
+        // QA/Tester (non-leader, non-assignee member) transitions
+        // QA can: FIXED → VERIFIED, VERIFIED → CLOSED, any → REOPENED
+        if (current == BugStatus.FIXED && target == BugStatus.VERIFIED) return;
+        if (current == BugStatus.VERIFIED && target == BugStatus.CLOSED) return;
+        if (target == BugStatus.REOPENED) return;
+
+        throw new CustomException(
+                "You do not have permission for this status transition: " + current + "→" + target +
+                ". Your role: " + callerRole, HttpStatus.FORBIDDEN);
     }
 
     private void ensureProjectMember(Long projectId, Long userId) {

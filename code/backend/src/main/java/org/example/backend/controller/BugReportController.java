@@ -74,6 +74,16 @@ public class BugReportController {
         return ResponseEntity.ok(ApiResponse.success(toResponseMap(bug), "Bug report approved and converted to task"));
     }
 
+    @PutMapping("/bugs/{bugId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateBug(
+            @PathVariable Long bugId,
+            @RequestBody Map<String, Object> request,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        BugReport bug = bugReportService.updateBugReport(bugId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(toResponseMap(bug), "Bug report updated successfully"));
+    }
+
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

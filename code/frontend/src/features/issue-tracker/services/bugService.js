@@ -43,6 +43,15 @@ export const bugService = {
   },
 
   /**
+   * Updates a Bug Report (status, severity, assignee, etc.)
+   * PUT /v1/bugs/{bugId}
+   */
+  updateBug: async (bugId, data) => {
+    const response = await axiosInstance.put(`/v1/bugs/${bugId}`, data)
+    return response.data.data
+  },
+
+  /**
    * Retrieves the GitHub Integration config of a project
    * GET /v1/projects/{projectId}/github-integration
    */
