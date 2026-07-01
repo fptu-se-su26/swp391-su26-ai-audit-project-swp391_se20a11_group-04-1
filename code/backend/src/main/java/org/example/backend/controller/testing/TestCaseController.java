@@ -6,6 +6,7 @@ import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.testing.TestCaseListItemResponse;
 import org.example.backend.dto.testing.TestCaseRequest;
 import org.example.backend.dto.testing.TestCaseResponse;
+import org.example.backend.dto.testing.RequirementTreeNodeResponse;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
 import org.example.backend.service.testing.TestCaseService;
@@ -51,6 +52,7 @@ public class TestCaseController {
     private final AiGenerationStagingRepository aiGenerationStagingRepository;
     private final AiGenerationService aiGenerationService;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -84,6 +86,16 @@ public class TestCaseController {
         return ApiResponse.success(
             org.example.backend.dto.PageResponse.from(page),
             "Test cases retrieved successfully"
+        );
+    }
+
+    @GetMapping("/requirements-tree")
+    @PreAuthorizeProjectMember
+    public ApiResponse<List<RequirementTreeNodeResponse>> getRequirementsTree(
+            @PathVariable Long projectId) {
+        return ApiResponse.success(
+            testCaseService.getRequirementsTree(projectId),
+            "Requirements tree retrieved successfully"
         );
     }
 
@@ -165,31 +177,36 @@ public class TestCaseController {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Long currentUserId = user.getId();
 
-        List<TestCaseRequest> generatedTestCases = aiTestCaseGeneratorService.generateTestCases(request);
-        org.example.backend.entity.Project project = new org.example.backend.entity.Project();
-        project.setId(projectId);
-        
-        AiGenerationStaging staging = new AiGenerationStaging();
-        staging.setProject(project);
-        staging.setGenerationId(UUID.randomUUID());
-        staging.setRequirementId(request.getRequirementId());
-        staging.setStage(AiStage.TEST_CASE);
-        staging.setStatus(AiGenerationStatus.PENDING);
+        // 1. Validate constraints and save PROCESSING staging
+        AiGenerationStaging staging = aiTestCaseGeneratorService.createProcessingStaging(request, projectId);
         
         try {
-            String payloadStr = objectMapper.writeValueAsString(generatedTestCases);
-            staging.setPayload(objectMapper.readTree(payloadStr));
+            // 2. Call Gemini
+            org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData = aiTestCaseGeneratorService.generateTestCases(request);
+            
+            // 3. Update staging to PENDING with payload
+            staging.setStatus(AiGenerationStatus.PENDING);
+            staging.setPayload(objectMapper.valueToTree(generatedData));
+            AiGenerationStaging saved = aiGenerationStagingRepository.save(staging);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("generationId", saved.getGenerationId());
+            response.put("reasoning", generatedData.getReasoning());
+            response.put("coverageSummary", generatedData.getCoverageSummary());
+            response.put("testCases", generatedData.getTestCases());
+
+            return ApiResponse.success(response, "Test cases generated successfully by AI");
+        } catch (org.example.backend.exception.BusinessException e) {
+            // 4. Update staging to DISCARDED on business rule error (e.g. PENDING_EXISTS)
+            staging.setStatus(AiGenerationStatus.DISCARDED);
+            aiGenerationStagingRepository.save(staging);
+            throw e; // Preserve errorCode and message
         } catch (Exception e) {
+            // 5. Update staging to DISCARDED on unexpected error
+            staging.setStatus(AiGenerationStatus.DISCARDED);
+            aiGenerationStagingRepository.save(staging);
             throw new RuntimeException("Failed to process generated test cases", e);
         }
-        
-        AiGenerationStaging saved = aiGenerationStagingRepository.save(staging);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("generationId", saved.getGenerationId());
-        response.put("testCases", generatedTestCases);
-
-        return ApiResponse.success(response, "Test cases generated successfully by AI");
     }
 
     @GetMapping("/generate-ai/{generationId}")
@@ -235,7 +252,11 @@ public class TestCaseController {
         List<org.example.backend.entity.TestCase> approvedTestCases = aiGenerationService.approveTestCaseGeneration(
                 generationId, selectedIndices, modifiedPayload, currentUserId, projectId);
                 
-        return ApiResponse.success(null, "Test cases approved successfully");
+        List<TestCaseResponse> testCaseResponses = approvedTestCases.stream()
+                .map(testCaseMapper::toResponse)
+                .collect(Collectors.toList());
+                
+        return ApiResponse.success(testCaseResponses, "Test cases approved successfully");
     }
 
     @GetMapping("/{testCaseId}/api-results")
@@ -280,5 +301,23 @@ public class TestCaseController {
         apiTestResultRepository.save(result);
 
         return ApiResponse.success(apiTestExecutorService.mapToResponse(result), "API test result saved successfully");
+    }
+
+    @PostMapping("/analyze-coverage")
+    @PreAuthorizeProjectMember
+    public ApiResponse<String> analyzeCoverage(
+            @PathVariable Long projectId,
+            @Valid @RequestBody org.example.backend.dto.testing.AnalyzeCoverageRequest request) {
+        String analysisResult = aiTestCaseGeneratorService.analyzeCoverage(request.getRequirementId(), projectId);
+        return ApiResponse.success(analysisResult, "Coverage analysis completed successfully");
+    }
+
+    @PostMapping("/refine-ai")
+    @PreAuthorizeProjectMember
+    public ApiResponse<List<org.example.backend.dto.testing.AiDraftTestCase>> refineAi(
+            @PathVariable Long projectId,
+            @Valid @RequestBody org.example.backend.dto.testing.RefineAiRequest request) {
+        List<org.example.backend.dto.testing.AiDraftTestCase> refinedTestCases = aiTestCaseGeneratorService.refineTestCases(request);
+        return ApiResponse.success(refinedTestCases, "Test cases refined successfully");
     }
 }

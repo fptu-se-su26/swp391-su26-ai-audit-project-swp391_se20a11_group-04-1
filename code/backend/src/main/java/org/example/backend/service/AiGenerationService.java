@@ -768,15 +768,20 @@ public class AiGenerationService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
         
         JsonNode payload = modifiedPayload != null ? modifiedPayload : staging.getPayload();
+        JsonNode testCasesArray = payload; 
+        
+        if (payload.isObject() && payload.has("testCases")) {
+            testCasesArray = payload.get("testCases");
+        }
         
         Integer maxSubId = testCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         
         List<TestCase> testCasesToSave = new ArrayList<>();
         
-        for (int i = 0; i < payload.size(); i++) {
+        for (int i = 0; i < testCasesArray.size(); i++) {
             if (selectedIndices == null || selectedIndices.contains(i)) {
-                JsonNode tcNode = payload.get(i);
+                JsonNode tcNode = testCasesArray.get(i);
                 
                 TestCase tc = new TestCase();
                 tc.setProjectId(project.getId());
