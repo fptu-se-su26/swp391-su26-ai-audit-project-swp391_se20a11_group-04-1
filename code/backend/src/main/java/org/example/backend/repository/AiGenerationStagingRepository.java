@@ -18,4 +18,6 @@ public interface AiGenerationStagingRepository extends JpaRepository<AiGeneratio
     List<AiGenerationStaging> findRecentByRequirementId(@org.springframework.data.repository.query.Param("projectId") Long projectId, @org.springframework.data.repository.query.Param("reqId") Long reqId);
     
     java.util.Optional<AiGenerationStaging> findFirstByFileHashOrderByCreatedAtDesc(String fileHash);
+    
+    boolean existsByRequirementIdAndStatus(Long requirementId, AiGenerationStatus status);
 }

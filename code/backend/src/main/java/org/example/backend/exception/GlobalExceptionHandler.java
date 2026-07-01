@@ -67,15 +67,25 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
-        log.warn("Business rule violation: {}", ex.getMessage());
-        return buildErrorResponse(ex.getMessage(), HttpStatus.valueOf(422));
+        log.warn("Business rule violation: {} (errorCode: {})", ex.getMessage(), ex.getErrorCode());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message(ex.getMessage())
+                .errorCode(ex.getErrorCode())
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.valueOf(422));
     }
 
     // Catch-all for any other CustomException subclass (e.g., LOCKED status)
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException ex) {
-        log.warn("Custom exception [{}]: {}", ex.getStatus(), ex.getMessage());
-        return buildErrorResponse(ex.getMessage(), ex.getStatus());
+        log.warn("Custom exception [{}]: {} (errorCode: {})", ex.getStatus(), ex.getMessage(), ex.getErrorCode());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message(ex.getMessage())
+                .errorCode(ex.getErrorCode())
+                .build();
+        return new ResponseEntity<>(response, ex.getStatus());
     }
 
     @ExceptionHandler(CodeInsightAiProviderException.class)

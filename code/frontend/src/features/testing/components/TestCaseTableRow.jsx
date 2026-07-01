@@ -1,19 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import StatusBadge from './StatusBadge'
-import TypeBadge from './TypeBadge'
+import useTestCaseStore from '../stores/useTestCaseStore'
+import { C, T } from '../utils/theme'
 
-/**
- * TestCaseTableRow — Một dòng trong bảng Test Case
- * Hover reveal action button (more_vert) — 3 actions: View / Edit / Delete
- */
 export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const menuRef = useRef(null)
+  const { openDrawer } = useTestCaseStore()
   const navigate = useNavigate()
-  const { projectId } = useParams()
+  const { projectId = '1' } = useParams()
 
-  // Close menu khi click ngoài
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -25,64 +23,97 @@ export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
   }, [])
 
   const formatDate = (dateString) => {
-    if (!dateString) return '--'
+    if (!dateString) return '—'
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }).replace(',', '')
   }
+
+  const priorityColor = testCase.priority === 'HIGH' ? '#EA580C' : 
+                        testCase.priority === 'LOW' ? C.success : C.warning
 
   return (
     <tr 
-      className="border-b border-outline-variant hover:bg-surface-container-low transition-colors group cursor-pointer"
+      style={{
+        background: isHovered ? C.bg : C.surface,
+        borderBottom: `1px solid ${C.borderLt}`,
+        cursor: 'pointer', transition: T.transition.default
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={() => navigate(`/projects/${projectId}/test-cases/${testCase.id}`)}
     >
-      <td className="py-3 px-4 font-label-md text-label-md text-[#1E707D]">{testCase.code}</td>
-      <td className="py-3 px-4 font-medium">{testCase.title}</td>
-      <td className="py-3 px-4">
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs border border-outline-variant text-secondary">
-          {testCase.requirementCode || '--'}
-        </span>
+      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: C.primaryDark }}>{testCase.code}</td>
+      <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: C.textPri }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span>{testCase.title}</span>
+        </div>
       </td>
-      <td className="py-3 px-4">
-        <TypeBadge type={testCase.type} />
-      </td>
-      <td className="py-3 px-4">
+      <td style={{ padding: '12px 16px' }}>
         <StatusBadge status={testCase.status} />
       </td>
-      <td className="py-3 px-4 text-secondary">{testCase.lastExecutedBy || '--'}</td>
-      <td className="py-3 px-4 text-secondary text-sm">{formatDate(testCase.lastExecutedAt)}</td>
-      <td className="py-3 px-4 text-center relative" ref={menuRef}>
+      <td style={{ padding: '12px 16px', fontSize: 12, fontWeight: 600 }}>
+        {testCase.priority ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: priorityColor }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: priorityColor }}></span>
+            {testCase.priority === 'MEDIUM' ? 'Medium' : testCase.priority === 'HIGH' ? 'High' : 'Low'}
+          </span>
+        ) : (
+          <span style={{ color: C.textMuted }}>—</span>
+        )}
+      </td>
+      <td style={{ padding: '12px 16px', fontSize: 12, color: C.textSec }}>
+        {testCase.status === 'NOT_RUN' ? '—' : formatDate(testCase.lastExecutedAt)}
+      </td>
+      <td style={{ padding: '12px 16px', fontSize: 12, color: C.textSec }}>
+        {formatDate(testCase.updatedAt)}
+      </td>
+      <td style={{ padding: '12px 16px', fontSize: 13, color: C.textPri }}>
+        {testCase.status === 'NOT_RUN' ? '—' : (testCase.lastExecutedBy || 'System')}
+      </td>
+      <td style={{ padding: '12px 16px', textAlign: 'center', position: 'relative' }} ref={menuRef}>
         <button
-          className="text-outline hover:text-[#1E707D] transition-colors opacity-0 group-hover:opacity-100"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: isHovered ? C.textSec : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4
+          }}
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
         >
-          <span className="material-symbols-outlined text-[20px]">more_vert</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>more_vert</span>
         </button>
-
-        {/* Dropdown Menu */}
+        
         {menuOpen && (
-          <div className="absolute right-4 top-full z-30 mt-1 w-36 bg-surface-container-lowest border border-outline-variant rounded-lg shadow-lg py-1">
+          <div style={{
+            position: 'absolute', right: 32, top: 12, zIndex: 30,
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: T.radius.sm,
+            boxShadow: T.shadow.lg, padding: 4, minWidth: 120,
+            display: 'flex', flexDirection: 'column', gap: 2
+          }}>
             <button
-              className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+              style={{ padding: '6px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13, color: C.textPri, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = C.bg}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/projects/${projectId}/test-cases/${testCase.id}`) }}
             >
-              <span className="material-symbols-outlined text-[18px]">visibility</span>
-              View
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: C.textSec }}>visibility</span> View
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+              style={{ padding: '6px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13, color: C.textPri, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = C.bg}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit?.(testCase) }}
             >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
-              Edit
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: C.textSec }}>edit</span> Edit
             </button>
             <button
-              className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error-container flex items-center gap-2 transition-colors"
+              style={{ padding: '6px 12px', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 13, color: C.danger, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = C.dangerBg}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(testCase) }}
             >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
-              Delete
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: C.danger }}>delete</span> Delete
             </button>
           </div>
         )}

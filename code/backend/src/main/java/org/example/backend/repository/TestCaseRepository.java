@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -18,6 +19,11 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
     
     @Query(value = "SELECT MAX(project_sub_id) FROM test_cases WHERE project_id = :projectId", nativeQuery = true)
     Integer findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);
+
+    List<TestCase> findByRequirementIdAndProjectId(Long requirementId, Long projectId);
+
+    @Query("SELECT tc.requirementId, tc.status, COUNT(tc) FROM TestCase tc WHERE tc.projectId = :projectId GROUP BY tc.requirementId, tc.status")
+    List<Object[]> countStatusByRequirementId(@Param("projectId") Long projectId);
 
     @Query("""
         SELECT tc FROM TestCase tc

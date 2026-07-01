@@ -2,6 +2,7 @@ import { useTestRun } from '../hooks/useTestRun';
 import { useEffect, useState, useMemo } from 'react';
 import { testCaseService } from '../services/testCaseService';
 import TestExecutionViewer from './TestExecutionViewer';
+import { useTestCaseStore } from '../stores/useTestCaseStore';
 
 export default function LiveTestRunner({ testCase }) {
   const { status, runId, steps, screenshots, error, durationMs, bugReportId, isSaved, startRun, reset, saveRun } = useTestRun(testCase.id);
@@ -9,6 +10,9 @@ export default function LiveTestRunner({ testCase }) {
   const [focusedStepIndex, setFocusedStepIndex] = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(null);
   const [lastRunningStepIndex, setLastRunningStepIndex] = useState(null);
+
+  const fetchTestCaseDetail = useTestCaseStore(s => s.fetchTestCaseDetail);
+  const fetchRequirementsTree = useTestCaseStore(s => s.fetchRequirementsTree);
 
   const [agentToken, setAgentToken] = useState(null);
   const isLocalUrl = testCase?.baseUrl?.includes('localhost') || testCase?.baseUrl?.includes('127.0.0.1') || testCase?.baseUrl?.includes('0.0.0.0');
@@ -86,6 +90,14 @@ export default function LiveTestRunner({ testCase }) {
     reset();
   };
 
+  const handleSaveRun = async () => {
+    await saveRun();
+    if (testCase?.projectId) {
+      await fetchTestCaseDetail(testCase.projectId, testCase.id);
+      await fetchRequirementsTree(testCase.projectId);
+    }
+  };
+
   const isRunning = status === 'RUNNING';
 
   const browserBarUrl = (() => {
@@ -129,7 +141,7 @@ export default function LiveTestRunner({ testCase }) {
       isReadOnly={false}
       onStartRun={startRun}
       onReset={handleReset}
-      onSaveRun={saveRun}
+      onSaveRun={handleSaveRun}
       isRunning={isRunning}
       runId={runId}
       agentToken={agentToken}

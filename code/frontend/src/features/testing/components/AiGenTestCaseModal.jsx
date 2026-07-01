@@ -15,27 +15,41 @@ const C = {
   textMuted:   '#9CA3AF',
 }
 
-export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit }) {
+export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultRequirementId }) {
   const { projectId } = useParams()
 
-  const [testType, setTestType] = useState('UI')
+  const [testType, setTestType] = useState('AI Decides')
   const [requirementId, setRequirementId] = useState('')
   const [additionalContext, setAdditionalContext] = useState('')
   const [requirements, setRequirements] = useState([])
   const [error, setError] = useState(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  const getPresetText = (p) => {
+    switch(p) {
+      case 'SECURITY': return "Generate Security Test Cases. Focus on vulnerabilities like SQL Injection, XSS, Broken Authentication, IDOR, and invalid token handling.";
+      case 'BOUNDARY': return "Use Boundary Value Analysis and Equivalence Partitioning. Generate test cases testing maximum lengths, minimum lengths, null values, empty strings, and out-of-range inputs.";
+      case 'MISSING': return "Focus ONLY on negative flows, edge cases, and exception handling that developers usually forget. Do not generate happy-path cases.";
+      case 'STANDARD': return "Generate Standard Test Cases covering main flows, alternative flows, and basic validation.";
+      default: return "";
+    }
+  }
 
   useEffect(() => {
     if (isOpen && projectId) {
-      setTestType('UI')
-      setRequirementId('')
+      setTestType('AI Decides')
+      setRequirementId(defaultRequirementId || '')
       setAdditionalContext('')
       setError(null)
+      setIsSubmitting(false)
+      setShowAdvanced(false)
       // Fetch requirements
       requirementService.getRequirements(projectId)
         .then(res => setRequirements(res))
         .catch(err => console.error("Failed to fetch requirements", err))
     }
-  }, [isOpen, projectId])
+  }, [isOpen, projectId, defaultRequirementId])
 
   if (!isOpen) return null
 
@@ -44,15 +58,18 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit }) {
       setError("Please select a Linked Requirement. This is required for AI generation.")
       return
     }
+    
+    setIsSubmitting(true)
 
     const payload = {
       testType: testType === 'AI Decides' ? null : testType,
       smartMode: testType === 'AI Decides',
       requirementId: parseInt(requirementId),
-      additionalContext
+      additionalContext,
+      discardExisting: false
     }
     onSubmit(payload)
-    onClose()
+    // Removed immediate onClose() so the button stays disabled, the parent component handles closing
   }
 
   return (
@@ -114,37 +131,30 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit }) {
             </select>
           </div>
 
-          {/* Test Type */}
+          {/* Quick Action Chips */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>Test Type <span style={{ color: '#EF4444' }}>*</span></label>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {['UI', 'API', 'MANUAL', 'AI Decides'].map(type => (
-                <button
-                  key={type}
-                  onClick={() => setTestType(type)}
-                  style={{
-                    flex: 1, padding: '10px 0', borderRadius: 10,
-                    border: `1.5px solid ${testType === type ? C.primary : C.border}`,
-                    background: testType === type ? '#F0F9FA' : C.surface,
-                    color: testType === type ? C.primary : C.textSec,
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                  }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                    {type === 'UI' ? 'web' : type === 'API' ? 'api' : type === 'MANUAL' ? 'assignment' : 'auto_awesome'}
-                  </span>
-                  {type === 'AI Decides' ? 'Smart' : type}
-                </button>
-              ))}
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>Quick Presets</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['Standard', 'Missing Cases', 'Security', 'Boundary'].map(presetName => {
+                const presetKey = presetName.split(' ')[0].toUpperCase();
+                const presetText = getPresetText(presetKey);
+                const isSelected = additionalContext === presetText && additionalContext !== '';
+                return (
+                  <button
+                    key={presetName}
+                    onClick={() => setAdditionalContext(isSelected ? '' : presetText)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 16, border: `1px solid ${isSelected ? C.primary : C.border}`,
+                      background: isSelected ? C.primaryLt : C.surface,
+                      color: isSelected ? C.primaryDark : C.textSec,
+                      fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    {presetName}
+                  </button>
+                )
+              })}
             </div>
-            {testType === 'AI Decides' && (
-              <p style={{ margin: '8px 0 0', fontSize: 12, color: C.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
-                AI will choose the best type (UI, API, or MANUAL) for each test case.
-              </p>
-            )}
           </div>
 
           {/* Additional Context */}
@@ -165,6 +175,56 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit }) {
               }}
             />
           </div>
+
+          {/* Advanced Options */}
+          <div>
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, background: 'transparent',
+                border: 'none', padding: 0, color: C.textSec, fontSize: 13, fontWeight: 500, cursor: 'pointer'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                {showAdvanced ? 'expand_more' : 'chevron_right'}
+              </span>
+              Advanced Options
+            </button>
+
+            {showAdvanced && (
+              <div style={{ marginTop: 12 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>Test Type</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {['UI', 'API', 'MANUAL', 'AI Decides'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setTestType(type)}
+                      style={{
+                        flex: 1, padding: '10px 0', borderRadius: 10,
+                        border: `1.5px solid ${testType === type ? C.primary : C.border}`,
+                        background: testType === type ? '#F0F9FA' : C.surface,
+                        color: testType === type ? C.primary : C.textSec,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                        {type === 'UI' ? 'web' : type === 'API' ? 'api' : type === 'MANUAL' ? 'assignment' : 'auto_awesome'}
+                      </span>
+                      {type === 'AI Decides' ? 'Smart' : type}
+                    </button>
+                  ))}
+                </div>
+                {testType === 'AI Decides' && (
+                  <p style={{ margin: '8px 0 0', fontSize: 12, color: C.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
+                    AI will choose the best type (UI, API, or MANUAL) for each test case.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -181,17 +241,23 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit }) {
           </button>
           <button
             onClick={handleGenerate}
+            disabled={isSubmitting}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '9px 24px', borderRadius: 10, border: 'none',
               background: `linear-gradient(180deg, #278A99 0%, ${C.primary} 55%, ${C.primaryDark} 100%)`,
               color: '#fff', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(30,112,125,0.25)',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              boxShadow: isSubmitting ? 'none' : '0 4px 12px rgba(30,112,125,0.25)',
+              opacity: isSubmitting ? 0.7 : 1
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>auto_awesome</span>
-            Generate
+            {isSubmitting ? (
+              <span className="material-symbols-outlined" style={{ fontSize: 18, animation: 'spin 1s linear infinite' }}>sync</span>
+            ) : (
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>auto_awesome</span>
+            )}
+            {isSubmitting ? 'Generating...' : 'Generate'}
           </button>
         </div>
       </div>
