@@ -109,17 +109,9 @@ const KanbanBoardPage = () => {
   }
 
   const filteredTasks = tasks.filter((task) => {
+    // Only show parent tasks on the board. Subtasks are managed inside the Task Detail Drawer.
     if (task.parentId) {
-      // It is a subtask. Only show it on the board if its parent task was created from an issue.
-      const parentTask = tasks.find((t) => String(t.id) === String(task.parentId))
-      if (!isIssueOwnedTask(parentTask)) {
-        return false
-      }
-    } else {
-      // It is a parent task. Hide it if it was created from an issue.
-      if (isIssueOwnedTask(task)) {
-        return false
-      }
+      return false
     }
 
     // Fetch subtasks of this parent task for smart filtering (only applicable for parent tasks shown on the board)
