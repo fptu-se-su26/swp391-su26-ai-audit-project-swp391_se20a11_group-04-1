@@ -2,9 +2,11 @@ import { useTestRun } from '../hooks/useTestRun';
 import { useEffect, useState, useMemo } from 'react';
 import { testCaseService } from '../services/testCaseService';
 import TestExecutionViewer from './TestExecutionViewer';
+import { useParams } from 'react-router-dom';
 import { useTestCaseStore } from '../stores/useTestCaseStore';
 
 export default function LiveTestRunner({ testCase }) {
+  const { projectId } = useParams();
   const { status, runId, steps, screenshots, error, durationMs, bugReportId, isSaved, startRun, reset, saveRun } = useTestRun(testCase.id);
   const [liveFrame, setLiveFrame] = useState(null);
   const [focusedStepIndex, setFocusedStepIndex] = useState(null);
@@ -124,6 +126,7 @@ export default function LiveTestRunner({ testCase }) {
 
   return (
     <TestExecutionViewer
+      projectId={projectId}
       testCase={testCase}
       stepsArr={stepsArr}
       screenshots={screenshots}

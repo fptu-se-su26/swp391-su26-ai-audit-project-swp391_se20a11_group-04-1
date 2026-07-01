@@ -3,7 +3,7 @@ import { X, Loader } from 'lucide-react';
 import { useHistoricalTestRun } from '../hooks/useHistoricalTestRun';
 import TestExecutionViewer from './TestExecutionViewer';
 
-export default function HistoricalTestRunModal({ runId, testCase, onClose }) {
+export default function HistoricalTestRunModal({ projectId, runId, testCase, onClose }) {
   const { 
     status, 
     steps, 
@@ -99,6 +99,7 @@ export default function HistoricalTestRunModal({ runId, testCase, onClose }) {
             </div>
           ) : (
             <TestExecutionViewer
+              projectId={projectId}
               testCase={testCase}
               stepsArr={displaySteps}
               screenshots={screenshots}

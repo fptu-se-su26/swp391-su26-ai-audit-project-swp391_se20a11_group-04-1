@@ -46,4 +46,15 @@ public interface BugReportService {
      * @return the updated BugReport entity
      */
     BugReport approveAndConvertBug(Long bugId, Long userId);
+
+    /**
+     * Updates an existing BugReport's status, severity, environment, or other fields.
+     * Enforces a strict permission matrix based on caller role and bug assignment.
+     *
+     * @param bugId   the BugReport ID
+     * @param request the request body payload map containing fields to update
+     * @param userId  the current user's ID
+     * @return the updated BugReport entity
+     */
+    BugReport updateBugReport(Long bugId, Map<String, Object> request, Long userId);
 }
