@@ -141,6 +141,81 @@ public class GitHubOAuthServiceImpl implements GitHubOAuthService {
         }
     }
 
+    @Override
+    public String getAccessTokenFromCode(String code) {
+        String url = "https://github.com/login/oauth/access_token";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, String> body = new HashMap<>();
+        body.put("client_id", clientId);
+        body.put("client_secret", clientSecret);
+        body.put("code", code);
+        body.put("redirect_uri", redirectUri);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                String accessToken = (String) response.getBody().get("access_token");
+                if (accessToken != null) {
+                    return accessToken;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exchanging code for token", e);
+            throw new CustomException("Failed to exchange code for token: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        throw new CustomException("Failed to retrieve access token from GitHub", HttpStatus.BAD_REQUEST);
+    }
+
+    @Override
+    public Map<String, Object> getGitHubUserProfile(String accessToken) {
+        String url = "https://api.github.com/user";
+        HttpHeaders headers = buildAuthHeaders(accessToken);
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> profile = new HashMap<>();
+                Map<?, ?> body = response.getBody();
+                profile.put("id", body.get("id"));
+                profile.put("login", body.get("login"));
+                profile.put("email", body.get("email"));
+                profile.put("avatar_url", body.get("avatar_url"));
+                profile.put("name", body.get("name"));
+                return profile;
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch user profile from GitHub", e);
+            throw new CustomException("Failed to fetch user profile from GitHub: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        throw new CustomException("Failed to fetch user profile from GitHub", HttpStatus.BAD_REQUEST);
+    }
+
+    @Override
+    public String getGitHubUserPrimaryEmail(String accessToken) {
+        String url = "https://api.github.com/user/emails";
+        HttpHeaders headers = buildAuthHeaders(accessToken);
+        try {
+            ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), List.class);
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                List<?> emails = response.getBody();
+                for (Object emailObj : emails) {
+                    if (emailObj instanceof Map) {
+                        Map<?, ?> emailMap = (Map<?, ?>) emailObj;
+                        Boolean primary = (Boolean) emailMap.get("primary");
+                        if (Boolean.TRUE.equals(primary)) {
+                            return (String) emailMap.get("email");
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch user emails from GitHub", e);
+        }
+        return null;
+    }
+
     private HttpHeaders buildAuthHeaders(String token) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);

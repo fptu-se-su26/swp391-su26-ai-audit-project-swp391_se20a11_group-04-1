@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import axiosInstance from '@/api/axiosConfig'
+import useAuthStore from '@store/useAuthStore'
 
 export function GitHubCallbackPage() {
   const [searchParams] = useSearchParams()
@@ -16,11 +17,13 @@ export function GitHubCallbackPage() {
     const stateParam = searchParams.get('state')
     let projectId = null
     let isCreateProjectFlow = false
+    let isLoginFlow = false
     if (stateParam) {
       try {
         const decoded = JSON.parse(atob(stateParam))
         projectId = decoded.projectId
         isCreateProjectFlow = decoded.isCreateProjectFlow || false
+        isLoginFlow = decoded.loginFlow || false
       } catch (e) {
         console.error("Failed to parse state param", e)
       }
@@ -29,7 +32,7 @@ export function GitHubCallbackPage() {
     if (!code) {
       setStatus('error')
       toast.error('GitHub authorization failed: No code provided.')
-      setTimeout(() => navigate('/'), 3000)
+      setTimeout(() => navigate(isLoginFlow ? '/login' : '/'), 3000)
       return
     }
 
@@ -38,23 +41,54 @@ export function GitHubCallbackPage() {
 
     const exchangeCode = async () => {
       try {
-        const res = await axiosInstance.post('/v1/github/callback', { code })
-        setStatus('success')
-        toast.success(res.data?.message || 'GitHub Account Connected!')
-        
-        // Redirect back to the project config if we know the project, else dashboard
-        setTimeout(() => {
-          if (isCreateProjectFlow) {
-            navigate('/', { state: { openCreateProject: true } })
-          } else if (projectId) {
-            navigate(`/projects/${projectId}/github-config`)
+        if (isLoginFlow) {
+          // Luồng đăng nhập qua GitHub
+          const res = await axiosInstance.post('/v1/auth/github/login', { code })
+          
+          if (res.data?.success) {
+            setStatus('success')
+            toast.success('Đăng nhập bằng GitHub thành công!')
+            
+            const { id, systemRole, username, email, fullName } = res.data?.data || {}
+            useAuthStore.getState().login(id, systemRole, username, email, fullName)
+            
+            setTimeout(() => {
+              if (systemRole === 'ADMIN') {
+                navigate('/admin')
+              } else {
+                navigate('/dashboard')
+              }
+            }, 1500)
           } else {
-            navigate('/') // fallback
+            throw new Error(res.data?.message || 'Đăng nhập bằng GitHub thất bại.')
           }
-        }, 1500)
+        } else {
+          // Luồng liên kết tài khoản GitHub (Issue Tracker) như cũ
+          const res = await axiosInstance.post('/v1/github/callback', { code })
+          setStatus('success')
+          toast.success(res.data?.message || 'GitHub Account Connected!')
+          
+          setTimeout(() => {
+            if (isCreateProjectFlow) {
+              navigate('/', { state: { openCreateProject: true } })
+            } else if (projectId) {
+              navigate(`/projects/${projectId}/github-config`)
+            } else {
+              navigate('/') // fallback
+            }
+          }, 1500)
+        }
       } catch (error) {
         setStatus('error')
-        toast.error(error.response?.data?.message || 'Failed to link GitHub account.')
+        const errMsg = error.response?.data?.message || error.message || 'Xảy ra lỗi trong quá trình xác thực GitHub.'
+        toast.error(errMsg, { duration: 5000 })
+        
+        // Nếu là lỗi đăng nhập, quay về trang login sau 3s
+        if (isLoginFlow) {
+          setTimeout(() => navigate('/login'), 3000)
+        } else {
+          setTimeout(() => navigate(-1), 3000)
+        }
       }
     }
 

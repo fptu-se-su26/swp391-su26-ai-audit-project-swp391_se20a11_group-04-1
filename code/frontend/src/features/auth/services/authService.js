@@ -63,6 +63,20 @@ export const authService = {
       evidenceName
     })
   },
+
+  /**
+   * Lấy URL để chuyển hướng sang GitHub đăng nhập
+   */
+  getGitHubLoginUrl: async () => {
+    return axiosInstance.get('/v1/auth/github/url')
+  },
+
+  /**
+   * Đăng nhập bằng mã code của GitHub OAuth
+   */
+  loginWithGitHub: async (code) => {
+    return axiosInstance.post('/v1/auth/github/login', { code })
+  },
 }
 
 export default authService

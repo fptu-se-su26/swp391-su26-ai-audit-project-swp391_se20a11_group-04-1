@@ -19,11 +19,17 @@ import org.example.backend.exception.ForbiddenException;
 import org.example.backend.repository.SystemRoleRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UserAppealRepository;
+import org.example.backend.repository.UserGithubTokenRepository;
 import org.example.backend.entity.UserAppeal;
+import org.example.backend.entity.UserGithubToken;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.OtpService;
 import org.example.backend.service.RateLimitService;
+import org.example.backend.service.EncryptionService;
+import java.util.UUID;
+import java.util.Optional;
+import java.time.LocalDateTime;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -57,6 +63,8 @@ public class AuthServiceImpl implements AuthService {
     private final RateLimitService rateLimitService;
     private final org.example.backend.service.MentorVerificationService mentorVerificationService;
     private final UserAppealRepository userAppealRepository;
+    private final UserGithubTokenRepository userGithubTokenRepository;
+    private final EncryptionService encryptionService;
 
     @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
     private String apiBaseUrl;
@@ -503,5 +511,98 @@ public class AuthServiceImpl implements AuthService {
         String jsonPayload = String.format("{\"type\":\"APPEAL_SUBMITTED\",\"userId\":%d,\"username\":\"%s\"}", 
                 user.getId(), user.getUsername());
         org.example.backend.config.NotificationWebSocketHandler.broadcast(jsonPayload);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, HttpSession session) {
+        log.info("Processing GitHub OAuth login for email: {}, username: {}", email, githubUsername);
+
+        // 1. Check if user already exists by email
+        Optional<UserAccount> userOpt = userAccountRepository.findByEmail(email);
+        UserAccount user;
+
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+            // Check if user is active
+            if (!user.isActive()) {
+                throw new CustomException(
+                    "Tài khoản của bạn đã bị admin khóa với lí do: " + (user.getLockReason() != null ? user.getLockReason() : "Không có lý do cụ thể"),
+                    HttpStatus.LOCKED
+                );
+            }
+
+            // Check if GitHub is linked for this user (Check if record exists in user_github_tokens)
+            boolean isGitHubLinked = userGithubTokenRepository.existsById(user.getId());
+            if (!isGitHubLinked) {
+                // Scenario A2: Conflict. Registered via normal flow, never linked. Block!
+                throw new CustomException(
+                    "Email GitHub này đã được sử dụng để tạo tài khoản, vui lòng chọn tính năng lấy lại mật khẩu nếu bạn đã quên mật khẩu.",
+                    HttpStatus.BAD_REQUEST
+                );
+            }
+        } else {
+            // New Registration via GitHub
+            // Ensure username is unique
+            String uniqueUsername = githubUsername;
+            if (userAccountRepository.existsByUsername(uniqueUsername)) {
+                uniqueUsername = githubUsername + "_" + UUID.randomUUID().toString().substring(0, 5);
+            }
+
+            SystemRole defaultRole = systemRoleRepository.findByName("USER")
+                    .orElseThrow(() -> new ResourceNotFoundException("Default system role 'USER' not found"));
+
+            user = UserAccount.builder()
+                    .username(uniqueUsername)
+                    .email(email)
+                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .systemRole(defaultRole)
+                    .isActive(true)
+                    .verifyStatus(org.example.backend.entity.VerifyStatus.VERIFIED) // Auto-verify OAuth users
+                    .build();
+
+            UserProfile userProfile = UserProfile.builder()
+                    .fullName(githubUsername)
+                    .avatarUrl(avatarUrl)
+                    .build();
+
+            user.setProfile(userProfile);
+            user = userAccountRepository.save(user);
+            log.info("Successfully registered new user via GitHub: {} (ID: {})", user.getUsername(), user.getId());
+        }
+
+        // Login & Session binding (similar to standard login)
+        String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(),
+                null,
+                AuthorityUtils.createAuthorityList("ROLE_" + roleName));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("userRole", roleName);
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("fullName", user.getProfile() != null && user.getProfile().getFullName() != null 
+                ? user.getProfile().getFullName() : user.getUsername());
+
+        org.example.backend.config.SessionRegistryListener.register(user.getId(), session);
+
+        log.info("User {} successfully authenticated via GitHub and session bound.", user.getUsername());
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                .systemRole(roleName)
+                .isActive(user.isActive())
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .createdAt(user.getCreatedAt())
+                .lockReason(user.getLockReason())
+                .build();
     }
 }
