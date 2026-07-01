@@ -75,6 +75,10 @@ public class Project {
     @Column(name = "closed_reason", columnDefinition = "TEXT")
     private String closedReason;
 
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private boolean isDeleted = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
