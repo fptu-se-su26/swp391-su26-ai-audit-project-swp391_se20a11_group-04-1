@@ -1395,31 +1395,31 @@ Chọn một prompt có ảnh hưởng lớn nhất đến bài tập/project.
 ### 6.1. Prompt được chọn
 
 ```text
-Dán prompt quan trọng nhất tại đây.
+Hãy phân tích cơ chế trục xuất Session của người dùng bị khóa tài khoản ngay lập tức (Active Session Revocation) trong Spring Security sử dụng Redis Session Registry kết hợp gửi WebSocket notify để Frontend cập nhật ngay lập tức mà không cần F5 trang.
 ```
 
 ### 6.2. Vì sao prompt này quan trọng?
 
 ```text
-Viết tại đây...
+Prompt này giải quyết một lỗ hổng bảo mật nghiêm trọng (Passive Lockout) của AI. Nó mở ra hướng đi kết hợp giữa Stateful Token Invalidation và WebSocket Reactive Push để giải quyết triệt để bài toán đồng bộ hóa trạng thái tài khoản thời gian thực.
 ```
 
 ### 6.3. Kết quả prompt này mang lại
 
 ```text
-Viết tại đây...
+AI cung cấp cấu trúc `SessionRegistryListener` để quản lý danh sách session của từng User, và tích hợp gửi tín hiệu qua `NotificationWebSocketHandler` về Client.
 ```
 
 ### 6.4. Sinh viên/nhóm đã kiểm tra kết quả như thế nào?
 
 ```text
-Viết tại đây...
+Nhóm chạy thử E2E: đăng nhập trên 2 trình duyệt độc lập bằng cùng một tài khoản, thực hiện block tài khoản đó trên màn hình Admin, và kiểm tra xem cả hai trình duyệt có bị buộc đăng xuất và hiển thị LockOverlay tức thì hay không.
 ```
 
 ### 6.5. Sinh viên/nhóm đã cải tiến gì từ kết quả AI?
 
 ```text
-Viết tại đây...
+AI viết thiếu phần đồng bộ lưu trạng thái khóa cục bộ trong React Store khiến F5 bị mất màn hình khóa. Nhóm đã tự bổ sung Axios Interceptor để bắt lỗi 423 Locked và lưu cứng trạng thái `isLockedOut` vào Zustand Store.
 ```
 
 ---
@@ -1431,13 +1431,13 @@ Ghi lại ít nhất một prompt chưa tạo ra kết quả tốt hoặc chưa 
 ### 7.1. Prompt chưa hiệu quả
 
 ```text
-Dán prompt chưa hiệu quả tại đây.
+Viết code API lọc danh sách dự án có kèm theo phân trang và lọc theo trạng thái status.
 ```
 
 ### 7.2. Vì sao prompt này chưa hiệu quả?
 
 ```text
-Viết tại đây...
+Prompt quá ngắn, thiếu bối cảnh cấu trúc Entity và không nêu rõ cột status là kiểu dữ liệu custom enum của PostgreSQL, dẫn đến AI sinh ra câu lệnh CAST sai cú pháp làm crash ứng dụng Spring Boot.
 ```
 
 Gợi ý nguyên nhân:
@@ -1454,19 +1454,19 @@ Gợi ý nguyên nhân:
 ### 7.3. Cách cải thiện prompt
 
 ```text
-Viết tại đây...
+Cung cấp rõ định nghĩa thực thể Entity Project, tên cột, kiểu dữ liệu custom enum, và yêu cầu AI sử dụng các hàm JPA Repository riêng biệt thay vì gộp CAST dưới database.
 ```
 
 ### 7.4. Prompt sau khi cải tiến
 
 ```text
-Dán prompt đã được cải tiến tại đây.
+Tôi đang sử dụng Spring Data JPA kết hợp PostgreSQL. Cột status trong bảng projects là kiểu custom enum 'project_status_enum'. Khi viết API tìm kiếm phân trang có bộ lọc status (có thể null), câu lệnh HQL/JPQL gộp OR null sẽ báo lỗi không khớp kiểu dữ liệu VARCHAR và Custom Enum. Hãy hướng dẫn tôi viết các hàm JPA Repository chuyên biệt hóa (Query Specialization) tương ứng với từng tổ hợp tham số status và name để rẽ nhánh xử lý ở Service.
 ```
 
 ### 7.5. Kết quả sau khi cải tiến prompt
 
 ```text
-Viết tại đây...
+AI sinh ra 4 phương thức truy vấn Repository độc lập và rõ ràng, giúp mã nguồn biên dịch thành công và loại bỏ hoàn toàn lỗi JDBC enum casting.
 ```
 
 ---
@@ -1476,7 +1476,7 @@ Viết tại đây...
 ### 8.1. Khi viết prompt, em/nhóm cần cung cấp thông tin gì để AI trả lời tốt hơn?
 
 ```text
-Viết tại đây...
+Mục tiêu, bối cảnh nghiệp vụ của dự án (đặc biệt là các ràng buộc như Review Gate), công nghệ đang sử dụng (Spring Boot, Postgres custom enum), cấu trúc bảng, lỗi cụ thể (kèm stacktrace) và ràng buộc đầu ra.
 ```
 
 Gợi ý:
@@ -1493,13 +1493,13 @@ Gợi ý:
 ### 8.2. Em/nhóm đã học được gì về cách đặt câu hỏi cho AI?
 
 ```text
-Viết tại đây...
+Đặt câu hỏi từng bước (step-by-step), không nên bắt AI viết cả một tính năng lớn ngay từ đầu. Luôn chủ động phản biện thiết kế hời hợt của AI để vá bảo mật.
 ```
 
 ### 8.3. Lần sau em/nhóm sẽ cải thiện prompt như thế nào?
 
 ```text
-Viết tại đây...
+Chuẩn bị tài liệu thiết kế database và đặc tả API rõ ràng trước khi prompt AI viết code logic.
 ```
 
 ---
@@ -1510,18 +1510,18 @@ Viết tại đây...
 
 | Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
 |---|---:|---|
-| Prompt phân tích yêu cầu |  |  |
-| Prompt giải thích kiến thức |  |  |
-| Prompt thiết kế giải pháp |  |  |
-| Prompt thiết kế database |  |  |
-| Prompt sinh code mẫu |  |  |
-| Prompt debug lỗi |  |  |
-| Prompt viết test case |  |  |
-| Prompt review code |  |  |
-| Prompt tối ưu code |  |  |
-| Prompt viết báo cáo |  |  |
-| Prompt chuẩn bị thuyết trình |  |  |
-| Prompt khác |  |  |
+| Prompt phân tích yêu cầu | 1 | Thiết lập hệ thống kháng cáo (UserAppeal) có lịch sử |
+| Prompt giải thích kiến thức | 1 | Hỏi về sự khác biệt kiến trúc giữa WebSockets và SSE |
+| Prompt thiết kế giải pháp | 3 | Cơ chế Lock kép đa IP, Progressive Lockout, Active Session Revocation |
+| Prompt thiết kế database | 2 | Cấu trúc bảng user_appeals, bảng dự án |
+| Prompt sinh code mẫu | 5 | Tạo Controller, DTO, Mapper, Component React, Cloudinary Chunked |
+| Prompt debug lỗi | 3 | Debug lỗi CORS di động, lỗi CAST custom enum Postgres, lỗi Axios redirect loop |
+| Prompt viết test case | 0 | (Không sử dụng AI viết test case) |
+| Prompt review code | 1 | Nhờ AI rà soát mã hóa JWT token và token gửi email |
+| Prompt tối ưu code | 2 | Tối ưu hóa dung lượng Chunked upload, dọn dẹp file Cloudinary |
+| Prompt viết báo cáo | 0 | (Không sử dụng AI viết báo cáo) |
+| Prompt chuẩn bị thuyết trình | 0 | (Không sử dụng AI làm slide) |
+| Prompt khác | 0 | |
 
 ---
 
@@ -1531,16 +1531,16 @@ Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
 
 | Tiêu chí | Đã đạt? | Ghi chú |
 |---|:---:|---|
-| Prompt có mục tiêu rõ ràng |  |  |
-| Prompt có đủ bối cảnh |  |  |
-| Prompt có nêu công nghệ/ngôn ngữ sử dụng |  |  |
-| Prompt có nêu yêu cầu đầu ra |  |  |
-| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc |  |  |
-| Prompt có yêu cầu AI giải thích hoặc phân tích |  |  |
-| Kết quả AI được kiểm tra lại |  |  |
-| Kết quả AI được chỉnh sửa trước khi sử dụng |  |  |
-| Prompt quan trọng được ghi lại đầy đủ |  |  |
-| Prompt sai/chưa hiệu quả được rút kinh nghiệm |  |  |
+| Prompt có mục tiêu rõ ràng | Đạt | Luôn nêu rõ mục đích xử lý ngay từ câu mở đầu. |
+| Prompt có đủ bối cảnh | Đạt | Đưa bối cảnh bảo mật và vai trò của user liên quan. |
+| Prompt có nêu công nghệ/ngôn ngữ sử dụng | Đạt | Ghi rõ Spring Boot, Java, PostgreSQL, React, Zustand. |
+| Prompt có nêu yêu cầu đầu ra | Đạt | Ép AI xuất cấu trúc DTO, API Path cụ thể. |
+| Prompt không yêu cầu AI làm toàn bộ bài một cách máy móc | Đạt | Chỉ hỏi từng phần giải thuật và cấu hình boilerplate. |
+| Prompt có yêu cầu AI giải thích hoặc phân tích | Đạt | Yêu cầu so sánh (như SSE vs WebSocket) trước khi code. |
+| Kết quả AI được kiểm tra lại | Đạt | Kiểm thử E2E và viết Concurrency test case. |
+| Kết quả AI được chỉnh sửa trước khi sử dụng | Đạt | Phản biện vá lỗi bảo mật, sửa lỗi CAST enum. |
+| Prompt quan trọng được ghi lại đầy đủ | Đạt | Ghi lại đầy đủ 16 prompt quan trọng nhất. |
+| Prompt sai/chưa hiệu quả được rút kinh nghiệm | Đạt | Ghi nhận rõ lỗi CAST JPQL ở Prompt chưa hiệu quả. |
 
 ---
 
@@ -1556,4 +1556,4 @@ Sinh viên/nhóm cam kết rằng:
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-|  |  |
+| Nguyễn Thành Đạt | 30/06/2026 |
