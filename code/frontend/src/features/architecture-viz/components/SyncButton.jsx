@@ -27,11 +27,11 @@ export default function SyncButton({ onSyncSuccess }) {
           
           if (res.data.status === 'READY') {
             stopPolling()
-            toast.success('Phân tích kiến trúc mã nguồn hoàn tất!')
+            toast.success('System architecture analysis completed!')
             if (onSyncSuccess) onSyncSuccess()
           } else if (res.data.status === 'ERROR') {
             stopPolling()
-            toast.error(res.data.errorMessage || 'Quá trình phân tích thất bại')
+            toast.error(res.data.errorMessage || 'Analysis process failed')
           }
         }
       } catch (err) {
@@ -52,7 +52,7 @@ export default function SyncButton({ onSyncSuccess }) {
       setSyncStatus({
         status: 'SYNCING',
         progress: 5,
-        currentStep: 'Đang gửi yêu cầu phân tích...',
+        currentStep: 'Sending analysis request...',
         errorMessage: null
       })
       
@@ -60,16 +60,16 @@ export default function SyncButton({ onSyncSuccess }) {
       if (res.success && res.data) {
         setSyncStatus(res.data)
         startPolling()
-        toast.success('Bắt đầu tiến trình phân tích...')
+        toast.success('Analysis process started...')
       } else {
         throw new Error(res.message || 'Failed to start sync')
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định'
+      const errMsg = err.response?.data?.message || err.message || 'Unknown error'
       setSyncStatus({
         status: 'ERROR',
         progress: 0,
-        currentStep: 'Lỗi bắt đầu đồng bộ',
+        currentStep: 'Failed to start sync',
         errorMessage: errMsg
       })
       toast.error(errMsg)
@@ -79,8 +79,8 @@ export default function SyncButton({ onSyncSuccess }) {
   if (isMentor) {
     return (
       <div className="flex items-center space-x-1.5 text-xs text-on-surface-variant bg-surface-container-high px-3 py-1.5 rounded-full border border-outline-variant/30 font-medium">
-        <span className="material-icons-outlined text-sm">visibility</span>
-        <span>Mentor (Chỉ xem)</span>
+        <span className="material-symbols-outlined text-sm">visibility</span>
+        <span>Mentor (View Only)</span>
       </div>
     )
   }
@@ -105,12 +105,12 @@ export default function SyncButton({ onSyncSuccess }) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Đang phân tích ({syncStatus.progress}%)
+              Syncing ({syncStatus.progress}%)
             </>
           ) : (
             <>
-              <span className="material-icons-outlined text-sm mr-2">sync</span>
-              {syncStatus.status === 'READY' ? 'Đồng bộ lại kiến trúc' : 'Bắt đầu phân tích'}
+              <span className="material-symbols-outlined text-sm mr-2">sync</span>
+              Sync
             </>
           )}
         </button>

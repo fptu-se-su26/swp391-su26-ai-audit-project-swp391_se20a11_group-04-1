@@ -15,4 +15,5 @@ public class GraphStats {
     private Integer totalEdges;
     private Map<String, Integer> languages;
     private List<GodNode> godNodes;
+    private Map<String, Integer> layoutHints;
 }

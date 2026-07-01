@@ -15,6 +15,13 @@ import org.example.backend.repository.AiGenerationStagingRepository;
 import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.entity.UserAppeal;
 import org.example.backend.repository.UserAppealRepository;
+import org.example.backend.dto.AdminProjectResponse;
+import org.example.backend.exception.ResourceNotFoundException;
+import org.example.backend.exception.BadRequestException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -655,5 +662,91 @@ public class SystemAdminService {
         userAppealRepository.save(appeal);
         userAccountRepository.save(user);
         return true;
+    }
+
+    public Map<String, Object> getProjectStats() {
+        long total = projectRepository.countByIsDeletedFalse();
+        long active = projectRepository.countByStatusAndIsDeletedFalse(ProjectStatus.ACTIVE);
+        long academic = projectRepository.countByAcademicContextIsNotNullAndIsDeletedFalse();
+        long suspended = projectRepository.countByClosedAtIsNotNullAndIsDeletedFalse();
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", total);
+        stats.put("active", active);
+        stats.put("academic", academic);
+        stats.put("suspended", suspended);
+        return stats;
+    }
+
+    public Page<AdminProjectResponse> getAdminProjects(
+            int page, int size, String search, String status, Boolean suspended) {
+        
+        ProjectStatus statusEnum = null;
+        if (status != null && !status.trim().isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+            try {
+                statusEnum = ProjectStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid project status filter: {}", status);
+            }
+        }
+
+        String searchPattern = "%" + (search != null ? search.trim().toLowerCase() : "") + "%";
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Route to the correct query method to avoid PostgreSQL null-type-inference issues
+        Page<Project> projects;
+        if (statusEnum != null && suspended != null) {
+            projects = suspended
+                    ? projectRepository.findAllForAdminWithStatusSuspended(searchPattern, statusEnum, pageable)
+                    : projectRepository.findAllForAdminWithStatusNotSuspended(searchPattern, statusEnum, pageable);
+        } else if (statusEnum != null) {
+            projects = projectRepository.findAllForAdminWithStatus(searchPattern, statusEnum, pageable);
+        } else if (suspended != null) {
+            projects = suspended
+                    ? projectRepository.findAllForAdminSuspended(searchPattern, pageable)
+                    : projectRepository.findAllForAdminNotSuspended(searchPattern, pageable);
+        } else {
+            projects = projectRepository.findAllForAdmin(searchPattern, pageable);
+        }
+
+        return projects.map(AdminProjectResponse::fromEntity);
+    }
+
+    @Transactional
+    public void suspendProject(Long projectId, String reason) {
+        Project p = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
+        if (p.isDeleted()) {
+            throw new BadRequestException("Dự án đã bị xóa trước đó.");
+        }
+        p.setClosedAt(LocalDateTime.now());
+        p.setClosedReason(reason);
+        projectRepository.save(p);
+        log.info("Project ID {} has been suspended. Reason: {}", projectId, reason);
+    }
+
+    @Transactional
+    public void reactivateProject(Long projectId) {
+        Project p = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
+        if (p.isDeleted()) {
+            throw new BadRequestException("Dự án đã bị xóa trước đó.");
+        }
+        p.setClosedAt(null);
+        p.setClosedReason(null);
+        projectRepository.save(p);
+        log.info("Project ID {} has been reactivated.", projectId);
+    }
+
+    @Transactional
+    public void softDeleteProject(Long projectId) {
+        Project p = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
+        if (p.isDeleted()) {
+            throw new BadRequestException("Dự án đã bị xóa trước đó.");
+        }
+        p.setDeleted(true);
+        projectRepository.save(p);
+        log.info("Project ID {} has been soft deleted.", projectId);
     }
 }

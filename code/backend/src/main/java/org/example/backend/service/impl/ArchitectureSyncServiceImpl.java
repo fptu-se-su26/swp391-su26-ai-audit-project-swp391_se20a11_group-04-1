@@ -180,4 +180,43 @@ public class ArchitectureSyncServiceImpl implements ArchitectureSyncService {
 
         return fullGraph;
     }
+
+    @Override
+    @Transactional
+    public void saveNodePositions(Long projectId, Map<String, ArchitectureGraph.Position2D> positions, Long userId) {
+        projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+
+        ArchitectureGraph graph = architectureGraphRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new CustomException("Graph not found", HttpStatus.NOT_FOUND));
+
+        Map<String, ArchitectureGraph.Position2D> currentPositions = graph.getManualPositions();
+        if (currentPositions == null) {
+            currentPositions = new HashMap<>();
+        }
+        currentPositions.putAll(positions);
+        graph.setManualPositions(currentPositions);
+        architectureGraphRepository.save(graph);
+
+        // Evict redis cache
+        String cacheKey = String.format("arch:graph:%d:all", projectId);
+        redisTemplate.delete(cacheKey);
+    }
+
+    @Override
+    @Transactional
+    public void resetNodePositions(Long projectId, Long userId) {
+        projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new CustomException("You are not a member of this project", HttpStatus.FORBIDDEN));
+
+        ArchitectureGraph graph = architectureGraphRepository.findByProjectId(projectId)
+                .orElseThrow(() -> new CustomException("Graph not found", HttpStatus.NOT_FOUND));
+
+        graph.setManualPositions(null);
+        architectureGraphRepository.save(graph);
+
+        // Evict redis cache
+        String cacheKey = String.format("arch:graph:%d:all", projectId);
+        redisTemplate.delete(cacheKey);
+    }
 }

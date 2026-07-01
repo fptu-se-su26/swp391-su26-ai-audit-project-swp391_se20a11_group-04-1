@@ -48,10 +48,17 @@ const SideNavBar = () => {
             <span className="material-symbols-outlined">people</span>
             <span className="font-label-md text-body-md">User Management</span>
           </Link>
-          <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+          <Link 
+            className={`flex items-center gap-3 px-stack_md py-2.5 rounded-lg transition-all ${
+              currentPath === '/admin/projects' 
+                ? 'bg-[#D7EEF1] text-[#1E707D] font-semibold' 
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`} 
+            to="/admin/projects"
+          >
             <span className="material-symbols-outlined">folder_shared</span>
             <span className="font-label-md text-body-md">Project Management</span>
-          </a>
+          </Link>
           <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
             <span className="material-symbols-outlined">school</span>
             <span className="font-label-md text-body-md">Academic Contexts</span>

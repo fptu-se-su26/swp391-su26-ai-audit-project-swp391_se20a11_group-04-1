@@ -29,7 +29,7 @@ Nguyên tắc ghi changelog:
 | Giảng viên hướng dẫn | Chưa cập nhật |
 | Repository URL | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1 |
 | Ngày bắt đầu | 11/05/2026 |
-| Ngày hoàn thành | 08/06/2026 (bản cập nhật hiện tại) |
+| Ngày hoàn thành | 01/07/2026 (bản cập nhật hiện tại) |
 
 ---
 
@@ -40,9 +40,12 @@ Nguyên tắc ghi changelog:
 | Phase 01 | 11/05/2026 - 18/05/2026 | Khởi tạo project, thông tin nhóm, backend foundation và AI audit template | Completed |
 | Phase 02 | 11/05/2026 - 21/05/2026 | Phân tích yêu cầu, use case, ERD và hướng traceability | Completed |
 | Phase 03 | 21/05/2026 - 30/05/2026 | Thiết kế RTM, Sprint, Code Insight architecture và milestone materials | Completed |
-| Phase 04 | 22/05/2026 - 07/06/2026 | Implementation RTM, Sprint Weekly Planning và Code Insight theo phase | Completed for current scope |
-| Phase 05 | 22/05/2026 - 07/06/2026 | Testing, debug, merge support, cache/runtime fixes và CI risk fix | Completed for current scope |
-| Phase 06 | 27/05/2026 - 08/06/2026 | Hoàn thiện tài liệu milestone, Jira backfill và AI audit cá nhân | Completed for current scope |
+| Phase 04 | 22/05/2026 - 07/06/2026 | Implementation RTM, Sprint Weekly Planning và Code Insight theo phase | Completed |
+| Phase 05 | 22/05/2026 - 07/06/2026 | Testing, debug, merge support, cache/runtime fixes và CI risk fix | Completed |
+| Phase 06 | 27/05/2026 - 08/06/2026 | Hoàn thiện tài liệu milestone, Jira backfill và AI audit cá nhân | Completed |
+| Phase 07 | 14/06/2026 - 18/06/2026 | Tái cấu trúc Task Review namespace, gộp Gemini, tích hợp SSE streaming và liên kết thủ công | Completed |
+| Phase 08 | 23/06/2026 - 30/06/2026 | Nâng cấp sơ đồ AWS, lưu override MongoDB, ELK layout và Vision AI spacing | Completed |
+| Phase 09 | 01/07/2026 | Triển khai module Quản lý dự án cho Admin và vá lỗi Parameter Null JPQL | Completed |
 
 ---
 
@@ -180,9 +183,9 @@ Các phần requirement/use case là công việc nhóm. Trong log cá nhân nà
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Thiết kế RTM là module read-only tổng hợp requirement/task/test/bug/evidence | Nguyễn Minh Hiếu | `implementation_plan_module6_MTR.md`, RTM files | Prompt số 5 |
-| 2 | Thiết kế Sprint Weekly Planning là timebox cho task, không tạo/sửa task thay Task Board | Nguyễn Minh Hiếu | Sprint module plan, `features/sprint` | Prompt số 6 |
-| 3 | Viết lại Code Insight architecture theo hướng GitHub evidence + rule score + AI summary + leader approval | Nguyễn Minh Hiếu | `Code_Insight_Module_Architecture_Report.md` | Prompt số 11 |
+| 1 | Thiết kế RTM là module read-only tổng hợp requirement/task/test/bug/evidence | Nguyễn Minh Hiếu | `implementation_plan_module6_MTR.md`, RTM files | Prompt số 4 |
+| 2 | Thiết kế Sprint Weekly Planning là timebox cho task, không tạo/sửa task thay Task Board | Nguyễn Minh Hiếu | Sprint module plan, `features/sprint` | Prompt số 5 |
+| 3 | Viết lại Code Insight architecture theo hướng GitHub evidence + rule score + AI summary + leader approval | Nguyễn Minh Hiếu | `Code_Insight_Module_Architecture_Report.md` | Prompt số 9 |
 
 ## AI có hỗ trợ không?
 
@@ -357,9 +360,9 @@ Frontend `npm run build` có lúc bị sandbox `spawn EPERM`, nhưng build đã 
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Chuẩn bị use case diagram và script milestone cho phần RTM/Code Insight/Mentor Review | Nguyễn Minh Hiếu | `05_part5_usecase_diagrams.md`, `module5_presentation_script.md` | Prompt số 8 |
-| 2 | Dựng Jira backfill từ git history/codebase và chỉ giữ task có evidence | Nguyễn Minh Hiếu | `jira_backfill_task_breakdown.md` | Prompt số 9 |
-| 3 | Tổng hợp 15 log AI có giá trị nhất vào 4 file nộp và 1 file minh chứng prompt | Nguyễn Minh Hiếu | `AI_AUDIT_LOG.md`, `PROMPTS.md`, `CHANGELOG.md`, `REFLECTION.md`, `AI_EVIDENCE_PROMPT_SCRIPT.md` | Bản cập nhật 08/06/2026 |
+| 1 | Chuẩn bị use case diagram và script milestone cho phần RTM/Code Insight/Mentor Review | Nguyễn Minh Hiếu | `05_part5_usecase_diagrams.md`, `module5_presentation_script.md` | Prompt số 7 |
+| 2 | Dựng Jira backfill từ git history/codebase và chỉ giữ task có evidence | Nguyễn Minh Hiếu | `jira_backfill_task_breakdown.md` | Prompt số 8 |
+| 3 | Tổng hợp 13 log AI có giá trị nhất vào 4 file nộp và 1 file minh chứng prompt | Nguyễn Minh Hiếu | `AI_AUDIT_LOG.md`, `PROMPTS.md`, `CHANGELOG.md`, `REFLECTION.md`, `AI_EVIDENCE_PROMPT_SCRIPT.md` | Bản cập nhật 08/06/2026 |
 
 ## AI có hỗ trợ không?
 
@@ -381,7 +384,163 @@ Tài liệu hiện tại trong `Nguyen_Minh_Hieu/`; file minh chứng prompt dù
 ## Ghi chú
 
 ```text
-Không ghi các công việc tương lai sau 08/06/2026 là đã hoàn thành. Ngày 24/07/2026 chỉ là mốc kế hoạch tổng dự án, không dùng làm completion trong changelog hiện tại. Video demo cuối kỳ chưa được ghi là hoàn thành ở bản cập nhật này.
+Không ghi các công việc tương lai sau 01/07/2026 là đã hoàn thành. Ngày 24/07/2026 chỉ là mốc kế hoạch tổng dự án, không dùng làm completion trong changelog hiện tại. Video demo cuối kỳ chưa được ghi là hoàn thành ở bản cập nhật này.
+```
+
+---
+
+# [Phase 07] Tái cấu trúc Task Review & Tích hợp liên kết thủ công
+
+## Ngày thực hiện
+
+```text
+14/06/2026 - 18/06/2026
+```
+
+## Đã hoàn thành
+
+- [x] Đổi tên namespace từ Code Insight sang Task Review
+- [x] Sửa lỗi WebSocket Notification handshake path `/api/ws/notifications`
+- [x] Gộp 3 cuộc gọi Gemini thành 1 streaming API giúp chống lỗi Rate Limit 429
+- [x] Tích hợp kết nối SSE streaming AI review chi tiết
+- [x] Triển khai liên kết minh chứng thủ công (Manual Evidence Links)
+- [x] Khắc phục checksum Flyway và bean post-processor lifecycle
+- [x] Sửa lỗi CI check run scoring cho merged PRs
+
+## Thay đổi chi tiết
+
+| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
+|---:|---|---|---|---|
+| 1 | WebSocketHandlerConfig.java để cấu hình handler `/api/ws/notifications` | Nguyễn Minh Hiếu | WebSocket Config | Commit `f3e589a` |
+| 2 | CodeInsightAiReviewResponse.java & StreamingAiReviewServiceImpl.java gộp prompt | Nguyễn Minh Hiếu | Task Review Backend | Commit `77dbe9a` |
+| 3 | Refactor namespace `CodeInsight*` sang `TaskReview*` | Nguyễn Minh Hiếu | Task Review Backend/Frontend | Commit `77dbe9a` |
+| 4 | ManualEvidenceLinkServiceImpl.java & database schema manual links | Nguyễn Minh Hiếu | Task Review Backend | Commit `02c89f5` |
+| 5 | FlywayConfig.java sửa post-processor bean lifecycle | Nguyễn Minh Hiếu | Flyway Config | Commit `02c89f5` |
+| 6 | Sửa logic scoring merged PRs trong CodeInsightScoringServiceImpl.java | Nguyễn Minh Hiếu | Task Review Backend | Commit `02c89f5` |
+
+## AI có hỗ trợ không?
+
+- [x] Có
+- [ ] Không
+
+Nếu có, mô tả AI đã hỗ trợ phần nào:
+
+```text
+AI hỗ trợ tìm ra lỗi lifecycle khởi động Spring do FlywayConfig `@Configuration`, viết logic gộp prompt Gemini để stream một lần, và hỗ trợ đổi tên hàng loạt class/file tương ứng với namespace mới.
+```
+
+## Commit/Screenshot minh chứng
+
+```text
+f3e589a, 77dbe9a, 02c89f5; test suite passed (125 tests, 0 failures)
+```
+
+## Ghi chú
+
+```text
+Giữ class CodeInsightController cũ cho các nhánh phát triển khác tương thích ngược tạm thời.
+```
+
+---
+
+# [Phase 08] Nâng cấp Sơ đồ kiến trúc AWS & Lưu trữ MongoDB
+
+## Ngày thực hiện
+
+```text
+23/06/2026 - 30/06/2026
+```
+
+## Đã hoàn thành
+
+- [x] Triển khai lưu trữ chỉnh sửa sơ đồ thủ công (overrides) và vị trí node vào MongoDB
+- [x] Tích hợp layout lồng nhau dùng elkjs
+- [x] Thiết lập vẽ đường trực giao ElkEdge bằng bendPoints và Drift Detection fallback
+- [x] Nâng cấp giao diện AWS-style (DB cylinder, InfraGroupNode nét đứt/liền)
+- [x] Thiết lập drawioExporter đóng gói nén XML và imageExporter tải ảnh PNG/SVG
+- [x] Tích hợp script diagram_vision_check.py gọi Vision AI Gemini gợi ý giãn cách
+
+## Thay đổi chi tiết
+
+| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
+|---:|---|---|---|---|
+| 1 | ArchitectureController.java & ArchitectureSyncServiceImpl.java tích hợp MongoDB overrides | Nguyễn Minh Hiếu | System Architecture Backend | Commit `[DE200322] feat: upgrade...` |
+| 2 | useGraphLayout.js & ElkEdge.jsx vẽ trực giao lồng nhau và drift fallback | Nguyễn Minh Hiếu | System Architecture Frontend | Commit `[DE200322] feat: upgrade...` |
+| 3 | drawioExporter.js & imageExporter.js xuất file Draw.io XML và tải ảnh sơ đồ | Nguyễn Minh Hiếu | System Architecture Frontend | Commit `[DE200322] feat: upgrade...` |
+| 4 | diagram_vision_check.py phân tích sơ đồ qua Gemini Vision API | Nguyễn Minh Hiếu | Parser/Analyzer Python | Commit `[DE200322] feat: upgrade...` |
+| 5 | UI Premium Deep Teal sync trên 5 pages (Sprint, RTM, Task Review, Architecture, GitHub) | Nguyễn Minh Hiếu | Shared components React | Commit `[DE200322] feat: upgrade...` |
+
+## AI có hỗ trợ không?
+
+- [x] Có
+- [ ] Không
+
+Nếu có, mô tả AI đã hỗ trợ phần nào:
+
+```text
+AI đề xuất giải pháp compound graph trong ELK, cấu hình AWS components, thuật toán drawio exporter và viết code diagram_vision_check bằng Python gọi Gemini.
+```
+
+## Commit/Screenshot minh chứng
+
+```text
+Commit author: Nguyễn Minh Hiếu; branch feature/arch-aws; files under `code/frontend/src/features/architecture-viz/`
+```
+
+## Ghi chú
+
+```text
+Thuật toán fitToNodes được viết riêng ngoài gợi ý của AI để xử lý bất đồng bộ đo đạc của React Flow v12.
+```
+
+---
+
+# [Phase 09] Triển khai Module Quản lý dự án cho Admin
+
+## Ngày thực hiện
+
+```text
+01/07/2026
+```
+
+## Đã hoàn thành
+
+- [x] Triển khai thống kê, tìm kiếm, phân trang dự án cho Admin
+- [x] Triển khai tính năng Đình chỉ dự án (khóa mềm có kèm lý do) và kích hoạt lại
+- [x] Triển khai tính năng Xóa mềm dự án (soft delete)
+- [x] Khắc phục lỗi binding tham số nullable JPQL trên PostgreSQL
+- [x] Tích hợp filter isDeleted bảo vệ toàn bộ các truy vấn dự án của user thường
+
+## Thay đổi chi tiết
+
+| STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
+|---:|---|---|---|---|
+| 1 | V20260701000000__add_is_deleted_to_projects.sql thêm is_deleted | Nguyễn Minh Hiếu | Flyway Migration | Commit `[DE200322] feat: implement...` |
+| 2 | ProjectRepository.java phân rã dynamic query thành 6 query tĩnh | Nguyễn Minh Hiếu | JPA Project Repository | Commit `[DE200322] feat: implement...` |
+| 3 | SystemAdminProjectController.java & SystemAdminService.java endpoint admin | Nguyễn Minh Hiếu | System Admin Backend | Commit `[DE200322] feat: implement...` |
+| 4 | ProjectManagementPage.jsx giao diện Deep Teal quản lý phân trang và modal | Nguyễn Minh Hiếu | System Admin Frontend | Commit `[DE200322] feat: implement...` |
+
+## AI có hỗ trợ không?
+
+- [x] Có
+- [ ] Không
+
+Nếu có, mô tả AI đã hỗ trợ phần nào:
+
+```text
+AI đề xuất cách tách rời JPQL query để PostgreSQL tự suy luận chính xác kiểu dữ liệu thay vì lỗi bind parameter $4, và hỗ trợ viết boilerplate controllers/DTOs cho admin.
+```
+
+## Commit/Screenshot minh chứng
+
+```text
+Commit `[DE200322] feat: implement Admin Project Management module`; backend compile success
+```
+
+## Ghi chú
+
+```text
+Chặn không cho admin sửa status nghiệp vụ của dự án mà chỉ có quyền khóa và xóa mềm.
 ```
 
 ---
@@ -397,6 +556,10 @@ Không ghi các công việc tương lai sau 08/06/2026 là đã hoàn thành. N
 | 3 | Code Insight Review Gate + Config | Completed | Commits 01/06/2026 | Nền review gate cho leader |
 | 4 | Code Insight GitHub Evidence + Scoring + Drawer | Completed | Commits 04/06/2026 | Dùng shared GitHub Integration |
 | 5 | Code Insight Patch/AI Summary/Snapshot/Dashboard + CI risk fix | Completed | Commits `f92a255`..`d7b59b0` | AI summary local, failed CI -> BLOCKED |
+| 6 | Tái cấu trúc Task Review namespace & SSE streaming | Completed | Commits `f3e589a`, `77dbe9a` | Gộp Gemini chống 429, đổi tên namespace, stream SSE |
+| 7 | Liên kết minh chứng thủ công (Manual Evidence) | Completed | Commit `02c89f5` | Dành cho các task không có PR/commit tự động |
+| 8 | Sơ đồ AWS nâng cấp, lưu MongoDB overrides & xuất Draw.io | Completed | Commit `[DE200322] feat: upgrade...` | ELK layout, exporters XML/PNG, legend, Vision AI hints |
+| 9 | Admin Project Management & Soft Delete | Completed | Commit `[DE200322] feat: implement...` | JPQL null type fix, khóa mềm lý do, filter isDeleted |
 
 ---
 
@@ -404,9 +567,8 @@ Không ghi các công việc tương lai sau 08/06/2026 là đã hoàn thành. N
 
 | STT | Chức năng | Lý do chưa hoàn thành | Hướng cải thiện |
 |---:|---|---|---|
-| 1 | External LLM provider thật cho Code Insight AI review | Hiện tại chưa có provider config ổn định và cần tránh phụ thuộc API ngoài | Sau này thêm provider layer thay cho local structured summary |
-| 2 | Semantic evidence linking bằng AI | Rủi ro link sai task nếu chưa đủ dữ liệu và test | Chỉ triển khai sau khi có rule kiểm chứng và manual approval |
-| 3 | Full production demo/video cho toàn bộ flow | Bản hiện tại mới ghi nhận đến 08/06/2026 | Làm sau khi nhóm hoàn thiện data/demo cuối kỳ |
+| 1 | Semantic evidence linking bằng AI | Rủi ro link sai task nếu chưa đủ dữ liệu và test | Chỉ triển khai sau khi có rule kiểm chứng và manual approval |
+| 2 | Full production demo/video cho toàn bộ flow | Đang chuẩn bị kịch bản demo và ghi hình | Làm sau khi nhóm hoàn thiện dữ liệu demo cuối kỳ |
 
 ---
 
@@ -436,7 +598,7 @@ Em học được rằng changelog phải đi theo bằng chứng thật: commit
 ## 4.5. Hướng cải thiện tiếp theo
 
 ```text
-Sau mốc 08/06/2026, nếu tiếp tục phát triển thì nên bổ sung external AI provider có cấu hình rõ ràng, data demo ổn định, thêm manual/e2e test cho review flow và cập nhật Jira/audit ngay sau mỗi sprint thay vì để cuối giai đoạn mới backfill.
+Sau mốc 01/07/2026, nếu tiếp tục phát triển thì nên bổ sung thêm các bộ kiểm thử tự động e2e cho luồng review gate, cải tiến giao diện phân quyền chi tiết hơn và cập nhật Jira/audit ngay sau mỗi sprint thay vì để cuối giai đoạn mới backfill.
 ```
 
 ---
@@ -447,4 +609,4 @@ Sinh viên/nhóm cam kết rằng nội dung changelog phản ánh đúng các t
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-| Nguyễn Minh Hiếu | 08/06/2026 |
+| Nguyễn Minh Hiếu | 01/07/2026 |

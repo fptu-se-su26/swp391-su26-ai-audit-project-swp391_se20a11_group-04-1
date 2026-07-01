@@ -53,5 +53,23 @@ public class ArchitectureController {
         ArchitectureGraph graph = architectureSyncService.getGraphData(projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(graph, "Lấy dữ liệu đồ thị kiến trúc thành công"));
     }
-}
 
+    @PutMapping("/positions")
+    public ResponseEntity<ApiResponse<Void>> saveNodePositions(
+            @PathVariable Long projectId,
+            @RequestBody java.util.Map<String, org.example.backend.entity.mongo.ArchitectureGraph.Position2D> positions,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        architectureSyncService.saveNodePositions(projectId, positions, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Lưu vị trí các node thành công"));
+    }
+
+    @DeleteMapping("/positions")
+    public ResponseEntity<ApiResponse<Void>> resetNodePositions(
+            @PathVariable Long projectId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        architectureSyncService.resetNodePositions(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Khôi phục bố cục mặc định thành công"));
+    }
+}

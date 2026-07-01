@@ -23,7 +23,7 @@ export default function OnboardingTooltip() {
       <div className="flex justify-between items-start gap-2 mb-2">
         <div className="flex items-center gap-1.5 text-blue-400 font-semibold text-[11px]">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>Mẹo khám phá sơ đồ</span>
+          <span>Diagram Navigation Tips</span>
         </div>
         <button 
           onClick={handleDismiss}
@@ -34,9 +34,9 @@ export default function OnboardingTooltip() {
       </div>
       
       <ul className="text-[10px] text-slate-350 space-y-1.5 list-disc pl-3.5 font-medium leading-relaxed">
-        <li>Nhấp đúp vào bất kỳ <strong>dịch vụ</strong> nào để xem cấu trúc thư mục chi tiết.</li>
-        <li>Trong sơ đồ chi tiết, nhấp vào <strong>thư mục</strong> để mở rộng các file bên trong.</li>
-        <li>Bấm chọn bất kỳ <strong>file</strong> nào để xem chi tiết đường dẫn và quan hệ import.</li>
+        <li>Double-click any <strong>service</strong> to inspect its detailed folder structure.</li>
+        <li>Inside the folder view, click a <strong>folder</strong> to expand its internal files.</li>
+        <li>Select any <strong>file</strong> to view its path details and import relationships.</li>
       </ul>
     </div>
   )

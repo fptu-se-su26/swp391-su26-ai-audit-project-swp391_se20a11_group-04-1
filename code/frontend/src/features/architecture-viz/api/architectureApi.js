@@ -40,3 +40,13 @@ export const deleteManualEdge = async (projectId, edgeId) => {
   const response = await axiosInstance.delete(`/v1/architecture/projects/${projectId}/manual/edges/${edgeId}`)
   return response.data
 }
+
+export const saveNodePositions = async (projectId, positions) => {
+  const response = await axiosInstance.put(`/v1/architecture/projects/${projectId}/positions`, positions)
+  return response.data
+}
+
+export const resetNodePositions = async (projectId) => {
+  const response = await axiosInstance.delete(`/v1/architecture/projects/${projectId}/positions`)
+  return response.data
+}

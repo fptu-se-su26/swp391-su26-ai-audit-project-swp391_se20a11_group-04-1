@@ -25,15 +25,19 @@ export const ServiceNode = ({ data, selected }) => {
   const port = data.metadata?.port || data.port || '';
   const typeColor = TYPE_COLORS[type] || TYPE_COLORS.other;
   const typeLabel = TYPE_LABELS[type] || 'Comp.';
+  const description = data.metadata?.description || data.description || '';
 
   return (
-    <div className={`
-      w-[160px] rounded-lg border bg-white dark:bg-slate-900 shadow-sm
-      transition-all duration-150
-      border-slate-200 dark:border-slate-700/80
-      hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md
-      ${selected ? 'ring-2 ring-blue-500/60 border-blue-400' : ''}
-    `}>
+    <div 
+      title={description}
+      className={`
+        w-[180px] rounded-lg border bg-white dark:bg-slate-900 shadow-sm
+        transition-all duration-150
+        border-slate-200 dark:border-slate-700/80
+        hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md
+        ${selected ? 'ring-2 ring-blue-500/60 border-blue-400' : ''}
+      `}
+    >
       {/* Handles */}
       <Handle type="target" position={Position.Left}   id="l" className="!w-1.5 !h-1.5 !bg-slate-300 dark:!bg-slate-600 !border-none" />
       <Handle type="target" position={Position.Top}    id="t" className="!w-1.5 !h-1.5 !bg-slate-300 dark:!bg-slate-600 !border-none" />
@@ -53,11 +57,12 @@ export const ServiceNode = ({ data, selected }) => {
             {data.name || 'Unnamed'}
           </span>
           <div className="flex items-center gap-1 mt-0.5">
-            <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full leading-none select-none ${typeColor}`}>
+            <span className={`text-[8px] font-bold px-1 py-0.5 rounded-full leading-none select-none flex items-center gap-0.5 ${typeColor}`}>
+              {type === 'database' && <span className="text-[9px]">🛢️</span>}
               {typeLabel}
             </span>
             {port && (
-              <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 leading-none select-none">
+              <span className="text-[8px] font-mono text-slate-400 dark:text-slate-550 leading-none select-none">
                 :{port}
               </span>
             )}
