@@ -24,12 +24,6 @@ const universities = [
 const LandingPage = () => {
   useEffect(() => {
     // Vanilla JS Extracted
-    /* ── SCROLL PROGRESS ── */
-    const spbar=document.getElementById('spbar');
-    window.addEventListener('scroll',()=>{
-        const p=(window.scrollY/(document.documentElement.scrollHeight-window.innerHeight))*100;
-        if(spbar)spbar.style.width=p+'%';
-    },{passive:true});
 
     /* ── HERO MOCKUP PARALLAX ── */
     const hm=document.getElementById('hmock');
@@ -216,7 +210,6 @@ const LandingPage = () => {
 
   return (
     <div className="landing-page-container">
-      <div id="spbar"></div>
 
       <LandingNavbar />
 
