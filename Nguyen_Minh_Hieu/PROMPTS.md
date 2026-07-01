@@ -13,7 +13,7 @@
 | MSSV / Danh sách MSSV | DE200322 |
 | Giảng viên hướng dẫn | Chưa cập nhật |
 | Ngày bắt đầu | 11/05/2026 |
-| Ngày cập nhật gần nhất | 08/06/2026 |
+| Ngày cập nhật gần nhất | 01/07/2026 |
 
 ---
 
@@ -54,19 +54,21 @@ Sinh viên/nhóm cần ghi lại:
 |---:|---|---|---|---|---|---|---|
 | 1 | 11/05/2026 | ChatGPT | Brainstorm project | Tìm ý tưởng project 9 tuần có AI cho sinh viên IT | Chọn hướng DevTrack AI, tập trung traceability/evidence | Có | README, tài liệu project |
 | 2 | 12/05/2026 | ChatGPT | Requirement/use case/ERD | Phân tích requirement-centric workflow | Actor, use case, entity chính | Có | usecase/ERD/migration |
-| 3 | 17/05/2026 | ChatGPT/Codex | Backend foundation | Setup Spring Boot/PostgreSQL/Flyway theo convention | Kiến trúc controller-service-repository, migration rule | Có | commit `a9ba9d2` |
-| 4 | 21/05/2026 | Codex | AI handoff log | Tạo bộ nhớ local cho các chat AI | 3 file context/technique/handoff | Có | `Nguyen_Minh_Hieu/*.md` |
-| 5 | 22/05/2026 | Codex/Stitch | RTM implementation | Implement RTM read-only live matrix/snapshot | Backend API + frontend RTM page | Có | commit `0301fe8` |
-| 6 | 27/05/2026 | Codex | Sprint Weekly Planning | Implement sprint planning theo weekly view | Sprint CRUD, assign task, weekly planner | Có | commit `fb46446` |
-| 7 | 29/05/2026 | Codex | Sprint debug/rule | Harden overlap/active sprint/reassign task | Rule service và UI sync ổn hơn | Có | commit `0793eb4` |
-| 8 | 27/05/2026 | Codex/ChatGPT | Use case diagram/script | Review actor-boundary và viết script milestone | Diagram/script Module 5 | Có | file report ngoài repo |
-| 9 | 30/05/2026 | Codex | Jira backfill | Dựng Jira task từ git/codebase/evidence | 32 issue Done có evidence | Có | `jira_backfill_task_breakdown.md` |
-| 10 | 30/05/2026 | Codex | Debug seed/cache | Project seed không hiện UI và HashGeneratorRunner | Redis cache + cleanup helper | Có | commit `8ba65de` |
-| 11 | 30/05/2026 | Codex/ChatGPT | Code Insight architecture | Viết lại report kiến trúc Code Insight | GitHub evidence + scoring + leader gate | Có | architecture report |
-| 12 | 01/06/2026 | Codex | Review gate/config | Implement Code Insight review gate MVP | Task review decision + config UI | Có | commits `4558e65`, `fbf504d` |
-| 13 | 03/06/2026 | Codex | GitHub integration merge | Dùng shared GitHub Integration, bỏ duplicate | Code Insight dùng `github_integrations` | Có | commit `786ec38` |
-| 14 | 04/06/2026 | Codex | Evidence/scoring/drawer | Ingest GitHub evidence, link task, scoring V2 | Commit/PR/CI evidence + evidence drawer | Có | commits `b933a0f`..`3a6eda8` |
-| 15 | 04-07/06/2026 | Codex | Code Insight phase 6-9/fix | Patch files, AI summary, snapshot, dashboard, CI risk | Hoàn thiện review flow và fix failed CI BLOCKED | Có | commits `f92a255`..`d7b59b0` |
+| 3 | 17/05/2026 | ChatGPT/Codex | Setup Spring Boot foundation | setup Spring Boot/PostgreSQL/Flyway | Layered architecture và database schema | Có | commit `a9ba9d2` |
+| 4 | 22/05/2026 | Codex/Stitch | RTM implementation | Implement RTM read-only live matrix/snapshot | Backend API + frontend RTM page | Có | commit `0301fe8` |
+| 5 | 27/05/2026 | Codex | Sprint Weekly Planning | Implement sprint planning theo weekly view | Sprint CRUD, assign task, weekly planner | Có | commit `fb46446` |
+| 6 | 29/05/2026 | Codex | Sprint debug/rule | Harden overlap/active sprint/reassign task | Rule service và UI sync ổn hơn | Có | commit `0793eb4` |
+| 7 | 30/05/2026 | Codex/ChatGPT | Use case boundary | Phân định ranh giới hệ thống UML Use Case | Làm rõ ranh giới Actor/System, thuyết trình milestone | Có | file report ngoài repo |
+| 8 | 30/05/2026 | Codex | Jira backfill | Dựng Jira task từ git/codebase/evidence | 32 issue Done có evidence | Có | `jira_backfill_task_breakdown.md` |
+| 9 | 30/05/2026 | Codex/ChatGPT | Code Insight architecture | Thiết kế kiến trúc phê duyệt Code Insight local | GitHub evidence + local rule scoring + snapshots | Có | architecture report |
+| 10 | 01/06/2026 | Codex | Review gate/config | Implement Code Insight review gate MVP | Task review decision + config UI | Có | commits `4558e65`, `fbf504d` |
+| 11 | 03/06/2026 | Codex | GitHub integration merge | Dùng shared GitHub Integration, bỏ duplicate | Code Insight dùng `github_integrations` | Có | commit `786ec38` |
+| 12 | 04/06/2026 | Codex | Evidence/scoring/drawer | Ingest GitHub evidence, link task, scoring V2 | Commit/PR/CI evidence + evidence drawer | Có | commits `b933a0f`..`3a6eda8` |
+| 13 | 04-07/06/2026 | Codex | Code Insight phase 6-9/fix | Triển khai files cache, AI review local, snapshots, dashboard | Hoàn thiện review flow và fix failed CI BLOCKED | Có | commits `f92a255`..`d7b59b0` |
+| 14 | 14/06/2026 | Gemini/Codex | Alternative Evaluation | Thảo luận thiết kế Gate Result, Confidence, Risk | Đổi sang mô hình Gate Result/Confidence + RTM sync | Có | `AI_PROJECT_CONTEXT_LOG.md` |
+| 15 | 16-17/06/2026 | Gemini/Codex | Refactor/WebSocket/SSE | WebSocket fix, Gemini gộp, refactor namespace, SSE, manual links | Task Review namespace, SSE stream, manual link | Có | commits `f3e589a`..`02c89f5` |
+| 16 | 23-30/06/2026 | Gemini/Antigravity | AWS Architecture Viz | Sơ đồ AWS, MongoDB overrides, ELK layout, exporters, Legend | Sơ đồ AWS lưu Mongo, xuất Draw.io/ảnh, legend, fitBounds | Có | commit `[DE200322] feat: upgrade...` |
+| 17 | 01/07/2026 | Antigravity | Admin Project Module | Thống kê, tìm kiếm, phân trang, khóa dự án, soft delete, JPQL fix | Admin Project module, JPQL type fix, soft delete | Có | commit `[DE200322] feat: implement...` |
 
 ---
 
@@ -235,25 +237,25 @@ Em đang setup backend Spring Boot cho DevTrack AI, dùng PostgreSQL và Flyway.
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Backend mới được khởi tạo, em cần chắc là cấu trúc ban đầu đủ ổn để nhóm phát triển tiếp.
+Chuẩn bị viết code backend. Nhóm cần thống nhất cấu trúc project để khi nhiều người cùng làm việc trên các module khác nhau không bị conflict cấu trúc thư mục.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI gợi ý layered architecture, dùng Flyway migration, không sửa migration cũ, dùng DTO cho API và đưa rule vào service layer.
+AI gợi ý giữ kiến trúc nhiều lớp, tạo migration riêng bằng Flyway, không sửa migration cũ sau khi đã chạy, dùng DTO cho API và tách business rule vào service.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Backend giữ cấu trúc controller-service-repository-entity-dto và migration riêng.
+Em áp dụng hướng layered architecture và Flyway migration cho backend foundation.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em tự kiểm tra dependency, config PostgreSQL và giữ convention này trong các module sau.
+Em tự kiểm tra lại dependency, cấu hình PostgreSQL và convention của nhóm. Các module sau đều bám theo kiểu controller mỏng, service xử lý logic, repository đọc/ghi database.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -271,17 +273,17 @@ Em tự kiểm tra dependency, config PostgreSQL và giữ convention này trong
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `a9ba9d2` |
+| Link commit | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/a9ba9d2 |
 | File liên quan | `code/backend/pom.xml`, `code/backend/src/main/resources/db/migration` |
-| Screenshot | Prompt số 3 |
-| Kết quả chạy/test | Các test module sau chạy trên foundation này |
-| Link tài liệu/báo cáo | Không có |
-| Ghi chú khác | Nền kỹ thuật |
+| Screenshot | Chụp prompt số 3 |
+| Kết quả chạy/test | Backend foundation được dùng cho các test module sau |
+| Link tài liệu/báo cáo | Tài liệu convention nhóm |
+| Ghi chú khác | Đây là nền kỹ thuật, chưa phải feature hoàn chỉnh |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Đây là prompt hỗ trợ setup, không phải AI viết toàn bộ backend.
+Convention này giúp codebase giữ được sự gọn gàng cho đến cuối kỳ.
 ```
 
 ---
@@ -290,80 +292,10 @@ Em tự kiểm tra dependency, config PostgreSQL và giữ convention này trong
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng | 21/05/2026 |
-| Công cụ AI | Codex |
-| Mục đích | Tạo local handoff log |
-| Phần việc liên quan | Report / Other |
-| Mức độ sử dụng | Hỏi sinh code / Hỏi tối ưu |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-Bạn đọc project hiện tại, rồi tạo giúp tôi vài file local để ghi lại context quan trọng qua từng lần làm việc với AI. Tôi không muốn lưu mọi prompt, chỉ muốn log các quyết định lớn, module nào đã làm, kỹ thuật gì đã dùng, và hướng handoff cho agent khác sau này.
-```
-
-#### 5.2. Bối cảnh khi viết prompt
-
-```text
-Em dùng nhiều chat AI khác nhau nên sợ mất context. Cần một bộ nhớ local để sau này tổng hợp AI audit.
-```
-
-#### 5.3. Kết quả AI trả về
-
-```text
-AI tạo/đề xuất AI_PROJECT_CONTEXT_LOG.md, MODULE_IMPLEMENTATION_TECHNIQUE_LOG.md và AGENT_HANDOFF_GUIDE.md.
-```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
-```text
-Các file này được dùng làm nguồn tổng hợp lại 4 file nộp hiện tại.
-```
-
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
-
-```text
-Em yêu cầu để file local/ignored và chỉ chọn lọc phần phù hợp khi nộp.
-```
-
-#### 5.6. Đánh giá chất lượng prompt
-
-- [x] Prompt rõ ràng
-- [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [ ] Cần hỏi lại AI nhiều lần
-- [x] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit | Không commit vì file local |
-| File liên quan | `Nguyen_Minh_Hieu/AI_PROJECT_CONTEXT_LOG.md`, `MODULE_IMPLEMENTATION_TECHNIQUE_LOG.md`, `AGENT_HANDOFF_GUIDE.md` |
-| Screenshot | Prompt số 4 |
-| Kết quả chạy/test | Không áp dụng |
-| Link tài liệu/báo cáo | Không có |
-| Ghi chú khác | Hỗ trợ minh bạch AI usage |
-
-#### 5.8. Ghi chú thêm
-
-```text
-Prompt này giúp quá trình ghi log không bị đứt đoạn.
-```
-
----
-
-### Prompt số 5
-
-| Nội dung | Thông tin |
-|---|---|
 | Ngày sử dụng | 22/05/2026 |
 | Công cụ AI | Codex / Stitch |
-| Mục đích | Implement RTM |
-| Phần việc liên quan | Coding / Testing / Design |
+| Mục đích | Triển khai RTM live matrix và lưu trữ snapshot |
+| Phần việc liên quan | Backend / Frontend / Testing |
 | Mức độ sử dụng | Hỏi sinh code / Hỏi review |
 
 #### 5.1. Prompt nguyên văn
@@ -375,25 +307,25 @@ Tôi muốn implement module RTM theo plan đã thống nhất. RTM chỉ đọc
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Em phụ trách RTM, đây là module cần đọc nhiều dữ liệu từ module khác nên phải làm cẩn thận.
+Em bắt tay vào code module RTM (Requirement Traceability Matrix). Đây là module tổng hợp dữ liệu từ nhiều thực thể của thành viên khác, nên phải tuân thủ nghiêm ngặt ranh giới chỉ đọc.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI triển khai RTM API, status derivation, snapshot JSONB và frontend RTM page.
+Ý tưởng thiết kế RTM dưới dạng một tập hợp chỉ đọc (read-only aggregation) từ các bảng nghiệp vụ có sẵn trong DB. Thuật toán tính toán trạng thái gồm 4 mức độ: NOT_STARTED, IN_PROGRESS, AT_RISK, DONE và lưu cấu trúc snapshot dưới dạng JSONB.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-RTM live matrix và snapshot được đưa vào codebase.
+Em đã sử dụng logic tính toán trạng thái read-only, cấu trúc API `/api/v1/projects/{projectId}/rtm` cùng cách tổ chức thư mục frontend `features/rtm`.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em giữ RTM read-only để không chạm quyền tạo/sửa của Requirement, Task, Test Case, Bug và Evidence.
+Em tiến hành rà soát lại các quan hệ khóa ngoại trước khi viết các câu query JPA. Vì RTM cần liên kết thông tin của Requirement, Task, Test Case, Bug và Evidence, em thắt chặt quyền hạn của service này để bảo đảm nó hoàn toàn không làm thay đổi hay tạo mới bất kỳ dữ liệu gốc nào từ các module của thành viên khác.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -403,7 +335,7 @@ Em giữ RTM read-only để không chạm quyền tạo/sửa của Requirement
 - [ ] Prompt còn thiếu thông tin
 - [x] Prompt tạo ra kết quả tốt
 - [ ] Prompt tạo ra kết quả chưa phù hợp
-- [x] Cần hỏi lại AI nhiều lần
+- [ ] Cần hỏi lại AI nhiều lần
 - [x] Cần tự kiểm tra và chỉnh sửa nhiều
 - [ ] Kết quả AI có lỗi hoặc chưa chính xác
 
@@ -411,29 +343,29 @@ Em giữ RTM read-only để không chạm quyền tạo/sửa của Requirement
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `0301fe8` |
-| File liên quan | `RtmController.java`, `RtmServiceImpl.java`, `code/frontend/src/features/rtm` |
-| Screenshot | RTM page/prompt số 5 |
-| Kết quả chạy/test | Backend test 34 tests passed; frontend build passed |
-| Link tài liệu/báo cáo | RTM module docs nếu có |
-| Ghi chú khác | Có fix task route/status sau đó |
+| Link commit | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/0301fe8 |
+| File liên quan | `RtmController.java`, `RtmServiceImpl.java`, `code/frontend/src/features/rtm`, `routes/index.jsx` |
+| Screenshot | Chụp RTM page và prompt số 4 |
+| Kết quả chạy/test | `./mvnw.cmd test` passed 34 tests; `npm run build` passed ngày 22/05/2026 |
+| Link tài liệu/báo cáo | Tài liệu thiết kế module RTM |
+| Ghi chú khác | Có thêm fix task route/status sau đó ở commit `ee0e288`, `ce74907` |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Đây là prompt implementation quan trọng nhất ở giai đoạn đầu.
+Giúp xây dựng module tổng hợp thông tin quan trọng của dự án.
 ```
 
 ---
 
-### Prompt số 6
+### Prompt số 5
 
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 27/05/2026 |
 | Công cụ AI | Codex |
-| Mục đích | Implement Sprint Weekly Planning |
-| Phần việc liên quan | Coding / Testing |
+| Mục đích | Triển khai Sprint Weekly Planning |
+| Phần việc liên quan | Backend / Frontend / Testing |
 | Mức độ sử dụng | Hỏi sinh code |
 
 #### 5.1. Prompt nguyên văn
@@ -445,25 +377,25 @@ Dựa vào tài liệu bổ sung, hãy implement Sprint module nhưng chọn hư
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Nhóm cần sprint management nhưng không muốn trùng với task board. Em chọn weekly planning để leader phân bổ task theo ngày.
+Em được giao làm module Sprint Planning để hỗ trợ quản lý công việc theo tuần, cần chọn lát cắt nghiệp vụ (slice) hợp lý cho bản v1 và không bị chồng chéo với Kanban Board.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI thêm Sprint CRUD, status update, task assignment, sprint plan date và weekly planner UI.
+Boilerplate cho Sprint CRUD, cấu trúc bảng liên kết để gán task hiện có từ Kanban Board vào Sprint dựa trên trường `tasks.sprint_plan_date`, và sơ đồ luồng công suất thời gian (capacity_hours) của sprint.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Module Sprint Weekly Planning được implement ở backend và frontend.
+Em sử dụng cấu hình REST API trong SprintController/SprintServiceImpl, kịch bản Flyway migration thêm các trường lập kế hoạch sprint, và giao diện kéo thả weekly planner ở frontend.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em giữ Task Board là nơi tạo/sửa task, Sprint chỉ plan task đã có.
+Em giới hạn nghiệp vụ: Sprint tuyệt đối không sở hữu vòng đời của Task (không tạo/xóa task). Mọi thao tác chi tiết về Task phải được giữ nguyên trên Task Board của thành viên khác nhằm tránh xung đột quyền ghi dữ liệu giữa hai module độc lập.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -473,7 +405,7 @@ Em giữ Task Board là nơi tạo/sửa task, Sprint chỉ plan task đã có.
 - [ ] Prompt còn thiếu thông tin
 - [x] Prompt tạo ra kết quả tốt
 - [ ] Prompt tạo ra kết quả chưa phù hợp
-- [x] Cần hỏi lại AI nhiều lần
+- [ ] Cần hỏi lại AI nhiều lần
 - [x] Cần tự kiểm tra và chỉnh sửa nhiều
 - [ ] Kết quả AI có lỗi hoặc chưa chính xác
 
@@ -481,29 +413,29 @@ Em giữ Task Board là nơi tạo/sửa task, Sprint chỉ plan task đã có.
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `fb46446`, `9d5a16f` |
-| File liên quan | `SprintController.java`, `SprintServiceImpl.java`, `features/sprint` |
-| Screenshot | Sprint Weekly Planner/prompt số 6 |
-| Kết quả chạy/test | Backend compile/test passed; parser check passed |
-| Link tài liệu/báo cáo | `project_tailieu/bosung.md` |
-| Ghi chú khác | Vite build bị `spawn EPERM` trong sandbox |
+| Link commit | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/fb46446 |
+| File liên quan | `SprintController.java`, `SprintServiceImpl.java`, `V20260527110000__add_sprint_planning_fields.sql`, `code/frontend/src/features/sprint` |
+| Screenshot | Chụp Sprint page/Weekly Planner và prompt số 5 |
+| Kết quả chạy/test | Backend compile/test passed ngày 27/05/2026; frontend parser check passed |
+| Link tài liệu/báo cáo | Hướng dẫn lập kế hoạch sprint tuần |
+| Ghi chú khác | Commit `9d5a16f` fix `updatedAt` hiển thị UI |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Prompt này đã giới hạn scope rõ nên không bị lan sang Daily View.
+Mốc kỹ thuật xây dựng khung quản lý thời gian Sprint.
 ```
 
 ---
 
-### Prompt số 7
+### Prompt số 6
 
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 29/05/2026 |
 | Công cụ AI | Codex |
-| Mục đích | Debug và harden Sprint |
-| Phần việc liên quan | Debug / Coding |
+| Mục đích | Rà soát và củng cố các quy tắc nghiệp vụ cho Sprint Planning |
+| Phần việc liên quan | Backend / Frontend / Debug |
 | Mức độ sử dụng | Hỏi debug / Hỏi review |
 
 #### 5.1. Prompt nguyên văn
@@ -515,25 +447,25 @@ Review giúp tôi các rule Sprint hiện tại. Tôi muốn tránh overlap spri
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Sau khi Sprint chạy được, em cần kiểm tra rule nghiệp vụ để chuẩn bị merge.
+Sau khi implement Sprint MVP, em cần củng cố lại logic bảo mật và các ràng buộc nghiệp vụ ở backend (chống đè ngày hoạt động của sprint) trước khi merge vào nhánh develop chung.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI gợi ý validate overlap, active sprint, reassign task và sync frontend state.
+Các phương thức kiểm tra chồng chéo thời gian của các Sprint bằng SQL queries, cơ chế xác thực trạng thái duy nhất cho ACTIVE sprint trong một dự án, và logic reset state của component WeeklyPlanner trên frontend khi thay đổi tuần bắt đầu.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Sprint business rule được harden ở service/repository và WeeklyPlanner.
+Em đã áp dụng các câu truy vấn kiểm tra trùng lặp trong SprintRepository, các điều kiện logic validate ở Service layer và hàm cập nhật frontend.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em phân biệt query dùng để hiển thị sprint trong tuần với query dùng để chặn overlap sprint.
+Em chủ động tách biệt hàm `findSprintsOverlappingWeek` (dùng để hiển thị danh sách sprint trong tuần lựa chọn trên UI) ra khỏi hàm `existsOverlappingSprint` (dùng để chặn cứng việc lưu một Sprint trùng ngày). Sự phân rã này giúp hệ thống không chặn nhầm các truy vấn xem dữ liệu vô hại.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -551,17 +483,87 @@ Em phân biệt query dùng để hiển thị sprint trong tuần với query d
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `0793eb4`, `566accf`, `b4d881f` |
+| Link commit | https://github.com/fptu-se-su26/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1/commit/0793eb4 |
 | File liên quan | `SprintRepository.java`, `SprintServiceImpl.java`, `WeeklyPlanner.jsx` |
-| Screenshot | Prompt số 7 |
-| Kết quả chạy/test | Compile/parser check |
+| Screenshot | Chụp prompt số 6 và PR/merge evidence |
+| Kết quả chạy/test | Backend compile có resources skipped passed; parser check frontend passed |
 | Link tài liệu/báo cáo | Không có |
-| Ghi chú khác | Có hỗ trợ merge develop |
+| Ghi chú khác | Có merge commit `566accf` |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Prompt này thiên về review rule hơn là sinh mới feature.
+Bảo đảm tính toàn vẹn của lịch trình dự án.
+```
+
+---
+
+### Prompt số 7
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 30/05/2026 |
+| Công cụ AI | Codex / ChatGPT |
+| Mục đích | Thiết kế Use Case diagram và thảo luận ranh giới hệ thống (Module 5) |
+| Phần việc liên quan | Design / UML Modeling |
+| Mức độ sử dụng | Hỏi ý tưởng |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Trong UML Use Case diagram, khi biểu diễn module Code Insight và Mentor Review, làm thế nào để phân định rõ ràng ranh giới hệ thống (system boundary) đối với các tác nhân bên ngoài như GitHub System và AI Engine? Hãy đề xuất cách phân định và thiết lập kịch bản giải trình logic ranh giới này.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Để chuẩn bị báo cáo tiến độ và bảo vệ UML Use Case trước giảng viên, em cần một mô hình ranh giới Actor/System chuẩn xác học thuật đối với các dịch vụ tự động bên ngoài.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất nguyên lý phân định: các hệ thống tự động không được xem là Actor nếu chúng là một phần nội bộ của ứng dụng. GitHub System và AI Engine phải là external actors nằm ngoài ranh giới (system boundary) vì chúng tương tác thông qua API/Webhook, còn các tính năng của Code Insight là Use Cases nội bộ.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Em sử dụng nguyên lý xác định ranh giới tác nhân (boundary-actor) này để vẽ lại toàn bộ UML Use Case diagrams cho Module 5 và làm tài liệu giải trình milestone.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Em vẽ sơ đồ bằng Mermaid diagram kết hợp phân nhóm màu trực quan để tăng tính trực quan. Đồng thời, em biên soạn lại kịch bản thuyết trình tiếng Việt bằng văn phong thuyết trình thực tế của bản thân thay vì đọc máy móc văn bản thô của AI.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp
+- [ ] Cần hỏi lại AI nhiều lần
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều
+- [ ] Kết quả AI có lỗi hoặc chưa chính xác
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | Tài liệu nằm ngoài repo theo quy tắc lưu trữ tài liệu cá nhân |
+| File liên quan | `D:/Semester_5/SWP391/Project/05_part5_usecase_diagrams.md`, `module5_presentation_script.md` |
+| Screenshot | Chụp Mermaid diagram/script và prompt số 7 |
+| Kết quả chạy/test | Không áp dụng vì là tài liệu |
+| Link tài liệu/báo cáo | Tài liệu sơ đồ hệ thống Module 5 |
+| Ghi chú khác | Sử dụng để vấn đáp và bảo vệ tiến độ |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Giải quyết tranh cãi về ranh giới Actor trong biểu đồ Use Case học thuật.
 ```
 
 ---
@@ -570,81 +572,11 @@ Prompt này thiên về review rule hơn là sinh mới feature.
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng | 27/05/2026 |
-| Công cụ AI | Codex / ChatGPT |
-| Mục đích | Use case diagram và script milestone |
-| Phần việc liên quan | Report / Presentation |
-| Mức độ sử dụng | Hỏi review / Hỏi sinh code |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-Tôi cần làm phần use case diagram cho Module 5 gồm RTM, Code Insight và Mentor Review. Hãy review giúp actor nào nên để ngoài system boundary, actor nào không nên để. Sau đó viết giúp tôi script tiếng Việt ngắn để thuyết trình khoảng 4 slide.
-```
-
-#### 5.2. Bối cảnh khi viết prompt
-
-```text
-Em chuẩn bị phần milestone và cần giải thích đúng về actor trong use case diagram.
-```
-
-#### 5.3. Kết quả AI trả về
-
-```text
-AI chỉ ra GitHub System và AI Engine có thể là external actor, còn Code Insight là module nội bộ.
-```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
-```text
-Use case diagrams và script tiếng Việt được chỉnh cho phần presentation.
-```
-
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
-
-```text
-Em chọn lại layout diagram có màu/group cho dễ trình bày và sửa script theo cách nói của mình.
-```
-
-#### 5.6. Đánh giá chất lượng prompt
-
-- [x] Prompt rõ ràng
-- [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [ ] Cần hỏi lại AI nhiều lần
-- [x] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit | Không áp dụng, tài liệu ngoài repo |
-| File liên quan | `05_part5_usecase_diagrams.md`, `module5_presentation_script.md` |
-| Screenshot | Diagram/script/prompt số 8 |
-| Kết quả chạy/test | Không áp dụng |
-| Link tài liệu/báo cáo | `D:/Semester_5/SWP391/Project` |
-| Ghi chú khác | Report material |
-
-#### 5.8. Ghi chú thêm
-
-```text
-AI hỗ trợ tốt phần reasoning UML, nhưng bản cuối phải trình bày được bằng lời của mình.
-```
-
----
-
-### Prompt số 9
-
-| Nội dung | Thông tin |
-|---|---|
 | Ngày sử dụng | 30/05/2026 |
 | Công cụ AI | Codex |
-| Mục đích | Jira backfill |
-| Phần việc liên quan | Report / Other |
-| Mức độ sử dụng | Hỏi review / Hỏi sinh code |
+| Mục đích | Khôi phục vết (Backfill) Jira tasks dựa trên cấu trúc codebase và git history |
+| Phần việc liên quan | Project tracking / Report |
+| Mức độ sử dụng | Hỏi thiết kế / Hỏi phân tích |
 
 #### 5.1. Prompt nguyên văn
 
@@ -655,95 +587,25 @@ Nhóm em chưa maintain Jira từ đầu. Bạn hãy đọc git history, codebas
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Nhóm cần tracking lại công việc đã làm nhưng không muốn ghi theo trí nhớ hoặc ghi task chưa làm.
+Nhóm cần đồng bộ hóa Jira backlog phục vụ kiểm toán tiến độ môn học, yêu cầu khớp nối chính xác giữa các đầu việc và commit lịch sử Git thật để chứng minh đóng góp của từng cá nhân.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI tạo Jira breakdown theo epics/issues, sau đó được gộp còn 32 issue Done có evidence.
+AI đề xuất danh sách backlog Jira phân rã chi tiết từ lịch sử commits, gán đúng người thực hiện, acceptance criteria và liên kết mã SHA commit thực tế làm minh chứng kiểm tra.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-File Jira backfill được dùng để cập nhật tracking nhóm.
+Em sử dụng danh sách phân rã này để cập nhật đồng bộ lại tiến độ của nhóm trên Jira, tạo liên kết chặt chẽ giữa Jira issue và Git commits thực tế.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em yêu cầu bỏ Planned task và chỉ giữ việc có bằng chứng thật.
-```
-
-#### 5.6. Đánh giá chất lượng prompt
-
-- [x] Prompt rõ ràng
-- [x] Prompt có đủ bối cảnh
-- [ ] Prompt còn thiếu thông tin
-- [x] Prompt tạo ra kết quả tốt
-- [ ] Prompt tạo ra kết quả chưa phù hợp
-- [x] Cần hỏi lại AI nhiều lần
-- [x] Cần tự kiểm tra và chỉnh sửa nhiều
-- [ ] Kết quả AI có lỗi hoặc chưa chính xác
-
-#### 5.7. Minh chứng liên quan
-
-| Loại minh chứng | Nội dung |
-|---|---|
-| Link commit | Git history đến 30/05/2026 |
-| File liên quan | `jira_backfill_task_breakdown.md` |
-| Screenshot | Prompt số 9/Jira table |
-| Kết quả chạy/test | Không áp dụng |
-| Link tài liệu/báo cáo | `D:/Semester_5/SWP391/Project/project_tailieu` |
-| Ghi chú khác | Chỉ dùng evidence-backed tasks |
-
-#### 5.8. Ghi chú thêm
-
-```text
-Prompt này có nhiều lần follow-up để gộp task và bỏ future plan.
-```
-
----
-
-### Prompt số 10
-
-| Nội dung | Thông tin |
-|---|---|
-| Ngày sử dụng | 30/05/2026 |
-| Công cụ AI | Codex |
-| Mục đích | Debug seed/cache và HashGeneratorRunner |
-| Phần việc liên quan | Debug / Database |
-| Mức độ sử dụng | Hỏi debug |
-
-#### 5.1. Prompt nguyên văn
-
-```text
-Tôi seed data trực tiếp bằng pgAdmin, bảng projects và project_members có dữ liệu rồi nhưng UI My Projects vẫn không thấy project. Bạn kiểm tra giúp khả năng do backend cache hay lỗi membership. Ngoài ra file HashGeneratorRunner đang làm gì, có ảnh hưởng khi chạy app không?
-```
-
-#### 5.2. Bối cảnh khi viết prompt
-
-```text
-Em cần data mẫu để test nhưng UI không hiện project dù database có data.
-```
-
-#### 5.3. Kết quả AI trả về
-
-```text
-AI chỉ ra Redis cache có thể giữ project list cũ và HashGeneratorRunner là helper tạo BCrypt hash đang bị chạy cùng app.
-```
-
-#### 5.4. Kết quả đã áp dụng vào bài
-
-```text
-Em debug cache và cleanup HashGeneratorRunner.
-```
-
-#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
-
-```text
-Em xác minh data bằng pgAdmin trước, không kết luận chỉ dựa vào AI.
+Em rà soát lại toàn bộ danh sách, chủ động loại bỏ tất cả các task thuộc diện kế hoạch tương lai chưa được code xong nhằm bảo đảm tính trung thực của dữ liệu minh chứng, giới hạn danh sách ở 32 issues thực tế đã Done.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -761,59 +623,59 @@ Em xác minh data bằng pgAdmin trước, không kết luận chỉ dựa vào 
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `8ba65de`, `1f8f308` |
-| File liên quan | `ProjectServiceImpl.java`, `HashGeneratorRunner.java` |
-| Screenshot | Prompt số 10/pgAdmin/Redis |
-| Kết quả chạy/test | Manual DB/cache check |
-| Link tài liệu/báo cáo | Không có |
-| Ghi chú khác | Direct SQL insert không tự clear cache |
+| Link commit | Dựa trên git history toàn repo đến 30/05/2026 |
+| File liên quan | `D:/Semester_5/SWP391/Project/project_tailieu/jira_backfill_task_breakdown.md` |
+| Screenshot | Chụp prompt số 8 và file Jira breakdown |
+| Kết quả chạy/test | Không áp dụng |
+| Link tài liệu/báo cáo | Jira board tracking file |
+| Ghi chú khác | Bảo đảm tính khớp nối 100% giữa Jira và lịch sử Git thật |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Prompt này giúp phân biệt lỗi data thật với lỗi cache.
+Hỗ trợ tái cấu trúc tài liệu quản lý dự án có kiểm chứng.
 ```
 
 ---
 
-### Prompt số 11
+### Prompt số 9
 
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 30/05/2026 |
 | Công cụ AI | Codex / ChatGPT |
-| Mục đích | Code Insight architecture report |
-| Phần việc liên quan | Design / Report |
-| Mức độ sử dụng | Hỏi sinh code / Hỏi review |
+| Mục đích | Thiết kế kiến trúc giải pháp Code Insight (Leader review gate & evidence integration) |
+| Phần việc liên quan | Design / System Architecture |
+| Mức độ sử dụng | Hỏi ý tưởng |
 
 #### 5.1. Prompt nguyên văn
 
 ```text
-Hãy đọc lại report Code Insight hiện tại và viết lại cho dễ hiểu hơn. Tôi muốn kiến trúc không phụ thuộc hoàn toàn vào AI, có GitHub evidence, rule-based scoring, leader approval gate, audit snapshot, secret redaction, webhook async và ví dụ cụ thể để thầy cô dễ hiểu.
+Tôi muốn thiết kế kiến trúc cho module Code Insight sao cho quy trình phê duyệt của Leader không phụ thuộc hoàn toàn vào AI. Hãy phân tích cấu trúc kết hợp giữa: GitHub evidence thu thập không đồng bộ, bộ lọc rule-based scoring tại local, và tính năng lưu trữ audit snapshot khi có quyết định. Làm sao để mô hình này hoạt động khả thi và tối ưu về mặt nghiệp vụ?
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Em chuẩn bị thiết kế Code Insight nhưng không muốn trình bày kiểu "AI chấm code" chung chung.
+Em bắt tay vào lập kế hoạch kiến trúc cho module Code Insight, cần thiết kế một cơ chế kiểm chứng tiến độ đáng tin cậy kết hợp giữa automation (GitHub) và giám sát của con người (Leader) để nộp báo cáo.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI viết lại report thành kiến trúc GitHub evidence + deterministic scoring + bounded AI review + leader final authority.
+AI đề xuất mô hình kiến trúc gồm 4 trụ cột chính: Leader Review Gate (cổng kiểm soát thủ công của leader), GitHub Webhook Evidence (thu thập commit/PR/CI checks không đồng bộ), Rule-Based Scoring (hệ thống tính điểm minh bạch theo quy tắc tại local), và Audit Snapshots (chụp ảnh lưu trữ toàn bộ bằng chứng tại thời điểm leader duyệt để đối chiếu về sau).
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Report này trở thành blueprint cho các phase Code Insight sau đó.
+Em đã sử dụng kiến trúc phân tầng kết hợp này làm blueprint định hướng để chia nhỏ quá trình code module Code Insight thành các phase độc lập.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em quyết định AI không auto-approve và chỉ hỗ trợ tóm tắt/đánh giá.
+Em quyết định thắt chặt tính bảo thủ của quy trình: AI chỉ đóng vai trò tư vấn tóm tắt (advisory), còn quyền quyết định và ký Approve/Request Changes bắt buộc là do con người (Leader) thực hiện thủ công, tránh tối đa việc để AI tự động thông qua (auto-approve) các Task.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -823,7 +685,7 @@ Em quyết định AI không auto-approve và chỉ hỗ trợ tóm tắt/đánh
 - [ ] Prompt còn thiếu thông tin
 - [x] Prompt tạo ra kết quả tốt
 - [ ] Prompt tạo ra kết quả chưa phù hợp
-- [x] Cần hỏi lại AI nhiều lần
+- [ ] Cần hỏi lại AI nhiều lần
 - [x] Cần tự kiểm tra và chỉnh sửa nhiều
 - [ ] Kết quả AI có lỗi hoặc chưa chính xác
 
@@ -831,22 +693,22 @@ Em quyết định AI không auto-approve và chỉ hỗ trợ tóm tắt/đánh
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | Không áp dụng, tài liệu ngoài repo |
-| File liên quan | `Code_Insight_Module_Architecture_Report.md` |
-| Screenshot | Prompt số 11/report |
-| Kết quả chạy/test | Không áp dụng |
-| Link tài liệu/báo cáo | `D:/Semester_5/SWP391/Project/Code_Insight_Module_Architecture_Report.md` |
-| Ghi chú khác | Blueprint cho Code Insight |
+| Link commit | Thiết kế kiến trúc, không code trực tiếp |
+| File liên quan | `D:/Semester_5/SWP391/Project/Code_Insight_Module_Architecture_Report.md` |
+| Screenshot | Chụp prompt số 9 và một phần kiến trúc thiết kế |
+| Kết quả chạy/test | Không áp dụng ở bước thiết kế |
+| Link tài liệu/báo cáo | Code Insight architecture report |
+| Ghi chú khác | Report này trở thành blueprint cho phase Code Insight |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Đây là prompt quan trọng nhất cho hướng Code Insight.
+Blueprint định hướng kỹ thuật cho toàn bộ giai đoạn Code Insight.
 ```
 
 ---
 
-### Prompt số 12
+### Prompt số 10
 
 | Nội dung | Thông tin |
 |---|---|
@@ -916,7 +778,7 @@ Prompt này cố ý giới hạn "đừng làm GitHub evidence hay AI vội".
 
 ---
 
-### Prompt số 13
+### Prompt số 11
 
 | Nội dung | Thông tin |
 |---|---|
@@ -986,14 +848,14 @@ Prompt này quan trọng vì nó tránh tạo hai GitHub config song song.
 
 ---
 
-### Prompt số 14
+### Prompt số 12
 
 | Nội dung | Thông tin |
 |---|---|
 | Ngày sử dụng | 04/06/2026 |
 | Công cụ AI | Codex |
-| Mục đích | GitHub evidence, linking, scoring, drawer |
-| Phần việc liên quan | Coding / Testing / Review code |
+| Mục đích | Triển khai nạp bằng chứng GitHub, liên kết tự động và giao diện xem bằng chứng |
+| Phần việc liên quan | Backend / Frontend / Testing |
 | Mức độ sử dụng | Hỏi sinh code / Hỏi review |
 
 #### 5.1. Prompt nguyên văn
@@ -1005,25 +867,246 @@ Tiếp tục Code Insight theo architecture report. Phase này cần lưu GitHub
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Review gate đã có rồi, nhưng leader chưa có evidence thật từ GitHub để quyết định.
+Em tiếp tục triển khai các phase giữa của Code Insight liên quan đến việc thu thập dữ liệu webhook thật từ GitHub để phục vụ cho bộ quy tắc tính điểm (scoring) local.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI thêm GitHub evidence storage, webhook dispatcher/handlers, deterministic linking, scoring V2 và evidence drawer.
+Thiết kế các bảng lưu trữ bằng chứng tự động (`github_commits`, `github_pull_requests`, `github_check_runs`), bộ phân phối webhook (`GitHubWebhookDispatcher`), logic liên kết task dựa trên quy tắc tên nhánh/khóa issue, và cấu trúc hiển thị Drawer chứa chi tiết bằng chứng.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Code Insight bắt đầu có commit/PR/CI evidence và leader có thể xem chi tiết evidence.
+Em sử dụng cấu trúc các lớp nhận dữ liệu webhook, lưu trữ thực thể bằng chứng, logic liên kết Task và component UI hiển thị Drawer ở frontend.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em giữ linking bảo thủ, không dùng AI semantic matching để tránh link sai task.
+Em áp dụng chính sách liên kết (linking) an toàn và chặt chẽ: chỉ tự động liên kết khi Git branch name hoặc PR title chứa đúng định dạng khóa Task (ví dụ `TASK-12`, `TSK-12`, `task-12`). Em tuyệt đối bác bỏ phương án sử dụng AI semantic matching tự động liên kết vì rủi ro ghép sai bằng chứng vào task rất lớn.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp
+- [ ] Cần hỏi lại AI nhiều lần
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều
+- [ ] Kết quả AI có lỗi hoặc chưa chính xác
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | `b933a0f`, `10e5007`, `c619e1a`, `3a6eda8` |
+| File liên quan | `GitHubEvidenceServiceImpl.java`, `GitHubWebhookDispatcherImpl.java`, `CodeInsightEvidenceLinkServiceImpl.java`, `CodeInsightScoringServiceImpl.java`, `CodeInsightPage.jsx` |
+| Screenshot | Giao diện hàng đợi duyệt và Drawer hiển thị bằng chứng chi tiết |
+| Kết quả chạy/test | Maven test suite passed (82, 88, 91, 93 tests qua từng phase); frontend build compile thành công |
+| Link tài liệu/báo cáo | Tài liệu tích hợp GitHub webhook |
+| Ghi chú khác | Giữ nguyên tương thích với các facade APIs cũ của Issue Tracker |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Mốc kỹ thuật kết nối dữ liệu thật từ GitHub làm bằng chứng.
+```
+
+---
+
+### Prompt số 13
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 04/06/2026 - 07/06/2026 |
+| Công cụ AI | Codex |
+| Mục đích | Triển khai các phase 6-9 của Code Insight và thiết lập bộ quy tắc an toàn (CI risk gate) |
+| Phần việc liên quan | Backend / Frontend / Testing / Debug |
+| Mức độ sử dụng | Hỏi sinh code / Hỏi debug |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Khi triển khai hoàn thiện quy trình phê duyệt Task Review (từ việc nạp changed files trên PR, lưu trữ snapshot khi leader ra quyết định phê duyệt/yêu cầu sửa đổi, hiển thị dashboard tổng hợp dữ liệu) và tích hợp cấu trúc AI review cục bộ; làm sao để xử lý trường hợp một Task có điểm số cao nhưng CI của PR đó lại thất bại (CI check run failed)? Hãy thiết kế cơ chế chặn cứng (hard gate) và hoàn thiện các APIs cho changed files caching, snapshots, và dashboard.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Ở giai đoạn hoàn thiện Code Insight để bàn giao MVP (Phase 6-9), em cần tích hợp báo cáo AI review cục bộ, nạp changed files PR, ghi snapshot quyết định, xây dựng dashboard tổng hợp, đồng thời giải quyết triệt để lỗi nghiệp vụ khi PR bị failed CI nhưng vẫn có điểm số cao vượt ngưỡng READY.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất triển khai:
+1. Phase 6 (PR Changed Files): API nạp danh sách file thay đổi của PR và lưu cache local summary.
+2. Phase 7 (AI Review Local): Triển khai DTO và service tạo báo cáo đánh giá AI cục bộ.
+3. Phase 8 (Audit Snapshots): Chụp lại toàn bộ trạng thái code/evidence hiện tại khi leader Approve/Request Changes.
+4. Phase 9 (Dashboard): Tổng hợp biểu đồ thống kê review lỗi, thiếu bằng chứng.
+5. CI Risk Gate: Điều chỉnh logic tính điểm để chèn một chốt chặn cứng: nếu có bất kỳ check run nào của PR bị FAILED, đặt trạng thái riskLevel thành `BLOCKED` ngay lập tức, bất chấp điểm số tổng của Task vẫn cao hơn ngưỡng cảnh báo (>75).
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Em đã áp dụng API lưu snapshots, cache changed files PR, cấu trúc báo cáo AI cục bộ, dashboard metrics và logic chặn cứng CI Failed.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Trong quá trình kiểm thử thủ công (manual test), em phát hiện ban đầu mã nguồn tính điểm vẫn cho phép một Task có PR bị FAILED CI hiển thị trạng thái READY (do điểm trừ -25 chưa đủ kéo score xuống dưới ngưỡng cảnh báo). Em đã yêu cầu AI viết lại logic để đưa tín hiệu FAILED CI thành rule ưu tiên tuyệt đối, ghi đè trực tiếp trạng thái thành `BLOCKED` không cho Approve để đảm bảo tính an toàn tích hợp.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp
+- [ ] Cần hỏi lại AI nhiều lần
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều
+- [ ] Kết quả AI có lỗi hoặc chưa chính xác
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | `f92a255`, `87eee37`, `41bfb06`, `db2c023`, `a39808f`, `d7b59b0` |
+| File liên quan | `CodeInsightPatchServiceImpl.java`, `CodeInsightAiReviewServiceImpl.java`, `CodeInsightReviewSnapshotServiceImpl.java`, `CodeInsightServiceImpl.java`, `CodeInsightScoringServiceImpl.java`, `CodeInsightPage.jsx` |
+| Screenshot | Chụp dashboard/evidence drawer/failed CI case và prompt số 13 |
+| Kết quả chạy/test | `./mvnw.cmd test` passed 93 tests ngày 04/06/2026; `.\mvnw.cmd "-Dtest=CodeInsightScoringServiceImplTest" test` passed ngày 05/06/2026; commit fix CI head ngày 07/06/2026 |
+| Link tài liệu/báo cáo | Code Insight architecture report |
+| Ghi chú khác | Mốc kết thúc giai đoạn Code Insight MVP |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Chốt chặn an toàn quan trọng chống lọt lỗi build/test lên production.
+```
+
+---
+
+### Prompt số 14
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 14/06/2026 |
+| Công cụ AI | Gemini / Codex |
+| Mục đích | Thảo luận thiết kế mô hình đánh giá thay thế Task Review và RTM integration |
+| Phần việc liên quan | Architecture / System Design |
+| Mức độ sử dụng | Hỏi định hướng / Hỏi giải pháp |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Có hướng nào khác ngoài hướng đi tính điểm như thế này không?
+Nếu đi theo mô hình gate result evidence confidence và code risk thì có thể áp dụng được cho mọi task type luôn hay sao?
+Vậy với hướng đi này thì có điểm nào tôi có thể khai thác sâu về mặt kỹ thuật không, ví dụ như áp dụng kiến trúc hệ thống để xử lí một thứ gì đó, hoặc dùng ai để phân tích một vấn đề nào đó. Tôi muốn có một điểm nào đó để tôi đi sâu về mặt kỹ thuật hơn?
+Có cách nào để đi xuống máy local và đọc code của người khác được không?
+Tôi muốn bạn phân tích thêm 1 vấn đề nữa là nếu như review task ở đây thì rtm sẽ giải quyết được vấn đề gì?
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Em thấy mô hình tính điểm Code Insight 0-100 cũ quá cơ học và dễ gây tranh cãi. Em muốn thảo luận định hình lại kiến trúc và cách RTM liên kết với kết quả phê duyệt.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất mô hình 3 trụ cột (Gate Result, Evidence Confidence, Code Risk), phân chia Policy theo Task Type để áp dụng chung, gợi ý kiến trúc Event-Driven Webhook Pipeline + CQRS Review Projection làm điểm nhấn kỹ thuật sâu, và thiết kế luồng tích hợp RTM làm bằng chứng xác thực.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Quyết định tái cấu trúc toàn diện module Code Insight dựa trên mô hình đánh giá mới này và thiết lập kiến trúc Event-Driven kết hợp Read/Write database model.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Em quyết định hủy bỏ thiết kế Local Agent vì lý do an toàn bảo mật, thay thế hoàn toàn bằng remote PR/commit webhook.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp
+- [x] Cần hỏi lại AI nhiều lần
+- [ ] Cần tự kiểm tra và chỉnh sửa nhiều
+- [ ] Kết quả AI có lỗi hoặc chưa chính xác
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | Phân tích định hướng thiết kế |
+| File liên quan | `Nguyen_Minh_Hieu/AI_PROJECT_CONTEXT_LOG.md` |
+| Screenshot | Sơ đồ kiến trúc Event-Driven và CQRS trong report |
+| Kết quả chạy/test | Không áp dụng |
+| Link tài liệu/báo cáo | Tài liệu thiết kế module Task Review |
+| Ghi chú khác | Không |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Định hình lại toàn bộ mô hình đánh giá từ số học sang lô-gíc kiểm chứng.
+```
+
+---
+
+### Prompt số 15
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 16/06/2026 - 17/06/2026 |
+| Công cụ AI | Gemini / Codex |
+| Mục đích | Sửa WebSocket, tối ưu gộp Gemini, refactor namespace, SSE và manual evidence |
+| Phần việc liên quan | Coding / Debug / Refactor |
+| Mức độ sử dụng | Hỏi sinh code / Hỏi debug / Hỏi tối ưu |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+No static resource api/ws/notifications for request '/api/ws/notifications' - sửa lỗi WebSocket path mismatch này và wire up Approve & Request Changes buttons trong workspace.
+có cách nào để gửi 1 lần mà vẫn bao quát được cho 3 req-alignment không?
+Yêu cầu refactor toàn bộ tên lớp và đường dẫn API từ Code Insight sang Task Review namespace để tăng tính rõ ràng cho module, đồng thời tích hợp thêm SSE streaming AI review, hiển thị chi tiết review, và liên kết minh chứng thủ công (manual evidence links) để xử lý các task không có PR/commit tự động.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Khi gộp code bị lỗi WebSocket. APIs cũ bị trùng lặp khái niệm Code Insight nên em quyết định đổi tên toàn bộ namespace sang Task Review, đồng thời tối ưu hóa 429 quota Gemini.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất WebSocketHandlerConfig, cấu trúc prompt gộp streaming Gemini cho model `gemini-3.1-flash-lite`, kế hoạch đổi tên class/folder/route, và cấu trúc DB/REST APIs cho manual links cùng SSE review controller.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Sửa lỗi WebSocket notifications, tích hợp SSE streaming và giao diện liên kết bằng chứng thủ công trong workspace mới.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Em giữ lại class `CodeInsightController` cũ cho các module khác tương thích ngược tạm thời. Em tự bổ sung logic close EventSource tại frontend để tránh rò rỉ kết nối.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -1041,59 +1124,67 @@ Em giữ linking bảo thủ, không dùng AI semantic matching để tránh lin
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `b933a0f`, `10e5007`, `c619e1a`, `3a6eda8` |
-| File liên quan | `GitHubEvidenceServiceImpl.java`, `CodeInsightEvidenceLinkServiceImpl.java`, `CodeInsightScoringServiceImpl.java`, `CodeInsightPage.jsx` |
-| Screenshot | Evidence drawer/prompt số 14 |
-| Kết quả chạy/test | Full backend tests 82/88/91/93 passed qua từng phase |
-| Link tài liệu/báo cáo | Code Insight architecture report |
-| Ghi chú khác | Không gọi AI ở phase này |
+| Link commit | `f3e589a`, `77dbe9a`, `02c89f5` |
+| File liên quan | `WebSocketHandlerConfig.java`, `TaskReviewController.java`, `ManualEvidenceLinkServiceImpl.java`, `TaskReviewWorkspacePage.jsx` |
+| Screenshot | Modal liên kết thủ công và logs stream AI review |
+| Kết quả chạy/test | Maven test suite (125 tests passed), Vite build successful |
+| Link tài liệu/báo cáo | Tài liệu code Task Review |
+| Ghi chú khác | Không |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Prompt này làm Code Insight chuyển từ review gate trống sang review có evidence.
+Gộp cuộc gọi Gemini giúp tốc độ phản hồi AI tăng rõ rệt và không còn lỗi Rate Limit 429.
 ```
 
 ---
 
-### Prompt số 15
+### Prompt số 16
 
 | Nội dung | Thông tin |
 |---|---|
-| Ngày sử dụng | 04/06/2026 - 07/06/2026 |
-| Công cụ AI | Codex |
-| Mục đích | Hoàn thiện Code Insight phase 6-9 và fix CI risk |
-| Phần việc liên quan | Coding / Testing / Debug |
-| Mức độ sử dụng | Hỏi sinh code / Hỏi debug / Hỏi tối ưu |
+| Ngày sử dụng | 23/06/2026 - 30/06/2026 |
+| Công cụ AI | Gemini / Codex / Antigravity |
+| Mục đích | Nâng cấp sơ đồ kiến trúc (AWS layout, MongoDB override, Draw.io exporter, Vision check) |
+| Phần việc liên quan | Frontend / Backend / Layout Engine |
+| Mức độ sử dụng | Hỏi giải pháp / Hỏi sinh code / Hỏi tối ưu |
 
 #### 5.1. Prompt nguyên văn
 
 ```text
-Tiếp tục Code Insight Phase 6-9. Tôi cần fetch changed files của PR khi leader mở evidence, tạo AI review summary dạng local/safe vì chưa có provider thật, lưu audit snapshot khi approve/reject và thêm dashboard metrics. Sau đó nếu test manual thấy failed CI mà vẫn READY thì sửa risk rule để failed CI phải BLOCKED.
+Cung cấp định hướng để tối ưu hóa và đơn giản hóa parser kiến trúc hệ thống hiện tại, triển khai tính năng lưu trữ thủ công (manual overrides) để Leader có thể chỉnh sửa sơ đồ (thêm/xóa node, group, edge) và đồng bộ với cơ sở dữ liệu MongoDB.
+Khắc phục các lỗi đường nối mũi tên bị đè lên nhau, bị mồ côi không chỉ đúng vào node, hoặc khi kéo node đi thì đường nối ở vị trí cũ không di chuyển theo node.
+Lên kế hoạch và triển khai nâng cấp toàn diện sơ đồ kiến trúc hệ thống (System Architecture Diagram):
+1. Sắp xếp sơ đồ gọn mắt, đường nối trực giao 90° không chồng chéo.
+2. Giao diện chuẩn AWS (khung viền vuông, nét liền/đứt, database hình trụ).
+3. Cho phép kéo thả tự do và lưu lại vị trí vào DB, kèm nút Reset Layout.
+4. Xuất ảnh PNG, SVG và xuất tệp Draw.io XML.
+5. Vision AI phân tích đồ thị tự động tối ưu hóa giãn cách (layout hints).
+6. Bảng chú thích màu sắc, giao thức kết nối.
 ```
 
 #### 5.2. Bối cảnh khi viết prompt
 
 ```text
-Code Insight đã có evidence nhưng còn thiếu changed files, summary, audit snapshot và dashboard. Sau manual test còn thấy lỗi risk failed CI.
+Sơ đồ kiến trúc tự động bằng ELK có lúc bị lệch tọa độ tương đối, đường nối bị mồ côi, và người dùng không lưu lại được vị trí kéo thả hoặc xuất sơ đồ ra Draw.io để nộp báo cáo.
 ```
 
 #### 5.3. Kết quả AI trả về
 
 ```text
-AI thêm changed file fetch/cache, local AI review summary, review snapshot, dashboard và sửa failed CI thành hard BLOCKED risk.
+AI đề xuất dùng MongoDB để lưu overrides, thuật toán cộng offset tuyệt đối và Drift Detection (ngưỡng 6px) để fallback SmoothStep. AI cung cấp code drawioExporter đóng gói nén XML, code xuất PNG/SVG, và diagram_vision_check.py gọi Gemini Vision.
 ```
 
 #### 5.4. Kết quả đã áp dụng vào bài
 
 ```text
-Leader review flow hoàn thiện hơn và failed CI không còn hiển thị READY sai.
+Sơ đồ AWS đẹp mắt, hỗ trợ lưu vị trí khi kéo thả vào MongoDB, hỗ trợ xuất Draw.io và có Vision AI tự gợi ý co giãn khoảng cách.
 ```
 
 #### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
 
 ```text
-Em giữ AI summary local, không external provider và không auto-approve. Em phát hiện case failed CI qua manual test rồi sửa lại rule.
+Em tự lập trình lại thuật toán `fitToNodes` tính toán bounding box thủ công từ tọa độ ELK do fitView của React Flow v12 bị bất đồng bộ với ResizeObserver. Em chỉnh ngưỡng Drift là 6px để đường nối không bị giật cục.
 ```
 
 #### 5.6. Đánh giá chất lượng prompt
@@ -1111,17 +1202,87 @@ Em giữ AI summary local, không external provider và không auto-approve. Em 
 
 | Loại minh chứng | Nội dung |
 |---|---|
-| Link commit | `f92a255`, `87eee37`, `41bfb06`, `db2c023`, `a39808f`, `d7b59b0` |
-| File liên quan | `CodeInsightPatchServiceImpl.java`, `CodeInsightAiReviewServiceImpl.java`, `CodeInsightReviewSnapshotServiceImpl.java`, `CodeInsightScoringServiceImpl.java`, `CodeInsightPage.jsx` |
-| Screenshot | Dashboard/failed CI/prompt số 15 |
-| Kết quả chạy/test | `./mvnw.cmd test` 93 tests passed; targeted scoring test passed |
-| Link tài liệu/báo cáo | Code Insight architecture report |
-| Ghi chú khác | Đây là mốc mới nhất tính đến 08/06/2026 |
+| Link commit | `[DE200322] feat: upgrade system architecture diagram with AWS conventions...` |
+| File liên quan | `useGraphLayout.js`, `ElkEdge.jsx`, `ArchitectureGraph.java`, `drawioExporter.js`, `diagram_vision_check.py` |
+| Screenshot | Sơ đồ AWS full canvas, modal xuất XML và Legend panel |
+| Kết quả chạy/test | Kéo thả lưu MongoDB thành công, mở file Draw.io trên diagrams.net thành công |
+| Link tài liệu/báo cáo | Báo cáo kiến trúc hệ thống |
+| Ghi chú khác | Khắc phục lỗi measured của React Flow v12 |
 
 #### 5.8. Ghi chú thêm
 
 ```text
-Prompt này có phần debug sau manual test, không chỉ sinh feature mới.
+Hàm fitBounds tự viết giúp nút Fit View hoạt động ổn định 100%.
+```
+
+---
+
+### Prompt số 17
+
+| Nội dung | Thông tin |
+|---|---|
+| Ngày sử dụng | 01/07/2026 |
+| Công cụ AI | Antigravity |
+| Mục đích | Triển khai module Admin Project Management và sửa lỗi Null Parameter JPQL |
+| Phần việc liên quan | Backend / Frontend / Database |
+| Mức độ sử dụng | Hỏi sinh code / Hỏi debug |
+
+#### 5.1. Prompt nguyên văn
+
+```text
+Triển khai module Quản lý dự án cho Admin: bao gồm thống kê, tìm kiếm, phân trang, đình chỉ (khóa mềm có lý do), kích hoạt lại, và xóa mềm (soft delete). Sửa lỗi "ERROR: could not determine data type of parameter $4" liên quan đến việc truyền tham số Null trong truy vấn JPQL trên PostgreSQL.
+```
+
+#### 5.2. Bối cảnh khi viết prompt
+
+```text
+Em bắt tay làm module Quản lý dự án cho Admin để hoàn thiện phân quyền, nhưng JPQL dynamic nullable parameter gặp lỗi kiểu dữ liệu nghiêm trọng trên PostgreSQL.
+```
+
+#### 5.3. Kết quả AI trả về
+
+```text
+AI đề xuất phân rã dynamic JPQL thành 6 query tĩnh riêng biệt trong repository để PostgreSQL không phải suy luận kiểu tham số Null, đồng thời cung cấp REST APIs, service và React page quản lý dự án.
+```
+
+#### 5.4. Kết quả đã áp dụng vào bài
+
+```text
+Admin Project Management module hoàn tất, hoạt động bình thường trên PostgreSQL không còn lỗi parameter type mismatch.
+```
+
+#### 5.5. Phần sinh viên/nhóm đã chỉnh sửa hoặc cải tiến
+
+```text
+Em thắt chặt nghiệp vụ: Admin chỉ có quyền Khóa/Đình chỉ và Xóa mềm dự án chứ không được sửa trạng thái của dự án. Em đồng thời chèn filter `isDeleted = false` vào toàn bộ API truy vấn của user thông thường.
+```
+
+#### 5.6. Đánh giá chất lượng prompt
+
+- [x] Prompt rõ ràng
+- [x] Prompt có đủ bối cảnh
+- [ ] Prompt còn thiếu thông tin
+- [x] Prompt tạo ra kết quả tốt
+- [ ] Prompt tạo ra kết quả chưa phù hợp
+- [ ] Cần hỏi lại AI nhiều lần
+- [x] Cần tự kiểm tra và chỉnh sửa nhiều
+- [ ] Kết quả AI có lỗi hoặc chưa chính xác
+
+#### 5.7. Minh chứng liên quan
+
+| Loại minh chứng | Nội dung |
+|---|---|
+| Link commit | `[DE200322] feat: implement Admin Project Management module` |
+| File liên quan | `ProjectRepository.java`, `SystemAdminProjectController.java`, `ProjectManagementPage.jsx`, `adminService.js` |
+| Screenshot | UI Admin Project Management, statistics panel, suspension modal |
+| Kết quả chạy/test | Backend test passed, smoke check API stats trả về 403 Forbidden khi thiếu auth |
+| Link tài liệu/báo cáo | Báo cáo module quản lý hệ thống |
+| Ghi chú khác | Không |
+
+#### 5.8. Ghi chú thêm
+
+```text
+Tách query tĩnh là cách xử lý sạch và tối ưu phân trang nhất cho JPA khi kết hợp PostgreSQL.
 ```
 
 ---
@@ -1237,18 +1398,18 @@ Em sẽ ghi kèm context file/commit/test ngay từ đầu, yêu cầu AI giải
 
 | Loại prompt | Số lượng | Ví dụ prompt tiêu biểu |
 |---|---:|---|
-| Prompt phân tích yêu cầu | 2 | Prompt số 1, 2 |
-| Prompt giải thích kiến thức | 2 | Prompt số 3, 8 |
-| Prompt thiết kế giải pháp | 3 | Prompt số 5, 11, 14 |
-| Prompt thiết kế database | 2 | Prompt số 2, 3 |
-| Prompt sinh code mẫu | 5 | Prompt số 5, 6, 12, 14, 15 |
-| Prompt debug lỗi | 4 | Prompt số 7, 10, 13, 15 |
-| Prompt viết test case | 4 | Prompt số 5, 12, 14, 15 |
-| Prompt review code | 5 | Prompt số 7, 11, 13, 14, 15 |
-| Prompt tối ưu code | 2 | Prompt số 13, 14 |
-| Prompt viết báo cáo | 3 | Prompt số 4, 8, 11 |
-| Prompt chuẩn bị thuyết trình | 1 | Prompt số 8 |
-| Prompt khác | 2 | Prompt số 4, 9 |
+| Prompt phân tích yêu cầu | 4 | Prompt số 1, 2, 7, 14 |
+| Prompt giải thích kiến thức | 1 | Prompt số 3 |
+| Prompt thiết kế giải pháp | 5 | Prompt số 3, 4, 9, 14, 16 |
+| Prompt thiết kế database | 4 | Prompt số 2, 3, 14, 17 |
+| Prompt sinh code mẫu | 8 | Prompt số 4, 5, 10, 12, 13, 15, 16, 17 |
+| Prompt debug lỗi | 5 | Prompt số 6, 11, 13, 15, 17 |
+| Prompt viết test case | 6 | Prompt số 4, 10, 12, 13, 15, 17 |
+| Prompt review code | 7 | Prompt số 6, 9, 11, 12, 13, 15, 16 |
+| Prompt tối ưu code | 4 | Prompt số 11, 12, 15, 16 |
+| Prompt viết báo cáo | 2 | Prompt số 7, 9 |
+| Prompt chuẩn bị thuyết trình | 1 | Prompt số 7 |
+| Prompt khác | 1 | Prompt số 8 |
 
 ---
 
@@ -1266,7 +1427,7 @@ Sinh viên/nhóm tự kiểm tra chất lượng prompt đã dùng.
 | Prompt có yêu cầu AI giải thích hoặc phân tích | x | Nhiều prompt yêu cầu review/risk/actor-boundary |
 | Kết quả AI được kiểm tra lại | x | Chạy test/build/manual check |
 | Kết quả AI được chỉnh sửa trước khi sử dụng | x | Chỉnh scope, rule, UI copy, merge direction |
-| Prompt quan trọng được ghi lại đầy đủ | x | 15 prompt chính đã ghi |
+| Prompt quan trọng được ghi lại đầy đủ | x | 17 prompt chính đã ghi |
 | Prompt sai/chưa hiệu quả được rút kinh nghiệm | x | Có ví dụ prompt quá rộng và prompt cải tiến |
 
 ---
@@ -1283,4 +1444,4 @@ Sinh viên/nhóm cam kết rằng:
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-| Nguyễn Minh Hiếu | 08/06/2026 |
+| Nguyễn Minh Hiếu | 01/07/2026 |

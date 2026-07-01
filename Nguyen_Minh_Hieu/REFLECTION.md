@@ -12,7 +12,7 @@
 | Tên sinh viên / Nhóm | Nguyễn Minh Hiếu - Nhóm 4 |
 | MSSV / Danh sách MSSV | DE200322 |
 | Giảng viên hướng dẫn | Chưa cập nhật |
-| Ngày hoàn thành reflection | 08/06/2026 |
+| Ngày hoàn thành reflection | 01/07/2026 |
 
 ---
 
@@ -35,9 +35,9 @@ Reflection cần thể hiện:
 Mô tả ngắn gọn quá trình sử dụng AI trong bài tập/project này.
 
 ```text
-Trong project DevTrack AI, em dùng AI xuyên suốt nhưng không dùng theo kiểu để AI làm hết. Giai đoạn đầu em dùng ChatGPT/Gemini/Claude để brainstorm ý tưởng, phân tích requirement, use case, ERD và hướng traceability. Khi vào code, em dùng Codex nhiều hơn để đọc codebase, chia việc thành phase, hỗ trợ implement RTM, Sprint Weekly Planning và Code Insight. Với giao diện/prototype, em có tham khảo Stitch nhưng vẫn chỉnh lại theo cấu trúc React/Vite thật của project.
+Trong project DevTrack AI, em dùng AI xuyên suốt nhưng không dùng theo kiểu để AI làm hết. Giai đoạn đầu em dùng ChatGPT/Gemini/Claude để brainstorm ý tưởng, phân tích requirement, use case, ERD và hướng traceability. Khi vào code, em dùng Codex/Antigravity nhiều hơn để đọc codebase, chia việc thành phase, hỗ trợ implement RTM, Sprint Weekly Planning, Task Review namespace (SSE/manual links), AWS-styled System Architecture và Admin Project Management. Với giao diện, em tham khảo UI Deep Teal để đồng bộ hóa thành Premium UI.
 
-AI giúp em đi nhanh hơn ở các phần phức tạp như RTM đọc nhiều bảng, Sprint business rule và Code Insight liên quan GitHub evidence, scoring, review snapshot. Tuy vậy, các kết quả AI đều được kiểm tra lại bằng schema, commit, test, build hoặc manual test. Những phần quá rộng hoặc rủi ro, ví dụ AI auto-approve task hoặc semantic linking bằng AI, em không đưa vào bản hiện tại.
+AI giúp em đi nhanh hơn ở các phần phức tạp như RTM đọc nhiều bảng, Sprint business rule, gộp cuộc gọi Gemini để stream SSE AI review chi tiết, lưu manual overrides vào MongoDB, và phân tách JPQL queries cho Admin. Tuy vậy, các kết quả AI đều được kiểm tra lại bằng schema, commit, test, build hoặc manual test. Những phần quá rộng hoặc rủi ro, ví dụ AI tự động duyệt task hoặc semantic linking bằng AI, em không đưa vào bản hiện tại.
 ```
 
 Gợi ý:
@@ -128,7 +128,8 @@ Gợi ý:
 ### 6.2. Những điểm AI chưa giúp tốt hoặc gây khó khăn
 
 ```text
-AI đôi lúc đưa ra scope quá rộng hoặc đề xuất cách làm nghe hay nhưng không hợp với codebase hiện tại. Ví dụ nếu để Code Insight có GitHub config riêng thì sẽ trùng với Issue Tracker. Một số logic scoring cũng cần manual test mới thấy vấn đề, như failed CI mà vẫn READY. Vì vậy nếu chỉ tin AI thì có thể tạo ra feature nhìn đúng nhưng nghiệp vụ sai.
+AI đôi lúc đưa ra scope quá rộng hoặc đề xuất cách làm nghe hay nhưng không hợp với codebase hiện tại. Ví dụ nếu để Code Insight có GitHub config riêng thì sẽ trùng với Issue Tracker. Một số logic scoring cũng cần manual test mới thấy vấn đề, như failed CI mà vẫn READY.
+Gần đây hơn, trong phần sơ đồ kiến trúc hệ thống, AI không phát hiện ra sự bất đồng bộ của React Flow v12 fitView khi ResizeObserver chưa đo xong DOM, khiến nút Fit view liên tục bị zoom sai tỷ lệ. Đối với Spring Boot, AI đề xuất dynamic JPQL nullable query nhưng PostgreSQL Driver không thể xác định kiểu dữ liệu của tham số Null, dẫn đến crash ứng dụng tại runtime. Vì vậy nếu chỉ tin AI thì có thể tạo ra feature nhìn đúng nhưng nghiệp vụ hoặc kỹ thuật nền tảng bị sai.
 ```
 
 Gợi ý:
@@ -196,17 +197,11 @@ Ghi lại ít nhất một ví dụ nếu có.
 
 | Nội dung | Mô tả |
 |---|---|
-| AI đã gợi ý gì? | Code Insight ban đầu có thể tách GitHub repository/webhook config riêng |
-| Vì sao gợi ý đó sai/chưa phù hợp? | Trong develop đã có GitHub Integration của Issue Tracker, nếu Code Insight giữ config riêng sẽ duplicate và khó bảo trì |
-| Em/nhóm phát hiện bằng cách nào? | Khi merge develop và kiểm tra code/module GitHub Integration hiện có |
-| Em/nhóm đã sửa như thế nào? | Refactor Code Insight dùng shared `github_integrations`, cleanup phần duplicate và giữ behavior Issue Tracker |
-| Bài học rút ra | Trước khi thêm feature mới phải đọc codebase hiện tại, đặc biệt các module của thành viên khác |
-
-Nếu không có trường hợp AI gợi ý sai, hãy ghi rõ:
-
-```text
-Trong quá trình thực hiện, em/nhóm có ghi nhận một số gợi ý AI chưa phù hợp và đã chỉnh sửa trước khi sử dụng, như duplicate GitHub config hoặc scoring failed CI chưa đủ chặt.
-```
+| AI đã gợi ý gì? | 1. Code Insight ban đầu có thể tách GitHub repository/webhook config riêng.<br>2. Dùng dynamic JPQL nullable query kiểu `(:status is null or p.status = :status) and (:suspended is null or p.suspended = :suspended)` cho Admin search.<br>3. Sử dụng `fitView()` mặc định của React Flow v12 sau khi ELK tính toán vị trí sơ đồ. |
+| Vì sao gợi ý đó sai/chưa phù hợp? | 1. Đã có GitHub Integration của Issue Tracker, nếu tách riêng sẽ trùng lặp và khó đồng bộ.<br>2. PostgreSQL Driver (pgjdbc) ném lỗi `could not determine data type of parameter` vì không xác định được kiểu dữ liệu cho dynamic Null.<br>3. `@xyflow/react` v12 yêu cầu thuộc tính `measured` do ResizeObserver cập nhật bất đồng bộ mới tính được bounds, gọi fitView ngay sẽ bị zoom-out quá nhỏ hoặc lệch. |
+| Em/nhóm phát hiện bằng cách nào? | 1. Khi merge develop và kiểm tra codebase của thành viên khác.<br>2. Chạy runtime backend và call API filter với các tham số trống (Null).<br>3. Click thử nút Fit View trên sơ đồ nhưng UI bị lệch và co cụm lại. |
+| Em/nhóm đã sửa như thế nào? | 1. Refactor Code Insight dùng chung shared `github_integrations`.<br>2. Tách dynamic query thành 6 query tĩnh cụ thể (mỗi query có countQuery phân trang riêng tối ưu) và định tuyến động trong Service.<br>3. Tự viết thuật toán `fitToNodes` duyệt nodes để tự tính bounding box từ tọa độ/kích thước ELK, dùng `fitBounds` để căn chỉnh chính xác. |
+| Bài học rút ra | 1. Phải xem kỹ codebase hiện có của nhóm trước khi làm.<br>2. Hạn chế sử dụng dynamic nullable binds JPQL với PostgreSQL, ưu tiên tách query tĩnh hoặc dùng Criteria API.<br>3. Cần lưu ý các lifecycle bất đồng bộ liên quan đến DOM render của thư viện UI. |
 
 ---
 
@@ -335,7 +330,7 @@ Sinh viên/nhóm tự đánh giá theo thang 1-5.
 
 | Tiêu chí | Điểm tự đánh giá 1-5 | Ghi chú |
 |---|:---:|---|
-| Ghi nhận việc dùng AI trung thực | 5 | Có 15 log/prompt chính |
+| Ghi nhận việc dùng AI trung thực | 5 | Có 17 log/prompt chính |
 | Prompt có mục tiêu rõ ràng | 4 | Một số prompt ban đầu còn rộng |
 | Kiểm chứng kết quả AI | 5 | Có test/build/manual check |
 | Tự chỉnh sửa/cải tiến | 5 | Có chỉnh scope, merge direction, CI risk |
@@ -388,4 +383,4 @@ Sinh viên/nhóm hiểu rằng:
 
 | Đại diện sinh viên/nhóm | Ngày xác nhận |
 |---|---|
-| Nguyễn Minh Hiếu | 08/06/2026 |
+| Nguyễn Minh Hiếu | 01/07/2026 |
