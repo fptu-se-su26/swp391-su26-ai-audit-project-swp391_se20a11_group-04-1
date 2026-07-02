@@ -5,6 +5,8 @@ import org.example.backend.repository.GitHubCheckRunRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.GitHubWebhookEventRepository;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.service.WebSocketBroadcastService;
 import org.example.backend.service.CodeInsightEvidenceLinkService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,8 @@ class GitHubEvidenceServiceImplTest {
     @Mock private GitHubPullRequestRepository pullRequestRepository;
     @Mock private GitHubCheckRunRepository checkRunRepository;
     @Mock private CodeInsightEvidenceLinkService evidenceLinkService;
+    @Mock private CodeInsightEvidenceLinkRepository evidenceLinkRepository;
+    @Mock private WebSocketBroadcastService webSocketBroadcastService;
 
     @InjectMocks
     private GitHubEvidenceServiceImpl evidenceService;

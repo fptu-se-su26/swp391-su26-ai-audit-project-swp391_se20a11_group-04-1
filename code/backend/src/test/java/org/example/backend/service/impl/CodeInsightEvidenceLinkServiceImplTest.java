@@ -5,6 +5,7 @@ import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
 import org.example.backend.repository.GitHubCommitRepository;
 import org.example.backend.repository.GitHubPullRequestRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.service.WebSocketBroadcastService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,7 @@ class CodeInsightEvidenceLinkServiceImplTest {
     @Mock private TaskRepository taskRepository;
     @Mock private GitHubCommitRepository commitRepository;
     @Mock private GitHubPullRequestRepository pullRequestRepository;
+    @Mock private WebSocketBroadcastService webSocketBroadcastService;
 
     @InjectMocks
     private CodeInsightEvidenceLinkServiceImpl linkService;
