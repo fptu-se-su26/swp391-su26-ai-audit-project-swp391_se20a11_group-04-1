@@ -164,66 +164,18 @@ const LandingHero = () => {
             <div style={{"display":"flex","alignItems":"center","gap":"6px","fontSize":"10px","color":"var(--g600)","paddingLeft":"24px"}}><div style={{"width":"5px","height":"5px","borderRadius":"50%","background":"var(--amber)","flexShrink":"0"}}></div>TEST-007 Pass ✓</div>
         </div>
         <div className="fcrd" style={{"top":"70px","right":"18px","padding":"10px 14px"}}>
-            <div style={{"fontSize":"9px","fontWeight":"700","color":"var(--green)","textTransform":"uppercase","letterSpacing":".5px","marginBottom":"5px"}}>Sprint Health</div>
+            <div style={{"fontSize":"9px","fontWeight":"700","color":"var(--green)","textTransform":"uppercase","letterSpacing":".5px","marginBottom":"5px"}}>Project Health</div>
             <div style={{"fontSize":"28px","fontWeight":"900","color":"var(--t)","letterSpacing":"-1px","lineHeight":"1"}}>87<span style={{"fontSize":"13px","color":"var(--g400)","fontWeight":"500"}}>/100</span></div>
             <div style={{"fontSize":"9px","color":"var(--green)","fontWeight":"600","marginTop":"2px"}}>↑ Excellent</div>
         </div>
 
         <div className="hmock" id="hmock">
             <div className="mbr"><div className="tls"><div className="tl tlr"></div><div className="tl tly"></div><div className="tl tlg"></div></div><div className="murl">app.devtrack.ai / e-commerce-platform / dashboard</div></div>
-            <div className="mlay">
-                <div className="msb">
-                    <div className="mpj"><div className="mpji"></div><div className="mpjn">E-Commerce Platform</div></div>
-                    <div className="mni a"><div className="mnd"></div>Dashboard</div>
-                    <div className="mni"><div className="mnd"></div>Requirements</div>
-                    <div className="mni"><div className="mnd"></div>Use Cases & UML</div>
-                    <div className="mni"><div className="mnd"></div>Kanban Board</div>
-                    <div className="mni"><div className="mnd"></div>My Tasks</div>
-                    <div className="mni"><div className="mnd"></div>Test Cases</div>
-                    <div className="mni"><div className="mnd"></div>Evidence & Audit</div>
-                    <div className="mni"><div className="mnd"></div>Traceability Tree</div>
-                    <div className="mni"><div className="mnd"></div>Code Insight</div>
-                    <div className="mni"><div className="mnd"></div>GitHub Reviews</div>
-                    <div className="mni"><div className="mnd"></div>Classroom</div>
-                    <div style={{"marginTop":"14px","paddingTop":"12px","borderTop":"1px solid var(--g200)"}}>
-                        <div style={{"fontSize":"9px","fontWeight":"700","color":"var(--g400)","textTransform":"uppercase","letterSpacing":".5px","marginBottom":"7px"}}>Sprint 3/6</div>
-                        <div style={{"height":"4px","background":"var(--g200)","borderRadius":"100px","overflow":"hidden"}}><div style={{"width":"68%","height":"100%","background":"linear-gradient(90deg,var(--t),var(--c))","borderRadius":"100px"}}></div></div>
-                        <div style={{"fontSize":"9px","color":"var(--g400)","marginTop":"4px"}}>8 days left</div>
-                    </div>
-                </div>
-                <div className="mmc">
-                    <div className="mmtop"><div className="mmttl">Dashboard — Sprint 3</div><div className="mmbdg">✦ AI Analysis Ready</div></div>
-                    <div className="mmet">
-                        <div className="mmcard"><div className="mmv" style={{"color":"var(--t)"}}>87</div><div className="mml">Health</div></div>
-                        <div className="mmcard"><div className="mmv">24</div><div className="mml">Requirements</div></div>
-                        <div className="mmcard"><div className="mmv">31/48</div><div className="mml">Tasks</div></div>
-                        <div className="mmcard"><div className="mmv" style={{"color":"var(--green)"}}>92%</div><div className="mml">Tests</div></div>
-                        <div className="mmcard"><div className="mmv" style={{"color":"var(--purple)"}}>78%</div><div className="mml">Evidence</div></div>
-                    </div>
-                    <div className="mkb">
-                        <div className="mkc"><div className="mkh">To Do <span className="mkn">7</span></div>
-                            <div className="mkt">Payment gateway<div><span className="mtag mtt">Backend</span></div></div>
-                            <div className="mkt">Cart UI<div><span className="mtag mtp">Frontend</span></div></div>
-                        </div>
-                        <div className="mkc"><div className="mkh">In Progress <span className="mkn">5</span></div>
-                            <div className="mkt" style={{"borderLeft":"2px solid var(--t)"}}>Auth JWT<div><span className="mtag mtt">Backend</span></div></div>
-                            <div className="mkt" style={{"borderLeft":"2px solid var(--purple)"}}>Product listing<div><span className="mtag mtp">Frontend</span></div></div>
-                        </div>
-                        <div className="mkc"><div className="mkh">Review <span className="mkn">3</span></div>
-                            <div className="mkt" style={{"borderLeft":"2px solid var(--amber)"}}>Register flow<div><span className="mtag mtg">PR #12 ✓</span></div></div>
-                        </div>
-                        <div className="mkc"><div className="mkh">Done <span className="mkn">16</span></div>
-                            <div className="mkt" style={{"opacity":".6"}}>CI/CD setup<div><span className="mtag mtg">Done ✓</span></div></div>
-                            <div className="mkt" style={{"opacity":".6"}}>UML approved<div><span className="mtag mtg">Done ✓</span></div></div>
-                        </div>
-                    </div>
-                    <div className="mbot">
-                        <div className="mbotc"><div className="mbott">✦ AI Insights</div><div style={{"fontSize":"9.5px","color":"var(--g600)","lineHeight":"1.6"}}>• Velocity 23% below<br />• 3 reqs missing tests<br />• 5 tasks no evidence</div></div>
-                        <div className="mbotc" style={{"background":"rgba(34,197,94,.04)","borderColor":"rgba(34,197,94,.1)"}}><div className="mbott" style={{"color":"var(--green)"}}>Evidence</div><div style={{"display":"flex","alignItems":"center","gap":"6px","margin":"4px 0"}}><div style={{"flex":"1","height":"5px","background":"var(--g100)","borderRadius":"100px","overflow":"hidden"}}><div style={{"width":"78%","height":"100%","background":"linear-gradient(90deg,var(--green),#16a34a)","borderRadius":"100px"}}></div></div><div style={{"fontSize":"10px","fontWeight":"700","color":"var(--green)"}}>78%</div></div><div style={{"fontSize":"9px","color":"var(--g500)"}}>37/48 linked</div></div>
-                        <div className="mbotc" style={{"background":"rgba(30,112,125,.04)","borderColor":"rgba(30,112,125,.1)"}}><div className="mbott">RTM Quick</div><div style={{"fontSize":"9.5px","color":"var(--g600)","lineHeight":"1.7"}}><span style={{"color":"var(--green)"}}>●</span> REQ-001 DONE<br /><span style={{"color":"var(--amber)"}}>●</span> REQ-003 WIP<br /><span style={{"color":"var(--red)"}}>●</span> REQ-007 MISS</div></div>
-                    </div>
-                </div>
-            </div>
+            <img 
+                src="https://res.cloudinary.com/dufmichwn/image/upload/q_auto,f_auto/v1782957558/dashboardjpg_yrxci9.jpg" 
+                alt="DevTrack AI Dashboard Preview"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+            />
         </div>
     </div>
 </section>

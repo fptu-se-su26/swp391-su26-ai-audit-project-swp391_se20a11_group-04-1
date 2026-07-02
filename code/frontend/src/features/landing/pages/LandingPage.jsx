@@ -75,50 +75,6 @@ const LandingPage = () => {
     },{threshold:.5});
     document.querySelectorAll('[data-count]').forEach(el=>cobs.observe(el));
 
-    /* ── GALLERY COVERFLOW ── */
-    (function(){
-        const items=document.querySelectorAll('.gi');
-        const dots=document.querySelectorAll('#gDots .gd2');
-        const N=items.length;
-        if(N===0) return;
-        let cur=0;
-        function getClass(offset){
-            if(offset===0)return 'center';
-            if(offset===1||offset===-(N-1))return 'right1';
-            if(offset===2||offset===-(N-2))return 'right2';
-            if(offset===-1||offset===(N-1))return 'left1';
-            if(offset===-2||offset===(N-2))return 'left2';
-            return 'hidden';
-        }
-        function render(){
-            items.forEach((el,i)=>{
-                el.className='gi';
-                const off=((i-cur)%N+N+Math.floor(N/2))%N-Math.floor(N/2);
-                el.classList.add(getClass(off));
-                if(el.style.background&&el.style.background.includes('g900'))el.style.background='var(--g900)';
-                if(el.style.background&&el.style.background.includes('g800'))el.style.background='var(--g800)';
-            });
-            dots.forEach((d,i)=>d.classList.toggle('a',i===cur));
-        }
-        function go(d){cur=((cur+d)%N+N)%N;render();}
-        document.getElementById('gNext')?.addEventListener('click',()=>go(1));
-        document.getElementById('gPrev')?.addEventListener('click',()=>go(-1));
-        dots.forEach(d=>d.addEventListener('click',()=>{cur=+d.dataset.gi;render();}));
-        items.forEach((el,i)=>el.addEventListener('click',()=>{cur=i;render();}));
-        render();
-        // fix dark slide bg after class reset
-        const darkMap={'2':'var(--g900)','3':'var(--g800)'};
-        const origRender=render;
-        window._grender=function(){
-            origRender();
-            items.forEach((el,i)=>{if(darkMap[i])el.style.background=darkMap[i];});
-        };
-        window._grender();
-        let gtimer=setInterval(()=>{cur=((cur+1)%N+N)%N;window._grender();},5000);
-        document.getElementById('gStage')?.addEventListener('mouseenter',()=>clearInterval(gtimer));
-        document.getElementById('gStage')?.addEventListener('mouseleave',()=>{gtimer=setInterval(()=>{cur=((cur+1)%N+N)%N;window._grender();},5000);});
-    })();
-
     /* ── SCROLL REVEAL ── */
     const srobs=new IntersectionObserver(entries=>{
         entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');});

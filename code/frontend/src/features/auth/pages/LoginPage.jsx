@@ -8,7 +8,7 @@ import axiosInstance from '@api/axiosConfig'
 function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const returnUrl = location.state?.returnUrl || '/'
+  const returnUrl = location.state?.returnUrl || '/dashboard'
   
   const [formData, setFormData] = useState({
     usernameOrEmail: '',
