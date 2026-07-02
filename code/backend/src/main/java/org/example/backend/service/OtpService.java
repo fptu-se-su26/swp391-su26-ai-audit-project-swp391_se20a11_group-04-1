@@ -15,6 +15,11 @@ public interface OtpService {
     void saveOtpAndRequest(String email, String otp, RegisterRequest request, long ttlMinutes);
 
     /**
+     * Caches only the OTP in Redis (e.g. for forgot password).
+     */
+    void saveOtpOnly(String email, String otp, long ttlMinutes);
+
+    /**
      * Compares the provided OTP against the cached one in Redis.
      */
     boolean verifyOtp(String email, String otp);

@@ -51,6 +51,13 @@ public class OtpServiceImpl implements OtpService {
     }
 
     @Override
+    public void saveOtpOnly(String email, String otp, long ttlMinutes) {
+        String otpKey = OTP_KEY_PREFIX + email;
+        redisTemplate.opsForValue().set(otpKey, otp, ttlMinutes, TimeUnit.MINUTES);
+        log.info("Successfully cached OTP only for email: {}", email);
+    }
+
+    @Override
     public boolean verifyOtp(String email, String otp) {
         String otpKey = OTP_KEY_PREFIX + email;
         String cachedOtp = redisTemplate.opsForValue().get(otpKey);

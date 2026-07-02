@@ -7,6 +7,11 @@ public interface EmailService {
      */
     void sendOtpEmail(String toEmail, String otp);
 
+    /**
+     * Sends an HTML-formatted email containing the OTP code for password reset.
+     */
+    void sendForgotPasswordOtpEmail(String toEmail, String otp);
+
     void sendSecurityAlertEmail(String toEmail, String username, int failedAttempts, long lockTimeMinutes, String deviceInfo, String location, String unlockLink);
 
     /**

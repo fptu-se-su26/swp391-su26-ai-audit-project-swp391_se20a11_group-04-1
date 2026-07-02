@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // Feature Pages - Auth
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
+import ForgotPasswordPage from '@features/auth/pages/ForgotPasswordPage'
 import VerificationPage from '@features/auth/pages/VerificationPage'
 
 // Feature Pages - Workspace & Dashboard
@@ -91,6 +92,7 @@ export function AppRoutes() {
       {/* 1. Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route path="/classrooms/join" element={<JoinClassroomPage />} />
       <Route path="/github/callback" element={<GitHubCallbackPage />} />

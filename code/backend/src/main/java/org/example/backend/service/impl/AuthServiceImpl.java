@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpSession;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
+import org.example.backend.dto.ResetPasswordRequest;
 import org.example.backend.entity.SystemRole;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.UserProfile;
@@ -676,6 +677,52 @@ public class AuthServiceImpl implements AuthService {
                 .lockReason(user.getLockReason())
                 .passwordSet(isPasswordSet(user))
                 .build();
+    }
+
+    @Override
+    public void requestForgotPassword(String email) {
+        log.info("Received forgot password request for email: {}", email);
+
+        // 1. Verify if user email exists in database
+        UserAccount user = userAccountRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.warn("Forgot password request failed. Email does not exist: {}", email);
+                    return new ResourceNotFoundException("Email không tồn tại trong hệ thống.");
+                });
+
+        // 2. Generate secure random 6-digit OTP
+        String otp = otpService.generateOtp();
+
+        // 3. Cache OTP only to Redis for 5 minutes
+        otpService.saveOtpOnly(email, otp, 5);
+
+        // 4. Send forgot password HTML OTP email
+        emailService.sendForgotPasswordOtpEmail(email, otp);
+        log.info("Successfully processed step 1 forgot password for: {}", email);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        log.info("Processing password reset for email: {}", request.getEmail());
+
+        // 1. Validate OTP from Redis
+        if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
+            log.warn("Invalid or expired OTP provided for forgot password email: {}", request.getEmail());
+            throw new BadRequestException("Mã OTP không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // 2. Find user account
+        UserAccount user = userAccountRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
+
+        // 3. Hash and set new password
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userAccountRepository.save(user);
+        log.info("Successfully updated password for user ID: {}", user.getId());
+
+        // 4. Clean up Redis OTP cache
+        otpService.clearOtpAndRequest(request.getEmail());
     }
 
     private boolean isPasswordSet(UserAccount user) {

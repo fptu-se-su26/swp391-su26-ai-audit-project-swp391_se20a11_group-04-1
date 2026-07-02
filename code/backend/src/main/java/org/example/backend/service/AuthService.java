@@ -2,6 +2,7 @@ package org.example.backend.service;
 
 import jakarta.servlet.http.HttpSession;
 import org.example.backend.dto.RegisterRequest;
+import org.example.backend.dto.ResetPasswordRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
 
@@ -60,4 +61,14 @@ public interface AuthService {
      * Đăng ký người dùng mới bằng tài khoản GitHub OAuth sau khi người dùng đồng ý.
      */
     UserResponse registerWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session);
+
+    /**
+     * Step 1 for forgot password: check if email exists, generate OTP, cache in Redis, send email.
+     */
+    void requestForgotPassword(String email);
+
+    /**
+     * Step 2 for forgot password: verify OTP, hash new password, save in DB, clear Redis.
+     */
+    void resetPassword(ResetPasswordRequest request);
 }

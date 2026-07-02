@@ -77,6 +77,27 @@ export const authService = {
   loginWithGitHub: async (code) => {
     return axiosInstance.post('/v1/auth/github/login', { code })
   },
+
+  /**
+   * Gửi yêu cầu OTP để khôi phục mật khẩu (Step 1: Quên mật khẩu)
+   * @param {string} email - Địa chỉ email đã đăng ký
+   * @returns {Promise<any>} Response từ axiosInstance
+   */
+  forgotPasswordRequest: async (email) => {
+    return axiosInstance.post('/v1/auth/forgot-password/request', { email })
+  },
+
+  /**
+   * Xác nhận OTP và đặt lại mật khẩu mới (Step 2: Đặt lại mật khẩu)
+   * @param {Object} payload - Dữ liệu đặt lại mật khẩu
+   * @param {string} payload.email - Email cần khôi phục
+   * @param {string} payload.otp - Mã xác thực OTP
+   * @param {string} payload.newPassword - Mật khẩu mới
+   * @returns {Promise<any>} Response từ axiosInstance
+   */
+  forgotPasswordReset: async (payload) => {
+    return axiosInstance.post('/v1/auth/forgot-password/reset', payload)
+  },
 }
 
 export default authService

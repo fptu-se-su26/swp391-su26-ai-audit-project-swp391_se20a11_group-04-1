@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
+import org.example.backend.dto.ResetPasswordRequest;
 import org.example.backend.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +49,32 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> verifyOtpAndRegister(@Valid @RequestBody VerifyOtpRequest request) {
         UserResponse registeredUser = authService.verifyOtpAndRegister(request);
         ApiResponse<UserResponse> response = ApiResponse.success(registeredUser, "Đăng ký tài khoản thành công!");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 1: Submit Forgot Password Request, check if email exists, generate OTP, cache in Redis, send OTP email.
+     * POST /api/v1/auth/forgot-password/request
+     */
+    @PostMapping("/forgot-password/request")
+    public ResponseEntity<ApiResponse<Void>> requestForgotPassword(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            throw new BadRequestException("Địa chỉ email không hợp lệ.");
+        }
+        authService.requestForgotPassword(email);
+        ApiResponse<Void> response = ApiResponse.success("Mã OTP khôi phục mật khẩu đã được gửi đến email của bạn. Vui lòng xác thực trong vòng 5 phút.");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 2: Submit OTP and new password, verify, update in DB, clear Redis.
+     * POST /api/v1/auth/forgot-password/reset
+     */
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        ApiResponse<Void> response = ApiResponse.success("Đặt lại mật khẩu thành công!");
         return ResponseEntity.ok(response);
     }
 
