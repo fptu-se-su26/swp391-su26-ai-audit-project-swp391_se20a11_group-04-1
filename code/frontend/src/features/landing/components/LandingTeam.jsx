@@ -6,7 +6,7 @@ const TEAM_MEMBERS = [
         name: 'Duy Hung',
         role: 'Project Lead',
         desc: 'Leading the vision and architecture to build a scalable platform.',
-        image: 'https://res.cloudinary.com/dufmichwn/image/upload/q_auto,f_auto,c_fill,w_400,h_550/v1782960826/hung_kmxhzb.jpg',
+        image: 'https://res.cloudinary.com/dufmichwn/image/upload/v1783050138/hung_p2yd8j.jpg',
         themeColor: '#94a3b8',
         initials: 'DH'
     },
@@ -34,7 +34,7 @@ const TEAM_MEMBERS = [
         name: 'Hieu Nguyen',
         role: 'Data Scientist',
         desc: 'Crafting intuitive and pixel-perfect user experiences for everyone.',
-        image: 'https://res.cloudinary.com/dufmichwn/image/upload/v1782987033/minh_r8s4s7.jpg',
+        image: 'https://res.cloudinary.com/dufmichwn/image/upload/v1783049750/hieu_wrhilx.jpg',
         themeColor: '#f59e0b',
         initials: 'HN',
         fallbackBg: 'linear-gradient(180deg, #9a3412 0%, #431407 100%)'
@@ -44,7 +44,7 @@ const TEAM_MEMBERS = [
         name: 'Thanh Dat',
         role: 'Cloud Architect',
         desc: 'Ensuring scalable and zero-downtime infrastructure for global users.',
-        image: 'https://res.cloudinary.com/dufmichwn/image/upload/v1782987033/linh_v2w9yq.jpg',
+        image: 'https://res.cloudinary.com/dufmichwn/image/upload/v1783049807/dat_ekxrpf.jpg',
         themeColor: '#e11d48',
         initials: 'TD',
         fallbackBg: 'linear-gradient(180deg, #9f1239 0%, #4c0519 100%)'
@@ -211,9 +211,6 @@ const LandingTeam = () => {
                   display: flex;
                   flex-direction: column;
                   padding: 24px;
-                  background-size: cover;
-                  background-position: center;
-                  background-repeat: no-repeat;
               }
 
               .tc-inner::before {
@@ -222,10 +219,10 @@ const LandingTeam = () => {
                   inset: 0;
                   background: radial-gradient(
                       600px circle at var(--mouse-x, -500px) var(--mouse-y, -500px),
-                      rgba(255,255,255,0.15),
+                      rgba(255,255,255,0.1),
                       transparent 40%
                   );
-                  z-index: 10;
+                  z-index: 15;
                   pointer-events: none;
                   mix-blend-mode: overlay;
               }
@@ -237,10 +234,10 @@ const LandingTeam = () => {
                   background: linear-gradient(
                       105deg,
                       transparent 20%,
-                      rgba(255,255,255,0.2) 25%,
+                      rgba(255,255,255,0.15) 25%,
                       transparent 30%
                   );
-                  z-index: 10;
+                  z-index: 15;
                   pointer-events: none;
                   transform: translateX(-100%);
                   transition: transform 0.8s ease;
@@ -250,14 +247,6 @@ const LandingTeam = () => {
                   transform: translateX(100%);
               }
 
-              /* Gradient mượt từ dưới lên để làm nổi bật name box */
-              .tc-overlay {
-                  position: absolute;
-                  inset: 0;
-                  background: linear-gradient(to top, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.2) 50%, rgba(15, 23, 42, 0) 100%);
-                  z-index: 1;
-              }
-
               /* Viền sáng bao quanh khung hình */
               .tc-inner {
                   border: 1px solid rgba(255,255,255,0.05);
@@ -265,8 +254,8 @@ const LandingTeam = () => {
               }
               
               .coverflow-item[data-offset="0"] .tc-inner {
-                  border-color: rgba(255,255,255,0.25); /* Viền sáng trắng rất mỏng và nhẹ */
-                  box-shadow: inset 0 0 40px rgba(0,0,0,0.4), 0 15px 40px rgba(0,0,0,0.4); /* Chỉ dùng bóng đen mờ để tạo chiều sâu, không dùng ánh sáng màu gắt */
+                  border-color: rgba(255,255,255,0.3);
+                  box-shadow: 0 20px 50px rgba(0,0,0,0.6); 
               }
 
               @keyframes breatheSmoke {
@@ -275,59 +264,19 @@ const LandingTeam = () => {
                   100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); filter: blur(30px); }
               }
 
-              /* Khung tên thiết kế nhỏ gọn ở đáy - Trong suốt hoàn toàn */
-              .tc-name-box {
+              .tc-name-container {
                   position: relative;
-                  z-index: 5;
-                  margin-top: auto;
-                  padding: 12px;
-                  text-align: center;
-                  transform: translateZ(50px);
-                  transition: transform 0.3s ease;
-              }
-              
-              .tc-name { 
-                  font-size: 24px; 
-                  font-weight: 900; 
-                  margin-bottom: 8px; 
-                  letter-spacing: -0.5px;
-                  /* Isometric block-letter 3D effect (Giống hệt tiêu đề "Real Engineering Team") */
-                  color: #fdfeff;
-                  -webkit-text-stroke: 1px var(--t);
-                  text-stroke: 1px var(--t);
-                  paint-order: stroke fill;
-                  position: relative;
-                  text-shadow:
-                    -1px 0 0 var(--t), 1px 0 0 var(--t), 0 -1px 0 var(--t), 0 1px 0 var(--t),
-                    1px 1px 0 var(--t), 2px 2px 0 var(--t), 3px 3px 0 var(--t), 
-                    4px 4px 0 var(--t), 5px 5px 0 var(--td), 6px 6px 0 var(--td),
-                    7px 7px 15px rgba(0,0,0,0.6);
-              }
-              
-              .tc-desc {
-                  font-size: 11.5px;
-                  font-style: italic;
-                  color: var(--t); /* Màu xanh đang build web */
-                  line-height: 1.4;
-                  font-weight: 600;
-                  display: -webkit-box;
-                  -webkit-line-clamp: 2;
-                  -webkit-box-orient: vertical;
-                  overflow: hidden;
-                  text-shadow: 0 2px 6px rgba(0,0,0,0.8);
-                  transition: filter 0.3s ease;
-              }
-              
-              .coverflow-item[data-offset="0"] .tc-desc {
-                  filter: brightness(1.2);
+                  z-index: 20;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: flex-end;
+                  height: 100%;
+                  width: 100%;
+                  transform: translateZ(30px);
               }
           `}</style>
 
           <div className="coverflow-container" ref={containerRef}>
-              <div 
-                className="glow-backdrop" 
-                style={{ background: `radial-gradient(circle at center, ${centerMember.themeColor} 0%, transparent 70%)` }}
-              ></div>
               
               <div className="smoke-left"></div>
               <div className="smoke-right"></div>
@@ -344,19 +293,39 @@ const LandingTeam = () => {
                           onClick={() => setActiveIndex(index)}
                       >
                           <div className="tc-tilt">
-                              <div 
-                                className="tc-inner" 
-                                style={{ 
-                                  backgroundImage: member.image ? `url("${member.image}")` : member.fallbackBg,
-                                  '--card-theme': member.themeColor 
-                                }}
-                              >
-                                  <div className="tc-overlay"></div>
+                              <div className="tc-inner group">
+                                  {/* Ảnh nền Zoom 3D */}
+                                  <img 
+                                      src={member.image} 
+                                      alt={member.name} 
+                                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
+                                      style={{ pointerEvents: 'none' }}
+                                  />
 
-                                  {/* Xoá badge & skills cũ, thay bằng name-box ở dưới cùng */}
-                                  <div className="tc-name-box">
-                                      <div className="tc-name">{member.name}</div>
-                                      <div className="tc-desc">{member.desc}</div>
+                                  {/* Đáy kính tối (Bottom Dark Gradient) */}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B1120]/90 via-[#0B1120]/40 to-transparent z-1"></div>
+
+                                  {/* Text Box */}
+                                  <div className="tc-name-container">
+                                      <div className="mt-auto mb-4 text-left">
+                                          <p className="text-[14px] text-slate-200 leading-relaxed italic m-0" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                              "{member.desc}"
+                                          </p>
+                                      </div>
+                                      <div className="border-t border-white/20 pt-3 flex justify-between items-end text-left">
+                                          <div>
+                                              <h4 className="text-white font-bold text-[18px] m-0" style={{ fontFamily: '"Inter", sans-serif', letterSpacing: '0.3px' }}>
+                                                  {member.name}
+                                              </h4>
+                                              <p className="text-[13px] font-medium mt-1 m-0" style={{ color: 'var(--t)' }}>
+                                                  {member.role}
+                                              </p>
+                                          </div>
+                                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/40 transition-colors duration-300 group-hover:text-white">
+                                              <line x1="7" y1="17" x2="17" y2="7"></line>
+                                              <polyline points="7 7 17 7 17 17"></polyline>
+                                          </svg>
+                                      </div>
                                   </div>
                               </div>
                           </div>
@@ -430,7 +399,6 @@ const LandingTeam = () => {
                   </div>
               </div>
           </div>
-
       </section>
     </>
   );

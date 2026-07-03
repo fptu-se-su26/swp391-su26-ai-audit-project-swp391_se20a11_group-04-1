@@ -29,8 +29,19 @@ const LandingPage = () => {
     const hm=document.getElementById('hmock');
     const hd=document.getElementById('heroDots');
     document.addEventListener('mousemove',e=>{
-        if(hm){const r=hm.getBoundingClientRect();const dx=(e.clientX-(r.left+r.width/2))/r.width;const dy=(e.clientY-(r.top+r.height/2))/r.height;hm.style.transform=`perspective(1600px) rotateX(${7-dy*2.5}deg) rotateY(${dx*2}deg)`;}
-        if(hd){const x=(e.clientX/window.innerWidth-.5)*12;const y=(e.clientY/window.innerHeight-.5)*8;hd.style.transform=`translate(${x}px,${y}px)`;}
+        if(hm){
+            const r=hm.getBoundingClientRect();
+            let dx=(e.clientX-(r.left+r.width/2))/r.width;
+            let dy=(e.clientY-(r.top+r.height/2))/r.height;
+            dx = Math.max(-1, Math.min(1, dx));
+            dy = Math.max(-1, Math.min(1, dy));
+            hm.style.transform=`perspective(1600px) rotateX(${7-dy*2.5}deg) rotateY(${dx*2}deg)`;
+        }
+        if(hd){
+            const x=(e.clientX/window.innerWidth-.5)*12;
+            const y=(e.clientY/window.innerHeight-.5)*8;
+            hd.style.transform=`translate(${x}px,${y}px)`;
+        }
     },{passive:true});
 
     /* ── CARD TILT ── */
@@ -46,6 +57,23 @@ const LandingPage = () => {
         });
         el.addEventListener('mouseleave',()=>{el.style.transform='';});
     });
+
+    /* ── DASHBOARD FRAME TILT ── */
+    const dw = document.querySelector('.dash-frame-wrapper');
+    const df = document.querySelector('.dash-frame');
+    if (dw && df) {
+        dw.addEventListener('mousemove', e => {
+            const r = dw.getBoundingClientRect(); // Use WRAPPER's static rect!
+            const rx = ((e.clientY - r.top) / r.height - 0.5) * -3;
+            const ry = ((e.clientX - r.left) / r.width - 0.5) * 3;
+            df.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) scale3d(1.01, 1.01, 1.01)`;
+            df.style.transition = 'transform 0.15s ease-out';
+        });
+        dw.addEventListener('mouseleave', () => {
+            df.style.transform = '';
+            df.style.transition = 'transform 0.6s ease';
+        });
+    }
 
     /* ── FC + MINI3D TILT ── */
     document.querySelectorAll('.fc,.mini3d,.rc').forEach(c=>{
