@@ -159,8 +159,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserResponse login(String usernameOrEmail, String password, HttpSession session, String ipAddress) {
-        log.info("Processing login request for username/email: {} from IP: {}", usernameOrEmail, ipAddress);
+    public UserResponse login(String usernameOrEmail, String password, boolean rememberMe, HttpSession session, String ipAddress) {
+        log.info("Processing login request for username/email: {} from IP: {} (RememberMe: {})", usernameOrEmail, ipAddress, rememberMe);
 
         // BƯỚC 0: IP Rate Limiting (Chống DDoS / spam requests)
         rateLimitService.checkRateLimit(ipAddress, "login", 5, 1);
@@ -252,6 +252,15 @@ public class AuthServiceImpl implements AuthService {
 
             SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
             securityContext.setAuthentication(authentication);
+
+            // Configure session timeout based on Remember Me preference
+            if (rememberMe) {
+                // 7 days in seconds = 7 * 24 * 60 * 60 = 604800
+                session.setMaxInactiveInterval(7 * 24 * 60 * 60);
+            } else {
+                // Default session timeout = 30 minutes = 30 * 60 = 1800
+                session.setMaxInactiveInterval(30 * 60);
+            }
 
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
             session.setAttribute("userId", user.getId());

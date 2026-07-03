@@ -5,6 +5,34 @@ import authService from '../services/authService'
 import useAuthStore from '@store/useAuthStore'
 import axiosInstance from '@api/axiosConfig'
 
+// A simple obfuscation helper to avoid storing plain-text username/email in localStorage
+const SECRET_SALT = 'devtrack_salt_key'
+const obfuscateText = (text) => {
+  if (!text) return ''
+  try {
+    const reversed = text.split('').reverse().join('')
+    const salted = `${reversed}:${SECRET_SALT}`
+    return btoa(unescape(encodeURIComponent(salted)))
+  } catch (e) {
+    return ''
+  }
+}
+
+const deobfuscateText = (obfuscatedText) => {
+  if (!obfuscatedText) return ''
+  try {
+    const salted = decodeURIComponent(escape(atob(obfuscatedText)))
+    const parts = salted.split(':')
+    if (parts.length > 0) {
+      const reversed = parts[0]
+      return reversed.split('').reverse().join('')
+    }
+    return ''
+  } catch (e) {
+    return ''
+  }
+}
+
 function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -140,6 +168,21 @@ function LoginPage() {
     }
   }, [])
 
+  // 1.1 Phục hồi tài khoản đã ghi nhớ từ localStorage
+  useEffect(() => {
+    const rememberedUserObfuscated = localStorage.getItem('rememberedUsernameOrEmail')
+    if (rememberedUserObfuscated) {
+      const rememberedUser = deobfuscateText(rememberedUserObfuscated)
+      if (rememberedUser) {
+        setFormData((prev) => ({
+          ...prev,
+          usernameOrEmail: rememberedUser,
+          rememberMe: true,
+        }))
+      }
+    }
+  }, [])
+
   // 2. Chạy đồng hồ đếm ngược thời gian thực mỗi giây
   useEffect(() => {
     if (lockoutTimeLeft <= 0) {
@@ -204,11 +247,19 @@ function LoginPage() {
       // Gọi API đăng nhập khớp hoàn toàn với Backend REST API
       const response = await authService.login(
         formData.usernameOrEmail,
-        formData.password
+        formData.password,
+        formData.rememberMe
       )
 
       if (response.data?.success) {
         toast.success('Đăng nhập thành công!')
+        
+        // Lưu/Xóa tài khoản ghi nhớ
+        if (formData.rememberMe) {
+          localStorage.setItem('rememberedUsernameOrEmail', obfuscateText(formData.usernameOrEmail))
+        } else {
+          localStorage.removeItem('rememberedUsernameOrEmail')
+        }
         
         // Sử dụng Zustand store để quản lý thông tin phiên đăng nhập
         const { id, systemRole, username, email, fullName } = response.data?.data || {}
@@ -259,6 +310,14 @@ function LoginPage() {
       // Trường hợp khi đang dev, server chưa bật: hỗ trợ đăng nhập giả lập để test giao diện
       console.warn('API login chưa sẵn sàng hoặc không kết nối được, kích hoạt chế độ giả lập.', err)
       toast.success('Đăng nhập thành công! (Chế độ giả lập)')
+      
+      // Lưu/Xóa tài khoản ghi nhớ ở chế độ giả lập
+      if (formData.rememberMe) {
+        localStorage.setItem('rememberedUsernameOrEmail', obfuscateText(formData.usernameOrEmail))
+      } else {
+        localStorage.removeItem('rememberedUsernameOrEmail')
+      }
+
       useAuthStore.getState().login('1', 'USER', 'dungsa', 'dungsa@fpt.edu.vn', 'Anh Dung')
       setTimeout(() => {
         navigate(returnUrl)

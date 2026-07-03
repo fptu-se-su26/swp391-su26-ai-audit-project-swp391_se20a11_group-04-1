@@ -100,11 +100,12 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(
-            @RequestBody Map<String, String> payload, 
+            @RequestBody Map<String, Object> payload, 
             HttpSession session, 
             HttpServletRequest request) {
-        String usernameOrEmail = payload.get("usernameOrEmail");
-        String password = payload.get("password");
+        String usernameOrEmail = payload.get("usernameOrEmail") != null ? String.valueOf(payload.get("usernameOrEmail")) : null;
+        String password = payload.get("password") != null ? String.valueOf(payload.get("password")) : null;
+        boolean rememberMe = payload.get("rememberMe") != null && Boolean.parseBoolean(String.valueOf(payload.get("rememberMe")));
 
         // Validate đầu vào nhanh chóng (Fail-Fast) bằng hiệu năng tối đa không cần Reflection DTO
         if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty() 
@@ -121,7 +122,7 @@ public class AuthController {
             clientIp = request.getRemoteAddr();
         }
 
-        UserResponse loginResponse = authService.login(usernameOrEmail, password, session, clientIp);
+        UserResponse loginResponse = authService.login(usernameOrEmail, password, rememberMe, session, clientIp);
         ApiResponse<UserResponse> response = ApiResponse.success(loginResponse, "Đăng nhập thành công!");
         return ResponseEntity.ok(response);
     }

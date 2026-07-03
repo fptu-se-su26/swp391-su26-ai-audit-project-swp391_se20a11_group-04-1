@@ -8,12 +8,14 @@ export const authService = {
    * Gọi API đăng nhập tài khoản
    * @param {string} usernameOrEmail - Tên đăng nhập hoặc địa chỉ email
    * @param {string} password - Mật khẩu đăng nhập
+   * @param {boolean} rememberMe - Lựa chọn ghi nhớ đăng nhập
    * @returns {Promise<any>} Response từ axiosInstance
    */
-  login: async (usernameOrEmail, password) => {
+  login: async (usernameOrEmail, password, rememberMe) => {
     return axiosInstance.post('/v1/auth/login', {
       usernameOrEmail,
       password,
+      rememberMe,
     })
   },
 

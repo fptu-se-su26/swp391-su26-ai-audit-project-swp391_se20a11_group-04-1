@@ -23,7 +23,7 @@ public interface AuthService {
      * Binds security context and user info to the HttpSession.
      * Receives raw Strings to eliminate LoginRequest DTO entirely.
      */
-    UserResponse login(String usernameOrEmail, String password, HttpSession session, String ipAddress);
+    UserResponse login(String usernameOrEmail, String password, boolean rememberMe, HttpSession session, String ipAddress);
 
     /**
      * Giải phóng Khóa Toàn Cầu của tài khoản và Whitelist IP tương ứng được lấy từ token.
