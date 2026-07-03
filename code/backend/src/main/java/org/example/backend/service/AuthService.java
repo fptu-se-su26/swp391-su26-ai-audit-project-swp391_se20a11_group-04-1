@@ -68,7 +68,12 @@ public interface AuthService {
     void requestForgotPassword(String email);
 
     /**
-     * Step 2 for forgot password: verify OTP, hash new password, save in DB, clear Redis.
+     * Step 2 for forgot password: verify OTP, generate a short-lived resetToken, save in Redis, and return it.
+     */
+    String verifyForgotPasswordOtp(String email, String otp);
+
+    /**
+     * Step 3 for forgot password: verify resetToken, hash new password, save in DB, clear Redis token.
      */
     void resetPassword(ResetPasswordRequest request);
 }

@@ -702,14 +702,41 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public String verifyForgotPasswordOtp(String email, String otp) {
+        log.info("Verifying forgot password OTP for email: {}", email);
+
+        // 1. Validate OTP from Redis
+        if (!otpService.verifyOtp(email, otp)) {
+            log.warn("Invalid or expired OTP provided for email: {}", email);
+            throw new BadRequestException("Mã OTP không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // 2. Generate a secure random resetToken (UUID)
+        String resetToken = UUID.randomUUID().toString();
+
+        // 3. Cache resetToken in Redis for 5 minutes
+        String resetTokenKey = "RESET_TOKEN:" + email;
+        redisTemplate.opsForValue().set(resetTokenKey, resetToken, 5, TimeUnit.MINUTES);
+
+        // 4. Clear the OTP in Redis so it cannot be reused
+        otpService.clearOtpAndRequest(email);
+
+        log.info("Successfully verified OTP and generated resetToken for email: {}", email);
+        return resetToken;
+    }
+
+    @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         log.info("Processing password reset for email: {}", request.getEmail());
 
-        // 1. Validate OTP from Redis
-        if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
-            log.warn("Invalid or expired OTP provided for forgot password email: {}", request.getEmail());
-            throw new BadRequestException("Mã OTP không hợp lệ hoặc đã hết hạn.");
+        // 1. Validate resetToken from Redis
+        String resetTokenKey = "RESET_TOKEN:" + request.getEmail();
+        String cachedToken = redisTemplate.opsForValue().get(resetTokenKey);
+
+        if (cachedToken == null || !cachedToken.equals(request.getResetToken())) {
+            log.warn("Invalid or expired reset token provided for email: {}", request.getEmail());
+            throw new BadRequestException("Yêu cầu đặt lại mật khẩu đã hết hạn hoặc không hợp lệ.");
         }
 
         // 2. Find user account
@@ -721,8 +748,8 @@ public class AuthServiceImpl implements AuthService {
         userAccountRepository.save(user);
         log.info("Successfully updated password for user ID: {}", user.getId());
 
-        // 4. Clean up Redis OTP cache
-        otpService.clearOtpAndRequest(request.getEmail());
+        // 4. Clean up Redis resetToken cache
+        redisTemplate.delete(resetTokenKey);
     }
 
     private boolean isPasswordSet(UserAccount user) {

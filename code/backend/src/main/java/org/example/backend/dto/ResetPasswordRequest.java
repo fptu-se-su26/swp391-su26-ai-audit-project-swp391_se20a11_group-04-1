@@ -16,9 +16,8 @@ public class ResetPasswordRequest {
     @Email(message = "Email must be valid")
     private String email;
 
-    @NotBlank(message = "OTP cannot be blank")
-    @Size(min = 6, max = 6, message = "OTP must be exactly 6 digits")
-    private String otp;
+    @NotBlank(message = "Reset token cannot be blank")
+    private String resetToken;
 
     @NotBlank(message = "New password cannot be blank")
     @Size(min = 6, message = "New password must be at least 6 characters")

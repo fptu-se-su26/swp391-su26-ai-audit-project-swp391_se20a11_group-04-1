@@ -68,7 +68,23 @@ public class AuthController {
     }
 
     /**
-     * Step 2: Submit OTP and new password, verify, update in DB, clear Redis.
+     * Step 2: Verify Forgot Password OTP, generate a short-lived resetToken and return it to the frontend.
+     * POST /api/v1/auth/forgot-password/verify-otp
+     */
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<ApiResponse<Map<String, String>>> verifyForgotPasswordOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        if (email == null || email.trim().isEmpty() || otp == null || otp.trim().isEmpty()) {
+            throw new BadRequestException("Email và mã OTP không được để trống.");
+        }
+        String resetToken = authService.verifyForgotPasswordOtp(email, otp);
+        ApiResponse<Map<String, String>> response = ApiResponse.success(Map.of("resetToken", resetToken), "Xác thực mã OTP thành công!");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 3: Submit resetToken and new password, verify token, update password in DB, clear token from Redis.
      * POST /api/v1/auth/forgot-password/reset
      */
     @PostMapping("/forgot-password/reset")

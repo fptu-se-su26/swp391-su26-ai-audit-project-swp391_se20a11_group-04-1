@@ -88,10 +88,20 @@ export const authService = {
   },
 
   /**
-   * Xác nhận OTP và đặt lại mật khẩu mới (Step 2: Đặt lại mật khẩu)
+   * Xác thực mã OTP khôi phục mật khẩu (Step 2: Xác thực OTP)
+   * @param {string} email - Email cần khôi phục
+   * @param {string} otp - Mã xác thực OTP
+   * @returns {Promise<any>} Response từ axiosInstance chứa resetToken
+   */
+  forgotPasswordVerifyOtp: async (email, otp) => {
+    return axiosInstance.post('/v1/auth/forgot-password/verify-otp', { email, otp })
+  },
+
+  /**
+   * Đặt lại mật khẩu mới bằng resetToken (Step 3: Đặt lại mật khẩu)
    * @param {Object} payload - Dữ liệu đặt lại mật khẩu
    * @param {string} payload.email - Email cần khôi phục
-   * @param {string} payload.otp - Mã xác thực OTP
+   * @param {string} payload.resetToken - Mã token reset đã nhận từ bước 2
    * @param {string} payload.newPassword - Mật khẩu mới
    * @returns {Promise<any>} Response từ axiosInstance
    */
