@@ -13,20 +13,30 @@ function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [timeLeft, setTimeLeft] = useState(0) // Countdown timer in seconds
+  const [timeLeft, setTimeLeft] = useState(0) // Countdown for resend cooldown (60s)
+  const [otpExpiryTime, setOtpExpiryTime] = useState(0) // Countdown for OTP expiration (300s)
   const [loading, setLoading] = useState(false)
+  const [isSpamBlocked, setIsSpamBlocked] = useState(false) // Blocks request buttons if exceeded 3 limit
   const [errors, setErrors] = useState({})
 
-  // Countdown timer effect
+  // Countdown timer effect for both timers
   useEffect(() => {
-    if (timeLeft <= 0) return
+    if (timeLeft <= 0 && otpExpiryTime <= 0) return
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1)
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0))
+      setOtpExpiryTime((prev) => (prev > 0 ? prev - 1 : 0))
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [timeLeft, otpExpiryTime])
+
+  // Helper to format seconds to MM:SS
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   // Validate Step 1 Form
   const validateStep1 = () => {
@@ -45,6 +55,8 @@ function ForgotPasswordPage() {
     const tempErrors = {}
     if (!otp || otp.length !== 6) {
       tempErrors.otp = 'Mã OTP phải chứa đúng 6 chữ số'
+    } else if (otpExpiryTime <= 0) {
+      tempErrors.otp = 'Mã OTP đã hết hạn, vui lòng gửi lại mã mới'
     }
     setErrors(tempErrors)
     return Object.keys(tempErrors).length === 0
@@ -78,13 +90,19 @@ function ForgotPasswordPage() {
       if (response.data?.success) {
         toast.success(response.data.message || 'Mã OTP đã được gửi về email của bạn!')
         setStep(2)
-        setTimeLeft(60) // Start 60s countdown
+        setTimeLeft(60) // Start 60s resend cooldown
+        setOtpExpiryTime(300) // Start 5m (300s) OTP expiry countdown
+        setOtp('') // Clear previous OTP
+        setIsSpamBlocked(false) // Ensure blocked state is cleared on success
       } else {
         toast.error(response.data?.message || 'Không thể gửi mã OTP, vui lòng thử lại!')
       }
     } catch (err) {
       const errorData = err.response?.data
       toast.error(errorData?.message || 'Email không tồn tại trong hệ thống hoặc lỗi máy chủ.')
+      if (errorData?.message && errorData.message.includes("vượt quá giới hạn")) {
+        setIsSpamBlocked(true)
+      }
       if (errorData?.errors && typeof errorData.errors === 'object') {
         setErrors(errorData.errors)
       }
@@ -95,7 +113,7 @@ function ForgotPasswordPage() {
 
   // Handle Resend OTP
   const handleResendOtp = async () => {
-    if (timeLeft > 0) return
+    if (timeLeft > 0 || isSpamBlocked) return
     await handleRequestOtp()
   }
 
@@ -145,7 +163,6 @@ function ForgotPasswordPage() {
       const response = await authService.forgotPasswordReset(payload)
       if (response.data?.success) {
         toast.success('Mật khẩu của bạn đã được đặt lại thành công!')
-        // Chờ 1.5 giây để người dùng đọc thông tin trước khi chuyển về Login
         setTimeout(() => {
           navigate('/login')
         }, 1500)
@@ -227,12 +244,18 @@ function ForgotPasswordPage() {
                 )}
               </div>
 
+              {isSpamBlocked && (
+                <p className="text-error text-xs text-center font-semibold bg-error-container/10 p-2.5 rounded border border-error/20">
+                  ⚠️ Bạn đã vượt quá giới hạn 3 yêu cầu OTP trong ngày. Vui lòng quay lại sau 24 giờ.
+                </p>
+              )}
+
               {/* Submit Button */}
               <div>
                 <button
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || isSpamBlocked}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -275,8 +298,25 @@ function ForgotPasswordPage() {
                     setOtp(e.target.value.replace(/[^0-9]/g, ''))
                     if (errors.otp) setErrors((prev) => ({ ...prev, otp: null }))
                   }}
-                  disabled={loading}
+                  disabled={loading || otpExpiryTime <= 0}
                 />
+                
+                {otpExpiryTime > 0 ? (
+                  <p className="text-xs font-semibold text-center mt-3 text-secondary">
+                    Mã OTP sẽ hết hạn sau: <span className="text-[#1E707D] font-bold text-sm font-mono">{formatTime(otpExpiryTime)}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs font-bold text-center mt-3 text-error">
+                    ⚠️ Mã OTP đã hết hạn. Vui lòng nhấn gửi lại mã mới.
+                  </p>
+                )}
+
+                {isSpamBlocked && (
+                  <p className="text-error text-xs text-center font-semibold mt-3 bg-error-container/10 p-2.5 rounded border border-error/20">
+                    ⚠️ Bạn đã vượt quá giới hạn 3 yêu cầu OTP trong ngày. Vui lòng quay lại sau 24 giờ.
+                  </p>
+                )}
+
                 {errors.otp && (
                   <p className="text-error text-xs mt-1 text-center">{errors.otp}</p>
                 )}
@@ -287,7 +327,7 @@ function ForgotPasswordPage() {
                 <button
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || otpExpiryTime <= 0}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -304,9 +344,9 @@ function ForgotPasswordPage() {
                     className="text-[#1E707D] hover:underline font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     type="button"
                     onClick={handleResendOtp}
-                    disabled={loading || timeLeft > 0}
+                    disabled={loading || timeLeft > 0 || isSpamBlocked}
                   >
-                    {timeLeft > 0 ? `Gửi lại sau (${timeLeft}s)` : 'Gửi lại mã OTP'}
+                    {isSpamBlocked ? 'Đã bị khóa gửi lại' : timeLeft > 0 ? `Gửi lại sau (${timeLeft}s)` : 'Gửi lại mã OTP'}
                   </button>
                   <button
                     className="text-secondary hover:underline font-semibold"

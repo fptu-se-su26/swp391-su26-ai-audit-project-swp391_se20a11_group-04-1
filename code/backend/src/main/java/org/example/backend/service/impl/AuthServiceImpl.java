@@ -683,20 +683,37 @@ public class AuthServiceImpl implements AuthService {
     public void requestForgotPassword(String email) {
         log.info("Received forgot password request for email: {}", email);
 
-        // 1. Verify if user email exists in database
+        // 1. Check rate limit: maximum 3 requests per email per 24 hours
+        String limitKey = "FORGOT_LIMIT:" + email;
+        String countStr = redisTemplate.opsForValue().get(limitKey);
+        int count = countStr == null ? 0 : Integer.parseInt(countStr);
+
+        if (count >= 3) {
+            log.warn("Forgot password request rejected. Email {} has exceeded daily limit of 3 requests.", email);
+            throw new BadRequestException("Bạn đã vượt quá giới hạn 3 yêu cầu gửi mã OTP khôi phục mật khẩu trong ngày. Vui lòng quay lại sau 24 giờ.");
+        }
+
+        // 2. Verify if user email exists in database
         UserAccount user = userAccountRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.warn("Forgot password request failed. Email does not exist: {}", email);
                     return new ResourceNotFoundException("Email không tồn tại trong hệ thống.");
                 });
 
-        // 2. Generate secure random 6-digit OTP
+        // 3. Increment the limit count in Redis
+        if (count == 0) {
+            redisTemplate.opsForValue().set(limitKey, "1", 24, TimeUnit.HOURS);
+        } else {
+            redisTemplate.opsForValue().increment(limitKey);
+        }
+
+        // 4. Generate secure random 6-digit OTP
         String otp = otpService.generateOtp();
 
-        // 3. Cache OTP only to Redis for 5 minutes
+        // 5. Cache OTP only to Redis for 5 minutes
         otpService.saveOtpOnly(email, otp, 5);
 
-        // 4. Send forgot password HTML OTP email
+        // 6. Send forgot password HTML OTP email
         emailService.sendForgotPasswordOtpEmail(email, otp);
         log.info("Successfully processed step 1 forgot password for: {}", email);
     }
