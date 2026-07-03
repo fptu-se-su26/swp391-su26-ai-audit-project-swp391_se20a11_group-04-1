@@ -5,6 +5,7 @@ import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
 import ForgotPasswordPage from '@features/auth/pages/ForgotPasswordPage'
 import VerificationPage from '@features/auth/pages/VerificationPage'
+import LandingPage from '@features/landing/pages/LandingPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
@@ -173,7 +174,7 @@ export function AppRoutes() {
       </Route>
 
       {/* 4. Redirect & 404 Pages */}
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
