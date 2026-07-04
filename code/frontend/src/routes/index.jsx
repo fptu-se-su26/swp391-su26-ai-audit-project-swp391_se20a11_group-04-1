@@ -3,7 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 // Feature Pages - Auth
 import LoginPage from '@features/auth/pages/LoginPage'
 import RegisterPage from '@features/auth/pages/RegisterPage'
+import ForgotPasswordPage from '@features/auth/pages/ForgotPasswordPage'
 import VerificationPage from '@features/auth/pages/VerificationPage'
+import LandingPage from '@features/landing/pages/LandingPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
@@ -91,8 +93,10 @@ export function AppRoutes() {
       {/* 1. Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route path="/classrooms/join" element={<JoinClassroomPage />} />
+      <Route path="/github/callback" element={<GitHubCallbackPage />} />
 
       {/* 2. Protected Routes */}
       <Route element={<PrivateRoute />}>
@@ -110,7 +114,6 @@ export function AppRoutes() {
           <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
           <Route path="/verify" element={<VerificationPage />} />
-          <Route path="/github/callback" element={<GitHubCallbackPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:userId" element={<ProfilePage />} />
 
@@ -171,7 +174,7 @@ export function AppRoutes() {
       </Route>
 
       {/* 4. Redirect & 404 Pages */}
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

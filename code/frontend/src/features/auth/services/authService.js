@@ -8,12 +8,14 @@ export const authService = {
    * Gọi API đăng nhập tài khoản
    * @param {string} usernameOrEmail - Tên đăng nhập hoặc địa chỉ email
    * @param {string} password - Mật khẩu đăng nhập
+   * @param {boolean} rememberMe - Lựa chọn ghi nhớ đăng nhập
    * @returns {Promise<any>} Response từ axiosInstance
    */
-  login: async (usernameOrEmail, password) => {
+  login: async (usernameOrEmail, password, rememberMe) => {
     return axiosInstance.post('/v1/auth/login', {
       usernameOrEmail,
       password,
+      rememberMe,
     })
   },
 
@@ -62,6 +64,51 @@ export const authService = {
       evidenceUrl,
       evidenceName
     })
+  },
+
+  /**
+   * Lấy URL để chuyển hướng sang GitHub đăng nhập
+   */
+  getGitHubLoginUrl: async () => {
+    return axiosInstance.get('/v1/auth/github/url')
+  },
+
+  /**
+   * Đăng nhập bằng mã code của GitHub OAuth
+   */
+  loginWithGitHub: async (code) => {
+    return axiosInstance.post('/v1/auth/github/login', { code })
+  },
+
+  /**
+   * Gửi yêu cầu OTP để khôi phục mật khẩu (Step 1: Quên mật khẩu)
+   * @param {string} email - Địa chỉ email đã đăng ký
+   * @returns {Promise<any>} Response từ axiosInstance
+   */
+  forgotPasswordRequest: async (email) => {
+    return axiosInstance.post('/v1/auth/forgot-password/request', { email })
+  },
+
+  /**
+   * Xác thực mã OTP khôi phục mật khẩu (Step 2: Xác thực OTP)
+   * @param {string} email - Email cần khôi phục
+   * @param {string} otp - Mã xác thực OTP
+   * @returns {Promise<any>} Response từ axiosInstance chứa resetToken
+   */
+  forgotPasswordVerifyOtp: async (email, otp) => {
+    return axiosInstance.post('/v1/auth/forgot-password/verify-otp', { email, otp })
+  },
+
+  /**
+   * Đặt lại mật khẩu mới bằng resetToken (Step 3: Đặt lại mật khẩu)
+   * @param {Object} payload - Dữ liệu đặt lại mật khẩu
+   * @param {string} payload.email - Email cần khôi phục
+   * @param {string} payload.resetToken - Mã token reset đã nhận từ bước 2
+   * @param {string} payload.newPassword - Mật khẩu mới
+   * @returns {Promise<any>} Response từ axiosInstance
+   */
+  forgotPasswordReset: async (payload) => {
+    return axiosInstance.post('/v1/auth/forgot-password/reset', payload)
   },
 }
 

@@ -20,5 +20,6 @@ public class ProfileResponse {
     private String systemRole;
     private boolean isActive;
     private LocalDateTime createdAt;
+    private boolean passwordSet;
     private List<ProfileProjectRoleResponse> projectRoles;
 }

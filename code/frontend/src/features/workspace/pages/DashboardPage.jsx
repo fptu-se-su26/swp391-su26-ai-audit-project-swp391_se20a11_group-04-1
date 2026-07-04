@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
+import useAuthStore from '@store/useAuthStore'
 import axiosInstance from '@/api/axiosConfig'
 import ProjectClosureModal from '../components/ProjectClosureModal'
 
@@ -14,6 +15,9 @@ import ProjectClosureModal from '../components/ProjectClosureModal'
 export function DashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  
+  const passwordSet = useAuthStore((state) => state.passwordSet)
+  const fetchMe = useAuthStore((state) => state.fetchMe)
 
   // Trạng thái modal đóng project
   const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
@@ -197,6 +201,7 @@ export function DashboardPage() {
 
   // Fetch khi chưa có dữ liệu
   useEffect(() => {
+    fetchMe()
     if (projects.length === 0) {
       fetchProjects()
     }
@@ -506,6 +511,30 @@ export function DashboardPage() {
     }
     return (
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
+
+        {/* Warning Banner for GitHub temporary password */}
+        {!passwordSet && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-300 flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300 relative z-20">
+            <span className="material-symbols-outlined text-2xl text-amber-600 shrink-0">
+              warning
+            </span>
+            <div className="flex-1 text-sm leading-relaxed text-left">
+              <h4 className="font-bold text-amber-950 dark:text-amber-200">Bảo mật tài khoản của bạn</h4>
+              <p className="mt-1">
+                Tài khoản của bạn hiện chưa được thiết lập mật khẩu thường (đang đăng nhập qua GitHub). 
+                Để đảm bảo an toàn bảo mật và có thể đăng nhập bằng mật khẩu thường, vui lòng click{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/profile`)}
+                  className="font-bold underline text-amber-700 hover:text-amber-850 focus:outline-none cursor-pointer"
+                >
+                  Đổi mật khẩu
+                </button>{' '}
+                trong trang Cá nhân để thiết lập mật khẩu mới ngay.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Glow Background nhẹ nhàng sang trọng */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">

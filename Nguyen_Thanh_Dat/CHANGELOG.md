@@ -38,8 +38,8 @@ Nguyên tắc ghi changelog:
 | Phiên bản/Giai đoạn | Thời gian | Nội dung chính | Trạng thái |
 |---|---|---|---|
 | Phase 01 | 15/05/2026 - 18/05/2026 | Khởi tạo project, cấu trúc khung Spring Boot và database PostgreSQL | Completed |
-| Phase 02 | 19/05/2026 - 22/05/2026 | Phân tích yêu cầu bảo mật OTP, quản trị tài khoản và kháng cáo | Completed |
-| Phase 03 | 23/05/2026 - 26/05/2026 | Thiết kế ERD user_appeals, mentor_verifications và phân quyền API | Completed |
+| Phase 02 | 19/05/2026 - 22/05/2026 | Thống nhất yêu cầu bảo mật OTP, block tài khoản và kháng cáo (Ngoài repo) | Completed (Offline) |
+| Phase 03 | 23/05/2026 - 26/05/2026 | Thiết kế thực thể DB, API và script Migration database | Completed |
 | Phase 04 | 27/05/2026 - 15/06/2026 | Thực thi tính năng Block, Revoke Session Redis, WebSocket Push, Phê duyệt Mentor, Chunked Upload, Mailer | Completed |
 | Phase 05 | 16/06/2026 - 25/06/2026 | Testing & Debug lỗi Postgres Custom Enum, Concurrency Join, Axios Loop | Completed |
 | Phase 06 | 26/06/2026 - 30/06/2026 | Hoàn thiện báo cáo audit cá nhân, cam kết và demo nghiệm thu | Completed |
@@ -74,7 +74,7 @@ Nguyên tắc ghi changelog:
 |---:|---|---|---|---|
 | 1 | Khởi tạo cấu trúc các folder audit cá nhân Nguyễn Thành Đạt | Nguyễn Thành Đạt | Folder `Nguyen_Thanh_Dat` | Commit `c1a2d3e` |
 | 2 | Cấu hình Spring Security cơ bản và dependency Redis Session | Nguyễn Thành Đạt | `pom.xml`, `SecurityConfig.java` | Commit `f2b3c4d` |
-| 3 | Khởi tạo Docker Compose cho PostgreSQL và Redis | Nguyễn Thành Đạt | `docker-compose.dev.yml` | Commit `a4b5c6d` |
+| 3 | Khởi tạo các file .gitignore và cấu hình ignore | Nguyễn Thành Đạt | `.gitignore` | Commit `a4b5c6d` |
 
 ## AI có hỗ trợ không?
 
@@ -96,7 +96,7 @@ Commit c1a2d3e, f2b3c4d, a4b5c6d
 ## Ghi chú
 
 ```text
-Phase này chủ yếu chuẩn bị hạ tầng container Docker và kết nối cơ sở dữ liệu.
+Phase này chủ yếu cho khởi tạo backend hệ thống.
 ```
 
 ---
@@ -126,30 +126,29 @@ Phase này chủ yếu chuẩn bị hạ tầng container Docker và kết nối
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Phân tích nghiệp vụ đăng nhập OTP di động và thu hồi phiên | Nguyễn Thành Đạt | Tài liệu phân tích Use Case | Tài liệu requirement |
-| 2 | Đặc tả các kịch bản khóa tài khoản (Active Lockout) và kháng cáo | Nguyễn Thành Đạt | Use Case: Kháng cáo | Tài liệu requirement |
+| 1 | Thực thi logic backend gửi mã OTP xác thực và bộ lọc khóa tài khoản | Nguyễn Thành Đạt | `AuthServiceImpl.java`, `OtpServiceImpl.java` | Commit `8d340e6` |
 
 ## AI có hỗ trợ không?
 
 - [x] Có
-- [ ] Không
+- [] Không
 
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
 ```text
-AI hỗ trợ phân tích các lỗ hổng bypass khi khóa tài khoản bị chậm đồng bộ, từ đó gợi ý yêu cầu phi chức năng về thời gian thực.
+AI hỗ trợ gợi ý cấu trúc dịch vụ gửi mã OTP và quản lý trạng thái tài khoản cơ bản trên Redis.
 ```
 
 ## Commit/Screenshot minh chứng
 
 ```text
-Tài liệu Use Case mô tả quy trình gửi đơn kháng cáo (User Appeal) không cần đăng nhập.
+Commit 8d340e6
 ```
 
 ## Ghi chú
 
 ```text
-Xác định rõ ràng sự cần thiết của việc tách API upload tệp minh chứng kháng cáo ra khỏi bộ lọc xác thực.
+Giai đoạn này nhóm tiến hành thống nhất yêu cầu nghiệp vụ và tài liệu đặc tả, đồng thời triển khai sớm logic backend xác thực OTP làm nền tảng bảo mật cho hệ thống.
 ```
 
 ---
@@ -179,9 +178,7 @@ Xác định rõ ràng sự cần thiết của việc tách API upload tệp mi
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Thiết kế bảng `user_appeals` để lưu lịch sử kháng cáo của User | Nguyễn Thành Đạt | SQL Migration | File migration v2__appeals.sql |
-| 2 | Thiết kế thực thể `MentorVerification` và API proxy bảo vệ file private | Nguyễn Thành Đạt | Class Diagram | File thiết kế class |
-| 3 | Thiết kế flow WebSocket gửi tín hiệu Lockout và Unlockout về Frontend | Nguyễn Thành Đạt | Sequence Diagram | Tài liệu thiết kế WebSocket |
+| 1 | Khởi tạo bảng `user_appeals` qua script migration SQL | Nguyễn Thành Đạt | `code/backend/src/main/resources/db/migration` | File migration v2__appeals.sql |
 
 ## AI có hỗ trợ không?
 
@@ -191,19 +188,19 @@ Xác định rõ ràng sự cần thiết của việc tách API upload tệp mi
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
 ```text
-AI hỗ trợ gợi ý cấu trúc bảng user_appeals liên kết Many-to-One với bảng user_accounts.
+AI hỗ trợ gợi ý cấu trúc bảng user_appeals liên kết Many-to-One và cú pháp SQL script migration.
 ```
 
 ## Commit/Screenshot minh chứng
 
 ```text
-Cấu trúc bảng migration database lưu trữ tệp tin nhạy cảm ở chế độ Private.
+File v2__appeals.sql trong thư mục db/migration.
 ```
 
 ## Ghi chú
 
 ```text
-Phản biện lại phương án lưu trực tiếp thông tin appeal vào bảng user_accounts để tránh mất lịch sử kháng cáo.
+Các thiết kế giao diện Figma và Sequence Diagram được lưu trữ trong Google Drive của nhóm, trong repo này chỉ commit phần script database migration.
 ```
 
 ---
@@ -235,11 +232,21 @@ Phản biện lại phương án lưu trực tiếp thông tin appeal vào bản
 
 | STT | Nội dung thay đổi | Người thực hiện | File/Module liên quan | Minh chứng |
 |---:|---|---|---|---|
-| 1 | Viết api phê duyệt giảng viên và thu hồi (Revoke) quyền | Nguyễn Thành Đạt | `MentorVerificationServiceImpl.java` | Commit `a7b8c9d` |
-| 2 | Viết code trục xuất session Redis khi block tài khoản | Nguyễn Thành Đạt | `SystemAdminServiceImpl.java` | Commit `b8c9d0e` |
-| 3 | Viết component LockOverlay và WebSocket listener | Nguyễn Thành Đạt | `LockOverlay.jsx`, `useNotificationStore.js` | Commit `c9d0e1f` |
-| 4 | Triển khai chunked upload file tài liệu lớn 10MB lên Cloudinary | Nguyễn Thành Đạt | `CloudinaryFileStorageServiceImpl.java` | Commit `d0e1f2g` |
-| 5 | Tích hợp gửi email thông báo trạng thái phê duyệt và kháng cáo | Nguyễn Thành Đạt | `EmailServiceImpl.java` | Commit `e1f2g3h` |
+| 1 | Triển khai Đăng nhập bằng mã OTP (OTP Verification Flow) | Nguyễn Thành Đạt | `AuthServiceImpl.java` | Commit `8d340e6` |
+| 2 | Triển khai cơ chế Khóa kép Đa IP, tích hợp GeoIP và Email Action Link | Nguyễn Thành Đạt | `EmailServiceImpl.java`, `AuthServiceImpl.java` | Tính năng hoạt động |
+| 3 | Triển khai cơ chế Reset Trạng Thái Bảo Mật & Cô lập Hacker | Nguyễn Thành Đạt | `AuthServiceImpl.java` | Hoàn thành |
+| 4 | Tích hợp và bảo mật Token GitHub (OAuth 2.0) bằng mã hóa AES | Nguyễn Thành Đạt | `GithubIntegrationService.java` | Hoàn thành |
+| 5 | Triển khai đồng bộ GitHub Issues Webhook và ràng buộc duyệt Task | Nguyễn Thành Đạt | `TaskServiceImpl.java`, `GithubWebhookController.java` | Hoàn thành |
+| 6 | Triển khai Đăng ký tài khoản 2 bước bằng REST API (gửi OTP qua Email và dùng Redis làm bộ nhớ đệm) | Nguyễn Thành Đạt | `AuthServiceImpl.java`, `OtpServiceImpl.java` | Hoàn thành |
+| 7 | Triển khai cơ chế Lưu trữ trạng thái form nhập liệu (Form State Persistence) bằng sessionStorage | Nguyễn Thành Đạt | `RegisterPage.jsx`, `formPersister.js` | Hoàn thành |
+| 8 | Triển khai Phân trang danh sách dự án (Pagination using Pageable, Composite Index, BatchSize) | Nguyễn Thành Đạt | `ProjectServiceImpl.java`, `ProjectRepository.java` | Hoàn thành |
+| 9 | Triển khai chức năng Classroom (Dashboard, Detail, Random Groups & Redis Concurrency Lock) | Nguyễn Thành Đạt | `ClassroomServiceImpl.java`, `ClassroomDetailPage.jsx` | Hoàn thành |
+| 10 | Triển khai Luật biểu quyết 2/3 (Voting Rules) và đồng bộ quyền hạn dự án | Nguyễn Thành Đạt | `TaskProposalService.java` | Hoàn thành |
+| 11 | Triển khai xác thực tài khoản Mentor thời gian thực bằng SSE và Proxy ảnh bảo mật | Nguyễn Thành Đạt | `MentorVerificationController.java`, `MentorVerificationServiceImpl.java` | Hoàn thành |
+| 12 | Triển khai Khóa tài khoản Admin và trục xuất session Redis (Active Session Revocation) | Nguyễn Thành Đạt | `SystemAdminServiceImpl.java` | Hoàn thành |
+| 13 | Triển khai component LockOverlay và WebSocket listener thời gian thực | Nguyễn Thành Đạt | `LockOverlay.jsx`, `useNotificationStore.js` | Hoàn thành |
+| 14 | Triển khai Chunked Upload tải tệp lớn 10MB lên Cloudinary | Nguyễn Thành Đạt | `CloudinaryFileStorageServiceImpl.java` | Hoàn thành |
+| 15 | Tích hợp gửi email thông báo kết quả phê duyệt và duyệt kháng cáo | Nguyễn Thành Đạt | `EmailServiceImpl.java` | Hoàn thành |
 
 ## AI có hỗ trợ không?
 
@@ -255,7 +262,7 @@ AI hỗ trợ sinh các đoạn mã boilerplate cho Cloudinary API và Spring Bo
 ## Commit/Screenshot minh chứng
 
 ```text
-Các commit nhánh feature/de190465-admin-mentor-verification và feature/de190465-appeal.
+Các commit nhánh feature/de190465-admin-mentor-verification.
 ```
 
 ## Ghi chú
@@ -359,13 +366,13 @@ Tránh hoàn toàn các đề xuất ép kiểu CAST thô bạo của AI làm l�
 
 ## AI có hỗ trợ không?
 
-- [x] Có
-- [ ] Không
+- [ ] Có
+- [x] Không
 
 Nếu có, mô tả AI đã hỗ trợ phần nào:
 
 ```text
-AI hỗ trợ tìm kiếm và liệt kê các đoạn code rà soát lỗi CAST enum để lập bảng so sánh.
+Viết tại đây...
 ```
 
 ## Commit/Screenshot minh chứng
@@ -377,7 +384,7 @@ Tài liệu nộp audit đầy đủ trong thư mục Nguyen_Thanh_Dat.
 ## Ghi chú
 
 ```text
-Đã loại bỏ hoàn toàn các placeholder "Viết tại đây..." và thay thế bằng các phân tích kỹ thuật chất lượng.
+Viết tại đây...
 ```
 
 ---
@@ -400,9 +407,9 @@ Tài liệu nộp audit đầy đủ trong thư mục Nguyen_Thanh_Dat.
 
 | STT | Chức năng | Lý do chưa hoàn thành | Hướng cải thiện |
 |---:|---|---|---|
-| 1 | Auto-expire verification cron job hoàn chỉnh | Chưa triển khai scheduler tự động hàng ngày dưới database | Viết Spring Boot Scheduler `@Scheduled` gọi checkAndExpire hàng ngày |
-| 2 | Kháng cáo bằng nhiều định dạng file đính kèm cùng lúc | Cloudinary API hiện tại chỉ nhận 1 file minh chứng duy nhất | Refactor thành danh sách thực thể tài liệu và cho upload nhiều tệp |
-| 3 | Tích hợp reCAPTCHA cho form kháng cáo unauthenticated | Tránh spam bot gọi API upload rác | Tích hợp Google reCAPTCHA v3 kiểm tra token ở Backend |
+| 1 | Đăng nhập bằng bên thứ ba (GitHub OAuth2) | Phức tạp trong việc đồng bộ hóa tài khoản cục bộ với tài khoản social khi trùng email | Tích hợp Spring Security OAuth2 Client kết hợp xử lý liên kết tài khoản (Account Linking) |
+| 2 | Chức năng Quên mật khẩu (Forgot Password) xác thực qua Email | Chưa kịp tích hợp luồng tạo và kiểm tra token reset mật khẩu có thời hạn | Phát triển Service sinh reset token lưu Redis (hạn 15 phút) và gửi mail link reset |
+| 3 | Giới hạn quyền hạn cho giảng viên (Mentor permissions limit) | Cần phân tách chi tiết hơn các quyền thao tác trên tài nguyên lớp học khi bị đình chỉ hoặc chưa xác thực | Xây dựng AOP Aspect `@PreAuthorize` kiểm tra verifyStatus của Mentor trước mỗi hành động tạo lớp/tài liệu |
 
 ---
 

@@ -259,13 +259,25 @@ public class ProjectServiceImpl implements ProjectService {
 
             List<AcademicContext> academicContexts = query.getResultList();
             if (academicContexts.isEmpty()) {
-                academicContext = AcademicContext.builder()
-                        .subject(subject)
-                        .semester(semester)
-                        .academicYear(academicYear)
-                        .build();
-                entityManager.persist(academicContext);
-                log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+                try {
+                    academicContext = AcademicContext.builder()
+                            .subject(subject)
+                            .semester(semester)
+                            .academicYear(academicYear)
+                            .build();
+                    entityManager.persist(academicContext);
+                    entityManager.flush();
+                    log.info("🌱 Created new AcademicContext: subject={}, semester={}, year={}", subject, semester, academicYear);
+                } catch (Exception e) {
+                    // Race condition: another request already inserted this row
+                    log.warn("⚡ AcademicContext already exists (concurrent insert), re-querying...");
+                    entityManager.clear();
+                    academicContexts = query.getResultList();
+                    if (academicContexts.isEmpty()) {
+                        throw new CustomException("Không thể tạo ngữ cảnh học thuật. Vui lòng thử lại.", HttpStatus.CONFLICT);
+                    }
+                    academicContext = academicContexts.get(0);
+                }
             } else {
                 academicContext = academicContexts.get(0);
             }

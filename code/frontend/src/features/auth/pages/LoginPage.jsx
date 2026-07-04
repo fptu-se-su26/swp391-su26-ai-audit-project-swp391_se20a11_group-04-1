@@ -5,6 +5,34 @@ import authService from '../services/authService'
 import useAuthStore from '@store/useAuthStore'
 import axiosInstance from '@api/axiosConfig'
 
+// A simple obfuscation helper to avoid storing plain-text username/email in localStorage
+const SECRET_SALT = 'devtrack_salt_key'
+const obfuscateText = (text) => {
+  if (!text) return ''
+  try {
+    const reversed = text.split('').reverse().join('')
+    const salted = `${reversed}:${SECRET_SALT}`
+    return btoa(unescape(encodeURIComponent(salted)))
+  } catch (e) {
+    return ''
+  }
+}
+
+const deobfuscateText = (obfuscatedText) => {
+  if (!obfuscatedText) return ''
+  try {
+    const salted = decodeURIComponent(escape(atob(obfuscatedText)))
+    const parts = salted.split(':')
+    if (parts.length > 0) {
+      const reversed = parts[0]
+      return reversed.split('').reverse().join('')
+    }
+    return ''
+  } catch (e) {
+    return ''
+  }
+}
+
 function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -140,6 +168,21 @@ function LoginPage() {
     }
   }, [])
 
+  // 1.1 Phục hồi tài khoản đã ghi nhớ từ localStorage
+  useEffect(() => {
+    const rememberedUserObfuscated = localStorage.getItem('rememberedUsernameOrEmail')
+    if (rememberedUserObfuscated) {
+      const rememberedUser = deobfuscateText(rememberedUserObfuscated)
+      if (rememberedUser) {
+        setFormData((prev) => ({
+          ...prev,
+          usernameOrEmail: rememberedUser,
+          rememberMe: true,
+        }))
+      }
+    }
+  }, [])
+
   // 2. Chạy đồng hồ đếm ngược thời gian thực mỗi giây
   useEffect(() => {
     if (lockoutTimeLeft <= 0) {
@@ -177,6 +220,21 @@ function LoginPage() {
     }
   }
 
+  const handleGitHubLogin = async () => {
+    try {
+      const response = await authService.getGitHubLoginUrl()
+      if (response.data?.success && response.data?.data) {
+        const state = btoa(JSON.stringify({ loginFlow: true }))
+        window.location.href = response.data.data + "&state=" + state
+      } else {
+        toast.error('Không lấy được link đăng nhập GitHub!')
+      }
+    } catch (err) {
+      console.error('Failed to get GitHub login URL:', err)
+      toast.error('Lỗi khi kết nối đến GitHub: ' + (err.response?.data?.message || err.message))
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.usernameOrEmail || !formData.password) {
@@ -189,11 +247,19 @@ function LoginPage() {
       // Gọi API đăng nhập khớp hoàn toàn với Backend REST API
       const response = await authService.login(
         formData.usernameOrEmail,
-        formData.password
+        formData.password,
+        formData.rememberMe
       )
 
       if (response.data?.success) {
         toast.success('Đăng nhập thành công!')
+        
+        // Lưu/Xóa tài khoản ghi nhớ
+        if (formData.rememberMe) {
+          localStorage.setItem('rememberedUsernameOrEmail', obfuscateText(formData.usernameOrEmail))
+        } else {
+          localStorage.removeItem('rememberedUsernameOrEmail')
+        }
         
         // Sử dụng Zustand store để quản lý thông tin phiên đăng nhập
         const { id, systemRole, username, email, fullName } = response.data?.data || {}
@@ -244,6 +310,14 @@ function LoginPage() {
       // Trường hợp khi đang dev, server chưa bật: hỗ trợ đăng nhập giả lập để test giao diện
       console.warn('API login chưa sẵn sàng hoặc không kết nối được, kích hoạt chế độ giả lập.', err)
       toast.success('Đăng nhập thành công! (Chế độ giả lập)')
+      
+      // Lưu/Xóa tài khoản ghi nhớ ở chế độ giả lập
+      if (formData.rememberMe) {
+        localStorage.setItem('rememberedUsernameOrEmail', obfuscateText(formData.usernameOrEmail))
+      } else {
+        localStorage.removeItem('rememberedUsernameOrEmail')
+      }
+
       useAuthStore.getState().login('1', 'USER', 'dungsa', 'dungsa@fpt.edu.vn', 'Anh Dung')
       setTimeout(() => {
         navigate(returnUrl)
@@ -484,9 +558,9 @@ function LoginPage() {
                 <label className="block font-label-md text-label-md text-secondary" htmlFor="password">
                   Password
                 </label>
-                <a className="font-body-md text-xs text-[#1E707D] hover:underline" href="#">
+                <Link className="font-body-md text-xs text-[#1E707D] hover:underline" to="/forgot-password">
                   Forgot Password?
-                </a>
+                </Link>
               </div>
               <input
                 className="w-full px-3 py-2 border border-outline-variant rounded bg-surface-container-lowest font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed transition-colors disabled:opacity-50"
@@ -540,6 +614,27 @@ function LoginPage() {
                 ) : (
                   'Login'
                 )}
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-outline-variant"></div>
+              <span className="flex-shrink mx-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">or</span>
+              <div className="flex-grow border-t border-outline-variant"></div>
+            </div>
+
+            {/* GitHub Login Button */}
+            <div>
+              <button
+                type="button"
+                onClick={handleGitHubLogin}
+                className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-outline-variant rounded bg-white hover:bg-slate-50 text-black font-body-md text-body-md font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-200 transition-colors h-[44px] cursor-pointer"
+              >
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.197 22 16.44 22 12.017 22 6.484 17.522 2 12 2z" />
+                </svg>
+                Sign in with GitHub
               </button>
             </div>
           </form>

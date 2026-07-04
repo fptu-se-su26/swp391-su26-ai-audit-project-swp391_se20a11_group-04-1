@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
+import org.example.backend.dto.ResetPasswordRequest;
 import org.example.backend.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,16 +53,59 @@ public class AuthController {
     }
 
     /**
+     * Step 1: Submit Forgot Password Request, check if email exists, generate OTP, cache in Redis, send OTP email.
+     * POST /api/v1/auth/forgot-password/request
+     */
+    @PostMapping("/forgot-password/request")
+    public ResponseEntity<ApiResponse<Void>> requestForgotPassword(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            throw new BadRequestException("Địa chỉ email không hợp lệ.");
+        }
+        authService.requestForgotPassword(email);
+        ApiResponse<Void> response = ApiResponse.success("Mã OTP khôi phục mật khẩu đã được gửi đến email của bạn. Vui lòng xác thực trong vòng 5 phút.");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 2: Verify Forgot Password OTP, generate a short-lived resetToken and return it to the frontend.
+     * POST /api/v1/auth/forgot-password/verify-otp
+     */
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<ApiResponse<Map<String, String>>> verifyForgotPasswordOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        if (email == null || email.trim().isEmpty() || otp == null || otp.trim().isEmpty()) {
+            throw new BadRequestException("Email và mã OTP không được để trống.");
+        }
+        String resetToken = authService.verifyForgotPasswordOtp(email, otp);
+        ApiResponse<Map<String, String>> response = ApiResponse.success(Map.of("resetToken", resetToken), "Xác thực mã OTP thành công!");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Step 3: Submit resetToken and new password, verify token, update password in DB, clear token from Redis.
+     * POST /api/v1/auth/forgot-password/reset
+     */
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        ApiResponse<Void> response = ApiResponse.success("Đặt lại mật khẩu thành công!");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Step 3: Login, Authenticate, Session-based Session creation, IP Rate Limit, Progressive Lockout.
      * POST /api/v1/auth/login
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<UserResponse>> login(
-            @RequestBody Map<String, String> payload, 
+            @RequestBody Map<String, Object> payload, 
             HttpSession session, 
             HttpServletRequest request) {
-        String usernameOrEmail = payload.get("usernameOrEmail");
-        String password = payload.get("password");
+        String usernameOrEmail = payload.get("usernameOrEmail") != null ? String.valueOf(payload.get("usernameOrEmail")) : null;
+        String password = payload.get("password") != null ? String.valueOf(payload.get("password")) : null;
+        boolean rememberMe = payload.get("rememberMe") != null && Boolean.parseBoolean(String.valueOf(payload.get("rememberMe")));
 
         // Validate đầu vào nhanh chóng (Fail-Fast) bằng hiệu năng tối đa không cần Reflection DTO
         if (usernameOrEmail == null || usernameOrEmail.trim().isEmpty() 
@@ -78,7 +122,7 @@ public class AuthController {
             clientIp = request.getRemoteAddr();
         }
 
-        UserResponse loginResponse = authService.login(usernameOrEmail, password, session, clientIp);
+        UserResponse loginResponse = authService.login(usernameOrEmail, password, rememberMe, session, clientIp);
         ApiResponse<UserResponse> response = ApiResponse.success(loginResponse, "Đăng nhập thành công!");
         return ResponseEntity.ok(response);
     }

@@ -143,6 +143,8 @@ export default function ProfilePage() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      await fetchMe()
+      await loadProfile()
     } catch (error) {
       console.error(error)
       toast.error(error.response?.data?.message || 'Failed to change password', { id: toastId })
@@ -297,14 +299,20 @@ export default function ProfilePage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Current Password</label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full rounded-xl bg-surface-container-low border-none px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
-                placeholder="••••••••"
-                required
-              />
+              {profile?.passwordSet === false ? (
+                <div className="w-full rounded-xl bg-surface-container-low/50 border border-dashed border-outline-variant/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant italic text-left">
+                  Không yêu cầu mật khẩu hiện tại (Tài khoản được đăng ký qua GitHub)
+                </div>
+              ) : (
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full rounded-xl bg-surface-container-low border-none px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container"
+                  placeholder="••••••••"
+                  required
+                />
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

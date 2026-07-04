@@ -14,6 +14,7 @@ export const useAuthStore = create((set) => {
     email: localStorage.getItem('email') || null,
     fullName: localStorage.getItem('fullName') || null,
     verifyStatus: localStorage.getItem('verifyStatus') || 'UNVERIFIED',
+    passwordSet: localStorage.getItem('passwordSet') !== 'false',
     isAuthenticated: !!userId,
     isLockedOut: false,
     lockReason: null,
@@ -21,14 +22,8 @@ export const useAuthStore = create((set) => {
 
   /**
    * Đăng nhập thành công, thiết lập state và lưu trữ cục bộ
-   * @param {string} userId - ID của người dùng từ Backend
-   * @param {string} userRole - Vai trò hệ thống của người dùng (e.g. USER, ADMIN)
-   * @param {string} username - Tên tài khoản người dùng
-   * @param {string} email - Địa chỉ email người dùng
-   * @param {string} fullName - Họ và tên người dùng
-   * @param {string} verifyStatus - Trạng thái xác minh giảng viên/doanh nghiệp
    */
-  login: (userId, userRole, username, email, fullName, verifyStatus) => {
+  login: (userId, userRole, username, email, fullName, verifyStatus, passwordSet) => {
     const strId = userId ? String(userId) : null
     if (strId) localStorage.setItem('userId', strId)
     if (userRole) localStorage.setItem('userRole', userRole)
@@ -36,6 +31,7 @@ export const useAuthStore = create((set) => {
     if (email) localStorage.setItem('email', email)
     if (fullName) localStorage.setItem('fullName', fullName)
     localStorage.setItem('verifyStatus', verifyStatus || 'UNVERIFIED')
+    localStorage.setItem('passwordSet', passwordSet !== false ? 'true' : 'false')
     // Reset project state khi user mới đăng nhập
     localStorage.removeItem('devtrack-project-storage')
     set({
@@ -45,6 +41,7 @@ export const useAuthStore = create((set) => {
       email: email || null,
       fullName: fullName || null,
       verifyStatus: verifyStatus || 'UNVERIFIED',
+      passwordSet: passwordSet !== false,
       isAuthenticated: !!strId,
       isLockedOut: false,
       lockReason: null,
@@ -59,7 +56,7 @@ export const useAuthStore = create((set) => {
     try {
       const response = await authService.getMe()
       if (response.data?.success) {
-        const { id, systemRole, username, email, fullName, verifyStatus, active, isActive, lockReason, appealStatus } = response.data?.data || {}
+        const { id, systemRole, username, email, fullName, verifyStatus, active, isActive, lockReason, appealStatus, passwordSet } = response.data?.data || {}
         const strId = id ? String(id) : null
         const userIsActive = isActive ?? active ?? true;
         const userIsLocked = !userIsActive;
@@ -70,6 +67,7 @@ export const useAuthStore = create((set) => {
         if (email) localStorage.setItem('email', email)
         if (fullName) localStorage.setItem('fullName', fullName)
         localStorage.setItem('verifyStatus', verifyStatus || 'UNVERIFIED')
+        localStorage.setItem('passwordSet', passwordSet !== false ? 'true' : 'false')
 
         set({
           userId: strId,
@@ -78,6 +76,7 @@ export const useAuthStore = create((set) => {
           email: email || null,
           fullName: fullName || null,
           verifyStatus: verifyStatus || 'UNVERIFIED',
+          passwordSet: passwordSet !== false,
           isAuthenticated: !!strId,
           isLockedOut: userIsLocked,
           lockReason: lockReason || null,
@@ -94,6 +93,7 @@ export const useAuthStore = create((set) => {
       localStorage.removeItem('email')
       localStorage.removeItem('fullName')
       localStorage.removeItem('verifyStatus')
+      localStorage.removeItem('passwordSet')
       set({
         userId: null,
         userRole: null,
@@ -101,6 +101,7 @@ export const useAuthStore = create((set) => {
         email: null,
         fullName: null,
         verifyStatus: 'UNVERIFIED',
+        passwordSet: true,
         isAuthenticated: false,
       })
     }
@@ -116,6 +117,7 @@ export const useAuthStore = create((set) => {
     localStorage.removeItem('email')
     localStorage.removeItem('fullName')
     localStorage.removeItem('verifyStatus')
+    localStorage.removeItem('passwordSet')
     // Xóa project state của user cũ
     localStorage.removeItem('devtrack-project-storage')
 
@@ -131,6 +133,7 @@ export const useAuthStore = create((set) => {
       email: null,
       fullName: null,
       verifyStatus: 'UNVERIFIED',
+      passwordSet: true,
       isAuthenticated: false,
       isLockedOut: false,
       lockReason: null,

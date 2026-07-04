@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpSession;
 import org.example.backend.dto.RegisterRequest;
 import org.example.backend.dto.UserResponse;
 import org.example.backend.dto.VerifyOtpRequest;
+import org.example.backend.dto.ResetPasswordRequest;
 import org.example.backend.entity.SystemRole;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.UserProfile;
@@ -19,11 +20,17 @@ import org.example.backend.exception.ForbiddenException;
 import org.example.backend.repository.SystemRoleRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UserAppealRepository;
+import org.example.backend.repository.UserGithubTokenRepository;
 import org.example.backend.entity.UserAppeal;
+import org.example.backend.entity.UserGithubToken;
 import org.example.backend.service.AuthService;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.OtpService;
 import org.example.backend.service.RateLimitService;
+import org.example.backend.service.EncryptionService;
+import java.util.UUID;
+import java.util.Optional;
+import java.time.LocalDateTime;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -57,6 +64,8 @@ public class AuthServiceImpl implements AuthService {
     private final RateLimitService rateLimitService;
     private final org.example.backend.service.MentorVerificationService mentorVerificationService;
     private final UserAppealRepository userAppealRepository;
+    private final UserGithubTokenRepository userGithubTokenRepository;
+    private final EncryptionService encryptionService;
 
     @org.springframework.beans.factory.annotation.Value("${app.api-base-url:http://localhost:8080}")
     private String apiBaseUrl;
@@ -145,12 +154,13 @@ public class AuthServiceImpl implements AuthService {
                 .systemRole(savedAccount.getSystemRole().getName())
                 .isActive(savedAccount.isActive())
                 .createdAt(savedAccount.getCreatedAt())
+                .passwordSet(isPasswordSet(savedAccount))
                 .build();
     }
 
     @Override
-    public UserResponse login(String usernameOrEmail, String password, HttpSession session, String ipAddress) {
-        log.info("Processing login request for username/email: {} from IP: {}", usernameOrEmail, ipAddress);
+    public UserResponse login(String usernameOrEmail, String password, boolean rememberMe, HttpSession session, String ipAddress) {
+        log.info("Processing login request for username/email: {} from IP: {} (RememberMe: {})", usernameOrEmail, ipAddress, rememberMe);
 
         // BƯỚC 0: IP Rate Limiting (Chống DDoS / spam requests)
         rateLimitService.checkRateLimit(ipAddress, "login", 5, 1);
@@ -243,6 +253,15 @@ public class AuthServiceImpl implements AuthService {
             SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
             securityContext.setAuthentication(authentication);
 
+            // Configure session timeout based on Remember Me preference
+            if (rememberMe) {
+                // 7 days in seconds = 7 * 24 * 60 * 60 = 604800
+                session.setMaxInactiveInterval(7 * 24 * 60 * 60);
+            } else {
+                // Default session timeout = 30 minutes = 30 * 60 = 1800
+                session.setMaxInactiveInterval(30 * 60);
+            }
+
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
             session.setAttribute("userId", user.getId());
             session.setAttribute("userRole", roleName);
@@ -263,6 +282,7 @@ public class AuthServiceImpl implements AuthService {
                     .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                     .createdAt(user.getCreatedAt())
                     .lockReason(user.getLockReason())
+                    .passwordSet(isPasswordSet(user))
                     .build();
         } else {
             // Đăng nhập thất bại -> Phân tích thiết bị và vị trí
@@ -459,6 +479,7 @@ public class AuthServiceImpl implements AuthService {
                 .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
                 .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
                 .build();
     }
 
@@ -503,5 +524,265 @@ public class AuthServiceImpl implements AuthService {
         String jsonPayload = String.format("{\"type\":\"APPEAL_SUBMITTED\",\"userId\":%d,\"username\":\"%s\"}", 
                 user.getId(), user.getUsername());
         org.example.backend.config.NotificationWebSocketHandler.broadcast(jsonPayload);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse loginWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session) {
+        log.info("Processing GitHub OAuth login for email: {}, username: {}", email, githubUsername);
+
+        // 1. Check if user already exists by email
+        Optional<UserAccount> userOpt = userAccountRepository.findByEmail(email);
+        UserAccount user;
+
+        if (userOpt.isPresent()) {
+            user = userOpt.get();
+            // Check if user is active
+            if (!user.isActive()) {
+                throw new CustomException(
+                    "Tài khoản của bạn đã bị admin khóa với lí do: " + (user.getLockReason() != null ? user.getLockReason() : "Không có lý do cụ thể"),
+                    HttpStatus.LOCKED
+                );
+            }
+
+            // Check if GitHub is linked for this user (Check if record exists in user_github_tokens)
+            boolean isGitHubLinked = userGithubTokenRepository.existsById(user.getId());
+            if (!isGitHubLinked) {
+                // Scenario A2: Conflict. Registered via normal flow, never linked. Block!
+                throw new CustomException(
+                    "Email GitHub này đã được sử dụng để tạo tài khoản, vui lòng chọn tính năng lấy lại mật khẩu nếu bạn đã quên mật khẩu.",
+                    HttpStatus.BAD_REQUEST
+                );
+            }
+        } else {
+            throw new ResourceNotFoundException("Tài khoản chưa được đăng ký trên hệ thống.");
+        }
+
+        // Save / update GitHub access token for the user
+        UserGithubToken githubToken = userGithubTokenRepository.findById(user.getId())
+                .orElse(UserGithubToken.builder().user(user).build());
+        githubToken.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
+        githubToken.setUpdatedAt(LocalDateTime.now());
+        userGithubTokenRepository.save(githubToken);
+        log.info("GitHub access token saved/updated for User ID: {}", user.getId());
+
+        // Login & Session binding (similar to standard login)
+        String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(),
+                null,
+                AuthorityUtils.createAuthorityList("ROLE_" + roleName));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("userRole", roleName);
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("fullName", user.getProfile() != null && user.getProfile().getFullName() != null 
+                ? user.getProfile().getFullName() : user.getUsername());
+
+        org.example.backend.config.SessionRegistryListener.register(user.getId(), session);
+
+        log.info("User {} successfully authenticated via GitHub and session bound.", user.getUsername());
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                .systemRole(roleName)
+                .isActive(user.isActive())
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .createdAt(user.getCreatedAt())
+                .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
+                .build();
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return userAccountRepository.existsByEmail(email);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse registerWithGitHub(String email, String githubUsername, String avatarUrl, String accessToken, HttpSession session) {
+        log.info("Registering new user via GitHub. Email: {}, Username: {}", email, githubUsername);
+        
+        if (userAccountRepository.existsByEmail(email)) {
+            throw new DuplicateResourceException("Email đã được sử dụng");
+        }
+
+        // Ensure username is unique
+        String uniqueUsername = githubUsername;
+        if (userAccountRepository.existsByUsername(uniqueUsername)) {
+            uniqueUsername = githubUsername + "_" + UUID.randomUUID().toString().substring(0, 5);
+        }
+
+        SystemRole defaultRole = systemRoleRepository.findByName("USER")
+                .orElseThrow(() -> new ResourceNotFoundException("Default system role 'USER' not found"));
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        long epochSecond = now.atZone(java.time.ZoneId.systemDefault()).toInstant().getEpochSecond();
+
+        UserAccount user = UserAccount.builder()
+                .username(uniqueUsername)
+                .email(email)
+                .passwordHash(passwordEncoder.encode(String.valueOf(epochSecond)))
+                .systemRole(defaultRole)
+                .isActive(true)
+                .verifyStatus(org.example.backend.entity.VerifyStatus.VERIFIED) // Auto-verify OAuth users
+                .createdAt(now)
+                .build();
+
+        UserProfile userProfile = UserProfile.builder()
+                .fullName(githubUsername)
+                .avatarUrl(avatarUrl)
+                .build();
+
+        user.setProfile(userProfile);
+        user = userAccountRepository.save(user);
+
+        // Save / update GitHub access token for the user
+        UserGithubToken githubToken = userGithubTokenRepository.findById(user.getId())
+                .orElse(UserGithubToken.builder().user(user).build());
+        githubToken.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
+        githubToken.setUpdatedAt(LocalDateTime.now());
+        userGithubTokenRepository.save(githubToken);
+        log.info("GitHub access token saved/updated for new User ID: {}", user.getId());
+
+        // Login & Session binding
+        String roleName = user.getSystemRole() != null ? user.getSystemRole().getName() : "USER";
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                user.getUsername(),
+                null,
+                AuthorityUtils.createAuthorityList("ROLE_" + roleName));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("userRole", roleName);
+        session.setAttribute("email", user.getEmail());
+        session.setAttribute("fullName", user.getProfile() != null && user.getProfile().getFullName() != null 
+                ? user.getProfile().getFullName() : user.getUsername());
+
+        org.example.backend.config.SessionRegistryListener.register(user.getId(), session);
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
+                .systemRole(roleName)
+                .isActive(user.isActive())
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .createdAt(user.getCreatedAt())
+                .lockReason(user.getLockReason())
+                .passwordSet(isPasswordSet(user))
+                .build();
+    }
+
+    @Override
+    public void requestForgotPassword(String email) {
+        log.info("Received forgot password request for email: {}", email);
+
+        // 1. Check rate limit: maximum 3 requests per email per 24 hours
+        String limitKey = "FORGOT_LIMIT:" + email;
+        String countStr = redisTemplate.opsForValue().get(limitKey);
+        int count = countStr == null ? 0 : Integer.parseInt(countStr);
+
+        if (count >= 3) {
+            log.warn("Forgot password request rejected. Email {} has exceeded daily limit of 3 requests.", email);
+            throw new BadRequestException("Bạn đã vượt quá giới hạn 3 yêu cầu gửi mã OTP khôi phục mật khẩu trong ngày. Vui lòng quay lại sau 24 giờ.");
+        }
+
+        // 2. Verify if user email exists in database
+        UserAccount user = userAccountRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.warn("Forgot password request failed. Email does not exist: {}", email);
+                    return new ResourceNotFoundException("Email không tồn tại trong hệ thống.");
+                });
+
+        // 3. Increment the limit count in Redis
+        if (count == 0) {
+            redisTemplate.opsForValue().set(limitKey, "1", 24, TimeUnit.HOURS);
+        } else {
+            redisTemplate.opsForValue().increment(limitKey);
+        }
+
+        // 4. Generate secure random 6-digit OTP
+        String otp = otpService.generateOtp();
+
+        // 5. Cache OTP only to Redis for 5 minutes
+        otpService.saveOtpOnly(email, otp, 5);
+
+        // 6. Send forgot password HTML OTP email
+        emailService.sendForgotPasswordOtpEmail(email, otp);
+        log.info("Successfully processed step 1 forgot password for: {}", email);
+    }
+
+    @Override
+    public String verifyForgotPasswordOtp(String email, String otp) {
+        log.info("Verifying forgot password OTP for email: {}", email);
+
+        // 1. Validate OTP from Redis
+        if (!otpService.verifyOtp(email, otp)) {
+            log.warn("Invalid or expired OTP provided for email: {}", email);
+            throw new BadRequestException("Mã OTP không hợp lệ hoặc đã hết hạn.");
+        }
+
+        // 2. Generate a secure random resetToken (UUID)
+        String resetToken = UUID.randomUUID().toString();
+
+        // 3. Cache resetToken in Redis for 5 minutes
+        String resetTokenKey = "RESET_TOKEN:" + email;
+        redisTemplate.opsForValue().set(resetTokenKey, resetToken, 5, TimeUnit.MINUTES);
+
+        // 4. Clear the OTP in Redis so it cannot be reused
+        otpService.clearOtpAndRequest(email);
+
+        log.info("Successfully verified OTP and generated resetToken for email: {}", email);
+        return resetToken;
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        log.info("Processing password reset for email: {}", request.getEmail());
+
+        // 1. Validate resetToken from Redis
+        String resetTokenKey = "RESET_TOKEN:" + request.getEmail();
+        String cachedToken = redisTemplate.opsForValue().get(resetTokenKey);
+
+        if (cachedToken == null || !cachedToken.equals(request.getResetToken())) {
+            log.warn("Invalid or expired reset token provided for email: {}", request.getEmail());
+            throw new BadRequestException("Yêu cầu đặt lại mật khẩu đã hết hạn hoặc không hợp lệ.");
+        }
+
+        // 2. Find user account
+        UserAccount user = userAccountRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
+
+        // 3. Hash and set new password
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userAccountRepository.save(user);
+        log.info("Successfully updated password for user ID: {}", user.getId());
+
+        // 4. Clean up Redis resetToken cache
+        redisTemplate.delete(resetTokenKey);
+    }
+
+    private boolean isPasswordSet(UserAccount user) {
+        if (user.getPasswordHash() == null || user.getCreatedAt() == null) {
+            return true;
+        }
+        long epochSecond = user.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant().getEpochSecond();
+        return !passwordEncoder.matches(String.valueOf(epochSecond), user.getPasswordHash());
     }
 }

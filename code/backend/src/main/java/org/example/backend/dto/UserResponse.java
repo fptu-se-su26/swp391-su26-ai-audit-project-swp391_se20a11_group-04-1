@@ -20,4 +20,5 @@ public class UserResponse {
     private String verifyStatus;
     private LocalDateTime createdAt;
     private String lockReason;
+    private boolean passwordSet;
 }
