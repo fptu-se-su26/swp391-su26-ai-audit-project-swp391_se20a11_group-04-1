@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import TaskReviewService from '../services/taskReviewService'
 import useProjectStore from '@store/useProjectStore'
@@ -8,6 +8,7 @@ import Card from '../../../components/ui/Card'
 import SectionTitle from '../../../components/ui/SectionTitle'
 import Button from '../../../components/ui/Button'
 import { useProjectRole } from '@/hooks/useProjectRole'
+
 
 // Lightweight Native STOMP Client for WebSocket communication without external npm packages
 class NativeStompClient {
@@ -438,6 +439,49 @@ export function TaskReviewWorkspacePage() {
   const [selectedEvidence, setSelectedEvidence] = useState(null)
   const [suggestReason, setSuggestReason] = useState('')
   const [suggestSubmitLoading, setSuggestSubmitLoading] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(280)
+  const [rightWidth, setRightWidth] = useState(340)
+
+  const startResizeLeft = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = leftWidth
+    const onMove = (ev) => {
+      const newW = Math.min(Math.max(startW + ev.clientX - startX, 160), 480)
+      setLeftWidth(newW)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [leftWidth])
+
+  const startResizeRight = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = rightWidth
+    const onMove = (ev) => {
+      const newW = Math.min(Math.max(startW - (ev.clientX - startX), 220), 520)
+      setRightWidth(newW)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [rightWidth])
+
 
   useEffect(() => {
     loadQueue()
@@ -455,7 +499,7 @@ export function TaskReviewWorkspacePage() {
     if (!projectId) return;
 
     const isDev = window.location.host.includes('localhost:5173');
-    const wsHost = isDev ? 'localhost:8081' : window.location.host;
+    const wsHost = isDev ? 'localhost:8080' : window.location.host;
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProto}//${wsHost}/ws`;
     
@@ -525,7 +569,7 @@ export function TaskReviewWorkspacePage() {
     setAiError(false)
 
     const isDev = window.location.host.includes('localhost:5173');
-    const baseUrl = isDev ? 'http://localhost:8081/api/v1' : '/api/v1';
+    const baseUrl = isDev ? 'http://localhost:8080/api/v1' : '/api/v1';
     const sseUrl = `${baseUrl}/projects/${projectId}/task-reviews/${taskId}/ai-stream`;
 
     console.log("Subscribing to AI review SSE stream:", sseUrl);
@@ -742,43 +786,56 @@ export function TaskReviewWorkspacePage() {
   return (
     <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-surface-bright">
       
-      {/* COLUMN 1: Task Navigation (Left) */}
-      <aside className={`shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full overflow-y-auto z-10 shadow-sm transition-all duration-300 ${isQueueOpen ? 'w-[320px]' : 'w-0'}`}>
-        <div className="sticky top-0 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant p-4 z-20 flex justify-between items-center whitespace-nowrap">
-          <h2 className="font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">list_alt</span>
-            Review Queue ({queue.length})
-          </h2>
-          <button onClick={() => setIsQueueOpen(false)} className="text-on-surface-variant hover:text-primary transition-colors flex items-center">
-            <span className="material-symbols-outlined text-[20px]">keyboard_double_arrow_left</span>
-          </button>
-        </div>
-        <div className="p-3 space-y-2 flex-1 overflow-x-hidden">
-          {queue.length === 0 ? (
-            <p className="text-sm text-on-surface-variant text-center mt-10">No tasks waiting</p>
-          ) : (
-            queue.map(item => {
-              const isSelected = item.task?.id === parseInt(taskId)
-              return (
-                <Link
-                  key={item.id}
-                  to={`/projects/${projectId}/task-reviews/${item.task?.id}`}
-                  className={`block p-3 rounded-lg border transition-all ${isSelected ? 'bg-primary-container/20 border-primary shadow-sm' : 'bg-surface border-outline-variant hover:border-primary/50'}`}
-                >
-                  <div className="text-xs font-bold text-primary mb-1">{item.task?.requirementCode || 'NO-REQ'}</div>
-                  <div className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-on-surface'}`}>{item.task?.title}</div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-on-surface-variant flex items-center gap-1">
-                       <span className="material-symbols-outlined text-[14px]">person</span>
-                       {item.task?.assigneeName || 'Unassigned'}
-                    </span>
-                  </div>
-                </Link>
-              )
-            })
-          )}
-        </div>
-      </aside>
+      {/* COLUMN 1: Task Navigation Queue (Left) */}
+      {isQueueOpen && (
+        <>
+          <aside
+            className="shrink-0 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full z-10 shadow-sm overflow-hidden"
+            style={{ width: leftWidth + 'px', minWidth: '160px', maxWidth: '480px' }}
+          >
+            <div className="sticky top-0 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant p-4 z-20 flex justify-between items-center shrink-0">
+              <h2 className="font-bold text-on-surface flex items-center gap-2 truncate">
+                <span className="material-symbols-outlined text-primary shrink-0">list_alt</span>
+                <span className="truncate">Review Queue ({queue.length})</span>
+              </h2>
+              <button onClick={() => setIsQueueOpen(false)} className="text-on-surface-variant hover:text-primary transition-colors flex items-center shrink-0 ml-2">
+                <span className="material-symbols-outlined text-[20px]">keyboard_double_arrow_left</span>
+              </button>
+            </div>
+            <div className="p-3 space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
+              {queue.length === 0 ? (
+                <p className="text-sm text-on-surface-variant text-center mt-10">No tasks waiting</p>
+              ) : (
+                queue.map(item => {
+                  const isSelected = item.task?.id === parseInt(taskId)
+                  return (
+                    <Link
+                      key={item.id}
+                      to={`/projects/${projectId}/task-reviews/${item.task?.id}`}
+                      className={`block p-3 rounded-lg border transition-all ${isSelected ? 'bg-primary-container/20 border-primary shadow-sm' : 'bg-surface border-outline-variant hover:border-primary/50'}`}
+                    >
+                      <div className="text-xs font-bold text-primary mb-1 truncate">{item.task?.requirementCode || 'NO-REQ'}</div>
+                      <div className={`font-bold text-sm truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`}>{item.task?.title}</div>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-on-surface-variant flex items-center gap-1 truncate">
+                          <span className="material-symbols-outlined text-[14px] shrink-0">person</span>
+                          <span className="truncate">{item.task?.assigneeName || 'Unassigned'}</span>
+                        </span>
+                      </div>
+                    </Link>
+                  )
+                })
+              )}
+            </div>
+          </aside>
+          {/* Resize Handle Left */}
+          <div
+            onMouseDown={startResizeLeft}
+            className="w-1.5 shrink-0 cursor-col-resize z-20 bg-outline-variant/40 hover:bg-primary/60 active:bg-primary transition-colors"
+            title="Drag to resize"
+          />
+        </>
+      )}
 
       {/* Main Content Area */}
       {detailLoading ? (
@@ -799,7 +856,7 @@ export function TaskReviewWorkspacePage() {
       ) : (
         <>
           {/* COLUMN 2: Main Content - Risk & Alignment (Middle) */}
-          <main className="flex-1 flex flex-col h-full overflow-y-auto bg-surface-container p-6 md:p-8 relative">
+          <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto bg-surface-container p-6 md:p-8 relative">
             {!isQueueOpen && (
               <button 
                 onClick={() => setIsQueueOpen(true)}
@@ -812,47 +869,57 @@ export function TaskReviewWorkspacePage() {
             <div className={`max-w-4xl mx-auto w-full space-y-6 pb-20 ${!isQueueOpen ? 'mt-4' : ''}`}>
               {/* Task Header */}
               <Card style={{ padding: '24px' }}>
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <h1 className="text-2xl font-black text-on-surface tracking-tight">{task.title}</h1>
-                    <p className="text-sm text-on-surface-variant mt-1 flex items-center gap-2">
+                {/* Row 1: Title + Run AI Review button */}
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-2xl font-black text-on-surface tracking-tight break-words">{task.title}</h1>
+                    <p className="text-sm text-on-surface-variant mt-1 flex items-center gap-2 flex-wrap">
                       <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-bold text-xs">{task.type}</span>
                       <span>#{task.id}</span>
                       <span>• Assignee: {task.assigneeName}</span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {/* Status Badge */}
-                    {(aiStreaming || aiStreamLogs || aiError) && (
-                      <div className="flex items-center gap-2 border border-outline-variant/60 rounded-xl px-3 py-1.5 bg-surface shadow-sm">
-                        <span className="text-xs font-bold uppercase text-on-surface-variant">AI Status:</span>
-                        {aiError ? (
-                           <span className="text-xs font-black text-red-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">cancel</span> FAILED</span>
-                        ) : aiStreaming ? (
-                           <span className="text-xs font-black text-blue-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px] animate-spin">sync</span> RUNNING</span>
-                        ) : (
-                           <span className="text-xs font-black text-green-600 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">check_circle</span> FINISHED</span>
-                        )}
-                        <button onClick={() => setShowAiLogs(true)} className="ml-2 text-[10px] bg-surface-container-low border border-outline-variant hover:bg-surface-container-high px-2 py-0.5 rounded font-bold text-on-surface-variant flex items-center gap-1 transition-colors">
-                           <span className="material-symbols-outlined text-[12px]">visibility</span>
-                           Logs
-                        </button>
-                      </div>
+                  <button
+                    onClick={handleRunAiReview}
+                    disabled={aiStreaming}
+                    className={`shrink-0 flex items-center gap-2 bg-tertiary text-on-tertiary px-4 py-2 rounded-xl font-bold shadow-sm hover:opacity-90 transition-all ${
+                      aiStreaming ? 'opacity-60 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <span className={`material-symbols-outlined ${aiStreaming ? 'animate-spin' : ''}`}>
+                      {aiStreaming ? 'sync' : 'smart_toy'}
+                    </span>
+                    {aiStreaming ? 'Reviewing...' : 'Run AI Review'}
+                  </button>
+                </div>
+
+                {/* Row 2: AI Status badge (only shown when status exists) */}
+                {(aiStreaming || aiStreamLogs || aiError) && (
+                  <div className="mt-3 pt-3 border-t border-outline-variant/40 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase text-on-surface-variant">AI Status:</span>
+                    {aiError ? (
+                      <span className="text-xs font-black text-red-600 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded-lg border border-red-200">
+                        <span className="material-symbols-outlined text-[14px]">cancel</span> FAILED
+                      </span>
+                    ) : aiStreaming ? (
+                      <span className="text-xs font-black text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> RUNNING
+                      </span>
+                    ) : (
+                      <span className="text-xs font-black text-green-700 flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded-lg border border-green-200">
+                        <span className="material-symbols-outlined text-[14px]">check_circle</span> FINISHED
+                      </span>
                     )}
                     <button
-                      onClick={handleRunAiReview}
-                      disabled={aiStreaming}
-                      className={`shrink-0 flex items-center gap-2 bg-tertiary text-on-tertiary px-4 py-2 rounded-xl font-bold shadow-sm hover:opacity-90 transition-all ${
-                        aiStreaming ? 'opacity-60 cursor-not-allowed' : ''
-                      }`}
+                      onClick={() => setShowAiLogs(true)}
+                      className="text-[10px] bg-surface-container-low border border-outline-variant hover:bg-surface-container-high px-2 py-0.5 rounded font-bold text-on-surface-variant flex items-center gap-1 transition-colors"
                     >
-                      <span className={`material-symbols-outlined ${aiStreaming ? 'animate-spin' : ''}`}>
-                        {aiStreaming ? 'sync' : 'smart_toy'}
-                      </span>
-                      {aiStreaming ? 'Reviewing...' : 'Run AI Review'}
+                      <span className="material-symbols-outlined text-[12px]">visibility</span>
+                      Logs
                     </button>
                   </div>
-                </div>
+                )}
+
                 {task.description && (
                   <div className="mt-4 p-4 bg-surface rounded-lg border border-outline-variant text-sm text-on-surface">
                     {task.description}
@@ -876,29 +943,38 @@ export function TaskReviewWorkspacePage() {
             </div>
           </main>
 
+          {/* Resize Handle Right */}
+          <div
+            onMouseDown={startResizeRight}
+            className="w-1.5 shrink-0 cursor-col-resize z-20 bg-outline-variant/40 hover:bg-primary/60 active:bg-primary transition-colors"
+            title="Drag to resize"
+          />
+
           {/* COLUMN 3: Gate & Decision (Right) */}
-                    {/* COLUMN 3: Gate & Decision (Right) */}
-          <aside className="w-[360px] shrink-0 border-l border-outline-variant bg-surface-container-lowest flex flex-col h-full shadow-sm relative z-10">
+          <aside
+            className="shrink-0 border-l border-outline-variant bg-surface-container-lowest flex flex-col h-full shadow-sm relative z-10 overflow-hidden"
+            style={{ width: rightWidth + 'px', minWidth: '220px', maxWidth: '520px' }}
+          >
             
             {/* 1. Phần nội dung cuộn độc lập bên trên */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto p-3 space-y-4">
               
               {/* A. Gate Checklist */}
               <div>
-                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">rule</span>
+                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[16px]">rule</span>
                   Gate Checklist
                 </h3>
                 <div className="space-y-2">
                   {detail.gateChecks && detail.gateChecks.length > 0 ? (
                     detail.gateChecks.map(check => (
-                      <div key={check.name} className="flex gap-3 p-3 rounded-xl border border-outline-variant/60 bg-surface">
+                    <div key={check.name} className="flex gap-2 p-2 rounded-xl border border-outline-variant/60 bg-surface">
                         {check.status === 'PASS' && <span className="material-symbols-outlined text-green-600 shrink-0">check_circle</span>}
                         {check.status === 'FAIL' && <span className="material-symbols-outlined text-red-600 shrink-0">cancel</span>}
                         {check.status === 'WARNING' && <span className="material-symbols-outlined text-yellow-600 shrink-0">warning</span>}
-                        <div>
-                          <p className="font-bold text-sm text-on-surface">{check.name}</p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">{check.detail}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm text-on-surface break-all">{check.name}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5 break-words">{check.detail}</p>
                         </div>
                       </div>
                     ))
@@ -908,15 +984,15 @@ export function TaskReviewWorkspacePage() {
                 </div>
               </div>
 
-              {/* B. Evidence Confidence (Đã chỉnh lại format đồng bộ & đặt ở vị trí mới) */}
+              {/* B. Evidence Confidence */}
               <div>
-                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[16px]">verified_user</span>
                   Evidence Confidence
                 </h3>
-                <div className="p-4 border border-outline-variant/60 rounded-xl bg-surface">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-black tracking-wide uppercase border shrink-0 ${
+                <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide uppercase border shrink-0 ${
                       detail.evidenceConfidence === 'STRONG' ? 'bg-green-50 text-green-700 border-green-200' :
                       detail.evidenceConfidence === 'PARTIAL' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
                       detail.evidenceConfidence === 'WEAK' ? 'bg-orange-50 text-orange-700 border-orange-200' :
@@ -936,13 +1012,13 @@ export function TaskReviewWorkspacePage() {
 
               {/* C. Evidence Vault */}
               <div>
-                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-[18px]">inventory_2</span>
+                <h3 className="font-bold uppercase text-xs tracking-wider text-on-surface-variant mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[16px]">inventory_2</span>
                   Evidence Vault
                 </h3>
                 {isCodeTask(task.type) ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface text-center">
                         <span className="block text-2xl font-black text-on-surface">{evidence.commits?.length || 0}</span>
                         <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Commits</span>
@@ -1090,13 +1166,13 @@ export function TaskReviewWorkspacePage() {
                   <div className="space-y-4">
                     {/* Non-code task display */}
                     {evidence.githubIssue && (
-                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface flex items-center justify-between">
-                        <span className="text-xs uppercase tracking-wider text-on-surface-variant font-bold">Linked Issue</span>
+                      <div className="p-3 border border-outline-variant/60 rounded-xl bg-surface flex flex-col gap-1">
+                        <span className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Linked Issue</span>
                         <a
                           href={evidence.githubIssue.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-bold text-primary hover:underline"
+                          className="text-sm font-bold text-primary hover:underline truncate"
                         >
                           Issue #{evidence.githubIssue.number}
                         </a>
@@ -1156,10 +1232,10 @@ export function TaskReviewWorkspacePage() {
 
             </div>
 
-            {/* 2. Sticky Bottom Decision Panel - Cuộn co giãn Flexbox */}
-                  <div className="bg-surface-container-low p-5 border-t border-outline-variant/30 shrink-0">
-                <h3 className="font-extrabold text-sm mb-3 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">gavel</span>
+            {/* 2. Sticky Bottom Decision Panel */}
+                  <div className="bg-surface-container-low px-3 py-3 border-t border-outline-variant/30 shrink-0">
+                <h3 className="font-extrabold text-xs mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[18px]">gavel</span>
                   Final Decision
                 </h3>
                 {isMember ? (
@@ -1174,32 +1250,32 @@ export function TaskReviewWorkspacePage() {
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
                       disabled={decisionLoading}
-                      className="w-full bg-surface border border-outline-variant rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-3"
-                      rows="2"
+                      className="w-full bg-surface border border-outline-variant rounded-xl p-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none mb-2"
+                      rows="1"
                       placeholder="Write your review comments here..."
                     ></textarea>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={handleRequestChanges} 
-                        disabled={decisionLoading}
-                        className="flex-1 bg-error-container text-error font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">close</span>
-                        {decisionLoading ? 'Processing...' : 'Request Changes'}
-                      </button>
+                    <div className="flex flex-col gap-1.5">
                       <button 
                         onClick={handleApprove} 
                         disabled={decisionLoading}
-                        className="flex-1 bg-primary text-on-primary font-bold py-2.5 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                        className="w-full bg-primary text-on-primary font-bold py-2 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-[18px]">check</span>
+                        <span className="material-symbols-outlined text-[16px]">check</span>
                         {decisionLoading ? 'Processing...' : 'Approve Task'}
+                      </button>
+                      <button 
+                        onClick={handleRequestChanges} 
+                        disabled={decisionLoading}
+                        className="w-full bg-error-container text-error font-bold py-2 rounded-xl text-sm hover:opacity-90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                        {decisionLoading ? 'Processing...' : 'Request Changes'}
                       </button>
                     </div>
                   </>
                 )}
               </div>
-          </aside>
+            </aside>
 
       {/* Modal for AI Logs */}
       {showAiLogs && (
