@@ -49,7 +49,7 @@ export function ProjectTrackingDashboardPage() {
       setMatrix(response)
     } catch (err) {
       console.error('Error loading RTM:', err)
-      toast.error(err.response?.data?.message || 'Không thể tải sơ đồ truy xuất (RTM)')
+      toast.error(err.response?.data?.message || 'Failed to load traceability matrix (RTM).')
     } finally {
       setLoadingRtm(false)
     }
@@ -63,7 +63,7 @@ export function ProjectTrackingDashboardPage() {
       setSnapshots(response || [])
     } catch (err) {
       console.error('Error loading RTM snapshots:', err)
-      toast.error(err.response?.data?.message || 'Không thể tải snapshot RTM')
+      toast.error(err.response?.data?.message || 'Failed to load RTM snapshots.')
     } finally {
       setSnapshotLoading(false)
     }
@@ -77,7 +77,7 @@ export function ProjectTrackingDashboardPage() {
       setTrackingData(data)
     } catch (err) {
       console.error('Error loading tracking data:', err)
-      toast.error(err.response?.data?.message || 'Không thể tải dữ liệu theo dõi đóng góp')
+      toast.error(err.response?.data?.message || 'Failed to load contribution tracking data.')
     } finally {
       setLoadingTracking(false)
     }
@@ -113,10 +113,10 @@ export function ProjectTrackingDashboardPage() {
     try {
       const snapshot = await rtmService.saveSnapshot(activeProject.id)
       setSnapshots((current) => [snapshot, ...current])
-      toast.success('Đã lưu snapshot RTM thành công!')
+      toast.success('RTM snapshot saved successfully!')
     } catch (err) {
       console.error('Error saving RTM snapshot:', err)
-      toast.error(err.response?.data?.message || 'Không thể lưu snapshot RTM')
+      toast.error(err.response?.data?.message || 'Failed to save RTM snapshot.')
     } finally {
       setSavingRtm(false)
     }
@@ -135,10 +135,10 @@ export function ProjectTrackingDashboardPage() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      toast.success('Xuất file Excel thành công!')
+      toast.success('Excel report exported successfully!')
     } catch (err) {
       console.error('Error exporting tracking Excel:', err)
-      toast.error('Không thể xuất file Excel.')
+      toast.error('Failed to export Excel report.')
     } finally {
       setExporting(false)
     }
@@ -149,9 +149,9 @@ export function ProjectTrackingDashboardPage() {
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none flex items-center justify-center">
         <div className="max-w-md w-full text-center bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/60 shadow-lg space-y-4">
           <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-bounce">folder_open</span>
-          <h3 className="font-extrabold text-xl text-on-surface">Chưa chọn dự án</h3>
+          <h3 className="font-extrabold text-xl text-on-surface">No project selected</h3>
           <p className="text-sm text-on-surface-variant leading-relaxed">
-            Vui lòng quay lại Dashboard và chọn một dự án để xem báo cáo theo dõi và đánh giá đóng góp.
+            Please return to the Dashboard and select a project to view the tracking and contribution report.
           </p>
         </div>
       </main>
@@ -193,7 +193,7 @@ export function ProjectTrackingDashboardPage() {
     });
 
     return {
-      name: 'TỔNG CỘNG',
+      name: 'TOTAL',
       totalTasks,
       doneTasks,
       cancelledTasks,
@@ -239,7 +239,7 @@ export function ProjectTrackingDashboardPage() {
               Project Tracking Dashboard
             </h1>
             <p className="text-sm text-on-surface-variant mt-2 max-w-2xl">
-              Theo dõi đóng góp của thành viên, chất lượng công việc và tính liên kết hệ thống (RTM).
+              Monitor member contributions, task quality, and system traceability (RTM).
             </p>
           </div>
 
@@ -277,7 +277,7 @@ export function ProjectTrackingDashboardPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">group</span>
-            Đóng góp thành viên
+            Team Contribution
           </button>
           <button
             onClick={() => setActiveTab('rtm')}
@@ -288,7 +288,7 @@ export function ProjectTrackingDashboardPage() {
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">reorder</span>
-            Ma trận truy xuất (RTM)
+            Traceability Matrix (RTM)
           </button>
         </div>
 
@@ -301,7 +301,7 @@ export function ProjectTrackingDashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Thành viên</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Members</p>
                   <p className="text-2xl font-black text-on-surface mt-1">{trackingData?.totalMembers ?? 0}</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-[#1E707D] bg-surface-container-high/40 p-2.5 rounded-xl">group</span>
@@ -309,7 +309,7 @@ export function ProjectTrackingDashboardPage() {
               
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Hoàn thành / Tổng Tasks</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Completed / Total Tasks</p>
                   <p className="text-2xl font-black text-on-surface mt-1">{trackingData?.completedTasks ?? 0}/{trackingData?.totalTasks ?? 0}</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-[#1E707D] bg-surface-container-high/40 p-2.5 rounded-xl">checklist</span>
@@ -317,7 +317,7 @@ export function ProjectTrackingDashboardPage() {
 
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Tỷ lệ hoàn thành</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Completion Rate</p>
                   <p className="text-2xl font-black text-on-surface mt-1">{trackingData?.completionPercentage ?? 0}%</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-[#1E707D] bg-surface-container-high/40 p-2.5 rounded-xl">done_all</span>
@@ -325,7 +325,7 @@ export function ProjectTrackingDashboardPage() {
 
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Đúng hạn (On-Time)</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">On-Time Rate</p>
                   <p className="text-2xl font-black text-[#047857] mt-1">{trackingData?.averageOnTimePercentage ?? 0}%</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-[#047857] bg-surface-container-high/40 p-2.5 rounded-xl">schedule</span>
@@ -333,7 +333,7 @@ export function ProjectTrackingDashboardPage() {
 
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Chất lượng trung bình</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Average Quality</p>
                   <p className="text-2xl font-black text-on-surface mt-1">{trackingData?.averageQualityScore ?? 0}/10</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-on-surface bg-surface-container-high/40 p-2.5 rounded-xl">star</span>
@@ -341,7 +341,7 @@ export function ProjectTrackingDashboardPage() {
 
               <Card className="p-4 shadow-sm flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Tổng Project Points</p>
+                  <p className="text-[10px] font-black uppercase text-on-surface-variant tracking-wider">Total Project Points</p>
                   <p className="text-2xl font-black text-primary mt-1">{trackingData?.totalPoints ?? 0}</p>
                 </div>
                 <span className="material-symbols-outlined text-2xl text-primary bg-surface-container-high/40 p-2.5 rounded-xl">payments</span>
@@ -354,14 +354,14 @@ export function ProjectTrackingDashboardPage() {
               <div className="xl:col-span-3 space-y-4">
                 <Card style={{ padding: 0 }} className="overflow-hidden shadow-sm">
                   <div className="p-4 bg-surface-container-low border-b border-outline-variant/60 flex items-center justify-between">
-                    <h3 className="font-black text-sm text-on-surface uppercase tracking-wide">Báo cáo hiệu suất & đóng góp</h3>
-                    <span className="text-[10px] font-bold text-on-surface-variant">Đơn vị: giờ (h), điểm (Points)</span>
+                    <h3 className="font-black text-sm text-on-surface uppercase tracking-wide">Performance & Contribution Report</h3>
+                    <span className="text-[10px] font-bold text-on-surface-variant">Unit: hours (h), points (Points)</span>
                   </div>
                   <div className="overflow-x-auto">
                     {loadingTracking ? (
                       <div className="p-12 text-center">
                         <span className="material-symbols-outlined animate-spin text-4xl text-[#1E707D]">progress_activity</span>
-                        <p className="text-xs font-bold text-on-surface-variant mt-3">Đang tải dữ liệu đánh giá...</p>
+                        <p className="text-xs font-bold text-on-surface-variant mt-3">Loading contribution data...</p>
                       </div>
                     ) : trackingData?.members?.length ? (
                       <table className="w-full text-left border-collapse min-w-[700px]">
@@ -370,14 +370,14 @@ export function ProjectTrackingDashboardPage() {
                             <th className="px-4 py-3">Member</th>
                             <th className="px-4 py-3 text-center">Tasks</th>
                             <th className="px-4 py-3 text-center">Done</th>
-                            <th className="px-4 py-3 text-center">Hủy</th>
-                            <th className="px-4 py-3 text-center">Hoàn thành%</th>
-                            <th className="px-4 py-3 text-center">Đúng hạn%</th>
-                            <th className="px-4 py-3 text-center">Ước lượng(h)</th>
-                            <th className="px-4 py-3 text-center">Thực tế(h)</th>
-                            <th className="px-4 py-3 text-center">Điểm chất lượng</th>
-                            <th className="px-4 py-3 text-center">Điểm tích lũy</th>
-                            <th className="px-4 py-3 text-center">Đóng góp%</th>
+                            <th className="px-4 py-3 text-center">Cancelled</th>
+                            <th className="px-4 py-3 text-center">Completed%</th>
+                            <th className="px-4 py-3 text-center">On-Time%</th>
+                            <th className="px-4 py-3 text-center">Estimated (h)</th>
+                            <th className="px-4 py-3 text-center">Actual (h)</th>
+                            <th className="px-4 py-3 text-center">Quality Score</th>
+                            <th className="px-4 py-3 text-center">Accumulated Points</th>
+                            <th className="px-4 py-3 text-center">Contribution%</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-outline-variant/30 text-xs">
@@ -436,7 +436,7 @@ export function ProjectTrackingDashboardPage() {
                       </table>
                     ) : (
                       <div className="p-12 text-center text-on-surface-variant italic">
-                        Không có dữ liệu đóng góp thành viên nào.
+                        No member contribution data available.
                       </div>
                     )}
                   </div>
@@ -449,7 +449,7 @@ export function ProjectTrackingDashboardPage() {
                 <Card className="shadow-sm flex flex-col p-5 h-[340px]">
                   <h3 className="font-black text-sm text-on-surface uppercase tracking-wide border-b border-outline-variant/20 pb-2 mb-4 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[18px]">pie_chart</span>
-                    Biểu đồ tỷ lệ đóng góp (Points)
+                    Contribution Ratio (Points)
                   </h3>
                   <div className="flex-1 min-h-0 relative">
                     {pieData.length ? (
@@ -474,7 +474,7 @@ export function ProjectTrackingDashboardPage() {
                       </ResponsiveContainer>
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-xs text-on-surface-variant italic">
-                        Chưa có dữ liệu tính lũy điểm
+                        No points accumulated yet
                       </div>
                     )}
                   </div>
@@ -484,7 +484,7 @@ export function ProjectTrackingDashboardPage() {
                 <Card className="shadow-sm p-5 space-y-4">
                   <h3 className="font-black text-sm text-on-surface uppercase tracking-wide border-b border-outline-variant/20 pb-2 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[18px]">settings</span>
-                    Thao tác báo cáo
+                    Report Actions
                   </h3>
                   <div className="flex flex-col gap-2.5">
                     <Button
@@ -498,7 +498,7 @@ export function ProjectTrackingDashboardPage() {
                       ) : (
                         <span className="material-symbols-outlined text-[20px]">download</span>
                       )}
-                      {exporting ? 'Đang xuất...' : 'Xuất Báo Cáo Excel'}
+                      {exporting ? 'Exporting...' : 'Export Excel Report'}
                     </Button>
 
                     <Button
@@ -508,17 +508,17 @@ export function ProjectTrackingDashboardPage() {
                       disabled={loadingTracking}
                     >
                       <span className={`material-symbols-outlined text-[20px] ${loadingTracking ? 'animate-spin' : ''}`}>refresh</span>
-                      Làm mới dữ liệu
+                      Refresh Data
                     </Button>
                   </div>
 
                   <div className="pt-3 border-t border-outline-variant/20 flex flex-col gap-1 text-[10px] text-on-surface-variant font-medium">
                     <div className="flex justify-between">
-                      <span>Cập nhật lúc:</span>
+                      <span>Updated at:</span>
                       <span className="font-bold">{new Date().toLocaleTimeString()}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Nguồn:</span>
+                      <span>Source:</span>
                       <span className="font-bold text-[#1E707D]">Tasks & SLA Engine</span>
                     </div>
                   </div>
@@ -556,7 +556,7 @@ export function ProjectTrackingDashboardPage() {
                 {loadingRtm && !matrix ? (
                   <section className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
                     <span className="material-symbols-outlined text-5xl text-[#1E707D] animate-spin">progress_activity</span>
-                    <p className="mt-4 text-sm font-bold text-on-surface-variant">Đang tải ma trận truy xuất...</p>
+                    <p className="mt-4 text-sm font-bold text-on-surface-variant">Loading traceability matrix...</p>
                   </section>
                 ) : (
                   <RtmMatrixTable rows={filteredRows} onSelectRow={setSelectedRow} />
@@ -569,7 +569,7 @@ export function ProjectTrackingDashboardPage() {
                 <Card className="shadow-sm p-5 flex flex-col max-h-[380px] overflow-y-auto">
                   <h3 className="font-black text-sm text-on-surface uppercase tracking-wide border-b border-outline-variant/20 pb-2 mb-4 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[18px]">local_fire_department</span>
-                    Tiến độ hoàn thành Yêu cầu
+                    Requirement Completion
                   </h3>
                   {rows.length ? (
                     <>
@@ -598,7 +598,7 @@ export function ProjectTrackingDashboardPage() {
                         })}
                         {rows.length > 8 && (
                           <p className="text-[10px] text-center text-on-surface-variant italic font-semibold pt-1">
-                            Hiển thị 8/{rows.length} yêu cầu hàng đầu
+                            Showing top 8 of {rows.length} requirements
                           </p>
                         )}
                       </div>
@@ -621,7 +621,7 @@ export function ProjectTrackingDashboardPage() {
                     </>
                   ) : (
                     <div className="text-xs text-on-surface-variant italic py-6 text-center">
-                      Không có yêu cầu nào.
+                      No requirements found.
                     </div>
                   )}
                 </Card>
@@ -630,7 +630,7 @@ export function ProjectTrackingDashboardPage() {
                 <Card className="shadow-sm p-5 flex flex-col">
                   <h3 className="font-black text-sm text-on-surface uppercase tracking-wide border-b border-outline-variant/20 pb-2 mb-4 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[18px]">schema</span>
-                    Sơ đồ luồng truy xuất (Trace Flow)
+                    Trace Flow Diagram
                   </h3>
                   
                   <div className="relative pl-6 space-y-6 text-xs before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant/60">
@@ -640,8 +640,8 @@ export function ProjectTrackingDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px] text-[#1E707D] bg-[#D7EEF1] p-1 rounded-md">description</span>
                         <div className="flex flex-col">
-                          <span className="font-bold text-on-surface">Requirement (Yêu cầu)</span>
-                          <span className="text-[10px] text-on-surface-variant">Phát triển phần mềm dựa trên UCs</span>
+                          <span className="font-bold text-on-surface">Requirement</span>
+                          <span className="text-[10px] text-on-surface-variant">Software development based on Use Cases</span>
                         </div>
                       </div>
                     </div>
@@ -652,8 +652,8 @@ export function ProjectTrackingDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px] text-primary bg-primary-container/20 p-1 rounded-md">assignment</span>
                         <div className="flex flex-col">
-                          <span className="font-bold text-on-surface">Task (Công việc)</span>
-                          <span className="text-[10px] text-on-surface-variant">Thành viên thực hiện công việc</span>
+                          <span className="font-bold text-on-surface">Task</span>
+                          <span className="text-[10px] text-on-surface-variant">Team member executing task</span>
                         </div>
                       </div>
                     </div>
@@ -664,8 +664,8 @@ export function ProjectTrackingDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px] text-tertiary bg-tertiary-container/20 p-1 rounded-md">checklist_rtl</span>
                         <div className="flex flex-col">
-                          <span className="font-bold text-on-surface">Test Case (Kịch bản kiểm thử)</span>
-                          <span className="text-[10px] text-on-surface-variant">Xác thực chức năng công việc</span>
+                          <span className="font-bold text-on-surface">Test Case</span>
+                          <span className="text-[10px] text-on-surface-variant">Validate task functionality</span>
                         </div>
                       </div>
                     </div>
@@ -676,8 +676,8 @@ export function ProjectTrackingDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px] text-error bg-error-container/20 p-1 rounded-md">bug_report</span>
                         <div className="flex flex-col">
-                          <span className="font-bold text-on-surface">Bug (Lỗi kiểm thử)</span>
-                          <span className="text-[10px] text-on-surface-variant">Lỗi phát hiện khi chạy Test Case</span>
+                          <span className="font-bold text-on-surface">Bug</span>
+                          <span className="text-[10px] text-on-surface-variant">Defect found during test execution</span>
                         </div>
                       </div>
                     </div>
@@ -688,8 +688,8 @@ export function ProjectTrackingDashboardPage() {
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-[16px] text-success bg-[#d1fae5] p-1 rounded-md">inventory_2</span>
                         <div className="flex flex-col">
-                          <span className="font-bold text-on-surface">Evidence (Minh chứng)</span>
-                          <span className="text-[10px] text-on-surface-variant">Minh chứng hoàn thành công việc</span>
+                          <span className="font-bold text-on-surface">Evidence</span>
+                          <span className="text-[10px] text-on-surface-variant">Evidence of task completion</span>
                         </div>
                       </div>
                     </div>

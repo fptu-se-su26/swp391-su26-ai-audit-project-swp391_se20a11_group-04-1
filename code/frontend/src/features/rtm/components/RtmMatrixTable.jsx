@@ -282,7 +282,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                           onSelectRow(row)
                         }}
                         className="drawer-trigger p-1 rounded-full hover:bg-surface-container text-primary transition-colors inline-flex items-center justify-center"
-                        title="Xem chi tiết đầy đủ"
+                        title="View Full Details"
                       >
                         <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                       </button>
@@ -305,13 +305,13 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                                 {row.title}
                               </p>
                               <p className="text-[11px] text-on-surface-variant/80 mt-1.5 leading-relaxed">
-                                {row.description || 'Không có mô tả bổ sung cho yêu cầu này.'}
+                                {row.description || 'No additional description for this requirement.'}
                               </p>
                             </div>
                             {row.evidenceRequired && (
                               <div className="mt-3 pt-2 border-t border-outline-variant/20 flex items-center gap-1.5 text-error text-[10px] font-black uppercase">
                                 <span className="material-symbols-outlined text-xs">warning</span>
-                                Bắt buộc có minh chứng
+                                Evidence Required
                               </div>
                             )}
                           </div>
@@ -321,7 +321,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                               <span className="material-symbols-outlined text-[16px]">assignment</span>
                               Tasks ({row.tasks?.length || 0})
                             </h4>
-                            <LinkedItemsList items={row.tasks} type="task" emptyMsg="Không có tasks liên kết" />
+                            <LinkedItemsList items={row.tasks} type="task" emptyMsg="No linked tasks" />
                           </div>
                           
                           <div className="border border-outline-variant/30 rounded-xl p-3 bg-surface-container-lowest shadow-sm">
@@ -329,7 +329,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                               <span className="material-symbols-outlined text-[16px]">checklist_rtl</span>
                               Test Cases ({row.testCases?.length || 0})
                             </h4>
-                            <LinkedItemsList items={row.testCases} type="testCase" emptyMsg="Không có test cases liên kết" />
+                            <LinkedItemsList items={row.testCases} type="testCase" emptyMsg="No linked test cases" />
                           </div>
 
                           <div className="border border-outline-variant/30 rounded-xl p-3 bg-surface-container-lowest shadow-sm">
@@ -337,7 +337,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                               <span className="material-symbols-outlined text-[16px]">bug_report</span>
                               Bugs ({row.bugs?.length || 0})
                             </h4>
-                            <LinkedItemsList items={row.bugs} type="bug" emptyMsg="Không có bugs liên kết" />
+                            <LinkedItemsList items={row.bugs} type="bug" emptyMsg="No linked bugs" />
                           </div>
 
                           <div className="border border-outline-variant/30 rounded-xl p-3 bg-surface-container-lowest shadow-sm">
@@ -345,7 +345,7 @@ export function RtmMatrixTable({ rows, onSelectRow }) {
                               <span className="material-symbols-outlined text-[16px]">inventory_2</span>
                               Evidence ({row.evidence?.length || 0})
                             </h4>
-                            <LinkedItemsList items={row.evidence} type="evidence" emptyMsg="Không có minh chứng liên kết" />
+                            <LinkedItemsList items={row.evidence} type="evidence" emptyMsg="No linked evidence" />
                           </div>
                         </div>
                       </td>
