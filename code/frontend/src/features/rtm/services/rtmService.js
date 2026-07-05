@@ -20,6 +20,11 @@ export const rtmService = {
     const response = await axiosInstance.get(`/v1/projects/${projectId}/rtm/snapshots`)
     return response.data.data
   },
+
+  getTrackingData: async (projectId) => {
+    const response = await axiosInstance.get(`/v1/projects/${projectId}/tracking`)
+    return response.data.data
+  },
 }
 
 export default rtmService

@@ -1,1 +1,1 @@
-export { default as RtmPage } from './pages/RtmPage'
+export { default as ProjectTrackingDashboardPage } from './pages/ProjectTrackingDashboardPage'

@@ -35,7 +35,7 @@ import EvidenceListPage from '@features/evidence/pages/EvidenceListPage'
 import EvidenceDetailPage from '@features/evidence/pages/EvidenceDetailPage'
 
 // Feature Pages - RTM
-import RtmPage from '@features/rtm/pages/RtmPage'
+import ProjectTrackingDashboardPage from '@features/rtm/pages/ProjectTrackingDashboardPage'
 
 // Feature Pages - Code Insight
 import TaskReviewDashboardPage from '@features/code-insight/pages/TaskReviewDashboardPage'
@@ -157,7 +157,7 @@ export function AppRoutes() {
             <Route path="github-config" element={<ProjectGithubConfig />} />
 
             {/* Module 8: Traceability Matrix */}
-            <Route path="traceability-matrix" element={<RtmPage />} />
+            <Route path="tracking" element={<ProjectTrackingDashboardPage />} />
             <Route path="task-reviews" element={<TaskReviewDashboardPage />} />
             <Route path="task-reviews/:taskId" element={<TaskReviewWorkspacePage />} />
             <Route path="architecture" element={<ArchitecturePage />} />

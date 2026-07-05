@@ -6,6 +6,7 @@ import useProjectStore from '@store/useProjectStore'
 import toast from 'react-hot-toast'
 import { getInitials } from '@utils/avatarHelper'
 import { recoveryPlanService } from '@features/sla/services/recoveryPlanService'
+import { TaskReviewService } from '@features/code-insight/services/taskReviewService'
 import SyncStatusBadge from '../common/SyncStatusBadge'
 
 const W_FULL = 272
@@ -184,9 +185,11 @@ export default function Sidebar() {
 
   const [collapsed, setCollapsed] = useState(false)
   const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0)
+  const [pendingReviewCount, setPendingReviewCount] = useState(0)
 
   useEffect(() => {
     if (activeProject?.id && (activeProject?.role === 'LEADER' || activeProject?.role === 'PROJECT_LEADER' || userRole === 'MENTOR')) {
+      // Recovery plans count
       recoveryPlanService.getProjectRecoveryPlans(activeProject.id, { status: 'PENDING_APPROVAL' })
         .then(plans => {
           if (Array.isArray(plans)) {
@@ -194,8 +197,18 @@ export default function Sidebar() {
           }
         })
         .catch(() => setPendingRecoveryCount(0))
+
+      // Task reviews pending count
+      TaskReviewService.getReviewQueue(activeProject.id)
+        .then(queue => {
+          if (Array.isArray(queue)) {
+            setPendingReviewCount(queue.length)
+          }
+        })
+        .catch(() => setPendingReviewCount(0))
     } else {
       setPendingRecoveryCount(0)
+      setPendingReviewCount(0)
     }
   }, [activeProject?.id, userRole])
 
@@ -214,29 +227,29 @@ export default function Sidebar() {
   }, [])
 
   /* ── Item builders ── */
-  const buildProjectItems = pid => [
+  const buildOverviewItems = pid => [
     { key: 'dashboard',           icon: 'dashboard',          label: 'Dashboard',           path: `/projects/${pid}/dashboard` },
+    { key: 'project-tracking',    icon: 'monitoring',         label: 'Project Tracking',    path: `/projects/${pid}/tracking` },
+    { key: 'sprints',             icon: 'history_toggle_off', label: 'Sprints',             path: `/projects/${pid}/sprints` },
+  ]
+
+  const buildDevItems = pid => [
     { key: 'requirements',        icon: 'description',        label: 'Requirements',        path: `/projects/${pid}/requirements` },
     { key: 'use-cases',           icon: 'account_tree',       label: 'Use Cases',           path: `/projects/${pid}/use-cases` },
     { key: 'task-board',          icon: 'assignment',         label: 'Task Board',          path: `/projects/${pid}/task-board` },
     { key: 'my-tasks',            icon: 'assignment_ind',     label: 'My Tasks',            path: `/projects/${pid}/my-tasks` },
-    { key: 'sprints',             icon: 'history_toggle_off', label: 'Sprints',             path: `/projects/${pid}/sprints` },
+    { key: 'task-reviews',        icon: 'fact_check',         label: 'Task Review',         path: `/projects/${pid}/task-reviews`, badge: pendingReviewCount },
     { key: 'test-cases',          icon: 'checklist_rtl',      label: 'Test Cases',          path: `/projects/${pid}/test-cases` },
-    { key: 'issues',              icon: 'crisis_alert',       label: 'Issues',              path: `/projects/${pid}/issues` },
     { key: 'bugs',                icon: 'bug_report',         label: 'Bugs',                path: `/projects/${pid}/bugs` },
+    { key: 'issues',              icon: 'crisis_alert',       label: 'Issues',              path: `/projects/${pid}/issues` },
     { key: 'evidence',            icon: 'inventory_2',        label: 'Evidence Vault',      path: `/projects/${pid}/evidence` },
-    { key: 'traceability-matrix', icon: 'reorder',            label: 'Traceability Matrix', path: `/projects/${pid}/traceability-matrix` },
+    { key: 'architecture',        icon: 'schema',             label: 'System Architecture', path: `/projects/${pid}/architecture` },
+    { key: 'recovery-plans',      icon: 'shield',             label: 'Recovery Plans',      path: `/projects/${pid}/recovery-plans`, badge: pendingRecoveryCount },
   ]
-  const buildIntelItems = pid => [
-    { key: 'ai-assistant',  icon: 'smart_toy',  label: 'AI Assistant',  path: `/projects/${pid}/ai-assistant` },
-    { key: 'github-config', icon: 'hub',        label: 'GitHub Config', path: `/projects/${pid}/github-config` },
-    { key: 'task-reviews',  icon: 'fact_check', label: 'Task Review',   path: `/projects/${pid}/task-reviews` },
-    { key: 'recovery-plans',icon: 'shield',     label: 'Recovery Plans',path: `/projects/${pid}/recovery-plans`, badge: pendingRecoveryCount },
-    { key: 'architecture',  icon: 'schema',     label: 'System Architecture', path: `/projects/${pid}/architecture` },
-  ]
-  const buildTeamItems = (pid, role) => {
+
+  const buildManageItems = (pid, role) => {
     const base = [
-      { key: 'contribution',     icon: 'groups',     label: 'Contribution',     path: `/projects/${pid}/contribution` },
+      { key: 'contribution',     icon: 'groups',     label: 'Team Member',      path: `/projects/${pid}/contribution` },
       { key: 'mentor-view',      icon: 'visibility', label: 'Mentor View',      path: `/projects/${pid}/mentor-view` },
     ]
     if (role === 'MENTOR') base.push({ key: 'mentor', icon: 'supervisor_account', label: 'Mentor Dashboard', path: `/projects/${pid}/mentor` })
@@ -421,21 +434,22 @@ export default function Sidebar() {
           <NavGroup items={portfolioItems} activeKey={portfolioActiveKey} collapsed={collapsed} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <SectionLabel collapsed={collapsed}>Overview</SectionLabel>
             <NavGroup
-              items={enrich(buildProjectItems(activeProject.id))}
-              activeKey={getActiveKey(buildProjectItems(activeProject.id))}
+              items={enrich(buildOverviewItems(activeProject.id))}
+              activeKey={getActiveKey(buildOverviewItems(activeProject.id))}
               collapsed={collapsed}
             />
-            <SectionLabel collapsed={collapsed}>Intelligence</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Development</SectionLabel>
             <NavGroup
-              items={enrich(buildIntelItems(activeProject.id))}
-              activeKey={getActiveKey(buildIntelItems(activeProject.id))}
+              items={enrich(buildDevItems(activeProject.id))}
+              activeKey={getActiveKey(buildDevItems(activeProject.id))}
               collapsed={collapsed}
             />
-            <SectionLabel collapsed={collapsed}>Team</SectionLabel>
+            <SectionLabel collapsed={collapsed}>Management</SectionLabel>
             <NavGroup
-              items={enrich(buildTeamItems(activeProject.id, userRole))}
-              activeKey={getActiveKey(buildTeamItems(activeProject.id, userRole))}
+              items={enrich(buildManageItems(activeProject.id, userRole))}
+              activeKey={getActiveKey(buildManageItems(activeProject.id, userRole))}
               collapsed={collapsed}
             />
           </div>

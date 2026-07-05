@@ -45,12 +45,11 @@ public class ProjectTrackingExportService {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public byte[] exportProjectTracking(Long projectId) {
+    public org.example.backend.dto.ProjectTrackingResponse getProjectTrackingData(Long projectId) {
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
 
         List<Task>   allTasks = taskRepository.findAllWithAssigneeByProjectId(projectId);
-        List<Sprint> sprints  = sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId);
 
         // Pre-compute display values for every task
         Map<Long, DisplayValues> displayMap = new HashMap<>();
@@ -64,11 +63,113 @@ public class ProjectTrackingExportService {
                 .mapToDouble(t -> displayMap.get(t.getId()).taskPoints)
                 .sum();
 
+        Map<String, List<Task>> byMember = allTasks.stream()
+                .collect(Collectors.groupingBy(this::assigneeName, TreeMap::new, Collectors.toList()));
+
+        List<org.example.backend.dto.ProjectTrackingResponse.MemberSummary> members = new ArrayList<>();
+        double totalActualHours = 0;
+
+        for (Map.Entry<String, List<Task>> entry : byMember.entrySet()) {
+            List<Task> mt = entry.getValue();
+            long done      = mt.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
+            long cancelled = mt.stream().filter(t -> t.getStatus() == TaskStatus.CANCELLED).count();
+
+            long onTime = mt.stream()
+                    .filter(t -> t.getStatus() == TaskStatus.DONE
+                            && t.getCompletedAt() != null && t.getDeadline() != null
+                            && !t.getCompletedAt().toLocalDate().isAfter(t.getDeadline()))
+                    .count();
+
+            double completionPct = mt.isEmpty() ? 0 : (done * 100.0 / mt.size());
+            double onTimePct     = done == 0 ? 0 : (onTime * 100.0 / done);
+
+            double totalEst = mt.stream()
+                    .filter(t -> t.getEstimatedHours() != null)
+                    .mapToDouble(t -> t.getEstimatedHours().doubleValue()).sum();
+            double totalAct = mt.stream()
+                    .map(t -> displayMap.get(t.getId()).actualHours)
+                    .filter(Objects::nonNull)
+                    .mapToDouble(BigDecimal::doubleValue).sum();
+
+            totalActualHours += totalAct;
+
+            OptionalDouble avgQ = mt.stream()
+                    .filter(t -> t.getStatus() == TaskStatus.DONE)
+                    .mapToDouble(t -> displayMap.get(t.getId()).qualityScore)
+                    .filter(q -> q > 0).average();
+
+            double memberPoints = mt.stream()
+                    .filter(t -> t.getStatus() == TaskStatus.DONE)
+                    .mapToDouble(t -> displayMap.get(t.getId()).taskPoints).sum();
+
+            double contrib = totalProjectPoints > 0 ? (memberPoints / totalProjectPoints * 100) : 0;
+
+            members.add(new org.example.backend.dto.ProjectTrackingResponse.MemberSummary(
+                    entry.getKey(),
+                    mt.size(),
+                    (int) done,
+                    (int) cancelled,
+                    Math.round(completionPct * 10) / 10.0,
+                    Math.round(onTimePct * 10) / 10.0,
+                    Math.round(totalEst * 100) / 100.0,
+                    Math.round(totalAct * 100) / 100.0,
+                    avgQ.isPresent() ? Math.round(avgQ.getAsDouble() * 10) / 10.0 : 0.0,
+                    Math.round(memberPoints * 100) / 100.0,
+                    Math.round(contrib * 10) / 10.0
+            ));
+        }
+
+        int completedTasks = (int) allTasks.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
+        double projectCompletionPct = allTasks.isEmpty() ? 0 : (completedTasks * 100.0 / allTasks.size());
+
+        long projectOnTime = allTasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.DONE
+                        && t.getCompletedAt() != null && t.getDeadline() != null
+                        && !t.getCompletedAt().toLocalDate().isAfter(t.getDeadline()))
+                .count();
+        double projectOnTimePct = completedTasks == 0 ? 0 : (projectOnTime * 100.0 / completedTasks);
+
+        double projectAvgQuality = allTasks.stream()
+                .filter(t -> t.getStatus() == TaskStatus.DONE)
+                .mapToDouble(t -> displayMap.get(t.getId()).qualityScore)
+                .filter(q -> q > 0)
+                .average()
+                .orElse(0.0);
+
+        return new org.example.backend.dto.ProjectTrackingResponse(
+                byMember.size(),
+                allTasks.size(),
+                completedTasks,
+                Math.round(projectCompletionPct * 10) / 10.0,
+                Math.round(projectOnTimePct * 10) / 10.0,
+                Math.round(projectAvgQuality * 10) / 10.0,
+                Math.round(totalProjectPoints * 100) / 100.0,
+                Math.round(totalActualHours * 100) / 100.0,
+                members
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportProjectTracking(Long projectId) {
+        projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
+
+        List<Task>   allTasks = taskRepository.findAllWithAssigneeByProjectId(projectId);
+        List<Sprint> sprints  = sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId);
+
+        // Pre-compute display values for every task
+        Map<Long, DisplayValues> displayMap = new HashMap<>();
+        for (Task t : allTasks) {
+            displayMap.put(t.getId(), computeDisplay(t));
+        }
+
+        org.example.backend.dto.ProjectTrackingResponse data = getProjectTrackingData(projectId);
+
         try (XSSFWorkbook wb = new XSSFWorkbook()) {
             Styles s = new Styles(wb);
 
             buildTaskSheet(wb, s, allTasks, sprints, displayMap);
-            buildMemberSummarySheet(wb, s, allTasks, displayMap, totalProjectPoints);
+            buildMemberSummarySheet(wb, s, data);
             buildFormulaSheet(wb, s);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -183,10 +284,7 @@ public class ProjectTrackingExportService {
     // Sheet 2: Member Summary
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void buildMemberSummarySheet(XSSFWorkbook wb, Styles s,
-                                          List<Task> allTasks,
-                                          Map<Long, DisplayValues> displayMap,
-                                          double totalProjectPoints) {
+    private void buildMemberSummarySheet(XSSFWorkbook wb, Styles s, org.example.backend.dto.ProjectTrackingResponse data) {
         Sheet sheet = wb.createSheet("Member Summary");
         int[] widths = {6000, 2800, 2800, 2800, 3200, 3200, 3500, 3500, 3500, 3500, 4000};
         for (int i = 0; i < widths.length; i++) sheet.setColumnWidth(i, widths[i]);
@@ -201,56 +299,21 @@ public class ProjectTrackingExportService {
         Row hRow = sheet.createRow(2);
         for (int c = 0; c < headers.length; c++) cell(hRow, c, headers[c], s.header);
 
-        Map<String, List<Task>> byMember = allTasks.stream()
-                .collect(Collectors.groupingBy(this::assigneeName, TreeMap::new, Collectors.toList()));
-
         int r = 3;
-        for (Map.Entry<String, List<Task>> entry : byMember.entrySet()) {
-            List<Task> mt = entry.getValue();
-            long done      = mt.stream().filter(t -> t.getStatus() == TaskStatus.DONE).count();
-            long cancelled = mt.stream().filter(t -> t.getStatus() == TaskStatus.CANCELLED).count();
-
-            long onTime = mt.stream()
-                    .filter(t -> t.getStatus() == TaskStatus.DONE
-                            && t.getCompletedAt() != null && t.getDeadline() != null
-                            && !t.getCompletedAt().toLocalDate().isAfter(t.getDeadline()))
-                    .count();
-
-            double completionPct = mt.isEmpty() ? 0 : (done * 100.0 / mt.size());
-            double onTimePct     = done == 0 ? 0 : (onTime * 100.0 / done);
-
-            double totalEst = mt.stream()
-                    .filter(t -> t.getEstimatedHours() != null)
-                    .mapToDouble(t -> t.getEstimatedHours().doubleValue()).sum();
-            double totalAct = mt.stream()
-                    .map(t -> displayMap.get(t.getId()).actualHours)
-                    .filter(Objects::nonNull)
-                    .mapToDouble(BigDecimal::doubleValue).sum();
-
-            OptionalDouble avgQ = mt.stream()
-                    .filter(t -> t.getStatus() == TaskStatus.DONE)
-                    .mapToDouble(t -> displayMap.get(t.getId()).qualityScore)
-                    .filter(q -> q > 0).average();
-
-            double memberPoints = mt.stream()
-                    .filter(t -> t.getStatus() == TaskStatus.DONE)
-                    .mapToDouble(t -> displayMap.get(t.getId()).taskPoints).sum();
-
-            double contrib = totalProjectPoints > 0 ? (memberPoints / totalProjectPoints * 100) : 0;
-
+        for (org.example.backend.dto.ProjectTrackingResponse.MemberSummary m : data.members()) {
             Row row = sheet.createRow(r++);
-            cell(row, 0, entry.getKey(), s.data);
-            numCell(row, 1, mt.size(), s.data);
-            numCell(row, 2, (int) done, s.data);
-            numCell(row, 3, (int) cancelled, s.data);
-            pctCell(row, 4, completionPct, s.data);
-            pctCell(row, 5, onTimePct, s.data);
-            numCell(row, 6, Math.round(totalEst * 100) / 100.0, s.data);
-            numCell(row, 7, Math.round(totalAct * 100) / 100.0, s.data);
-            numCell(row, 8, avgQ.isPresent() ? Math.round(avgQ.getAsDouble() * 10) / 10.0 : 0, s.data);
-            numCell(row, 9, Math.round(memberPoints * 100) / 100.0, s.data);
+            cell(row, 0, m.name(), s.data);
+            numCell(row, 1, m.totalTasks(), s.data);
+            numCell(row, 2, m.doneTasks(), s.data);
+            numCell(row, 3, m.cancelledTasks(), s.data);
+            pctCell(row, 4, m.completionPct(), s.data);
+            pctCell(row, 5, m.onTimePct(), s.data);
+            numCell(row, 6, m.estimatedHours(), s.data);
+            numCell(row, 7, m.actualHours(), s.data);
+            numCell(row, 8, m.avgQuality(), s.data);
+            numCell(row, 9, m.totalPoints(), s.data);
 
-            // Contribution % — màu tương phản
+            double contrib = m.contributionPct();
             CellStyle cStyle = contrib >= 30 ? s.scoreGood : contrib >= 15 ? s.scoreMid : s.scoreBad;
             pctCell(row, 10, contrib, cStyle);
         }

@@ -21,7 +21,6 @@ export function DashboardPage() {
 
   // Trạng thái modal đóng project
   const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
-  const [exportingTracking, setExportingTracking] = useState(false)
   const [reopening, setReopening] = useState(false)
 
   // Trạng thái modal và form tạo dự án mới
@@ -83,26 +82,6 @@ export function DashboardPage() {
   const openProject = (project) => {
     selectProject(project)
     navigate(`/projects/${project.id}/dashboard`)
-  }
-
-  const handleExportTracking = async (projectId) => {
-    setExportingTracking(true)
-    try {
-      const res = await axiosInstance.get(`/v1/projects/${projectId}/export-tracking`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `project-tracking-${projectId}.xlsx`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
-      toast.success('Xuất file Excel thành công!')
-    } catch {
-      toast.error('Không thể xuất file Excel.')
-    } finally {
-      setExportingTracking(false)
-    }
   }
 
   const handleReopen = async (projectId) => {
@@ -1283,17 +1262,6 @@ export function DashboardPage() {
               {/* Action buttons — chỉ hiện với Leader/Mentor */}
               {isLeaderOrMentor && (
                 <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/10">
-                  {/* Export Tracking */}
-                  <button
-                    onClick={() => handleExportTracking(activeProject.id)}
-                    disabled={exportingTracking}
-                    className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.3)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-                  >
-                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
-                    <span className="material-symbols-outlined text-base group-hover:-translate-y-0.5 transition-transform duration-300 relative z-10">download</span>
-                    <span className="relative z-10">{exportingTracking ? 'Đang xuất...' : 'Xuất Tracking'}</span>
-                  </button>
-
                   {/* Close Project */}
                   {!isArchived && (
                     <button

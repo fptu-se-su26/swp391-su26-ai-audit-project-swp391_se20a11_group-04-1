@@ -393,4 +393,23 @@ public class ProjectController {
 
         return ResponseEntity.ok().headers(headers).body(data);
     }
+
+    /**
+     * GET /api/v1/projects/{projectId}/tracking
+     * Lấy dữ liệu JSON theo dõi đóng góp dự án.
+     */
+    @GetMapping("/{projectId}/tracking")
+    public ResponseEntity<ApiResponse<org.example.backend.dto.ProjectTrackingResponse>> getProjectTracking(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("📊 Get JSON tracking data request for project ID: {} by user ID: {}", projectId, userId);
+        org.example.backend.dto.ProjectTrackingResponse data = exportService.getProjectTrackingData(projectId);
+        return ResponseEntity.ok(ApiResponse.success(data, "Lấy dữ liệu tracking thành công."));
+    }
 }
