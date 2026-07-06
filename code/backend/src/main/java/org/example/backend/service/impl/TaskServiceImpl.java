@@ -299,7 +299,9 @@ public class TaskServiceImpl implements TaskService {
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
         boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
-        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null 
+                && (savedTask.getDescription().contains("github-blank-draft") || savedTask.getDescription().contains("feature-proposal-draft")) 
+                && savedTask.getGithubIssueNumber() == null;
 
         if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {
@@ -387,7 +389,9 @@ public class TaskServiceImpl implements TaskService {
         }
         // Sync GitHub issue state for non-BUG_FIX tasks (non-blocking)
         boolean isDevParentPending = savedTask.getType() == TaskType.DEVELOPMENT && savedTask.getParent() == null && savedTask.getGithubIssueNumber() == null;
-        boolean isBlankDraftPending = savedTask.getDescription() != null && savedTask.getDescription().contains("github-blank-draft") && savedTask.getGithubIssueNumber() == null;
+        boolean isBlankDraftPending = savedTask.getDescription() != null 
+                && (savedTask.getDescription().contains("github-blank-draft") || savedTask.getDescription().contains("feature-proposal-draft")) 
+                && savedTask.getGithubIssueNumber() == null;
 
         if (!isDevParentPending && !isBlankDraftPending && (savedTask.getType() != TaskType.BUG_FIX || savedTask.getParent() != null)) {
             try {

@@ -367,8 +367,12 @@ public class TaskProposalService {
 
         // Update parent task status to TODO (so it appears on the Kanban Board and Open columns)
         task.setStatus(TaskStatus.TODO);
-        if (task.getDescription() != null && task.getDescription().contains("<!-- sync-source: github-blank-draft -->")) {
-            task.setDescription(task.getDescription().replace("<!-- sync-source: github-blank-draft -->", "<!-- sync-source: github-blank-approved -->"));
+        if (task.getDescription() != null) {
+            if (task.getDescription().contains("<!-- sync-source: github-blank-draft -->")) {
+                task.setDescription(task.getDescription().replace("<!-- sync-source: github-blank-draft -->", "<!-- sync-source: github-blank-approved -->"));
+            } else if (task.getDescription().contains("<!-- sync-source: feature-proposal-draft -->")) {
+                task.setDescription(task.getDescription().replace("<!-- sync-source: feature-proposal-draft -->", "<!-- sync-source: feature-proposal-approved -->"));
+            }
         }
         taskRepo.save(task);
 
@@ -394,6 +398,7 @@ public class TaskProposalService {
                         .type(TaskType.DEVELOPMENT)
                         .priority(Priority.MEDIUM)
                         .startDate(java.time.LocalDate.now())
+                        .deadline(task.getDeadline() != null ? task.getDeadline() : java.time.LocalDate.now().plusDays(7))
                         .weight(java.math.BigDecimal.ONE)
                         .status(TaskStatus.TODO)
                         .checklist(new java.util.ArrayList<>())

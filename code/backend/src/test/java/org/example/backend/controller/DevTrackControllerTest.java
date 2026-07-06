@@ -91,7 +91,7 @@ class DevTrackControllerTest {
         @DisplayName("TC01a — Đúng thông tin → AuthService trả về UserResponse → 200 OK")
         void loginSuccess_returnsUserResponse() {
             // GIVEN
-            when(authService.login(eq("dattest"), eq("Abc@12345"), any(), anyString()))
+            when(authService.login(eq("dattest"), eq("Abc@12345"), anyBoolean(), any(), anyString()))
                     .thenReturn(mockUser);
 
             // WHEN
@@ -116,14 +116,14 @@ class DevTrackControllerTest {
             assertThat(data.getEmail()).isEqualTo("dattest@fpt.edu.vn");
             assertThat(data.getSystemRole()).isEqualTo("USER");
 
-            verify(authService, times(1)).login(eq("dattest"), eq("Abc@12345"), any(), anyString());
+            verify(authService, times(1)).login(eq("dattest"), eq("Abc@12345"), anyBoolean(), any(), anyString());
         }
 
         @Test
         @DisplayName("TC01b — Sai mật khẩu → AuthService ném CustomException 401")
         void loginWrongPassword_throws401() {
             // GIVEN
-            when(authService.login(eq("dattest"), eq("WrongPass!"), any(), anyString()))
+            when(authService.login(eq("dattest"), eq("WrongPass!"), anyBoolean(), any(), anyString()))
                     .thenThrow(new CustomException("Sai tên đăng nhập hoặc mật khẩu.", HttpStatus.UNAUTHORIZED));
 
             // WHEN + THEN

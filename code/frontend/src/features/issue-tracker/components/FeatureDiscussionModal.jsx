@@ -42,26 +42,31 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     return desc && desc.includes('<!-- sync-source: github-blank');
   }, [task?.description, discussBug?.description]);
 
+  const isFeatureProposal = useMemo(() => {
+    const desc = task?.description || discussBug?.description;
+    return desc && desc.includes('<!-- sync-source: feature-proposal');
+  }, [task?.description, discussBug?.description]);
+
   const isBlankDraft = useMemo(() => {
     const desc = task?.description || discussBug?.description;
-    return desc && desc.includes('github-blank-draft');
+    return desc && (desc.includes('github-blank-draft') || desc.includes('feature-proposal-draft'));
   }, [task?.description, discussBug?.description]);
 
   // Lấy trạng thái duyệt của Task. Ý tưởng được thông qua khi đã đồng bộ lên GitHub (githubIssueNumber != null) hoặc không còn nháp.
   const ideaApproved = useMemo(() => {
-    if (!task) return false
-    if (isBlankGit) {
+    if (!task) return false;
+    if (isBlankGit || isFeatureProposal) {
       return !isBlankDraft;
     }
     return task.githubIssueNumber != null;
-  }, [task, isBlankGit, isBlankDraft])
+  }, [task, isBlankGit, isFeatureProposal, isBlankDraft])
 
   // Trạng thái đã đồng bộ lên GitHub - githubIssueNumber ưu tiên cao nhất
   const isSynced = useMemo(() => {
     if (task?.githubIssueNumber != null) return true;
-    if (isBlankGit) return !isBlankDraft;
+    if (isBlankGit || isFeatureProposal) return !isBlankDraft;
     return false;
-  }, [task, isBlankGit, isBlankDraft])
+  }, [task, isBlankGit, isFeatureProposal, isBlankDraft])
 
   // UI state
   const [activeTab, setActiveTab] = useState('comments')

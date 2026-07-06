@@ -24,13 +24,20 @@ const isBlankGitHubIssue = (item) => {
   return item?.description && item.description.includes('<!-- sync-source: github-blank');
 }
 
+const isFeatureProposal = (item) => {
+  return item?.description && item.description.includes('<!-- sync-source: feature-proposal');
+}
+
 const isBlankDraft = (item) => {
-  return item?.description && item.description.includes('github-blank-draft');
+  return item?.description && (item.description.includes('github-blank-draft') || item.description.includes('feature-proposal-draft'));
 }
 
 const cleanDescription = (desc) => {
   if (!desc) return '';
-  return desc.replace(/<!--\s*sync-source:\s*github-blank(?:-draft|-approved)?\s*-->/g, '').trim();
+  return desc
+    .replace(/<!--\s*sync-source:\s*github-blank(?:-draft|-approved)?\s*-->/g, '')
+    .replace(/<!--\s*sync-source:\s*feature-proposal(?:-draft|-approved)?\s*-->/g, '')
+    .trim();
 }
 
 export function IssueTrackerDashboard() {
@@ -184,12 +191,26 @@ export function IssueTrackerDashboard() {
 
     setQuickProposalLoading(true)
     try {
+      const today = new Date()
+      const year = today.getFullYear()
+      const month = String(today.getMonth() + 1).padStart(2, '0')
+      const day = String(today.getDate()).padStart(2, '0')
+      const startDate = `${year}-${month}-${day}`
+
+      const deadlineDate = new Date()
+      deadlineDate.setDate(today.getDate() + 7)
+      const dlYear = deadlineDate.getFullYear()
+      const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
+      const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
+      const deadline = `${dlYear}-${dlMonth}-${dlDay}`
+
       const payload = {
         title: quickProposalText.trim(),
-        description: 'Đề xuất tính năng nhanh được tạo từ Dashboard.',
+        description: 'Đề xuất tính năng nhanh được tạo từ Dashboard.\n\n<!-- sync-source: feature-proposal-draft -->',
         type: 'DEVELOPMENT',
         priority: 'MEDIUM',
-        deadline: null,
+        startDate,
+        deadline,
         parentId: null,
         primaryAssigneeId: null
       }
@@ -314,7 +335,29 @@ export function IssueTrackerDashboard() {
       }))
 
       // Top-level list = bug reports + non-BUG_FIX top-level tasks
-      const topLevelTasks = allTasks.filter(t => !t.parentId && t.type !== 'BUG_FIX').map(t => ({
+      const topLevelTasks = allTasks.filter(t => {
+        if (t.parentId || t.type === 'BUG_FIX') return false;
+        
+        // Show if it is a blank github issue (tagged proposal) or a feature proposal
+        if (isBlankGitHubIssue(t) || isFeatureProposal(t)) return true;
+        
+        // For old tasks created before our tag implementation:
+        // Show them if they are unassigned and have no github issue number
+        const createdAtTime = t.createdAt ? new Date(t.createdAt).getTime() : Date.now();
+        const thresholdTime = new Date('2026-07-06T01:15:00Z').getTime(); // July 6, 2026, 08:15 AM UTC+7
+        
+        if (createdAtTime < thresholdTime) {
+          const hasAssignee = t.primaryAssignee || t.assignee || t.primaryAssigneeId || t.assigneeId;
+          if (!t.githubIssueNumber && !hasAssignee && (t.status === 'TODO' || t.status === 'APPROVED')) {
+            return true;
+          }
+          if (t.githubIssueNumber) {
+            return true;
+          }
+        }
+        
+        return false;
+      }).map(t => ({
         ...t,
         subTasks: subTasksByParentId[t.id] || []
       }))
@@ -461,6 +504,19 @@ export function IssueTrackerDashboard() {
 
     setModalLoading(true)
     try {
+      const today = new Date()
+      const year = today.getFullYear()
+      const month = String(today.getMonth() + 1).padStart(2, '0')
+      const day = String(today.getDate()).padStart(2, '0')
+      const startDate = `${year}-${month}-${day}`
+
+      const deadlineDate = new Date()
+      deadlineDate.setDate(today.getDate() + 7)
+      const dlYear = deadlineDate.getFullYear()
+      const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
+      const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
+      const defaultDeadline = `${dlYear}-${dlMonth}-${dlDay}`
+
       if (newIssue.uiType === 'BUG') {
         const payload = {
           title: newIssue.title.trim(),
@@ -480,7 +536,8 @@ export function IssueTrackerDashboard() {
           description: newIssue.description,
           type: 'BUG_FIX',
           priority: newIssue.priority,
-          deadline: newIssue.deadline || null,
+          startDate,
+          deadline: newIssue.deadline || defaultDeadline,
           parentId: newIssue.parentId || null,
           primaryAssigneeId: newIssue.assigneeId ? Number(newIssue.assigneeId) : null
         }
@@ -490,10 +547,11 @@ export function IssueTrackerDashboard() {
         // For FEATURE, REFACTOR, TEST, BLANK
         const payload = {
           title: newIssue.title.trim(),
-          description: newIssue.description,
+          description: (newIssue.description || '').trim() + '\n\n<!-- sync-source: feature-proposal-draft -->',
           type: newIssue.taskType,
           priority: newIssue.priority,
-          deadline: newIssue.deadline || null,
+          startDate,
+          deadline: newIssue.deadline || defaultDeadline,
           parentId: newIssue.parentId || null,
           primaryAssigneeId: newIssue.assigneeId ? Number(newIssue.assigneeId) : null
         }
@@ -672,7 +730,12 @@ export function IssueTrackerDashboard() {
       displayTitle: `[BUG] ${b.title}`,
       displayType: 'Bug Fix Task',
     }));
-    const combined = [...featureTasks, ...approvedBugs];
+    const draftBugs = bugs.filter(b => b.isBug && b.relatedTaskId == null).map(b => ({
+      ...b,
+      displayTitle: `[BUG] ${b.title}`,
+      displayType: 'Bug Report',
+    }));
+    const combined = [...featureTasks, ...approvedBugs, ...draftBugs];
 
     // Sort order:
     // 1. Unapproved (DRAFT status) first, Approved (non-DRAFT status) last
@@ -2184,7 +2247,6 @@ export function IssueTrackerDashboard() {
                   {[
                     { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
                     { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
-                    { type: 'REFACTOR', title: 'Refactor / Tech Debt', desc: 'Cải thiện code hiện có mà không thay đổi hành vi', icon: 'build' },
                   ].map((tpl) => (
                     <div
                       key={tpl.type}
