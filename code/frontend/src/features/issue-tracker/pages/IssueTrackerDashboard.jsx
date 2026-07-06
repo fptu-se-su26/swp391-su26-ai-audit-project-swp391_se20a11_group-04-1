@@ -206,7 +206,7 @@ export function IssueTrackerDashboard() {
 
       const payload = {
         title: quickProposalText.trim(),
-        description: 'Đề xuất tính năng nhanh được tạo từ Dashboard.\n\n<!-- sync-source: feature-proposal-draft -->',
+        description: 'Quick feature proposal created from Dashboard.\n\n<!-- sync-source: feature-proposal-draft -->',
         type: 'DEVELOPMENT',
         priority: 'MEDIUM',
         startDate,
@@ -215,12 +215,12 @@ export function IssueTrackerDashboard() {
         primaryAssigneeId: null
       }
       await taskService.createTask(projectId, payload)
-      toast.success('Đã gửi đề xuất tính năng mới thành công!')
+      toast.success('New feature proposal submitted successfully!')
       setQuickProposalText('')
       await loadBugs()
     } catch (err) {
       console.error(err)
-      toast.error('Gửi đề xuất thất bại!')
+      toast.error('Failed to submit proposal!')
     } finally {
       setQuickProposalLoading(false)
     }
@@ -682,10 +682,10 @@ export function IssueTrackerDashboard() {
   }
 
   const formatSafeDate = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
-    return date.toLocaleString('vi-VN', {
+    if (isNaN(date.getTime())) return 'Just now'
+    return date.toLocaleString('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -695,10 +695,10 @@ export function IssueTrackerDashboard() {
   }
 
   const formatSafeTime = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
-    return date.toLocaleTimeString('vi-VN', {
+    if (isNaN(date.getTime())) return 'Just now'
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     })
@@ -900,10 +900,10 @@ export function IssueTrackerDashboard() {
     try {
       await proposalService.createProposal(activeDiscussTaskId, newProposalText.trim())
       setNewProposalText('')
-      toast.success('Đã gửi đề xuất checklist mới!')
+      toast.success('New checklist proposal submitted!')
       await reloadProposals(activeDiscussTaskId)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit proposal!')
     }
   }
 
@@ -912,7 +912,7 @@ export function IssueTrackerDashboard() {
       await proposalService.vote(propId, true)
       await reloadProposals(activeDiscussTaskId)
     } catch (err) {
-      toast.error('Vote thất bại!')
+      toast.error('Vote failed!')
     }
   }
 
@@ -921,7 +921,7 @@ export function IssueTrackerDashboard() {
       await proposalService.vote(propId, false)
       await reloadProposals(activeDiscussTaskId)
     } catch (err) {
-      toast.error('Vote thất bại!')
+      toast.error('Vote failed!')
     }
   }
 
@@ -932,53 +932,53 @@ export function IssueTrackerDashboard() {
     try {
       await proposalService.addComment(propId, text.trim())
       setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
-      toast.success('Đã gửi ý kiến góp ý!')
+      toast.success('Feedback submitted!')
       await reloadProposals(activeDiscussTaskId)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit comment!')
     }
   }
 
   const handleApproveProposal = async (prop) => {
     const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
     if (!hasChecklist) {
-      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      toast.error('Proposal must contain at least one checklist item (starting with "- [ ]" or "- [x]")!');
       return;
     }
     try {
       await proposalService.approve(prop.id)
-      toast.success('Đã duyệt và ban hành mục checklist này!')
+      toast.success('Checklist item approved and published!')
       await reloadProposals(activeDiscussTaskId)
       loadBugs(true) // refresh checklist on the task card
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to approve proposal!')
     }
   }
 
   const handleRejectProposal = async (propId) => {
     try {
       await proposalService.reject(propId)
-      toast.success('Đã từ chối đề xuất này!')
+      toast.success('Proposal rejected!')
       await reloadProposals(activeDiscussTaskId)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Từ chối thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to reject proposal!')
     }
   }
 
   const handleBulkApprove = async (e, bug) => {
     e.stopPropagation()
     if (!isLeader) {
-      toast.error('Chỉ Project Leader mới có quyền phê duyệt đề xuất!')
+      toast.error('Only Project Leaders are authorized to approve proposals!')
       return
     }
 
-    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    const loadToast = toast.loading('Approving and syncing sub-tasks to GitHub...')
     try {
       await proposalService.approveAndSyncTask(bug.id)
-      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      toast.success('Proposals converted to sub-tasks and synced to GitHub successfully!', { id: loadToast })
       loadBugs(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
+      toast.error(err.response?.data?.message || 'Sync failed!', { id: loadToast })
     }
   }
 
@@ -1041,16 +1041,16 @@ export function IssueTrackerDashboard() {
     if (!taskData) return
     const currentAssignee = taskData.primaryAssignee?.id || taskData.primaryAssigneeId
     if (!currentAssignee) {
-      toast.error('Task chưa được giao cho ai. Vui lòng nhờ Leader gán task trước!')
+      toast.error('Task is not assigned. Please request Leader to assign it first!')
       return
     }
     setApprovingId(taskData.id)
     try {
-      await taskService.requestTaskReview(taskData.id, 'Yêu cầu review từ Issue Tracker')
-      toast.success('Đã gửi yêu cầu review!')
+      await taskService.requestTaskReview(taskData.id, 'Review request from Issue Tracker')
+      toast.success('Review request sent!')
       loadBugs(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Yêu cầu review thất bại')
+      toast.error(err.response?.data?.message || 'Review request failed')
     } finally {
       setApprovingId(null)
     }
@@ -1060,11 +1060,11 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.approveTaskReview(taskId, 'Đã Approve qua Issue Tracker')
-      toast.success('Đã Approve task thành công!')
+      await taskService.approveTaskReview(taskId, 'Approved via Issue Tracker')
+      toast.success('Task approved successfully!')
       loadBugs(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Duyệt task thất bại')
+      toast.error(err.response?.data?.message || 'Failed to approve task')
     } finally {
       setApprovingId(null)
     }
@@ -1074,11 +1074,11 @@ export function IssueTrackerDashboard() {
     e.stopPropagation()
     setApprovingId(taskId)
     try {
-      await taskService.rejectTaskReview(taskId, 'Từ chối duyệt qua Issue Tracker', 'IN_PROGRESS')
-      toast.success('Đã từ chối review task!')
+      await taskService.rejectTaskReview(taskId, 'Rejected review via Issue Tracker', 'IN_PROGRESS')
+      toast.success('Task review rejected!')
       loadBugs(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Từ chối task thất bại')
+      toast.error(err.response?.data?.message || 'Failed to reject task review')
     } finally {
       setApprovingId(null)
     }
@@ -1113,15 +1113,15 @@ export function IssueTrackerDashboard() {
         }
       }
 
-      const memberName = activeProject?.members?.find(m => Number(m.id) === Number(newAssigneeId))?.fullName || 'thành viên'
+      const memberName = activeProject?.members?.find(m => Number(m.id) === Number(newAssigneeId))?.fullName || 'member'
       if (count > 0) {
-        toast.success(`Đã gán cho ${memberName} và ${count} sub-tasks!`)
+        toast.success(`Assigned to ${memberName} and ${count} sub-tasks!`)
       } else {
-        toast.success(newAssigneeId ? `Đã gán cho ${memberName}!` : 'Đã bỏ gán!')
+        toast.success(newAssigneeId ? `Assigned to ${memberName}!` : 'Unassigned successfully!')
       }
       await loadBugs(true)
     } catch (err) {
-      toast.error('Gán task thất bại')
+      toast.error('Failed to assign task')
     } finally {
       setAssigningTaskId(null)
     }
@@ -1328,7 +1328,7 @@ export function IssueTrackerDashboard() {
                 setDiscussSearchQuery(val);
                 setQuickProposalText(val);
               }}
-              placeholder="Tìm kiếm hoặc nhập đề xuất mới..."
+              placeholder="Search or enter new proposal..."
               className="flex-1 text-xs bg-transparent border-none outline-none text-on-surface placeholder:text-on-surface-variant/60 font-semibold"
             />
             {discussSearchQuery && (
@@ -1349,7 +1349,7 @@ export function IssueTrackerDashboard() {
               className="rounded-full border border-blue-500 text-[#1E707D] bg-white hover:bg-[#1E707D]/10 px-4 py-1.5 transition-all text-[11px] font-bold shrink-0 flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-xs">add</span>
-              <span>Đề xuất</span>
+              <span>Propose</span>
             </button>
           </div>
         )}
@@ -1407,13 +1407,13 @@ export function IssueTrackerDashboard() {
             {filteredDiscussBugs.length === 0 ? (
               <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-12 text-center shadow-sm">
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant">forum</span>
-                <p className="mt-3 text-xs font-bold text-on-surface-variant">Không tìm thấy chủ đề thảo luận nào khớp với từ khóa.</p>
+                <p className="mt-3 text-xs font-bold text-on-surface-variant">No discussion topics found matching the keyword.</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {filteredDiscussBugs.map((bug, index) => {
                   const stats = discussBugsStats[bug.id] || { totalVotes: 0, totalDownvotes: 0, totalComments: 0, isAllApproved: false }
-                  const creatorName = bug.createdBy?.fullName || bug.createdBy?.username || bug.createdByName || 'Người đề xuất'
+                  const creatorName = bug.createdBy?.fullName || bug.createdBy?.username || bug.createdByName || 'Proposer'
                   const avatarLetter = (bug.displayTitle || bug.title || 'F').charAt(0).toUpperCase()
                   const formattedDate = formatSafeDateDiscuss(bug.createdAt)
                   
@@ -1455,11 +1455,11 @@ export function IssueTrackerDashboard() {
                               </span>
                             ) : (
                               <span className="text-[10px] font-black tracking-wider uppercase bg-[#0ea5e9]/10 text-[#0284c7] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full shrink-0">
-                                ĐỀ XUẤT
+                                PROPOSAL
                               </span>
                             )}
                             {creatorName && (
-                              <span className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full shrink-0" title="Người đề xuất">
+                              <span className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-full shrink-0" title="Proposer">
                                 <span className="material-symbols-outlined text-[11px]">person</span>
                                 {creatorName}
                               </span>
@@ -1473,12 +1473,12 @@ export function IssueTrackerDashboard() {
                             {isDiscussApproved ? (
                               <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                                 <span className="material-symbols-outlined text-[10px]">check_circle</span>
-                                Đã phê duyệt
+                                Approved
                               </span>
                             ) : (
                               <span className="flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                                 <span className="material-symbols-outlined text-[10px]">schedule</span>
-                                Chờ phê duyệt
+                                Awaiting Approval
                               </span>
                             )}
                           </div>
@@ -1497,15 +1497,15 @@ export function IssueTrackerDashboard() {
                         <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 select-none">
                           <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
                             <span className="material-symbols-outlined text-[14px]">thumb_up</span>
-                            Tán thành ({stats.totalVotes})
+                            Upvotes ({stats.totalVotes})
                           </span>
                           <span className="flex items-center gap-1 hover:text-rose-500 transition-colors">
                             <span className="material-symbols-outlined text-[14px]">thumb_down</span>
-                            Không ({stats.totalDownvotes})
+                            Downvotes ({stats.totalDownvotes})
                           </span>
                           <span className="flex items-center gap-1 hover:text-sky-500 transition-colors">
                             <span className="material-symbols-outlined text-[14px]">chat_bubble</span>
-                            Góp ý ({stats.totalComments})
+                            Comments ({stats.totalComments})
                           </span>
                         </div>
 
@@ -1516,7 +1516,7 @@ export function IssueTrackerDashboard() {
                             className="py-1 px-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer shrink-0"
                           >
                             <span className="material-symbols-outlined text-sm">check_circle</span>
-                            Phê duyệt
+                            Approve
                           </button>
                         )}
                       </div>
@@ -1613,7 +1613,7 @@ export function IssueTrackerDashboard() {
                         const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
                         return (
                           <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant/50 hidden lg:inline-block truncate max-w-[120px]">
-                            {assignee?.fullName || assignee?.username || 'Chưa phân công'}
+                            {assignee?.fullName || assignee?.username || 'Unassigned'}
                           </span>
                         );
                       })()}
@@ -1635,21 +1635,21 @@ export function IssueTrackerDashboard() {
                         if (hasMultipleAssignees) {
                            const firstId = Array.from(uniqueAssigneeIds)[0];
                            const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
-                           firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
+                           firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Member';
                         }
                         
                         const displayValue = currentAssigneeId || '';
 
                         return (
                           <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
-                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
+                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Assignee:</span>
                             {hasMultipleAssignees ? (
                               <div 
                                 className="flex flex-col justify-center text-xs font-bold px-2.5 py-0.5 rounded-full border max-w-[180px] bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 opacity-50 cursor-not-allowed"
-                                title="Bị khoá do các sub-task đang được giao cho nhiều người khác nhau"
+                                title="Locked due to multiple assignees on sub-tasks"
                               >
                                 <span className="truncate leading-tight">{firstName}</span>
-                                <span className="text-[9px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
+                                <span className="text-[9px] font-semibold opacity-80 leading-tight">and +{uniqueAssigneeIds.size - 1} others</span>
                               </div>
                             ) : (
                               <select
@@ -1665,7 +1665,7 @@ export function IssueTrackerDashboard() {
                                 }`}
                                 title="Assign to member"
                               >
-                                <option value="" className="bg-surface text-on-surface font-semibold">-- Chưa phân công --</option>
+                                <option value="" className="bg-surface text-on-surface font-semibold">-- Unassigned --</option>
                                 {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
                                   <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
                                 ))}
@@ -1691,11 +1691,11 @@ export function IssueTrackerDashboard() {
                         if (hasMultipleAssignees) {
                            const firstId = Array.from(uniqueAssigneeIds)[0];
                            const firstMember = activeProject?.members?.find(m => String(m.id) === firstId);
-                           const firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Thành viên';
+                           const firstName = firstMember?.name || firstMember?.fullName || firstMember?.username || 'Member';
                            content = (
                              <div className="flex flex-col justify-center text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 max-w-[180px]">
                                <span className="truncate leading-tight">{firstName}</span>
-                               <span className="text-[9px] font-semibold opacity-80 leading-tight">và +{uniqueAssigneeIds.size - 1} khác</span>
+                               <span className="text-[9px] font-semibold opacity-80 leading-tight">and +{uniqueAssigneeIds.size - 1} others</span>
                              </div>
                            );
                         } else {
@@ -1706,14 +1706,14 @@ export function IssueTrackerDashboard() {
                                  ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30 hover:bg-[#1E707D]/20'
                                  : 'bg-surface-container-highest text-on-surface-variant border-outline-variant hover:bg-surface-container-high'
                              }`}>
-                               {assignee?.name || assignee?.fullName || assignee?.username || '-- Chưa phân công --'}
+                               {assignee?.name || assignee?.fullName || assignee?.username || '-- Unassigned --'}
                              </span>
                            );
                         }
 
                         return (
                           <div className="flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-3">
-                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Người thực hiện:</span>
+                            <span className="text-[11px] text-on-surface-variant font-medium uppercase tracking-wider">Assignee:</span>
                             {content}
                           </div>
                         );
@@ -1729,7 +1729,7 @@ export function IssueTrackerDashboard() {
                             className="py-1 px-3.5 rounded-full text-[10px] font-bold transition-all shadow flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                           >
                             <span className="material-symbols-outlined text-[10px]">rate_review</span>
-                            Yêu cầu review
+                            Request Review
                           </button>
                         </div>
                       )}
@@ -1750,7 +1750,7 @@ export function IssueTrackerDashboard() {
                             className="py-1 px-3.5 bg-error hover:bg-error/90 text-on-error text-[10px] font-bold rounded-full transition-all shadow flex items-center gap-1 disabled:opacity-50"
                           >
                             <span className="material-symbols-outlined text-[12px]">cancel</span>
-                            Từ chối
+                            Reject
                           </button>
                         </div>
                       )}
@@ -1882,7 +1882,7 @@ export function IssueTrackerDashboard() {
                                                   className="py-0.5 px-2.5 rounded-full text-[9px] font-bold transition-all shadow flex items-center gap-0.5 bg-amber-600 hover:bg-amber-700 text-white"
                                                 >
                                                   <span className="material-symbols-outlined text-[9px]">rate_review</span>
-                                                  Yêu cầu review
+                                                  Request Review
                                                 </button>
                                               </div>
                                             )
@@ -1902,7 +1902,7 @@ export function IssueTrackerDashboard() {
                                                 disabled={approvingId === sub.id}
                                                 className="py-0.5 px-2.5 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                               >
-                                                Từ chối
+                                                Reject
                                               </button>
                                             </div>
                                           )}
@@ -1911,7 +1911,7 @@ export function IssueTrackerDashboard() {
                                             const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
                                             return (
                                               <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
-                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Assignee:</span>
                                                 <select
                                                   value={currentAssigneeId || ''}
                                                   onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
@@ -1925,7 +1925,7 @@ export function IssueTrackerDashboard() {
                                                   }`}
                                                   title="Assign to member"
                                                 >
-                                                  <option value="" className="bg-surface text-on-surface font-semibold">-- Trống --</option>
+                                                  <option value="" className="bg-surface text-on-surface font-semibold">-- Unassigned --</option>
                                                   {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
                                                     <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
                                                   ))}
@@ -1937,13 +1937,13 @@ export function IssueTrackerDashboard() {
                                             const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
                                             return (
                                               <div className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
-                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                                <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Assignee:</span>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                                   currentAssigneeId
                                                     ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30'
                                                     : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
                                                 }`}>
-                                                  {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
+                                                  {assignee?.name || assignee?.fullName || assignee?.username || '-- Unassigned --'}
                                                 </span>
                                               </div>
                                             );
@@ -2068,7 +2068,7 @@ export function IssueTrackerDashboard() {
                                               className="py-0.5 px-2.5 rounded-full text-[9px] font-bold transition-all shadow flex items-center gap-0.5 bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                                             >
                                               <span className="material-symbols-outlined text-[9px]">rate_review</span>
-                                              Yêu cầu review
+                                              Request Review
                                             </button>
                                           </div>
                                         )
@@ -2088,7 +2088,7 @@ export function IssueTrackerDashboard() {
                                             disabled={approvingId === sub.id}
                                             className="py-0.5 px-2.5 bg-error hover:bg-error/90 text-on-error text-[9px] font-bold rounded-full transition-all shadow flex items-center gap-0.5 disabled:opacity-50"
                                           >
-                                            Từ chối
+                                            Reject
                                           </button>
                                         </div>
                                       )}
@@ -2097,7 +2097,7 @@ export function IssueTrackerDashboard() {
                                         const currentAssigneeId = sub.primaryAssigneeId || sub.primaryAssignee?.id;
                                         return (
                                           <div onClick={e => e.stopPropagation()} className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
-                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Assignee:</span>
                                             <select
                                               value={currentAssigneeId || ''}
                                               onChange={(e) => handleLeaderAssign(e, sub, e.target.value)}
@@ -2111,7 +2111,7 @@ export function IssueTrackerDashboard() {
                                               }`}
                                               title="Assign to member"
                                             >
-                                              <option value="" className="bg-surface text-on-surface font-semibold">-- Trống --</option>
+                                              <option value="" className="bg-surface text-on-surface font-semibold">-- Unassigned --</option>
                                               {activeProject?.members?.filter(m => m.role !== 'Mentor').map(m => (
                                                 <option key={m.id} value={m.id} className="bg-surface text-on-surface font-semibold">{m.name || m.fullName || m.username}</option>
                                               ))}
@@ -2123,13 +2123,13 @@ export function IssueTrackerDashboard() {
                                         const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));
                                         return (
                                           <div className="relative flex flex-shrink-0 items-center gap-1.5 ml-1 border-l border-outline-variant/50 pl-2">
-                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Phụ trách:</span>
+                                            <span className="text-[9px] text-on-surface-variant font-medium uppercase tracking-wider hidden sm:inline">Assignee:</span>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                               currentAssigneeId
                                                 ? 'bg-[#1E707D]/10 text-[#1E707D] border-blue-500/30'
                                                 : 'bg-surface-container-highest text-on-surface-variant border-outline-variant'
                                             }`}>
-                                              {assignee?.name || assignee?.fullName || assignee?.username || '-- Trống --'}
+                                              {assignee?.name || assignee?.fullName || assignee?.username || '-- Unassigned --'}
                                             </span>
                                           </div>
                                         );
@@ -2237,7 +2237,7 @@ export function IssueTrackerDashboard() {
                   <h2 className="text-base font-extrabold text-slate-800">
                     {newIssue.parentId ? `Create Sub-task under "${newIssue.parentTitle}"` : 'File New Issue'}
                   </h2>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">Chọn loại task hoặc báo cáo sự cố để bắt đầu</p>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">Select a task type or report an issue to begin</p>
                 </div>
               </div>
 
@@ -2245,8 +2245,8 @@ export function IssueTrackerDashboard() {
                 /* Step 1: Template Selection */
                 <div className="space-y-3 py-1 animate-fade-in">
                   {[
-                    { type: 'BUG', title: 'Bug Report', desc: 'Báo cáo lỗi trong code hoặc test', icon: 'bug_report' },
-                    { type: 'FEATURE', title: 'Feature Request', desc: 'Đề xuất tính năng / class / method mới cần xây dựng', icon: 'auto_awesome' },
+                    { type: 'BUG', title: 'Bug Report', desc: 'Report errors in code, tests, or features', icon: 'bug_report' },
+                    { type: 'FEATURE', title: 'Feature Request', desc: 'Propose a new feature, class, or method to build', icon: 'auto_awesome' },
                   ].map((tpl) => (
                     <div
                       key={tpl.type}
@@ -2456,7 +2456,7 @@ export function IssueTrackerDashboard() {
             className={`w-14 h-14 bg-slate-900/80 hover:bg-slate-900 border border-slate-700/60 shadow-2xl rounded-2xl flex items-center justify-center transition-all duration-300 cursor-grab active:cursor-grabbing ${
               isDragging ? 'scale-105 opacity-100 border-sky-500' : 'opacity-40 hover:opacity-100 hover:scale-105'
             }`}
-            title="Mở menu nhanh (Kéo để di chuyển)"
+            title="Open quick menu (Drag to move)"
           >
             <div className="w-9 h-9 rounded-full border border-slate-500/30 flex items-center justify-center">
               <div className="w-5.5 h-5.5 rounded-full bg-slate-100 border border-slate-300 shadow-md"></div>
@@ -2495,7 +2495,7 @@ export function IssueTrackerDashboard() {
                     if (isLeader) {
                       navigate(`/projects/${projectId}/github-config`);
                     } else {
-                      toast.error("Chỉ Leader mới có quyền cấu hình GitHub!");
+                      toast.error("Only Project Leaders are authorized to configure GitHub!");
                     }
                   }}
                   className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
@@ -2517,7 +2517,7 @@ export function IssueTrackerDashboard() {
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showStats ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
                     <span className="material-symbols-outlined text-2xl">bar_chart</span>
                   </div>
-                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Thống kê</span>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Statistics</span>
                 </button>
               </div>
 
@@ -2531,7 +2531,7 @@ export function IssueTrackerDashboard() {
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showFilters ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
                     <span className="material-symbols-outlined text-2xl">filter_alt</span>
                   </div>
-                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Bộ lọc</span>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Filters</span>
                 </button>
               </div>
             </div>
@@ -2542,7 +2542,7 @@ export function IssueTrackerDashboard() {
                 type="button"
                 onClick={() => setAssistiveOpen(false)}
                 className="w-7 h-7 rounded-full bg-slate-400 hover:bg-slate-300 border border-slate-500/50 cursor-pointer shadow-inner transition-colors flex items-center justify-center outline-none"
-                title="Đóng menu"
+                title="Close menu"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-[#141a24]"></div>
               </button>

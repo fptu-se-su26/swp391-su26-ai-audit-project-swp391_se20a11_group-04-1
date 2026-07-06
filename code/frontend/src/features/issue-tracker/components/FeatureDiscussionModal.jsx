@@ -163,12 +163,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       }
       await updateTask(task.id, updated)
       setIsEditing(false)
-      toast.success('Đã liên kết Requirement thành công!')
+      toast.success('Requirement linked successfully!')
       if (onRefreshDashboard) {
         onRefreshDashboard()
       }
     } catch (err) {
-      toast.error('Lưu liên kết Requirement thất bại!')
+      toast.error('Failed to save requirement link!')
     } finally {
       setSavingReq(false)
     }
@@ -179,7 +179,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (newReq?.id) {
       setSelectedReqId(newReq.id)
     }
-    toast.success('Đã tạo Requirement mới!')
+    toast.success('New requirement created successfully!')
   }
 
   // Comments (Tab 1) state - loaded from API
@@ -200,10 +200,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
 
   // Helper date formatting
   const formatSafeDate = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
-    return date.toLocaleString('vi-VN', {
+    if (isNaN(date.getTime())) return 'Just now'
+    return date.toLocaleString('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -315,9 +315,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     try {
       const data = await proposalService.voteTask(taskId, isUpvote)
       setTaskVoteStats(data)
-      toast.success('Đã ghi nhận biểu quyết ý tưởng!')
+      toast.success('Your vote has been recorded!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Ghi nhận biểu quyết thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to record vote!')
     }
   }
 
@@ -328,7 +328,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.voteTaskComment(commentId, true)
       loadComments(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to vote on comment!')
     }
   }
 
@@ -338,7 +338,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.voteTaskComment(commentId, false)
       loadComments(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Vote bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to vote on comment!')
     }
   }
 
@@ -349,7 +349,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.vote(propId, true)
       loadProposals(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to vote on proposal!')
     }
   }
 
@@ -359,7 +359,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.vote(propId, false)
       loadProposals(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Vote đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to vote on proposal!')
     }
   }
 
@@ -371,10 +371,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     try {
       await proposalService.addComment(propId, text.trim())
       setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
-      toast.success('Đã đăng phản biện về đề xuất này!')
+      toast.success('Feedback/critique posted for this proposal!')
       loadProposals(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi phản biện thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to post feedback/critique!')
     }
   }
 
@@ -382,12 +382,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (isSynced && !isDiscussionUnlocked) return
     const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
     if (!hasChecklist) {
-      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      toast.error('Proposal must contain at least one checklist item (starting with "- [ ]" or "- [x]")!');
       return;
     }
     try {
       await proposalService.approve(prop.id)
-      toast.success('Đã duyệt đề xuất và thêm vào checklist của Task chính!')
+      toast.success('Proposal approved and added to main Task checklist!')
       loadProposals(true)
       if (taskId) {
         fetchTaskById(taskId)
@@ -397,7 +397,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       }
       setActiveTab('tasks')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to approve proposal!')
     }
   }
 
@@ -405,10 +405,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.reject(propId)
-      toast.success('Đã từ chối đề xuất này.')
+      toast.success('Proposal rejected.')
       loadProposals(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Từ chối đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to reject proposal!')
     }
   }
 
@@ -442,9 +442,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           done: item.done
         }))
       })
-      toast.success('Đã cập nhật trạng thái checklist!')
+      toast.success('Checklist status updated!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Cập nhật trạng thái checklist thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to update checklist status!')
     }
   }
 
@@ -461,9 +461,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           done: item.done
         }))
       })
-      toast.success('Đã xóa checklist item!')
+      toast.success('Checklist item deleted!')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Xóa checklist item thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to delete checklist item!')
     }
   }
 
@@ -488,18 +488,18 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           done: item.done
         }))
       })
-      toast.success('Đã thêm checklist item mới!')
+      toast.success('New checklist item added!')
       if (taskId) {
         fetchTaskById(taskId)
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Thêm checklist item thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to add checklist item!')
     }
   }
 
   const handleApproveAndSync = async () => {
     if (!taskId) return
-    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    const loadToast = toast.loading('Approving and syncing sub-tasks to GitHub...')
     try {
       // Trước khi sync, nếu có tag discussion-unlocked trong description, ta nên gỡ ra để khóa lại thảo luận
       if (task?.description?.includes('<!-- discussion-unlocked -->')) {
@@ -511,14 +511,14 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
         })
       }
       await proposalService.approveAndSyncTask(taskId)
-      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      toast.success('Proposals converted to sub-tasks and synced to GitHub!', { id: loadToast })
       await loadProposals(true)
       fetchTaskById(taskId)
       if (onRefreshDashboard) {
         onRefreshDashboard()
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
+      toast.error(err.response?.data?.message || 'Sync failed!', { id: loadToast })
     }
   }
 
@@ -529,7 +529,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
       await proposalService.addTaskComment(taskId, text.trim())
       loadComments(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi bình luận thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit comment!')
     }
   }
 
@@ -538,10 +538,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.addCommentReply(commentId, text.trim())
-      toast.success('Đã gửi phản hồi!')
+      toast.success('Reply submitted!')
       loadComments(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi phản hồi thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit reply!')
     }
   }
 
@@ -550,10 +550,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     if (isSynced && !isDiscussionUnlocked) return
     try {
       await proposalService.createProposal(taskId, content.trim())
-      toast.success('Đã gửi đề xuất checklist mới!')
+      toast.success('New checklist proposal submitted!')
       loadProposals(true)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit proposal!')
     }
   }
 
@@ -564,7 +564,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           <div className="animate-spin inline-block w-8 h-8 border-[3px] border-current border-t-transparent text-[#0ea5e9] rounded-full" role="status">
             <span className="sr-only">Loading...</span>
           </div>
-          <p className="text-sm text-slate-500 font-bold">Đang tải dữ liệu thảo luận...</p>
+          <p className="text-sm text-slate-500 font-bold">Loading discussion data...</p>
         </div>
       </div>
     )
@@ -610,7 +610,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   )}
                   <div className="flex items-center gap-1 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-2.5 py-0.5 font-semibold cursor-pointer text-[11px]">
                     <User size={10} className="text-slate-400" />
-                    {`${task.createdByName || 'Hệ thống'}`}
+                    {`${task.createdByName || 'System'}`}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-slate-400 flex-wrap font-medium mt-0.5 text-[11px]">
@@ -630,10 +630,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   }`}>
                     <CheckCircle2 size={10} />
                     {isSynced
-                      ? 'Đã phê duyệt & Đồng bộ'
+                      ? 'Approved & Synced'
                       : (task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW')
-                        ? 'Đã phê duyệt'
-                        : 'Chờ phê duyệt'}
+                        ? 'Approved'
+                        : 'Awaiting Approval'}
                   </span>
                 </div>
               </div>
@@ -655,9 +655,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 // Bug Report Details
                 <div className="space-y-2.5 text-xs">
                   <div>
-                    <span className="font-extrabold text-slate-700 block mb-0.5">📝 Mô tả lỗi:</span>
+                    <span className="font-extrabold text-slate-700 block mb-0.5">📝 Bug Description:</span>
                     <p className={`text-slate-600 leading-relaxed ${!descExpanded ? "line-clamp-1" : ""}`}>
-                      {bugDescription || 'Chưa có mô tả chi tiết.'}
+                      {bugDescription || 'No detailed description available.'}
                     </p>
                   </div>
                   
@@ -665,7 +665,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     <div className="pt-2 border-t border-slate-200/50 space-y-2.5 animate-fade-in">
                       {stepsContent && (
                         <div>
-                          <span className="font-extrabold text-slate-700 block mb-0.5">🚶 Các bước tái dựng / Cách chạy:</span>
+                          <span className="font-extrabold text-slate-700 block mb-0.5">🚶 Steps to Reproduce:</span>
                           <p className="text-slate-600 bg-white border border-slate-100 rounded-lg p-2 font-mono whitespace-pre-wrap text-[11px] leading-relaxed shadow-sm">
                             {stepsContent}
                           </p>
@@ -673,7 +673,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       )}
                       {expectedResult && (
                         <div>
-                          <span className="font-extrabold text-emerald-700 block mb-0.5">🎯 Kết quả mong muốn:</span>
+                          <span className="font-extrabold text-emerald-700 block mb-0.5">🎯 Expected Result:</span>
                           <p className="text-emerald-600 bg-emerald-50/50 border border-emerald-100/50 rounded-lg p-2 leading-relaxed font-medium">
                             {expectedResult}
                           </p>
@@ -681,7 +681,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       )}
                       {actualResult && (
                         <div>
-                          <span className="font-extrabold text-rose-700 block mb-0.5">❌ Kết quả thực tế / Giá trị thật:</span>
+                          <span className="font-extrabold text-rose-700 block mb-0.5">❌ Actual Result:</span>
                           <p className="text-rose-600 bg-rose-50/50 border border-rose-100/50 rounded-lg p-2 leading-relaxed font-medium">
                             {actualResult}
                           </p>
@@ -690,12 +690,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       <div className="flex gap-4 pt-1">
                         {discussBug?.environment && (
                           <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/30">
-                            Môi trường: <span className="font-black text-slate-700">{discussBug.environment}</span>
+                            Environment: <span className="font-black text-slate-700">{discussBug.environment}</span>
                           </div>
                         )}
                         {discussBug?.severity && (
                           <div className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/30">
-                            Mức độ: <span className="font-black text-slate-700">{discussBug.severity}</span>
+                            Severity: <span className="font-black text-slate-700">{discussBug.severity}</span>
                           </div>
                         )}
                       </div>
@@ -709,7 +709,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     !descExpanded ? "line-clamp-1" : ""
                   }`}
                 >
-                  {cleanDescription(task.description) || 'Chưa có mô tả chi tiết cho tính năng này.'}
+                  {cleanDescription(task.description) || 'No detailed description available for this feature.'}
                 </div>
               )}
               
@@ -717,7 +717,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 onClick={() => setDescExpanded(!descExpanded)}
                 className="mt-1 flex items-center gap-1 text-[10px] text-[#0ea5e9] hover:text-[#0284c7] transition-colors font-bold cursor-pointer"
               >
-                {descExpanded ? 'Thu gọn chi tiết' : isBugType ? 'Xem thêm chi tiết lỗi' : 'Xem thêm'}
+                {descExpanded ? 'Collapse Details' : isBugType ? 'See Bug Details' : 'See More'}
                 <ChevronDown size={11} className={`transition-transform ${descExpanded ? 'rotate-180' : ''}`} />
               </button>
             </div>
@@ -739,7 +739,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   }`}
                 >
                   <ThumbsUp size={14} className={taskVoteStats.myVote === 'UP' ? 'fill-emerald-600' : ''} />
-                  <span>{taskVoteStats.upvotes || 0} Tán thành</span>
+                  <span>{taskVoteStats.upvotes || 0} Upvotes</span>
                 </button>
                 <div className="w-px h-3 bg-slate-200" />
                 <button
@@ -753,12 +753,12 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   }`}
                 >
                   <ThumbsDown size={14} className={taskVoteStats.myVote === 'DOWN' ? 'fill-rose-500' : ''} />
-                  <span>{taskVoteStats.downvotes || 0} Không tán thành</span>
+                  <span>{taskVoteStats.downvotes || 0} Downvotes</span>
                 </button>
                 <div className="w-px h-3 bg-slate-200" />
                 <div className="flex items-center gap-1.5 text-slate-600 font-bold text-xs py-0.5 px-2">
                   <MessageSquare size={14} />
-                  <span>{comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)} Góp ý</span>
+                  <span>{comments.reduce((sum, c) => sum + 1 + (c.replies?.length || 0), 0)} Comments</span>
                 </div>
               </div>
             </div>
@@ -774,7 +774,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 }`}
               >
                 <MessageSquare size={13} />
-                <span>Comment chung</span>
+                <span>General Discussion</span>
                 {activeTab === 'comments' && (
                   <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
                 )}
@@ -789,7 +789,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 }`}
               >
                 <Lightbulb size={13} />
-                <span>Đề xuất</span>
+                <span>Proposals</span>
                 {activeTab === 'proposals' && (
                   <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
                 )}
@@ -804,7 +804,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 }`}
               >
                 <ListChecks size={13} />
-                <span>Đề xuất được thông qua</span>
+                <span>Approved Tasks</span>
                 {approvedCount > 0 && (
                   <span className="text-[10px] min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
                     {approvedCount}
@@ -820,7 +820,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 <button
                   onClick={async () => {
                     if (!task) return
-                    const loadToast = toast.loading('Đang cập nhật trạng thái thảo luận...')
+                    const loadToast = toast.loading('Updating discussion status...')
                     try {
                       let newDesc = task.description || ''
                       if (isDiscussionUnlocked) {
@@ -833,10 +833,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                         assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
                         description: newDesc
                       })
-                      toast.success(!isDiscussionUnlocked ? 'Đã mở chế độ thảo luận và thêm đề xuất!' : 'Đã đóng chế độ thảo luận.', { id: loadToast })
+                      toast.success(!isDiscussionUnlocked ? 'Discussion unlocked for proposals!' : 'Discussion locked.', { id: loadToast })
                       fetchTaskById(taskId)
                     } catch (err) {
-                      toast.error('Cập nhật trạng thái thất bại!', { id: loadToast })
+                      toast.error('Failed to update status!', { id: loadToast })
                     }
                   }}
                   className={`ml-auto flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
@@ -846,7 +846,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                   }`}
                 >
                   <Lightbulb size={13} />
-                  <span>{isDiscussionUnlocked ? 'Đóng thảo luận' : 'Mở thảo luận'}</span>
+                  <span>{isDiscussionUnlocked ? 'Lock Discussion' : 'Unlock Discussion'}</span>
                 </button>
               )}
             </div>
@@ -868,7 +868,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       status: 'APPROVED',
                       assigneeId: task.assignee?.id || task.primaryAssignee?.id || null
                     })
-                    toast.success('Đã phê duyệt ý tưởng feature!')
+                    toast.success('Feature idea approved successfully!')
                     if (taskId) {
                       fetchTaskById(taskId)
                     }
@@ -876,7 +876,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       onRefreshDashboard()
                     }
                   } catch (err) {
-                    toast.error('Duyệt ý tưởng thất bại!')
+                    toast.error('Failed to approve idea!')
                   }
                 }}
                 onToggleLike={handleToggleCommentLike}
@@ -909,10 +909,10 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 onUpdateProposal={async (proposalId, text) => {
                   try {
                     await proposalService.updateProposal(proposalId, text)
-                    toast.success('Đã cập nhật đề xuất!')
+                    toast.success('Proposal updated!')
                     loadProposals(true)
                   } catch (err) {
-                    toast.error(err.response?.data?.message || 'Cập nhật đề xuất thất bại!')
+                    toast.error(err.response?.data?.message || 'Failed to update proposal!')
                   }
                 }}
                 onContentScroll={handleContentScroll}
