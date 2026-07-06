@@ -1608,6 +1608,23 @@ export function IssueTrackerDashboard() {
                       </span>
                       {getStatusBadge(bug)}
 
+                      {!bug.isSubTask && (
+                        <div onClick={e => e.stopPropagation()} className="flex items-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const discussTaskId = (bug.isBug && bug.relatedTaskId) ? bug.relatedTaskId : bug.id;
+                              setActiveDiscussTaskId(discussTaskId);
+                            }}
+                            className="py-1 px-3 bg-sky-50 hover:bg-sky-100 text-[#0284c7] border border-sky-200/50 text-[10px] font-bold rounded-full transition-all shadow-sm flex items-center gap-1 cursor-pointer shrink-0"
+                            title="View discussion thread"
+                          >
+                            <span className="material-symbols-outlined text-[12px] font-bold">chat_bubble</span>
+                            <span>Discuss</span>
+                          </button>
+                        </div>
+                      )}
+
                       {bug.isSubTask && (() => {
                         const currentAssigneeId = bug.primaryAssigneeId || bug.primaryAssignee?.id;
                         const assignee = activeProject?.members?.find(m => String(m.id) === String(currentAssigneeId));

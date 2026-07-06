@@ -26,6 +26,7 @@ public class TaskCommentService {
     private final TaskRepository taskRepo;
     private final UserAccountRepository userRepo;
     private final TaskVoteRepository taskVoteRepo;
+    private final BugReportRepository bugReportRepo;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TaskCommentService.class);
@@ -72,8 +73,11 @@ public class TaskCommentService {
 
     // ─── POST Vote Task ──────────────────────────────────────────────────────
     public TaskVoteStatsResponse voteTask(Long taskId, boolean isUpvote, Long currentUserId) {
-        taskRepo.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        boolean taskExists = taskRepo.existsById(taskId);
+        boolean bugExists = bugReportRepo.existsById(taskId);
+        if (!taskExists && !bugExists) {
+            throw new IllegalArgumentException("Task or Bug Report not found: " + taskId);
+        }
         userRepo.findById(currentUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
 
@@ -125,8 +129,11 @@ public class TaskCommentService {
 
     // ─── POST Comment ────────────────────────────────────────────────────────
     public TaskCommentResponse addComment(Long taskId, String content, Long currentUserId) {
-        taskRepo.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        boolean taskExists = taskRepo.existsById(taskId);
+        boolean bugExists = bugReportRepo.existsById(taskId);
+        if (!taskExists && !bugExists) {
+            throw new IllegalArgumentException("Task or Bug Report not found: " + taskId);
+        }
         UserAccount author = userRepo.findById(currentUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
 

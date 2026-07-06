@@ -34,7 +34,20 @@ const cleanDescription = (desc) => {
 export default function FeatureDiscussionModal({ taskId, onClose, projectId, onRefreshDashboard, discussBug }) {
   const activeProject = useProjectStore((state) => state.activeProject)
   const { tasks, fetchTaskById, updateTask } = useKanbanStore()
-  const task = tasks.find((item) => String(item.id) === String(taskId))
+  const rawTask = tasks.find((item) => String(item.id) === String(taskId))
+  const task = rawTask || (discussBug ? {
+    id: discussBug.id,
+    title: discussBug.title,
+    description: discussBug.description,
+    type: 'BUG_FIX',
+    status: 'DRAFT',
+    stepsToReproduce: discussBug.stepsToReproduce,
+    expectedResult: discussBug.expectedResult,
+    actualResult: discussBug.actualResult,
+    createdById: discussBug.createdBy?.id || null,
+    githubIssueNumber: null,
+    requirementId: null
+  } : null)
   const taskType = normalizeTaskType(task?.type)
 
   const isBlankGit = useMemo(() => {
@@ -52,21 +65,27 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     return desc && (desc.includes('github-blank-draft') || desc.includes('feature-proposal-draft'));
   }, [task?.description, discussBug?.description]);
 
+  const isBugType = useMemo(() => {
+    return taskType === 'BUG_FIX' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
+  }, [taskType, discussBug])
+
   // Lấy trạng thái duyệt của Task. Ý tưởng được thông qua khi đã đồng bộ lên GitHub (githubIssueNumber != null) hoặc không còn nháp.
   const ideaApproved = useMemo(() => {
     if (!task) return false;
+    if (isBugType) return true;
     if (isBlankGit || isFeatureProposal) {
       return !isBlankDraft;
     }
     return task.githubIssueNumber != null;
-  }, [task, isBlankGit, isFeatureProposal, isBlankDraft])
+  }, [task, isBlankGit, isFeatureProposal, isBlankDraft, isBugType])
 
   // Trạng thái đã đồng bộ lên GitHub - githubIssueNumber ưu tiên cao nhất
   const isSynced = useMemo(() => {
     if (task?.githubIssueNumber != null) return true;
     if (isBlankGit || isFeatureProposal) return !isBlankDraft;
+    if (isBugType) return true;
     return false;
-  }, [task, isBlankGit, isFeatureProposal, isBlankDraft])
+  }, [task, isBlankGit, isFeatureProposal, isBlankDraft, isBugType])
 
   // UI state
   const [activeTab, setActiveTab] = useState('comments')
@@ -78,10 +97,6 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   const isDiscussionUnlocked = useMemo(() => {
     return task?.description?.includes('<!-- discussion-unlocked -->') || false;
   }, [task?.description])
-
-  const isBugType = useMemo(() => {
-    return taskType === 'BUG_FIX' || discussBug?.isBug || discussBug?.displayType === 'Bug Fix Task'
-  }, [taskType, discussBug])
 
   const stepsContent = useMemo(() => {
     const rawSteps = discussBug?.stepsToReproduce || task?.stepsToReproduce
@@ -815,8 +830,8 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 )}
               </button>
 
-              {/* Nút mở thảo luận cho leader đối với blank issue đã đồng bộ */}
-              {isLeader && isBlankGit && isSynced && (
+              {/* Nút mở thảo luận cho leader đối với blank issue hoặc bug report đã đồng bộ */}
+              {isLeader && (isBlankGit || isBugType) && isSynced && (
                 <button
                   onClick={async () => {
                     if (!task) return

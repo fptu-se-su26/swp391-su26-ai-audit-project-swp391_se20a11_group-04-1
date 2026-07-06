@@ -42,6 +42,9 @@ public class BugReportServiceImpl implements BugReportService {
     private final TaskService taskService;
     private final GitHubApiService gitHubApiService;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.repository.TaskProposalRepository taskProposalRepository;
+    private final org.example.backend.repository.TaskCommentRepository taskCommentRepository;
+    private final org.example.backend.repository.TaskVoteRepository taskVoteRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -113,7 +116,7 @@ public class BugReportServiceImpl implements BugReportService {
             }
         }
 
-        // New issues start as DRAFT
+        // Bug reports are automatically approved and converted to active tasks on creation
         BugReport bug = BugReport.builder()
                 .project(project)
                 .title(title)
@@ -123,15 +126,47 @@ public class BugReportServiceImpl implements BugReportService {
                 .testExecution(testExecution)
                 .assignedTo(assignee)
                 .createdBy(creator)
-                .status(BugStatus.DRAFT)
+                .status(BugStatus.OPEN) // Auto-promote to OPEN directly
                 .stepsToReproduce(stepsJson)
                 .expectedResult((String) request.get("expectedResult"))
                 .actualResult((String) request.get("actualResult"))
                 .build();
 
-        // Save as DRAFT only — Task creation happens only when Leader approves (approveAndConvertBug)
         bug = bugReportRepository.save(bug);
-        log.info("Bug Report DRAFT created: ID={}, title='{}', projectId={}", bug.getId(), title, projectId);
+
+        log.info("Bug Report auto-approved: ID={}, title='{}', projectId={}", bug.getId(), title, projectId);
+        try {
+            // Prepare TaskRequest to auto-create the linked BUG_FIX task
+            TaskRequest taskReq = new TaskRequest();
+            taskReq.setTitle("[BUG] " + bug.getTitle());
+            taskReq.setDescription(bug.getDescription());
+            taskReq.setType("BUG_FIX");
+            taskReq.setPriority(mapSeverityToPriority(bug.getSeverity()));
+            taskReq.setStatus("TODO");
+            taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
+            taskReq.setStartDate(java.time.LocalDate.now());
+            taskReq.setDeadline(java.time.LocalDate.now().plusDays(3));
+            taskReq.setChecklist(new ArrayList<>());
+
+            // Create the linked Task via existing TaskService
+            TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
+
+            Task createdTask = taskRepository.findById(taskResponse.getId())
+                    .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
+
+            bug.setRelatedTask(createdTask);
+            bug = bugReportRepository.save(bug);
+
+            // Push to GitHub (non-blocking)
+            try {
+                gitHubApiService.createGitHubIssue(bug, userId);
+            } catch (Exception e) {
+                log.error("GitHub sync failed for auto-approved Bug Report ID: {}", bug.getId(), e);
+            }
+        } catch (Exception e) {
+            log.error("Auto-approval and conversion failed for Bug Report ID: {}", bug.getId(), e);
+        }
+
         return bug;
     }
 
@@ -175,7 +210,28 @@ public class BugReportServiceImpl implements BugReportService {
         taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
         taskReq.setStartDate(java.time.LocalDate.now());
         taskReq.setDeadline(java.time.LocalDate.now().plusDays(3));
-        taskReq.setChecklist(new ArrayList<>());
+
+        // Fetch checklist proposals and convert approved ones
+        List<org.example.backend.entity.TaskProposal> proposals = taskProposalRepository.findByTaskIdOrderByCreatedAtAsc(bugId);
+        List<org.example.backend.dto.TaskRequest.ChecklistItemRequest> itemsToRequest = new java.util.ArrayList<>();
+        for (org.example.backend.entity.TaskProposal proposal : proposals) {
+            if (proposal.getStatus() == org.example.backend.entity.ProposalStatus.APPROVED) {
+                String[] lines = proposal.getContent().split("\\n");
+                for (String line : lines) {
+                    String trimmed = line.trim();
+                    if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]")) {
+                        String itemText = trimmed.substring(5).trim();
+                        if (!itemText.isEmpty()) {
+                            org.example.backend.dto.TaskRequest.ChecklistItemRequest reqItem = new org.example.backend.dto.TaskRequest.ChecklistItemRequest();
+                            reqItem.setContent(itemText);
+                            reqItem.setDone(trimmed.startsWith("- [x]") || trimmed.startsWith("- [X]"));
+                            itemsToRequest.add(reqItem);
+                        }
+                    }
+                }
+            }
+        }
+        taskReq.setChecklist(itemsToRequest);
 
         // 4. Create the linked Task via existing TaskService
         TaskResponse taskResponse = taskService.createTask(projectId, taskReq, userId);
@@ -183,6 +239,24 @@ public class BugReportServiceImpl implements BugReportService {
         // 5. Link the Task back to the BugReport and promote to OPEN
         Task createdTask = taskRepository.findById(taskResponse.getId())
                 .orElseThrow(() -> new CustomException("Created task not found", HttpStatus.INTERNAL_SERVER_ERROR));
+
+        // Migrate MongoDB proposals, comments, and votes from bugId to createdTask.getId()
+        for (org.example.backend.entity.TaskProposal proposal : proposals) {
+            proposal.setTaskId(createdTask.getId());
+            taskProposalRepository.save(proposal);
+        }
+
+        List<org.example.backend.entity.TaskComment> comments = taskCommentRepository.findByTaskIdOrderByCreatedAtAsc(bugId);
+        for (org.example.backend.entity.TaskComment comment : comments) {
+            comment.setTaskId(createdTask.getId());
+            taskCommentRepository.save(comment);
+        }
+
+        List<org.example.backend.entity.TaskVote> votes = taskVoteRepository.findByTaskId(bugId);
+        for (org.example.backend.entity.TaskVote vote : votes) {
+            vote.setTaskId(createdTask.getId());
+            taskVoteRepository.save(vote);
+        }
 
         bug.setRelatedTask(createdTask);
         bug.setStatus(BugStatus.OPEN); // DRAFT → OPEN on approval

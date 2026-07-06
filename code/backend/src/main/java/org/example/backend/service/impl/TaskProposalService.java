@@ -89,8 +89,11 @@ public class TaskProposalService {
     // ─── Create proposal ────────────────────────────────────────────────────
 
     public TaskProposalResponse createProposal(Long taskId, String content, Long currentUserId) {
-        taskRepo.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        boolean taskExists = taskRepo.existsById(taskId);
+        boolean bugExists = bugReportRepo.existsById(taskId);
+        if (!taskExists && !bugExists) {
+            throw new IllegalArgumentException("Task or Bug Report not found: " + taskId);
+        }
         UserAccount author = userRepo.findById(currentUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + currentUserId));
 
@@ -185,16 +188,30 @@ public class TaskProposalService {
                     org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
-        // Fetch task from Postgres to append approved proposal to checklist
-        Task task = taskRepo.findById(proposal.getTaskId())
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + proposal.getTaskId()));
-
-        long totalMembers = projectMemberRepository.findByProjectId(task.getProject().getId()).size();
-        long totalVotes = proposal.getVotes().size();
-        if (3 * totalVotes <= 2 * totalMembers) {
-            throw new org.example.backend.exception.CustomException(
-                    "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
-                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        java.util.Optional<Task> taskOpt = taskRepo.findById(proposal.getTaskId());
+        Task task = null;
+        if (taskOpt.isPresent()) {
+            task = taskOpt.get();
+            long totalMembers = projectMemberRepository.findByProjectId(task.getProject().getId()).size();
+            long totalVotes = proposal.getVotes().size();
+            if (3 * totalVotes <= 2 * totalMembers) {
+                throw new org.example.backend.exception.CustomException(
+                        "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
+                        org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
+        } else {
+            java.util.Optional<BugReport> bugOpt = bugReportRepo.findById(proposal.getTaskId());
+            if (!bugOpt.isPresent()) {
+                throw new IllegalArgumentException("Task or Bug Report not found: " + proposal.getTaskId());
+            }
+            BugReport bug = bugOpt.get();
+            long totalMembers = projectMemberRepository.findByProjectId(bug.getProject().getId()).size();
+            long totalVotes = proposal.getVotes().size();
+            if (3 * totalVotes <= 2 * totalMembers) {
+                throw new org.example.backend.exception.CustomException(
+                        "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
+                        org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
         }
 
         List<String> itemsToAdd = new java.util.ArrayList<>();
@@ -217,23 +234,25 @@ public class TaskProposalService {
 
         proposal.setStatus(ProposalStatus.APPROVED);
 
-        for (String content : itemsToAdd) {
-            boolean alreadyInChecklist = task.getChecklist()
-                    .stream()
-                    .anyMatch(c -> c.getContent().equals(content));
+        if (task != null) {
+            for (String content : itemsToAdd) {
+                boolean alreadyInChecklist = task.getChecklist()
+                        .stream()
+                        .anyMatch(c -> c.getContent().equals(content));
 
-            if (!alreadyInChecklist) {
-                int nextIndex = task.getChecklist().size();
-                TaskChecklist newItem = TaskChecklist.builder()
-                        .task(task)
-                        .content(content)
-                        .done(false)
-                        .orderIndex(nextIndex)
-                        .build();
-                task.getChecklist().add(newItem);
+                if (!alreadyInChecklist) {
+                    int nextIndex = task.getChecklist().size();
+                    TaskChecklist newItem = TaskChecklist.builder()
+                            .task(task)
+                            .content(content)
+                            .done(false)
+                            .orderIndex(nextIndex)
+                            .build();
+                    task.getChecklist().add(newItem);
+                }
             }
+            taskRepo.save(task);
         }
-        taskRepo.save(task);
 
         proposalRepo.save(proposal);
         broadcastProposalUpdate(proposal.getTaskId());
