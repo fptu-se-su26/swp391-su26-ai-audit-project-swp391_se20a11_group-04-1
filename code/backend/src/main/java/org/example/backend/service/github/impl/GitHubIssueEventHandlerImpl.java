@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.config.NotificationWebSocketHandler;
+import org.example.backend.entity.AuditLog;
 import org.example.backend.entity.BugReport;
 import org.example.backend.entity.GitHubIntegration;
 import org.example.backend.entity.Priority;
@@ -15,6 +16,7 @@ import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.enums.BugSeverity;
 import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.entity.enums.Environment;
+import org.example.backend.repository.AuditLogRepository;
 import org.example.backend.repository.BugReportRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
@@ -37,15 +39,29 @@ public class GitHubIssueEventHandlerImpl implements GitHubIssueEventHandler {
     private final BugReportRepository bugReportRepository;
     private final TaskRepository taskRepository;
     private final UserAccountRepository userAccountRepository;
+    private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
 
     @Override
     public void handleIssueEvent(String action, Map<String, Object> issue, Map<String, Object> payload, GitHubIntegration integration) {
-        if (issue == null) return;
+        if (action == null || issue == null) return;
 
         Integer issueNumber = (Integer) issue.get("number");
-        String issueUrl = (String) issue.get("html_url");
         String title = (String) issue.get("title");
+        
+        Map<String, Object> user = (Map<String, Object>) issue.get("user");
+        String username = user != null ? (String) user.get("login") : "GitHub User";
+        String logTitle = title != null ? (title.length() > 50 ? title.substring(0, 50) + "..." : title) : "No title";
+        
+        AuditLog logEntity = AuditLog.builder()
+                .projectId(integration.getProject().getId())
+                .username(username)
+                .action(String.format("[GITHUB ISSUE %s] %s", action.toUpperCase(), logTitle))
+                .status("SUCCESS")
+                .build();
+        auditLogRepository.save(logEntity);
+
+        String issueUrl = (String) issue.get("html_url");
         String bodyText = (String) issue.get("body");
         Long projectId = integration.getProject().getId();
 

@@ -21,6 +21,11 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Query("SELECT a FROM AuditLog a WHERE LOWER(a.action) LIKE LOWER(CONCAT('%',:action,'%')) ORDER BY a.createdAt DESC")
     Page<AuditLog> findByActionContaining(@Param("action") String action, Pageable pageable);
 
+    List<AuditLog> findTop5ByProjectIdOrderByCreatedAtDesc(Long projectId);
+
+    @Query("SELECT a FROM AuditLog a WHERE a.projectId = :projectId AND a.action NOT LIKE 'GET %' AND a.action NOT LIKE 'POST %' AND a.action NOT LIKE 'PUT %' AND a.action NOT LIKE 'DELETE %' AND a.action NOT LIKE 'PATCH %' ORDER BY a.createdAt DESC")
+    List<AuditLog> findBusinessLogsByProjectId(@Param("projectId") Long projectId, Pageable pageable);
+
     long countByCreatedAtAfter(LocalDateTime after);
 
     long countByStatusAndCreatedAtAfter(String status, LocalDateTime after);

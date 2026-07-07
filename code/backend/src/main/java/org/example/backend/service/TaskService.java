@@ -30,7 +30,7 @@ public interface TaskService {
 
     // Load the project review queue shown on the Code Insight page.
     List<TaskReviewDecisionResponse> getProjectReviewQueue(Long projectId, Long userId);
-    void deleteTask(Long taskId, Long userId);
+    TaskResponse deleteTask(Long taskId, Long userId);
 
     // ── Daily / Weekly View ───────────────────────────────────────────────────
     DailyViewResponse getDailyView(Long projectId, Long userId, LocalDate date);

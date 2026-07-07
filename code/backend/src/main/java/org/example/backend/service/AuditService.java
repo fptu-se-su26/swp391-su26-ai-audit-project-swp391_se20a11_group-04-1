@@ -38,7 +38,7 @@ public class AuditService {
                     .action(event.getAction())
                     .entityType(event.getEntityType())
                     .entityId(event.getEntityId())
-                    .projectId(extractProjectId(event.getRequestUri()))
+                    .projectId(event.getProjectId() != null ? event.getProjectId() : extractProjectId(event.getRequestUri()))
                     .oldValue(oldValueStr)
                     .newValue(newValueStr)
                     .ipAddress(event.getIpAddress())
@@ -56,18 +56,18 @@ public class AuditService {
     }
 
     public void publishSuccess(Long userId, String username, String action,
-                               String entityType, Long entityId, Object newValue,
+                               String entityType, Long entityId, Long projectId, Object newValue,
                                String ipAddress, String httpMethod, String uri, long durationMs) {
         applicationEventPublisher.publishEvent(new AuditEvent(this, userId, username, action, entityType, entityId,
-                null, newValue, ipAddress, httpMethod, uri, "SUCCESS", null, durationMs));
+                projectId, null, newValue, ipAddress, httpMethod, uri, "SUCCESS", null, durationMs));
     }
 
     public void publishFailure(Long userId, String username, String action,
-                               String entityType, Long entityId,
+                               String entityType, Long entityId, Long projectId,
                                String ipAddress, String httpMethod, String uri,
                                String errorMessage, long durationMs) {
         applicationEventPublisher.publishEvent(new AuditEvent(this, userId, username, action, entityType, entityId,
-                null, null, ipAddress, httpMethod, uri, "FAILED", errorMessage, durationMs));
+                projectId, null, null, ipAddress, httpMethod, uri, "FAILED", errorMessage, durationMs));
     }
 
     private Long extractProjectId(String uri) {

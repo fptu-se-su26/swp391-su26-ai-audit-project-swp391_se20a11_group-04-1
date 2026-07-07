@@ -206,6 +206,9 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           if (taskCopy.depends_on && Array.isArray(taskCopy.depends_on) && taskCopy.depends_on.length > 0) {
             taskCopy.description = (taskCopy.description || '') + `\n\n[Liên kết]: Phụ thuộc vào các task: ${taskCopy.depends_on.join(', ')}`;
           }
+          if (!taskCopy.sprint_id || taskCopy.sprint_id === '') {
+            taskCopy.sprint_id = null;
+          }
           delete taskCopy.temp_id;
           delete taskCopy.depends_on;
         }

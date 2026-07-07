@@ -224,6 +224,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="UPDATE_TASK", entityType="Task", entityIdArgIndex=0)
     public TaskResponse updateTask(Long taskId, TaskRequest request, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
@@ -716,7 +717,8 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public void deleteTask(Long taskId, Long userId) {
+    @org.example.backend.annotation.Auditable(action="DELETE_TASK", entityType="Task", entityIdArgIndex=0)
+    public TaskResponse deleteTask(Long taskId, Long userId) {
         Task task = findTask(taskId);
         ensureProjectMember(task.getProject().getId(), userId);
         Long reqId = task.getRequirementId();
@@ -729,6 +731,7 @@ public class TaskServiceImpl implements TaskService {
         if (ucId != null) {
             syncUseCaseStatus(ucId);
         }
+        return toResponse(task);
     }
 
     // =========================================================================

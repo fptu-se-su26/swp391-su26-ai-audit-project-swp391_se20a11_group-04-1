@@ -86,6 +86,24 @@ public class ProjectController {
     }
 
     /**
+     * GET /api/v1/projects/{projectId}/dashboard
+     * Lấy thống kê dự án
+     */
+    @GetMapping("/{projectId}/dashboard")
+    public ResponseEntity<ApiResponse<org.example.backend.dto.ProjectDashboardResponse>> getProjectDashboard(
+            @PathVariable Long projectId,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        org.example.backend.dto.ProjectDashboardResponse dashboard = projectService.getProjectDashboard(projectId, userId);
+        return ResponseEntity.ok(ApiResponse.success(dashboard, "Lấy thống kê dashboard dự án thành công!"));
+    }
+
+    /**
      * POST /api/v1/projects
      * Tạo mới một dự án. Người tạo sẽ tự động được gán vai trò PROJECT_LEADER.
      */

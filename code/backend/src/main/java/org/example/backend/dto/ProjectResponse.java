@@ -34,6 +34,8 @@ public class ProjectResponse {
         private String username;
         private String name;
         private String role;
+        @com.fasterxml.jackson.annotation.JsonProperty("isOnline")
+        private Boolean isOnline;
     }
 
     @Getter

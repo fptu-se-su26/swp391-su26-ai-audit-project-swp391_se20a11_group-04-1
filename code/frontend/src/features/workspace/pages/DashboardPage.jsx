@@ -12,6 +12,32 @@ import ProjectClosureModal from '../components/ProjectClosureModal'
  * 1. Chế độ Portfolio (activeProject === null): Liệt kê và quản lý danh sách dự án
  * 2. Chế độ Project Overview (activeProject !== null): Hiển thị chi tiết tổng quan của dự án đang chạy
  */
+
+const formatActivityText = (text) => {
+  if (!text) return 'performed an action';
+  const action = text.toUpperCase();
+  
+  if (action.includes('CREATE_TASK')) return 'created a Task';
+  if (action.includes('UPDATE_TASK')) return 'updated a Task';
+  if (action.includes('DELETE_TASK')) return 'deleted a Task';
+  if (action.includes('CREATE_REQUIREMENT')) return 'created a Requirement';
+  if (action.includes('UPDATE_REQUIREMENT')) return 'updated a Requirement';
+  if (action.includes('DELETE_REQUIREMENT')) return 'deleted a Requirement';
+  if (action.includes('CREATE_USECASE')) return 'created a Use Case';
+  if (action.includes('UPDATE_USECASE')) return 'updated a Use Case';
+  if (action.includes('DELETE_USECASE')) return 'deleted a Use Case';
+  if (action.includes('CREATE_BUG')) return 'reported a Bug';
+  if (action.includes('UPDATE_BUG')) return 'updated a Bug report';
+  if (action.includes('APPROVE_BUG')) return 'approved a Bug report';
+  if (action.includes('CREATE_SPRINT')) return 'created a Sprint';
+  if (action.includes('UPDATE_SPRINT')) return 'updated a Sprint';
+  if (action.includes('DELETE_SPRINT')) return 'deleted a Sprint';
+  if (action.includes('PUSH')) return 'pushed code to Github';
+  if (action.includes('ISSUE')) return 'interacted with a Github Issue';
+  
+  return `has ${text.toLowerCase().replace(/_/g, ' ')}`;
+};
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -58,6 +84,11 @@ export function DashboardPage() {
   })
   const [creatingRepo, setCreatingRepo] = useState(false)
 
+  // Real dashboard data
+  const [dashboardData, setDashboardData] = useState(null)
+  const [loadingDashboard, setLoadingDashboard] = useState(false)
+  const [visibleActivities, setVisibleActivities] = useState(5)
+
   // Đọc dữ liệu và hàm từ Zustand store
   const {
     projects,
@@ -84,19 +115,38 @@ export function DashboardPage() {
     navigate(`/projects/${project.id}/dashboard`)
   }
 
+  const handleExportTracking = async (projectId) => {
+    setExportingTracking(true)
+    try {
+      const res = await axiosInstance.get(`/v1/projects/${projectId}/export-tracking`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `project-tracking-${projectId}.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Exported Excel file successfully!')
+    } catch {
+      toast.error('Failed to export Excel file.')
+    } finally {
+      setExportingTracking(false)
+    }
+  }
   const handleReopen = async (projectId) => {
-    const reason = window.prompt('Nhập lý do mở lại project (tối thiểu 10 ký tự):')
+    const reason = window.prompt('Enter reason to reopen project (min 10 characters):')
     if (!reason || reason.trim().length < 10) {
-      toast.error('Lý do phải ít nhất 10 ký tự.')
+      toast.error('Reason must be at least 10 characters.')
       return
     }
     setReopening(true)
     try {
       await axiosInstance.post(`/v1/projects/${projectId}/reopen`, { reason: reason.trim() })
-      toast.success('Project đã được mở lại!')
+      toast.success('Project has been reopened!')
       fetchProjects()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Mở lại project thất bại.')
+      toast.error(err?.response?.data?.message || 'Failed to reopen project.')
     } finally {
       setReopening(false)
     }
@@ -148,14 +198,14 @@ export function DashboardPage() {
       window.location.href = res.data.data + "&state=" + state
     } catch (err) {
       console.error("OAuth Init Error:", err)
-      toast.error('Kết nối GitHub thất bại: ' + (err.response?.data?.message || err.message))
+      toast.error('GitHub connection failed: ' + (err.response?.data?.message || err.message))
     }
   }
 
   // Tạo Repo mới trên GitHub
   const handleCreateGithubRepo = async () => {
     if (!newRepoData.name.trim()) {
-      toast.error('Tên kho lưu trữ GitHub không được để trống!')
+      toast.error('GitHub repository name cannot be empty!')
       return null
     }
     setCreatingRepo(true)
@@ -171,7 +221,7 @@ export function DashboardPage() {
       return res.data?.data // trả về repo object
     } catch (err) {
       console.error('Failed to create GitHub repository:', err)
-      toast.error('Tạo kho lưu trữ trên GitHub thất bại: ' + (err.response?.data?.message || err.message))
+      toast.error('Failed to create GitHub repository: ' + (err.response?.data?.message || err.message))
       return null
     } finally {
       setCreatingRepo(false)
@@ -224,6 +274,33 @@ export function DashboardPage() {
       clearActiveProject()
     }
   }, [location.pathname, activeProject, clearActiveProject, isGlobalDashboard])
+
+  // Fetch real dashboard stats when activeProject changes (with LIVE POLLING)
+  useEffect(() => {
+    if (activeProject && !isGlobalDashboard) {
+      const fetchDashboardStats = async (isBackground = false) => {
+        if (!isBackground) setLoadingDashboard(true)
+        try {
+          const res = await axiosInstance.get(`/v1/projects/${activeProject.id}/dashboard`)
+          setDashboardData(res.data?.data)
+        } catch (err) {
+          console.error("Failed to fetch dashboard stats", err)
+        } finally {
+          if (!isBackground) setLoadingDashboard(false)
+        }
+      }
+      
+      // Lần đầu tải trang sẽ có hiệu ứng xoay loading
+      fetchDashboardStats(false)
+      
+      // Thiết lập Background Polling ngầm mỗi 1 giây cho tính năng Terminal Live
+      const intervalId = setInterval(() => {
+        fetchDashboardStats(true) // Chạy ngầm, không bật loadingDashboard
+      }, 1000)
+      
+      return () => clearInterval(intervalId)
+    }
+  }, [activeProject, isGlobalDashboard])
 
   // Check for createProjectForClassroom URL param to automatically open modal
   useEffect(() => {
@@ -376,7 +453,7 @@ export function DashboardPage() {
         licenseTemplate: 'None'
       })
     } else {
-      toast.error(error || 'Tạo dự án thất bại, vui lòng thử lại!')
+      toast.error(error || 'Failed to create project, please try again!')
     }
   }
 
@@ -476,13 +553,13 @@ export function DashboardPage() {
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-background select-none">
           <div className="max-w-md mx-auto mt-20 text-center bg-surface-container-lowest p-8 rounded-2xl border border-red-500/10 shadow-sm space-y-4">
             <span className="material-symbols-outlined text-5xl text-red-500">error</span>
-            <h3 className="font-bold text-lg text-on-surface">Không thể tải danh sách dự án</h3>
+            <h3 className="font-bold text-lg text-on-surface">Failed to load projects</h3>
             <p className="text-sm text-on-surface-variant">{error}</p>
             <button
               onClick={() => fetchProjects()}
               className="bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md mt-2"
             >
-              Thử lại
+              Retry
             </button>
           </div>
         </main>
@@ -498,18 +575,18 @@ export function DashboardPage() {
               warning
             </span>
             <div className="flex-1 text-sm leading-relaxed text-left">
-              <h4 className="font-bold text-amber-950 dark:text-amber-200">Bảo mật tài khoản của bạn</h4>
+              <h4 className="font-bold text-amber-950 dark:text-amber-200">Secure your account</h4>
               <p className="mt-1">
-                Tài khoản của bạn hiện chưa được thiết lập mật khẩu thường (đang đăng nhập qua GitHub). 
-                Để đảm bảo an toàn bảo mật và có thể đăng nhập bằng mật khẩu thường, vui lòng click{' '}
+                Your account does not have a standard password set (logged in via GitHub). 
+                For better security and to enable standard login, please click{' '}
                 <button
                   type="button"
                   onClick={() => navigate(`/profile`)}
                   className="font-bold underline text-amber-700 hover:text-amber-850 focus:outline-none cursor-pointer"
                 >
-                  Đổi mật khẩu
+                  Change Password
                 </button>{' '}
-                trong trang Cá nhân để thiết lập mật khẩu mới ngay.
+                in your Profile page to set up a new password.
               </p>
             </div>
           </div>
@@ -594,8 +671,8 @@ export function DashboardPage() {
           {filteredProjects.length === 0 ? (
             <div className="py-20 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/60 shadow-sm">
               <span className="material-symbols-outlined text-5xl text-outline mb-3">folder_open</span>
-              <h3 className="font-bold text-base text-on-surface">Không tìm thấy dự án nào</h3>
-              <p className="text-xs text-on-surface-variant mt-1">Hãy thử nhập từ khóa tìm kiếm khác hoặc tạo dự án mới.</p>
+              <h3 className="font-bold text-base text-on-surface">No projects found</h3>
+              <p className="text-xs text-on-surface-variant mt-1">Try different search keywords or create a new project.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -745,8 +822,8 @@ export function DashboardPage() {
             <div className="flex flex-col items-center gap-3 pt-2 pb-4">
               {/* Counter */}
               <p className="text-xs text-on-surface-variant">
-                Đang hiển thị <span className="font-bold text-on-surface">{Math.min(visibleCount, filteredProjects.length)}</span>
-                {' '}trên <span className="font-bold text-on-surface">{totalCount}</span> dự án
+                Showing <span className="font-bold text-on-surface">{Math.min(visibleCount, filteredProjects.length)}</span>
+                {' '}of <span className="font-bold text-on-surface">{totalCount}</span> projects
               </p>
 
               {/* Load More Button */}
@@ -763,12 +840,12 @@ export function DashboardPage() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
-                      <span>Đang tải...</span>
+                      <span>Loading...</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-base">expand_more</span>
-                      <span>Xem thêm ({nextBatchCount > 0 ? nextBatchCount : 3} dự án nữa)</span>
+                      <span>Load more ({nextBatchCount > 0 ? nextBatchCount : 3} more projects)</span>
                     </>
                   )}
                 </button>
@@ -947,7 +1024,7 @@ export function DashboardPage() {
                       ) : !hasToken ? (
                         <div className="text-center py-3 space-y-3">
                           <p className="text-xs text-on-surface-variant">
-                            Bạn cần liên kết tài khoản GitHub của mình trước khi kết nối repository.
+                            You need to link your GitHub account before connecting a repository.
                           </p>
                           <button
                             type="button"
@@ -1227,196 +1304,559 @@ export function DashboardPage() {
         <div className="absolute top-[5%] left-[5%] w-[400px] h-[400px] rounded-full bg-tertiary-fixed opacity-[0.08] blur-[120px]"></div>
       </div>
 
-      <div className="relative z-10 w-full space-y-8">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto space-y-6">
 
-        {/* Banner Dự án đầu trang */}
+        {/* 1. HEADER BANNER (Restored Original Effects & Colors) */}
         {(() => {
           const role = (activeProject.role || '').toUpperCase()
           const isLeaderOrMentor = role.includes('LEADER') || role === 'MENTOR'
           const isArchived = activeProject.status === 'ARCHIVED'
+          
           return (
-            <div className={`p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 ${isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container'}`}>
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
-                      {activeProject.major} • {activeProject.semester}
+            <div className={`p-5 md:p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 ${isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container'}`}>
+              
+              {/* Top Section: Info & Sprint */}
+              <div className="flex flex-col md:flex-row justify-between items-start gap-5">
+                
+                {/* Left Side: Info */}
+                <div className="space-y-2.5 flex-1">
+                  {/* Top Badges Row */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="bg-white/15 text-white text-[10px] font-extrabold tracking-wider px-3 py-1.5 rounded-[8px] uppercase shadow-sm border border-white/10">
+                      {activeProject.type || 'Web app'} • {activeProject.major || 'Personal'} • 2026
                     </span>
+                    
                     {isArchived && (
-                      <span className="bg-gray-400/30 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase border border-white/20">
-                        ARCHIVED — Chỉ đọc
+                      <span className="bg-gray-500/40 text-white text-[10px] font-extrabold tracking-wider px-3 py-1.5 rounded-[8px] uppercase border border-white/20 shadow-sm">
+                        ARCHIVED
                       </span>
                     )}
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-black tracking-tight">{activeProject.title}</h1>
-                  <p className="text-white/80 text-sm font-medium">
-                    Chào mừng bạn trở lại dự án với vai trò: <strong className="text-white font-black">{activeProject.role}</strong>
+
+                  <h1 className="text-xl md:text-2xl font-black tracking-tight mt-1">
+                    {activeProject.title || 'DevTrack Alpha Test'}
+                  </h1>
+                  <p className="text-white/80 text-xs md:text-sm font-medium">
+                    Welcome back • role <strong className="text-white font-black">{activeProject.role || 'Project lead'}</strong>
                   </p>
                 </div>
-                <div className="bg-white/10 p-4 rounded-xl border border-white/10 text-center shrink-0">
-                  <div className="text-xs uppercase tracking-wider font-semibold opacity-85">Tiến độ Sprint</div>
-                  <div className="text-3xl font-black mt-1">{activeProject.progress}%</div>
+
+                {/* Right Side: Elegant Sprint Progress */}
+                <div className="flex flex-col items-end shrink-0 self-start">
+                  <div className="flex items-center gap-4 bg-white/10 px-5 py-3.5 rounded-2xl border border-white/10 backdrop-blur-md shadow-lg hover:bg-white/20 transition-all cursor-default">
+                    {/* Badge Text */}
+                    <div className="flex flex-col text-right">
+                       <span className="text-xs md:text-[13px] uppercase font-black tracking-wide text-white">
+                          {(() => {
+                              const sprint = dashboardData?.activeSprint;
+                              if (!sprint || sprint.status === 'NO_SPRINTS') return 'PROJECT PROGRESS';
+                              if (sprint.status === 'IN_PROGRESS') return `ACTIVE: ${sprint.name}`;
+                              if (sprint.status === 'UPCOMING') return `NEXT: ${sprint.name}`;
+                              if (sprint.status === 'COMPLETED') return `LAST: ${sprint.name}`;
+                              return `${sprint.name} PROGRESS`;
+                          })()}
+                       </span>
+                       <span className="text-white/80 text-[11px] md:text-xs font-semibold tracking-wide mt-1">
+                          {(() => {
+                              const sprint = dashboardData?.activeSprint;
+                              if (!sprint || sprint.status === 'NO_SPRINTS') {
+                                  return (
+                                    <>
+                                      {activeProject.startDate ? `Started ${new Date(activeProject.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Not Started'}
+                                      {activeProject.deadline ? ` • Deadline: ${new Date(activeProject.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                                    </>
+                                  );
+                              }
+                              
+                              const startStr = sprint.startDate ? new Date(sprint.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                              const endStr = sprint.endDate ? new Date(sprint.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                              const daysLeft = sprint.endDate ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0;
+                              const daysUntil = sprint.startDate ? Math.max(0, Math.ceil((new Date(sprint.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))) : 0;
+
+                              if (sprint.status === 'UPCOMING') {
+                                  return `Starts in ${daysUntil} days (${startStr})`;
+                              } else if (sprint.status === 'COMPLETED') {
+                                  return `Ended on ${endStr}`;
+                              } else {
+                                  return `Started ${startStr} • ${daysLeft} days left`;
+                              }
+                          })()}
+                       </span>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="w-[1.5px] h-10 bg-white/20 mx-1 rounded-full"></div>
+
+                    {/* Ring */}
+                    <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 36 36">
+                        <path className="text-white/20" strokeWidth="4" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path className="text-white" strokeWidth="4" strokeDasharray={`${(() => {
+                            const sprint = dashboardData?.activeSprint;
+                            if (!sprint || sprint.status === 'NO_SPRINTS') return activeProject.progress || 0;
+                            return sprint.progressPercent || 0;
+                        })()}, 100`} stroke="currentColor" fill="none" strokeLinecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      </svg>
+                      <span className="absolute text-white font-black text-xs">
+                        {(() => {
+                            const sprint = dashboardData?.activeSprint;
+                            if (!sprint || sprint.status === 'NO_SPRINTS') return `${activeProject.progress || 0}%`;
+                            return `${sprint.progressPercent || 0}%`;
+                        })()}
+                      </span>
+                  </div>
                 </div>
               </div>
-
-              {/* Action buttons — chỉ hiện với Leader/Mentor */}
-              {isLeaderOrMentor && (
-                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/10">
-                  {/* Close Project */}
-                  {!isArchived && (
-                    <button
-                      onClick={() => setIsClosureModalOpen(true)}
-                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(239,68,68,0.2)] hover:shadow-[0_4px_20px_rgba(239,68,68,0.5)] active:scale-95 transition-all duration-300 overflow-hidden"
-                    >
-                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
-                      <span className="material-symbols-outlined text-base group-hover:rotate-12 transition-transform duration-300 relative z-10">lock</span>
-                      <span className="relative z-10">Đóng Project</span>
-                    </button>
-                  )}
-
-                  {/* Reopen Project */}
-                  {isArchived && (
-                    <button
-                      onClick={() => handleReopen(activeProject.id)}
-                      disabled={reopening}
-                      className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/80 hover:bg-emerald-500 backdrop-blur-md border border-emerald-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
-                    >
-                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
-                      <span className="material-symbols-outlined text-base group-hover:scale-110 transition-transform duration-300 relative z-10">lock_open</span>
-                      <span className="relative z-10">{reopening ? 'Đang mở lại...' : 'Mở Lại Project'}</span>
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
+
+            {/* Bottom Section: Action Buttons */}
+            {isLeaderOrMentor && (
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-white/10 w-full">
+                <button
+                  onClick={() => handleExportTracking(activeProject.id)}
+                  disabled={exportingTracking}
+                  className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-[0_4px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_20px_rgba(255,255,255,0.3)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                >
+                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                  <span className="material-symbols-outlined text-base group-hover:-translate-y-0.5 transition-transform duration-300 relative z-10">download</span>
+                  <span className="relative z-10">{exportingTracking ? 'Exporting...' : 'Export Tracking'}</span>
+                </button>
+
+                {!isArchived && (
+                  <button
+                    onClick={() => setIsClosureModalOpen(true)}
+                    className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(239,68,68,0.2)] hover:shadow-[0_4px_20px_rgba(239,68,68,0.5)] active:scale-95 transition-all duration-300 overflow-hidden"
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                    <span className="material-symbols-outlined text-base group-hover:rotate-12 transition-transform duration-300 relative z-10">lock</span>
+                    <span className="relative z-10">Close Project</span>
+                  </button>
+                )}
+
+                {isArchived && (
+                  <button
+                    onClick={() => handleReopen(activeProject.id)}
+                    disabled={reopening}
+                    className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/80 hover:bg-emerald-500 backdrop-blur-md border border-emerald-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+                  >
+                    <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 z-0"></div>
+                    <span className="material-symbols-outlined text-base group-hover:scale-110 transition-transform duration-300 relative z-10">lock_open</span>
+                    <span className="relative z-10">{reopening ? 'Reopening...' : 'Reopen Project'}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           )
         })()}
 
-        {/* Các Chỉ Số KPI Nghiệp Vụ */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
-          {/* Card 1: Requirements */}
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Yêu Cầu & Use Case</span>
-              <span className="material-symbols-outlined text-[#1E707D] text-2xl">description</span>
+        {/* 2. STAT CARDS ROW (Fixed 5 Columns) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          
+          {/* Card 1: Requirement */}
+          <div className="relative overflow-hidden bg-surface-container-lowest border border-gray-200/80 rounded-xl p-5 shadow-md group hover:shadow-lg hover:border-emerald-500/50 transition-all duration-300 min-h-[120px] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center gap-2 mb-3 relative z-10">
+              <div className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px]">fact_check</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Requirements</span>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">24</p>
-            <p className="text-[11px] text-green-600 font-semibold mt-2 flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs">check_circle</span>
-              92% đã liên kết và đặc tả
-            </p>
-          </div>
-
-          {/* Card 2: Open Bugs */}
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Bugs & Phát sinh</span>
-              <span className="material-symbols-outlined text-error text-2xl">bug_report</span>
+            <div className="text-3xl text-on-surface font-black leading-none mb-3 relative z-10">
+              {loadingDashboard ? '...' : (dashboardData?.reqCount || 0)}
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">{activeProject.atRiskReqCount * 2 + 1}</p>
-            <p className="text-[11px] text-red-500 font-semibold mt-2 flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs">warning</span>
-              Có {activeProject.atRiskReqCount} yêu cầu có nguy cơ trễ hạn
-            </p>
-          </div>
-
-          {/* Card 3: RTM Matrix Coverage */}
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Phủ Traceability (RTM)</span>
-              <span className="material-symbols-outlined text-secondary text-2xl">grid_on</span>
+            <div className="w-full bg-surface-container-high h-1.5 rounded-full mb-2 overflow-hidden relative z-10">
+              <div className="bg-gradient-to-r from-emerald-400 to-emerald-600 h-full rounded-full" style={{ width: '100%' }}></div>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">95.8%</p>
-            <p className="text-[11px] text-on-surface-variant font-semibold mt-2">
-              Đạt tiêu chuẩn tự động hóa
-            </p>
+            <div className="text-[11px] text-emerald-600 font-semibold relative z-10">Total captured requirements</div>
           </div>
 
-          {/* Card 4: Sprint Time */}
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Hạn Chót Cuối Cùng</span>
-              <span className="material-symbols-outlined text-amber-600 text-2xl">alarm</span>
+          {/* Card 2: Tasks */}
+          <div className="relative overflow-hidden bg-surface-container-lowest border border-gray-200/80 rounded-xl p-5 shadow-md group hover:shadow-lg hover:border-blue-500/50 transition-all duration-300 min-h-[120px] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center gap-2 mb-3 relative z-10">
+              <div className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px]">task</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Tasks</span>
             </div>
-            <p className="text-base font-black mt-4 text-amber-700 leading-tight">{activeProject.deadline}</p>
-            <p className="text-[11px] text-on-surface-variant font-semibold mt-1">
-              Còn lại khoảng 2 tuần
-            </p>
+            <div className="text-3xl text-on-surface font-black leading-none mb-3 relative z-10">
+              {loadingDashboard ? '...' : (dashboardData?.taskCount || 0)}
+            </div>
+            <div className="w-full bg-surface-container-high h-1.5 rounded-full mb-2 overflow-hidden relative z-10">
+              <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-full rounded-full" style={{ width: '100%' }}></div>
+            </div>
+            <div className="text-[11px] text-blue-600 font-semibold relative z-10">Total project tasks</div>
           </div>
 
-        </section>
-
-        {/* Panel Đề Xuất Trí Tuệ Nhân Tạo (AI INSIGHTS) */}
-        <section className="bg-[#1E707D]/[0.03] border border-[#1E707D]/10 rounded-2xl p-6 shadow-inner flex flex-col md:flex-row gap-5 items-start">
-          <div className="w-12 h-12 bg-[#1E707D]/10 rounded-xl flex items-center justify-center text-[#1E707D] shrink-0">
-            <span className="material-symbols-outlined text-2xl">neurology</span>
+          {/* Card 3: Bugs */}
+          <div className="relative overflow-hidden bg-surface-container-lowest border border-gray-200/80 rounded-xl p-5 shadow-md group hover:shadow-lg hover:border-red-500/50 transition-all duration-300 min-h-[120px] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center gap-2 mb-3 relative z-10">
+              <div className="w-6 h-6 rounded-md bg-red-500/20 text-red-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px]">bug_report</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Bugs</span>
+            </div>
+            <div className="text-3xl text-red-500 font-black leading-none mb-3 relative z-10">
+              {loadingDashboard ? '...' : (dashboardData?.bugCount || 0)}
+            </div>
+            <div className="w-full bg-surface-container-high h-1.5 rounded-full mb-2 overflow-hidden relative z-10">
+              <div className="bg-gradient-to-r from-red-400 to-red-600 h-full rounded-full" style={{ width: '100%' }}></div>
+            </div>
+            <div className="text-[11px] text-red-600 font-semibold relative z-10">Open issues & bugs</div>
           </div>
-          <div className="space-y-2">
-            <h3 className="font-extrabold text-base text-[#1E707D]">Đề xuất thông minh từ AI (DevTrack AI Insights)</h3>
-            <p className="text-sm text-on-surface-variant leading-relaxed">
-              Hệ thống phát hiện dự án **{activeProject.title}** hiện đang có **{activeProject.atRiskReqCount}** yêu cầu nghiệp vụ ở mức độ rủi ro chậm trễ cao do thiếu các bằng chứng kiểm thử (Evidence).
-              Chúng tôi khuyên bạn nên truy cập mô-đun **Requirements** và **Traceability Matrix (RTM)** ở thanh Sidebar bên trái để cập nhật tài liệu kiểm thử, kéo giảm rủi ro về mức an toàn.
-            </p>
+
+          {/* Card 4: RTM coverage */}
+          <div className="relative overflow-hidden bg-surface-container-lowest border border-gray-200/80 rounded-xl p-5 shadow-md group hover:shadow-lg hover:border-teal-500/50 transition-all duration-300 min-h-[120px] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center gap-2 mb-3 relative z-10">
+              <div className="w-6 h-6 rounded-md bg-teal-500/20 text-teal-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px]">rule</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Coverage</span>
+            </div>
+            <div className="text-3xl text-on-surface font-black leading-none mb-3 relative z-10">
+              {loadingDashboard ? '...' : `${(dashboardData?.rtmCoveragePercent || 0).toFixed(1)}%`}
+            </div>
+            <div className="w-full bg-surface-container-high h-1.5 rounded-full mb-2 overflow-hidden relative z-10">
+              <div className="bg-gradient-to-r from-teal-400 to-teal-600 h-full rounded-full" style={{ width: `${dashboardData?.rtmCoveragePercent || 0}%` }}></div>
+            </div>
+            <div className="text-[11px] text-teal-600 font-semibold relative z-10">Test cases / Req</div>
           </div>
-        </section>
 
-        {/* Hoạt Động & Thành Viên Dự Án */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card 5: Final deadline */}
+          <div className="relative overflow-hidden bg-surface-container-lowest border border-gray-200/80 rounded-xl p-5 shadow-md group hover:shadow-lg hover:border-amber-500/50 transition-all duration-300 min-h-[120px] flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center gap-2 mb-3 relative z-10">
+              <div className="w-6 h-6 rounded-md bg-amber-500/20 text-amber-600 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[14px]">event</span>
+              </div>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Deadline</span>
+            </div>
+            <div className="text-xl text-on-surface font-black leading-none mb-3 relative z-10">
+              {loadingDashboard ? '...' : (activeProject?.deadline ? new Date(activeProject.deadline).toLocaleDateString() : 'N/A')}
+            </div>
+            <div className="w-full bg-surface-container-high h-1.5 rounded-full mb-2 overflow-hidden relative z-10">
+              <div className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full" style={{ width: '100%' }}></div>
+            </div>
+            <div className="text-[11px] text-amber-600 font-semibold relative z-10">Scheduled End Date</div>
+          </div>
 
-          {/* Cột 1 & 2: Danh sách hoạt động gần đây */}
-          <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-base text-on-surface">Nhật ký Hoạt động Gần đây</h3>
-            <div className="space-y-3.5">
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low/40 transition-colors">
-                <span className="material-symbols-outlined text-green-600 bg-green-500/10 p-2 rounded-lg self-start text-sm">check_circle</span>
-                <div>
-                  <h4 className="font-bold text-xs text-on-surface">Đã cập nhật ma trận RTM thành công</h4>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Anh Dung đã liên kết 3 yêu cầu nghiệp vụ với các ca kiểm thử tương ứng.</p>
-                  <span className="text-[10px] text-outline mt-1 inline-block">10 phút trước</span>
+        </div>
+
+        {/* 3. LIVE AI AUDIT & GITHUB COMMAND CENTER */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Left: Live AI Stream (Terminal Vibe) */}
+          <div className="bg-surface-container-lowest border border-gray-200/80 rounded-xl shadow-md relative overflow-hidden flex flex-col h-[350px]">
+            {/* Terminal Header */}
+            <div className="bg-primary/20 border-b border-primary/30 p-3 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[#105663]">
+                <span className="material-symbols-outlined text-[18px] animate-pulse">terminal</span>
+                <span className="text-xs font-bold font-mono tracking-widest">GITHUB_WEBHOOK_STREAM</span>
+              </div>
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
+              </div>
+            </div>
+
+            {/* Terminal Content */}
+            <div className="p-4 flex-1 overflow-y-auto space-y-3 font-mono text-[13px] pr-2 custom-scrollbar text-on-surface-variant relative z-10">
+              {loadingDashboard ? (
+                <div className="text-primary/80 animate-pulse">
+                  <span className="text-gray-400">[{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span> INITIALIZING GITHUB LISTENER...
+                </div>
+              ) : (() => {
+                  const githubEvents = dashboardData?.recentActivities?.filter(act => act.text.toLowerCase().includes('github') || act.text.toLowerCase().includes('commit') || act.text.toLowerCase().includes('push') || act.text.toLowerCase().includes('pull')) || [];
+                  return githubEvents.length > 0 ? (
+                    githubEvents.map((act, i) => (
+                  <div key={i} className="flex items-start gap-2 mb-2">
+                    <span className="text-gray-400 shrink-0">[{act.time ? act.time.split(' ').pop() : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span>
+                    <span className="text-on-surface">
+                      {act.icon === 'bug_report' ? (
+                         <span className="text-red-500 font-bold">[ALERT]</span>
+                      ) : act.icon === 'task' ? (
+                         <span className="text-blue-500 font-bold">[SYNC]</span>
+                      ) : (
+                         <span className="text-primary font-bold">[SCAN]</span>
+                      )}
+                      <span className="text-on-surface-variant ml-2 font-medium">
+                        {act.username && <span className="text-primary font-bold mr-1">@{act.username}</span>}
+                        {act.text}
+                      </span>
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-primary/60 mt-2">
+                    <span className="w-2 h-4 bg-primary animate-ping"></span>
+                    Waiting for events...
+                  </div>
+                </>
+              )})()}
+            </div>
+            
+            {/* Background pattern */}
+            <div className="absolute inset-0 top-[49px] bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
+          </div>
+
+          {/* Right: Traceability Radar & AI Health */}
+          <div className="bg-surface-container-lowest border border-gray-200/80 rounded-xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between">
+            {/* Background Grid Pattern */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.03)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+            
+            <div className="relative z-10 flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[20px]">radar</span>
+                <div className="text-xs font-bold text-on-surface uppercase tracking-wider">Traceability Radar</div>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold uppercase border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                System Healthy
+              </div>
+            </div>
+            
+            <div className="relative z-10 space-y-6 flex-1 flex flex-col justify-center">
+              {/* Coverage Radar Bar */}
+              <div>
+                <div className="flex justify-between items-end mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-teal-500">rule</span>
+                    <span className="text-xs font-bold text-gray-600 uppercase">Requirement Coverage</span>
+                  </div>
+                  <span className="text-sm font-black text-on-surface">{loadingDashboard ? '...' : `${Math.round(dashboardData?.rtmCoveragePercent || 0)}%`}</span>
+                </div>
+                <div className="w-full bg-surface-container-highest h-2.5 rounded-full overflow-hidden shadow-inner">
+                  <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-600 relative overflow-hidden transition-all duration-1000" style={{ width: `${dashboardData?.rtmCoveragePercent || 0}%` }}>
+                    <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low/40 transition-colors">
-                <span className="material-symbols-outlined text-red-500 bg-red-500/10 p-2 rounded-lg self-start text-sm">warning</span>
-                <div>
-                  <h4 className="font-bold text-xs text-on-surface">Phát hiện Ca kiểm thử thất bại (Failed Test)</h4>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Hệ thống AI Audit đã đánh dấu cảnh báo "At Risk" tại Requirement #REQ-04.</p>
-                  <span className="text-[10px] text-outline mt-1 inline-block">1 giờ trước</span>
+              
+              {/* Code Quality Bar */}
+              <div>
+                <div className="flex justify-between items-end mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-amber-500">code_blocks</span>
+                    <span className="text-xs font-bold text-gray-600 uppercase">Code Velocity vs Bugs</span>
+                  </div>
+                  <span className="text-sm font-black text-on-surface">{loadingDashboard ? '...' : `${dashboardData?.taskCount || 0} Tasks`}</span>
+                </div>
+                <div className="w-full flex h-2.5 rounded-full overflow-hidden shadow-inner bg-surface-container-highest gap-0.5">
+                   {/* Fake ratio based on tasks vs bugs */}
+                   <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000" style={{ flex: (dashboardData?.taskCount || 1) }}></div>
+                   <div className="h-full bg-gradient-to-r from-red-400 to-red-600 transition-all duration-1000" style={{ flex: (dashboardData?.bugCount || 0) * 2 }}></div>
+                </div>
+                <div className="text-[10px] text-gray-500 mt-1.5 flex justify-between">
+                  <span>Dev Velocity</span>
+                  <span className="text-red-500/80 font-semibold">{dashboardData?.bugCount || 0} Active Bugs</span>
                 </div>
               </div>
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-surface-container-low/40 transition-colors">
-                <span className="material-symbols-outlined text-[#1E707D] bg-[#1E707D]/10 p-2 rounded-lg self-start text-sm">description</span>
-                <div>
-                  <h4 className="font-bold text-xs text-on-surface">Thêm tài liệu mô tả Use Case mới</h4>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Tuan Hung đã tải lên đặc tả chi tiết cho tính năng "Quản lý Đăng nhập & Đăng ký".</p>
-                  <span className="text-[10px] text-outline mt-1 inline-block">Hôm qua</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Cột 3: Quản lý thành viên nhóm */}
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-6 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-base text-on-surface">Thành viên Nhóm ({uniqueMembers.length})</h3>
-            <div className="space-y-3">
-              {uniqueMembers.map((member, idx) => (
-                <div key={member.id || idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-container-low/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${member.bg}`}>
-                      {member.initials}
+              
+              {/* AI Confidence Score */}
+              <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-primary/5 via-transparent to-teal-500/5 border border-primary/20 relative overflow-hidden group">
+                 {/* Decorative AI Glow */}
+                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all duration-700"></div>
+                 <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl group-hover:bg-teal-500/20 transition-all duration-700"></div>
+                 
+                 <div className="relative z-10 flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-primary text-[18px] animate-pulse">auto_awesome</span>
+                        <span className="text-xs font-bold text-on-surface uppercase tracking-wider">AI Prediction</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-medium">Project Success Probability</span>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-on-surface">{member.name}</h4>
-                      <p className="text-[10px] text-on-surface-variant mt-0.5">Active</p>
+                    
+                    <div className="flex items-end gap-1">
+                      <span className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-500 to-emerald-500 drop-shadow-sm">
+                        {(() => {
+                           if (activeProject?.status === 'COMPLETED') return 100;
+                           if (activeProject?.status === 'ARCHIVED') return 0;
+                           let score = 60;
+                           const rtm = dashboardData?.rtmCoveragePercent || 0;
+                           const tasks = dashboardData?.taskCount || 0;
+                           const bugs = dashboardData?.bugCount || 0;
+                           const progress = activeProject?.progress || 0;
+                           
+                           score += (progress * 0.25);
+                           score += (rtm * 0.15);
+                           
+                           if (tasks > 0) {
+                               score -= (bugs / tasks) * 30;
+                           } else if (bugs > 0) {
+                               score -= bugs * 5;
+                           }
+                           
+                           if (activeProject?.deadline) {
+                               const today = new Date();
+                               today.setHours(0,0,0,0);
+                               const deadline = new Date(activeProject.deadline);
+                               
+                               if (deadline < today) {
+                                   score -= 40;
+                               } else if (activeProject?.startDate) {
+                                   const startDate = new Date(activeProject.startDate);
+                                   const totalDuration = deadline.getTime() - startDate.getTime();
+                                   const elapsed = today.getTime() - startDate.getTime();
+                                   
+                                   if (totalDuration > 0 && elapsed > 0) {
+                                       const timeElapsedPercent = (elapsed / totalDuration) * 100;
+                                       if (timeElapsedPercent > progress + 10) {
+                                           score -= (timeElapsedPercent - progress) * 0.5;
+                                       } else {
+                                           score += 5;
+                                       }
+                                   }
+                               }
+                           }
+                           
+                           return Math.min(Math.max(Math.round(score), 5), 99);
+                        })()}%
+                      </span>
+                    </div>
+                 </div>
+                 
+                 {/* Mini progress bar for AI */}
+                 <div className="relative z-10 mt-3 w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 relative" style={{ width: `${(() => {
+                           if (activeProject?.status === 'COMPLETED') return 100;
+                           if (activeProject?.status === 'ARCHIVED') return 0;
+                           let score = 60;
+                           const rtm = dashboardData?.rtmCoveragePercent || 0;
+                           const tasks = dashboardData?.taskCount || 0;
+                           const bugs = dashboardData?.bugCount || 0;
+                           const progress = activeProject?.progress || 0;
+                           
+                           score += (progress * 0.25);
+                           score += (rtm * 0.15);
+                           
+                           if (tasks > 0) {
+                               score -= (bugs / tasks) * 30;
+                           } else if (bugs > 0) {
+                               score -= bugs * 5;
+                           }
+                           
+                           if (activeProject?.deadline) {
+                               const today = new Date();
+                               today.setHours(0,0,0,0);
+                               const deadline = new Date(activeProject.deadline);
+                               
+                               if (deadline < today) {
+                                   score -= 40;
+                               } else if (activeProject?.startDate) {
+                                   const startDate = new Date(activeProject.startDate);
+                                   const totalDuration = deadline.getTime() - startDate.getTime();
+                                   const elapsed = today.getTime() - startDate.getTime();
+                                   
+                                   if (totalDuration > 0 && elapsed > 0) {
+                                       const timeElapsedPercent = (elapsed / totalDuration) * 100;
+                                       if (timeElapsedPercent > progress + 10) {
+                                           score -= (timeElapsedPercent - progress) * 0.5;
+                                       } else {
+                                           score += 5;
+                                       }
+                                   }
+                               }
+                           }
+                           
+                           return Math.min(Math.max(Math.round(score), 5), 99);
+                        })()}%` }}>
+                       <div className="absolute inset-0 bg-white/30 w-full animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. TWO-COLUMN SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
+          
+          {/* Recent activity */}
+          <div className="bg-surface-container-lowest border border-gray-200/80 rounded-xl p-6 shadow-md flex flex-col max-h-[450px]">
+            <div className="text-xs font-bold text-on-surface uppercase tracking-wider mb-6 shrink-0">Recent activity</div>
+            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-2 flex-1">
+              {(dashboardData?.recentActivities?.length > 0 ? dashboardData.recentActivities : []).slice(0, visibleActivities).map((act, i) => (
+                <div key={i} className="flex gap-2.5 items-start py-2 px-3 rounded-lg hover:bg-surface-container transition-all cursor-default">
+                  <span className={`material-symbols-outlined text-[16px] mt-0.5 shrink-0 ${act.iconColor ? act.iconColor.replace('text-', 'text-').replace('-600', '-500') : 'text-primary'}`}>
+                    {act.icon || 'circle'}
+                  </span>
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <div className="text-[13px] text-on-surface/90 leading-tight">
+                      <span className="font-bold text-on-surface">
+                        {act.username ? `@${act.username}` : 'System'}
+                      </span>
+                      <span className="text-on-surface/70 mx-1">
+                        {formatActivityText(act.text)}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">schedule</span>
+                      {new Date(act.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
-                  {renderRoleBadge(member.role)}
                 </div>
               ))}
+              
+              {dashboardData?.recentActivities?.length > visibleActivities && (
+                <div className="pt-2 pb-2 text-center">
+                  <button 
+                    onClick={() => setVisibleActivities(prev => prev + 5)}
+                    className="text-[11px] font-bold text-primary uppercase tracking-wider px-4 py-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors shadow-sm"
+                  >
+                    Xem thêm...
+                  </button>
+                </div>
+              )}
+
+              {(!dashboardData?.recentActivities || dashboardData.recentActivities.length === 0) && (
+                <div className="text-sm text-gray-500 italic text-center py-4">No recent activity</div>
+              )}
             </div>
           </div>
 
-        </section>
+          {/* Team members */}
+          <div className="bg-surface-container-lowest border border-gray-200/80 rounded-xl p-6 shadow-md">
+            <div className="text-xs font-bold text-on-surface uppercase tracking-wider mb-6">Team members ({uniqueMembers.length})</div>
+            <div className="space-y-4">
+              {uniqueMembers.length > 0 ? (
+                uniqueMembers.map((member, idx) => {
+                  const colors = ['bg-primary/20 text-primary', 'bg-blue-500/20 text-blue-700', 'bg-emerald-500/20 text-emerald-700', 'bg-amber-500/20 text-amber-700', 'bg-rose-500/20 text-rose-700'];
+                  const colorClass = member.bg || colors[idx % colors.length];
+                  const displayName = member.name || member.username || 'Unknown';
+                  const initials = member.initials || displayName.substring(0, 2).toUpperCase();
+                  return (
+                    <div 
+                      key={member.id || idx} 
+                      className="group flex items-center p-1.5 pr-4 bg-gradient-to-r from-surface-container-lowest to-surface-container-low hover:from-primary/10 hover:to-transparent border border-outline-variant/60 hover:border-primary/40 rounded-full transition-all duration-300 cursor-default shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                    >
+                      <div className={`w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-[11px] font-black shadow-sm border border-white/20 relative overflow-hidden ${colorClass}`}>
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent"></div>
+                        <span className="relative z-10">{initials}</span>
+                      </div>
+                      <div className="ml-3 flex-1 flex flex-col justify-center overflow-hidden">
+                        <div className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors truncate leading-tight">{displayName}</div>
+                        <div className="text-[10px] font-bold text-gray-500 tracking-wider uppercase mt-0.5 truncate">{member.role || 'MEMBER'}</div>
+                      </div>
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full border-2 border-surface-container-lowest shrink-0 ml-2 transition-transform duration-300 group-hover:scale-125"
+                        style={{ backgroundColor: member.isOnline ? '#10b981' : '#9ca3af', boxShadow: member.isOnline ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none' }}
+                      ></div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-sm text-gray-500 italic text-center py-4">No team members</div>
+              )}
+            </div>
+          </div>
+
+        </div>
 
       </div>
 

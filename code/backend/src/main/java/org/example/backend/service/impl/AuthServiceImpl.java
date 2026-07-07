@@ -264,6 +264,7 @@ public class AuthServiceImpl implements AuthService {
 
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
             session.setAttribute("userId", user.getId());
+            session.setAttribute("username", user.getUsername());
             session.setAttribute("userRole", roleName);
             session.setAttribute("email", user.getEmail());
             session.setAttribute("fullName", user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername());

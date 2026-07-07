@@ -18,7 +18,7 @@ const MainLayout = () => {
   }, [userId, initWebSocket]);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC', color: '#1F2937' }}>
+    <div className="bg-background text-[#1F2937]" style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <FloatingTopBar />
       <div

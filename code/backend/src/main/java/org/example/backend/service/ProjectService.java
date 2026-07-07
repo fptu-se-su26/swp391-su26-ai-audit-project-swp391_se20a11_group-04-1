@@ -5,6 +5,7 @@ import org.example.backend.dto.ProjectCloseRequest;
 import org.example.backend.dto.ProjectReopenRequest;
 import org.example.backend.dto.ProjectResponse;
 import org.example.backend.dto.PaginatedResponse;
+import org.example.backend.dto.ProjectDashboardResponse;
 
 public interface ProjectService {
     /**
@@ -23,6 +24,11 @@ public interface ProjectService {
      * Lấy chi tiết dự án theo ID (bao gồm cả danh sách thành viên)
      */
     ProjectResponse getProjectById(Long projectId, Long userId);
+
+    /**
+     * Lấy thống kê Dashboard cho project
+     */
+    ProjectDashboardResponse getProjectDashboard(Long projectId, Long userId);
 
     /**
      * Tạo mới một dự án và tự động gán quyền PROJECT_LEADER cho người tạo

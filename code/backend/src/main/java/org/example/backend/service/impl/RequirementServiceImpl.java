@@ -69,6 +69,7 @@ public class RequirementServiceImpl implements RequirementService {
 
     @Override
     @Transactional
+    @org.example.backend.annotation.Auditable(action="CREATE_REQUIREMENT", entityType="Requirement")
     public RequirementResponseDTO createRequirement(RequirementRequestDTO requestDTO, Long userId) {
         log.info("Creating new requirement: {}", requestDTO.getTitle());
 
@@ -170,6 +171,7 @@ public class RequirementServiceImpl implements RequirementService {
 
     @Override
     @Transactional
+    @org.example.backend.annotation.Auditable(action="UPDATE_REQUIREMENT", entityType="Requirement", entityIdArgIndex=0)
     public RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO) {
         log.info("Updating requirement id: {}", id);
         Requirement requirement = requirementRepository.findById(id)
@@ -220,6 +222,7 @@ public class RequirementServiceImpl implements RequirementService {
 
     @Override
     @Transactional
+    @org.example.backend.annotation.Auditable(action="UPDATE_REQUIREMENT_STATUS", entityType="Requirement", entityIdArgIndex=0)
     public RequirementResponseDTO updateRequirementStatus(Long id, String status) {
         log.info("Updating status for requirement id: {} to {}", id, status);
         Requirement requirement = requirementRepository.findById(id)
@@ -251,14 +254,17 @@ public class RequirementServiceImpl implements RequirementService {
 
     @Override
     @Transactional
-    public void deleteRequirement(Long id) {
+    @org.example.backend.annotation.Auditable(action="DELETE_REQUIREMENT", entityType="Requirement", entityIdArgIndex=0)
+    public RequirementResponseDTO deleteRequirement(Long id) {
         log.info("Deleting requirement id: {}", id);
         Requirement req = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
                 
         checkLeaderAccess(req.getProject().getId());
         
+        RequirementResponseDTO response = mapToDTO(req);
         requirementRepository.deleteById(id);
+        return response;
     }
 
     private RequirementResponseDTO mapToDTO(Requirement req) {

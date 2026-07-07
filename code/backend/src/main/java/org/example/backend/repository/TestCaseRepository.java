@@ -22,6 +22,8 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
 
     List<TestCase> findByRequirementIdAndProjectId(Long requirementId, Long projectId);
 
+    long countByProjectId(Long projectId);
+
     @Query("SELECT tc.requirementId, tc.status, COUNT(tc) FROM TestCase tc WHERE tc.projectId = :projectId GROUP BY tc.requirementId, tc.status")
     List<Object[]> countStatusByRequirementId(@Param("projectId") Long projectId);
 

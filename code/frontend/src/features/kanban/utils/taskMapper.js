@@ -104,10 +104,10 @@ export const mapTaskFromApi = (task) => {
     updatedAt: task.updatedAt || null,
     createdAt: task.createdAt || null,
     evidenceCount: task.evidenceCount || 0,
-    checklist: (task.checklist || []).map((item) => ({
-      id: String(item.id),
-      text: item.content,
-      done: item.done,
+    checklist: (task.checklist || []).map((item, index) => ({
+      id: item.id ? String(item.id) : `temp-${index}`,
+      text: item.content || item.text || '',
+      done: Boolean(item.done),
     })),
     parentId: task.parentId ? String(task.parentId) : null,
     createdById: task.createdById ? String(task.createdById) : null,

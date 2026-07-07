@@ -17,6 +17,6 @@ public interface RequirementService {
             String tag);
     RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
     RequirementResponseDTO updateRequirementStatus(Long id, String status);
-    void deleteRequirement(Long id);
+    RequirementResponseDTO deleteRequirement(Long id);
     List<String> getTagsByProject(Long projectId);
 }

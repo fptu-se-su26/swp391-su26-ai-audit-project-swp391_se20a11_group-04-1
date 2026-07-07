@@ -11,6 +11,7 @@ public class AuditEvent extends ApplicationEvent {
     private final String action;
     private final String entityType;
     private final Long entityId;
+    private final Long projectId;
     private final Object oldValue;
     private final Object newValue;
     private final String ipAddress;
@@ -21,7 +22,7 @@ public class AuditEvent extends ApplicationEvent {
     private final long durationMs;
 
     public AuditEvent(Object source, Long userId, String username, String action, String entityType, Long entityId,
-                      Object oldValue, Object newValue, String ipAddress, String httpMethod, String requestUri,
+                      Long projectId, Object oldValue, Object newValue, String ipAddress, String httpMethod, String requestUri,
                       String status, String errorMessage, long durationMs) {
         super(source);
         this.userId = userId;
@@ -29,6 +30,7 @@ public class AuditEvent extends ApplicationEvent {
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
+        this.projectId = projectId;
         this.oldValue = oldValue;
         this.newValue = newValue;
         this.ipAddress = ipAddress;

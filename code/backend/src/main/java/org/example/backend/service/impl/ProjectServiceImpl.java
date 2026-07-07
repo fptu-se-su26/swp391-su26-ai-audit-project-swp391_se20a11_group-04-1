@@ -11,8 +11,10 @@ import org.example.backend.dto.ProjectClosureCheckResponse;
 import org.example.backend.dto.ProjectCloseRequest;
 import org.example.backend.dto.ProjectReopenRequest;
 import org.example.backend.dto.ProjectResponse;
+import org.example.backend.dto.ProjectDashboardResponse;
 import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.entity.*;
+import org.example.backend.config.SessionRegistryListener;
 import org.example.backend.exception.CustomException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.exception.BadRequestException;
@@ -27,6 +29,10 @@ import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.ProjectInvitationRepository;
 import org.example.backend.repository.NotificationRepository;
+import org.example.backend.repository.RequirementRepository;
+import org.example.backend.repository.TestCaseRepository;
+import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
+import org.example.backend.repository.ManualEvidenceLinkRepository;
 import org.example.backend.service.ProjectService;
 import org.example.backend.service.EmailService;
 import org.springframework.data.domain.Page;
@@ -73,6 +79,10 @@ public class ProjectServiceImpl implements ProjectService {
     private final BugReportRepository bugReportRepository;
     private final AuditLogRepository auditLogRepository;
     private final org.example.backend.service.event.OutboxEventService outboxEventService;
+    private final RequirementRepository requirementRepository;
+    private final TestCaseRepository testCaseRepository;
+    private final CodeInsightEvidenceLinkRepository codeInsightEvidenceLinkRepository;
+    private final ManualEvidenceLinkRepository manualEvidenceLinkRepository;
 
     @org.springframework.beans.factory.annotation.Value("${app.redis.lock.project-join-prefix:lock:project_join:}")
     private String projectJoinLockPrefix;
@@ -112,6 +122,18 @@ public class ProjectServiceImpl implements ProjectService {
                 PaginatedResponse<ProjectResponse> hit = objectMapper.readValue(
                         cached, new TypeReference<PaginatedResponse<ProjectResponse>>() {});
                 log.info("💾 Cache HIT for key: {}", cacheKey);
+                
+                // Re-evaluate online status for cached members
+                if (hit.getItems() != null) {
+                    for (ProjectResponse pr : hit.getItems()) {
+                        if (pr.getMembers() != null) {
+                            for (ProjectResponse.MemberDto member : pr.getMembers()) {
+                                member.setIsOnline(org.example.backend.config.SessionRegistryListener.isUserOnline(member.getId()));
+                            }
+                        }
+                    }
+                }
+                
                 return hit;
             } catch (Exception e) {
                 log.warn("⚠️ Cache deserialization failed, falling through to DB query. Key: {}", cacheKey);
@@ -223,6 +245,149 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         return mapToProjectResponse(project, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectDashboardResponse getProjectDashboard(Long projectId, Long userId) {
+        // Removed spammy log for Live Polling
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dự án không tồn tại."));
+
+        // Basic permission check
+        boolean isMember = project.getMembers() != null && project.getMembers().stream()
+                .anyMatch(pm -> pm.getUser().getId().equals(userId));
+        boolean isClassroomOwner = project.getAcademicContext() != null &&
+                project.getAcademicContext().getOwner() != null &&
+                project.getAcademicContext().getOwner().getId().equals(userId);
+        boolean isCreator = project.getCreatedBy() != null && project.getCreatedBy().getId().equals(userId);
+
+        if (!isMember && !isClassroomOwner && !isCreator) {
+            throw new CustomException("Bạn không có quyền truy cập dashboard dự án này.", HttpStatus.FORBIDDEN);
+        }
+
+        long reqCount = requirementRepository.countByProjectId(projectId);
+        long taskCount = taskRepository.countByProjectId(projectId);
+        long bugCount = bugReportRepository.countByProjectId(projectId);
+        int activeSprints = sprintRepository.countByProjectIdAndStatus(projectId, SprintStatus.ACTIVE);
+        int upcomingSprints = sprintRepository.countByProjectIdAndStatus(projectId, SprintStatus.PLANNED);
+        long testCaseCount = testCaseRepository.countByProjectId(projectId);
+        long evidenceCount = codeInsightEvidenceLinkRepository.countByProjectId(projectId)
+                           + manualEvidenceLinkRepository.countByProjectId(projectId);
+
+        // Simple RTM coverage calculation (prevent div by 0)
+        double rtmCoverage = 0.0;
+        if (reqCount > 0) {
+            // Rough estimation: assuming testcases provide coverage. 
+            // In a real system, we'd query distinct requirements linked to test cases.
+            // For now, we cap it at 100%.
+            rtmCoverage = Math.min(100.0, ((double) testCaseCount / reqCount) * 100.0);
+        }
+
+        // Fetch actual recent activities from AuditLog, excluding generic HTTP GET/POST/PUT/DELETE
+        List<org.example.backend.entity.AuditLog> logs = auditLogRepository.findBusinessLogsByProjectId(projectId, PageRequest.of(0, 50));
+        List<ProjectDashboardResponse.ActivityDto> recentActivities = logs.stream().map(log -> {
+            String icon = "history";
+            String iconColor = "text-gray-500";
+            String bg = "bg-gray-500/10";
+            
+            String action = log.getAction() != null ? log.getAction().toUpperCase() : "";
+            
+            if (action.contains("CREATE") || action.contains("ADD") || action.contains("JOIN") || action.contains("INVITE")) {
+                icon = "add_circle";
+                iconColor = "text-emerald-500";
+                bg = "bg-emerald-500/10";
+            } else if (action.contains("UPDATE") || action.contains("EDIT")) {
+                icon = "edit";
+                iconColor = "text-blue-500";
+                bg = "bg-blue-500/10";
+            } else if (action.contains("DELETE") || action.contains("REMOVE")) {
+                icon = "delete";
+                iconColor = "text-rose-500";
+                bg = "bg-rose-500/10";
+            } else if (action.contains("RESOLVE") || action.contains("FIX")) {
+                icon = "check_circle";
+                iconColor = "text-indigo-500";
+                bg = "bg-indigo-500/10";
+            }
+
+            return ProjectDashboardResponse.ActivityDto.builder()
+                    .text(log.getAction() != null ? log.getAction() : action)
+                    .time(log.getCreatedAt() != null ? log.getCreatedAt().toString() : "")
+                    .icon(icon)
+                    .iconColor(iconColor)
+                    .bg(bg)
+                    .username(log.getUsername())
+                    .build();
+        }).toList();
+
+        // Calculate active sprint data
+        List<org.example.backend.entity.Sprint> sprints = sprintRepository.findByProjectIdOrderByStartDateAscIdAsc(projectId);
+        ProjectDashboardResponse.SprintInfoDto sprintInfoDto = null;
+        
+        if (!sprints.isEmpty()) {
+            org.example.backend.entity.Sprint activeSprint = sprints.stream()
+                    .filter(s -> org.example.backend.entity.SprintStatus.ACTIVE.equals(s.getStatus()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (activeSprint != null) {
+                sprintInfoDto = buildSprintInfoDto(activeSprint, "IN_PROGRESS");
+            } else {
+                org.example.backend.entity.Sprint upcomingSprint = sprints.stream()
+                        .filter(s -> org.example.backend.entity.SprintStatus.PLANNED.equals(s.getStatus()))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (upcomingSprint != null) {
+                    sprintInfoDto = buildSprintInfoDto(upcomingSprint, "UPCOMING");
+                } else {
+                    org.example.backend.entity.Sprint completedSprint = sprints.stream()
+                            .filter(s -> org.example.backend.entity.SprintStatus.COMPLETED.equals(s.getStatus()))
+                            .reduce((first, second) -> second) // get the last completed sprint
+                            .orElse(null);
+                    
+                    if (completedSprint != null) {
+                        sprintInfoDto = buildSprintInfoDto(completedSprint, "COMPLETED");
+                    }
+                }
+            }
+        }
+        
+        if (sprintInfoDto == null) {
+            sprintInfoDto = ProjectDashboardResponse.SprintInfoDto.builder()
+                    .status("NO_SPRINTS")
+                    .build();
+        }
+
+        return ProjectDashboardResponse.builder()
+                .reqCount(reqCount)
+                .taskCount(taskCount)
+                .bugCount(bugCount)
+                .testCaseCount(testCaseCount)
+                .evidenceCount(evidenceCount)
+                .rtmCoveragePercent(rtmCoverage)
+                .recentActivities(recentActivities)
+                .activeSprint(sprintInfoDto)
+                .deadline(project.getEndDate())
+                .build();
+    }
+    
+    private ProjectDashboardResponse.SprintInfoDto buildSprintInfoDto(org.example.backend.entity.Sprint sprint, String status) {
+        long totalTasks = taskRepository.countBySprintId(sprint.getId());
+        long doneTasks = taskRepository.countBySprintIdAndStatus(sprint.getId(), org.example.backend.entity.TaskStatus.DONE);
+        int progress = 0;
+        if (totalTasks > 0) {
+            progress = (int) Math.round(((double) doneTasks / totalTasks) * 100);
+        }
+        return ProjectDashboardResponse.SprintInfoDto.builder()
+                .name(sprint.getName())
+                .status(status)
+                .startDate(sprint.getStartDate())
+                .endDate(sprint.getEndDate())
+                .progressPercent(progress)
+                .build();
     }
 
     @Override
@@ -961,6 +1126,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .username(member.getUser().getUsername())
                         .name(name)
                         .role(roleName)
+                        .isOnline(SessionRegistryListener.isUserOnline(member.getUser().getId()))
                         .build());
             }
         }

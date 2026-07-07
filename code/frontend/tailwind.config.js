@@ -30,9 +30,9 @@ export default {
         "info-border":              "#BFDBFE",
 
         // Surface & Background
-        "background":               "#F8FAFC",
-        "surface":                  "#F8FAFC",
-        "surface-bright":           "#F8FAFC",
+        "background":               "#F1F5F9",
+        "surface":                  "#F1F5F9",
+        "surface-bright":           "#F1F5F9",
         "surface-container-lowest": "#FFFFFF",
         "surface-container":        "#EBF5F7",
         "surface-container-low":    "#F0F9FA",

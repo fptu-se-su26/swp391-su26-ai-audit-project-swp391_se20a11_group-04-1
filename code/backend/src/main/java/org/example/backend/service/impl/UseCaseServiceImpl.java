@@ -46,6 +46,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     private org.example.backend.repository.ProjectRepository projectRepository;
 
     @Override
+    @org.example.backend.annotation.Auditable(action="CREATE_USECASE", entityType="UseCase")
     public UseCaseResponse createUseCase(UseCaseRequest request, Long userId) {
         UserAccount user = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -82,6 +83,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="UPDATE_USECASE_STATUS", entityType="UseCase", entityIdArgIndex=0)
     public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
@@ -96,6 +98,7 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @org.example.backend.annotation.Auditable(action="UPDATE_USECASE", entityType="UseCase", entityIdArgIndex=0)
     public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
@@ -118,13 +121,16 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public void deleteUseCase(Long id, Long projectId) {
+    @org.example.backend.annotation.Auditable(action="DELETE_USECASE", entityType="UseCase", entityIdArgIndex=0)
+    public UseCaseResponse deleteUseCase(Long id, Long projectId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        UseCaseResponse response = mapEntityToResponse(useCase);
         useCaseRepository.delete(useCase);
+        return response;
     }
 
     @Override

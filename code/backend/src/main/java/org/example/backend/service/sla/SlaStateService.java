@@ -139,7 +139,7 @@ public class SlaStateService {
                     .build();
 
             slaDecisionLogRepository.save(decisionLog);
-            log.info("SLA state re-evaluated and persisted. Task: {}, Event: {}, OldScore: {}, NewScore: {}, OldRisk: {}, NewRisk: {}, Action: {}",
+            log.debug("SLA state re-evaluated and persisted. Task: {}, Event: {}, OldScore: {}, NewScore: {}, OldRisk: {}, NewRisk: {}, Action: {}",
                     taskId, eventType, previousScore, score, previousRiskLevel, riskLevel, actionTaken);
         } else {
             log.debug("SLA state for task {} has not changed and no important action occurred. Skipping decision log.", taskId);

@@ -12,6 +12,8 @@ import java.util.Optional;
 @Repository
 public interface BugReportRepository extends JpaRepository<BugReport, Long> {
     List<BugReport> findByProjectId(Long projectId);
+
+    long countByProjectId(Long projectId);
     List<BugReport> findByAssignedToId(Long userId);
     
     // Core query method supporting the reverse-sync from Task to BugReport

@@ -37,7 +37,7 @@ public class AuditMonitorScheduler {
                 log.warn("[AUDIT] Suspicious activity: userId={}, failures={} in 5min", suspiciousUserId, failCount);
 
                 auditService.publishSuccess(null, "SYSTEM",
-                        "SUSPICIOUS_ACTIVITY_DETECTED", "UserAccount", suspiciousUserId,
+                        "SUSPICIOUS_ACTIVITY_DETECTED", "UserAccount", suspiciousUserId, null,
                         Map.of("failCount", failCount, "windowMinutes", 5),
                         "INTERNAL", "SCHEDULER", "/audit/monitor", 0L);
 

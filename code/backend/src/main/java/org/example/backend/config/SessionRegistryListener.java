@@ -26,6 +26,12 @@ public class SessionRegistryListener implements HttpSessionListener {
         }
     }
 
+    public static boolean isUserOnline(Long userId) {
+        if (userId == null) return false;
+        List<HttpSession> sessions = userSessions.get(userId);
+        return sessions != null && !sessions.isEmpty();
+    }
+
     public static void invalidateSessionsForUser(Long userId) {
         List<HttpSession> sessions = userSessions.remove(userId);
         if (sessions != null) {

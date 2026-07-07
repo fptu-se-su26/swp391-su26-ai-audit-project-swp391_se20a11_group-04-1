@@ -17,6 +17,8 @@ public interface ManualEvidenceLinkRepository extends JpaRepository<ManualEviden
 
     List<ManualEvidenceLink> findByProjectId(Long projectId);
 
+    long countByProjectId(Long projectId);
+
     Optional<ManualEvidenceLink> findByProjectIdAndTaskIdAndEvidenceTypeAndEvidenceId(
             Long projectId,
             Long taskId,

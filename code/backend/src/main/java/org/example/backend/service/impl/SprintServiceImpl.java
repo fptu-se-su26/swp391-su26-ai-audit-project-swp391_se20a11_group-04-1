@@ -56,6 +56,8 @@ public class SprintServiceImpl implements SprintService {
     }
 
     @Override
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="CREATE_SPRINT", entityType="Sprint")
     public SprintResponse createSprint(Long projectId, SprintRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
         Project project = projectRepository.findById(projectId)
@@ -85,6 +87,8 @@ public class SprintServiceImpl implements SprintService {
     }
 
     @Override
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="UPDATE_SPRINT", entityType="Sprint", entityIdArgIndex=1)
     public SprintResponse updateSprint(Long projectId, Long sprintId, SprintRequest request, Long userId) {
         ensureProjectMember(projectId, userId);
         Sprint sprint = findSprint(projectId, sprintId);
@@ -106,13 +110,17 @@ public class SprintServiceImpl implements SprintService {
     }
 
     @Override
-    public void deleteSprint(Long projectId, Long sprintId, Long userId) {
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="DELETE_SPRINT", entityType="Sprint", entityIdArgIndex=1)
+    public SprintResponse deleteSprint(Long projectId, Long sprintId, Long userId) {
         ensureProjectMember(projectId, userId);
         Sprint sprint = findSprint(projectId, sprintId);
         if (taskRepository.countBySprintId(sprintId) > 0) {
             throw new BadRequestException("Cannot delete sprint while tasks are assigned");
         }
+        SprintResponse response = toSprintResponse(sprint);
         sprintRepository.delete(sprint);
+        return response;
     }
 
     @Override

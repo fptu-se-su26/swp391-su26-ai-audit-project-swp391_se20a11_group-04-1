@@ -12,7 +12,7 @@ public interface UseCaseService {
     List<UseCaseResponse> getAllUseCases(Long projectId);
     UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request);
     UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status);
-    void deleteUseCase(Long id, Long projectId);
+    UseCaseResponse deleteUseCase(Long id, Long projectId);
     Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable);
 
     UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId);

@@ -13,7 +13,7 @@ public interface SprintService {
 
     SprintResponse updateSprint(Long projectId, Long sprintId, SprintRequest request, Long userId);
 
-    void deleteSprint(Long projectId, Long sprintId, Long userId);
+    SprintResponse deleteSprint(Long projectId, Long sprintId, Long userId);
 
     SprintResponse updateSprintStatus(Long projectId, Long sprintId, SprintStatusUpdateRequest request, Long userId);
 

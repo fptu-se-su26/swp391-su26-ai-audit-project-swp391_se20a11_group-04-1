@@ -60,6 +60,8 @@ public class BugReportServiceImpl implements BugReportService {
     }
 
     @Override
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="CREATE_BUG_REPORT", entityType="BugReport")
     public BugReport createBugReport(Long projectId, Map<String, Object> request, Long userId) {
         ensureProjectMember(projectId, userId);
         Project project = projectRepository.findById(projectId)
@@ -136,6 +138,8 @@ public class BugReportServiceImpl implements BugReportService {
     }
 
     @Override
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="APPROVE_BUG_REPORT", entityType="BugReport", entityIdArgIndex=0)
     public BugReport approveAndConvertBug(Long bugId, Long userId) {
         BugReport bug = bugReportRepository.findById(bugId)
                 .orElseThrow(() -> new CustomException("Bug report not found", HttpStatus.NOT_FOUND));
@@ -199,6 +203,8 @@ public class BugReportServiceImpl implements BugReportService {
     }
 
     @Override
+    @Transactional
+    @org.example.backend.annotation.Auditable(action="UPDATE_BUG_REPORT", entityType="BugReport", entityIdArgIndex=0)
     public BugReport updateBugReport(Long bugId, Map<String, Object> request, Long userId) {
         BugReport bug = bugReportRepository.findById(bugId)
                 .orElseThrow(() -> new CustomException("Bug report not found", HttpStatus.NOT_FOUND));
