@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
@@ -32,10 +32,23 @@ const formatActivityText = (text) => {
   if (action.includes('CREATE_SPRINT')) return 'created a Sprint';
   if (action.includes('UPDATE_SPRINT')) return 'updated a Sprint';
   if (action.includes('DELETE_SPRINT')) return 'deleted a Sprint';
-  if (action.includes('PUSH')) return 'pushed code to Github';
   if (action.includes('ISSUE')) return 'interacted with a Github Issue';
   
   return `has ${text.toLowerCase().replace(/_/g, ' ')}`;
+};
+
+const formatTimeOnly = (timeStr) => {
+  if (!timeStr) return '--:--';
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatActivityTime = (timeStr) => {
+  if (!timeStr) return 'Unknown time';
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return 'Unknown time';
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 export function DashboardPage() {
@@ -269,6 +282,55 @@ export function DashboardPage() {
 
   const isGlobalDashboard = location.pathname === '/dashboard'
 
+  // ================================
+  // BUG 1 FIX: Memoize AI Score
+  // ================================
+  const aiPredictionScore = useMemo(() => {
+    if (!activeProject || !dashboardData) return 50;
+    if (activeProject?.status === 'COMPLETED') return 100;
+    if (activeProject?.status === 'ARCHIVED') return 0;
+    
+    let score = 60;
+    const rtm = dashboardData?.rtmCoveragePercent || 0;
+    const tasks = dashboardData?.taskCount || 0;
+    const bugs = dashboardData?.bugCount || 0;
+    const progress = activeProject?.progress || 0;
+    
+    score += (progress * 0.25);
+    score += (rtm * 0.15);
+    
+    if (tasks > 0) {
+        score -= (bugs / tasks) * 30;
+    } else if (bugs > 0) {
+        score -= bugs * 5;
+    }
+    
+    if (activeProject?.deadline) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const deadline = new Date(activeProject.deadline);
+        
+        if (deadline < today) {
+            score -= 40;
+        } else if (activeProject?.startDate) {
+            const startDate = new Date(activeProject.startDate);
+            const totalDuration = deadline.getTime() - startDate.getTime();
+            const elapsed = today.getTime() - startDate.getTime();
+            
+            if (totalDuration > 0 && elapsed > 0) {
+                const timeElapsedPercent = (elapsed / totalDuration) * 100;
+                if (timeElapsedPercent > progress + 10) {
+                    score -= (timeElapsedPercent - progress) * 0.5;
+                } else {
+                    score += 5;
+                }
+            }
+        }
+    }
+    
+    return Math.min(Math.max(Math.round(score), 5), 99);
+  }, [activeProject, dashboardData]);
+
   useEffect(() => {
     if (isGlobalDashboard && activeProject) {
       clearActiveProject()
@@ -278,6 +340,9 @@ export function DashboardPage() {
   // Fetch real dashboard stats when activeProject changes (with LIVE POLLING)
   useEffect(() => {
     if (activeProject && !isGlobalDashboard) {
+      // BUG 5 FIX: Reset visibleActivities when project changes
+      setVisibleActivities(5)
+      
       const fetchDashboardStats = async (isBackground = false) => {
         if (!isBackground) setLoadingDashboard(true)
         try {
@@ -293,10 +358,10 @@ export function DashboardPage() {
       // Lần đầu tải trang sẽ có hiệu ứng xoay loading
       fetchDashboardStats(false)
       
-      // Thiết lập Background Polling ngầm mỗi 1 giây cho tính năng Terminal Live
+      // BUG 2 FIX: Increase polling interval to 30s instead of 1s
       const intervalId = setInterval(() => {
-        fetchDashboardStats(true) // Chạy ngầm, không bật loadingDashboard
-      }, 1000)
+        fetchDashboardStats(true) 
+      }, 30000)
       
       return () => clearInterval(intervalId)
     }
@@ -1570,12 +1635,13 @@ export function DashboardPage() {
                   <span className="text-gray-400">[{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span> INITIALIZING GITHUB LISTENER...
                 </div>
               ) : (() => {
-                  const githubEvents = dashboardData?.recentActivities?.filter(act => act.text.toLowerCase().includes('github') || act.text.toLowerCase().includes('commit') || act.text.toLowerCase().includes('push') || act.text.toLowerCase().includes('pull')) || [];
+                  const githubKeywords = ['github', 'commit', 'push', 'pull', 'pr', 'branch', 'merge', 'issue'];
+                  const githubEvents = dashboardData?.recentActivities?.filter(act => githubKeywords.some(kw => act.text.toLowerCase().includes(kw))) || [];
                   return githubEvents.length > 0 ? (
                     githubEvents.map((act, i) => (
-                  <div key={i} className="flex items-start gap-2 mb-2">
-                    <span className="text-gray-400 shrink-0">[{act.time ? act.time.split(' ').pop() : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span>
-                    <span className="text-on-surface">
+                  <div key={i} className="flex items-start gap-2 mb-2 w-full">
+                    <span className="text-gray-400 shrink-0">[{formatTimeOnly(act.time)}]</span>
+                    <span className="text-on-surface flex-1 break-words min-w-0">
                       {act.icon === 'bug_report' ? (
                          <span className="text-red-500 font-bold">[ALERT]</span>
                       ) : act.icon === 'task' ? (
@@ -1583,7 +1649,7 @@ export function DashboardPage() {
                       ) : (
                          <span className="text-primary font-bold">[SCAN]</span>
                       )}
-                      <span className="text-on-surface-variant ml-2 font-medium">
+                      <span className="text-on-surface-variant ml-2 font-medium break-words">
                         {act.username && <span className="text-primary font-bold mr-1">@{act.username}</span>}
                         {act.text}
                       </span>
@@ -1594,7 +1660,7 @@ export function DashboardPage() {
                 <>
                   <div className="flex items-center gap-2 text-primary/60 mt-2">
                     <span className="w-2 h-4 bg-primary animate-ping"></span>
-                    Waiting for events...
+                    Waiting for GitHub webhook events...
                   </div>
                 </>
               )})()}
@@ -1674,98 +1740,14 @@ export function DashboardPage() {
                     
                     <div className="flex items-end gap-1">
                       <span className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-500 to-emerald-500 drop-shadow-sm">
-                        {(() => {
-                           if (activeProject?.status === 'COMPLETED') return 100;
-                           if (activeProject?.status === 'ARCHIVED') return 0;
-                           let score = 60;
-                           const rtm = dashboardData?.rtmCoveragePercent || 0;
-                           const tasks = dashboardData?.taskCount || 0;
-                           const bugs = dashboardData?.bugCount || 0;
-                           const progress = activeProject?.progress || 0;
-                           
-                           score += (progress * 0.25);
-                           score += (rtm * 0.15);
-                           
-                           if (tasks > 0) {
-                               score -= (bugs / tasks) * 30;
-                           } else if (bugs > 0) {
-                               score -= bugs * 5;
-                           }
-                           
-                           if (activeProject?.deadline) {
-                               const today = new Date();
-                               today.setHours(0,0,0,0);
-                               const deadline = new Date(activeProject.deadline);
-                               
-                               if (deadline < today) {
-                                   score -= 40;
-                               } else if (activeProject?.startDate) {
-                                   const startDate = new Date(activeProject.startDate);
-                                   const totalDuration = deadline.getTime() - startDate.getTime();
-                                   const elapsed = today.getTime() - startDate.getTime();
-                                   
-                                   if (totalDuration > 0 && elapsed > 0) {
-                                       const timeElapsedPercent = (elapsed / totalDuration) * 100;
-                                       if (timeElapsedPercent > progress + 10) {
-                                           score -= (timeElapsedPercent - progress) * 0.5;
-                                       } else {
-                                           score += 5;
-                                       }
-                                   }
-                               }
-                           }
-                           
-                           return Math.min(Math.max(Math.round(score), 5), 99);
-                        })()}%
+                        {aiPredictionScore}%
                       </span>
                     </div>
                  </div>
                  
                  {/* Mini progress bar for AI */}
                  <div className="relative z-10 mt-3 w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 relative" style={{ width: `${(() => {
-                           if (activeProject?.status === 'COMPLETED') return 100;
-                           if (activeProject?.status === 'ARCHIVED') return 0;
-                           let score = 60;
-                           const rtm = dashboardData?.rtmCoveragePercent || 0;
-                           const tasks = dashboardData?.taskCount || 0;
-                           const bugs = dashboardData?.bugCount || 0;
-                           const progress = activeProject?.progress || 0;
-                           
-                           score += (progress * 0.25);
-                           score += (rtm * 0.15);
-                           
-                           if (tasks > 0) {
-                               score -= (bugs / tasks) * 30;
-                           } else if (bugs > 0) {
-                               score -= bugs * 5;
-                           }
-                           
-                           if (activeProject?.deadline) {
-                               const today = new Date();
-                               today.setHours(0,0,0,0);
-                               const deadline = new Date(activeProject.deadline);
-                               
-                               if (deadline < today) {
-                                   score -= 40;
-                               } else if (activeProject?.startDate) {
-                                   const startDate = new Date(activeProject.startDate);
-                                   const totalDuration = deadline.getTime() - startDate.getTime();
-                                   const elapsed = today.getTime() - startDate.getTime();
-                                   
-                                   if (totalDuration > 0 && elapsed > 0) {
-                                       const timeElapsedPercent = (elapsed / totalDuration) * 100;
-                                       if (timeElapsedPercent > progress + 10) {
-                                           score -= (timeElapsedPercent - progress) * 0.5;
-                                       } else {
-                                           score += 5;
-                                       }
-                                   }
-                               }
-                           }
-                           
-                           return Math.min(Math.max(Math.round(score), 5), 99);
-                        })()}%` }}>
+                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 relative" style={{ width: `${aiPredictionScore}%` }}>
                        <div className="absolute inset-0 bg-white/30 w-full animate-[shimmer_2s_infinite]"></div>
                     </div>
                  </div>
@@ -1797,7 +1779,7 @@ export function DashboardPage() {
                     </div>
                     <div className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">schedule</span>
-                      {new Date(act.time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {formatActivityTime(act.time)}
                     </div>
                   </div>
                 </div>
