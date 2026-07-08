@@ -145,7 +145,7 @@ public class BugReportServiceImpl implements BugReportService {
             taskReq.setStatus("TODO");
             taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
             taskReq.setStartDate(java.time.LocalDate.now());
-            taskReq.setDeadline(java.time.LocalDate.now().plusDays(3));
+            taskReq.setDeadline(project.getDeadline() != null ? project.getDeadline() : java.time.LocalDate.now().plusDays(3));
             taskReq.setChecklist(new ArrayList<>());
 
             // Create the linked Task via existing TaskService
@@ -209,7 +209,7 @@ public class BugReportServiceImpl implements BugReportService {
         taskReq.setStatus("TODO");
         taskReq.setPrimaryAssigneeId(bug.getAssignedTo() != null ? bug.getAssignedTo().getId() : null);
         taskReq.setStartDate(java.time.LocalDate.now());
-        taskReq.setDeadline(java.time.LocalDate.now().plusDays(3));
+        taskReq.setDeadline(bug.getProject().getDeadline() != null ? bug.getProject().getDeadline() : java.time.LocalDate.now().plusDays(3));
 
         // Fetch checklist proposals and convert approved ones
         List<org.example.backend.entity.TaskProposal> proposals = taskProposalRepository.findByTaskIdOrderByCreatedAtAsc(bugId);

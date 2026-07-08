@@ -18,6 +18,8 @@ import proposalService from '../services/proposalService'
 import ApprovedTaskTab from '../components/ApprovedTaskTab'
 import CommentTab from '../components/CommentTab'
 import ProposalTab from '../components/ProposalTab'
+import { requirementApi } from '../../requirement/services/requirementApi'
+import CreateRequirementModal from '../../requirement/components/CreateRequirementModal'
 
 export default function FeatureDiscussionPage() {
   const { projectId, id } = useParams()

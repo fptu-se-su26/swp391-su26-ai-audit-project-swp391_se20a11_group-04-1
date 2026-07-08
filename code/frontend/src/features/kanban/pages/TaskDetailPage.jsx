@@ -15,6 +15,7 @@ const TaskDetailPage = () => {
   const { projectId, id } = useParams()
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [newChecklistItemText, setNewChecklistItemText] = useState('')
   const activeProject = useProjectStore((state) => state.activeProject)
   const {
     tasks,
@@ -91,6 +92,39 @@ const TaskDetailPage = () => {
     // Save edited task fields and close the modal once store/API update starts.
     updateTask(task.id, payload)
     setIsEditOpen(false)
+  }
+
+  const handleAddChecklistItem = async (e) => {
+    e.preventDefault()
+    if (!newChecklistItemText.trim()) return
+
+    const newItem = {
+      id: `temp-${Date.now()}`,
+      text: newChecklistItemText.trim(),
+      done: false
+    }
+
+    const updatedChecklist = [...(task.checklist || []), newItem]
+
+    await updateTask(task.id, {
+      ...task,
+      assigneeId: task.assignee?.id || null,
+      checklist: updatedChecklist
+    })
+
+    setNewChecklistItemText('')
+    await fetchTaskById(task.id)
+  }
+
+  const handleDeleteChecklistItem = async (checklistId) => {
+    const updatedChecklist = (task.checklist || []).filter(item => item.id !== String(checklistId))
+
+    await updateTask(task.id, {
+      ...task,
+      assigneeId: task.assignee?.id || null,
+      checklist: updatedChecklist
+    })
+    await fetchTaskById(task.id)
   }
 
   const handleCollapseToPanel = () => {
@@ -344,20 +378,48 @@ const TaskDetailPage = () => {
                   <p className="text-sm text-on-surface-variant">No checklist items.</p>
                 ) : (
                   task.checklist.map((item) => (
-                    <label key={item.id} className="flex items-center gap-3 p-2 hover:bg-surface-container-low rounded transition-colors cursor-pointer">
-                      <input
-                        checked={item.done}
-                        onChange={() => toggleChecklistItem(task.id, item.id)}
-                        className="w-4 h-4 text-[#1E707D] border-outline-variant rounded focus:ring-[#1E707D]"
-                        type="checkbox"
-                      />
-                      <span className={`text-body-md font-body-md ${item.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
-                        {item.text}
-                      </span>
-                    </label>
+                    <div key={item.id} className="flex items-center justify-between p-1.5 hover:bg-surface-container-low rounded transition-colors group">
+                      <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                        <input
+                          checked={item.done}
+                          onChange={() => toggleChecklistItem(task.id, item.id)}
+                          className="w-4 h-4 text-[#1E707D] border-outline-variant rounded focus:ring-[#1E707D] shrink-0"
+                          type="checkbox"
+                        />
+                        <span className={`text-body-md font-body-md truncate ${item.done ? 'text-on-surface-variant line-through' : 'text-on-surface'}`}>
+                          {item.text}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChecklistItem(item.id)}
+                        className="opacity-0 group-hover:opacity-100 text-error hover:bg-error/10 p-1 rounded transition-all shrink-0 flex items-center justify-center cursor-pointer"
+                        title="Delete item"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
+
+              {/* Add checklist item form */}
+              <form onSubmit={handleAddChecklistItem} className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add a checklist item..."
+                  value={newChecklistItemText}
+                  onChange={(e) => setNewChecklistItemText(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-sm border border-outline-variant rounded-lg bg-surface-container-lowest text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-[#1E707D] text-white hover:bg-[#165964] text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-[14px] font-bold">add</span>
+                  <span>Add</span>
+                </button>
+              </form>
             </div>
 
             {hasSubtasks && (

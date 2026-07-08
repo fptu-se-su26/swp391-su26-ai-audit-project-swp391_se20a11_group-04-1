@@ -197,12 +197,14 @@ export function IssueTrackerDashboard() {
       const day = String(today.getDate()).padStart(2, '0')
       const startDate = `${year}-${month}-${day}`
 
-      const deadlineDate = new Date()
-      deadlineDate.setDate(today.getDate() + 7)
-      const dlYear = deadlineDate.getFullYear()
-      const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
-      const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
-      const deadline = `${dlYear}-${dlMonth}-${dlDay}`
+      const deadline = activeProject?.deadline || (() => {
+        const deadlineDate = new Date()
+        deadlineDate.setDate(today.getDate() + 7)
+        const dlYear = deadlineDate.getFullYear()
+        const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
+        const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
+        return `${dlYear}-${dlMonth}-${dlDay}`
+      })()
 
       const payload = {
         title: quickProposalText.trim(),
@@ -510,12 +512,14 @@ export function IssueTrackerDashboard() {
       const day = String(today.getDate()).padStart(2, '0')
       const startDate = `${year}-${month}-${day}`
 
-      const deadlineDate = new Date()
-      deadlineDate.setDate(today.getDate() + 7)
-      const dlYear = deadlineDate.getFullYear()
-      const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
-      const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
-      const defaultDeadline = `${dlYear}-${dlMonth}-${dlDay}`
+      const defaultDeadline = activeProject?.deadline || (() => {
+        const deadlineDate = new Date()
+        deadlineDate.setDate(today.getDate() + 7)
+        const dlYear = deadlineDate.getFullYear()
+        const dlMonth = String(deadlineDate.getMonth() + 1).padStart(2, '0')
+        const dlDay = String(deadlineDate.getDate()).padStart(2, '0')
+        return `${dlYear}-${dlMonth}-${dlDay}`
+      })()
 
       if (newIssue.uiType === 'BUG') {
         const payload = {
@@ -737,55 +741,8 @@ export function IssueTrackerDashboard() {
     }));
     const combined = [...featureTasks, ...approvedBugs, ...draftBugs];
 
-    // Sort order:
-    // 1. Unapproved (DRAFT status) first, Approved (non-DRAFT status) last
-    // 2. If same approval status, Bug first, Feature/Task last
-    // 3. If both are bugs, higher severity first
-    // 4. Default to newest first (createdAt descending)
+    // Sort order: newest first (createdAt descending)
     combined.sort((a, b) => {
-      const isApproved = (item) => {
-        if (isBlankGitHubIssue(item)) {
-          return !isBlankDraft(item);
-        }
-        if (item.isBug) {
-          return item.relatedTaskId != null && item.displayStatus !== 'DRAFT' && item.status !== 'DRAFT';
-        }
-        return item.githubIssueNumber != null;
-      }
-      
-      const aApproved = isApproved(a);
-      const bApproved = isApproved(b);
-      
-      if (aApproved !== bApproved) {
-        return aApproved ? 1 : -1;
-      }
-
-      const aIsBug = a.isBug || a.type === 'BUG_FIX' || a.displayType === 'Bug Fix Task';
-      const bIsBug = b.isBug || b.type === 'BUG_FIX' || b.displayType === 'Bug Fix Task';
-      
-      if (aIsBug !== bIsBug) {
-        return aIsBug ? -1 : 1;
-      }
-
-      if (aIsBug) {
-        const getSeverityValue = (item) => {
-          const sev = item.severity || item.displaySeverity || item.priority || 'LOW';
-          switch (sev) {
-            case 'CRITICAL': return 4;
-            case 'HIGH': return 3;
-            case 'MEDIUM': return 2;
-            case 'LOW':
-            default:
-              return 1;
-          }
-        }
-        const aSev = getSeverityValue(a);
-        const bSev = getSeverityValue(b);
-        if (aSev !== bSev) {
-          return bSev - aSev;
-        }
-      }
-
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
@@ -1595,19 +1552,7 @@ export function IssueTrackerDashboard() {
                         {bug.displayTitle}
                       </h3>
                     </div>
-
                     <div className="flex items-center gap-3">
-                      {!bug.isSubTask && (
-                        <span className="text-[9px] font-bold uppercase bg-surface-container-high text-on-surface-variant px-2.5 py-0.5 rounded-full hidden sm:inline-block">
-                          Env: {bug.displayEnv}
-                        </span>
-                      )}
-                      {getDeadlineBadge(bug.deadline)}
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full hidden md:inline-block ${getSeverityColor(bug.displaySeverity)}`}>
-                        {bug.displaySeverity}
-                      </span>
-                      {getStatusBadge(bug)}
-
                       {!bug.isSubTask && (
                         <div onClick={e => e.stopPropagation()} className="flex items-center">
                           <button
@@ -1813,19 +1758,7 @@ export function IssueTrackerDashboard() {
 
 
 
-                        {/* Add Sub-task Button */}
-                        {isLeader && canHaveChecklist && (
-                          <div className="pl-14 pr-6 pt-2 pb-3 border-b border-outline-variant/20 mb-4">
-                            <button
-                              type="button"
-                              onClick={(e) => triggerCreateSubtask(e, bug)}
-                              className="flex items-center gap-1.5 text-xs text-[#1E707D] hover:text-[#165964] transition-colors py-1.5 bg-surface-container-high/65 hover:bg-surface-container-highest px-3 rounded-lg border border-outline-variant/60 shadow-sm font-bold"
-                            >
-                              <span className="material-symbols-outlined text-sm font-bold">add_circle</span>
-                              Create Sub-task (Full Form)
-                            </button>
-                          </div>
-                        )}
+
 
                         {/* SUB-TASKS BLOCK FOR BUGS */}
                         {bug.isBug && bug.fixTask && (
@@ -2006,35 +1939,7 @@ export function IssueTrackerDashboard() {
                                       ) : (
                                         <p className="text-[10px] text-on-surface-variant italic">No requirements checklist defined for this sub-task.</p>
                                       )}
-                                      {isLeader && (
-                                        <div className="flex items-center gap-2 max-w-sm mt-1">
-                                          <input
-                                            type="text"
-                                            id={`new-subtask-checklist-input-${sub.id}`}
-                                            placeholder="Add subtask requirement..."
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') {
-                                                handleAddChecklistItem(sub, e.target.value)
-                                                e.target.value = ''
-                                              }
-                                            }}
-                                            className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-[#1E707D] text-on-surface font-semibold"
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const input = document.getElementById(`new-subtask-checklist-input-${sub.id}`)
-                                              if (input && input.value.trim()) {
-                                                handleAddChecklistItem(sub, input.value)
-                                                input.value = ''
-                                              }
-                                            }}
-                                            className="flex items-center justify-center p-1 bg-[#1E707D] text-white hover:bg-[#1E707D]/90 rounded-md shadow transition-all cursor-pointer shrink-0"
-                                          >
-                                            <span className="material-symbols-outlined text-xs font-bold">add</span>
-                                          </button>
-                                        </div>
-                                      )}
+
                                     </div>
                                   </div>
                                 ))}
@@ -2192,35 +2097,7 @@ export function IssueTrackerDashboard() {
                                   ) : (
                                     <p className="text-[10px] text-on-surface-variant italic">No requirements checklist defined for this sub-task.</p>
                                   )}
-                                  {isLeader && (
-                                    <div className="flex items-center gap-2 max-w-sm mt-1">
-                                      <input
-                                        type="text"
-                                        id={`new-nonbug-subtask-checklist-input-${sub.id}`}
-                                        placeholder="Add subtask requirement..."
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            handleAddChecklistItem(sub, e.target.value)
-                                            e.target.value = ''
-                                          }
-                                        }}
-                                        className="flex-1 px-2 py-1 text-[10px] bg-surface-container-low border border-outline-variant/60 rounded-md focus:outline-none focus:border-[#1E707D] text-on-surface font-semibold"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const input = document.getElementById(`new-nonbug-subtask-checklist-input-${sub.id}`)
-                                          if (input && input.value.trim()) {
-                                            handleAddChecklistItem(sub, input.value)
-                                            input.value = ''
-                                          }
-                                        }}
-                                        className="flex items-center justify-center p-1 bg-[#1E707D] text-white hover:bg-[#1E707D]/90 rounded-md shadow transition-all cursor-pointer shrink-0"
-                                      >
-                                        <span className="material-symbols-outlined text-xs font-bold">add</span>
-                                      </button>
-                                    </div>
-                                  )}
+
                                 </div>
                               </div>
                             ))}

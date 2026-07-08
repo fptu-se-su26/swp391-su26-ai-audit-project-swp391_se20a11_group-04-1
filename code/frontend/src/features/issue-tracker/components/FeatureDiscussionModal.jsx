@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
+import useAuthStore from '@store/useAuthStore'
 import useKanbanStore from '../../kanban/store/useKanbanStore'
 import proposalService from '../services/proposalService'
 import ApprovedTaskTab from '../components/ApprovedTaskTab'
@@ -92,6 +93,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
   const [descExpanded, setDescExpanded] = useState(false)
   const [isDescCollapsed, setIsDescCollapsed] = useState(false)
   const [isVoteCollapsed, setIsVoteCollapsed] = useState(false)
+  const [newChecklistItemText, setNewChecklistItemText] = useState('')
 
   // Thảo luận được mở dựa trên việc có tag comment ẩn trong description của Task hay không
   const isDiscussionUnlocked = useMemo(() => {
@@ -227,10 +229,28 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
     })
   }
 
+  const currentUserId = useAuthStore((state) => state.userId)
+
   const isLeader = useMemo(() => {
     const role = activeProject?.role
     return ['PROJECT_LEADER', 'LEADER', 'Project Leader', 'MENTOR'].includes(role)
   }, [activeProject?.role])
+
+  const isAssignee = useMemo(() => {
+    if (!task) return false
+    const assigneeId = task.assignee?.id || task.primaryAssignee?.id || task.primaryAssigneeId
+    return String(currentUserId) === String(assigneeId)
+  }, [task, currentUserId])
+
+  const canManageChecklist = useMemo(() => {
+    return isLeader || isAssignee
+  }, [isLeader, isAssignee])
+
+  const canViewRequirementLink = useMemo(() => {
+    if (isLeader) return true;
+    if (!task || !task.createdById) return false;
+    return String(currentUserId) === String(task.createdById);
+  }, [isLeader, task, currentUserId]);
 
   // Overall Task Vote state
   const [taskVoteStats, setTaskVoteStats] = useState({ upvotes: 0, downvotes: 0, myVote: null })
@@ -804,31 +824,33 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                 }`}
               >
                 <Lightbulb size={13} />
-                <span>Proposals</span>
+                <span>{isBugType ? 'Checklist' : 'Proposals'}</span>
                 {activeTab === 'proposals' && (
                   <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
                 )}
               </button>
 
-              <button
-                onClick={() => setActiveTab('tasks')}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-xl transition-all relative cursor-pointer font-semibold ${
-                  activeTab === 'tasks'
-                    ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <ListChecks size={13} />
-                <span>Approved Tasks</span>
-                {approvedCount > 0 && (
-                  <span className="text-[10px] min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
-                    {approvedCount}
-                  </span>
-                )}
-                {activeTab === 'tasks' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
-                )}
-              </button>
+              {!isBugType && (
+                <button
+                  onClick={() => setActiveTab('tasks')}
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-t-xl transition-all relative cursor-pointer font-semibold ${
+                    activeTab === 'tasks'
+                      ? "text-[#0284c7] bg-white border-t border-x border-slate-200 shadow-[0_-2px_6px_rgba(0,0,0,0.01)]"
+                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <ListChecks size={13} />
+                  <span>Approved Tasks</span>
+                  {approvedCount > 0 && (
+                    <span className="text-[10px] min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
+                      {approvedCount}
+                    </span>
+                  )}
+                  {activeTab === 'tasks' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#0ea5e9] rounded-t-full" />
+                  )}
+                </button>
+              )}
 
               {/* Nút mở thảo luận cho leader đối với blank issue hoặc bug report đã đồng bộ */}
               {isLeader && (isBlankGit || isBugType) && isSynced && (
@@ -904,45 +926,222 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
               />
             )}
 
-            {/* TAB 2: ĐỀ XUẤT CHECKLIST */}
+            {/* TAB 2: ĐỀ XUẤT CHECKLIST / TRỰC TIẾP CHECKLIST CHO BUG */}
             {activeTab === 'proposals' && (
-              <ProposalTab
-                proposals={proposals}
-                loading={proposalsLoading}
-                ideaApproved={ideaApproved}
-                readOnly={isSynced && !isDiscussionUnlocked}
-                onApprove={handleApproveProposal}
-                onVote={handleVoteProposal}
-                onDownvote={handleDownvoteProposal}
-                onAddProposal={handleAddProposalDirectly}
-                onAddComment={handleAddProposalComment}
-                proposalCommentsInputs={proposalCommentsInputs}
-                expandedProposalComments={expandedProposalComments}
-                onToggleCommentsVisibility={toggleProposalCommentVisibility}
-                onSetFeedbackText={handleSetFeedbackText}
-                isLeader={isLeader}
-                onUpdateProposal={async (proposalId, text) => {
-                  try {
-                    await proposalService.updateProposal(proposalId, text)
-                    toast.success('Proposal updated!')
-                    loadProposals(true)
-                  } catch (err) {
-                    toast.error(err.response?.data?.message || 'Failed to update proposal!')
-                  }
-                }}
-                onContentScroll={handleContentScroll}
-                isCollapsed={isVoteCollapsed}
-                requirements={requirements}
-                loadingReqs={loadingReqs}
-                selectedReqId={selectedReqId}
-                setSelectedReqId={setSelectedReqId}
-                savingReq={savingReq}
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-                setIsCreateReqModalOpen={setIsCreateReqModalOpen}
-                handleSaveRequirement={handleSaveRequirement}
-                task={task}
-              />
+              isBugType ? (
+                <div className="flex-1 flex flex-col min-h-0 bg-white p-5 overflow-y-auto" id="proposal-list-container" onScroll={handleContentScroll}>
+                  {/* Section gắn Requirement */}
+                  {canViewRequirementLink && (
+                    <div className="rounded-xl border border-blue-200 bg-[#1E707D]/5 p-4 shadow-sm shrink-0 space-y-3 mb-4">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-blue-900 font-bold text-xs uppercase tracking-wider">
+                          <span className="material-symbols-outlined text-[16px] text-[#1E707D]">link</span>
+                          <span>Corresponding Requirement</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                          For traceability and evaluation. Please select the requirement corresponding to your discussion topic.
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2.5">
+                        <select
+                          value={selectedReqId || ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            if (val === 'CREATE_NEW') {
+                              setIsCreateReqModalOpen(true)
+                            } else {
+                              setSelectedReqId(val)
+                            }
+                          }}
+                          disabled={loadingReqs || savingReq || !isEditing}
+                          className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-sm disabled:opacity-50"
+                        >
+                          <option value="">-- No Requirement Linked --</option>
+                          {(Array.isArray(requirements) ? requirements : []).map((req) => (
+                            <option key={req.id} value={req.id}>
+                              [{req.reqCode || `REQ-${req.id}`}] {req.title}
+                            </option>
+                          ))}
+                          <option value="CREATE_NEW" className="text-[#1E707D] font-bold bg-[#1E707D]/10">
+                            + Create new Requirement...
+                          </option>
+                        </select>
+                        
+                        {isEditing ? (
+                          <button
+                            onClick={handleSaveRequirement}
+                            disabled={savingReq || String(selectedReqId) === String(task?.requirementId || '')}
+                            className="px-4 py-2 bg-[#1E707D] hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                          >
+                            {savingReq ? (
+                              <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                            ) : (
+                              <span className="material-symbols-outlined text-xs">save</span>
+                            )}
+                            Save Link
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            disabled={loadingReqs || savingReq}
+                            className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-xs">edit</span>
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                    <h3 className="font-extrabold text-slate-800 text-sm">Checklist Items</h3>
+                    <span className="text-[10px] font-bold text-[#1E707D] bg-[#D7EEF1] px-2 py-0.5 rounded-md">
+                      {(task?.checklist || []).filter(item => item.done).length}/{task?.checklist?.length || 0} Done
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 mb-6 flex-1 min-h-0 overflow-y-auto pr-1">
+                    {!task?.checklist || task.checklist.length === 0 ? (
+                      <p className="text-xs font-medium text-slate-500 text-center py-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        No checklist items. Add one below to start!
+                      </p>
+                    ) : (
+                      task.checklist.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-100 group">
+                          <label className={`flex items-center gap-3 flex-1 min-w-0 ${canManageChecklist ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+                            <input
+                              checked={item.done}
+                              disabled={!canManageChecklist}
+                              onChange={async () => {
+                                if (!canManageChecklist) return
+                                const updatedChecklist = task.checklist.map((c) =>
+                                  c.id === item.id ? { ...c, done: !c.done } : c
+                                )
+                                await updateTask(task.id, {
+                                  ...task,
+                                  assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
+                                  checklist: updatedChecklist
+                                })
+                                await fetchTaskById(task.id)
+                              }}
+                              className={`w-4 h-4 text-[#1E707D] border-slate-300 rounded focus:ring-[#1E707D] shrink-0 ${canManageChecklist ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                              type="checkbox"
+                            />
+                            <span className={`text-xs font-semibold truncate ${item.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                              {item.text}
+                            </span>
+                          </label>
+                          {canManageChecklist && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const updatedChecklist = task.checklist.filter(c => c.id !== item.id)
+                                await updateTask(task.id, {
+                                  ...task,
+                                  assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
+                                  checklist: updatedChecklist
+                                })
+                                await fetchTaskById(task.id)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-all shrink-0 flex items-center justify-center cursor-pointer"
+                              title="Delete item"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {canManageChecklist ? (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault()
+                        if (!newChecklistItemText.trim()) return
+
+                        const newItem = {
+                          id: `temp-${Date.now()}`,
+                          text: newChecklistItemText.trim(),
+                          done: false
+                        }
+
+                        const updatedChecklist = [...(task?.checklist || []), newItem]
+
+                        await updateTask(task.id, {
+                          ...task,
+                          assigneeId: task.assignee?.id || task.primaryAssignee?.id || null,
+                          checklist: updatedChecklist
+                        })
+
+                        setNewChecklistItemText('')
+                        await fetchTaskById(task.id)
+                      }}
+                      className="flex gap-2 pt-2 border-t border-slate-100"
+                    >
+                      <input
+                        type="text"
+                        placeholder="Add a checklist item..."
+                        value={newChecklistItemText}
+                        onChange={(e) => setNewChecklistItemText(e.target.value)}
+                        className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] focus:bg-white transition-all"
+                      />
+                      <button
+                        type="submit"
+                        className="px-3 py-2 bg-[#1E707D] text-white hover:bg-[#165964] text-xs font-bold rounded-xl shadow-sm transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <span>Add</span>
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="text-center pt-2 border-t border-slate-100">
+                      <p className="text-[11px] font-semibold text-slate-400">
+                        Only Project Leaders or the Assignee of this task can modify the checklist.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <ProposalTab
+                  proposals={proposals}
+                  loading={proposalsLoading}
+                  ideaApproved={ideaApproved}
+                  readOnly={isSynced && !isDiscussionUnlocked}
+                  onApprove={handleApproveProposal}
+                  onVote={handleVoteProposal}
+                  onDownvote={handleDownvoteProposal}
+                  onAddProposal={handleAddProposalDirectly}
+                  onAddComment={handleAddProposalComment}
+                  proposalCommentsInputs={proposalCommentsInputs}
+                  expandedProposalComments={expandedProposalComments}
+                  onToggleCommentsVisibility={toggleProposalCommentVisibility}
+                  onSetFeedbackText={handleSetFeedbackText}
+                  isLeader={isLeader}
+                  onUpdateProposal={async (proposalId, text) => {
+                    try {
+                      await proposalService.updateProposal(proposalId, text)
+                      toast.success('Proposal updated!')
+                      loadProposals(true)
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || 'Failed to update proposal!')
+                    }
+                  }}
+                  onContentScroll={handleContentScroll}
+                  isCollapsed={isVoteCollapsed}
+                  requirements={requirements}
+                  loadingReqs={loadingReqs}
+                  selectedReqId={selectedReqId}
+                  setSelectedReqId={setSelectedReqId}
+                  savingReq={savingReq}
+                  isEditing={isEditing}
+                  setIsEditing={setIsEditing}
+                  setIsCreateReqModalOpen={setIsCreateReqModalOpen}
+                  handleSaveRequirement={handleSaveRequirement}
+                  task={task}
+                />
+              )
             )}
 
             {/* TAB 3: CHECKLIST ĐÃ ĐƯỢC DUYỆT */}

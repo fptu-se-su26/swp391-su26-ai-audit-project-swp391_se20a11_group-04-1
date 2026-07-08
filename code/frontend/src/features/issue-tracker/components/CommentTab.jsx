@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare, Send, CheckCircle2, Crown, ChevronDown, ChevronUp, CornerDownRight } from 'lucide-react'
 
 export function CommentTab({
@@ -20,6 +20,14 @@ export function CommentTab({
   const [replyInputs, setReplyInputs] = useState({})
   const [expandedReplies, setExpandedReplies] = useState({}) // commentId -> boolean
   const [highlightedReplyId, setHighlightedReplyId] = useState(null)
+  
+  const sortedComments = useMemo(() => {
+    return [...comments].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0)
+      const dateB = new Date(b.createdAt || 0)
+      return dateB - dateA
+    })
+  }, [comments])
   
   // Mentions autocomplete state
   const [mentionState, setMentionState] = useState({
@@ -293,7 +301,7 @@ export function CommentTab({
             No feedback yet. Be the first to comment!
           </div>
         )}
-        {comments.map((c, index) => {
+        {sortedComments.map((c, index) => {
           const initials = c.createdByName ? c.createdByName.split(' ').filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase() : 'U'
           const hasLiked = c.myVote === 'UP'
           const hasDisliked = c.myVote === 'DOWN'
@@ -332,7 +340,7 @@ export function CommentTab({
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">#{index + 1}</span>
+                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">#{sortedComments.length - index}</span>
                         <span>{formatSafeDate(c.createdAt)}</span>
                       </div>
                     </div>

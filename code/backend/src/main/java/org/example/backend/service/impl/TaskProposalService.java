@@ -180,38 +180,48 @@ public class TaskProposalService {
         TaskProposal proposal = proposalRepo.findById(proposalId)
                 .orElseThrow(() -> new IllegalArgumentException("Proposal not found: " + proposalId));
 
-        long upvotes = proposal.getVotes().stream().filter(TaskProposal.ProposalVote::isUpvote).count();
-        long downvotes = proposal.getVotes().stream().filter(v -> !v.isUpvote()).count();
-        if (upvotes <= downvotes) {
-            throw new org.example.backend.exception.CustomException(
-                    "Đề xuất chỉ được duyệt khi số lượt tán thành nhiều hơn không tán thành.",
-                    org.springframework.http.HttpStatus.BAD_REQUEST);
-        }
-
         java.util.Optional<Task> taskOpt = taskRepo.findById(proposal.getTaskId());
-        Task task = null;
-        if (taskOpt.isPresent()) {
-            task = taskOpt.get();
-            long totalMembers = projectMemberRepository.findByProjectId(task.getProject().getId()).size();
-            long totalVotes = proposal.getVotes().size();
-            if (3 * totalVotes <= 2 * totalMembers) {
-                throw new org.example.backend.exception.CustomException(
-                        "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
-                        org.springframework.http.HttpStatus.BAD_REQUEST);
-            }
+        Task task = taskOpt.orElse(null);
+        Long projectId;
+        if (task != null) {
+            projectId = task.getProject().getId();
         } else {
             java.util.Optional<BugReport> bugOpt = bugReportRepo.findById(proposal.getTaskId());
             if (!bugOpt.isPresent()) {
                 throw new IllegalArgumentException("Task or Bug Report not found: " + proposal.getTaskId());
             }
-            BugReport bug = bugOpt.get();
-            long totalMembers = projectMemberRepository.findByProjectId(bug.getProject().getId()).size();
-            long totalVotes = proposal.getVotes().size();
-            if (3 * totalVotes <= 2 * totalMembers) {
-                throw new org.example.backend.exception.CustomException(
-                        "Đề xuất chưa thể duyệt do chưa đạt trên 2/3 thành viên trong nhóm tham gia vote.",
-                        org.springframework.http.HttpStatus.BAD_REQUEST);
-            }
+            projectId = bugOpt.get().getProject().getId();
+        }
+
+        List<ProjectMember> pmList = projectMemberRepository.findByProjectId(projectId);
+        java.util.Set<Long> mentorUserIds = pmList.stream()
+                .filter(pm -> pm.getRole() != null && "MENTOR".equalsIgnoreCase(pm.getRole().getName()))
+                .map(pm -> pm.getUser().getId())
+                .collect(Collectors.toSet());
+
+        long upvotes = proposal.getVotes().stream()
+                .filter(v -> !mentorUserIds.contains(v.getUserId()))
+                .filter(TaskProposal.ProposalVote::isUpvote)
+                .count();
+
+        long downvotes = proposal.getVotes().stream()
+                .filter(v -> !mentorUserIds.contains(v.getUserId()))
+                .filter(v -> !v.isUpvote())
+                .count();
+
+        if (upvotes <= downvotes) {
+            throw new org.example.backend.exception.CustomException(
+                    "Proposals can only be approved when upvotes exceed downvotes.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+
+        long totalNonMentorMembers = pmList.size() - mentorUserIds.size();
+        long totalNonMentorVotes = upvotes + downvotes;
+
+        if (3 * totalNonMentorVotes <= 2 * totalNonMentorMembers) {
+            throw new org.example.backend.exception.CustomException(
+                    "Proposals cannot be approved until at least 2/3 of the project members have voted.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
         List<String> itemsToAdd = new java.util.ArrayList<>();
@@ -228,7 +238,7 @@ public class TaskProposalService {
 
         if (itemsToAdd.isEmpty()) {
             throw new org.example.backend.exception.CustomException(
-                    "Đề xuất bắt buộc phải có mô tả checklist (bắt đầu bằng '- [ ]' hoặc '- [x]').",
+                    "Proposals must contain at least one checklist item (starting with '- [ ]' or '- [x]').",
                     org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
@@ -277,7 +287,7 @@ public class TaskProposalService {
             proposal.setCreatedById(currentUserId);
         } else if (!proposal.getCreatedById().equals(currentUserId)) {
             throw new org.example.backend.exception.CustomException(
-                    "Bạn không có quyền chỉnh sửa đề xuất này.",
+                    "You do not have permission to edit this proposal.",
                     org.springframework.http.HttpStatus.FORBIDDEN);
         }
 
@@ -301,13 +311,13 @@ public class TaskProposalService {
 
             if (3 * downvotes > 2 * totalMembers) {
                 throw new org.example.backend.exception.CustomException(
-                        "2/3 thành viên không tán thành đề xuất này vui lòng thảo luận thêm để đưa ra quyết định phù hợp.",
+                        "More than 2/3 of members voted down this proposal. Please discuss further to reach a consensus.",
                         org.springframework.http.HttpStatus.BAD_REQUEST);
             }
 
             if (3 * totalVotes <= 2 * totalMembers || upvotes <= downvotes) {
                 throw new org.example.backend.exception.CustomException(
-                        "Đề xuất ý tưởng phải có trên 2/3 nhóm tham gia biểu quyết và được số đông tán thành mới cho phép duyệt.",
+                        "The proposal must have more than 2/3 of the team participating in the vote and be approved by the majority to be approved.",
                         org.springframework.http.HttpStatus.BAD_REQUEST);
             }
         }
@@ -325,7 +335,7 @@ public class TaskProposalService {
 
         if (approvedProposals.isEmpty() && !isBlankIssue) {
             throw new org.example.backend.exception.CustomException(
-                    "Chưa có đề xuất nào được phê duyệt. Hãy phê duyệt ít nhất một đề xuất trước khi đồng bộ lên GitHub.",
+                    "No proposals have been approved yet. Please approve at least one proposal before syncing to GitHub.",
                     org.springframework.http.HttpStatus.BAD_REQUEST);
         }
 
