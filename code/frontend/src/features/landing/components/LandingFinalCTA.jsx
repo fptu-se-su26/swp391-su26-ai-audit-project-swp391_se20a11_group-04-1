@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const LandingFinalCTA = () => {
   return (
     <>
-      <div style={{ background: "#fff", borderTop: "1px solid var(--g100)", padding: "56px 56px 48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: "var(--bg)", borderTop: "1px solid var(--g100)", padding: "56px 56px 48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: "0", background: "radial-gradient(ellipse 60% 80% at 50% 100%,rgba(30,112,125,.1) 0%,transparent 70%)", pointerEvents: "none" }}></div>
         <div style={{ position: "relative", zIndex: "1", maxWidth: "680px", margin: "0 auto" }}>
             <p style={{ fontSize: "13px", fontWeight: "700", color: "var(--g400)", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "16px" }}>DevTrack AI · 2025</p>
@@ -25,3 +25,4 @@ const LandingFinalCTA = () => {
 };
 
 export default LandingFinalCTA;
+

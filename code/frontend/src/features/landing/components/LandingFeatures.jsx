@@ -3,7 +3,7 @@ import React from 'react';
 const LandingFeatures = () => {
   return (
     <>
-<section id="features" className="tint-a" style={{"position":"relative","overflow":"hidden","padding":"72px 56px","background":"#fff"}}>
+<section id="features" className="tint-a" style={{"position":"relative","overflow":"hidden","padding":"72px 56px","background":"var(--bg)"}}>
         <div className="fstatic-glow fstatic-glow1"></div>
         <div className="fstatic-glow fstatic-glow2"></div>
         <div className="wrap">
@@ -38,3 +38,4 @@ const LandingFeatures = () => {
 };
 
 export default LandingFeatures;
+

@@ -3,7 +3,7 @@ import React from 'react';
 const LandingAudit = () => {
   return (
     <>
-<section id="audit" className="tint-c" style={{"padding":"72px 56px","background":"#fff"}}>
+<section id="audit" className="tint-c" style={{"padding":"72px 56px","background":"var(--bg)"}}>
                                 <div className="wrap">
                                     <div style={{"display":"grid","gridTemplateColumns":"1fr 1fr","gap":"64px","alignItems":"center"}}>
                                         <div style={{"position":"relative"}} className="sr">
@@ -22,7 +22,7 @@ const LandingAudit = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div style={{"position":"absolute","bottom":"-12px","right":"14px","background":"var(--g900)","color":"#fff","borderRadius":"10px","padding":"9px 14px","fontSize":"11px","fontWeight":"700","display":"flex","alignItems":"center","gap":"7px","boxShadow":"0 8px 24px rgba(0,0,0,.2)"}} className="flt2"><span style={{"color":"var(--green)"}}>●</span> Audit snapshot ready</div>
+                                            <div style={{"position":"absolute","bottom":"-12px","right":"14px","background":"var(--g900)","color":"var(--bg)","borderRadius":"10px","padding":"9px 14px","fontSize":"11px","fontWeight":"700","display":"flex","alignItems":"center","gap":"7px","boxShadow":"0 8px 24px rgba(0,0,0,.2)"}} className="flt2"><span style={{"color":"var(--green)"}}>●</span> Audit snapshot ready</div>
                                         </div>
                                         <div className="sr">
                                             <div className="s-eye"><div className="s-el"></div></div>
@@ -44,3 +44,4 @@ const LandingAudit = () => {
 };
 
 export default LandingAudit;
+

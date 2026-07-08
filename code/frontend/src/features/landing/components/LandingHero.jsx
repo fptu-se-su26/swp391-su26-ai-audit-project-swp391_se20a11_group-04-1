@@ -65,7 +65,7 @@ const LandingHero = () => {
         </div>
 
         <style>{`
-            .htrust { position: relative; display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; margin: 8px auto 64px; padding: 11px 26px; max-width: fit-content; border-radius: 100px; background: rgba(255,255,255,.7); border: 1px solid rgba(30,112,125,.16); box-shadow: 0 6px 24px rgba(30,112,125,.08); backdrop-filter: blur(8px); }
+            .htrust { position: relative; display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; margin: 8px auto 64px; padding: 11px 26px; max-width: fit-content; border-radius: 100px; background: rgba(var(--bg-rgb), .7); border: 1px solid rgba(30,112,125,.16); box-shadow: 0 6px 24px rgba(30,112,125,.08); backdrop-filter: blur(8px); }
             .htrust-line { position: absolute; inset: -1px; border-radius: 100px; background: linear-gradient(90deg,transparent,rgba(34,197,212,.5),transparent); background-size: 200% 100%; opacity: .5; filter: blur(6px); z-index: -1; animation: htrustFlow 3.5s linear infinite; }
             @keyframes htrustFlow { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
             .htrust-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--g600); padding: 0 14px; white-space: nowrap; }
@@ -86,7 +86,7 @@ const LandingHero = () => {
             .hpc-track { width: 2px; height: 100%; background: linear-gradient(180deg, transparent, rgba(30,112,125,.15) 20%, rgba(30,112,125,.15) 80%, transparent); position: relative; overflow: hidden; border-radius: 2px; }
             .hpc-drop { position: absolute; top: -20px; left: 0; width: 2px; height: 20px; background: linear-gradient(180deg, transparent, #22c5d4); animation: hpcDrop 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
             @keyframes hpcDrop { 0% { top: -20px; opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
-            .hpc-arrow { position: absolute; bottom: -8px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.7); backdrop-filter: blur(10px); border: 1px solid rgba(34, 197, 212, 0.4); color: #1E707D; box-shadow: 0 4px 16px rgba(34, 197, 212, 0.25), inset 0 0 8px rgba(255,255,255,1); animation: hpcArrowBounce 2s ease-in-out infinite; }
+            .hpc-arrow { position: absolute; bottom: -8px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(var(--bg-rgb), .7); backdrop-filter: blur(10px); border: 1px solid rgba(34, 197, 212, 0.4); color: #1E707D; box-shadow: 0 4px 16px rgba(34, 197, 212, 0.25), inset 0 0 8px rgba(var(--bg-rgb), 1); animation: hpcArrowBounce 2s ease-in-out infinite; }
             .hpc-arrow svg { animation: hpcPulseIcon 2s ease-in-out infinite; }
             @keyframes hpcPulseIcon { 0%, 100% { opacity: 0.7; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); color: #22c5d4; } }
             @keyframes hpcArrowBounce { 0%,100% { transform: translateY(0) } 50% { transform: translateY(6px) } }
@@ -184,3 +184,4 @@ const LandingHero = () => {
 };
 
 export default LandingHero;
+

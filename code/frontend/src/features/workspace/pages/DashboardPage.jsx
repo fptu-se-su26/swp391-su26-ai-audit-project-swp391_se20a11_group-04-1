@@ -61,6 +61,7 @@ export function DashboardPage() {
   // Trạng thái modal đóng project
   const [isClosureModalOpen, setIsClosureModalOpen] = useState(false)
   const [reopening, setReopening] = useState(false)
+  const [exportingTracking, setExportingTracking] = useState(false)
 
   // Trạng thái modal và form tạo dự án mới
   const [isModalOpen, setIsModalOpen] = useState(false)

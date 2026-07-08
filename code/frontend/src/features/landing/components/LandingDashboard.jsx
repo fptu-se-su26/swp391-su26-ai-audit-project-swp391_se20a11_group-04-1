@@ -3,7 +3,7 @@ import React from 'react';
 const LandingDashboard = () => {
   return (
     <>
-<section id="dashboard" className="tint-b" style={{"padding":"72px 56px","background":"#fff","overflow":"hidden"}}>
+<section id="dashboard" className="tint-b" style={{"padding":"72px 56px","background":"var(--bg)","overflow":"hidden"}}>
                         <div className="wrap">
                             <div style={{"display":"flex","justifyContent":"space-between","alignItems":"flex-end"}}>
                                 <div><div className="s-eye sr"><div className="s-el"></div></div><div className="sb sr">🖥 Live Dashboard</div><h2 className="st sr">Project health<br /><span style={{"color":"var(--t)"}}>at a glance</span></h2></div>
@@ -25,3 +25,4 @@ const LandingDashboard = () => {
 };
 
 export default LandingDashboard;
+

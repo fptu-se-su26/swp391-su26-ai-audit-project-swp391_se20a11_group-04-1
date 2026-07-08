@@ -3,7 +3,7 @@ import React from 'react';
 const LandingCodeInsight = () => {
   return (
     <>
-      <section id="codeinsight" className="tint-a" style={{"padding":"72px 56px","background":"#fff"}}>
+      <section id="codeinsight" className="tint-a" style={{"padding":"72px 56px","background":"var(--bg)"}}>
           <div className="wrap">
               <div style={{"display":"grid","gridTemplateColumns":"1fr 1.1fr","gap":"64px","alignItems":"center"}}>
                   <div className="sr">
@@ -89,3 +89,4 @@ const LandingCodeInsight = () => {
 };
 
 export default LandingCodeInsight;
+

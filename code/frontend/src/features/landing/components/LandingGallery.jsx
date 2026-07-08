@@ -155,3 +155,4 @@ const LandingGallery = () => {
 };
 
 export default LandingGallery;
+
