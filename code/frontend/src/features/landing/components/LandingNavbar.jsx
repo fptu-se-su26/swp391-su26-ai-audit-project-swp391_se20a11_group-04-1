@@ -11,6 +11,11 @@ const LandingNavbar = () => {
       setIsDark(true);
       document.body.classList.add('landing-dark');
     }
+
+    // Cleanup: Remove the class when leaving the landing page so it doesn't affect the internal app
+    return () => {
+      document.body.classList.remove('landing-dark');
+    };
   }, []);
 
   const toggleDark = (e) => {
