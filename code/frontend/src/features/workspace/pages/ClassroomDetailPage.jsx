@@ -79,7 +79,7 @@ export default function ClassroomDetailPage() {
     setConfirmConfig({
       isOpen: true,
       action: 'REMOVE_STUDENT',
-      title: 'Xóa sinh viên',
+      title: 'Remove student',
       message: `Are you sure you want to remove ${studentName} from this class?`,
       payload: studentId
     })
@@ -106,7 +106,7 @@ export default function ClassroomDetailPage() {
 
   const handleRandomGroups = async () => {
     if (membersPerGroup < 1) {
-      toast.error('Số thành viên mỗi nhóm phải lớn hơn 0.');
+      toast.error('Number of members per group must be greater than 0.');
       return;
     }
 
@@ -115,16 +115,16 @@ export default function ClassroomDetailPage() {
         setConfirmConfig({
           isOpen: true,
           action: 'RANDOM_GROUPS',
-          title: 'Xác nhận tạo nhóm',
-          message: "CẢNH BÁO: Bạn đã chọn 'Ghi đè nhóm hiện tại'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?"
+          title: 'Confirm Group Creation',
+          message: "WARNING: You selected 'Overwrite current groups'.\nHệ thống sẽ bổ sung sinh viên mới vào các nhóm cũ đang thiếu người.\nBạn có chắc chắn muốn tiếp tục?"
         });
         return;
       } else {
         setConfirmConfig({
           isOpen: true,
           action: 'RANDOM_GROUPS',
-          title: 'Xác nhận tạo nhóm',
-          message: "Bạn KHÔNG chọn 'Ghi đè'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?"
+          title: 'Confirm Group Creation',
+          message: "You did NOT select 'Overwrite'.\nHệ thống sẽ mặc kệ các nhóm cũ và chỉ tạo thêm các nhóm mới toanh.\nBạn có chắc chắn muốn tiếp tục?"
         });
         return;
       }
@@ -138,11 +138,11 @@ export default function ClassroomDetailPage() {
     try {
       setIsRandomizing(true);
       await axiosClient.post(`/v1/classrooms/${classroomId}/random-groups`, { membersPerGroup, isOverwrite });
-      toast.success('Phân nhóm ngẫu nhiên thành công!');
+      toast.success('Random grouping completed successfully!');
       setIsRandomGroupModalOpen(false);
       fetchClassroom();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi phân nhóm.');
+      toast.error(err.response?.data?.message || 'An error occurred during grouping.');
     } finally {
       setIsRandomizing(false);
     }
@@ -152,8 +152,8 @@ export default function ClassroomDetailPage() {
     setConfirmConfig({
       isOpen: true,
       action: 'CLEAR_GROUPS',
-      title: 'Giải tán nhóm',
-      message: "Bạn có chắc chắn muốn giải tán toàn bộ nhóm trong lớp học này? Hành động này không thể hoàn tác."
+      title: 'Dissolve Groups',
+      message: "Are you sure you want to dissolve all groups in this classroom? This action cannot be undone."
     })
   }
 
@@ -161,10 +161,10 @@ export default function ClassroomDetailPage() {
     try {
       setIsClearing(true);
       await axiosClient.delete(`/v1/classrooms/${classroomId}/groups`);
-      toast.success('Giải tán toàn bộ nhóm thành công!');
+      toast.success('All groups dissolved successfully!');
       fetchClassroom();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi giải tán nhóm.');
+      toast.error(err.response?.data?.message || 'An error occurred while dissolving groups.');
     } finally {
       setIsClearing(false);
     }
@@ -176,10 +176,10 @@ export default function ClassroomDetailPage() {
       if (data.success && data.data) {
         const inviteLink = `${window.location.origin}/classrooms/join?token=${data.data}`;
         await navigator.clipboard.writeText(inviteLink);
-        toast.success('Đã copy link mời vào clipboard!');
+        toast.success('Copied invite link to clipboard!');
       }
     } catch (err) {
-      toast.error('Có lỗi xảy ra khi lấy link mời.');
+      toast.error('An error occurred while retrieving the invite link.');
     }
   }
 
@@ -187,10 +187,10 @@ export default function ClassroomDetailPage() {
     e.stopPropagation();
     try {
       await axiosClient.post(`/v1/projects/${projectId}/join`);
-      toast.success('Đã tham gia nhóm thành công!');
+      toast.success('Joined group successfully!');
       fetchClassroom();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi tham gia nhóm.');
+      toast.error(err.response?.data?.message || 'An error occurred while joining the group.');
     }
   }
 
@@ -208,7 +208,7 @@ export default function ClassroomDetailPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm text-center">
           <p className="text-rose-500 mb-4">{error}</p>
           <button onClick={() => navigate('/classrooms')} className="text-sky-600 font-bold hover:underline">
-            Quay lại danh sách
+            Back to list
           </button>
         </div>
       </div>
@@ -269,7 +269,7 @@ export default function ClassroomDetailPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-[#1E707D] hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
-                  Tạo dự án thủ công
+                  Create project manually
                 </button>
               )}
               {isStudentWithoutGroup && (
@@ -278,7 +278,7 @@ export default function ClassroomDetailPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-[#1E707D] hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
-                  Tạo dự án thủ công
+                  Create project manually
                 </button>
               )}
             </div>
@@ -351,7 +351,7 @@ export default function ClassroomDetailPage() {
                           onClick={(e) => handleJoinProject(project.id, e)}
                           className="px-3 py-1 bg-[#1E707D]/10 hover:bg-[#1E707D] text-[#1E707D] hover:text-white text-xs font-bold rounded-lg transition-colors border border-indigo-100"
                         >
-                          Tham gia
+                          Join
                         </button>
                       ) : (
                         <span className="text-[10px] text-slate-400 font-medium">Updated recently</span>
@@ -378,14 +378,14 @@ export default function ClassroomDetailPage() {
                     className="bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-lg">delete_sweep</span>
-                    {isClearing ? 'Đang giải tán...' : 'Giải tán nhóm'}
+                    {isClearing ? 'Dissolving...' : 'Dissolve groups'}
                   </button>
                   <button
                     onClick={() => setIsRandomGroupModalOpen(true)}
                     className="bg-[#1E707D]/10 text-[#1E707D] hover:bg-indigo-100 px-4 py-2 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-lg">shuffle</span>
-                    Phân lớp ngẫu nhiên
+                    Random grouping
                   </button>
                 </div>
               )}
@@ -476,7 +476,7 @@ export default function ClassroomDetailPage() {
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-200">
                                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                                  Chưa tham gia
+                                  Not joined
                                 </span>
                               )}
                             </div>
@@ -484,7 +484,7 @@ export default function ClassroomDetailPage() {
                               <button 
                                 onClick={(e) => handleRemoveStudent(member.id, member.fullName, e)}
                                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-4 shrink-0"
-                                title="Xóa học sinh khỏi lớp"
+                                title="Remove student from class"
                               >
                                 <span className="material-symbols-outlined text-[18px]">delete</span>
                               </button>
@@ -496,7 +496,7 @@ export default function ClassroomDetailPage() {
                     {(!data.members || data.members.length === 0) && (
                       <tr>
                         <td colSpan="4" className="px-6 py-10 text-center text-slate-500">
-                          Chưa có sinh viên nào tham gia lớp học này.
+                          No students have joined this classroom yet.
                         </td>
                       </tr>
                     )}
@@ -518,8 +518,8 @@ export default function ClassroomDetailPage() {
         {activeTab !== 'projects' && activeTab !== 'members' && activeTab !== 'resources' && activeTab !== 'announcements' && activeTab !== 'dashboard' && (
           <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
             <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">construction</span>
-            <h3 className="font-bold text-slate-600">Tab này đang được xây dựng</h3>
-            <p className="text-sm text-slate-400 mt-1">Các tính năng khác sẽ được cập nhật sớm.</p>
+            <h3 className="font-bold text-slate-600">This tab is under construction</h3>
+            <p className="text-sm text-slate-400 mt-1">Other features will be updated soon.</p>
           </div>
         )}
       </div>
@@ -534,7 +534,7 @@ export default function ClassroomDetailPage() {
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#1E707D]">shuffle</span>
-                Phân lớp ngẫu nhiên
+                Random Grouping
               </h3>
               <button 
                 onClick={() => setIsRandomGroupModalOpen(false)}
@@ -546,11 +546,11 @@ export default function ClassroomDetailPage() {
             
             <div className="p-6 space-y-4">
               <p className="text-sm text-slate-600">
-                Nhập số thành viên cho mỗi nhóm. Hệ thống sẽ tự động ghép những sinh viên chưa có nhóm vào các nhóm chưa đủ người, sau đó tạo thêm nhóm mới cho những bạn còn lại.
+                Enter the number of members per group. The system will automatically assign students without groups to under-capacity groups, then create new groups for the remaining students.
               </p>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Số lượng thành viên / nhóm
+                  Members per group
                 </label>
                 <input 
                   type="number" 
@@ -573,10 +573,10 @@ export default function ClassroomDetailPage() {
                 </div>
                 <div className="text-sm">
                   <label htmlFor="isOverwrite" className="font-semibold text-indigo-900 cursor-pointer">
-                    Ghi đè nhóm hiện tại
+                    Overwrite current groups
                   </label>
                   <p className="text-[#1E707D]/80 mt-0.5">
-                    Nếu chọn, hệ thống sẽ thêm sinh viên vào các nhóm chưa đủ người trước khi tạo nhóm mới. Nếu không chọn, hệ thống sẽ bỏ qua các nhóm cũ và chỉ tạo nhóm mới cho sinh viên.
+                    If selected, the system will add students to under-capacity groups before creating new groups. If not selected, the system will ignore existing groups and only create new groups for unassigned students.
                   </p>
                 </div>
               </div>
@@ -588,7 +588,7 @@ export default function ClassroomDetailPage() {
                 className="px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
                 disabled={isRandomizing}
               >
-                Hủy
+                Cancel
               </button>
               <button 
                 onClick={handleRandomGroups}
@@ -598,12 +598,12 @@ export default function ClassroomDetailPage() {
                 {isRandomizing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Đang phân nhóm...
+                    Grouping...
                   </>
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-[18px]">magic_button</span>
-                    Tiến hành phân nhóm
+                    Proceed Grouping
                   </>
                 )}
               </button>
@@ -616,8 +616,8 @@ export default function ClassroomDetailPage() {
         isOpen={confirmConfig.isOpen}
         title={confirmConfig.title}
         message={confirmConfig.message}
-        confirmText="Đồng ý"
-        cancelText="Hủy"
+        confirmText="Confirm"
+        cancelText="Cancel"
         onConfirm={() => {
           if (confirmConfig.action === 'REMOVE_STUDENT') {
             executeRemoveStudent(confirmConfig.payload)

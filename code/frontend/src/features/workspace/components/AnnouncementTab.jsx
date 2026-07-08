@@ -55,11 +55,11 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
     try {
       setIsCreating(true);
       await announcementApi.createAnnouncement(classroomId, formData.title, formData.content, formData.file);
-      toast.success('Đăng thông báo thành công!');
+      toast.success('Announcement posted successfully!');
       setIsModalOpen(false);
       fetchAnnouncements(); // refresh list
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi đăng thông báo');
+      toast.error(error.response?.data?.message || 'An error occurred while posting the announcement');
     } finally {
       setIsCreating(false);
     }
@@ -67,7 +67,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
 
   const handleDownload = async (announcement) => {
     try {
-      const toastId = toast.loading('Đang tải file...');
+      const toastId = toast.loading('Downloading file...');
       const response = await announcementApi.downloadAnnouncementAttachment(classroomId, announcement.id);
       
       const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
@@ -90,11 +90,11 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Tải file thành công', { id: toastId });
+      toast.success('File downloaded successfully', { id: toastId });
     } catch (error) {
       console.error('Download error:', error);
       toast.dismiss();
-      toast.error('Có lỗi xảy ra khi tải file. Vui lòng thử lại sau.');
+      toast.error('An error occurred while downloading the file. Please try again later.');
     }
   };
 
@@ -111,7 +111,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Class Announcements</h2>
-          <p className="text-sm text-slate-500 mt-1">Thông báo quan trọng từ giảng viên/mentor</p>
+          <p className="text-sm text-slate-500 mt-1">Important announcements from instructor/mentor</p>
         </div>
         {isOwner && (
           <button 
@@ -119,7 +119,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
             className="bg-[#0284c7] hover:bg-[#0369a1] text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-sm shadow-sky-900/20 flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
-            Đăng thông báo
+            Post announcement
           </button>
         )}
       </div>
@@ -129,14 +129,14 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
           <div className="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-sky-100">
             <span className="material-symbols-outlined text-3xl text-sky-400">campaign</span>
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-1">Chưa có thông báo nào</h3>
-          <p className="text-sm text-slate-500">Các thông báo mới từ Mentor sẽ hiển thị ở đây.</p>
+          <h3 className="text-lg font-bold text-slate-800 mb-1">No announcements yet</h3>
+          <p className="text-sm text-slate-500">New announcements from Mentor will be displayed here.</p>
         </div>
       ) : (
         <div className="space-y-8">
           {Object.entries(
             announcements.reduce((groups, ann) => {
-              const date = new Date(ann.createdAt).toLocaleDateString('vi-VN', {
+              const date = new Date(ann.createdAt).toLocaleDateString('en-US', {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
               });
               if (!groups[date]) groups[date] = [];
@@ -161,7 +161,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
                           <div>
                             <h4 className="font-bold text-slate-800 text-lg leading-tight">{ann.title}</h4>
                             <p className="text-xs text-slate-500 font-medium">
-                              {ann.senderName} • {new Date(ann.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {ann.senderName} • {new Date(ann.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
@@ -175,7 +175,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
                               className="inline-flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
                             >
                               <span className="material-symbols-outlined text-[18px] text-rose-500">picture_as_pdf</span>
-                              Xem tài liệu đính kèm
+                              View attached document
                             </button>
                           </div>
                         )}

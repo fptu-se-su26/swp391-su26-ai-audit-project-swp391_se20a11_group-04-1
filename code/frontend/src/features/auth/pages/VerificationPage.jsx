@@ -102,9 +102,9 @@ function VerificationPage() {
       if (selectedFile.type.startsWith('image/')) {
         setFile(selectedFile)
         setPreviewUrl(URL.createObjectURL(selectedFile))
-        toast.success(`Đã chọn tệp: ${selectedFile.name}`)
+        toast.success(`Selected file: ${selectedFile.name}`)
       } else {
-        toast.error('Chỉ hỗ trợ tệp ảnh (JPG, PNG, GIF)!')
+        toast.error('Only image files are supported (JPG, PNG, GIF)!')
       }
     }
   }
@@ -115,7 +115,7 @@ function VerificationPage() {
       const selectedFile = files[0]
       setFile(selectedFile)
       setPreviewUrl(URL.createObjectURL(selectedFile))
-      toast.success(`Đã chọn tệp: ${selectedFile.name}`)
+      toast.success(`Selected file: ${selectedFile.name}`)
     }
   }
 
@@ -126,7 +126,7 @@ function VerificationPage() {
   const handleFormSubmit = async (e) => {
     e.preventDefault()
     if (!file) {
-      toast.error('Vui lòng tải lên ảnh thẻ giảng viên!')
+      toast.error('Please upload your lecturer card image!')
       return
     }
 
@@ -152,10 +152,10 @@ function VerificationPage() {
         currentAuth.fullName,
         'PENDING'
       )
-      toast.success('Gửi yêu cầu xác minh thành công! Đang chờ duyệt.')
+      toast.success('Verification request submitted successfully! Pending approval.')
     } catch (error) {
       console.error('Upload error:', error)
-      toast.error(error.response?.data?.error || 'Tải ảnh thất bại. Vui lòng kiểm tra lại.')
+      toast.error(error.response?.data?.error || 'Failed to upload image. Please check and try again.')
     } finally {
       setLoading(false)
     }
@@ -181,10 +181,10 @@ function VerificationPage() {
       setFile(null)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
-      toast.success('Đã hoàn tác về trạng thái chưa xác minh.')
+      toast.success('Reverted to unverified status.')
     } catch (error) {
       console.error('Cancel request error:', error)
-      toast.error(error.response?.data?.error || 'Có lỗi khi hoàn tác. Vui lòng thử lại.')
+      toast.error(error.response?.data?.error || 'Error reverting status. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -204,10 +204,10 @@ function VerificationPage() {
         {/* Tiêu đề & Mô tả */}
         <div className="relative z-10 mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] bg-clip-text text-transparent mb-3 tracking-tight">
-            Xác Minh Giảng Viên / Đối Tác
+            Lecturer / Partner Verification
           </h1>
           <p className="text-[15px] text-on-surface-variant/80 max-w-2xl leading-relaxed">
-            Để mở khóa các tính năng nâng cao, vui lòng tải lên hình ảnh thẻ nhân viên hoặc thẻ giảng viên của bạn. Thông tin sẽ được bảo mật và xử lý nhanh chóng.
+            To unlock advanced features, please upload an image of your employee card or lecturer card. Your information will be kept confidential and processed quickly.
           </p>
         </div>
 
@@ -222,15 +222,15 @@ function VerificationPage() {
                   <span className="material-symbols-outlined text-2xl animate-pulse">hourglass_top</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-[#0ea5e9]">Đang xử lý xác minh</h3>
-                  <p className="text-sm text-on-surface-variant/80 mt-1">Hồ sơ xác minh của bạn đang được duyệt bởi hệ thống Admin. Quá trình này có thể mất một chút thời gian.</p>
+                  <h3 className="font-semibold text-[#0ea5e9]">Verification Pending</h3>
+                  <p className="text-sm text-on-surface-variant/80 mt-1">Your verification profile is being reviewed by the Admin. This process may take some time.</p>
                 </div>
               </div>
               <button 
                 onClick={resetRequest}
                 className="shrink-0 px-5 py-2 bg-surface-container hover:bg-[#0ea5e9]/10 text-[#0ea5e9] border border-outline-variant hover:border-[#0ea5e9]/30 rounded-lg text-sm font-medium transition-all duration-200 shadow-sm hover:shadow active:scale-95"
               >
-                Hủy & Gửi lại
+                Cancel & Resubmit
               </button>
             </div>
           </div>
@@ -244,12 +244,12 @@ function VerificationPage() {
                   <span className="material-symbols-outlined text-2xl font-bold">verified</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-emerald-600 dark:text-emerald-400">Xác minh thành công</h3>
-                  <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80 mt-1">Chúc mừng! Tài khoản của bạn đã được nâng cấp làm Giảng viên/Đối tác.</p>
+                  <h3 className="font-semibold text-emerald-600 dark:text-emerald-400">Verification Successful</h3>
+                  <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80 mt-1">Congratulations! Your account has been upgraded to Lecturer/Partner.</p>
                   {expiryDate && (
                     <p className="text-xs text-emerald-600/90 dark:text-emerald-400/90 mt-1 flex items-center gap-1 font-medium">
                       <span className="material-symbols-outlined text-sm">calendar_today</span>
-                      Hiệu lực đến: {expiryDate}
+                      Valid until: {expiryDate}
                     </p>
                   )}
                 </div>
@@ -266,15 +266,15 @@ function VerificationPage() {
                   <span className="material-symbols-outlined text-2xl font-bold">error</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-red-600 dark:text-red-400">Yêu cầu bị từ chối</h3>
-                  <p className="text-sm text-red-700/80 dark:text-red-300/80 mt-1">Lý do: {cancelMessage || 'Ảnh thẻ không rõ nét, bị mờ hoặc không hợp lệ. Vui lòng chụp lại ảnh khác rõ ràng hơn.'}</p>
+                  <h3 className="font-semibold text-red-600 dark:text-red-400">Request Rejected</h3>
+                  <p className="text-sm text-red-700/80 dark:text-red-300/80 mt-1">Reason: {cancelMessage || 'The card image is not clear, blurry, or invalid. Please upload another clear image.'}</p>
                 </div>
               </div>
               <button 
                 onClick={resetRequest}
                 className="shrink-0 px-5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/20 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95"
               >
-                Gửi lại yêu cầu
+                Resubmit Request
               </button>
             </div>
           </div>
@@ -290,7 +290,7 @@ function VerificationPage() {
                     <span className="material-symbols-outlined text-xl font-bold">warning</span>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-amber-600 dark:text-amber-400 text-sm">Thông báo thay đổi quyền hạn</h4>
+                    <h4 className="font-semibold text-amber-600 dark:text-amber-400 text-sm">Permission Change Notice</h4>
                     <p className="text-xs text-amber-700/95 dark:text-amber-300/95 mt-1 leading-relaxed">{cancelMessage}</p>
                   </div>
                 </div>
@@ -300,7 +300,7 @@ function VerificationPage() {
             {/* Vùng tải lên ảnh thẻ */}
             <div className="relative z-10">
               <label className="block text-sm font-semibold text-on-surface mb-3">
-                Khu vực tải lên tài liệu <span className="text-red-500">*</span>
+                Document Upload Area <span className="text-red-500">*</span>
               </label>
             <div
               onDragOver={handleDragOver}
@@ -328,10 +328,10 @@ function VerificationPage() {
                     <span className="material-symbols-outlined text-3xl">cloud_upload</span>
                   </div>
                   <p className="font-semibold text-base text-on-surface mb-2 transition-colors group-hover:text-[#0ea5e9]">
-                    Kéo thả ảnh vào đây hoặc nhấp để tải lên
+                    Drag and drop image here or click to upload
                   </p>
                   <p className="text-sm text-on-surface-variant/70">
-                    Chỉ hỗ trợ file ảnh: JPG, PNG, GIF (Tối đa 5MB)
+                    Only image files supported: JPG, PNG, GIF (Max 5MB)
                   </p>
                 </>
               )}
@@ -341,7 +341,7 @@ function VerificationPage() {
                     <img src={previewUrl} alt="Preview" className="h-auto max-h-[280px] w-auto object-contain rounded-xl shadow-lg border border-outline-variant/30 transition-transform duration-300 group-hover/image:scale-[1.02]" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 rounded-xl flex items-center justify-center backdrop-blur-[2px]">
                       <span className="text-white flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full text-sm font-medium">
-                        <span className="material-symbols-outlined text-lg">edit</span> Thay đổi ảnh
+                        <span className="material-symbols-outlined text-lg">edit</span> Change Image
                       </span>
                     </div>
                   </div>
@@ -371,11 +371,11 @@ function VerificationPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2 text-white/90">
                   <span className="material-symbols-outlined text-[18px] animate-pulse">hourglass_empty</span>
-                  Đang xử lý...
+                  Processing...
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  Gửi Yêu Cầu <span className="material-symbols-outlined text-[18px]">send</span>
+                  Submit Request <span className="material-symbols-outlined text-[18px]">send</span>
                 </span>
               )}
             </button>
@@ -384,7 +384,7 @@ function VerificationPage() {
         ) : (
           <div className="space-y-4">
             <label className="block text-sm font-semibold text-on-surface mb-3">
-              Tài liệu đã gửi
+              Submitted Documents
             </label>
             <div className="border border-outline-variant/30 rounded-2xl p-6 bg-surface-container-lowest flex flex-col items-center">
               {imageBlobUrl || previewUrl ? (
@@ -395,7 +395,7 @@ function VerificationPage() {
                 />
               ) : (
                 <div className="text-on-surface-variant flex items-center gap-2 py-10">
-                  <span className="material-symbols-outlined animate-spin">refresh</span> Đang tải tài liệu...
+                  <span className="material-symbols-outlined animate-spin">refresh</span> Loading documents...
                 </div>
               )}
             </div>
@@ -406,7 +406,7 @@ function VerificationPage() {
         <div className="mt-8 pt-6 border-t border-outline-variant/30 flex items-start gap-3">
           <span className="material-symbols-outlined text-[#0ea5e9]/70 text-xl shrink-0 mt-0.5">info</span>
           <p className="text-[13px] text-on-surface-variant/70 leading-relaxed">
-            <strong className="text-on-surface-variant/90">Thông tin bảo mật:</strong> Dữ liệu của bạn được mã hóa an toàn. Thời gian xử lý xác minh thường từ 1-3 ngày làm việc. Chúng tôi sẽ gửi thông báo qua hệ thống khi quá trình xác minh hoàn tất.
+            <strong className="text-on-surface-variant/90">Security Information:</strong> Your data is securely encrypted. Verification processing time is usually 1-3 business days. We will send a system notification when the verification process is complete.
           </p>
         </div>
 

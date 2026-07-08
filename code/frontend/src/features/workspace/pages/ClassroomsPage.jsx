@@ -175,13 +175,13 @@ export default function ClassroomsPage() {
   const createMutation = useMutation({
     mutationFn: (data) => classroomApi.createClassroom(data),
     onSuccess: () => {
-      toast.success('Tạo lớp học thành công!');
+      toast.success('Classroom created successfully!');
       setIsCreateModalOpen(false);
       setNewClassroom({ ...newClassroom, subjectCode: '', classCode: '' });
       queryClient.invalidateQueries(['classrooms']);
     },
     onError: (error) => {
-      const message = error.response?.data?.message || 'Có lỗi xảy ra khi tạo lớp học';
+      const message = error.response?.data?.message || 'An error occurred while creating the classroom';
       toast.error(message);
     }
   });
@@ -191,7 +191,7 @@ export default function ClassroomsPage() {
   const handleCopyInviteLink = (classroom) => {
     const realLink = `${window.location.origin}/classrooms/join?token=${classroom.realToken}`
     navigator.clipboard.writeText(realLink).then(() => {
-      toast.success('Đã sao chép link mời vào clipboard!')
+      toast.success('Copied invite link to clipboard!')
     })
     setInviteLinkModal(null)
   }
@@ -206,13 +206,13 @@ export default function ClassroomsPage() {
         setInviteLinkModal({ ...classroom, realToken: data.data });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Chỉ người tạo lớp học mới có quyền tạo link mời.');
+      toast.error(error.response?.data?.message || 'Only the classroom creator can generate invite links.');
     }
   }
 
   const handleCreateClassroom = () => {
     if (!newClassroom.subjectCode || !newClassroom.classCode) {
-      toast.error('Vui lòng nhập đầy đủ tên môn học và mã lớp!');
+      toast.error('Please enter the subject code and class code!');
       return;
     }
 
@@ -255,7 +255,7 @@ export default function ClassroomsPage() {
               My Classrooms
             </h1>
             <p className="text-on-surface-variant text-sm mt-1">
-              Quản lý các lớp học, xem danh sách thành viên và theo dõi tiến độ nhóm.
+              Manage classrooms, view member lists, and track group progress.
             </p>
           </div>
           {canCreateClassroom && (
@@ -361,13 +361,13 @@ export default function ClassroomsPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-10 h-10 border-4 border-[#1E707D]/20 border-t-primary rounded-full animate-spin mb-4"></div>
-            <p className="text-on-surface-variant font-medium">Đang tải danh sách lớp học...</p>
+            <p className="text-on-surface-variant font-medium">Loading classroom list...</p>
           </div>
         ) : filteredClassrooms.length === 0 ? (
           <div className="py-20 text-center bg-surface-container-lowest rounded-2xl border border-outline-variant/60 shadow-sm">
             <span className="material-symbols-outlined text-5xl text-outline mb-3">school</span>
-            <h3 className="font-bold text-base text-on-surface">Không tìm thấy lớp học nào</h3>
-            <p className="text-xs text-on-surface-variant mt-1">Thử thay đổi bộ lọc hoặc tạo lớp học mới.</p>
+            <h3 className="font-bold text-base text-on-surface">No classrooms found</h3>
+            <p className="text-xs text-on-surface-variant mt-1">Try changing the filters or create a new classroom.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -504,8 +504,8 @@ export default function ClassroomsPage() {
             <div className="flex items-center gap-2 text-xs text-on-surface-variant px-4 py-2 rounded-full bg-surface-container-lowest border border-outline-variant/40">
               <span className="material-symbols-outlined text-sm text-[#1E707D]">check_circle</span>
               <span>
-                Hiển thị <span className="font-bold text-on-surface">{filteredClassrooms.length}</span> trên{' '}
-                <span className="font-bold text-on-surface">{totalClassrooms}</span> lớp học
+                Showing <span className="font-bold text-on-surface">{filteredClassrooms.length}</span> of{' '}
+                <span className="font-bold text-on-surface">{totalClassrooms}</span> classrooms
               </span>
             </div>
           </div>
@@ -535,7 +535,7 @@ export default function ClassroomsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-outline">
-                    {newClassroom.semester === 'PERSONAL' ? 'Tên Dự Án' : 'Mã Môn Học'} <span className="text-red-500">*</span>
+                    {newClassroom.semester === 'PERSONAL' ? 'Project Name' : 'Subject Code'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -548,7 +548,7 @@ export default function ClassroomsPage() {
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-outline">
-                    {newClassroom.semester === 'PERSONAL' ? 'Tên Lớp/Nhóm' : 'Mã Lớp'} <span className="text-red-500">*</span>
+                    {newClassroom.semester === 'PERSONAL' ? 'Group Name' : 'Class Code'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -564,7 +564,7 @@ export default function ClassroomsPage() {
                 <div className="bg-[#1E707D]/5 border border-[#1E707D]/20 rounded-xl p-3 flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#1E707D] text-xl shrink-0">info</span>
                   <p className="text-xs text-on-surface-variant leading-relaxed">
-                    Tên lớp sẽ được lưu: <br />
+                    Classroom name to be saved: <br />
                     <span className="font-bold text-[#1E707D] mt-1 block text-sm">
                       {newClassroom.semester === 'PERSONAL' 
                         ? `${newClassroom.subjectCode} - ${newClassroom.classCode}`
@@ -585,7 +585,7 @@ export default function ClassroomsPage() {
                     onChange={(e) => {
                       const selected = e.target.value;
                       if (selected !== 'PERSONAL' && selected !== defaultSemester) {
-                        toast.error(`Bạn chỉ có thể tạo lớp cho học kỳ hiện tại (${defaultSemester}) hoặc PERSONAL.`);
+                        toast.error(`You can only create classrooms for the current semester (${defaultSemester}) or PERSONAL.`);
                         setNewClassroom({ ...newClassroom, semester: defaultSemester });
                       } else {
                         setNewClassroom({ ...newClassroom, semester: selected });
@@ -629,7 +629,7 @@ export default function ClassroomsPage() {
                   max={50}
                   className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
                 />
-                <p className="text-[10px] text-on-surface-variant">Giới hạn số sinh viên tối đa trong lớp (5-50).</p>
+                <p className="text-[10px] text-on-surface-variant">Maximum member limit (5-50).</p>
               </div>
 
               {/* Footer */}
@@ -676,7 +676,7 @@ export default function ClassroomsPage() {
 
             <div className="p-6 space-y-4">
               <p className="text-sm text-on-surface-variant">
-                Chia sẻ link bên dưới để mời sinh viên tham gia lớp <strong className="text-on-surface">{inviteLinkModal.subject} - {inviteLinkModal.semester}</strong>.
+                Share the link below to invite students to join classroom <strong className="text-on-surface">{inviteLinkModal.subject} - {inviteLinkModal.semester}</strong>.
               </p>
 
               <div className="flex items-center gap-2">
@@ -693,7 +693,7 @@ export default function ClassroomsPage() {
 
               <div className="flex items-center gap-2 text-[10px] text-emerald-600 bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
                 <span className="material-symbols-outlined text-sm">check_circle</span>
-                <span>Link mời này đã được tạo từ hệ thống.</span>
+                <span>This invite link has been generated by the system.</span>
               </div>
             </div>
           </div>
@@ -748,7 +748,7 @@ export default function ClassroomsPage() {
                 </h4>
                 {expandedClassroom.status !== 'ARCHIVED' && (
                   <button
-                    onClick={() => toast.success('Chức năng quản lý thành viên sẽ được kích hoạt sau!')}
+                    onClick={() => toast.success('Member management will be activated later!')}
                     className="text-xs font-bold text-[#1E707D] hover:text-[#165964] flex items-center gap-1 transition-colors"
                   >
                     <span className="material-symbols-outlined text-sm">person_add</span>
@@ -760,7 +760,7 @@ export default function ClassroomsPage() {
               {expandedClassroom.members.length === 0 ? (
                 <div className="text-center py-10 text-on-surface-variant">
                   <span className="material-symbols-outlined text-4xl text-outline mb-2">group_off</span>
-                  <p className="text-xs font-semibold">Không có dữ liệu thành viên chi tiết cho lớp đã lưu trữ.</p>
+                  <p className="text-xs font-semibold">No detailed member data for archived classrooms.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -800,14 +800,14 @@ export default function ClassroomsPage() {
             <div className="px-6 py-4 border-t border-outline-variant/30 flex items-center justify-between shrink-0 bg-surface-container-low/20">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => toast.success('Chức năng Comment sẽ được tích hợp sau!')}
+                  onClick={() => toast.success('Comment function will be integrated later!')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">comment</span>
                   Comments
                 </button>
                 <button
-                  onClick={() => toast.success('Chức năng xuất báo cáo sẽ được tích hợp sau!')}
+                  onClick={() => toast.success('Report export will be integrated later!')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-lowest border border-outline-variant/40 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all"
                 >
                   <span className="material-symbols-outlined text-sm">download</span>
@@ -861,7 +861,7 @@ export default function ClassroomsPage() {
                   <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
                     <span className="material-symbols-outlined text-2xl font-bold">add</span>
                   </div>
-                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">Tạo Lớp</span>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">Create</span>
                 </button>
               </div>
 
@@ -871,14 +871,14 @@ export default function ClassroomsPage() {
                   type="button"
                   onClick={() => {
                     setAssistiveOpen(false);
-                    toast.success('Đã làm mới dữ liệu!');
+                    toast.success('Data refreshed!');
                   }}
                   className="flex flex-col items-center justify-center cursor-pointer group/btn bg-transparent border-0 outline-none"
                 >
                   <div className="w-12 h-12 rounded-full border-2 border-sky-500 text-sky-400 flex items-center justify-center hover:bg-sky-500/10 transition-colors shadow-sm shadow-sky-500/10">
                     <span className="material-symbols-outlined text-2xl font-bold">sync</span>
                   </div>
-                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">Làm mới</span>
+                  <span className="text-[11px] font-bold mt-1 text-slate-300 group-hover/btn:text-white transition-colors">Refresh</span>
                 </button>
               </div>
 
@@ -892,7 +892,7 @@ export default function ClassroomsPage() {
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showStats ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
                     <span className="material-symbols-outlined text-2xl">bar_chart</span>
                   </div>
-                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Thống kê</span>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showStats ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Stats</span>
                 </button>
               </div>
 
@@ -906,7 +906,7 @@ export default function ClassroomsPage() {
                   <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center hover:bg-white/10 transition-all ${showFilters ? 'border-sky-500 text-sky-400 shadow-sm shadow-sky-500/10' : 'border-slate-500 text-slate-300'}`}>
                     <span className="material-symbols-outlined text-2xl">filter_alt</span>
                   </div>
-                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Bộ lọc</span>
+                  <span className={`text-[11px] font-bold mt-1 transition-colors ${showFilters ? 'text-sky-400 font-extrabold' : 'text-slate-300 group-hover/btn:text-white'}`}>Filters</span>
                 </button>
               </div>
             </div>
@@ -917,7 +917,7 @@ export default function ClassroomsPage() {
                 type="button"
                 onClick={() => setAssistiveOpen(false)}
                 className="w-7 h-7 rounded-full bg-slate-400 hover:bg-slate-300 border border-slate-500/50 cursor-pointer shadow-inner transition-colors flex items-center justify-center outline-none"
-                title="Đóng menu"
+                title="Close menu"
               >
                 <div className="w-2.5 h-2.5 rounded-full bg-[#141a24]"></div>
               </button>

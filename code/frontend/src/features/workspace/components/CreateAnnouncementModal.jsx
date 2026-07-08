@@ -22,7 +22,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       if (selectedFile.size > 10 * 1024 * 1024) {
-        toast.error('Kích thước file đính kèm không được vượt quá 10MB');
+        toast.error('Attached file size must not exceed 10MB');
         clearFile();
         return;
       }
@@ -46,7 +46,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <span className="material-symbols-outlined text-[#0284c7]">campaign</span>
-            Tạo thông báo mới
+            Create New Announcement
           </h3>
           <button 
             onClick={onClose}
@@ -59,13 +59,13 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Tiêu đề <span className="text-rose-500">*</span>
+              Title <span className="text-rose-500">*</span>
             </label>
             <input 
               type="text" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Nhập tiêu đề thông báo..."
+              placeholder="Enter announcement title..."
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
               disabled={isCreating}
             />
@@ -73,12 +73,12 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Nội dung <span className="text-rose-500">*</span>
+              Content <span className="text-rose-500">*</span>
             </label>
             <textarea 
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Nội dung thông báo..."
+              placeholder="Announcement content..."
               rows={4}
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none"
               disabled={isCreating}
@@ -87,7 +87,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Đính kèm tài liệu (Tùy chọn)
+              Attach Document (Optional)
             </label>
             <div className="flex items-center gap-3">
               <button 
@@ -97,7 +97,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
                 disabled={isCreating}
               >
                 <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                {file ? 'Thay đổi file' : 'Chọn file'}
+                {file ? 'Change file' : 'Select file'}
               </button>
               <input 
                 type="file" 
@@ -116,7 +116,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
                 </div>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-2">Hỗ trợ PDF, DOC, DOCX, ZIP...</p>
+            <p className="text-xs text-slate-500 mt-2">Supports PDF, DOC, DOCX, ZIP...</p>
           </div>
         </form>
         
@@ -127,7 +127,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
             className="px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
             disabled={isCreating}
           >
-            Hủy
+            Cancel
           </button>
           <button 
             type="button"
@@ -138,12 +138,12 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
             {isCreating ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Đang đăng...
+                Posting...
               </>
             ) : (
               <>
                 <span className="material-symbols-outlined text-[18px]">send</span>
-                Đăng thông báo
+                Post announcement
               </>
             )}
           </button>

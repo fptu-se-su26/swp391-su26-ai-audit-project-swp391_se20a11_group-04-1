@@ -148,7 +148,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
 
     return {
       selectedProjectId: selectedProjectId || null,
-      selectedProjectName: selectedProject?.name || 'Chưa chọn',
+      selectedProjectName: selectedProject?.name || 'Not selected',
       totalMembers: data?.members?.length || 15,
       tasksCompleted: totalTasksCompleted,
       pendingIssues: pendingIssuesCount,
@@ -229,15 +229,15 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
           <span className="material-symbols-outlined text-3xl text-slate-400 font-bold">diversity_3</span>
         </div>
-        <h3 className="text-lg font-bold text-slate-800 mb-1">Chưa có nhóm nào được tạo ra</h3>
+        <h3 className="text-lg font-bold text-slate-800 mb-1">No groups have been created yet</h3>
         <p className="text-sm text-slate-500 max-w-sm mb-6 leading-relaxed">
-          Lớp học này hiện tại chưa có nhóm nào hoạt động. Vui lòng bấm phân lớp ngẫu nhiên hoặc tạo dự án thủ công để bắt đầu.
+          This classroom currently has no active groups. Please perform random grouping or create a project manually to begin.
         </p>
         <button 
           onClick={() => setActiveTab('members')}
           className="bg-[#0b1c30] text-white hover:bg-slate-800 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm"
         >
-          Phân lớp ngẫu nhiên ngay
+          Random grouping now
         </button>
       </div>
     )
@@ -268,7 +268,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
       {/* Dashboard Header */}
       <div>
         <h2 className="text-xl font-bold text-slate-800">Class Dashboard</h2>
-        <p className="text-sm text-slate-500 mt-1">Tổng quan tiến độ và đóng góp của các nhóm</p>
+        <p className="text-sm text-slate-500 mt-1">Overview of group progress and contributions</p>
       </div>
 
       {/* 1. Stat Cards (Overall Classroom Stats) */}
@@ -327,7 +327,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
               <span className="material-symbols-outlined text-[#1E707D] text-lg">assessment</span>
               Team Contribution
             </h3>
-            <span className="text-xs font-semibold text-slate-400">Dữ liệu tuần này</span>
+            <span className="text-xs font-semibold text-slate-400">This week's data</span>
           </div>
 
           <div className="space-y-5">
@@ -348,8 +348,8 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
                       <span className="text-sm font-extrabold text-slate-700">{member.name}</span>
                     </div>
                     <div className="text-right text-[10px] font-extrabold text-slate-400 space-x-3">
-                      <span>TỔNG TASK: <span className="text-slate-700">{member.tasks}</span></span>
-                      <span>CODE COMMIT: <span className="text-slate-700">{member.commits}</span></span>
+                      <span>TOTAL TASKS: <span className="text-slate-700">{member.tasks}</span></span>
+                      <span>CODE COMMITS: <span className="text-slate-700">{member.commits}</span></span>
                     </div>
                   </div>
                   {/* Custom Stacked Progress Bar */}
@@ -433,7 +433,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
               <span className="material-symbols-outlined text-slate-500 text-lg">calendar_view_month</span>
               Activity Heatmap
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">Tần suất hoạt động trong 52 tuần qua</p>
+            <p className="text-xs text-slate-400 mt-0.5">Activity frequency in the past 52 weeks</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -516,7 +516,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
             onClick={() => setActiveTab('projects')}
             className="text-xs font-extrabold text-[#0047AB] hover:underline"
           >
-            Xem tất cả
+            View all
           </button>
         </div>
 
@@ -597,7 +597,7 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
           <button
             onClick={handleCreateProjectClick}
             className="absolute -bottom-6 right-6 w-12 h-12 rounded-full bg-[#0b1c30] text-white flex items-center justify-center shadow-lg hover:bg-slate-800 hover:scale-110 active:scale-95 transition-all z-10"
-            title="Tạo dự án mới"
+            title="Create new project"
           >
             <span className="material-symbols-outlined text-2xl font-bold">add</span>
           </button>
