@@ -11,10 +11,11 @@ import org.example.backend.entity.enums.TestType;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.example.backend.entity.config.*;
 
 @Entity
 @Table(name = "test_cases")
@@ -74,24 +75,6 @@ public class TestCase {
     @Column(name = "is_deleted", nullable = false)
     private boolean isDeleted = false;
 
-    // --- Playwright / Automation Fields ---
-
-    @Column(name = "base_url", length = 500)
-    private String baseUrl;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "steps_structured", columnDefinition = "jsonb")
-    private String stepsStructured;
-
-    @Column(name = "cached_playwright_script", columnDefinition = "TEXT")
-    private String cachedPlaywrightScript;
-
-    @Column(name = "script_source", length = 20)
-    private String scriptSource;
-
-    @Column(name = "script_generated_at")
-    private LocalDateTime scriptGeneratedAt;
-
     @Column(name = "last_run_status", length = 10)
     private String lastRunStatus;
 
@@ -103,29 +86,17 @@ public class TestCase {
 
     @Column(name = "run_count", nullable = false)
     private Integer runCount = 0;
-    
-    // --- API Testing Fields ---
-    @Column(name = "api_method", length = 10)
-    private String apiMethod;
+    @OneToOne(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private UiTestConfig uiConfig;
 
-    @Column(name = "api_url", length = 1000)
-    private String apiUrl;
+    @OneToOne(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private ApiTestConfig apiConfig;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "api_headers", columnDefinition = "JSONB")
-    private String apiHeaders;
+    @OneToOne(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private UnitTestConfig unitConfig;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "api_query_params", columnDefinition = "JSONB")
-    private String apiQueryParams;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "api_body", columnDefinition = "JSONB")
-    private String apiBody;
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "api_assertions", columnDefinition = "JSONB")
-    private String apiAssertions;
+    @OneToOne(mappedBy = "testCase", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private IntegrationTestConfig integrationConfig;
 
     @PrePersist
     protected void onCreate() {

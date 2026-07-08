@@ -44,9 +44,6 @@ public interface TestCaseRepository extends JpaRepository<TestCase, Long> {
 
     Optional<TestCase> findByIdAndProjectId(Long id, Long projectId);
     // --- Playwright / Automation methods ---
-    @Modifying
-    @Query("UPDATE TestCase tc SET tc.cachedPlaywrightScript = :script, tc.scriptSource = :source, tc.scriptGeneratedAt = CURRENT_TIMESTAMP WHERE tc.id = :id")
-    void updateScriptCache(@Param("id") Long id, @Param("script") String script, @Param("source") String source);
 
     @Modifying
     @Query("UPDATE TestCase tc SET tc.lastRunStatus = :status, tc.lastRunId = :runId, tc.lastRunAt = CURRENT_TIMESTAMP, tc.runCount = tc.runCount + 1 WHERE tc.id = :id")
