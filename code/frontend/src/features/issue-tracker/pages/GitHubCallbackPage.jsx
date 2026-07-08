@@ -44,12 +44,12 @@ export function GitHubCallbackPage() {
     const exchangeCode = async () => {
       try {
         if (isLoginFlow) {
-          // Luồng đăng nhập qua GitHub
+          // GitHub login flow
           const res = await axiosInstance.post('/v1/auth/github/login', { code })
           
           if (res.data?.success) {
             setStatus('success')
-            toast.success('Đăng nhập bằng GitHub thành công!')
+            toast.success('Logged in successfully with GitHub!')
             
             const { id, systemRole, username, email, fullName, verifyStatus, passwordSet } = res.data?.data || {}
             useAuthStore.getState().login(id, systemRole, username, email, fullName, verifyStatus, passwordSet)
@@ -65,10 +65,10 @@ export function GitHubCallbackPage() {
             setStatus('confirm')
             setGithubInfo(res.data?.data)
           } else {
-            throw new Error(res.data?.message || 'Đăng nhập bằng GitHub thất bại.')
+            throw new Error(res.data?.message || 'GitHub login failed.')
           }
         } else {
-          // Luồng liên kết tài khoản GitHub (Issue Tracker) như cũ
+          // GitHub account linking flow
           const res = await axiosInstance.post('/v1/github/callback', { code })
           setStatus('success')
           toast.success(res.data?.message || 'GitHub Account Connected!')
@@ -85,10 +85,10 @@ export function GitHubCallbackPage() {
         }
       } catch (error) {
         setStatus('error')
-        const errMsg = error.response?.data?.message || error.message || 'Xảy ra lỗi trong quá trình xác thực GitHub.'
+        const errMsg = error.response?.data?.message || error.message || 'An error occurred during GitHub authentication.'
         toast.error(errMsg, { duration: 5000 })
         
-        // Nếu là lỗi đăng nhập, quay về trang login sau 3s
+        // If login fails, redirect back to login page after 3s
         if (isLoginFlow) {
           setTimeout(() => navigate('/login'), 3000)
         } else {
@@ -103,7 +103,7 @@ export function GitHubCallbackPage() {
   const handleRegister = async () => {
     if (!githubInfo) return
     setRegistering(true)
-    const toastId = toast.loading('Đang khởi tạo tài khoản...')
+    const toastId = toast.loading('Initializing account...')
     try {
       const res = await axiosInstance.post('/v1/auth/github/register', {
         email: githubInfo.email,
@@ -112,7 +112,7 @@ export function GitHubCallbackPage() {
         accessToken: githubInfo.accessToken
       })
       if (res.data?.success) {
-        toast.success('Đăng ký tài khoản thành công!', { id: toastId })
+        toast.success('Account registered successfully!', { id: toastId })
         const { id, systemRole, username, email, fullName, verifyStatus, passwordSet } = res.data?.data || {}
         
         useAuthStore.getState().login(id, systemRole, username, email, fullName, verifyStatus, passwordSet)
@@ -125,10 +125,10 @@ export function GitHubCallbackPage() {
           }
         }, 1500)
       } else {
-        throw new Error(res.data?.message || 'Đăng ký tài khoản thất bại.')
+        throw new Error(res.data?.message || 'Account registration failed.')
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Đăng ký thất bại.', { id: toastId })
+      toast.error(err.response?.data?.message || err.message || 'Registration failed.', { id: toastId })
     } finally {
       setRegistering(false)
     }
@@ -182,7 +182,7 @@ export function GitHubCallbackPage() {
               </svg>
             </div>
             
-            <h2 className="text-2xl font-black text-on-surface">Tạo tài khoản mới?</h2>
+            <h2 className="text-2xl font-black text-on-surface">Create New Account?</h2>
             
             {githubInfo.phone && (
               <img
@@ -193,7 +193,7 @@ export function GitHubCallbackPage() {
             )}
 
             <p className="text-on-surface-variant text-sm leading-relaxed">
-              Chào bạn <strong className="text-on-surface">{githubInfo.username}</strong>! Tài khoản của bạn chưa tồn tại trên hệ thống DevTrack AI. Bạn có muốn đăng ký ngay bằng tài khoản GitHub này không?
+              Hello <strong className="text-on-surface">{githubInfo.username}</strong>! Your account does not exist on DevTrack AI. Do you want to sign up now using this GitHub account?
             </p>
 
             <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/40 space-y-2 text-left text-xs font-semibold text-on-surface">
@@ -202,7 +202,7 @@ export function GitHubCallbackPage() {
                 <span>{githubInfo.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-on-surface-variant">Tên hiển thị:</span>
+                <span className="text-on-surface-variant">Display Name:</span>
                 <span>{githubInfo.username}</span>
               </div>
             </div>
@@ -212,14 +212,14 @@ export function GitHubCallbackPage() {
                 onClick={() => navigate('/login')}
                 className="flex-1 px-4 py-2.5 border border-outline-variant hover:bg-surface-container-low text-on-surface font-bold rounded-xl transition-all cursor-pointer text-sm"
               >
-                Hủy bỏ
+                Cancel
               </button>
               <button
                 onClick={handleRegister}
                 disabled={registering}
                 className="flex-1 px-4 py-2.5 bg-[#1E707D] hover:bg-[#154f59] text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer text-sm disabled:opacity-50"
               >
-                {registering ? 'Đang tạo...' : 'Đăng ký ngay'}
+                {registering ? 'Creating...' : 'Register Now'}
               </button>
             </div>
           </div>

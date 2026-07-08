@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare, Send, CheckCircle2, Crown, ChevronDown, ChevronUp, CornerDownRight } from 'lucide-react'
 
 export function CommentTab({
@@ -20,6 +20,14 @@ export function CommentTab({
   const [replyInputs, setReplyInputs] = useState({})
   const [expandedReplies, setExpandedReplies] = useState({}) // commentId -> boolean
   const [highlightedReplyId, setHighlightedReplyId] = useState(null)
+  
+  const sortedComments = useMemo(() => {
+    return [...comments].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0)
+      const dateB = new Date(b.createdAt || 0)
+      return dateB - dateA
+    })
+  }, [comments])
   
   // Mentions autocomplete state
   const [mentionState, setMentionState] = useState({
@@ -113,9 +121,9 @@ export function CommentTab({
   }
 
   const formatSafeDate = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
+    if (isNaN(date.getTime())) return 'Just now'
     const hours = String(date.getHours()).padStart(2, '0')
     const minutes = String(date.getMinutes()).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
@@ -152,7 +160,7 @@ export function CommentTab({
         setReplyInputs(prev => ({ ...prev, [comment.id]: '' }))
       }
       setTimeout(() => {
-        const textarea = document.querySelector(`textarea[placeholder="Trả lời ${comment.createdByName}..."]`)
+        const textarea = document.querySelector(`textarea[placeholder="Reply to ${comment.createdByName}..."]`)
         if (textarea) {
           textarea.focus()
           const len = textarea.value.length
@@ -161,8 +169,6 @@ export function CommentTab({
       }, 100)
     }
   }
-
-  // Handle Autocomplete Input Change
   const handleInputChange = (value, selectionStart, type, commentId = null) => {
     if (type === 'main') {
       setNewComment(value)
@@ -288,14 +294,14 @@ export function CommentTab({
         className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100/50 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-[#0ea5e9]"
       >
         {loading && (
-          <div className="text-center text-sm text-slate-400 py-8">Đang tải bình luận...</div>
+          <div className="text-center text-sm text-slate-400 py-8">Loading comments...</div>
         )}
         {!loading && comments.length === 0 && (
           <div className="text-center text-sm text-slate-400 py-8 border border-dashed border-slate-200 rounded-xl">
-            Chưa có góp ý nào. Hãy là người đầu tiên!
+            No feedback yet. Be the first to comment!
           </div>
         )}
-        {comments.map((c, index) => {
+        {sortedComments.map((c, index) => {
           const initials = c.createdByName ? c.createdByName.split(' ').filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase() : 'U'
           const hasLiked = c.myVote === 'UP'
           const hasDisliked = c.myVote === 'DOWN'
@@ -334,7 +340,7 @@ export function CommentTab({
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">#{index + 1}</span>
+                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-[10px] font-bold">#{sortedComments.length - index}</span>
                         <span>{formatSafeDate(c.createdAt)}</span>
                       </div>
                     </div>
@@ -355,7 +361,7 @@ export function CommentTab({
                         }`}
                       >
                         <ThumbsUp size={14} className={hasLiked ? "fill-emerald-600" : ""} />
-                        <span>Tán thành ({c.upvotes || 0})</span>
+                        <span>Upvote ({c.upvotes || 0})</span>
                       </button>
 
                       <button
@@ -369,7 +375,7 @@ export function CommentTab({
                         }`}
                       >
                         <ThumbsDown size={14} className={hasDisliked ? "fill-rose-500" : ""} />
-                        <span>Phản đối ({c.downvotes || 0})</span>
+                        <span>Downvote ({c.downvotes || 0})</span>
                       </button>
 
                       {/* Replies Toggle/Action */}
@@ -385,7 +391,7 @@ export function CommentTab({
                       >
                         {isRepliesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         <span>
-                          {replyCount > 0 ? `${replyCount} phản hồi` : 'Phản hồi'}
+                          {replyCount > 0 ? `${replyCount} replies` : 'Reply'}
                         </span>
                       </button>
                     </div>
@@ -440,7 +446,7 @@ export function CommentTab({
                     {/* Reply Input Box - Styled exactly like the main comment box */}
                     <div className="mt-2 flex items-end gap-2 border border-slate-200 rounded-xl bg-white px-3 py-1.5 focus-within:border-[#0ea5e9] focus-within:ring-2 focus-within:ring-[#0ea5e9]/10 transition-all shadow-sm">
                       <textarea
-                        placeholder={`Trả lời ${c.createdByName}...`}
+                        placeholder={`Reply to ${c.createdByName}...`}
                         value={replyInputs[c.id] || ''}
                         onChange={(e) => handleInputChange(e.target.value, e.target.selectionStart, 'reply', c.id)}
                         onKeyDown={(e) => {
@@ -485,7 +491,7 @@ export function CommentTab({
                 e.target.style.height = 'auto'
               }
             }}
-            placeholder="Viết góp ý của bạn về idea này..."
+            placeholder="Write your feedback on this idea..."
             rows={1}
             style={{ minHeight: '24px', maxHeight: '100px' }}
             className="flex-1 text-sm text-slate-800 resize-none outline-none placeholder:text-slate-400 font-medium bg-transparent overflow-y-auto py-0.5"

@@ -53,10 +53,10 @@ export function ApprovedTaskTab({
   }
 
   const formatSafeDate = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
-    return date.toLocaleString('vi-VN', {
+    if (isNaN(date.getTime())) return 'Just now'
+    return date.toLocaleString('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -67,15 +67,15 @@ export function ApprovedTaskTab({
 
   const approvedProposals = Array.isArray(proposals) ? proposals.filter((p) => p.status === 'APPROVED') : []
 
-  const hasRequirement = !!task?.requirementId || (task?.requirement && !task.requirement.includes('No Requirement') && task.requirement !== 'Chưa gắn Requirement');
+  const hasRequirement = !!task?.requirementId || (task?.requirement && !task.requirement.includes('No Requirement') && task.requirement !== 'No Requirement Linked');
 
   if (!approvedProposals.length) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
         <CheckCircle2 size={40} className="mb-3 opacity-40 text-[#0ea5e9]" />
-        <p className="text-sm font-semibold">Chưa có đề xuất nào được thông qua.</p>
+        <p className="text-sm font-semibold">No proposals have been approved yet.</p>
         <p className="text-xs mt-1 text-slate-400 font-medium">
-          Leader duyệt đề xuất để tạo checklist thực thi chính thức.
+          Leader approves proposals to create the official execution checklist.
         </p>
       </div>
     )
@@ -96,7 +96,7 @@ export function ApprovedTaskTab({
               <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                 <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                 <span>
-                  Hệ thống đã ghi nhận chuyển đổi và đồng bộ vào lúc {formatSafeDate(task.updatedAt)}
+                  The system has recorded the conversion and synced at {formatSafeDate(task.updatedAt)}
                 </span>
               </div>
               {onApproveAndSync && isLeader && task?.description?.includes('<!-- discussion-unlocked -->') && (
@@ -109,11 +109,11 @@ export function ApprovedTaskTab({
                     <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
-                    Đồng bộ đề xuất mới lên GitHub
+                    Sync new proposals to GitHub
                   </button>
                   {!hasRequirement && (
                     <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
-                      ⚠️ Cần liên kết & lưu Requirement để đồng bộ
+                      ⚠️ Need to link & save Requirement to sync
                     </span>
                   )}
                 </div>
@@ -126,10 +126,10 @@ export function ApprovedTaskTab({
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-[#1E707D] font-extrabold tracking-wide uppercase">
-                    Xác nhận & Đồng bộ
+                    Confirm & Sync
                   </span>
                   <p className="text-xs text-slate-600 leading-relaxed font-semibold">
-                    Nếu bạn xác nhận các đề xuất này đã giải quyết được issue của bạn, hãy bấm vào nút bên cạnh để chuyển chúng thành các task chính thức, đồng bộ lên hệ thống và đẩy lên GitHub.
+                    If you confirm these proposals have resolved your issue, click the button next to them to convert them into official tasks, sync with the system, and push to GitHub.
                   </p>
                 </div>
                 {onApproveAndSync && (
@@ -142,11 +142,11 @@ export function ApprovedTaskTab({
                       <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                       </svg>
-                      Chuyển đề xuất thành task & Đồng bộ
+                      Convert proposals to tasks & Sync
                     </button>
                     {!hasRequirement && (
                       <span className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
-                        ⚠️ Cần liên kết & lưu Requirement để đồng bộ
+                        ⚠️ Need to link & save Requirement to sync
                       </span>
                     )}
                   </div>
@@ -176,16 +176,16 @@ export function ApprovedTaskTab({
                     {/* Title and Badges Row */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-bold text-slate-800 leading-snug">
-                        {plainText || "Đề xuất checklist"}
+                        {plainText || "Checklist Proposal"}
                       </h3>
                       <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold text-[10px]">
-                        ĐÃ PHÊ DUYỆT
+                        APPROVED
                       </span>
                       <span className="flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 font-bold">
                         <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        Đề xuất bởi: {p.createdByName}
+                        Proposed by: {p.createdByName}
                       </span>
                     </div>
 

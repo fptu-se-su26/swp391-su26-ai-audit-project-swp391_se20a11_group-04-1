@@ -107,11 +107,28 @@ const KanbanBoardPage = () => {
     requirements: unique(tasks.map((task) => task.requirement)),
     priorities: priorityOptions,
   }
-
   const filteredTasks = tasks.filter((task) => {
-    // Only show parent tasks on the board. Subtasks are managed inside the Task Detail Drawer.
-    if (task.parentId) {
-      return false
+    const isBug = isIssueOwnedTask(task)
+
+    if (isBug) {
+      // Bugs show normally (only parent tasks)
+      if (task.parentId) {
+        return false
+      }
+    } else {
+      // Feature / Task: only show sub-tasks (those with parentId), hide parent tasks
+      if (!task.parentId) {
+        return false
+      }
+    }
+
+    // Hide unapproved draft proposals from the Kanban Board
+    const isUnapprovedDraft = task.description && 
+      (task.description.includes('github-blank-draft') || task.description.includes('feature-proposal-draft')) && 
+      !task.githubIssueNumber;
+      
+    if (isUnapprovedDraft) {
+      return false;
     }
 
     // Fetch subtasks of this parent task for smart filtering (only applicable for parent tasks shown on the board)

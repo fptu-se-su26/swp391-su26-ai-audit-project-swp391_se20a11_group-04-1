@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { normalizeTaskType, shortTaskType } from '../utils/taskMapper'
+import useProjectStore from '@store/useProjectStore'
 
 const priorityClasses = {
   LOW: 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]',
@@ -43,6 +44,8 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
   const wasReopened = task.latestReviewDecision === 'REOPENED_REVIEW' || task.latestReviewDecision === 'REQUESTED_REWORK' || task.latestReviewDecision === 'REJECTED'
   const priorityLabel = isCompact ? task.priority.slice(0, 3) : task.priority
   const normalizedType = normalizeTaskType(task.type)
+  const projectDeadline = useProjectStore((state) => state.activeProject?.deadline)
+  const isDefaultDeadline = projectDeadline && task.deadline && (task.deadline === projectDeadline)
 
   const handleMenuClick = (event) => {
     event.stopPropagation()
@@ -186,9 +189,19 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
       </div>
 
       <div className={`flex flex-wrap ${isCompact ? 'gap-1.5 text-[10px]' : 'gap-2'}`}>
-        <div className={`flex items-center space-x-1 text-[11px] ${task.overduePenaltyApplied ? 'text-error font-semibold' : 'text-outline'}`} title="Deadline">
+        <div
+          className={`flex items-center space-x-1 text-[11px] ${
+            task.overduePenaltyApplied
+              ? 'text-error font-semibold'
+              : isDefaultDeadline
+                ? 'text-[#ea580c] font-bold bg-[#fff7ed] px-1.5 py-0.5 rounded border border-[#fed7aa]'
+                : 'text-outline'
+          }`}
+          title={isDefaultDeadline ? "Default project end date deadline. Click to edit." : "Deadline"}
+        >
           <span className="material-symbols-outlined text-[14px]">event</span>
           <span>{formatShortDate(task.deadline)}</span>
+          {isDefaultDeadline && <span className="text-[9px] font-black uppercase text-[#c2410c] ml-0.5">(Default)</span>}
         </div>
         <div className="flex items-center space-x-1 text-[11px] text-outline" title="Weight">
           <span className="material-symbols-outlined text-[14px]">fitness_center</span>

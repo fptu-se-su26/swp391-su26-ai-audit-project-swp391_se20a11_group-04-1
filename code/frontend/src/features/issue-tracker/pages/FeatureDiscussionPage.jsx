@@ -18,6 +18,8 @@ import proposalService from '../services/proposalService'
 import ApprovedTaskTab from '../components/ApprovedTaskTab'
 import CommentTab from '../components/CommentTab'
 import ProposalTab from '../components/ProposalTab'
+import { requirementApi } from '../../requirement/services/requirementApi'
+import CreateRequirementModal from '../../requirement/components/CreateRequirementModal'
 
 export default function FeatureDiscussionPage() {
   const { projectId, id } = useParams()
@@ -94,10 +96,10 @@ export default function FeatureDiscussionPage() {
 
   // Helper date formatting
   const formatSafeDate = (dateString) => {
-    if (!dateString) return 'Vừa xong'
+    if (!dateString) return 'Just now'
     const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Vừa xong'
-    return date.toLocaleString('vi-VN', {
+    if (isNaN(date.getTime())) return 'Just now'
+    return date.toLocaleString('en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -160,9 +162,9 @@ export default function FeatureDiscussionPage() {
       }
       await updateTask(task.id, updated)
       setIsEditing(false)
-      toast.success('Đã liên kết Requirement thành công!')
+      toast.success('Requirement linked successfully!')
     } catch (err) {
-      toast.error('Lưu liên kết Requirement thất bại!')
+      toast.error('Failed to save requirement link!')
     } finally {
       setSavingReq(false)
     }
@@ -173,7 +175,7 @@ export default function FeatureDiscussionPage() {
     if (newReq?.id) {
       setSelectedReqId(newReq.id)
     }
-    toast.success('Đã tạo Requirement mới!')
+    toast.success('New requirement created successfully!')
   }
 
   // Fetch comments and proposals from APIs
@@ -215,7 +217,7 @@ export default function FeatureDiscussionPage() {
       await proposalService.voteTaskComment(commentId, true)
       loadComments()
     } catch (err) {
-      toast.error('Vote bình luận thất bại!')
+      toast.error('Failed to vote on comment!')
     }
   }
 
@@ -224,7 +226,7 @@ export default function FeatureDiscussionPage() {
       await proposalService.voteTaskComment(commentId, false)
       loadComments()
     } catch (err) {
-      toast.error('Vote bình luận thất bại!')
+      toast.error('Failed to vote on comment!')
     }
   }
 
@@ -233,10 +235,10 @@ export default function FeatureDiscussionPage() {
     if (isSynced) return
     try {
       await proposalService.addCommentReply(commentId, text.trim())
-      toast.success('Đã gửi phản hồi!')
+      toast.success('Reply submitted!')
       loadComments()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gửi phản hồi thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to submit reply!')
     }
   }
 
@@ -247,7 +249,7 @@ export default function FeatureDiscussionPage() {
       await proposalService.vote(propId, true)
       loadProposals()
     } catch (err) {
-      toast.error('Vote đề xuất thất bại!')
+      toast.error('Failed to vote on proposal!')
     }
   }
 
@@ -256,7 +258,7 @@ export default function FeatureDiscussionPage() {
       await proposalService.vote(propId, false)
       loadProposals()
     } catch (err) {
-      toast.error('Vote đề xuất thất bại!')
+      toast.error('Failed to vote on proposal!')
     }
   }
 
@@ -267,39 +269,39 @@ export default function FeatureDiscussionPage() {
     try {
       await proposalService.addComment(propId, text.trim())
       setProposalCommentsInputs((prev) => ({ ...prev, [propId]: '' }))
-      toast.success('Đã đăng phản biện về đề xuất này!')
+      toast.success('Feedback/critique posted for this proposal!')
       loadProposals()
     } catch (err) {
-      toast.error('Gửi phản biện thất bại!')
+      toast.error('Failed to post feedback/critique!')
     }
   }
 
   const handleApproveProposal = async (prop) => {
     const hasChecklist = prop.content && prop.content.split('\n').some(line => /^-\s+\[([ xX])\]\s+(.*)$/.test(line.trim()));
     if (!hasChecklist) {
-      toast.error('Đề xuất bắt buộc phải có ít nhất một mục checklist (bắt đầu bằng "- [ ]" hoặc "- [x]")!');
+      toast.error('Proposal must contain at least one checklist item (starting with "- [ ]" or "- [x]")!');
       return;
     }
     try {
       await proposalService.approve(prop.id)
-      toast.success('Đã duyệt và chính thức ban hành đề xuất này thành Task!')
+      toast.success('Proposal approved and converted to Task!')
       loadProposals()
       if (id) {
         fetchTaskById(id)
       }
       setActiveTab('tasks')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Duyệt đề xuất thất bại!')
+      toast.error(err.response?.data?.message || 'Failed to approve proposal!')
     }
   }
 
   const handleRejectProposal = async (propId) => {
     try {
       await proposalService.reject(propId)
-      toast.success('Đã từ chối đề xuất này.')
+      toast.success('Proposal rejected.')
       loadProposals()
     } catch (err) {
-      toast.error('Từ chối đề xuất thất bại!')
+      toast.error('Failed to reject proposal!')
     }
   }
 
@@ -326,9 +328,9 @@ export default function FeatureDiscussionPage() {
           done: item.done
         }))
       })
-      toast.success('Đã cập nhật trạng thái checklist!')
+      toast.success('Checklist status updated!')
     } catch (err) {
-      toast.error('Cập nhật trạng thái checklist thất bại!')
+      toast.error('Failed to update checklist status!')
     }
   }
 
@@ -345,9 +347,9 @@ export default function FeatureDiscussionPage() {
           done: item.done
         }))
       })
-      toast.success('Đã xóa checklist item!')
+      toast.success('Checklist item deleted!')
     } catch (err) {
-      toast.error('Xóa checklist item thất bại!')
+      toast.error('Failed to delete checklist item!')
     }
   }
 
@@ -372,27 +374,27 @@ export default function FeatureDiscussionPage() {
           done: item.done
         }))
       })
-      toast.success('Đã thêm checklist item mới!')
+      toast.success('New checklist item added!')
       if (id) {
         fetchTaskById(id)
       }
     } catch (err) {
-      toast.error('Thêm checklist item thất bại!')
+      toast.error('Failed to add checklist item!')
     }
   }
 
   const handleApproveAndSync = async () => {
     if (!id) return
-    const loadToast = toast.loading('Đang duyệt và đồng bộ các sub-tasks lên GitHub...')
+    const loadToast = toast.loading('Approving and syncing sub-tasks to GitHub...')
     try {
       await proposalService.approveAndSyncTask(id)
-      toast.success('Đã chuyển đề xuất thành các sub-tasks và đồng bộ thành công lên GitHub!', { id: loadToast })
+      toast.success('Proposals converted to sub-tasks and synced to GitHub!', { id: loadToast })
       loadProposals()
       if (id) {
         fetchTaskById(id)
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Đồng bộ thất bại!', { id: loadToast })
+      toast.error(err.response?.data?.message || 'Sync failed!', { id: loadToast })
     }
   }
 
@@ -421,15 +423,15 @@ export default function FeatureDiscussionPage() {
       <main className="flex-1 p-6 md:p-10 overflow-y-auto relative bg-[#F1F4F9] flex items-center justify-center">
         <div className="max-w-md w-full text-center bg-white p-8 rounded-2xl border border-slate-200 shadow-md space-y-4">
           <span className="material-symbols-outlined text-5xl text-red-500">error</span>
-          <h3 className="font-extrabold text-xl text-slate-900">Không Tìm Thấy Đề Xuất Feature</h3>
+          <h3 className="font-extrabold text-xl text-slate-900">Feature Proposal Not Found</h3>
           <p className="text-sm text-slate-500 leading-relaxed">
-            Task/Feature ID {id} không tồn tại hoặc đã bị xóa khỏi hệ thống.
+            Task/Feature ID {id} does not exist or has been deleted from the system.
           </p>
           <button
             onClick={() => navigate(`/projects/${projectId}/issues`)}
             className="mt-2 py-2 px-6 bg-[#0ea5e9] text-white font-bold text-sm rounded-lg hover:bg-[#0284c7] transition-colors shadow-sm cursor-pointer"
           >
-            Quay lại Issue Tracker
+            Back to Issue Tracker
           </button>
         </div>
       </main>
@@ -465,8 +467,8 @@ export default function FeatureDiscussionPage() {
                     <div className="flex items-center gap-1.5 text-slate-500 bg-slate-100 hover:bg-slate-200/80 transition-colors rounded-full px-3 py-1 font-semibold cursor-pointer text-xs">
                       <User size={12} className="text-slate-400" />
                       {task.assignee?.fullName || task.primaryAssignee?.fullName
-                        ? `Giao cho: ${task.assignee?.fullName || task.primaryAssignee?.fullName}`
-                        : 'Giao cho: Chưa phân công'}
+                        ? `Assigned to: ${task.assignee?.fullName || task.primaryAssignee?.fullName}`
+                        : 'Assigned to: Unassigned'}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-slate-400 flex-wrap font-medium mt-1 text-xs">
@@ -486,10 +488,10 @@ export default function FeatureDiscussionPage() {
                     }`}>
                       <CheckCircle2 size={11} />
                       {isSynced
-                        ? 'Đã phê duyệt & Đồng bộ'
+                        ? 'Approved & Synced'
                         : (task.status === 'APPROVED' || task.status === 'done' || task.status === 'DONE' || task.status === 'IN_PROGRESS' || task.status === 'IN_REVIEW')
-                          ? 'Đã phê duyệt'
-                          : 'Chờ phê duyệt'}
+                          ? 'Approved'
+                          : 'Awaiting Approval'}
                     </span>
                   </div>
                 </div>
@@ -515,13 +517,13 @@ export default function FeatureDiscussionPage() {
                     !descExpanded ? "line-clamp-2" : ""
                   }`}
                 >
-                  {task.description || 'Chưa có mô tả chi tiết cho tính năng này.'}
+                  {task.description || 'No detailed description available for this feature.'}
                 </div>
                 <button
                   onClick={() => setDescExpanded(!descExpanded)}
                   className="mt-2.5 flex items-center gap-1 text-xs text-[#0ea5e9] hover:text-[#0284c7] transition-colors font-bold cursor-pointer"
                 >
-                  {descExpanded ? 'Thu gọn' : 'Xem thêm'}
+                  {descExpanded ? 'Collapse' : 'See More'}
                   <ChevronDown size={12} className={`transition-transform ${descExpanded ? 'rotate-180' : ''}`} />
                 </button>
               </div>
@@ -538,7 +540,7 @@ export default function FeatureDiscussionPage() {
                 }`}
               >
                 <MessageSquare size={15} />
-                <span>Comment chung</span>
+                <span>General Discussion</span>
                 {activeTab === 'comments' && (
                   <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
                 )}
@@ -553,7 +555,7 @@ export default function FeatureDiscussionPage() {
                 }`}
               >
                 <Lightbulb size={15} />
-                <span>Đề xuất</span>
+                <span>Proposals</span>
                 {activeTab === 'proposals' && (
                   <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#0ea5e9] rounded-t-full" />
                 )}
@@ -568,7 +570,7 @@ export default function FeatureDiscussionPage() {
                 }`}
               >
                 <ListChecks size={15} />
-                <span>Task được thông qua</span>
+                <span>Approved Tasks</span>
                 {task?.checklist?.length > 0 && (
                   <span className="text-xs min-w-5 h-5 flex items-center justify-center rounded-full bg-[#0ea5e9] text-white leading-none font-bold px-1.5">
                     {task.checklist.length}
@@ -599,10 +601,10 @@ export default function FeatureDiscussionPage() {
                       status: 'APPROVED',
                       assigneeId: task.assignee?.id || task.primaryAssignee?.id || null
                     })
-                    toast.success('Đã phê duyệt ý tưởng!')
+                    toast.success('Idea approved!')
                     if (id) fetchTaskById(id)
                   } catch (err) {
-                    toast.error('Phê duyệt ý tưởng thất bại!')
+                    toast.error('Failed to approve idea!')
                   }
                 }}
                 onToggleLike={handleToggleCommentLike}
@@ -610,10 +612,10 @@ export default function FeatureDiscussionPage() {
                 onAddComment={async (content) => {
                   try {
                     await proposalService.addTaskComment(id, content)
-                    toast.success('Đã gửi bình luận!')
+                    toast.success('Comment submitted!')
                     loadComments()
                   } catch (err) {
-                    toast.error('Gửi bình luận thất bại!')
+                    toast.error('Failed to submit comment!')
                   }
                 }}
                 onAddReply={handleAddCommentReply}
@@ -623,7 +625,7 @@ export default function FeatureDiscussionPage() {
               />
             )}
 
-            {/* TAB 2: ĐỀ XUẤT */}
+            {/* TAB 2: PROPOSALS */}
             {activeTab === 'proposals' && (
               <ProposalTab
                 proposals={proposals}
@@ -636,10 +638,10 @@ export default function FeatureDiscussionPage() {
                 onAddProposal={async (text) => {
                   try {
                     await proposalService.createProposal(id, text)
-                    toast.success('Đã gửi đề xuất!')
+                    toast.success('Proposal submitted!')
                     loadProposals()
                   } catch (err) {
-                    toast.error('Gửi đề xuất thất bại!')
+                    toast.error('Failed to submit proposal!')
                   }
                 }}
                 onAddComment={handleAddProposalComment}
@@ -691,15 +693,15 @@ export default function FeatureDiscussionPage() {
           {/* Workflow progress flow hint */}
           <div className="bg-[#f8fafc] py-3.5 border-t border-slate-100 px-6 flex items-center justify-center gap-3 text-[10px] text-slate-400 font-bold">
             <span className="flex items-center gap-1 text-[#0284c7]">
-              <MessageSquare size={11} /> Comment chung
+              <MessageSquare size={11} /> General Discussion
             </span>
             <span>→</span>
             <span className="flex items-center gap-1 text-[#0284c7]">
-              <Lightbulb size={11} /> Đề xuất
+              <Lightbulb size={11} /> Proposals
             </span>
             <span>→</span>
             <span className="flex items-center gap-1 text-[#0284c7]">
-              <ListChecks size={11} /> Task được thông qua
+              <ListChecks size={11} /> Approved Tasks
             </span>
           </div>
 
@@ -709,11 +711,11 @@ export default function FeatureDiscussionPage() {
         <div className="bg-[#0ea5e9]/5 border border-[#0ea5e9]/15 rounded-2xl p-5 mt-6 text-[11px] text-slate-500 space-y-1.5 shadow-sm">
           <h4 className="font-bold text-[#0ea5e9] uppercase tracking-wider flex items-center gap-1.5">
             <AlertCircle size={12} />
-            Hệ thống quy trình minh chứng & đồng thuận (DevTrack)
+            Evidence & Consensus Workflow System (DevTrack)
           </h4>
           <p className="leading-relaxed">
-            Các mục checklist sau khi được Leader chốt từ Tab Đề xuất sẽ trở thành checklist thực thi chính thức.
-            Các Dev & Designer dựa trên checklist này để hoàn thiện công việc và upload bằng chứng (Evidence) cho AI Audit tự động đối soát sau này.
+            Checklist items approved by the Leader from the Proposals Tab will become the official execution checklist.
+            Developers & Designers follow this checklist to complete the task and upload evidence for automatic AI Audit verification later.
           </p>
         </div>
       </div>
