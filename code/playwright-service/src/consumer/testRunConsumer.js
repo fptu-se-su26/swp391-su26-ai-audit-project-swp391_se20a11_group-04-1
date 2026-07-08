@@ -72,6 +72,13 @@ async function handleTestRunJobCommand(message) {
             try {
                 const testCaseResponse = await callInternal(`/internal/test-runs/test-cases/${execution.testCaseId}`);
                 
+                // Guard: Only UI test cases should be executed by Playwright
+                if (testCaseResponse.type && testCaseResponse.type !== 'UI') {
+                    const skipErr = new Error(`TestCase ${execution.testCaseId} is type "${testCaseResponse.type}" — only UI tests can be executed by Playwright service.`);
+                    skipErr.isSkipError = true;
+                    throw skipErr;
+                }
+
                 let script;
                 if (testCaseResponse.cached_playwright_script && testCaseResponse.script_source === 'AI_GENERATED') {
                     script = testCaseResponse.cached_playwright_script;
@@ -106,8 +113,17 @@ async function handleTestRunJobCommand(message) {
                 }
                 
                 outcome = execResult.status === 'PASS' ? 'PASSED' : 'FAILED';
+                console.log(`[DEBUG] execResult.status=${execResult.status}, outcome=${outcome}, failedStepIndex=${failedStepIndex}`);
                 notes = execResult.error ? execResult.error.message : null;
-                failedStepIndex = execResult.error ? execResult.error.failedStepIndex : null;
+                // failedStepIndex từ executor có thể null nếu Playwright abort trước khi log step fail.
+                // Fallback: đếm số steps đã PASS để suy ra index step bị lỗi.
+                failedStepIndex = execResult.error?.failedStepIndex ?? null;
+                if (failedStepIndex === null && execResult.error && execResult.steps) {
+                    const passedCount = execResult.steps.filter(s => s.status === 'PASS').length;
+                    if (passedCount < execResult.steps.length) {
+                        failedStepIndex = passedCount; // index của step đầu tiên không PASS
+                    }
+                }
                 durationMs = execResult.duration || (Date.now() - startTime);
                 
                 // Upload screenshots to Cloudinary
@@ -124,10 +140,16 @@ async function handleTestRunJobCommand(message) {
                 
                 cleanupTempDir(execResult.tempDir);
             } catch (err) {
-                outcome = 'FAILED';
-                notes = `Execution exception: ${err.message}`;
+                if (err.isSkipError) {
+                    outcome = 'SKIPPED';
+                    notes = err.message;
+                    log.info(notes);
+                } else {
+                    outcome = 'FAILED';
+                    notes = `Execution exception: ${err.message}`;
+                    log.error('Test case threw exception', { testCaseId: execution.testCaseId, err });
+                }
                 durationMs = Date.now() - startTime;
-                log.error('Test case threw exception', { testCaseId: execution.testCaseId, err });
             }
 
             // 3b. Callback kết quả — với retry, kiểm tra 409

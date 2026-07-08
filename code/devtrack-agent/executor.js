@@ -173,26 +173,16 @@ function parseOutput(stdout, screenshotDir) {
     const passed = testResult.status === 'expected' || testResult.status === 'passed';
 
     let flatSteps = [];
-    function extractTestSteps(node) {
-        if (!node) return;
-        if (node.category === 'test.step') {
-            flatSteps.push({
-                title: node.title,
-                duration: node.duration,
-                status: node.error ? 'FAIL' : 'PASS',
-                error: node.error?.message ? node.error.message.replace(/\x1b\[[0-9;]*m/g, '') : null,
-            });
-        }
-        if (node.steps && Array.isArray(node.steps)) {
-            for (const child of node.steps) {
-                extractTestSteps(child);
-            }
-        }
-    }
-
     if (testResult.results?.[0]?.steps) {
         for (const s of testResult.results[0].steps) {
-            extractTestSteps(s);
+            if (s.title !== 'Before Hooks' && s.title !== 'After Hooks' && s.category === 'test.step') {
+                flatSteps.push({
+                    title: s.title,
+                    duration: s.duration,
+                    status: s.error ? 'FAIL' : 'PASS',
+                    error: s.error?.message ? s.error.message.replace(/\x1b\[[0-9;]*m/g, '') : null,
+                });
+            }
         }
     }
 

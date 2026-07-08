@@ -3,88 +3,107 @@
  * Không cần AI, không tốn token
  */
 function generateFromTemplate(testCase, runId) {
-    const { title, base_url, steps_structured } = testCase;
+  const { title, base_url, steps_structured } = testCase;
 
-    const stepCode = [...steps_structured]
-        .sort((a, b) => a.order - b.order)
-        .map((step, index) => {
-            const stepNum = index + 1;
-            let code = '';
+  if (!Array.isArray(steps_structured) || steps_structured.length === 0) {
+    throw new Error(`Cannot generate template: steps_structured is ${steps_structured === null ? 'null' : 'empty'}. Test case "${title}" has no automation steps configured.`);
+  }
 
-            const escapeJs = (s) => (s || '').replace(/\\"/g, '"').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
-            const sel = escapeJs(step.selector);
-            let val = escapeJs(step.value);
-            let exp = escapeJs(step.expected);
-            const pth = escapeJs(step.path);
+  const stepCode = [...steps_structured]
+    .sort((a, b) => a.order - b.order)
+    .map((step, index) => {
+      const stepNum = index + 1;
+      let code = '';
 
-            // Xử lý Macro Variables cho Data Dependency
-            const timestamp = Date.now();
-            const randomStr = Math.random().toString(36).substring(2, 8);
-            if (val.includes('{{RANDOM_EMAIL}}')) val = val.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
-            if (val.includes('{{RANDOM_TEXT}}')) val = val.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
-            if (val.includes('{{TIMESTAMP}}')) val = val.replace('{{TIMESTAMP}}', `${timestamp}`);
-            
-            if (exp.includes('{{RANDOM_EMAIL}}')) exp = exp.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
-            if (exp.includes('{{RANDOM_TEXT}}')) exp = exp.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
-            if (exp.includes('{{TIMESTAMP}}')) exp = exp.replace('{{TIMESTAMP}}', `${timestamp}`);
+      const escapeJs = (s) => (s || '').replace(/\\"/g, '"').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+      const sel = escapeJs(step.selector);
+      let val = escapeJs(step.value);
+      let exp = escapeJs(step.expected);
+      const pth = escapeJs(step.path);
 
-            switch (step.action) {
-                case 'goto':
-                    // Fix docker networking to access localhost on host machine
-                    const isDockerGoto = process.env.RUNNING_IN_DOCKER === 'true';
-                    const dockerSafeUrl = isDockerGoto ? (base_url + pth).replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal') : (base_url + pth);
-                    code = `await page.goto("${dockerSafeUrl}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
-                    break;
-                case 'fill':
-                    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-                        code = `await highlight("${sel}", "Chọn ngày: ${val}");\n    await page.fill("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(200);`;
-                    } else {
-                        code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "", { timeout: 5000 });\n    await page.locator("${sel}").pressSequentially("${val}", { delay: 50, timeout: 5000 });\n    await page.waitForTimeout(200);`;
-                    }
-                    break;
-                case 'click':
-                    code = `await highlight("${sel}", "Click");\n    await page.click("${sel}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
-                    break;
-                case 'wait_for':
-                    code = `await page.waitForSelector("${sel}", { timeout: 5000 });`;
-                    break;
-                case 'select':
-                    code = `await highlight("${sel}", "Chọn: ${val}");\n    await page.selectOption("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
-                    break;
-                case 'expect_url':
-                    const isDockerExpect = process.env.RUNNING_IN_DOCKER === 'true';
-                    const dockerSafeExpectUrl = isDockerExpect ? (base_url + exp).replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal') : (base_url + exp);
-                    code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${dockerSafeExpectUrl}", { timeout: 5000 });`;
-                    break;
-                case 'expect_text':
-                    code = `await highlight("${sel}", "Check Text: ${exp}");\n    await expect(page.locator("${sel}"), "Lỗi Text: Không tìm thấy nội dung. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toContainText("${exp}", { timeout: 5000 });`;
-                    break;
-                case 'expect_visible':
-                    code = `await highlight("${sel}", "Check Visible");\n    await expect(page.locator("${sel}"), "Lỗi Hiển thị: Không thấy element. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toBeVisible({ timeout: 5000 });`;
-                    break;
-                case 'expect_hidden':
-                    code = `await expect(page.locator("${sel}")).toBeHidden({ timeout: 5000 });`;
-                    break;
-                default:
-                    code = `// [UNKNOWN ACTION] ${step.action}`;
-            }
+      // Xử lý Macro Variables cho Data Dependency
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      if (val.includes('{{RANDOM_EMAIL}}')) val = val.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
+      if (val.includes('{{RANDOM_TEXT}}')) val = val.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
+      if (val.includes('{{TIMESTAMP}}')) val = val.replace('{{TIMESTAMP}}', `${timestamp}`);
 
-            const autoScreenshot = ['click', 'fill', 'select', 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'].includes(step.action)
-                ? `\n    await page.screenshot({ path: 'step-${stepNum}-after.png' });`
-                : '';
+      if (exp.includes('{{RANDOM_EMAIL}}')) exp = exp.replace('{{RANDOM_EMAIL}}', `test_${timestamp}@example.com`);
+      if (exp.includes('{{RANDOM_TEXT}}')) exp = exp.replace('{{RANDOM_TEXT}}', `text_${randomStr}`);
+      if (exp.includes('{{TIMESTAMP}}')) exp = exp.replace('{{TIMESTAMP}}', `${timestamp}`);
 
-            const stepDesc = escapeJs(step.description || step.action);
-            return `  // Step ${stepNum}
+      switch (step.action) {
+        case 'goto': {
+          // Fix docker networking to access localhost on host machine
+          const isDockerGoto = process.env.RUNNING_IN_DOCKER === 'true';
+          const rawGotoUrl = (base_url || '') + (step.path || '');
+          const dockerSafeUrl = isDockerGoto
+            ? rawGotoUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal')
+            : rawGotoUrl;
+          code = `await page.goto("${escapeJs(dockerSafeUrl)}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
+          break;
+        }
+        case 'fill':
+          if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            code = `await highlight("${sel}", "Chọn ngày: ${val}");\n    await page.fill("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(200);`;
+          } else {
+            code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "", { timeout: 5000 });\n    await page.locator("${sel}").pressSequentially("${val}", { delay: 50, timeout: 5000 });\n    await page.waitForTimeout(200);`;
+          }
+          break;
+        case 'click':
+          code = `await highlight("${sel}", "Click");\n    await page.click("${sel}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
+          break;
+        case 'wait_for':
+          code = `await page.waitForSelector("${sel}", { timeout: 5000 });`;
+          break;
+        case 'select':
+          code = `await highlight("${sel}", "Chọn: ${val}");\n    await page.selectOption("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
+          break;
+        case 'expect_url': {
+          const isDockerExpect = process.env.RUNNING_IN_DOCKER === 'true';
+          // Use raw (unescaped) values for URL construction, then escape the final result for embedding in JS string
+          const rawExp = step.expected || '';
+          const rawBaseUrl = base_url || '';
+          let fullExpectedUrl = rawExp;
+          if (!fullExpectedUrl.startsWith('http://') && !fullExpectedUrl.startsWith('https://')) {
+            fullExpectedUrl = rawBaseUrl.replace(/\/$/, '') + '/' + rawExp.replace(/^\//, '');
+          }
+          const dockerSafeExpectUrl = isDockerExpect
+            ? fullExpectedUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal')
+            : fullExpectedUrl;
+          const safeExpectUrl = escapeJs(dockerSafeExpectUrl);
+          code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${safeExpectUrl}", { timeout: 5000 })`;
+          break;
+        }
+        case 'expect_text':
+          code = `await highlight("${sel}", "Check Text: ${exp}");\n    await expect(page.locator("${sel}"), "Lỗi Text: Không tìm thấy nội dung. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toContainText("${exp}", { timeout: 5000 });`;
+          break;
+        case 'expect_visible':
+          code = `await highlight("${sel}", "Check Visible");\n    await expect(page.locator("${sel}"), "Lỗi Hiển thị: Không thấy element. Giao diện có thể bị sai hoặc chưa Đăng nhập.").toBeVisible({ timeout: 5000 });`;
+          break;
+        case 'expect_hidden':
+          code = `await expect(page.locator("${sel}")).toBeHidden({ timeout: 5000 });`;
+          break;
+        default:
+          code = `// [UNKNOWN ACTION] ${step.action}`;
+      }
+
+      const autoScreenshot = ['goto', 'click', 'fill', 'select', 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'].includes(step.action)
+        ? `\n    await page.screenshot({ path: 'step-${stepNum}-after.png' });`
+        : '';
+
+      const stepDesc = escapeJs(step.description || step.action);
+      return `  // Step ${stepNum}
   await test.step("${stepDesc}", async () => {
     if (ws.readyState === WebSocket.OPEN) {
-      try { ws.send(JSON.stringify({ type: 'step_started', stepIndex: ${index} })); } catch(e){}
+      try { ws.send(JSON.stringify({ type: 'step_started', stepIndex: ${index}, title: "${stepDesc}" })); } catch(e){}
     }
     ${code}${autoScreenshot}
   });`;
-        })
-        .join('\n\n');
+    })
+    .join('\n\n');
 
-    return `
+  return `
 const { test, expect } = require('@playwright/test');
 const WebSocket = require('ws');
 
