@@ -3,8 +3,9 @@ import KeyValueEditor from './KeyValueEditor'
 import { testCaseService } from '../services/testCaseService'
 
 export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
-  const [method, setMethod] = useState(testCase.apiMethod || 'GET')
-  const [url, setUrl] = useState(testCase.apiUrl || '')
+  const cfg = testCase.configuration || {}
+  const [method, setMethod] = useState(cfg.apiMethod || 'GET')
+  const [url, setUrl] = useState(cfg.apiUrl || '')
   const [reqTab, setReqTab] = useState('Params') // Params, Headers, Body, Assertions
   const [agentToken, setAgentToken] = useState(null)
   
@@ -28,25 +29,25 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
   }
 
   const [headers, setHeaders] = useState(() => {
-    const kv = objToKv(testCase.apiHeaders)
+    const kv = objToKv(cfg.apiHeaders)
     return kv.length ? kv : [{ key: '', value: '' }]
   })
   
   const [queryParams, setQueryParams] = useState(() => {
-    const kv = objToKv(testCase.apiQueryParams)
+    const kv = objToKv(cfg.apiQueryParams)
     return kv.length ? kv : [{ key: '', value: '' }]
   })
   
   // Body string
   const [body, setBody] = useState(() => {
-    if (!testCase.apiBody) return ''
-    if (typeof testCase.apiBody === 'string') return testCase.apiBody
-    return JSON.stringify(testCase.apiBody, null, 2)
+    if (!cfg.apiBody) return ''
+    if (typeof cfg.apiBody === 'string') return cfg.apiBody
+    return JSON.stringify(cfg.apiBody, null, 2)
   })
 
   // Assertions array
   const [assertions, setAssertions] = useState(() => {
-    let arr = testCase.apiAssertions
+    let arr = cfg.apiAssertions
     if (typeof arr === 'string') {
       try { arr = JSON.parse(arr) } catch { arr = [] }
     }
@@ -55,21 +56,22 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
   })
 
   useEffect(() => {
-    setMethod(testCase.apiMethod || 'GET')
-    setUrl(testCase.apiUrl || '')
+    const c = testCase.configuration || {}
+    setMethod(c.apiMethod || 'GET')
+    setUrl(c.apiUrl || '')
     
-    const hkv = objToKv(testCase.apiHeaders)
+    const hkv = objToKv(c.apiHeaders)
     setHeaders(hkv.length ? hkv : [{ key: '', value: '' }])
     
-    const pkv = objToKv(testCase.apiQueryParams)
+    const pkv = objToKv(c.apiQueryParams)
     setQueryParams(pkv.length ? pkv : [{ key: '', value: '' }])
     
-    const bodyStr = !testCase.apiBody ? '' : 
-      typeof testCase.apiBody === 'string' ? testCase.apiBody : 
-      JSON.stringify(testCase.apiBody, null, 2)
+    const bodyStr = !c.apiBody ? '' : 
+      typeof c.apiBody === 'string' ? c.apiBody : 
+      JSON.stringify(c.apiBody, null, 2)
     setBody(bodyStr)
     
-    let arr = testCase.apiAssertions
+    let arr = c.apiAssertions
     if (typeof arr === 'string') {
       try { arr = JSON.parse(arr) } catch { arr = [] }
     }
@@ -107,16 +109,19 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
       type: testCase.type || 'API',
       precondition: testCase.precondition,
       expectedResult: testCase.expectedResult,
-      apiMethod: method,
-      apiUrl: url,
-      apiHeaders: kvToObj(headers),
-      apiQueryParams: kvToObj(queryParams),
-      apiBody: parsedBody,
-      apiAssertions: assertions.filter(a => {
-        if (!a.type || !a.operator) return false
-        if (a.operator !== 'EXISTS' && !a.expectedValue?.trim()) return false
-        return true
-      })
+      configuration: {
+        type: 'API',
+        apiMethod: method,
+        apiUrl: url,
+        apiHeaders: kvToObj(headers),
+        apiQueryParams: kvToObj(queryParams),
+        apiBody: parsedBody,
+        apiAssertions: assertions.filter(a => {
+          if (!a.type || !a.operator) return false
+          if (a.operator !== 'EXISTS' && !a.expectedValue?.trim()) return false
+          return true
+        })
+      }
     }
 
     onSave(payload)

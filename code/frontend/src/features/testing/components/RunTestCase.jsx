@@ -140,7 +140,9 @@ const RunTestCase = ({ testCase }) => {
   const [agentToken, setAgentToken] = useState(null);
   const pollIntervalRef = useRef(null);
 
-  const isLocalUrl = testCase?.baseUrl?.includes('localhost') || testCase?.baseUrl?.includes('127.0.0.1') || testCase?.baseUrl?.includes('0.0.0.0');
+  const cfgBaseUrl = testCase?.configuration?.baseUrl;
+  const cfgSteps = testCase?.configuration?.steps;
+  const isLocalUrl = cfgBaseUrl?.includes('localhost') || cfgBaseUrl?.includes('127.0.0.1') || cfgBaseUrl?.includes('0.0.0.0');
 
   useEffect(() => {
     if (isLocalUrl && testCase?.projectId && !agentToken) {
@@ -233,7 +235,7 @@ const RunTestCase = ({ testCase }) => {
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-gray-500">
               <span className="px-2 py-0.5 bg-[#1E707D]/10 text-[#1E707D] rounded text-xs font-medium border border-blue-100">{testCase.type}</span>
               <span className="flex items-center gap-1.5">
-                Base URL: <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 shadow-sm">{testCase.baseUrl}</code>
+                Base URL: <code className="bg-white px-1.5 py-0.5 rounded border border-gray-200 shadow-sm">{cfgBaseUrl}</code>
               </span>
             </div>
           </div>
@@ -250,13 +252,13 @@ const RunTestCase = ({ testCase }) => {
              </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-md shadow-sm">
-              {testCase.stepsStructured?.map((step, idx) => {
+              {cfgSteps?.map((step, idx) => {
                 const execution = runData?.executions?.find(ex => ex.orderIndex === step.order) 
                                || runData?.executions?.find(ex => ex.orderIndex === idx);
                 
                 const isFailedStep = execution?.failedStepIndex !== undefined && execution?.failedStepIndex !== null
                   ? execution.failedStepIndex === idx
-                  : idx === testCase.stepsStructured.length - 1; // fallback
+                  : idx === cfgSteps.length - 1; // fallback
 
                 const executionResult = execution && (!isRunning || execution.status !== 'RUNNING') ? {
                     status: execution.status === 'PASSED' ? 'PASS' 
@@ -278,7 +280,7 @@ const RunTestCase = ({ testCase }) => {
                   />
                 );
               })}
-              {(!testCase.stepsStructured || testCase.stepsStructured.length === 0) && (
+              {(!cfgSteps || cfgSteps.length === 0) && (
                 <div className="py-8 text-center text-gray-500 text-sm">
                   No steps defined for this test case.
                 </div>
@@ -329,9 +331,9 @@ const RunTestCase = ({ testCase }) => {
 
           <button
             onClick={handleRun}
-            disabled={isRunning || !testCase.stepsStructured?.length}
+            disabled={isRunning || !cfgSteps?.length}
             className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors
-              ${(isRunning || !testCase.stepsStructured?.length) 
+              ${(isRunning || !cfgSteps?.length) 
                 ? 'bg-indigo-400 cursor-not-allowed' 
                 : 'bg-[#1E707D] hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
               }`}

@@ -16,12 +16,12 @@ export function getScreenshotForStep(stepIndex, screenshots) {
 
 /* ─── Status config ──────────────────────────────────────────────── */
 const STATUS = {
-  IDLE:      { dot: '#8e8e93', bg: 'rgba(142,142,147,0.12)', text: '#6e6e73', label: 'Ready'     },
-  RUNNING:   { dot: '#007aff', bg: 'rgba(0,122,255,0.10)',   text: '#0071e3', label: 'Running'   },
-  PASS:      { dot: '#34c759', bg: 'rgba(52,199,89,0.10)',   text: '#248a3d', label: 'Passed'    },
-  FAIL:      { dot: '#ff3b30', bg: 'rgba(255,59,48,0.10)',   text: '#c0392b', label: 'Failed'    },
-  ERROR:     { dot: '#ff3b30', bg: 'rgba(255,59,48,0.10)',   text: '#c0392b', label: 'Error'     },
-  CANCELLED: { dot: '#ff9500', bg: 'rgba(255,149,0,0.10)',   text: '#b25000', label: 'Cancelled' },
+  IDLE: { dot: '#8e8e93', bg: 'rgba(142,142,147,0.12)', text: '#6e6e73', label: 'Ready' },
+  RUNNING: { dot: '#007aff', bg: 'rgba(0,122,255,0.10)', text: '#0071e3', label: 'Running' },
+  PASS: { dot: '#34c759', bg: 'rgba(52,199,89,0.10)', text: '#248a3d', label: 'Passed' },
+  FAIL: { dot: '#ff3b30', bg: 'rgba(255,59,48,0.10)', text: '#c0392b', label: 'Failed' },
+  ERROR: { dot: '#ff3b30', bg: 'rgba(255,59,48,0.10)', text: '#c0392b', label: 'Error' },
+  CANCELLED: { dot: '#ff9500', bg: 'rgba(255,149,0,0.10)', text: '#b25000', label: 'Cancelled' },
 };
 
 /* ─── StatusChip ─────────────────────────────────────────────────── */
@@ -39,7 +39,7 @@ export function StatusChip({ status, durationMs }) {
           style={{ background: cfg.dot }} />
       </span>
       <span className="text-[11px] font-semibold tracking-wide" style={{ color: cfg.text }}>
-        {cfg.label}{durationMs && !['IDLE','RUNNING'].includes(status) ? ` · ${durationMs}ms` : ''}
+        {cfg.label}{durationMs && !['IDLE', 'RUNNING'].includes(status) ? ` · ${durationMs}ms` : ''}
       </span>
     </div>
   );
@@ -49,11 +49,11 @@ export function StatusChip({ status, durationMs }) {
 function StepTile({ step, index, stepStatus, isFocused, isFinished, isRunning,
   error, screenshots, totalSteps, onFocus, onViewScreenshot }) {
   const isActive = stepStatus === 'RUNNING';
-  const isPass   = stepStatus === 'PASS';
-  const isFail   = stepStatus === 'FAIL';
-  const ss       = isFinished ? getScreenshotForStep(index, screenshots) : null;
-  const ssIdx    = ss && screenshots ? screenshots.indexOf(ss) : -1;
-  const isLast   = index === totalSteps - 1;
+  const isPass = stepStatus === 'PASS';
+  const isFail = stepStatus === 'FAIL';
+  const ss = isFinished ? getScreenshotForStep(index, screenshots) : null;
+  const ssIdx = ss && screenshots ? screenshots.indexOf(ss) : -1;
+  const isLast = index === totalSteps - 1;
 
   let tileBg = 'rgba(255,255,255,0.50)', tileBorder = 'rgba(255,255,255,0.45)';
   let tileShadow = '0 2px 8px rgba(0,0,0,0.04)';
@@ -94,11 +94,13 @@ function StepTile({ step, index, stepStatus, isFocused, isFinished, isRunning,
         }}
       >
         <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold"
-          style={{ background: numBg, color: numColor, transition: 'all 0.2s',
-            boxShadow: isActive ? '0 0 0 4px rgba(0,122,255,0.15)' : undefined }}>
+          style={{
+            background: numBg, color: numColor, transition: 'all 0.2s',
+            boxShadow: isActive ? '0 0 0 4px rgba(0,122,255,0.15)' : undefined
+          }}>
           {isActive ? <Loader size={11} className="animate-spin" /> :
-           isPass   ? <CheckCircle size={11} /> :
-           isFail   ? <XCircle size={11} /> : (index + 1)}
+            isPass ? <CheckCircle size={11} /> :
+              isFail ? <XCircle size={11} /> : (index + 1)}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] font-medium leading-snug" style={{ color: textColor }}>
@@ -236,16 +238,18 @@ function BrowserChrome({ url, isRunning, children }) {
       <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
         style={{ background: 'rgba(255,255,255,0.60)', borderBottom: '1px solid rgba(255,255,255,0.55)' }}>
         <div className="flex gap-[6px]">
-          {[['#ff5f57'],['#febc2e'],['#28c840']].map(([c], i) => (
+          {[['#ff5f57'], ['#febc2e'], ['#28c840']].map(([c], i) => (
             <div key={i} className="w-3 h-3 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px rgba(0,0,0,0.1)' }} />
           ))}
         </div>
         <div className="flex-1 flex items-center gap-2 px-3 py-[5px] rounded-[10px]"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.2)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04) inset' }}>
+          style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.2)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04) inset'
+          }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
             style={{ color: '#34c759', flexShrink: 0 }}>
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           <span className="flex-1 text-[11px] font-medium truncate"
             style={{ color: '#3a3a3c', fontFamily: 'SF Mono, ui-monospace, monospace' }}>
@@ -277,9 +281,9 @@ export default function TestExecutionViewer({
   isRunning, runId, agentToken, isLocalUrl
 }) {
   const [selectedSsIdx, setSelectedSsIdx] = useState(null);
-  const [windowWidth, setWindowWidth]     = useState(window.innerWidth);
-  const [leftPct, setLeftPct]             = useState(33);
-  const containerRef                      = useRef(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [leftPct, setLeftPct] = useState(33);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     const fn = () => setWindowWidth(window.innerWidth);
@@ -307,8 +311,8 @@ export default function TestExecutionViewer({
   };
 
   const isFinished = !isRunning && status !== 'IDLE';
-  const latestSs   = screenshots?.length > 0 ? screenshots[screenshots.length - 1] : null;
-  const isWide     = windowWidth >= 1024;
+  const latestSs = screenshots?.length > 0 ? screenshots[screenshots.length - 1] : null;
+  const isWide = windowWidth >= 1024;
   const effectiveFailedIdx = (error?.failedStepIndex !== undefined && error?.failedStepIndex !== null)
     ? error.failedStepIndex : (status === 'FAIL' ? lastRunningStepIndex : null);
 
@@ -333,7 +337,7 @@ export default function TestExecutionViewer({
       <div className="relative flex items-center gap-4 px-5 py-3 shrink-0"
         style={{ background: 'rgba(255,255,255,0.60)', borderBottom: '1px solid rgba(255,255,255,0.55)' }}>
         <div className="flex gap-[6px]">
-          {[['#ff5f57'],['#febc2e'],['#28c840']].map(([c], i) => (
+          {[['#ff5f57'], ['#febc2e'], ['#28c840']].map(([c], i) => (
             <div key={i} className="w-3 h-3 rounded-full" style={{ background: c, boxShadow: '0 0 0 1px rgba(0,0,0,0.1)' }} />
           ))}
         </div>
@@ -383,20 +387,25 @@ export default function TestExecutionViewer({
             )}
 
             {(stepsArr || []).map((step, i) => {
-              let stepStatus = null;
-              if (status === 'RUNNING') {
-                if (currentStepIndex !== null) {
-                  if (i < currentStepIndex) stepStatus = 'PASS';
-                  else if (i === currentStepIndex) stepStatus = 'RUNNING';
+              let stepStatus = step.status || null;
+              if (!stepStatus) {
+                if (status === 'RUNNING') {
+                  if (currentStepIndex !== null) {
+                    if (i < currentStepIndex) stepStatus = 'PASS';
+                    else if (i === currentStepIndex) stepStatus = 'RUNNING';
+                  }
+                } else if (status === 'PASS') {
+                  stepStatus = 'PASS';
+                } else if (status === 'FAIL' || status === 'ERROR') {
+                  if (effectiveFailedIdx !== null) {
+                    if (i < effectiveFailedIdx) stepStatus = 'PASS';
+                    else if (i === effectiveFailedIdx) stepStatus = 'FAIL';
+                  } else if (i === 0) stepStatus = 'FAIL';
                 }
-              } else if (status === 'PASS') {
-                stepStatus = 'PASS';
-              } else if (status === 'FAIL' || status === 'ERROR') {
-                if (effectiveFailedIdx !== null) {
-                  if (i < effectiveFailedIdx) stepStatus = 'PASS';
-                  else if (i === effectiveFailedIdx) stepStatus = 'FAIL';
-                } else if (i === 0) stepStatus = 'FAIL';
               }
+              
+              const stepError = step.error ? { message: step.error } : (stepStatus === 'FAIL' ? error : null);
+
               return (
                 <StepTile
                   key={i}
@@ -406,7 +415,7 @@ export default function TestExecutionViewer({
                   isFocused={focusedStepIndex === i}
                   isFinished={isFinished}
                   isRunning={isRunning}
-                  error={stepStatus === 'FAIL' ? error : null}
+                  error={stepError}
                   screenshots={screenshots}
                   totalSteps={(stepsArr || []).length}
                   onFocus={onFocusStep}
@@ -419,16 +428,16 @@ export default function TestExecutionViewer({
             {error && !isRunning &&
               (error.failedStepIndex === undefined || error.failedStepIndex === null) &&
               lastRunningStepIndex === null && (
-              <div className="mt-2 px-3 py-2.5 rounded-2xl text-[11px] font-mono"
-                style={{ background: 'rgba(255,59,48,0.07)', border: '1px solid rgba(255,59,48,0.18)', color: '#c0392b' }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <AlertTriangle size={12} style={{ color: '#ff3b30' }} />
-                  <span className="font-bold text-[10px] uppercase tracking-wider" style={{ color: '#ff3b30' }}>Execution Error</span>
-                  {runId && <div className="ml-auto"><AiAnalyzeButton testRunId={runId} /></div>}
+                <div className="mt-2 px-3 py-2.5 rounded-2xl text-[11px] font-mono"
+                  style={{ background: 'rgba(255,59,48,0.07)', border: '1px solid rgba(255,59,48,0.18)', color: '#c0392b' }}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <AlertTriangle size={12} style={{ color: '#ff3b30' }} />
+                    <span className="font-bold text-[10px] uppercase tracking-wider" style={{ color: '#ff3b30' }}>Execution Error</span>
+                    {runId && <div className="ml-auto"><AiAnalyzeButton testRunId={runId} /></div>}
+                  </div>
+                  <div className="whitespace-pre-wrap">{error.message}</div>
                 </div>
-                <div className="whitespace-pre-wrap">{error.message}</div>
-              </div>
-            )}
+              )}
 
             {/* Bug hint */}
             {bugReportId && (
@@ -439,7 +448,7 @@ export default function TestExecutionViewer({
                   Auto-created Bug Report #{bugReportId}
                 </div>
                 {projectId && (
-                  <Link to={`/projects/${projectId}/bugs/${bugReportId}`} 
+                  <Link to={`/projects/${projectId}/bugs/${bugReportId}`}
                     className="hover:underline font-semibold"
                     style={{ color: '#b25000' }}>
                     View Bug Report
@@ -583,7 +592,7 @@ export default function TestExecutionViewer({
         )}
 
         {/* Save result */}
-        {!isReadOnly && ['PASS','FAIL'].includes(status) && !isSaved && (
+        {!isReadOnly && ['PASS', 'FAIL'].includes(status) && !isSaved && (
           <button onClick={onSaveRun}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[12px] font-semibold transition-all duration-150"
             style={{ background: 'rgba(52,199,89,0.10)', border: '1px solid rgba(52,199,89,0.25)', color: '#248a3d' }}
@@ -635,8 +644,10 @@ export default function TestExecutionViewer({
 
             <button onClick={() => setSelectedSsIdx(null)}
               className="absolute top-0 right-0 p-2 rounded-full z-10 transition-all"
-              style={{ background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(0,0,0,0.08)',
-                color: '#3a3a3c', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+              style={{
+                background: 'rgba(255,255,255,0.80)', border: '1px solid rgba(0,0,0,0.08)',
+                color: '#3a3a3c', boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+              }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,1)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.80)'; }}>
               <X size={20} />
@@ -645,8 +656,10 @@ export default function TestExecutionViewer({
             {selectedSsIdx > 0 && (
               <button onClick={() => setSelectedSsIdx(p => p - 1)}
                 className="absolute left-0 top-1/2 -translate-y-1/2 p-3 rounded-full z-10 transition-all"
-                style={{ background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(0,0,0,0.08)',
-                  color: '#3a3a3c', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                style={{
+                  background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(0,0,0,0.08)',
+                  color: '#3a3a3c', boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+                }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,1)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.75)'; }}>
                 <ChevronLeft size={28} />
@@ -656,8 +669,10 @@ export default function TestExecutionViewer({
             {selectedSsIdx < screenshots.length - 1 && (
               <button onClick={() => setSelectedSsIdx(p => p + 1)}
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-3 rounded-full z-10 transition-all"
-                style={{ background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(0,0,0,0.08)',
-                  color: '#3a3a3c', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+                style={{
+                  background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(0,0,0,0.08)',
+                  color: '#3a3a3c', boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+                }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,1)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.75)'; }}>
                 <ChevronRight size={28} />
@@ -669,8 +684,10 @@ export default function TestExecutionViewer({
               style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.30), 0 0 0 1px rgba(255,255,255,0.25)' }} />
 
             <div className="absolute bottom-4 px-4 py-1.5 rounded-full text-[12px] font-medium"
-              style={{ background: 'rgba(255,255,255,0.90)', border: '1px solid rgba(0,0,0,0.08)',
-                color: '#3a3a3c', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
+              style={{
+                background: 'rgba(255,255,255,0.90)', border: '1px solid rgba(0,0,0,0.08)',
+                color: '#3a3a3c', boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
+              }}>
               {screenshots[selectedSsIdx].filename} · {selectedSsIdx + 1} / {screenshots.length}
             </div>
           </div>

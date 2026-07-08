@@ -350,6 +350,8 @@ export const useNotificationStore = create((set, get) => ({
                     useTestRunStore.getState().onExecutionCompleted(payload);
                 }
             });
+            // Fast-path for useTestRun hook polling
+            window.dispatchEvent(new CustomEvent('test-run-execution-completed', { detail: payload }));
           }
           if (payload.type === 'TEST_RUN_COMPLETED') {
             import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
@@ -358,6 +360,8 @@ export const useNotificationStore = create((set, get) => ({
                     useTestRunStore.getState().onRunCompleted(payload);
                 }
             });
+            // Fast-path for useTestRun hook polling
+            window.dispatchEvent(new CustomEvent('test-run-completed', { detail: payload }));
           }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
