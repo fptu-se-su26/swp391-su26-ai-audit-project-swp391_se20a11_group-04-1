@@ -28,6 +28,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
+import org.example.backend.exception.BusinessException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,6 +54,7 @@ public class AiGenerationService {
     private final ObjectMapper objectMapper;
     private final TestCaseRepository testCaseRepository;
     private final TestStepRepository testStepRepository;
+    private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -67,7 +69,8 @@ public class AiGenerationService {
                                org.example.backend.repository.ProjectActorRepository projectActorRepository,
                                ObjectMapper objectMapper,
                                TestCaseRepository testCaseRepository,
-                               TestStepRepository testStepRepository) {
+                               TestStepRepository testStepRepository,
+                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.requirementGeminiService = requirementGeminiService;
@@ -81,6 +84,7 @@ public class AiGenerationService {
         this.objectMapper = objectMapper;
         this.testCaseRepository = testCaseRepository;
         this.testStepRepository = testStepRepository;
+        this.testCaseMapper = testCaseMapper;
     }
 
     @Transactional
@@ -748,7 +752,7 @@ public class AiGenerationService {
     }
 
     @Transactional
-    public List<TestCase> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
+    public List<org.example.backend.dto.testing.TestCaseResponse> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
         List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
         if (stagings.isEmpty()) {
             throw new RuntimeException("Không tìm thấy dữ liệu staging với ID: " + generationId);
@@ -789,7 +793,7 @@ public class AiGenerationService {
                 if (tcNode.has("requirementId") && !tcNode.get("requirementId").isNull()) {
                     tc.setRequirementId(tcNode.get("requirementId").asLong());
                 } else {
-                    throw new RuntimeException("Requirement is required for all test cases.");
+                    throw new BusinessException("Requirement is required for all test cases.");
                 }
                 
                 tc.setPrecondition(tcNode.path("precondition").asText(""));
@@ -806,21 +810,35 @@ public class AiGenerationService {
                     tc.setType(TestType.MANUAL);
                 }
                 
-                // Map UI specific fields
-                if (tcNode.has("stepsStructured")) {
-                    tc.setStepsStructured(tcNode.get("stepsStructured").toString());
-                }
-                if (tcNode.has("baseUrl")) {
-                    tc.setBaseUrl(tcNode.get("baseUrl").asText());
-                }
+                // Map Configuration based on Type
+                JsonNode configNode = tcNode.has("configuration") ? tcNode.get("configuration") : tcNode;
                 
-                // Map API specific fields
-                if (tcNode.has("apiMethod")) tc.setApiMethod(tcNode.get("apiMethod").asText());
-                if (tcNode.has("apiUrl")) tc.setApiUrl(tcNode.get("apiUrl").asText());
-                if (tcNode.has("apiHeaders")) tc.setApiHeaders(tcNode.get("apiHeaders").toString());
-                if (tcNode.has("apiQueryParams")) tc.setApiQueryParams(tcNode.get("apiQueryParams").toString());
-                if (tcNode.has("apiBody")) tc.setApiBody(tcNode.get("apiBody").toString());
-                if (tcNode.has("apiAssertions")) tc.setApiAssertions(tcNode.get("apiAssertions").toString());
+                if (tc.getType() == TestType.UI) {
+                    org.example.backend.entity.config.UiTestConfig uiConfig = new org.example.backend.entity.config.UiTestConfig();
+                    if (configNode.has("baseUrl")) uiConfig.setBaseUrl(configNode.get("baseUrl").asText());
+                    if (configNode.has("steps")) uiConfig.setSteps(configNode.get("steps"));
+                    else if (configNode.has("stepsStructured")) uiConfig.setSteps(configNode.get("stepsStructured")); // backward compatibility
+                    uiConfig.setTestCase(tc);
+                    tc.setUiConfig(uiConfig);
+                } else if (tc.getType() == TestType.API) {
+                    org.example.backend.entity.config.ApiTestConfig apiConfig = new org.example.backend.entity.config.ApiTestConfig();
+                    apiConfig.setApiMethod(configNode.has("apiMethod") ? configNode.get("apiMethod").asText() : "GET");
+                    apiConfig.setApiUrl(configNode.has("apiUrl") ? configNode.get("apiUrl").asText() : "");
+                    if (configNode.has("apiHeaders")) apiConfig.setApiHeaders(configNode.get("apiHeaders"));
+                    if (configNode.has("apiQueryParams")) apiConfig.setApiQueryParams(configNode.get("apiQueryParams"));
+                    if (configNode.has("apiBody")) apiConfig.setApiBody(configNode.get("apiBody"));
+                    if (configNode.has("apiAssertions")) apiConfig.setApiAssertions(configNode.get("apiAssertions"));
+                    apiConfig.setTestCase(tc);
+                    tc.setApiConfig(apiConfig);
+                } else if (tc.getType() == TestType.UNIT) {
+                    org.example.backend.entity.config.UnitTestConfig unitConfig = new org.example.backend.entity.config.UnitTestConfig();
+                    unitConfig.setTestCase(tc);
+                    tc.setUnitConfig(unitConfig);
+                } else if (tc.getType() == TestType.INTEGRATION) {
+                    org.example.backend.entity.config.IntegrationTestConfig integrationConfig = new org.example.backend.entity.config.IntegrationTestConfig();
+                    integrationConfig.setTestCase(tc);
+                    tc.setIntegrationConfig(integrationConfig);
+                }
                 
                 // Save first to get ID for TestStep linkage (since TestStep cascade is tricky with new entities manually managed)
                 // Actually, cascade = CascadeType.ALL will handle it if we set the relationship on both sides.
@@ -850,7 +868,7 @@ public class AiGenerationService {
         }
         stagingRepository.save(staging);
         
-        return savedTestCases;
+        return savedTestCases.stream().map(testCaseMapper::toResponse).toList();
     }
 
     private String formatFlowForPrompt(String flowJson) {

@@ -18,6 +18,9 @@ public class AITestAnalysisService {
     @Value("${gemini.api-key:}")
     private String apiKey;
 
+    @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}")
+    private String apiUrl;
+
     private final RestTemplate restTemplate;
 
     public AITestAnalysisService() {
@@ -71,7 +74,7 @@ public class AITestAnalysisService {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
+            String url = apiUrl + "?key=" + apiKey;
 
             ResponseEntity<Map> response = restTemplate.exchange(
                 url,
@@ -93,8 +96,19 @@ public class AITestAnalysisService {
                 }
             }
             return "Không thể lấy kết quả phân tích từ AI.";
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            int statusCode = e.getStatusCode().value();
+            if (statusCode == 429) {
+                return "Tính năng phân tích AI tạm thời không khả dụng do vượt quá giới hạn quota. Vui lòng thử lại sau vài phút.";
+            }
+            if (statusCode == 401 || statusCode == 403) {
+                return "API Key Gemini không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại cấu hình.";
+            }
+            if (statusCode == 404) {
+                return "Model AI không tìm thấy. Vui lòng liên hệ quản trị viên.";
+            }
+            return "Lỗi khi gọi AI (" + statusCode + "): " + e.getStatusText();
         } catch (Exception e) {
-            e.printStackTrace();
             return "Đã xảy ra lỗi khi gọi AI: " + e.getMessage();
         }
     }
