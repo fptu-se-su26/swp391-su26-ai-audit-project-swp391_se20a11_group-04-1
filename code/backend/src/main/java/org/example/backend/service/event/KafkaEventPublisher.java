@@ -5,13 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.OutboxEvent;
 import org.example.backend.entity.ProcessedEvent;
 import org.example.backend.repository.ProcessedEventRepository;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
 @RequiredArgsConstructor
 @Slf4j
 public class KafkaEventPublisher implements EventPublisher {
