@@ -85,19 +85,34 @@ public class TestRunInternalController {
             
         Map<String, Object> map = new HashMap<>();
         map.put("title", tc.getTitle());
-        map.put("base_url", tc.getBaseUrl());
+        map.put("type", tc.getType() != null ? tc.getType().name() : null);
+        
+        String baseUrl = "http://localhost";
+        String stepsStructuredStr = null;
+        String cachedScript = null;
+        String scriptSource = null;
+        
+        if (tc.getUiConfig() != null) {
+            org.example.backend.entity.config.UiTestConfig uiConfig = tc.getUiConfig();
+            if (uiConfig.getBaseUrl() != null && !"null".equals(uiConfig.getBaseUrl())) baseUrl = uiConfig.getBaseUrl();
+            if (uiConfig.getSteps() != null) stepsStructuredStr = uiConfig.getSteps().toString();
+            cachedScript = uiConfig.getCachedPlaywrightScript();
+            scriptSource = uiConfig.getScriptSource();
+        }
+        
+        map.put("base_url", baseUrl);
         Object parsedSteps = null;
-        if (tc.getStepsStructured() != null) {
+        if (stepsStructuredStr != null) {
             try {
-                parsedSteps = objectMapper.readValue(tc.getStepsStructured(), Object.class);
+                parsedSteps = objectMapper.readValue(stepsStructuredStr, Object.class);
             } catch (Exception e) {
-                parsedSteps = tc.getStepsStructured();
+                parsedSteps = stepsStructuredStr;
             }
         }
         map.put("steps_structured", parsedSteps);
         map.put("expected_result", tc.getExpectedResult());
-        map.put("cached_playwright_script", tc.getCachedPlaywrightScript());
-        map.put("script_source", tc.getScriptSource());
+        map.put("cached_playwright_script", cachedScript);
+        map.put("script_source", scriptSource);
         
         return ResponseEntity.ok(map);
     }
