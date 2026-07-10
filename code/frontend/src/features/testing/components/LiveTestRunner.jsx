@@ -17,17 +17,19 @@ export default function LiveTestRunner({ testCase }) {
   const fetchRequirementsTree = useTestCaseStore(s => s.fetchRequirementsTree);
 
   const [agentToken, setAgentToken] = useState(null);
-  const isLocalUrl = testCase?.baseUrl?.includes('localhost') || testCase?.baseUrl?.includes('127.0.0.1') || testCase?.baseUrl?.includes('0.0.0.0');
+  const cfgBaseUrl = testCase?.configuration?.baseUrl;
+  const isLocalUrl = cfgBaseUrl?.includes('localhost') || cfgBaseUrl?.includes('127.0.0.1') || cfgBaseUrl?.includes('0.0.0.0');
 
   const stepsArr = useMemo(() => {
     let arr = [];
-    if (typeof testCase.stepsStructured === 'string') {
-      try { arr = JSON.parse(testCase.stepsStructured); } catch (e) {}
-    } else if (Array.isArray(testCase.stepsStructured)) {
-      arr = testCase.stepsStructured;
+    const cfgSteps = testCase.configuration?.steps;
+    if (typeof cfgSteps === 'string') {
+      try { arr = JSON.parse(cfgSteps); } catch (e) { }
+    } else if (Array.isArray(cfgSteps)) {
+      arr = cfgSteps;
     }
     return [...arr].sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [testCase.stepsStructured]);
+  }, [testCase.configuration?.steps]);
 
   useEffect(() => {
     if (focusedStepIndex !== null && focusedStepIndex >= stepsArr.length) {
@@ -50,6 +52,8 @@ export default function LiveTestRunner({ testCase }) {
     }
     if (status === 'RUNNING') {
       setLiveFrame(null);
+      // Reset cả lastRunningStepIndex khi bắt đầu run mới
+      setLastRunningStepIndex(null);
     }
   }, [status]);
 
@@ -66,7 +70,7 @@ export default function LiveTestRunner({ testCase }) {
             setCurrentStepIndex(msg.stepIndex);
             setLastRunningStepIndex(msg.stepIndex);
           }
-        } catch (e) {}
+        } catch (e) { }
       };
       ws.onerror = () => console.error('[LiveTestRunner] WS error');
       ws.onclose = () => {
@@ -75,17 +79,20 @@ export default function LiveTestRunner({ testCase }) {
     }
     return () => {
       if (ws) ws.close();
+      // Chỉ reset currentStepIndex (dùng cho highlight đang chạy),
+      // KHÔNG reset lastRunningStepIndex — dùng để hiển thị step cuối đã chạy khi FAIL
       setCurrentStepIndex(null);
     };
   }, [status, runId]);
 
   useEffect(() => {
-    if (status === 'IDLE' || status === 'RUNNING') {
-      if (status === 'RUNNING' && currentStepIndex === null) {
-        setLastRunningStepIndex(null);
-      }
+    // Chỉ reset lastRunningStepIndex khi bắt đầu run mới (status chuyển từ non-RUNNING sang RUNNING)
+    // KHÔNG reset khi currentStepIndex = null do WS cleanup — điều đó xảy ra sau khi test kết thúc
+    if (status === 'RUNNING') {
+      // lastRunningStepIndex sẽ được cập nhật bởi WS step_started events
+      // Không cần reset ở đây
     }
-  }, [status, currentStepIndex]);
+  }, [status]);
 
   const handleReset = () => {
     setFocusedStepIndex(null);
@@ -114,14 +121,14 @@ export default function LiveTestRunner({ testCase }) {
     for (let i = Math.min(maxIndex, stepsArr.length - 1); i >= 0; i--) {
       const step = stepsArr[i];
       if (step && (step.action === 'goto' || step.action === 'expect_url')) {
-        const path = step.path || step.expectedUrl || step.url || '';
+        const path = step.path || step.expected || step.expectedUrl || step.url || '';
         if (path.startsWith('http://') || path.startsWith('https://')) {
           return path;
         }
-        return (testCase.baseUrl || '') + path;
+        return (cfgBaseUrl || '').replace(/\/$/, '') + '/' + path.replace(/^\//, '');
       }
     }
-    return testCase.baseUrl || 'about:blank';
+    return cfgBaseUrl || 'about:blank';
   })();
 
   return (

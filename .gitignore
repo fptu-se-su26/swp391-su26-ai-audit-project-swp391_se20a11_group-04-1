@@ -95,6 +95,11 @@ diff_dashboard.txt
 ERRORS.md
 /.env
 
+# --- PLAYWRIGHT SERVICE ---
+code/playwright-service/temp/
+code/playwright-service/test-results/
+code/playwright-service/node_modules/
+
 # --- PYTHON ---
 __pycache__/
 *.pyc

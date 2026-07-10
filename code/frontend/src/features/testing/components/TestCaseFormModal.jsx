@@ -43,17 +43,18 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
   useEffect(() => {
     if (isOpen) {
       if (testCase) {
+        const cfg = testCase.configuration || {}
         setFormData({
           title: testCase.title || '',
           requirementId: testCase.requirement?.id || '',
           type: testCase.type || 'UI',
           precondition: testCase.precondition || '',
           expectedResult: testCase.expectedResult || '',
-          baseUrl: testCase.baseUrl || '',
-          apiMethod: testCase.apiMethod || 'GET',
-          apiUrl: testCase.apiUrl || '',
-          steps: (testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps) 
-            ? [...(testCase.type === 'UI' ? testCase.stepsStructured : testCase.steps)] 
+          baseUrl: cfg.baseUrl || '',
+          apiMethod: cfg.apiMethod || 'GET',
+          apiUrl: cfg.apiUrl || '',
+          steps: Array.isArray(testCase.type === 'UI' ? cfg.steps : testCase.steps) 
+            ? [...(testCase.type === 'UI' ? cfg.steps : testCase.steps)] 
             : (testCase.type === 'UI' ? [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }] : [{ description: '' }])
         })
       } else {
@@ -96,32 +97,38 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
     }
 
     if (formData.type === 'UI') {
-      payload.baseUrl = formData.baseUrl
-      payload.stepsStructured = formData.steps.map((s, i) => ({
-        order: i + 1,
-        action: s.action || 'goto',
-        path: s.action === 'goto' ? s.path : undefined,
-        selector: ['fill', 'click', 'wait_for', 'select', 'expect_text', 'expect_visible', 'expect_hidden'].includes(s.action) ? s.selector : undefined,
-        value: ['fill', 'select'].includes(s.action) ? s.value : undefined,
-        expected: ['expect_url', 'expect_text'].includes(s.action) ? s.expected : undefined,
-        description: s.description || undefined
-      }))
+      payload.configuration = {
+        type: 'UI',
+        baseUrl: formData.baseUrl,
+        steps: formData.steps.map((s, i) => ({
+          order: i + 1,
+          action: s.action || 'goto',
+          path: s.action === 'goto' ? s.path : undefined,
+          selector: ['fill', 'click', 'wait_for', 'select', 'expect_text', 'expect_visible', 'expect_hidden'].includes(s.action) ? s.selector : undefined,
+          value: ['fill', 'select'].includes(s.action) ? s.value : undefined,
+          expected: ['expect_url', 'expect_text'].includes(s.action) ? s.expected : undefined,
+          description: s.description || undefined
+        }))
+      }
     } else if (formData.type !== 'API') {
       payload.steps = formData.steps.map((s, i) => ({
         stepNumber: i + 1,
         description: s.description
       }))
+      payload.configuration = { type: formData.type }
     }
     
     if (formData.type === 'API') {
-       payload.apiMethod = formData.apiMethod
-       payload.apiUrl = formData.apiUrl
-       // Keep original test case configurations if they exist, to avoid overwriting them to null during simple edit
-       if (testCase) {
-         payload.apiHeaders = testCase.apiHeaders
-         payload.apiQueryParams = testCase.apiQueryParams
-         payload.apiBody = testCase.apiBody
-         payload.apiAssertions = testCase.apiAssertions
+       const existingCfg = testCase?.configuration || {}
+       payload.configuration = {
+         type: 'API',
+         apiMethod: formData.apiMethod,
+         apiUrl: formData.apiUrl,
+         // Keep original test case configurations if they exist, to avoid overwriting them to null during simple edit
+         apiHeaders: existingCfg.apiHeaders || null,
+         apiQueryParams: existingCfg.apiQueryParams || null,
+         apiBody: existingCfg.apiBody || null,
+         apiAssertions: existingCfg.apiAssertions || null,
        }
     }
 

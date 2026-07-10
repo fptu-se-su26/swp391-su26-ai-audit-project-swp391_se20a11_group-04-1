@@ -10,13 +10,6 @@ public class AiDraftTestCase {
     private TestType type;
     private String precondition;
     private String expectedResult;
-    private String baseUrl;
-    private Object stepsStructured;
+    private Object configuration;
     private List<TestStepRequest> steps;
-    private String apiMethod;
-    private String apiUrl;
-    private Object apiHeaders;
-    private Object apiQueryParams;
-    private Object apiBody;
-    private Object apiAssertions;
 }

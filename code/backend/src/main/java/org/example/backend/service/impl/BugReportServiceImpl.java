@@ -1,3 +1,4 @@
+// touched to trigger recompile
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
@@ -42,9 +43,9 @@ public class BugReportServiceImpl implements BugReportService {
     private final TaskService taskService;
     private final GitHubApiService gitHubApiService;
     private final ObjectMapper objectMapper;
-    private final org.example.backend.repository.TaskProposalRepository taskProposalRepository;
-    private final org.example.backend.repository.TaskCommentRepository taskCommentRepository;
-    private final org.example.backend.repository.TaskVoteRepository taskVoteRepository;
+    private final org.example.backend.repository.mongo.TaskProposalRepository taskProposalRepository;
+    private final org.example.backend.repository.mongo.TaskCommentRepository taskCommentRepository;
+    private final org.example.backend.repository.mongo.TaskVoteRepository taskVoteRepository;
 
     @Override
     @Transactional(readOnly = true)

@@ -74,10 +74,17 @@ const SideNavBar = () => {
             <span className="material-symbols-outlined">supervisor_account</span>
             <span className="font-label-md text-body-md">Mentor Management</span>
           </Link>
-          <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
-            <span className="material-symbols-outlined">inventory_2</span>
+          <Link 
+            className={`flex items-center gap-3 px-stack_md py-2.5 rounded-lg transition-all ${
+              currentPath === '/admin/resources' 
+                ? 'bg-[#D7EEF1] text-[#1E707D] font-semibold' 
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`} 
+            to="/admin/resources"
+          >
+            <span className="material-symbols-outlined">dns</span>
             <span className="font-label-md text-body-md">Resource Management</span>
-          </a>
+          </Link>
           <a className="flex items-center gap-3 px-stack_md py-2.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
             <span className="material-symbols-outlined">smart_toy</span>
             <span className="font-label-md text-body-md">AI Usage Monitor</span>

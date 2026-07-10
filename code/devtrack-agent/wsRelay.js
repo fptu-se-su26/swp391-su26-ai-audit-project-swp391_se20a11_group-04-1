@@ -41,6 +41,8 @@ function startWsRelay(port = 4001) {
         const providers = new Map();
         // runId → string           (latest frame, for late-connecting clients)
         const frameBuffer = new Map();
+        // runId → string           (latest step_started, for late-connecting clients)
+        const stepBuffer = new Map();
 
         wss.on('connection', (ws, req) => {
             try {
@@ -56,9 +58,11 @@ function startWsRelay(port = 4001) {
                     ws.on('message', (message) => {
                         const msgStr = message.toString();
 
-                        // Buffer latest frame so late-joining clients get immediate image
+                        // Buffer latest frame and step event for late-joining clients
                         if (msgStr.includes('"type":"frame"')) {
                             frameBuffer.set(runId, msgStr);
+                        } else if (msgStr.includes('"type":"step_started"')) {
+                            stepBuffer.set(runId, msgStr);
                         }
 
                         // Relay to all clients watching this runId
@@ -75,6 +79,7 @@ function startWsRelay(port = 4001) {
                     ws.on('close', () => {
                         providers.delete(runId);
                         frameBuffer.delete(runId);
+                        stepBuffer.delete(runId);
                     });
 
                     ws.on('error', () => { providers.delete(runId); });
@@ -83,7 +88,13 @@ function startWsRelay(port = 4001) {
                     if (!clients.has(runId)) clients.set(runId, new Set());
                     clients.get(runId).add(ws);
 
-                    // Send buffered frame immediately so client doesn't see blank screen
+                    // Replay buffered state for late-connecting clients:
+                    // 1. Send latest step_started so the UI knows which step was active
+                    const bufferedStep = stepBuffer.get(runId);
+                    if (bufferedStep && ws.readyState === 1) {
+                        try { ws.send(bufferedStep); } catch (_) {}
+                    }
+                    // 2. Send buffered frame so client doesn't see blank screen
                     const buffered = frameBuffer.get(runId);
                     if (buffered && ws.readyState === 1) {
                         try { ws.send(buffered); } catch (_) {}

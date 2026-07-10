@@ -6,6 +6,7 @@ import org.example.backend.entity.enums.TestType;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.example.backend.dto.testing.config.TestConfiguration;
 
 @Data
 public class TestCaseResponse {
@@ -24,14 +25,5 @@ public class TestCaseResponse {
     private LocalDateTime updatedAt;
     private String lastExecutedBy;
     private LocalDateTime lastExecutedAt;
-    private String baseUrl;
-    private Object stepsStructured;
-
-    // --- API Testing Fields ---
-    private String apiMethod;
-    private String apiUrl;
-    private Object apiHeaders;
-    private Object apiQueryParams;
-    private Object apiBody;
-    private Object apiAssertions;
+    private TestConfiguration configuration;
 }

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playwright-worker
+  namespace: devtrack
+  labels:
+    app: playwright-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: playwright-worker
+  template:
+    metadata:
+      labels:
+        app: playwright-worker
+    spec:
+      containers:
+      - name: playwright-worker
+        image: swp391-su26-ai-audit-project-swp391_se20a11_group-04-1-playwright-worker:v2
+        imagePullPolicy: Never
+        envFrom:
+        - secretRef:
+            name: devtrack-secrets
+        env:
+        # ⚠️  LOCAL DEV ONLY — dùng host.docker.internal để K8s pod gọi ra ngoài máy Windows (kind cluster)
+        # KHÔNG dùng file này cho cloud/production. Dùng playwright-worker-prod.yaml với Service DNS thay thế.
+        - name: KAFKA_BROKERS
+          value: "host.docker.internal:9094"
+        - name: WS_URL
+          value: "ws://host.docker.internal:4001"
+        - name: BACKEND_URL
+          value: "http://host.docker.internal:8080"
+        - name: REDIS_HOST
+          value: "host.docker.internal"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"

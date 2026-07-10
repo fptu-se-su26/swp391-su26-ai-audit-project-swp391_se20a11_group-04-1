@@ -64,6 +64,7 @@ export const testCaseService = {
    * Get Test Run Status (Polling)
    */
   getTestRunStatus: async (runId) => {
+    if (!runId) throw new Error('runId is required for getTestRunStatus');
     const response = await axiosInstance.get(`/v1/test-runs/${runId}`)
     return response.data.data
   },

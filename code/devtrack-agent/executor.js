@@ -173,33 +173,31 @@ function parseOutput(stdout, screenshotDir) {
     const passed = testResult.status === 'expected' || testResult.status === 'passed';
 
     let flatSteps = [];
-    function extractTestSteps(node) {
-        if (!node) return;
-        if (node.category === 'test.step') {
-            flatSteps.push({
-                title: node.title,
-                duration: node.duration,
-                status: node.error ? 'FAIL' : 'PASS',
-                error: node.error?.message ? node.error.message.replace(/\x1b\[[0-9;]*m/g, '') : null,
-            });
-        }
-        if (node.steps && Array.isArray(node.steps)) {
-            for (const child of node.steps) {
-                extractTestSteps(child);
-            }
-        }
-    }
-
     if (testResult.results?.[0]?.steps) {
         for (const s of testResult.results[0].steps) {
-            extractTestSteps(s);
+            if (s.title !== 'Before Hooks' && s.title !== 'After Hooks' && s.category === 'test.step') {
+                flatSteps.push({
+                    title: s.title,
+                    duration: s.duration,
+                    status: s.error ? 'FAIL' : 'PASS',
+                    error: s.error?.message ? s.error.message.replace(/\x1b\[[0-9;]*m/g, '') : null,
+                });
+            }
         }
     }
 
     const steps = flatSteps;
 
     const rawError = testResult.results?.[0]?.error;
-    const failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
+    let failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
+
+    // Fallback: Playwright đôi khi không mark step là error trong mảng steps
+    // (ví dụ: expect_url fail — lỗi chỉ xuất hiện ở runResult.error).
+    // Dùng số step đã PASS để suy ra index step bị lỗi.
+    if (failedStepIndex < 0 && !passed && steps.length > 0) {
+        const passedCount = steps.filter(s => s.status === 'PASS').length;
+        failedStepIndex = passedCount; // index của step đầu tiên không PASS
+    }
 
     const error = passed
         ? null

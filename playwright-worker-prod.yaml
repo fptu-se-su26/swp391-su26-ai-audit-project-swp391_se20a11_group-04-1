@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playwright-worker
+  namespace: devtrack
+  labels:
+    app: playwright-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: playwright-worker
+  template:
+    metadata:
+      labels:
+        app: playwright-worker
+    spec:
+      containers:
+      - name: playwright-worker
+        image: <YOUR_REGISTRY>/playwright-worker:latest
+        imagePullPolicy: Always
+        envFrom:
+        - secretRef:
+            name: devtrack-secrets
+        env:
+        # Production: dùng Kubernetes Service DNS thay vì host.docker.internal
+        # backend, kafka, playwright-service phải có Service object trong namespace devtrack
+        - name: KAFKA_BROKERS
+          value: "kafka:9092"
+        - name: WS_URL
+          value: "ws://playwright-service:4001"
+        - name: BACKEND_URL
+          value: "http://backend:8080"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"

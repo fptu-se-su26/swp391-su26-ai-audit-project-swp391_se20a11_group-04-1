@@ -323,13 +323,13 @@ public class AiTestCaseGeneratorService {
             basePrompt += "Generate test cases matching the requested test type: " + testType.name() + ".\n\n";
         }
 
-        basePrompt += "API TEST CONSTRAINTS:\n" +
+        basePrompt += "API TEST CONSTRAINTS (inside 'configuration' object with 'type': 'API'):\n" +
                 "- Explicitly define the 'Authorization' header in 'apiHeaders' if the endpoint requires authentication.\n" +
                 "- Include 'apiQueryParams' if the API requires URL parameters.\n" +
                 "- Generate cases that assert 4xx/5xx HTTP status codes along with success cases.\n\n";
 
-        basePrompt += "UI TEST CONSTRAINTS (stepsStructured):\n" +
-                "- 'stepsStructured' must perfectly mirror the human-readable 'steps' array.\n" +
+        basePrompt += "UI TEST CONSTRAINTS (inside 'configuration' object with 'type': 'UI'):\n" +
+                "- 'steps' array in 'configuration' must perfectly mirror the human-readable root 'steps' array.\n" +
                 "- Allowed Actions: 'goto', 'fill', 'click', 'select', 'wait_for'.\n" +
                 "- CRITICAL: Use 'data-testid' attributes for selectors whenever possible.\n" +
                 "- Allowed Assertions: 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'.\n\n";
@@ -374,13 +374,16 @@ public class AiTestCaseGeneratorService {
                 "      \"type\": \"UI\",\n" +
                 "      \"precondition\": \"User is on the login page.\",\n" +
                 "      \"expectedResult\": \"System displays error message 'Invalid credentials'.\",\n" +
-                "      \"baseUrl\": \"https://example.com/login\",\n" +
-                "      \"stepsStructured\": [\n" +
-                "        { \"action\": \"goto\", \"path\": \"/login\" },\n" +
-                "        { \"action\": \"fill\", \"selector\": \"[data-testid='email-input']\", \"value\": \"unregistered@abc.com\" },\n" +
-                "        { \"action\": \"click\", \"selector\": \"[data-testid='submit-btn']\" },\n" +
-                "        { \"action\": \"expect_text\", \"selector\": \".error-toast\", \"expected\": \"Invalid credentials\" }\n" +
-                "      ],\n" +
+                "      \"configuration\": {\n" +
+                "        \"type\": \"UI\",\n" +
+                "        \"baseUrl\": \"https://example.com/login\",\n" +
+                "        \"steps\": [\n" +
+                "          { \"action\": \"goto\", \"path\": \"/login\" },\n" +
+                "          { \"action\": \"fill\", \"selector\": \"[data-testid='email-input']\", \"value\": \"unregistered@abc.com\" },\n" +
+                "          { \"action\": \"click\", \"selector\": \"[data-testid='submit-btn']\" },\n" +
+                "          { \"action\": \"expect_text\", \"selector\": \".error-toast\", \"expected\": \"Invalid credentials\" }\n" +
+                "        ]\n" +
+                "      },\n" +
                 "      \"steps\": [\n" +
                 "        { \"stepNumber\": 1, \"description\": \"Navigate to the login page\" },\n" +
                 "        { \"stepNumber\": 2, \"description\": \"Enter unregistered email\" },\n" +

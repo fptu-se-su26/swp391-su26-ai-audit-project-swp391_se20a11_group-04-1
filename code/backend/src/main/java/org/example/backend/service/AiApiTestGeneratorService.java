@@ -51,15 +51,18 @@ public class AiApiTestGeneratorService {
                 "{\n" +
                 "  \"title\": \"Test name\",\n" +
                 "  \"precondition\": \"Description\",\n" +
-                "  \"apiMethod\": \"GET/POST/PUT/DELETE\",\n" +
-                "  \"apiUrl\": \"http://example.com/api/v1/resource\",\n" +
-                "  \"apiHeaders\": { \"Content-Type\": \"application/json\" },\n" +
-                "  \"apiQueryParams\": {},\n" +
-                "  \"apiBody\": {},\n" +
-                "  \"apiAssertions\": [\n" +
-                "    { \"type\": \"STATUS_CODE\", \"operator\": \"EQUALS\", \"expectedValue\": \"200\" },\n" +
-                "    { \"type\": \"JSON_PATH\", \"property\": \"$.data.id\", \"operator\": \"EXISTS\" }\n" +
-                "  ]\n" +
+                "  \"configuration\": {\n" +
+                "    \"type\": \"API\",\n" +
+                "    \"apiMethod\": \"GET/POST/PUT/DELETE\",\n" +
+                "    \"apiUrl\": \"http://example.com/api/v1/resource\",\n" +
+                "    \"apiHeaders\": { \"Content-Type\": \"application/json\" },\n" +
+                "    \"apiQueryParams\": {},\n" +
+                "    \"apiBody\": {},\n" +
+                "    \"apiAssertions\": [\n" +
+                "      { \"type\": \"STATUS_CODE\", \"operator\": \"EQUALS\", \"expectedValue\": \"200\" },\n" +
+                "      { \"type\": \"JSON_PATH\", \"property\": \"$.data.id\", \"operator\": \"EXISTS\" }\n" +
+                "    ]\n" +
+                "  }\n" +
                 "}\n\n" +
                 "Description:\n" + description;
 

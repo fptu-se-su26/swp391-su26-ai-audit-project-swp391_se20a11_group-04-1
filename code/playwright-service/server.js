@@ -209,9 +209,10 @@ const server = app.listen(PORT, () => console.log(`Playwright Service running on
 // ==========================================
 const wss = new WebSocketServer({ server });
 
-const clients = new Map(); // runId -> Set(WebSocket)
-const providers = new Map(); // runId -> WebSocket
+const clients = new Map();    // runId -> Set(WebSocket)
+const providers = new Map();  // runId -> WebSocket
 const frameBuffer = new Map(); // runId -> latest frame message (for late-connecting clients)
+const stepBuffer = new Map();  // runId -> latest step_started message (for late-connecting clients)
 
 wss.on('connection', (ws, req) => {
     try {
@@ -228,7 +229,13 @@ wss.on('connection', (ws, req) => {
             if (!clients.has(runId)) clients.set(runId, new Set());
             clients.get(runId).add(ws);
 
-            // Immediately send the latest buffered frame so the client doesn't see a blank screen
+            // Replay buffered state for late-connecting clients:
+            // 1. Send latest step_started so the UI knows which step was active
+            const bufferedStep = stepBuffer.get(runId);
+            if (bufferedStep && ws.readyState === 1) {
+                ws.send(bufferedStep);
+            }
+            // 2. Send latest frame so screen isn't blank
             const bufferedFrame = frameBuffer.get(runId);
             if (bufferedFrame && ws.readyState === 1) {
                 ws.send(bufferedFrame);
@@ -245,9 +252,12 @@ wss.on('connection', (ws, req) => {
             providers.set(runId, ws);
             ws.on('message', (message, isBinary) => {
                 const msgStr = message.toString();
-                // Buffer the latest frame so late-connecting clients can catch up
+
+                // Buffer the latest frame and step event for late-connecting clients
                 if (msgStr.includes('"type":"frame"')) {
                     frameBuffer.set(runId, msgStr);
+                } else if (msgStr.includes('"type":"step_started"')) {
+                    stepBuffer.set(runId, msgStr);
                 }
 
                 const clientSet = clients.get(runId);
@@ -259,8 +269,9 @@ wss.on('connection', (ws, req) => {
             });
             ws.on('close', () => {
                 providers.delete(runId);
-                // Clean up frame buffer after provider disconnects
+                // Clean up buffers after provider disconnects (test finished)
                 frameBuffer.delete(runId);
+                stepBuffer.delete(runId);
             });
         } else {
             ws.close();

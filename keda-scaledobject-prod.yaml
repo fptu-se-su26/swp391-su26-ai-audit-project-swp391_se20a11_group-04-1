@@ -1,0 +1,23 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: playwright-worker-scaler
+  namespace: devtrack
+  labels:
+    app: playwright-worker
+spec:
+  scaleTargetRef:
+    name: playwright-worker
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 60
+  pollingInterval: 15
+  triggers:
+  - type: kafka
+    metadata:
+      # Production: dùng Kubernetes Service DNS (kafka phải có Service trong namespace devtrack)
+      bootstrapServers: kafka:9092
+      consumerGroup: playwright-service-group
+      topic: test-run-jobs
+      lagThreshold: "3"
+      offsetResetPolicy: latest

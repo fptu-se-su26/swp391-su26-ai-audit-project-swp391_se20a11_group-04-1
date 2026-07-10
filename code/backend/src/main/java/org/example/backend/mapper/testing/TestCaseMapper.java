@@ -1,8 +1,11 @@
 package org.example.backend.mapper.testing;
 
 import org.example.backend.dto.testing.*;
+import org.example.backend.dto.testing.config.*;
+import org.example.backend.entity.enums.TestType;
 import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
+import org.example.backend.entity.config.*;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.entity.UserAccount;
@@ -10,7 +13,8 @@ import org.example.backend.entity.Requirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
@@ -19,13 +23,16 @@ import lombok.extern.slf4j.Slf4j;
 public class TestCaseMapper {
 
     @Autowired
-    private ObjectMapper objectMapper;
-    
-    @Autowired
     private UserAccountRepository userAccountRepository;
     
     @Autowired
     private RequirementRepository requirementRepository;
+    
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public TestCase toEntity(TestCaseRequest request) {
         TestCase tc = new TestCase();
@@ -34,23 +41,8 @@ public class TestCaseMapper {
         tc.setPrecondition(request.getPrecondition());
         tc.setExpectedResult(request.getExpectedResult());
         tc.setRequirementId(request.getRequirementId());
-        tc.setBaseUrl(request.getBaseUrl());
-        if (request.getStepsStructured() != null) {
-            try {
-                tc.setStepsStructured(objectMapper.writeValueAsString(request.getStepsStructured()));
-            } catch (Exception e) {}
-        }
-        if (request.getApiMethod() != null) tc.setApiMethod(request.getApiMethod());
-        if (request.getApiUrl() != null) tc.setApiUrl(request.getApiUrl());
-        try {
-            if (request.getApiHeaders() != null) tc.setApiHeaders(objectMapper.writeValueAsString(request.getApiHeaders()));
-            if (request.getApiQueryParams() != null) tc.setApiQueryParams(objectMapper.writeValueAsString(request.getApiQueryParams()));
-            if (request.getApiBody() != null) tc.setApiBody(objectMapper.writeValueAsString(request.getApiBody()));
-            if (request.getApiAssertions() != null) tc.setApiAssertions(objectMapper.writeValueAsString(request.getApiAssertions()));
-        } catch (Exception e) {
-            log.error("Failed to serialize API configuration for TestCase", e);
-            throw new RuntimeException("Failed to serialize API configuration", e);
-        }
+        
+        applyConfigToEntity(tc, request.getConfiguration(), request.getType());
         return tc;
     }
 
@@ -60,22 +52,82 @@ public class TestCaseMapper {
         tc.setPrecondition(request.getPrecondition());
         tc.setExpectedResult(request.getExpectedResult());
         tc.setRequirementId(request.getRequirementId());
-        tc.setBaseUrl(request.getBaseUrl());
-        if (request.getStepsStructured() != null) {
-            try {
-                tc.setStepsStructured(objectMapper.writeValueAsString(request.getStepsStructured()));
-            } catch (Exception e) {}
+        
+        if (request.getConfiguration() != null) {
+            applyConfigToEntity(tc, request.getConfiguration(), request.getType());
+        } else {
+            // Ensure entity type matches its config even if no config provided
+            ensureCorrectConfigType(tc, request.getType());
         }
-        if (request.getApiMethod() != null) tc.setApiMethod(request.getApiMethod());
-        if (request.getApiUrl() != null) tc.setApiUrl(request.getApiUrl());
-        try {
-            if (request.getApiHeaders() != null) tc.setApiHeaders(objectMapper.writeValueAsString(request.getApiHeaders()));
-            if (request.getApiQueryParams() != null) tc.setApiQueryParams(objectMapper.writeValueAsString(request.getApiQueryParams()));
-            if (request.getApiBody() != null) tc.setApiBody(objectMapper.writeValueAsString(request.getApiBody()));
-            if (request.getApiAssertions() != null) tc.setApiAssertions(objectMapper.writeValueAsString(request.getApiAssertions()));
-        } catch (Exception e) {
-            log.error("Failed to serialize API configuration for TestCase update", e);
-            throw new RuntimeException("Failed to serialize API configuration", e);
+    }
+    
+    private void clearConfigs(TestCase tc) {
+        if (tc.getUiConfig() != null || tc.getApiConfig() != null || tc.getUnitConfig() != null || tc.getIntegrationConfig() != null) {
+            tc.setUiConfig(null);
+            tc.setApiConfig(null);
+            tc.setUnitConfig(null);
+            tc.setIntegrationConfig(null);
+            entityManager.flush();
+        }
+    }
+
+    private void ensureCorrectConfigType(TestCase tc, TestType type) {
+        boolean typeMismatch = false;
+        
+        if (type == TestType.UI && tc.getUiConfig() == null) typeMismatch = true;
+        else if (type == TestType.API && tc.getApiConfig() == null) typeMismatch = true;
+        else if (type == TestType.UNIT && tc.getUnitConfig() == null) typeMismatch = true;
+        else if (type == TestType.INTEGRATION && tc.getIntegrationConfig() == null) typeMismatch = true;
+        else if (type == TestType.MANUAL) typeMismatch = tc.getUiConfig() != null || tc.getApiConfig() != null || tc.getUnitConfig() != null || tc.getIntegrationConfig() != null;
+        
+        if (typeMismatch) {
+            clearConfigs(tc);
+            switch (type) {
+                case UI -> {
+                    UiTestConfig c = new UiTestConfig();
+                    c.setTestCase(tc);
+                    tc.setUiConfig(c);
+                }
+                case API -> {
+                    ApiTestConfig c = new ApiTestConfig();
+                    c.setTestCase(tc);
+                    tc.setApiConfig(c);
+                }
+                case UNIT -> {
+                    UnitTestConfig c = new UnitTestConfig();
+                    c.setTestCase(tc);
+                    tc.setUnitConfig(c);
+                }
+                case INTEGRATION -> {
+                    IntegrationTestConfig c = new IntegrationTestConfig();
+                    c.setTestCase(tc);
+                    tc.setIntegrationConfig(c);
+                }
+                case MANUAL -> {
+                    // Manual has no config table
+                }
+            }
+        }
+    }
+    
+    private void applyConfigToEntity(TestCase tc, TestConfiguration dtoConfig, TestType type) {
+        if (dtoConfig == null) return;
+        
+        ensureCorrectConfigType(tc, type);
+        
+        if (type == TestType.UI && dtoConfig instanceof UiTestConfigDto uiDto) {
+            tc.getUiConfig().setBaseUrl(uiDto.getBaseUrl());
+            if (uiDto.getSteps() != null) tc.getUiConfig().setSteps(objectMapper.valueToTree(uiDto.getSteps()));
+            tc.getUiConfig().setCachedPlaywrightScript(uiDto.getCachedPlaywrightScript());
+            tc.getUiConfig().setScriptSource(uiDto.getScriptSource());
+            tc.getUiConfig().setScriptGeneratedAt(uiDto.getScriptGeneratedAt());
+        } else if (type == TestType.API && dtoConfig instanceof ApiTestConfigDto apiDto) {
+            tc.getApiConfig().setApiMethod(apiDto.getApiMethod());
+            tc.getApiConfig().setApiUrl(apiDto.getApiUrl());
+            if (apiDto.getApiHeaders() != null) tc.getApiConfig().setApiHeaders(objectMapper.valueToTree(apiDto.getApiHeaders()));
+            if (apiDto.getApiQueryParams() != null) tc.getApiConfig().setApiQueryParams(objectMapper.valueToTree(apiDto.getApiQueryParams()));
+            if (apiDto.getApiBody() != null) tc.getApiConfig().setApiBody(objectMapper.valueToTree(apiDto.getApiBody()));
+            if (apiDto.getApiAssertions() != null) tc.getApiConfig().setApiAssertions(objectMapper.valueToTree(apiDto.getApiAssertions()));
         }
     }
 
@@ -108,22 +160,35 @@ public class TestCaseMapper {
         res.setUpdatedAt(tc.getUpdatedAt());
         
         // Mock last execution as it is handled by another task
-        res.setLastExecutedBy(null);
-        res.setLastExecutedAt(null);
-        res.setBaseUrl(tc.getBaseUrl());
-        if (tc.getStepsStructured() != null) {
-            try {
-                res.setStepsStructured(objectMapper.readValue(tc.getStepsStructured(), Object.class));
-            } catch (Exception e) {}
+        res.setLastExecutedBy(tc.getLastRunId());
+        res.setLastExecutedAt(tc.getLastRunAt());
+        
+        // Map entity config back to DTO
+        if (tc.getType() == TestType.UI && tc.getUiConfig() != null) {
+            UiTestConfigDto dto = new UiTestConfigDto();
+            dto.setBaseUrl(tc.getUiConfig().getBaseUrl());
+            dto.setSteps(objectMapper.convertValue(tc.getUiConfig().getSteps(), Object.class));
+            dto.setCachedPlaywrightScript(tc.getUiConfig().getCachedPlaywrightScript());
+            dto.setScriptSource(tc.getUiConfig().getScriptSource());
+            dto.setScriptGeneratedAt(tc.getUiConfig().getScriptGeneratedAt());
+            res.setConfiguration(dto);
+        } else if (tc.getType() == TestType.API && tc.getApiConfig() != null) {
+            ApiTestConfigDto dto = new ApiTestConfigDto();
+            dto.setApiMethod(tc.getApiConfig().getApiMethod());
+            dto.setApiUrl(tc.getApiConfig().getApiUrl());
+            dto.setApiHeaders(objectMapper.convertValue(tc.getApiConfig().getApiHeaders(), Object.class));
+            dto.setApiQueryParams(objectMapper.convertValue(tc.getApiConfig().getApiQueryParams(), Object.class));
+            dto.setApiBody(objectMapper.convertValue(tc.getApiConfig().getApiBody(), Object.class));
+            dto.setApiAssertions(objectMapper.convertValue(tc.getApiConfig().getApiAssertions(), Object.class));
+            res.setConfiguration(dto);
+        } else if (tc.getType() == TestType.MANUAL) {
+            res.setConfiguration(new ManualTestConfigDto());
+        } else if (tc.getType() == TestType.UNIT) {
+            res.setConfiguration(new UnitTestConfigDto());
+        } else if (tc.getType() == TestType.INTEGRATION) {
+            res.setConfiguration(new IntegrationTestConfigDto());
         }
-        res.setApiMethod(tc.getApiMethod());
-        res.setApiUrl(tc.getApiUrl());
-        try {
-            if (tc.getApiHeaders() != null) res.setApiHeaders(objectMapper.readValue(tc.getApiHeaders(), Object.class));
-            if (tc.getApiQueryParams() != null) res.setApiQueryParams(objectMapper.readValue(tc.getApiQueryParams(), Object.class));
-            if (tc.getApiBody() != null) res.setApiBody(objectMapper.readValue(tc.getApiBody(), Object.class));
-            if (tc.getApiAssertions() != null) res.setApiAssertions(objectMapper.readValue(tc.getApiAssertions(), Object.class));
-        } catch (Exception e) {}
+        
         return res;
     }
 
