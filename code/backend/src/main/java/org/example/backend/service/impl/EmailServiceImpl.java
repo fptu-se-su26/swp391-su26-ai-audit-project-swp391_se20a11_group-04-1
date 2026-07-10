@@ -17,7 +17,7 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:8080}")
+    @org.springframework.beans.factory.annotation.Value("${app.api-base-url}")
     private String appBaseUrl;
 
     @Override

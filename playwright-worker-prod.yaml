@@ -6,7 +6,7 @@ metadata:
   labels:
     app: playwright-worker
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: playwright-worker
@@ -17,24 +17,20 @@ spec:
     spec:
       containers:
       - name: playwright-worker
-        image: swp391-su26-ai-audit-project-swp391_se20a11_group-04-1-playwright-worker:v2
-        imagePullPolicy: Never
+        image: <YOUR_REGISTRY>/playwright-worker:latest
+        imagePullPolicy: Always
         envFrom:
         - secretRef:
             name: devtrack-secrets
         env:
-        # ⚠️  LOCAL DEV ONLY — dùng host.docker.internal để K8s pod gọi ra ngoài máy Windows (kind cluster)
-        # KHÔNG dùng file này cho cloud/production. Dùng playwright-worker-prod.yaml với Service DNS thay thế.
+        # Production: dùng Kubernetes Service DNS thay vì host.docker.internal
+        # backend, kafka, playwright-service phải có Service object trong namespace devtrack
         - name: KAFKA_BROKERS
-          value: "host.docker.internal:9094"
+          value: "kafka:9092"
         - name: WS_URL
-          value: "ws://host.docker.internal:4001"
+          value: "ws://playwright-service:4001"
         - name: BACKEND_URL
-          value: "http://host.docker.internal:8080"
-        - name: REDIS_HOST
-          value: "host.docker.internal"
-        - name: REDIS_PORT
-          value: "6379"
+          value: "http://backend:8080"
         resources:
           requests:
             memory: "512Mi"
