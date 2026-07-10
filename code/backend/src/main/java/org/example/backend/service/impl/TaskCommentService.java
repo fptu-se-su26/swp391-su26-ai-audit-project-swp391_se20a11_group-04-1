@@ -1,10 +1,15 @@
+// touched to trigger recompile
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.TaskCommentResponse;
 import org.example.backend.dto.TaskVoteStatsResponse;
 import org.example.backend.entity.*;
-import org.example.backend.repository.*;
+import org.example.backend.repository.BugReportRepository;
+import org.example.backend.repository.mongo.TaskCommentRepository;
+import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.mongo.TaskVoteRepository;
+import org.example.backend.repository.UserAccountRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
