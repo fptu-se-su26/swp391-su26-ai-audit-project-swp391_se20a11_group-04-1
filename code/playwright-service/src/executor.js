@@ -159,8 +159,30 @@ function parseOutput(stdout, screenshotDir) {
         : [];
 
     const rawError = runResult?.error;
-    const failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
-    
+    let failedStepIndex = steps.findIndex(s => s.status === 'FAIL');
+
+    // Fallback 1: Playwright đôi khi không mark step là error trong mảng steps
+    // (ví dụ: expect_url fail — lỗi chỉ xuất hiện ở runResult.error).
+    // Dùng số screenshots để suy ra step cuối đã thực sự chạy.
+    // Mỗi step có auto-screenshot nên screenshot count = số step đã hoàn thành.
+    // Step tiếp theo (chưa có screenshot) là step bị lỗi.
+    if (failedStepIndex < 0 && !passed) {
+        const screenshotCount = fs.existsSync(screenshotDir)
+            ? fs.readdirSync(screenshotDir).filter(f => /step-\d+-after\.png$/.test(f)).length
+            : 0;
+        // screenshotCount = số step đã chạy xong (kể cả step bị lỗi có thể chưa chụp được)
+        // Nếu có N screenshots thì step N+1 (index N) là bị lỗi, trừ khi đây là step cuối
+        if (screenshotCount > 0) {
+            failedStepIndex = screenshotCount; // step tiếp theo sau screenshot cuối
+        }
+    }
+
+    // Fallback 2: Nếu vẫn không xác định được, dùng số step đã PASS trong mảng steps
+    if (failedStepIndex < 0 && !passed && steps.length > 0) {
+        const passedCount = steps.filter(s => s.status === 'PASS').length;
+        failedStepIndex = passedCount;
+    }
+
     const error = passed
         ? null
         : {

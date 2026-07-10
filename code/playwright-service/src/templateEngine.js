@@ -10,7 +10,12 @@ function generateFromTemplate(testCase, runId) {
   }
 
   const stepCode = [...steps_structured]
-    .sort((a, b) => a.order - b.order)
+    .sort((a, b) => {
+      // Fallback về index gốc nếu order không tồn tại — tránh NaN sort
+      const orderA = (a.order !== undefined && a.order !== null) ? a.order : 0;
+      const orderB = (b.order !== undefined && b.order !== null) ? b.order : 0;
+      return orderA - orderB;
+    })
     .map((step, index) => {
       const stepNum = index + 1;
       let code = '';
@@ -40,7 +45,10 @@ function generateFromTemplate(testCase, runId) {
           const dockerSafeUrl = isDockerGoto
             ? rawGotoUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal')
             : rawGotoUrl;
-          code = `await page.goto("${escapeJs(dockerSafeUrl)}", { timeout: 15000 });\n    await page.waitForTimeout(800);`;
+          // Local URLs (localhost/127.0.0.1) dùng timeout dài hơn vì app có thể cần warm-up
+          const isLocalUrl = dockerSafeUrl.includes('localhost') || dockerSafeUrl.includes('127.0.0.1') || dockerSafeUrl.includes('host.docker.internal');
+          const gotoTimeout = isLocalUrl ? 30000 : 15000;
+          code = `await page.goto("${escapeJs(dockerSafeUrl)}", { timeout: ${gotoTimeout}, waitUntil: 'domcontentloaded' });\n    await page.waitForTimeout(800);`;
           break;
         }
         case 'fill':
@@ -133,8 +141,9 @@ test("${title}", async ({ page }) => {
       try { await client.send('Page.screencastFrameAck', { sessionId: frameObject.sessionId }); } catch(e){}
   });
 
-  // Brief pause so the frontend client WS can connect and server can buffer first frame
-  await page.waitForTimeout(300);
+  // Buffer wait: cho frontend client WS kịp kết nối trước khi bắt đầu các step
+  // 300ms là quá ngắn — frontend cần thời gian nhận API response, khởi tạo WS, và handshake
+  await page.waitForTimeout(1200);
 
   // Inject a highlighter function
   async function highlight(selector, text) {

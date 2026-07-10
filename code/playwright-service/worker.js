@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Kafka, logLevel } = require('kafkajs');
 const { handleTestRunJobCommand } = require('./src/consumer/testRunConsumer');
+const { trackJobStart, trackJobEnd } = require('./src/services/redisClient');
 
 const os = require('os');
 
@@ -76,6 +77,9 @@ async function run() {
                 // Acquire semaphore slot — block nếu đã đầy MAX_CONCURRENT slots
                 await limiter.acquire();
 
+                // Track partition activity cho dashboard
+                await trackJobStart(partition, payload.testRunId);
+
                 // Fire-and-forget: không await → eachMessage return ngay
                 // → cho phép nhận message tiếp trên cùng partition (xử lý song song)
                 // autoCommit: true đã tự commit offset theo thời gian, không phụ thuộc vào handler xong
@@ -83,7 +87,8 @@ async function run() {
                     .catch(err => {
                         console.error(`[Worker] Error processing test run ${payload.testRunId}:`, err);
                     })
-                    .finally(() => {
+                    .finally(async () => {
+                        await trackJobEnd(payload.testRunId);
                         limiter.release();
                         console.log(`[Worker] Slot released (active=${limiter.activeCount}/${MAX_CONCURRENT})`);
                     });

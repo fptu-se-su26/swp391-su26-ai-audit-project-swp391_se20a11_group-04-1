@@ -118,12 +118,13 @@ async function handleTestRunJobCommand(message) {
                 // failedStepIndex từ executor có thể null nếu Playwright abort trước khi log step fail.
                 // Fallback: đếm số steps đã PASS để suy ra index step bị lỗi.
                 failedStepIndex = execResult.error?.failedStepIndex ?? null;
-                if (failedStepIndex === null && execResult.error && execResult.steps) {
+                if (failedStepIndex === null && execResult.error && execResult.steps && execResult.steps.length > 0) {
                     const passedCount = execResult.steps.filter(s => s.status === 'PASS').length;
                     if (passedCount < execResult.steps.length) {
                         failedStepIndex = passedCount; // index của step đầu tiên không PASS
                     }
                 }
+                // Khi steps rỗng, không cố suy ra index (tránh trả về 0 sai)
                 durationMs = execResult.duration || (Date.now() - startTime);
                 
                 // Upload screenshots to Cloudinary
