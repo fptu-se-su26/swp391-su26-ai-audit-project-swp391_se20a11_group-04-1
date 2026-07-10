@@ -58,6 +58,7 @@ import JobDashboardPage from '@features/system-admin/pages/JobDashboardPage'
 import UserManagementPage from '@features/system-admin/pages/UserManagementPage'
 import MentorVerificationPage from '@features/system-admin/pages/MentorVerificationPage'
 import ProjectManagementPage from '@features/system-admin/pages/ProjectManagementPage'
+import ResourceManagementPage from '@features/system-admin/pages/ResourceManagementPage'
 
 // Feature Pages - Issue Tracker
 import { IssueTrackerDashboard, IssueDetailView, ProjectGithubConfig, GitHubCallbackPage, FeatureDiscussionPage, BugsPage, BugDetailPage } from '@features/issue-tracker'
@@ -107,6 +108,7 @@ export function AppRoutes() {
         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
         <Route path="/admin/jobs" element={<JobDashboardPage />} />
         <Route path="/admin/projects" element={<ProjectManagementPage />} />
+        <Route path="/admin/resources" element={<ResourceManagementPage />} />
 
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}

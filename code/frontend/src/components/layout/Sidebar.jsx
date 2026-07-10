@@ -229,8 +229,6 @@ export default function Sidebar() {
   /* ── Item builders ── */
   const buildOverviewItems = pid => [
     { key: 'dashboard',           icon: 'dashboard',          label: 'Dashboard',           path: `/projects/${pid}/dashboard` },
-    { key: 'project-tracking',    icon: 'monitoring',         label: 'Project Tracking',    path: `/projects/${pid}/tracking` },
-    { key: 'sprints',             icon: 'history_toggle_off', label: 'Sprints',             path: `/projects/${pid}/sprints` },
   ]
 
   const buildDevItems = pid => [
@@ -249,8 +247,9 @@ export default function Sidebar() {
 
   const buildManageItems = (pid, role) => {
     const base = [
+      { key: 'project-tracking',    icon: 'monitoring',         label: 'Project Tracking',    path: `/projects/${pid}/tracking` },
+      { key: 'sprints',             icon: 'history_toggle_off', label: 'Sprints',             path: `/projects/${pid}/sprints` },
       { key: 'contribution',     icon: 'groups',     label: 'Team Member',      path: `/projects/${pid}/contribution` },
-      { key: 'mentor-view',      icon: 'visibility', label: 'Mentor View',      path: `/projects/${pid}/mentor-view` },
     ]
     if (role === 'MENTOR') base.push({ key: 'mentor', icon: 'supervisor_account', label: 'Mentor Dashboard', path: `/projects/${pid}/mentor` })
     base.push({ key: 'project-settings', icon: 'settings', label: 'Project Settings', path: `/projects/${pid}/project-settings` })
