@@ -400,7 +400,7 @@ export default function TestExecutionViewer({
                   if (effectiveFailedIdx !== null) {
                     if (i < effectiveFailedIdx) stepStatus = 'PASS';
                     else if (i === effectiveFailedIdx) stepStatus = 'FAIL';
-                  } else if (i === 0) stepStatus = 'FAIL';
+                  } else if (i === (stepsArr.length - 1)) stepStatus = 'FAIL'; // fallback: highlight step cuối
                 }
               }
               

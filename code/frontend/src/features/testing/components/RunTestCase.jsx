@@ -153,11 +153,19 @@ const RunTestCase = ({ testCase }) => {
   }, [isLocalUrl, testCase, agentToken]);
 
   const startPolling = (id) => {
+    if (!id) {
+      console.error('[RunTestCase] startPolling called with invalid id:', id);
+      return;
+    }
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     
     let errorCount = 0;
 
     pollIntervalRef.current = setInterval(async () => {
+      if (!id) {
+        clearInterval(pollIntervalRef.current);
+        return;
+      }
       try {
         const data = await testCaseService.getTestRunStatus(id);
         errorCount = 0;
@@ -211,6 +219,9 @@ const RunTestCase = ({ testCase }) => {
       setRunData({ status: 'RUNNING', steps: [] });
       
       const data = await testCaseService.triggerTestRun(testCase.id);
+      if (!data?.testRunId) {
+        throw new Error('Server returned an invalid test run ID. Please try again.');
+      }
       setRunId(data.testRunId);
       startPolling(data.testRunId);
     } catch (err) {
@@ -258,12 +269,12 @@ const RunTestCase = ({ testCase }) => {
                 
                 const isFailedStep = execution?.failedStepIndex !== undefined && execution?.failedStepIndex !== null
                   ? execution.failedStepIndex === idx
-                  : idx === cfgSteps.length - 1; // fallback
+                  : idx === cfgSteps.length - 1; // fallback: highlight step cuối khi không biết index
 
                 const executionResult = execution && (!isRunning || execution.status !== 'RUNNING') ? {
                     status: execution.status === 'PASSED' ? 'PASS' 
                           : (execution.status === 'FAILED' && isFailedStep) ? 'FAIL' 
-                          : (execution.status === 'FAILED' && idx < (execution.failedStepIndex || 0)) ? 'PASS'
+                          : (execution.status === 'FAILED' && execution.failedStepIndex != null && idx < execution.failedStepIndex) ? 'PASS'
                           : null,
                     error: isFailedStep && execution.status === 'FAILED' ? execution.notes : null,
                     durationMs: isFailedStep ? execution.durationMs : null

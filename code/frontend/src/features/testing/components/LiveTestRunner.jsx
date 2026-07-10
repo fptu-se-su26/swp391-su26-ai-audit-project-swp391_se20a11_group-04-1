@@ -52,6 +52,8 @@ export default function LiveTestRunner({ testCase }) {
     }
     if (status === 'RUNNING') {
       setLiveFrame(null);
+      // Reset cả lastRunningStepIndex khi bắt đầu run mới
+      setLastRunningStepIndex(null);
     }
   }, [status]);
 
@@ -77,17 +79,20 @@ export default function LiveTestRunner({ testCase }) {
     }
     return () => {
       if (ws) ws.close();
+      // Chỉ reset currentStepIndex (dùng cho highlight đang chạy),
+      // KHÔNG reset lastRunningStepIndex — dùng để hiển thị step cuối đã chạy khi FAIL
       setCurrentStepIndex(null);
     };
   }, [status, runId]);
 
   useEffect(() => {
-    if (status === 'IDLE' || status === 'RUNNING') {
-      if (status === 'RUNNING' && currentStepIndex === null) {
-        setLastRunningStepIndex(null);
-      }
+    // Chỉ reset lastRunningStepIndex khi bắt đầu run mới (status chuyển từ non-RUNNING sang RUNNING)
+    // KHÔNG reset khi currentStepIndex = null do WS cleanup — điều đó xảy ra sau khi test kết thúc
+    if (status === 'RUNNING') {
+      // lastRunningStepIndex sẽ được cập nhật bởi WS step_started events
+      // Không cần reset ở đây
     }
-  }, [status, currentStepIndex]);
+  }, [status]);
 
   const handleReset = () => {
     setFocusedStepIndex(null);
