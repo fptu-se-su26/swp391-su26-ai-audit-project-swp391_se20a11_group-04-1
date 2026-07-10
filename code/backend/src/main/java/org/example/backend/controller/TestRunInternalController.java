@@ -2,6 +2,7 @@ package org.example.backend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.testing.internal.ExecutionResultRequest;
 import org.example.backend.dto.testing.internal.StartExecutionRequest;
 import org.example.backend.dto.testing.internal.TestRunExecutionPlan;
@@ -9,10 +10,12 @@ import org.example.backend.dto.testing.internal.UpdateTestRunStatusRequest;
 import org.example.backend.exception.ForbiddenException;
 import org.example.backend.security.InternalServiceKeyValidator;
 import org.example.backend.service.TestRunService;
+import org.example.backend.service.event.KafkaEventPublisher;
 import org.example.backend.repository.TestCaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.entity.TestCase;
 import org.example.backend.exception.ResourceNotFoundException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,12 +25,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/internal/test-runs")
 @RequiredArgsConstructor
+@Slf4j
 public class TestRunInternalController {
 
     private final TestRunService testRunService;
     private final InternalServiceKeyValidator keyValidator;
     private final TestCaseRepository testCaseRepository;
     private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
 
     private void validateInternalKey(String key) {
         if (!keyValidator.isValid(key)) {
@@ -71,6 +76,17 @@ public class TestRunInternalController {
             @Valid @RequestBody ExecutionResultRequest request) {
         validateInternalKey(internalKey);
         testRunService.receiveExecutionResult(testRunId, request);
+        // Decrement inflight counter khi worker gửi kết quả về — job đã xong
+        try {
+            Long remaining = redisTemplate.opsForValue().decrement(KafkaEventPublisher.INFLIGHT_KEY);
+            if (remaining != null && remaining < 0) {
+                redisTemplate.opsForValue().set(KafkaEventPublisher.INFLIGHT_KEY, "0");
+            }
+            // Invalidate cache để dashboard cập nhật partition table về trạng thái idle
+            redisTemplate.delete("admin:resource:kafkaStatus");
+        } catch (Exception e) {
+            log.warn("Failed to decrement inflight counter", e);
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -87,14 +103,16 @@ public class TestRunInternalController {
         map.put("title", tc.getTitle());
         map.put("type", tc.getType() != null ? tc.getType().name() : null);
         
-        String baseUrl = "http://localhost";
+        // baseUrl phải lấy từ config của test case — không fallback về localhost
+        // vì trong K8s, localhost trỏ vào chính pod của worker chứ không phải app cần test
+        String baseUrl = null;
         String stepsStructuredStr = null;
         String cachedScript = null;
         String scriptSource = null;
         
         if (tc.getUiConfig() != null) {
             org.example.backend.entity.config.UiTestConfig uiConfig = tc.getUiConfig();
-            if (uiConfig.getBaseUrl() != null && !"null".equals(uiConfig.getBaseUrl())) baseUrl = uiConfig.getBaseUrl();
+            if (uiConfig.getBaseUrl() != null && !"null".equals(uiConfig.getBaseUrl()) && !uiConfig.getBaseUrl().isBlank()) baseUrl = uiConfig.getBaseUrl();
             if (uiConfig.getSteps() != null) stepsStructuredStr = uiConfig.getSteps().toString();
             cachedScript = uiConfig.getCachedPlaywrightScript();
             scriptSource = uiConfig.getScriptSource();
