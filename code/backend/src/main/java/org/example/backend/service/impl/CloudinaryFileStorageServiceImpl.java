@@ -124,19 +124,19 @@ public class CloudinaryFileStorageServiceImpl implements FileStorageService {
     @Override
     public java.io.InputStream downloadPrivateFileStream(String publicId) throws IOException {
         if (publicId != null && publicId.startsWith("http")) {
-            return new java.net.URL(publicId).openStream();
+            return java.net.URI.create(publicId).toURL().openStream();
         }
         try {
             String signedUrl = getPrivateFileUrl(publicId);
             if (signedUrl != null) {
-                return new java.net.URL(signedUrl).openStream();
+                return java.net.URI.create(signedUrl).toURL().openStream();
             }
         } catch (IOException e) {
             System.out.println("⚠️ Failed to download as private, trying public URL... " + e.getMessage());
             // Fallback for old images that might have been uploaded as 'upload' (public) instead of 'private'
             String publicUrl = cloudinary.url().generate(publicId);
             try {
-                return new java.net.URL(publicUrl).openStream();
+                return java.net.URI.create(publicUrl).toURL().openStream();
             } catch (Exception ex) {
                 System.out.println("❌ Fallback also failed: " + ex.getMessage());
                 throw ex; // Re-throw if both fail

@@ -974,7 +974,7 @@ public class AiGenerationService {
         
         try {
             com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
-                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+                .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature());
             JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ArrayNode arr = objectMapper.createArrayNode();
             arr.add(root);
@@ -1069,7 +1069,7 @@ public class AiGenerationService {
         
         try {
             com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
-                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+                .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature());
             JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ObjectNode evaluatedRoot = objectMapper.createObjectNode();
             
