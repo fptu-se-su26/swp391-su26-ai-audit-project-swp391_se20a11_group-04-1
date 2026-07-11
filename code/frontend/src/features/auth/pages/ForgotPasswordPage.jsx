@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import authService from '../services/authService'
+import useOtpTimer from '@hooks/useOtpTimer'
 
 function ForgotPasswordPage() {
   const navigate = useNavigate()
@@ -13,30 +14,19 @@ function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [timeLeft, setTimeLeft] = useState(0) // Countdown for resend cooldown (60s)
-  const [otpExpiryTime, setOtpExpiryTime] = useState(0) // Countdown for OTP expiration (300s)
   const [loading, setLoading] = useState(false)
-  const [isSpamBlocked, setIsSpamBlocked] = useState(false) // Blocks request buttons if exceeded 3 limit
   const [errors, setErrors] = useState({})
 
-  // Countdown timer effect for both timers
-  useEffect(() => {
-    if (timeLeft <= 0 && otpExpiryTime <= 0) return
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0))
-      setOtpExpiryTime((prev) => (prev > 0 ? prev - 1 : 0))
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [timeLeft, otpExpiryTime])
-
-  // Helper to format seconds to MM:SS
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  // Sử dụng custom hook useOtpTimer để quản lý bộ đếm ngược và hạn chế spam
+  const {
+    timeLeft,
+    otpExpiryTime,
+    isSpamBlocked,
+    startCooldown,
+    startExpiry,
+    setSpamBlocked,
+    formatTime,
+  } = useOtpTimer()
 
   // Validate Step 1 Form
   const validateStep1 = () => {
@@ -90,10 +80,10 @@ function ForgotPasswordPage() {
       if (response.data?.success) {
         toast.success(response.data.message || 'Mã OTP đã được gửi về email của bạn!')
         setStep(2)
-        setTimeLeft(60) // Start 60s resend cooldown
-        setOtpExpiryTime(300) // Start 5m (300s) OTP expiry countdown
+        startCooldown(60) // Start 60s resend cooldown
+        startExpiry(300) // Start 5m (300s) OTP expiry countdown
         setOtp('') // Clear previous OTP
-        setIsSpamBlocked(false) // Ensure blocked state is cleared on success
+        setSpamBlocked(false) // Ensure blocked state is cleared on success
       } else {
         toast.error(response.data?.message || 'Không thể gửi mã OTP, vui lòng thử lại!')
       }
@@ -101,7 +91,7 @@ function ForgotPasswordPage() {
       const errorData = err.response?.data
       toast.error(errorData?.message || 'Email không tồn tại trong hệ thống hoặc lỗi máy chủ.')
       if (errorData?.message && errorData.message.includes("vượt quá giới hạn")) {
-        setIsSpamBlocked(true)
+        setSpamBlocked(true)
       }
       if (errorData?.errors && typeof errorData.errors === 'object') {
         setErrors(errorData.errors)
@@ -234,6 +224,7 @@ function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
+                    setSpamBlocked(false)
                     if (errors.email) setErrors((prev) => ({ ...prev, email: null }))
                   }}
                   disabled={loading}
