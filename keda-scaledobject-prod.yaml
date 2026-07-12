@@ -11,7 +11,7 @@ spec:
   minReplicaCount: 1
   maxReplicaCount: 10
   cooldownPeriod: 60
-  pollingInterval: 15
+  pollingInterval: 5
   triggers:
   - type: kafka
     metadata:
@@ -19,5 +19,5 @@ spec:
       bootstrapServers: kafka:9092
       consumerGroup: playwright-service-group
       topic: test-run-jobs
-      lagThreshold: "3"
+      lagThreshold: "1"
       offsetResetPolicy: latest
