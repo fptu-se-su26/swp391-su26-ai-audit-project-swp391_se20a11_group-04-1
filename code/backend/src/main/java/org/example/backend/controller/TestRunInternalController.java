@@ -76,17 +76,44 @@ public class TestRunInternalController {
             @Valid @RequestBody ExecutionResultRequest request) {
         validateInternalKey(internalKey);
         testRunService.receiveExecutionResult(testRunId, request);
-        // Decrement inflight counter khi worker gửi kết quả về — job đã xong
+
+        // Decrement partition active counter + inflight counter khi worker callback kết quả về
+        // Backend tự đọc mapping testRunId→partition (được ghi bởi KafkaEventPublisher.publish())
+        // → Không phụ thuộc vào worker Node.js Redis client → không còn race condition cross-process
         try {
-            Long remaining = redisTemplate.opsForValue().decrement(KafkaEventPublisher.INFLIGHT_KEY);
-            if (remaining != null && remaining < 0) {
+            String testRunPartitionKey = KafkaEventPublisher.TESTRUN_PARTITION_KEY_PREFIX
+                    + testRunId + KafkaEventPublisher.TESTRUN_PARTITION_KEY_SUFFIX;
+            String partitionStr = redisTemplate.opsForValue().get(testRunPartitionKey);
+
+            if (partitionStr != null) {
+                String partitionActiveKey = KafkaEventPublisher.PARTITION_ACTIVE_KEY_PREFIX
+                        + partitionStr + KafkaEventPublisher.PARTITION_ACTIVE_KEY_SUFFIX;
+
+                Long remaining = redisTemplate.opsForValue().decrement(partitionActiveKey);
+                // Guard: không để counter âm (phòng trường hợp double-callback)
+                if (remaining != null && remaining < 0) {
+                    redisTemplate.opsForValue().set(partitionActiveKey, "0");
+                }
+                // Xóa mapping sau khi dùng xong — tránh key leak
+                redisTemplate.delete(testRunPartitionKey);
+                log.debug("[Tracking] TestRun {} partition {} active-- (remaining={})",
+                        testRunId, partitionStr, remaining);
+            } else {
+                log.debug("[Tracking] No partition mapping found for testRunId={} (may have expired or already cleaned up)", testRunId);
+            }
+
+            // Decrement inflight counter
+            Long inflightRemaining = redisTemplate.opsForValue().decrement(KafkaEventPublisher.INFLIGHT_KEY);
+            if (inflightRemaining != null && inflightRemaining < 0) {
                 redisTemplate.opsForValue().set(KafkaEventPublisher.INFLIGHT_KEY, "0");
             }
-            // Invalidate cache để dashboard cập nhật partition table về trạng thái idle
+
+            // Xóa cache để dashboard thấy activeJobs cập nhật ngay
             redisTemplate.delete("admin:resource:kafkaStatus");
         } catch (Exception e) {
-            log.warn("Failed to decrement inflight counter", e);
+            log.warn("Failed to update partition tracking on execution result (non-fatal)", e);
         }
+
         return ResponseEntity.noContent().build();
     }
 

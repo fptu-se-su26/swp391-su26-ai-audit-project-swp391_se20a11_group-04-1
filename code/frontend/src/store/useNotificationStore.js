@@ -139,6 +139,9 @@ export const useNotificationStore = create((set, get) => ({
         console.log('WebSocket connected')
         // BUG FIX #10: reset reconnect counter khi connect thành công
         set({ reconnectCount: 0 })
+        // Notify ResourceManagementPage để reset stale data khi WS reconnect
+        // Tránh hiển thị activeJobs cũ trong ~5s chờ snapshot đầu tiên từ backend mới
+        window.dispatchEvent(new CustomEvent('ws-connected'))
       }
 
       ws.onmessage = (event) => {
