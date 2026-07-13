@@ -1,0 +1,76 @@
+name: DevTrack CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Ubuntu VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            echo "=========================================="
+            echo "   BẮT ĐẦU TRIỂN KHAI CODE MỚI TRÊN VPS   "
+            echo "=========================================="
+            
+            # 1. Đồng bộ code từ GitHub
+            cd ~/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1
+            git fetch origin develop
+            git reset --hard origin/develop
+            
+            # 2. Deploy Backend (Spring Boot)
+            echo ">> Rebuilding Backend (Spring Boot)..."
+            cd code/backend
+            
+            # Tắt tiến trình cũ (xargs -r sẽ bỏ qua nếu không có tiến trình nào)
+            lsof -t -i:8080 | xargs -r kill -9 || true
+            
+            # Cấp lại quyền thực thi cho mvnw (bị reset bởi git reset --hard)
+            chmod +x mvnw
+            
+            export MAVEN_OPTS="-Xmx512m -XX:MaxMetaspaceSize=256m"
+            ./mvnw clean package -Dmaven.test.skip=true
+            
+            set -a
+            source ../../.env
+            set +a
+            
+            nohup java -Xmx512m -Dspring.profiles.active=docker -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+            echo "   Backend deployed OK"
+            cd ../..
+            
+            # 3. Deploy Frontend (Vite)
+            echo ">> Restarting Frontend (Vite)..."
+            cd code/frontend
+            
+            # Tắt tiến trình cũ (xargs -r sẽ bỏ qua nếu không có tiến trình nào)
+            lsof -t -i:5173 | xargs -r kill -9 || true
+            
+            set -a
+            source ../../.env
+            set +a
+            
+            npm install
+            nohup npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1 &
+            echo "   Frontend deployed OK"
+            cd ../..
+            
+            # 4. Đảm bảo các container Docker Compose luôn chạy
+            echo ">> Checking Infra Containers..."
+            docker compose -f docker-compose.dev.yml up -d kafka postgres redis mongodb architecture-parser playwright-server
+            
+            echo "=========================================="
+            echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
+            echo "=========================================="
