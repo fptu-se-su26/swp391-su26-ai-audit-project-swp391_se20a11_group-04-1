@@ -81,8 +81,20 @@ const ResourceManagementPage = () => {
       }
     };
 
+    // Khi WS reconnect, reset data cũ về null để tránh hiển thị stale activeJobs
+    // trong khoảng ~5s chờ snapshot đầu tiên từ backend mới
+    const handleWsOpen = () => {
+      setIsRealtime(false);
+      setKafkaData(null);
+      setK8sData(null);
+    };
+
     window.addEventListener('resource-snapshot', handleSnapshot);
-    return () => window.removeEventListener('resource-snapshot', handleSnapshot);
+    window.addEventListener('ws-connected', handleWsOpen);
+    return () => {
+      window.removeEventListener('resource-snapshot', handleSnapshot);
+      window.removeEventListener('ws-connected', handleWsOpen);
+    };
   }, [applySnapshot]);
 
   const formatAge = (ageStr) => {

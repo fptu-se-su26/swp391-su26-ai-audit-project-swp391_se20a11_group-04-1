@@ -14,8 +14,8 @@ spec:
   maxReplicaCount: 5
   # Sau khi lag = 0, chờ 60s rồi mới scale down để tránh flapping
   cooldownPeriod: 60
-  # Poll Kafka lag mỗi 15s
-  pollingInterval: 15
+  # Poll Kafka lag mỗi 5s để react kịp burst ngắn
+  pollingInterval: 5
   triggers:
   - type: kafka
     metadata:
@@ -23,6 +23,6 @@ spec:
       bootstrapServers: host.docker.internal:9094
       consumerGroup: playwright-service-group
       topic: test-run-jobs
-      # Scale up khi lag > 3 messages per pod
-      lagThreshold: "3"
+      # Scale up khi lag > 1 message per pod — mỗi job cần 1 pod riêng
+      lagThreshold: "1"
       offsetResetPolicy: latest
