@@ -114,6 +114,9 @@ export function ProjectTrackingDashboardPage() {
       const snapshot = await rtmService.saveSnapshot(activeProject.id)
       setSnapshots((current) => [snapshot, ...current])
       toast.success('RTM snapshot saved successfully!')
+      if (snapshot?.id) {
+        await rtmService.exportSnapshotExcel(activeProject.id, snapshot.id)
+      }
     } catch (err) {
       console.error('Error saving RTM snapshot:', err)
       toast.error(err.response?.data?.message || 'Failed to save RTM snapshot.')
@@ -710,6 +713,7 @@ export function ProjectTrackingDashboardPage() {
         snapshots={snapshots}
         loading={snapshotLoading}
         onClose={() => setShowSnapshots(false)}
+        projectId={activeProject?.id}
       />
     </main>
   )

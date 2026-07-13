@@ -15,5 +15,7 @@ public interface RtmService {
 
     List<RtmSnapshotResponse> getSnapshots(Long projectId, Long userId);
 
+    byte[] exportSnapshotExcel(Long projectId, Long snapshotId, Long userId);
+
     void migrateSnapshotsToProjectScopedCode();
 }

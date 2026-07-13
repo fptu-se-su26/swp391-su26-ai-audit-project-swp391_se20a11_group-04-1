@@ -11,6 +11,9 @@ import org.example.backend.exception.CustomException;
 import org.example.backend.service.RtmService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,6 +65,25 @@ public class RtmController {
         return ResponseEntity.ok(ApiResponse.success(response, "RTM snapshots loaded"));
     }
 
+    @GetMapping("/snapshots/{snapshotId}/export")
+    public ResponseEntity<byte[]> exportSnapshotExcel(
+            @PathVariable Long projectId,
+            @PathVariable Long snapshotId,
+            HttpSession session) {
+        Long userId = requireUser(session);
+        byte[] data = rtmService.exportSnapshotExcel(projectId, snapshotId, userId);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("rtm-snapshot-" + snapshotId + ".xlsx")
+                .build());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(data);
+    }
+
     @PutMapping("/migrate-snapshots")
     public ResponseEntity<ApiResponse<String>> migrateSnapshots() {
         rtmService.migrateSnapshotsToProjectScopedCode();
@@ -76,4 +98,3 @@ public class RtmController {
         return userId;
     }
 }
-

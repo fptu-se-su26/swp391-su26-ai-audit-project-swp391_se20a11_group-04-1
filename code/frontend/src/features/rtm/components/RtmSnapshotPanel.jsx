@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import rtmService from '../services/rtmService'
 
 function formatDate(value) {
   if (!value) return 'Unknown time'
@@ -8,7 +9,7 @@ function formatDate(value) {
   }).format(new Date(value))
 }
 
-export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
+export function RtmSnapshotPanel({ open, snapshots, loading, onClose, projectId }) {
   useEffect(() => {
     if (!open) return undefined
 
@@ -64,9 +65,25 @@ export function RtmSnapshotPanel({ open, snapshots, loading, onClose }) {
                   <p className="text-sm font-black text-on-surface">Snapshot #{snapshot.id}</p>
                   <p className="text-xs text-on-surface-variant mt-1">{formatDate(snapshot.createdAt)}</p>
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-[#D7EEF1] text-[#1E707D]">
-                  {snapshot.rowCount} Rows
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg bg-[#D7EEF1] text-[#1E707D]">
+                    {snapshot.rowCount} Rows
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await rtmService.exportSnapshotExcel(projectId, snapshot.id)
+                      } catch (err) {
+                        console.error('Failed to export snapshot:', err)
+                      }
+                    }}
+                    className="p-1.5 hover:bg-surface-container-high rounded-full text-[#1E707D] transition-colors flex items-center justify-center"
+                    title="Download Excel"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">file_download</span>
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2 mt-4 text-center">
                 <div className="rounded-xl bg-surface-container p-2">

@@ -16,6 +16,11 @@ import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.service.RtmService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
@@ -109,6 +114,153 @@ public class RtmServiceImpl implements RtmService {
             ));
         }
         return snapshots;
+    }
+
+    @Override
+    public byte[] exportSnapshotExcel(Long projectId, Long snapshotId, Long userId) {
+        ensureProjectMember(projectId, userId);
+
+        String json;
+        try {
+            Query query = entityManager.createNativeQuery("""
+                    SELECT snapshot_data::text
+                    FROM rtm_snapshots
+                    WHERE id = :snapshotId AND project_id = :projectId
+                    """);
+            query.setParameter("snapshotId", snapshotId);
+            query.setParameter("projectId", projectId);
+            json = (String) query.getSingleResult();
+        } catch (Exception ex) {
+            throw new org.example.backend.exception.ResourceNotFoundException("Snapshot not found.");
+        }
+
+        RtmMatrixResponse matrix;
+        try {
+            matrix = objectMapper.readValue(json, RtmMatrixResponse.class);
+        } catch (Exception ex) {
+            throw new CustomException("Failed to parse snapshot data: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("RTM Matrix");
+
+            // Setup styling
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.DARK_TEAL.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.MEDIUM);
+
+            // Columns headers
+            String[] headers = {
+                "#", "Requirement Code", "Title", "Priority", "Owner", "Progress",
+                "Tasks", "Test Cases", "Bugs", "Evidence", "Risk", "Status"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            // Cell Styles for status/risk colors
+            CellStyle styleLow = workbook.createCellStyle();
+            styleLow.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+            styleLow.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            CellStyle styleMed = workbook.createCellStyle();
+            styleMed.setFillForegroundColor(IndexedColors.LIGHT_YELLOW.getIndex());
+            styleMed.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            CellStyle styleHigh = workbook.createCellStyle();
+            styleHigh.setFillForegroundColor(IndexedColors.CORAL.getIndex());
+            styleHigh.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+            int rowIdx = 1;
+            for (RtmRowResponse rowData : matrix.rows()) {
+                Row excelRow = sheet.createRow(rowIdx++);
+                excelRow.createCell(0).setCellValue(rowIdx - 1);
+                excelRow.createCell(1).setCellValue(rowData.requirementCode());
+                excelRow.createCell(2).setCellValue(rowData.title());
+                excelRow.createCell(3).setCellValue(rowData.priority());
+                excelRow.createCell(4).setCellValue(rowData.ownerName());
+
+                // Progress %
+                int progress = rowData.taskTotal() == 0 ? 0 : (int) Math.round((rowData.taskDone() * 100.0) / rowData.taskTotal());
+                excelRow.createCell(5).setCellValue(progress + "%");
+
+                // Tasks count / detail
+                String tasksText = rowData.tasks().stream()
+                        .map(t -> t.code() + " (" + t.status() + ")")
+                        .collect(Collectors.joining(", "));
+                excelRow.createCell(6).setCellValue(tasksText.isEmpty() ? "No linked tasks" : tasksText);
+
+                // Test cases count / detail
+                String testsText = rowData.testCases().stream()
+                        .map(t -> t.code() + " (" + t.status() + ")")
+                        .collect(Collectors.joining(", "));
+                excelRow.createCell(7).setCellValue(testsText.isEmpty() ? "No linked test cases" : testsText);
+
+                // Bugs count / detail
+                String bugsText = rowData.bugs().stream()
+                        .map(b -> b.code() + " (" + b.status() + ")")
+                        .collect(Collectors.joining(", "));
+                excelRow.createCell(8).setCellValue(bugsText.isEmpty() ? "No linked bugs" : bugsText);
+
+                // Evidence count / detail
+                String evidenceText = rowData.evidence().stream()
+                        .map(e -> e.code() + " (" + e.status() + ")")
+                        .collect(Collectors.joining(", "));
+                excelRow.createCell(9).setCellValue(evidenceText.isEmpty() ? "No linked evidence" : evidenceText);
+
+                // Risk Level
+                String risk = "LOW";
+                if ("AT_RISK".equals(rowData.traceabilityStatus())) {
+                    risk = "HIGH";
+                } else if ("IN_PROGRESS".equals(rowData.traceabilityStatus()) 
+                        && (rowData.openBugCount() > 0 || rowData.testFailed() > 0 || rowData.taskBlocked() > 0)) {
+                    risk = "MEDIUM";
+                }
+
+                Cell riskCell = excelRow.createCell(10);
+                riskCell.setCellValue(risk);
+                if ("HIGH".equals(risk)) {
+                    riskCell.setCellStyle(styleHigh);
+                } else if ("MEDIUM".equals(risk)) {
+                    riskCell.setCellStyle(styleMed);
+                } else {
+                    riskCell.setCellStyle(styleLow);
+                }
+
+                // Status
+                Cell statusCell = excelRow.createCell(11);
+                String statusStr = rowData.traceabilityStatus() != null ? rowData.traceabilityStatus().replace("_", " ") : "N/A";
+                statusCell.setCellValue(statusStr);
+                if ("AT RISK".equals(statusStr)) {
+                    statusCell.setCellStyle(styleHigh);
+                } else if ("IN PROGRESS".equals(statusStr)) {
+                    statusCell.setCellStyle(styleMed);
+                } else if ("DONE".equals(statusStr)) {
+                    statusCell.setCellStyle(styleLow);
+                }
+            }
+
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new CustomException("Failed to generate Excel file: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     private List<RtmRowResponse> fetchRows(Long projectId) {
