@@ -22,15 +22,16 @@ export default function HistoricalTestRunModal({ projectId, runId, testCase, onC
   // We need to pass the same structured steps as stepsArr that LiveTestRunner uses
   const stepsArr = useMemo(() => {
     let arr = [];
-    if (testCase?.stepsStructured) {
-      if (typeof testCase.stepsStructured === 'string') {
-        try { arr = JSON.parse(testCase.stepsStructured); } catch (e) {}
-      } else if (Array.isArray(testCase.stepsStructured)) {
-        arr = testCase.stepsStructured;
+    const cfgSteps = testCase?.configuration?.steps;
+    if (cfgSteps) {
+      if (typeof cfgSteps === 'string') {
+        try { arr = JSON.parse(cfgSteps); } catch (e) {}
+      } else if (Array.isArray(cfgSteps)) {
+        arr = cfgSteps;
       }
     }
     return [...arr].sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [testCase?.stepsStructured]);
+  }, [testCase?.configuration?.steps]);
 
   // Default browser url for historical view
   const browserBarUrl = (() => {
@@ -38,18 +39,19 @@ export default function HistoricalTestRunModal({ projectId, runId, testCase, onC
     if (focusedStepIndex !== null) {
       maxIndex = focusedStepIndex;
     }
+    const cfgBaseUrl = testCase?.configuration?.baseUrl;
 
     for (let i = Math.min(maxIndex, stepsArr.length - 1); i >= 0; i--) {
       const step = stepsArr[i];
       if (step && (step.action === 'goto' || step.action === 'expect_url')) {
-        const path = step.path || step.expectedUrl || step.url || '';
+        const path = step.path || step.expected || step.expectedUrl || step.url || '';
         if (path.startsWith('http://') || path.startsWith('https://')) {
           return path;
         }
-        return (testCase?.baseUrl || '') + path;
+        return (cfgBaseUrl || '').replace(/\/$/, '') + '/' + path.replace(/^\//, '');
       }
     }
-    return testCase?.baseUrl || 'about:blank';
+    return cfgBaseUrl || 'about:blank';
   })();
 
   // BUG 1 & 2: Merge hook steps with testCase steps to preserve historical accuracy 

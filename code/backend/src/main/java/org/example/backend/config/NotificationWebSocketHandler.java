@@ -18,7 +18,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
-    // Lưu các WebSocket session theo userId. Một user có thể mở nhiều tab (nhiều session).
     private static final Map<Long, List<WebSocketSession>> userSessions = new ConcurrentHashMap<>();
 
     @Override
@@ -36,6 +35,29 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        removeSession(session);
+    }
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+        Long userId = getUserId(session);
+        if (exception instanceof java.nio.channels.ClosedChannelException) {
+            log.debug("WebSocket transport error for User ID {} (Channel closed)", userId);
+        } else {
+            log.error("❌ WebSocket transport error for User ID {}: {}", userId, exception.getMessage());
+        }
+        // BUG FIX #7: xóa session khỏi map khi transport error để tránh zombie session
+        removeSession(session);
+        // Đóng session nếu vẫn còn mở
+        try {
+            if (session.isOpen()) session.close(CloseStatus.SERVER_ERROR);
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * BUG FIX #7: Helper dùng chung để xóa session — gọi từ cả close và transport error.
+     */
+    private void removeSession(WebSocketSession session) {
         Long userId = getUserId(session);
         if (userId != null && userSessions.containsKey(userId)) {
             List<WebSocketSession> sessions = userSessions.get(userId);
@@ -47,25 +69,32 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    @Override
-    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        Long userId = getUserId(session);
-        log.error("❌ WebSocket transport error for User ID {}: {}", userId, exception.getMessage());
+    /**
+     * Kiểm tra có session nào đang kết nối không — dùng để tránh I/O thừa khi không ai online.
+     */
+    public static boolean hasActiveSessions() {
+        return !userSessions.isEmpty();
     }
 
     /**
-     * Gửi tin nhắn real-time tới tất cả các session đang kết nối
+     * Gửi tin nhắn real-time tới tất cả các session đang kết nối.
+     * BUG FIX #8: Tách ra từng session riêng lẻ, bỏ qua session chậm/lỗi thay vì block toàn bộ.
      */
     public static void broadcast(String jsonPayload) {
-        log.info("🚀 Broadcasting WebSocket message to all active sessions: {}", jsonPayload);
+        if (userSessions.isEmpty()) return; // short-circuit khi không ai kết nối
+
+        log.debug("🚀 Broadcasting WebSocket message to {} user(s)", userSessions.size());
         userSessions.forEach((userId, sessions) -> {
             for (WebSocketSession session : sessions) {
-                if (session.isOpen()) {
-                    try {
-                        synchronized (session) {
-                            session.sendMessage(new TextMessage(jsonPayload));
-                        }
-                    } catch (IOException e) {
+                if (!session.isOpen()) continue;
+                try {
+                    synchronized (session) {
+                        session.sendMessage(new TextMessage(jsonPayload));
+                    }
+                } catch (IOException e) {
+                    if (e instanceof java.nio.channels.ClosedChannelException || (e.getCause() != null && e.getCause() instanceof java.nio.channels.ClosedChannelException)) {
+                        log.debug("Skipping WebSocket broadcast to User ID {} (Channel closed)", userId);
+                    } else {
                         log.error("❌ Failed to broadcast WebSocket message to User ID {}", userId, e);
                     }
                 }
@@ -82,7 +111,7 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        log.info("🚀 Sending WebSocket message to User ID {}: {}", userId, jsonPayload);
+        log.debug("🚀 Sending WebSocket message to User ID {}", userId);
         for (WebSocketSession session : sessions) {
             if (session.isOpen()) {
                 try {
@@ -90,7 +119,11 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                         session.sendMessage(new TextMessage(jsonPayload));
                     }
                 } catch (IOException e) {
-                    log.error("❌ Failed to send WebSocket message to User ID {}", userId, e);
+                    if (e instanceof java.nio.channels.ClosedChannelException || (e.getCause() != null && e.getCause() instanceof java.nio.channels.ClosedChannelException)) {
+                        log.debug("Skipping WebSocket send to User ID {} (Channel closed)", userId);
+                    } else {
+                        log.error("❌ Failed to send WebSocket message to User ID {}", userId, e);
+                    }
                 }
             }
         }

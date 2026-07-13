@@ -1,0 +1,28 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: playwright-worker-scaler
+  namespace: devtrack
+  labels:
+    app: playwright-worker
+spec:
+  scaleTargetRef:
+    name: playwright-worker
+  # Luôn giữ ít nhất 1 pod để tránh cold start khi có job mới
+  minReplicaCount: 1
+  # Tối đa 5 pod — giới hạn theo số partition Kafka (10) nhưng giữ conservative cho local
+  maxReplicaCount: 5
+  # Sau khi lag = 0, chờ 60s rồi mới scale down để tránh flapping
+  cooldownPeriod: 60
+  # Poll Kafka lag mỗi 5s để react kịp burst ngắn
+  pollingInterval: 5
+  triggers:
+  - type: kafka
+    metadata:
+      # Local: dùng host.docker.internal vì KEDA pod chạy trong kind cluster
+      bootstrapServers: host.docker.internal:9094
+      consumerGroup: playwright-service-group
+      topic: test-run-jobs
+      # Scale up khi lag > 1 message per pod — mỗi job cần 1 pod riêng
+      lagThreshold: "1"
+      offsetResetPolicy: latest

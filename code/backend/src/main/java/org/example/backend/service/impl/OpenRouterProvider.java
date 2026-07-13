@@ -7,6 +7,7 @@ import org.example.backend.config.OpenRouterProperties;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.service.LlmProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -27,6 +28,9 @@ public class OpenRouterProvider implements LlmProvider {
     private final ObjectMapper objectMapper;
     private final OpenRouterProperties openRouterProperties;
     private final AtomicInteger currentKeyIndex = new AtomicInteger(0);
+
+    @Value("${app.api-base-url:http://localhost:8080}")
+    private String appApiBaseUrl;
 
     @Autowired
     public OpenRouterProvider(RestTemplate restTemplate, ObjectMapper objectMapper, OpenRouterProperties openRouterProperties) {
@@ -71,7 +75,7 @@ public class OpenRouterProvider implements LlmProvider {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
             // OpenRouter recommends passing HTTP-Referer and X-Title
-            headers.set("HTTP-Referer", "http://localhost:8080");
+            headers.set("HTTP-Referer", appApiBaseUrl);
             headers.set("X-Title", "DevTrack AI Audit");
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);

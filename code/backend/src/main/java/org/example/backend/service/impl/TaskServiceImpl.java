@@ -1,3 +1,4 @@
+// touched to trigger recompile
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
@@ -25,8 +26,8 @@ import org.example.backend.service.TaskService;
 import org.example.backend.service.TaskReviewSnapshotService;
 import org.example.backend.service.CodeInsightScoringService;
 import org.example.backend.service.CodeInsightApprovalGateService;
-import org.example.backend.repository.TaskCommentRepository;
-import org.example.backend.repository.TaskProposalRepository;
+import org.example.backend.repository.mongo.TaskCommentRepository;
+import org.example.backend.repository.mongo.TaskProposalRepository;
 import org.example.backend.entity.TaskComment;
 import org.example.backend.entity.TaskProposal;
 import org.example.backend.service.event.OutboxEventService;

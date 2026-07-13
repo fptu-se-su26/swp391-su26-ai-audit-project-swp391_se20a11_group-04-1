@@ -43,11 +43,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- BUG_FIX: Resolving specific issues or refactoring bad code.\n" +
                 "- REVIEW: Code review, architecture evaluation, security audit.\n\n" +
                 "TIMELINE RULES (Strictly enforced):\n" +
-                "- NEVER generate past dates. start_date MUST BE >= today.\n" +
+                "- NEVER generate past dates. start_date MUST BE >= projectStartDate (or today if projectStartDate is in the past).\n" +
                 "- suggested_deadline MUST BE >= start_date.\n" +
-                "- Base tasks (no dependencies) MUST have start_date = today.\n" +
+                "- Base tasks (no dependencies) MUST have start_date = projectStartDate (or today if projectStartDate is in the past).\n" +
                 "- Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
-                "- start_date >= today AND suggested_deadline <= projectDeadline.\n" +
+                "- start_date >= projectStartDate AND suggested_deadline <= projectDeadline.\n" +
                 "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap!\n\n" +
                 "PRIORITY RULES:\n" +
                 "- Core tasks (Database, Core API) MUST inherit the exact priority of their parent Requirement.\n" +

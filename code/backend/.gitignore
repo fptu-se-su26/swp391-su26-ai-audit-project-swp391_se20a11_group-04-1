@@ -35,3 +35,9 @@ build/
 # Ignore application.yaml containing credentials
 src/main/resources/application.yaml
 
+# Ignore local .env file
+.env
+
+# Ignore local profile config with credentials
+src/main/resources/application-local.yaml
+

@@ -16,6 +16,10 @@ public interface TestExecutionRepository extends JpaRepository<TestExecution, Lo
     // Idempotency check
     Optional<TestExecution> findByIdempotencyKey(String idempotencyKey);
 
+    // Idempotency check with eager testCase fetch (avoids LazyInitializationException)
+    @Query("SELECT e FROM TestExecution e JOIN FETCH e.testCase WHERE e.idempotencyKey = :key")
+    Optional<TestExecution> findByIdempotencyKeyWithTestCase(@Param("key") String key);
+
     // Tránh N+1 khi fetch execution plan (cần steps)
     @Query("SELECT e FROM TestExecution e JOIN FETCH e.testCase tc " +
            "LEFT JOIN FETCH tc.steps " +

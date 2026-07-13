@@ -12,6 +12,7 @@ export const useNotificationStore = create((set, get) => ({
   loading: false,
   error: null,
   socket: null,
+  reconnectCount: 0, // BUG FIX #10: track reconnect attempts
 
   /**
    * Lấy toàn bộ thông báo của user hiện tại
@@ -136,6 +137,11 @@ export const useNotificationStore = create((set, get) => ({
       
       ws.onopen = () => {
         console.log('WebSocket connected')
+        // BUG FIX #10: reset reconnect counter khi connect thành công
+        set({ reconnectCount: 0 })
+        // Notify ResourceManagementPage để reset stale data khi WS reconnect
+        // Tránh hiển thị activeJobs cũ trong ~5s chờ snapshot đầu tiên từ backend mới
+        window.dispatchEvent(new CustomEvent('ws-connected'))
       }
 
       ws.onmessage = (event) => {
@@ -264,6 +270,11 @@ export const useNotificationStore = create((set, get) => ({
             toast.success('Tài khoản của bạn đã được mở khóa thành công!', { duration: 5000 })
           }
 
+          if (payload.type === 'RESOURCE_SNAPSHOT') {
+            // Push xuống ResourceManagementPage đang mở qua custom event
+            window.dispatchEvent(new CustomEvent('resource-snapshot', { detail: payload }))
+          }
+
           if (payload.type === 'APPEAL_SUBMITTED') {
             window.dispatchEvent(new CustomEvent('appeal-submitted', { detail: payload }))
             toast.success(`Người dùng ${payload.username || ''} đã gửi đơn kháng cáo mới!`, { duration: 4000 })
@@ -350,6 +361,8 @@ export const useNotificationStore = create((set, get) => ({
                     useTestRunStore.getState().onExecutionCompleted(payload);
                 }
             });
+            // Fast-path for useTestRun hook polling
+            window.dispatchEvent(new CustomEvent('test-run-execution-completed', { detail: payload }));
           }
           if (payload.type === 'TEST_RUN_COMPLETED') {
             import('@features/testing/stores/useTestRunStore').then(({ useTestRunStore }) => {
@@ -358,6 +371,8 @@ export const useNotificationStore = create((set, get) => ({
                     useTestRunStore.getState().onRunCompleted(payload);
                 }
             });
+            // Fast-path for useTestRun hook polling
+            window.dispatchEvent(new CustomEvent('test-run-completed', { detail: payload }));
           }
         } catch (err) {
           console.error('Error handling WebSocket payload:', err)
@@ -367,12 +382,24 @@ export const useNotificationStore = create((set, get) => ({
       ws.onclose = (event) => {
         console.log(`WebSocket closed: code=${event.code}, reason=${event.reason || 'No reason'}`)
         if (event.code !== 1000) {
-          setTimeout(() => {
-            const currentUserId = localStorage.getItem('userId')
-            if (currentUserId) {
-              get().initWebSocket(currentUserId)
-            }
-          }, 5000)
+          // BUG FIX #10: giới hạn số lần reconnect = 3 lần, sau đó dừng hẳn để tránh infinite loop.
+          const MAX_RECONNECT_ATTEMPTS = 3;
+          const reconnectCount = get().reconnectCount || 0;
+          if (reconnectCount < MAX_RECONNECT_ATTEMPTS) {
+            setTimeout(() => {
+              const currentUserId = localStorage.getItem('userId');
+              if (currentUserId) {
+                console.log(`Reconnecting WebSocket (attempt ${reconnectCount + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+                set({ reconnectCount: reconnectCount + 1 });
+                get().initWebSocket(currentUserId);
+              }
+            }, 5000);
+          } else {
+            console.error('WebSocket reconnect limit reached. Stopped reconnecting.');
+          }
+        } else {
+          // Reset counter khi close bình thường
+          set({ reconnectCount: 0 });
         }
       }
 

@@ -28,9 +28,9 @@ public class KanbanColumnServiceImpl implements KanbanColumnService {
     private static final List<DefaultColumn> DEFAULT_COLUMNS = List.of(
             new DefaultColumn("Todo", "TODO", "bg-outline", 0),
             new DefaultColumn("In Progress", "IN_PROGRESS", "bg-primary", 1),
-            new DefaultColumn("Needs Changes", "NEEDS_CHANGES", "bg-[#f59e0b]", 2),
-            new DefaultColumn("In Review", "IN_REVIEW", "bg-[#a855f7]", 3),
-            new DefaultColumn("Done", "DONE", "bg-[#16a34a]", 4),
+            new DefaultColumn("In Review", "IN_REVIEW", "bg-[#a855f7]", 2),
+            new DefaultColumn("Done", "DONE", "bg-[#16a34a]", 3),
+            new DefaultColumn("Needs Changes", "NEEDS_CHANGES", "bg-[#f59e0b]", 4),
             new DefaultColumn("Blocked", "BLOCKED", "bg-error", 5)
     );
 

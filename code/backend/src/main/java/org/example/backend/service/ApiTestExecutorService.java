@@ -1,6 +1,5 @@
 package org.example.backend.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +13,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.ApiTestResult;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.enums.ApiTestStatus;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.AgentTaskRepository;
 import org.example.backend.repository.ApiEnvironmentRepository;
@@ -95,12 +95,17 @@ public class ApiTestExecutorService {
 
         UserAccount user = userAccountRepository.findById(userId).orElse(null);
 
-        String url = variableResolver.resolveVariables(testCase.getApiUrl() == null ? "" : testCase.getApiUrl(), variablesJson);
+        org.example.backend.entity.config.ApiTestConfig apiConfig = testCase.getApiConfig();
+        if (apiConfig == null) {
+            throw new BadRequestException("TestCase is not an API test case");
+        }
+
+        String url = variableResolver.resolveVariables(apiConfig.getApiUrl() == null ? "" : apiConfig.getApiUrl(), variablesJson);
         
         // Resolve and append query params
         try {
-            if (testCase.getApiQueryParams() != null && !testCase.getApiQueryParams().isBlank()) {
-                Map<String, String> rawParams = objectMapper.readValue(testCase.getApiQueryParams(), new TypeReference<>() {});
+            if (apiConfig.getApiQueryParams() != null && !apiConfig.getApiQueryParams().isNull()) {
+                Map<String, String> rawParams = objectMapper.convertValue(apiConfig.getApiQueryParams(), new TypeReference<>() {});
                 StringBuilder urlBuilder = new StringBuilder(url);
                 boolean first = !url.contains("?");
                 for (Map.Entry<String, String> entry : rawParams.entrySet()) {
@@ -119,19 +124,24 @@ public class ApiTestExecutorService {
             log.error("Failed to parse or append query params", e);
         }
 
-        String method = testCase.getApiMethod() == null ? "GET" : testCase.getApiMethod();
-        String body = variableResolver.resolveVariables(testCase.getApiBody() == null ? "" : testCase.getApiBody(), variablesJson);
+        String method = apiConfig.getApiMethod() == null ? "GET" : apiConfig.getApiMethod();
+        
+        String bodyJson = "";
+        if (apiConfig.getApiBody() != null && !apiConfig.getApiBody().isNull()) {
+            bodyJson = apiConfig.getApiBody().isTextual() ? apiConfig.getApiBody().asText() : apiConfig.getApiBody().toString();
+        }
+        String body = variableResolver.resolveVariables(bodyJson, variablesJson);
         
         // Cố gắng parse headers
         Map<String, String> resolvedHeaders = new HashMap<>();
         try {
-            if (testCase.getApiHeaders() != null && !testCase.getApiHeaders().isBlank()) {
-                Map<String, String> rawHeaders = objectMapper.readValue(testCase.getApiHeaders(), new TypeReference<>() {});
+            if (apiConfig.getApiHeaders() != null && !apiConfig.getApiHeaders().isNull()) {
+                Map<String, String> rawHeaders = objectMapper.convertValue(apiConfig.getApiHeaders(), new TypeReference<>() {});
                 for (Map.Entry<String, String> entry : rawHeaders.entrySet()) {
                     resolvedHeaders.put(entry.getKey(), variableResolver.resolveVariables(entry.getValue(), variablesJson));
                 }
             }
-        } catch (JsonProcessingException e) {
+        } catch (IllegalArgumentException e) {
             log.error("Failed to parse headers", e);
         }
 
@@ -222,7 +232,14 @@ public class ApiTestExecutorService {
             result.setResponseBody(response.getBody());
             result.setResponseHeaders(objectMapper.writeValueAsString(response.getHeaders().toSingleValueMap()));
             
-            evaluateAndSave(result, testCase.getApiAssertions());
+            String assertionsJson = "";
+            if (testCase.getApiConfig() != null) {
+                com.fasterxml.jackson.databind.JsonNode assertionsNode = testCase.getApiConfig().getApiAssertions();
+                if (assertionsNode != null && !assertionsNode.isNull()) {
+                    assertionsJson = assertionsNode.toString();
+                }
+            }
+            evaluateAndSave(result, assertionsJson);
 
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             long endTime = System.currentTimeMillis();
@@ -235,7 +252,14 @@ public class ApiTestExecutorService {
                 }
             } catch (Exception ignored) {}
             
-            evaluateAndSave(result, testCase.getApiAssertions());
+            String assertionsJson = "";
+            if (testCase.getApiConfig() != null) {
+                com.fasterxml.jackson.databind.JsonNode assertionsNode = testCase.getApiConfig().getApiAssertions();
+                if (assertionsNode != null && !assertionsNode.isNull()) {
+                    assertionsJson = assertionsNode.toString();
+                }
+            }
+            evaluateAndSave(result, assertionsJson);
         } catch (RestClientException | IllegalArgumentException | java.net.URISyntaxException e) {
             result.setStatus(ApiTestStatus.ERROR);
             result.setErrorMessage(e.getMessage());
@@ -294,7 +318,14 @@ public class ApiTestExecutorService {
                     result.setResponseHeaders(objectMapper.writeValueAsString(payload.get("headers")));
                 }
                 
-                evaluateAndSave(result, result.getTestCase().getApiAssertions());
+                String assertionsJson = "";
+                if (result.getTestCase().getApiConfig() != null) {
+                    com.fasterxml.jackson.databind.JsonNode assertionsNode = result.getTestCase().getApiConfig().getApiAssertions();
+                    if (assertionsNode != null && !assertionsNode.isNull()) {
+                        assertionsJson = assertionsNode.toString();
+                    }
+                }
+                evaluateAndSave(result, assertionsJson);
                 return; // evaluateAndSave will do the save
             }
         } catch (Exception e) {

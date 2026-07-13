@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.example.backend.entity.enums.TestType;
 
+import org.example.backend.dto.testing.config.TestConfiguration;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,14 +32,6 @@ public class TestCaseRequest {
     @Valid
     private List<TestStepRequest> steps = new ArrayList<>();
 
-    private String baseUrl;
-    private Object stepsStructured;
-
-    // --- API Testing Fields ---
-    private String apiMethod;
-    private String apiUrl;
-    private Object apiHeaders;
-    private Object apiQueryParams;
-    private Object apiBody;
-    private Object apiAssertions;
+    @Valid
+    private TestConfiguration configuration;
 }

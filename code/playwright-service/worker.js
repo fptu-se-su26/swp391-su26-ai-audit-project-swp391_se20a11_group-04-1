@@ -37,6 +37,8 @@ class ConcurrencyLimiter {
     }
 }
 
+
+
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT_RUNS) || 3;
 const limiter = new ConcurrencyLimiter(MAX_CONCURRENT);
 
@@ -63,8 +65,12 @@ async function run() {
     // KafkaJS tự quản lý heartbeat, rebalance, reconnect bên trong.
     // CHỈ GỌI MỘT LẦN DUY NHẤT — không wrap trong while(true).
     await consumer.run({
-        autoCommit: true,
-        autoCommitInterval: 5000,
+        // autoCommit: false — commit thủ công SAU KHI job xong.
+        // Mục tiêu: giữ Kafka lag > 0 trong suốt thời gian test đang chạy (~60s)
+        // để KEDA thấy lag thật sự và scale thêm pod.
+        // Nếu dùng autoCommit=true với interval 5s, offset bị commit ngay sau khi
+        // eachMessage return (fire-and-forget), KEDA thấy lag = 0 → không scale.
+        autoCommit: false,
         partitionsConsumedConcurrently: MAX_CONCURRENT,
         eachMessage: async ({ topic, partition, message }) => {
             const val = message.value.toString();
@@ -76,10 +82,11 @@ async function run() {
                 // Acquire semaphore slot — block nếu đã đầy MAX_CONCURRENT slots
                 await limiter.acquire();
 
-                // Fire-and-forget: không await → eachMessage return ngay
-                // → cho phép nhận message tiếp trên cùng partition (xử lý song song)
-                // autoCommit: true đã tự commit offset theo thời gian, không phụ thuộc vào handler xong
-                handleTestRunJobCommand(payload)
+                // Await handler hoàn toàn trước khi commit offset.
+                // eachMessage BLOCKED cho đến khi handler xong → offset chưa commit
+                // → Kafka lag giữ nguyên → KEDA thấy lag và scale thêm pod.
+                // Điều này không block các partition KHÁC vì partitionsConsumedConcurrently > 1.
+                await handleTestRunJobCommand(payload)
                     .catch(err => {
                         console.error(`[Worker] Error processing test run ${payload.testRunId}:`, err);
                     })
@@ -87,9 +94,17 @@ async function run() {
                         limiter.release();
                         console.log(`[Worker] Slot released (active=${limiter.activeCount}/${MAX_CONCURRENT})`);
                     });
+
             } catch (err) {
                 console.error(`[Worker] Fatal infrastructure error processing message:`, err);
             }
+
+            // Commit offset sau khi job xong — offset tăng 1 để mark message đã xử lý
+            await consumer.commitOffsets([{
+                topic,
+                partition,
+                offset: String(BigInt(message.offset) + 1n)
+            }]);
         },
     });
 
@@ -124,6 +139,9 @@ async function run() {
 const errorTypes = ['unhandledRejection', 'uncaughtException'];
 const signalTraps = ['SIGTERM', 'SIGINT', 'SIGUSR2'];
 
+// Fix K8s scale-down leak: khi pod bị SIGTERM, backend đã tự manage Redis tracking
+// Worker chỉ cần disconnect Kafka sạch — không cần cleanup Redis nữa
+// (Backend track activeJobs từ publish → receiveExecutionResult, không qua worker)
 errorTypes.forEach(type => {
     process.on(type, async e => {
         try {

@@ -10,4 +10,5 @@ public interface KanbanColumnService {
     KanbanColumnResponse createColumn(Long projectId, KanbanColumnRequest request, Long userId);
     KanbanColumnResponse updateColumn(Long projectId, Long columnId, KanbanColumnRequest request, Long userId);
     void archiveColumn(Long projectId, Long columnId, Long userId);
+    java.util.List<org.example.backend.entity.KanbanColumn> ensureDefaultColumns(Long projectId);
 }

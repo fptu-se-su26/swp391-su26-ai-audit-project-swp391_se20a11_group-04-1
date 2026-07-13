@@ -17,7 +17,6 @@ import org.example.backend.repository.ApiTestResultRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.AiGenerationStaging;
-import org.example.backend.entity.AiStage;
 import org.example.backend.entity.AiGenerationStatus;
 import org.example.backend.repository.AiGenerationStagingRepository;
 import org.example.backend.service.AiGenerationService;
@@ -52,7 +51,6 @@ public class TestCaseController {
     private final AiGenerationStagingRepository aiGenerationStagingRepository;
     private final AiGenerationService aiGenerationService;
     private final ObjectMapper objectMapper;
-    private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -139,8 +137,7 @@ public class TestCaseController {
 
         UserAccount user = userAccountRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        Long currentUserId = user.getId();
-        testCaseService.delete(projectId, testCaseId, currentUserId);
+        testCaseService.delete(projectId, testCaseId, user.getId());
     }
 
     @PostMapping("/{testCaseId}/run-api")
@@ -173,10 +170,6 @@ public class TestCaseController {
             @Valid @RequestBody org.example.backend.dto.testing.AiTestCaseGenerateRequest request,
             Principal principal) {
         
-        UserAccount user = userAccountRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        Long currentUserId = user.getId();
-
         // 1. Validate constraints and save PROCESSING staging
         AiGenerationStaging staging = aiTestCaseGeneratorService.createProcessingStaging(request, projectId);
         
@@ -249,12 +242,8 @@ public class TestCaseController {
             modifiedPayload = objectMapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
         }
 
-        List<org.example.backend.entity.TestCase> approvedTestCases = aiGenerationService.approveTestCaseGeneration(
+        List<TestCaseResponse> testCaseResponses = aiGenerationService.approveTestCaseGeneration(
                 generationId, selectedIndices, modifiedPayload, currentUserId, projectId);
-                
-        List<TestCaseResponse> testCaseResponses = approvedTestCases.stream()
-                .map(testCaseMapper::toResponse)
-                .collect(Collectors.toList());
                 
         return ApiResponse.success(testCaseResponses, "Test cases approved successfully");
     }

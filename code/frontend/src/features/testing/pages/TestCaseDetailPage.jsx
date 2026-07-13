@@ -342,7 +342,7 @@ export default function TestCaseDetailPage() {
   )
 
   const stepsToRender = testCase.type === 'UI'
-    ? (testCase.stepsStructured || testCase.steps_structured || [])
+    ? (testCase.configuration?.steps || [])
     : (testCase.steps || [])
 
   return (
@@ -440,15 +440,15 @@ export default function TestCaseDetailPage() {
                   {testCase.module || 'Authentication'}
                 </span>
               </div>
-              {testCase.type === 'UI' && (testCase.baseUrl || testCase.base_url) && (
+              {testCase.type === 'UI' && testCase.configuration?.baseUrl && testCase.configuration.baseUrl !== 'null' && (
                 <div style={{ gridColumn:'1/-1' }}>
                   <FieldLabel>Base URL (Automated Test)</FieldLabel>
-                  <a href={testCase.baseUrl || testCase.base_url} target="_blank" rel="noopener noreferrer"
+                  <a href={testCase.configuration.baseUrl} target="_blank" rel="noopener noreferrer"
                     style={{
                       display:'inline-flex', alignItems:'center', gap:'4px',
                       fontSize:'13px', fontWeight:500, color: C.primary, textDecoration:'none',
                     }}>
-                    {testCase.baseUrl || testCase.base_url}
+                    {testCase.configuration.baseUrl}
                     <span className="material-symbols-outlined" style={{ fontSize:'14px' }}>open_in_new</span>
                   </a>
                 </div>
@@ -519,7 +519,9 @@ export default function TestCaseDetailPage() {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={2} style={{ padding:'24px', textAlign:'center', color: C.textMuted, fontSize:'13px' }}>No steps defined.</td></tr>
+                      <tr><td colSpan={2} style={{ padding:'24px', textAlign:'center', color: C.textMuted, fontSize:'13px' }}>
+                        {testCase.type === 'UI' ? 'This test case has no automation steps configured.' : 'No steps defined.'}
+                      </td></tr>
                     )}
                   </tbody>
                 </table>
@@ -650,7 +652,7 @@ export default function TestCaseDetailPage() {
           initialData={{
             title: `Bug in ${testCase.code || testCase.requirement?.code}: ${testCase.title}`,
             stepsToReproduce: testCase.type === 'UI' 
-              ? (testCase.stepsStructured || testCase.steps_structured || []).map(s => s.action).join('\n') 
+              ? (testCase.configuration?.steps || []).map(s => `[${s.action}] ${s.selector || s.path || ''} ${s.value || s.expected || ''}`).join('\n') 
               : (testCase.steps || []).map((s, i) => `${i + 1}. ${s.description || s.action || ''}`).join('\n'),
           }}
         />

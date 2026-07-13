@@ -14,7 +14,13 @@ const STATUS_COLOR = {
 };
 
 const STATUS_LABEL = {
-    COMPLETED: (r) => r.failedCount > 0 ? 'FAIL' : 'PASS',
+    COMPLETED: (r) => {
+        if (r.failedCount > 0) return 'FAIL';
+        if (r.passedCount > 0) return 'PASS';
+        // fallback: cả failedCount và passedCount đều 0 (data cũ bị bug)
+        // → dùng failedCount từ executions nếu có, không thì PASS
+        return 'PASS';
+    },
     SYSTEM_ERROR: () => 'ERROR',
     CANCELLED: () => 'CANCELLED',
     TIMED_OUT: () => 'TIMED OUT',

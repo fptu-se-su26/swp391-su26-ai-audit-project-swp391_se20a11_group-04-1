@@ -90,7 +90,12 @@ public class TaskSlaScheduler {
             log.info("Startup SLA recheck completed. Scanned: {}, Evaluated: {}", scanned, evaluated);
         } catch (Exception ex) {
             log.error("STARTUP_SLA_RECHECK failed", ex);
-            schedulerRunLogService.fail(runLog, ex);
+            // Guard: nếu context đã bị đóng (DevTools restart), không cố ghi log vào DB
+            try {
+                schedulerRunLogService.fail(runLog, ex);
+            } catch (Exception logEx) {
+                log.warn("Could not persist STARTUP_SLA_RECHECK failure log (context may be closing): {}", logEx.getMessage());
+            }
         }
     }
 

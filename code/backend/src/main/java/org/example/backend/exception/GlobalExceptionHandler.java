@@ -175,6 +175,20 @@ public class GlobalExceptionHandler {
     // ─── 4. Handle HTTP / Request Exceptions ────────────────────────────────────
 
     /**
+     * Handles path variable type conversion failures (e.g. "undefined" where a Long is expected).
+     * This is a client-side bug — log at WARN, not ERROR, and return 400.
+     */
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        String message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s.",
+                ex.getValue(), ex.getName(),
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        log.warn("Type mismatch in request parameter: {}", message);
+        return buildErrorResponse(message, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Handles malformed JSON or unreadable request body.
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)

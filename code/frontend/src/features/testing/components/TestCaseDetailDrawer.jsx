@@ -172,9 +172,59 @@ export default function TestCaseDetailDrawer() {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 13, color: C.textSec, fontStyle: 'italic' }}>No steps defined.</div>
+                    <div style={{ fontSize: 13, color: C.textSec, fontStyle: 'italic' }}>No manual steps defined.</div>
                   )}
                 </div>
+
+                {selectedTestCase.type === 'UI' && selectedTestCase.configuration && (
+                  <div>
+                    <h4 style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>UI Automation Config</h4>
+                    <div style={{ fontSize: 13, color: C.textPri, background: C.bg, padding: 14, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                      <div style={{ marginBottom: 12 }}>
+                        <strong>Base URL:</strong> {selectedTestCase.configuration.baseUrl || 'N/A'}
+                      </div>
+                      <strong>Automated Steps:</strong>
+                      {selectedTestCase.configuration.steps?.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                          {selectedTestCase.configuration.steps.map((step, idx) => (
+                            <div key={idx} style={{ background: '#fff', padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12 }}>
+                              <span style={{ fontWeight: 600, color: C.primary, marginRight: 8 }}>[{step.action}]</span>
+                              {step.selector && <span>{step.selector}</span>}
+                              {step.value && <span style={{ marginLeft: 8, color: '#059669' }}>"{step.value}"</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 4, color: C.textMuted }}>No automation steps</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedTestCase.type === 'API' && selectedTestCase.configuration && (
+                  <div>
+                    <h4 style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.05em' }}>API Test Config</h4>
+                    <div style={{ fontSize: 13, color: C.textPri, background: C.bg, padding: 14, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                        <span style={{ fontWeight: 700, color: C.primary }}>{selectedTestCase.configuration.apiMethod || 'GET'}</span>
+                        <span style={{ wordBreak: 'break-all' }}>{selectedTestCase.configuration.apiUrl || 'N/A'}</span>
+                      </div>
+                      
+                      {Array.isArray(selectedTestCase.configuration.apiAssertions) && selectedTestCase.configuration.apiAssertions.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                          <strong>Assertions:</strong>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                            {selectedTestCase.configuration.apiAssertions.map((a, i) => (
+                              <div key={i} style={{ background: '#fff', padding: 8, borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12 }}>
+                                {a.type} {a.operator} {a.expectedValue}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

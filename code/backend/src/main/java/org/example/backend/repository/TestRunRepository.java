@@ -41,8 +41,12 @@ public interface TestRunRepository extends JpaRepository<TestRun, Long> {
            "WHERE r.status = 'RUNNING' AND r.updatedAt < :cutoff")
     List<TestRun> findStaleRunningTestRuns(@Param("cutoff") LocalDateTime cutoff);
 
-    // Atomic increment — KHÔNG đọc-modify-write trong Java
-    @Modifying
+    // Xử lý Bug 2: Clear Persistence Context sau khi Atomic increment để findById tiếp theo luôn đọc mới nhất từ DB
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE TestRun r SET r.completedCount = r.completedCount + 1, r.updatedAt = :now WHERE r.id = :id")
     int incrementCompletedCount(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    // Xử lý Bug 2: Method đọc lại completedCount vừa được update
+    @Query("SELECT r.completedCount FROM TestRun r WHERE r.id = :id")
+    int getCompletedCount(@Param("id") Long id);
 }

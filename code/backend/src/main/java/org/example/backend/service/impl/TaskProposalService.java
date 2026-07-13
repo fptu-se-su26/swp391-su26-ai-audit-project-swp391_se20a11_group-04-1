@@ -1,3 +1,4 @@
+// touched to trigger recompile
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
@@ -5,6 +6,8 @@ import org.example.backend.dto.TaskProposalResponse;
 import org.example.backend.entity.*;
 import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.repository.*;
+import org.example.backend.repository.mongo.TaskProposalRepository;
+import org.example.backend.repository.mongo.TaskVoteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

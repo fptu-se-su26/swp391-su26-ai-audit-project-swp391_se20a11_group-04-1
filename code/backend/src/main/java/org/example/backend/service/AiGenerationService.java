@@ -28,6 +28,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
+import org.example.backend.exception.BusinessException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,6 +54,7 @@ public class AiGenerationService {
     private final ObjectMapper objectMapper;
     private final TestCaseRepository testCaseRepository;
     private final TestStepRepository testStepRepository;
+    private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -67,7 +69,8 @@ public class AiGenerationService {
                                org.example.backend.repository.ProjectActorRepository projectActorRepository,
                                ObjectMapper objectMapper,
                                TestCaseRepository testCaseRepository,
-                               TestStepRepository testStepRepository) {
+                               TestStepRepository testStepRepository,
+                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.requirementGeminiService = requirementGeminiService;
@@ -81,6 +84,7 @@ public class AiGenerationService {
         this.objectMapper = objectMapper;
         this.testCaseRepository = testCaseRepository;
         this.testStepRepository = testStepRepository;
+        this.testCaseMapper = testCaseMapper;
     }
 
     @Transactional
@@ -240,6 +244,33 @@ public class AiGenerationService {
                 .map(uc -> uc.getCode() != null ? uc.getCode() + ": " + uc.getName() : uc.getName())
                 .toList();
 
+        sendProgress(userId, 2, "Checking cache for existing Use Cases...");
+        String reqIdsStr = reqs.stream().map(r -> r.getReqCode() != null ? r.getReqCode() : String.valueOf(r.getId())).sorted().collect(java.util.stream.Collectors.joining(","));
+        String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqIdsStr.getBytes());
+        java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.USE_CASE);
+
+        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+            AiGenerationStaging oldStaging = existingCache.get();
+            UUID generationId = UUID.randomUUID();
+            AiGenerationStaging newStaging = AiGenerationStaging.builder()
+                    .project(project)
+                    .stage(AiStage.USE_CASE)
+                    .generationId(generationId)
+                    .payload(oldStaging.getPayload())
+                    .fileHash(stagingHash)
+                    .status(AiGenerationStatus.PENDING)
+                    .build();
+            stagingRepository.save(newStaging);
+            try {
+                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            sendProgress(userId, 5, "Done!");
+            
+            return generationId;
+        }
+
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
         String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
 
@@ -312,6 +343,7 @@ public class AiGenerationService {
                 .generationId(generationId)
                 .stage(AiStage.USE_CASE)
                 .payload(finalPayload)
+                .fileHash(stagingHash)
                 .status(AiGenerationStatus.PENDING)
                 .build();
 
@@ -445,7 +477,10 @@ public class AiGenerationService {
     @Transactional
     public void deletePendingGenerations(Long projectId, AiStage stage) {
         List<AiGenerationStaging> pending = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
-        stagingRepository.deleteAll(pending);
+        for (AiGenerationStaging s : pending) {
+            s.setStatus(AiGenerationStatus.DISCARDED);
+        }
+        stagingRepository.saveAll(pending);
     }
 
     public List<AiGenerationStaging> getPendingGenerations(Long projectId, org.example.backend.entity.AiStage stage) {
@@ -516,36 +551,40 @@ public class AiGenerationService {
         UserAccount user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
         JsonNode stagingPayload = staging.getPayload();
-        JsonNode payload = modifiedPayload != null ? modifiedPayload : (stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload);
+        JsonNode payload = modifiedPayload != null && modifiedPayload.has("requirements") ? modifiedPayload.get("requirements") : (modifiedPayload != null ? modifiedPayload : (stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload));
         
         Integer maxSubId = requirementRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         
-        // Save actors if present in staging payload
-        if (stagingPayload != null && stagingPayload.has("project_actors")) {
-            JsonNode actorsNode = stagingPayload.get("project_actors");
-            if (actorsNode.isArray()) {
-                List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
-                java.util.Set<String> existingNames = existingActors.stream()
-                        .map(a -> a.getName().toLowerCase())
-                        .collect(java.util.stream.Collectors.toSet());
-                
-                List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
-                for (JsonNode actorNode : actorsNode) {
-                    String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
-                    String desc = actorNode.has("description") ? actorNode.get("description").asText() : "";
-                    if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
-                        actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
-                                .project(project)
-                                .name(name)
-                                .description(desc)
-                                .build());
-                        existingNames.add(name.toLowerCase());
-                    }
+        // Save actors if present in modifiedPayload, else fallback to stagingPayload
+        JsonNode actorsNode = null;
+        if (modifiedPayload != null && modifiedPayload.has("project_actors")) {
+            actorsNode = modifiedPayload.get("project_actors");
+        } else if (stagingPayload != null && stagingPayload.has("project_actors")) {
+            actorsNode = stagingPayload.get("project_actors");
+        }
+
+        if (actorsNode != null && actorsNode.isArray()) {
+            List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
+            java.util.Set<String> existingNames = existingActors.stream()
+                    .map(a -> a.getName().toLowerCase())
+                    .collect(java.util.stream.Collectors.toSet());
+            
+            List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
+            for (JsonNode actorNode : actorsNode) {
+                String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
+                String desc = ""; // As requested, removing description
+                if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
+                    actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
+                            .project(project)
+                            .name(name)
+                            .description(desc)
+                            .build());
+                    existingNames.add(name.toLowerCase());
                 }
-                if (!actorsToSave.isEmpty()) {
-                    projectActorRepository.saveAll(actorsToSave);
-                }
+            }
+            if (!actorsToSave.isEmpty()) {
+                projectActorRepository.saveAll(actorsToSave);
             }
         }
         
@@ -748,7 +787,7 @@ public class AiGenerationService {
     }
 
     @Transactional
-    public List<TestCase> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
+    public List<org.example.backend.dto.testing.TestCaseResponse> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
         List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
         if (stagings.isEmpty()) {
             throw new RuntimeException("Không tìm thấy dữ liệu staging với ID: " + generationId);
@@ -789,7 +828,7 @@ public class AiGenerationService {
                 if (tcNode.has("requirementId") && !tcNode.get("requirementId").isNull()) {
                     tc.setRequirementId(tcNode.get("requirementId").asLong());
                 } else {
-                    throw new RuntimeException("Requirement is required for all test cases.");
+                    throw new BusinessException("Requirement is required for all test cases.");
                 }
                 
                 tc.setPrecondition(tcNode.path("precondition").asText(""));
@@ -806,21 +845,35 @@ public class AiGenerationService {
                     tc.setType(TestType.MANUAL);
                 }
                 
-                // Map UI specific fields
-                if (tcNode.has("stepsStructured")) {
-                    tc.setStepsStructured(tcNode.get("stepsStructured").toString());
-                }
-                if (tcNode.has("baseUrl")) {
-                    tc.setBaseUrl(tcNode.get("baseUrl").asText());
-                }
+                // Map Configuration based on Type
+                JsonNode configNode = tcNode.has("configuration") ? tcNode.get("configuration") : tcNode;
                 
-                // Map API specific fields
-                if (tcNode.has("apiMethod")) tc.setApiMethod(tcNode.get("apiMethod").asText());
-                if (tcNode.has("apiUrl")) tc.setApiUrl(tcNode.get("apiUrl").asText());
-                if (tcNode.has("apiHeaders")) tc.setApiHeaders(tcNode.get("apiHeaders").toString());
-                if (tcNode.has("apiQueryParams")) tc.setApiQueryParams(tcNode.get("apiQueryParams").toString());
-                if (tcNode.has("apiBody")) tc.setApiBody(tcNode.get("apiBody").toString());
-                if (tcNode.has("apiAssertions")) tc.setApiAssertions(tcNode.get("apiAssertions").toString());
+                if (tc.getType() == TestType.UI) {
+                    org.example.backend.entity.config.UiTestConfig uiConfig = new org.example.backend.entity.config.UiTestConfig();
+                    if (configNode.has("baseUrl")) uiConfig.setBaseUrl(configNode.get("baseUrl").asText());
+                    if (configNode.has("steps")) uiConfig.setSteps(configNode.get("steps"));
+                    else if (configNode.has("stepsStructured")) uiConfig.setSteps(configNode.get("stepsStructured")); // backward compatibility
+                    uiConfig.setTestCase(tc);
+                    tc.setUiConfig(uiConfig);
+                } else if (tc.getType() == TestType.API) {
+                    org.example.backend.entity.config.ApiTestConfig apiConfig = new org.example.backend.entity.config.ApiTestConfig();
+                    apiConfig.setApiMethod(configNode.has("apiMethod") ? configNode.get("apiMethod").asText() : "GET");
+                    apiConfig.setApiUrl(configNode.has("apiUrl") ? configNode.get("apiUrl").asText() : "");
+                    if (configNode.has("apiHeaders")) apiConfig.setApiHeaders(configNode.get("apiHeaders"));
+                    if (configNode.has("apiQueryParams")) apiConfig.setApiQueryParams(configNode.get("apiQueryParams"));
+                    if (configNode.has("apiBody")) apiConfig.setApiBody(configNode.get("apiBody"));
+                    if (configNode.has("apiAssertions")) apiConfig.setApiAssertions(configNode.get("apiAssertions"));
+                    apiConfig.setTestCase(tc);
+                    tc.setApiConfig(apiConfig);
+                } else if (tc.getType() == TestType.UNIT) {
+                    org.example.backend.entity.config.UnitTestConfig unitConfig = new org.example.backend.entity.config.UnitTestConfig();
+                    unitConfig.setTestCase(tc);
+                    tc.setUnitConfig(unitConfig);
+                } else if (tc.getType() == TestType.INTEGRATION) {
+                    org.example.backend.entity.config.IntegrationTestConfig integrationConfig = new org.example.backend.entity.config.IntegrationTestConfig();
+                    integrationConfig.setTestCase(tc);
+                    tc.setIntegrationConfig(integrationConfig);
+                }
                 
                 // Save first to get ID for TestStep linkage (since TestStep cascade is tricky with new entities manually managed)
                 // Actually, cascade = CascadeType.ALL will handle it if we set the relationship on both sides.
@@ -850,7 +903,7 @@ public class AiGenerationService {
         }
         stagingRepository.save(staging);
         
-        return savedTestCases;
+        return savedTestCases.stream().map(testCaseMapper::toResponse).toList();
     }
 
     private String formatFlowForPrompt(String flowJson) {
@@ -956,7 +1009,7 @@ public class AiGenerationService {
         
         try {
             com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
-                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+                .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature());
             JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ArrayNode arr = objectMapper.createArrayNode();
             arr.add(root);
@@ -1051,7 +1104,7 @@ public class AiGenerationService {
         
         try {
             com.fasterxml.jackson.databind.ObjectMapper lenientMapper = new com.fasterxml.jackson.databind.ObjectMapper()
-                .enable(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS);
+                .enable(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature());
             JsonNode root = lenientMapper.readTree(response.trim());
             com.fasterxml.jackson.databind.node.ObjectNode evaluatedRoot = objectMapper.createObjectNode();
             

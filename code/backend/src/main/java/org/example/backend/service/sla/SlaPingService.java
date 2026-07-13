@@ -9,6 +9,7 @@ import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.EmailService;
 import org.example.backend.service.GeminiService;
 import org.example.backend.service.NotificationService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,9 @@ public class SlaPingService {
     private final EmailService emailService;
     private final GeminiService geminiService;
 
+    @Value("${app.base-url:http://localhost:5173}")
+    private String appBaseUrl;
+
     @Transactional
     public void pingTask(Long projectId, Long taskId) {
         Task task = taskRepository.findById(taskId)
@@ -40,7 +44,7 @@ public class SlaPingService {
             return;
         }
 
-        String taskUrl = "http://localhost:5173/projects/" + projectId + "/tasks/" + taskId; // Fallback URL
+        String taskUrl = appBaseUrl + "/projects/" + projectId + "/tasks/" + taskId;
         
         // Push in-app notification
         notificationService.createAndPush(
@@ -223,7 +227,7 @@ public class SlaPingService {
         
         for (TaskSlaState state : memberRiskStates) {
             Task task = state.getTask();
-            String taskUrl = "http://localhost:5173/projects/" + projectId + "/tasks/" + task.getId();
+            String taskUrl = appBaseUrl + "/projects/" + projectId + "/tasks/" + task.getId();
             
             String riskBadge = "";
             if ("CRITICAL".equals(state.getCurrentRiskLevel())) {
