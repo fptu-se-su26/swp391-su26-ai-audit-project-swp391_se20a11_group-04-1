@@ -20,12 +20,14 @@ export function GitHubCallbackPage() {
     let projectId = null
     let isCreateProjectFlow = false
     let isLoginFlow = false
+    let fromProfile = false
     if (stateParam) {
       try {
         const decoded = JSON.parse(atob(stateParam))
         projectId = decoded.projectId
         isCreateProjectFlow = decoded.isCreateProjectFlow || false
         isLoginFlow = decoded.loginFlow || false
+        fromProfile = decoded.fromProfile || false
       } catch (e) {
         console.error("Failed to parse state param", e)
       }
@@ -74,7 +76,9 @@ export function GitHubCallbackPage() {
           toast.success(res.data?.message || 'GitHub Account Connected!')
           
           setTimeout(() => {
-            if (isCreateProjectFlow) {
+            if (fromProfile) {
+              navigate('/profile')
+            } else if (isCreateProjectFlow) {
               navigate('/', { state: { openCreateProject: true } })
             } else if (projectId) {
               navigate(`/projects/${projectId}/github-config`)

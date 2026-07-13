@@ -108,6 +108,15 @@ public class GitHubIntegrationServiceImpl implements GitHubIntegrationService {
                 .orElseThrow(() -> new CustomException("No GitHub token configured for this user", HttpStatus.BAD_REQUEST));
     }
 
+    @Override
+    public void deleteUserToken(Long userId) {
+        if (userGithubTokenRepository.existsById(userId)) {
+            userGithubTokenRepository.deleteById(userId);
+        } else {
+            throw new CustomException("No GitHub token configured for this user", HttpStatus.BAD_REQUEST);
+        }
+    }
+
     private boolean isLeaderRole(String roleName) {
         if (roleName == null) return false;
         String upper = roleName.toUpperCase();

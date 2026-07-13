@@ -16,4 +16,6 @@ public interface GitHubIntegrationService {
     String decryptToken(String encrypted);
 
     String getDecryptedUserToken(Long userId);
+
+    void deleteUserToken(Long userId);
 }

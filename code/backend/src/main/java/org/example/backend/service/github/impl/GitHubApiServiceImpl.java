@@ -131,4 +131,15 @@ public class GitHubApiServiceImpl implements GitHubApiService {
     public Map<String, Object> refreshWebhookConfig(Long projectId, Long userId) {
         return webhookDeliveryService.refreshWebhookConfig(projectId, userId);
     }
+
+    @Override
+    public Map<String, Object> getGitHubUserProfile(Long userId) {
+        String token = integrationService.getDecryptedUserToken(userId);
+        return oauthService.getGitHubUserProfile(token);
+    }
+
+    @Override
+    public void disconnectUser(Long userId) {
+        integrationService.deleteUserToken(userId);
+    }
 }

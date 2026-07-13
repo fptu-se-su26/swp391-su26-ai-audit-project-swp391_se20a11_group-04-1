@@ -49,8 +49,32 @@ public class GitHubController {
             throw new org.example.backend.exception.CustomException("Please login to continue", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("hasToken", gitHubApiService.hasUserToken(userId));
+        boolean hasToken = gitHubApiService.hasUserToken(userId);
+        response.put("hasToken", hasToken);
+        if (hasToken) {
+            try {
+                java.util.Map<String, Object> profile = gitHubApiService.getGitHubUserProfile(userId);
+                response.put("username", profile.get("login"));
+                response.put("email", profile.get("email"));
+                response.put("avatarUrl", profile.get("avatar_url"));
+                response.put("name", profile.get("name"));
+            } catch (Exception ex) {
+                log.warn("Failed to fetch github profile dynamically for user {}: {}", userId, ex.getMessage());
+                // Fallback token state to false so they can re-link
+                response.put("hasToken", false);
+            }
+        }
         return ResponseEntity.ok(ApiResponse.success(response, "Success"));
+    }
+
+    @DeleteMapping("/disconnect")
+    public ResponseEntity<ApiResponse<String>> disconnectGitHub(jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new org.example.backend.exception.CustomException("Please login to continue", org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        gitHubApiService.disconnectUser(userId);
+        return ResponseEntity.ok(ApiResponse.success("Success", "GitHub account disconnected successfully"));
     }
 
     /**

@@ -136,4 +136,8 @@ public interface GitHubApiService {
      * Reads the current GitHub webhook and persists its Code Insight-relevant config locally.
      */
     java.util.Map<String, Object> refreshWebhookConfig(Long projectId, Long userId);
+
+    java.util.Map<String, Object> getGitHubUserProfile(Long userId);
+
+    void disconnectUser(Long userId);
 }

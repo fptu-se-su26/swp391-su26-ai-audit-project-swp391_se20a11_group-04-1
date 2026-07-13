@@ -17,6 +17,9 @@ export const profileService = {
       },
     }).then(unwrap)
   },
+  getGithubStatus: () => axiosInstance.get('/v1/github/status').then(unwrap),
+  getGithubAuthUrl: () => axiosInstance.get('/v1/github/auth-url').then(unwrap),
+  disconnectGithub: () => axiosInstance.delete('/v1/github/disconnect').then(unwrap),
 }
 
 export default profileService
