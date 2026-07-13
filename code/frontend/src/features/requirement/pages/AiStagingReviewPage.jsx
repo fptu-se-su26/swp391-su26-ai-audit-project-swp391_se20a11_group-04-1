@@ -3,7 +3,7 @@ import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { FiCheck, FiX, FiRefreshCw, FiAlertTriangle, FiXCircle, FiCheckCircle, FiEdit2, FiFileText } from 'react-icons/fi';
+import { FiCheck, FiX, FiRefreshCw, FiAlertTriangle, FiXCircle, FiCheckCircle, FiEdit2, FiFileText, FiPlus } from 'react-icons/fi';
 import { BsStars, BsArrowUpRight } from 'react-icons/bs';
 import RequirementInlineEdit from '../components/RequirementInlineEdit';
 
@@ -57,7 +57,8 @@ const AiStagingReviewPage = () => {
   const [previousPayload, setPreviousPayload] = useState(null);
   const [localPayload, setLocalPayload] = useState([]);
   const [projectActors, setProjectActors] = useState([]);
-  const [selectedActor, setSelectedActor] = useState(null);
+  const [isAddingActor, setIsAddingActor] = useState(false);
+  const [newActorName, setNewActorName] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const [hoveredExcerpt, setHoveredExcerpt] = useState('');
   
@@ -129,7 +130,11 @@ const AiStagingReviewPage = () => {
     try {
       setApproving(true);
       const indicesArray = Array.from(selectedIndices);
-      await requirementApi.approveStagingRequirements(generationId, indicesArray, localPayload);
+      const finalPayload = {
+        requirements: localPayload,
+        project_actors: projectActors
+      };
+      await requirementApi.approveStagingRequirements(generationId, indicesArray, finalPayload);
       toast.success('Duyệt thành công! Đã lưu vào dự án.');
       navigate(`/projects/${activeProject.id}/requirements`);
     } catch (error) {
@@ -137,6 +142,26 @@ const AiStagingReviewPage = () => {
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi duyệt Requirement.');
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleRemoveActor = (idxToRemove) => {
+    setProjectActors(prev => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
+  const handleAddActor = () => {
+    const trimmedName = newActorName.trim();
+    if (trimmedName) {
+      const isDuplicate = projectActors.some(
+        actor => actor.name.toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (!isDuplicate) {
+        setProjectActors(prev => [...prev, { name: trimmedName, description: '' }]);
+      } else {
+        toast.error('Actor này đã tồn tại!');
+      }
+      setNewActorName('');
+      setIsAddingActor(false);
     }
   };
 
@@ -277,36 +302,6 @@ const AiStagingReviewPage = () => {
   return (
     <div className="h-[calc(100vh-64px)] bg-[#F8FAFC] font-sans flex flex-col overflow-hidden">
       
-      {/* ACTOR MODAL */}
-      {selectedActor && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSelectedActor(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-[#1E707D]/10/30">
-              <h3 className="font-bold text-[16px] text-[#1E707D] flex items-center gap-2">
-                <span>👤</span> Actor: {selectedActor.name}
-              </h3>
-              <button onClick={() => setSelectedActor(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <FiX size={20} />
-              </button>
-            </div>
-            <div className="p-5">
-              <h4 className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 mb-2">Description / Role</h4>
-              <p className="text-[14px] text-gray-700 leading-relaxed font-serif">
-                {selectedActor.description}
-              </p>
-            </div>
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
-                onClick={() => setSelectedActor(null)}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-[13px] font-medium hover:bg-gray-50 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* HEADER (Full Width) */}
       <div className="flex-shrink-0 px-6 py-4 border-b border-[#E5E7EB] bg-white flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-3">
@@ -405,7 +400,7 @@ const AiStagingReviewPage = () => {
             )}
 
             {/* PROJECT ACTORS PANEL */}
-            {projectActors && projectActors.length > 0 && (
+            {projectActors && (
               <div className="p-[10px_16px] border-b border-[#E5E7EB] bg-[#1E707D]/10/50 flex flex-col gap-2 flex-shrink-0">
                 <div className="flex items-center justify-between text-[#1E707D] font-semibold text-[13px]">
                   <div className="flex items-center gap-2">
@@ -415,17 +410,59 @@ const AiStagingReviewPage = () => {
                     * Saved automatically upon approval
                   </div>
                 </div>
-                <div className="flex flex-nowrap overflow-x-auto gap-2 pb-1 horizontal-scroll-thin">
+                <div className="flex flex-wrap items-center gap-2 pb-1">
                   {projectActors.map((actor, idx) => (
                     <div 
                       key={idx} 
-                      onClick={() => setSelectedActor(actor)}
-                      className="bg-white border border-[#1E707D]/20 hover:border-[#1E707D] px-3 py-1.5 rounded-lg shadow-sm text-[12px] flex flex-col min-w-[180px] max-w-[220px] flex-shrink-0 cursor-pointer transition-colors"
+                      className="flex items-center gap-1.5 bg-white border border-[#1E707D]/30 text-[#1E707D] px-3 py-1.5 rounded-full text-[13px] font-medium shadow-sm"
                     >
-                      <span className="font-bold text-gray-800">{actor.name}</span>
-                      <span className="text-gray-500 text-[11px] truncate" title={actor.description}>{actor.description}</span>
+                      <span>{actor.name}</span>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveActor(idx);
+                        }}
+                        className="hover:bg-[#1E707D]/10 rounded-full p-0.5 text-gray-500 hover:text-red-500 transition-colors cursor-pointer"
+                        title="Remove Actor"
+                      >
+                        <FiX size={14} />
+                      </button>
                     </div>
                   ))}
+                  
+                  {isAddingActor ? (
+                     <div className="flex items-center gap-1 bg-white border border-[#1E707D] rounded-full px-3 py-1 shadow-sm">
+                        <input 
+                           type="text" 
+                           autoFocus
+                           placeholder="Actor name..."
+                           className="outline-none text-[13px] w-28 bg-transparent text-gray-800"
+                           value={newActorName}
+                           onChange={(e) => setNewActorName(e.target.value)}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') handleAddActor();
+                             if (e.key === 'Escape') {
+                               setIsAddingActor(false);
+                               setNewActorName('');
+                             }
+                           }}
+                           onBlur={() => {
+                             if (newActorName.trim()) {
+                               handleAddActor();
+                             } else {
+                               setIsAddingActor(false);
+                             }
+                           }}
+                        />
+                     </div>
+                  ) : (
+                    <button 
+                      onClick={() => setIsAddingActor(true)}
+                      className="flex items-center gap-1.5 bg-transparent border border-dashed border-[#1E707D]/50 hover:border-[#1E707D] text-[#1E707D]/80 hover:text-[#1E707D] hover:bg-white px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer"
+                    >
+                      <FiPlus size={14} /> Add Actor
+                    </button>
+                  )}
                 </div>
               </div>
             )}

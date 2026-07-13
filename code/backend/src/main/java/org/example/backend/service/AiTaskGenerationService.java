@@ -28,49 +28,42 @@ public class AiTaskGenerationService {
         if (start != -1) {
             int end = cleaned.lastIndexOf("```");
             if (end > start) {
-                return cleaned.substring(start + 7, end).trim();
+                cleaned = cleaned.substring(start + 7, end).trim();
             }
-        }
-        
-        start = cleaned.indexOf("```");
-        if (start != -1) {
-            int end = cleaned.lastIndexOf("```");
-            if (end > start && start != end) {
-                String sub = cleaned.substring(start + 3, end).trim();
-                if (sub.startsWith("json")) {
-                    sub = sub.substring(4).trim();
+        } else {
+            start = cleaned.indexOf("```");
+            if (start != -1) {
+                int end = cleaned.lastIndexOf("```");
+                if (end > start && start != end) {
+                    cleaned = cleaned.substring(start + 3, end).trim();
+                    if (cleaned.startsWith("json")) {
+                        cleaned = cleaned.substring(4).trim();
+                    }
                 }
-                return sub;
             }
         }
         
-        // Fallback: extract from first { or [ to last } or ]
-        int firstBrace = cleaned.indexOf('{');
-        int firstBracket = cleaned.indexOf('[');
-        int startIdx = -1;
-        if (firstBrace != -1 && firstBracket != -1) {
-            startIdx = Math.min(firstBrace, firstBracket);
-        } else if (firstBrace != -1) {
-            startIdx = firstBrace;
-        } else if (firstBracket != -1) {
-            startIdx = firstBracket;
+        int firstCurly = cleaned.indexOf("{");
+        int lastCurly = cleaned.lastIndexOf("}");
+        int firstSquare = cleaned.indexOf("[");
+        int lastSquare = cleaned.lastIndexOf("]");
+        
+        if (firstCurly != -1 && lastCurly > firstCurly) {
+            if (firstSquare != -1 && lastSquare > firstSquare) {
+                if (firstCurly < firstSquare && lastCurly > lastSquare) {
+                    return cleaned.substring(firstCurly, lastCurly + 1);
+                } else if (firstSquare < firstCurly && lastSquare > lastCurly) {
+                    return cleaned.substring(firstSquare, lastSquare + 1);
+                } else {
+                    if (firstCurly < firstSquare) return cleaned.substring(firstCurly, lastCurly + 1);
+                    else return cleaned.substring(firstSquare, lastSquare + 1);
+                }
+            } else {
+                return cleaned.substring(firstCurly, lastCurly + 1);
+            }
+        } else if (firstSquare != -1 && lastSquare > firstSquare) {
+            return cleaned.substring(firstSquare, lastSquare + 1);
         }
-
-        int lastBrace = cleaned.lastIndexOf('}');
-        int lastBracket = cleaned.lastIndexOf(']');
-        int endIdx = -1;
-        if (lastBrace != -1 && lastBracket != -1) {
-            endIdx = Math.max(lastBrace, lastBracket);
-        } else if (lastBrace != -1) {
-            endIdx = lastBrace;
-        } else if (lastBracket != -1) {
-            endIdx = lastBracket;
-        }
-
-        if (startIdx != -1 && endIdx != -1 && startIdx <= endIdx) {
-            return cleaned.substring(startIdx, endIdx + 1);
-        }
-
         return cleaned;
     }
 
@@ -90,6 +83,9 @@ public class AiTaskGenerationService {
     @Autowired
     @org.springframework.context.annotation.Lazy
     private AiTaskGenerationService self;
+
+    @Autowired
+    private org.example.backend.service.KanbanColumnService kanbanColumnService;
 
     @Autowired
     public AiTaskGenerationService(TaskGeminiService taskGeminiService,
@@ -126,6 +122,30 @@ public class AiTaskGenerationService {
         List<UseCase> useCases = self.fetchUseCases(request);
         if (useCases.isEmpty()) {
             throw new RuntimeException("No valid Use Cases found to generate tasks.");
+        }
+
+        String ucIdsStr = useCases.stream().map(uc -> uc.getCode() != null ? uc.getCode() : String.valueOf(uc.getId())).sorted().collect(Collectors.joining(","));
+        String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(ucIdsStr.getBytes());
+        java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.TASK);
+
+        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+            AiGenerationStaging oldStaging = existingCache.get();
+            UUID generationId = UUID.randomUUID();
+            AiGenerationStaging newStaging = AiGenerationStaging.builder()
+                    .project(project)
+                    .stage(AiStage.TASK)
+                    .generationId(generationId)
+                    .payload(oldStaging.getPayload())
+                    .fileHash(stagingHash)
+                    .status(AiGenerationStatus.PENDING)
+                    .build();
+            stagingRepository.save(newStaging);
+            try {
+                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return generationId;
         }
 
         List<Task> existingTasks = self.fetchExistingTasks(projectId);
@@ -167,6 +187,7 @@ public class AiTaskGenerationService {
                 .stage(AiStage.TASK)
                 .generationId(generationId)
                 .payload(finalPayload)
+                .fileHash(stagingHash)
                 .status(AiGenerationStatus.PENDING)
                 .build();
         stagingRepository.save(staging);
@@ -220,10 +241,12 @@ public class AiTaskGenerationService {
     private JsonNode generateTasksBatch(Project project, List<UseCase> useCases, List<Task> existingTasks, List<Map<String, Object>> members) {
         try {
             String todayStr = java.time.LocalDate.now().toString();
-            String deadlineStr = project.getEndDate() != null ? project.getEndDate().toString() : java.time.LocalDate.now().plusMonths(1).toString();
+            String startDateStr = project.getStartDate() != null ? project.getStartDate().toString() : todayStr;
+            String deadlineStr = project.getDeadline() != null ? project.getDeadline().toString() : (project.getEndDate() != null ? project.getEndDate().toString() : java.time.LocalDate.now().plusMonths(1).toString());
             
             ObjectNode dataNode = objectMapper.createObjectNode();
             dataNode.put("today", todayStr);
+            dataNode.put("projectStartDate", startDateStr);
             dataNode.put("projectDeadline", deadlineStr);
             
             List<Map<String, Object>> simpleUseCases = useCases.stream().map(uc -> {
@@ -553,6 +576,8 @@ public class AiTaskGenerationService {
         }
 
         UserAccount creator = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        
+        kanbanColumnService.ensureDefaultColumns(projectId);
         KanbanColumn defaultColumn = kanbanColumnRepository.findByProjectIdAndStatusKey(projectId, "TODO")
             .orElseGet(() -> kanbanColumnRepository.findByProjectIdAndNameIgnoreCase(projectId, "TODO").orElse(null));
 
@@ -563,6 +588,7 @@ public class AiTaskGenerationService {
                 task.setProject(project);
                 task.setCreatedBy(creator);
                 task.setKanbanColumn(defaultColumn);
+                task.setStatus(org.example.backend.entity.TaskStatus.TODO);
                 task.setTitle(taskNode.has("title") ? taskNode.get("title").asText() : "AI Generated Task");
                 task.setDescription(taskNode.has("description") ? taskNode.get("description").asText() : "");
                 
@@ -600,26 +626,34 @@ public class AiTaskGenerationService {
                         task.setSprintId(taskNode.get("sprint_id").asLong());
                     } catch (Exception e) {}
                 }
-                org.example.backend.util.DateValidationUtils.validateNotPastDate(task.getStartDate(), "Task", "start date");
-                org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
+                // Auto-clamp dates to prevent AI from causing BadRequestException
                 if (project != null) {
-                    try {
-                        org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), project.getStartDate(), project.getDeadline(), "Task", "Project");
-                    } catch (Exception e) {
-                        throw new org.example.backend.exception.BadRequestException("Task '" + task.getTitle() + "' có ngày nằm ngoài Project.");
+                    if (task.getStartDate() != null && project.getStartDate() != null && task.getStartDate().isBefore(project.getStartDate())) {
+                        task.setStartDate(project.getStartDate());
                     }
-                }
-                if (task.getSprintId() != null) {
-                    Sprint sprint = sprintRepository.findById(task.getSprintId()).orElse(null);
-                    if (sprint != null) {
-                        try {
-                            org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), sprint.getStartDate(), sprint.getEndDate(), "Task", "Sprint");
-                        } catch (Exception e) {
-                            throw new org.example.backend.exception.BadRequestException("Task '" + task.getTitle() + "' có ngày nằm ngoài Sprint.");
-                        }
+                    if (task.getDeadline() != null && project.getDeadline() != null && task.getDeadline().isAfter(project.getDeadline())) {
+                        task.setDeadline(project.getDeadline());
+                    }
+                    if (task.getStartDate() != null && task.getDeadline() != null && task.getStartDate().isAfter(task.getDeadline())) {
+                        task.setStartDate(task.getDeadline());
                     }
                 }
                 
+                if (task.getSprintId() != null) {
+                    Sprint sprint = sprintRepository.findById(task.getSprintId()).orElse(null);
+                    if (sprint != null) {
+                        if (task.getStartDate() != null && sprint.getStartDate() != null && task.getStartDate().isBefore(sprint.getStartDate())) {
+                            task.setStartDate(sprint.getStartDate());
+                        }
+                        if (task.getDeadline() != null && sprint.getEndDate() != null && task.getDeadline().isAfter(sprint.getEndDate())) {
+                            task.setDeadline(sprint.getEndDate());
+                        }
+                        if (task.getStartDate() != null && task.getDeadline() != null && task.getStartDate().isAfter(task.getDeadline())) {
+                            task.setStartDate(task.getDeadline());
+                        }
+                    }
+                }
+
                 try {
                     task.setPriority(taskNode.has("priority") ? Priority.valueOf(taskNode.get("priority").asText().toUpperCase()) : Priority.MEDIUM);
                 } catch (Exception e) {

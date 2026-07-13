@@ -42,7 +42,7 @@ public class DailyDigestService {
     private final ProjectRepository projectRepository;
     private final Clock clock;
 
-    @Value("${app.base-url}")
+    @Value("${app.base-url:http://localhost:5173}")
     private String baseUrl;
 
     @Transactional

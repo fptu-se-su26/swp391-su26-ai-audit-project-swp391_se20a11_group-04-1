@@ -160,11 +160,36 @@ public class AiTestCaseGeneratorService {
             String cleanJson = rawJson.trim();
             if (cleanJson.startsWith("```json")) {
                 cleanJson = cleanJson.substring(7);
+            } else if (cleanJson.startsWith("```")) {
+                cleanJson = cleanJson.substring(3);
             }
             if (cleanJson.endsWith("```")) {
                 cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
             }
             cleanJson = cleanJson.trim();
+
+            int firstCurly = cleanJson.indexOf("{");
+            int lastCurly = cleanJson.lastIndexOf("}");
+            int firstSquare = cleanJson.indexOf("[");
+            int lastSquare = cleanJson.lastIndexOf("]");
+
+            if (firstCurly != -1 && lastCurly > firstCurly) {
+                if (firstSquare != -1 && lastSquare > firstSquare) {
+                    if (firstCurly < firstSquare && lastCurly > lastSquare) {
+                        cleanJson = cleanJson.substring(firstCurly, lastCurly + 1);
+                    } else if (firstSquare < firstCurly && lastSquare > lastCurly) {
+                        cleanJson = cleanJson.substring(firstSquare, lastSquare + 1);
+                    } else {
+                        if (firstCurly < firstSquare) cleanJson = cleanJson.substring(firstCurly, lastCurly + 1);
+                        else cleanJson = cleanJson.substring(firstSquare, lastSquare + 1);
+                    }
+                } else {
+                    cleanJson = cleanJson.substring(firstCurly, lastCurly + 1);
+                }
+            } else if (firstSquare != -1 && lastSquare > firstSquare) {
+                cleanJson = cleanJson.substring(firstSquare, lastSquare + 1);
+            }
+
             return objectMapper.readValue(cleanJson, typeRef);
         } catch (Exception e) {
             log.error("Failed to parse JSON from AI: \n" + rawJson, e);

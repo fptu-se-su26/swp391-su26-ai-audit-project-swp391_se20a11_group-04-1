@@ -17,7 +17,7 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
 
-    @Value("${spring.kafka.bootstrap-servers}")
+    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
     @Bean
@@ -39,6 +39,7 @@ public class KafkaConfig {
     }
 
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
     public NewTopic testRunJobsTopic() {
         return TopicBuilder.name("test-run-jobs")
                 .partitions(10)

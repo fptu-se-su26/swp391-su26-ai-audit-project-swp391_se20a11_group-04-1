@@ -75,6 +75,16 @@ public class AuthServiceImpl implements AuthService {
         log.info("Received account registration request for username: {}, email: {}", request.getUsername(),
                 request.getEmail());
 
+        // 0. Check rate limit: maximum 3 requests per email per 24 hours
+        String limitKey = "REG_LIMIT:" + request.getEmail();
+        String countStr = redisTemplate.opsForValue().get(limitKey);
+        int count = countStr == null ? 0 : Integer.parseInt(countStr);
+
+        if (count >= 3) {
+            log.warn("Registration OTP request rejected. Email {} has exceeded daily limit of 3 requests.", request.getEmail());
+            throw new BadRequestException("Bạn đã vượt quá giới hạn 3 yêu cầu gửi mã OTP đăng ký trong ngày. Vui lòng quay lại sau 24 giờ.");
+        }
+
         // 1. Verify unique criteria in PostgreSQL
         if (userAccountRepository.existsByUsername(request.getUsername())) {
             log.warn("Registration request failed. Username already exists: {}", request.getUsername());
@@ -84,6 +94,13 @@ public class AuthServiceImpl implements AuthService {
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             log.warn("Registration request failed. Email already exists: {}", request.getEmail());
             throw new DuplicateResourceException("Email is already registered");
+        }
+
+        // Increment the limit count in Redis
+        if (count == 0) {
+            redisTemplate.opsForValue().set(limitKey, "1", 24, TimeUnit.HOURS);
+        } else {
+            redisTemplate.opsForValue().increment(limitKey);
         }
 
         // 2. Generate secure random OTP
@@ -143,6 +160,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 8. Clean up Redis cache keys
         otpService.clearOtpAndRequest(request.getEmail());
+        redisTemplate.delete("REG_LIMIT:" + request.getEmail());
 
         // 9. Convert saved entity to DTO and return to controller
         return UserResponse.builder()

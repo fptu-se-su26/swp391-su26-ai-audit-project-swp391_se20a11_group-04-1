@@ -98,7 +98,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   };
 
   return (
-    <div className="absolute inset-0 z-[200] bg-surface flex flex-col overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface rounded-2xl w-full max-w-7xl max-h-full flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-5 border-b border-outline-variant bg-surface-container-lowest">
@@ -316,29 +317,32 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
         </div>
         
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-5 border-t border-outline-variant bg-surface-container-lowest">
-          <Button type="button" variant="outline" onClick={onClose} disabled={approving}>Cancel</Button>
-          <Button 
-            type="button" 
-            variant="primary" 
-            onClick={handleApprove} 
-            disabled={loading || selectedIndices.size === 0 || approving}
-            className="px-6"
-          >
-            {approving ? (
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>
-                Approving...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
-                Approve {selectedIndices.size} Use Case(s)
-              </span>
-            )}
-          </Button>
+        <div className="w-full bg-surface-50 pb-6 flex justify-center border-t-0">
+          <div className="flex items-center justify-center gap-3 px-6 py-3 border border-outline-variant bg-surface shadow-lg rounded-2xl">
+            <Button type="button" variant="outline" onClick={onClose} disabled={approving} className="min-w-[100px]">Cancel</Button>
+            <Button 
+              type="button" 
+              variant="primary" 
+              onClick={handleApprove} 
+              disabled={loading || selectedIndices.size === 0 || approving}
+              className="px-6 shadow-sm"
+            >
+              {approving ? (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined animate-spin" style={{ fontSize: '18px' }}>progress_activity</span>
+                  Approving...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+                  Approve {selectedIndices.size} Use Case(s)
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
+    </div>
   );
 };
 

@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 @Service
+@ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
 @RequiredArgsConstructor
 @Slf4j
 public class KafkaEventPublisher implements EventPublisher {

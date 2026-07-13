@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import authService from '../services/authService'
 import useFormPersist from '@hooks/useFormPersist'
+import useOtpTimer from '@hooks/useOtpTimer'
 
 function RegisterPage() {
   const navigate = useNavigate()
@@ -24,6 +25,18 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({}) // Frontend & Backend Validation Errors
 
+  // Sử dụng custom hook useOtpTimer để quản lý bộ đếm ngược OTP và hạn chế spam
+  const {
+    timeLeft,
+    otpExpiryTime,
+    isSpamBlocked,
+    startCooldown,
+    startExpiry,
+    setSpamBlocked,
+    resetTimers,
+    formatTime,
+  } = useOtpTimer()
+
   // Sử dụng custom hook useFormPersist để tự động lưu nháp dữ liệu form (loại trừ trường mật khẩu nhạy cảm)
   useFormPersist('app-register-draft', {
     data: formData,
@@ -43,6 +56,11 @@ function RegisterPage() {
     // Clear validation error for this field
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: null }))
+    }
+
+    // Reset spam block status if they change email or username to try again
+    if (name === 'email' || name === 'username') {
+      setSpamBlocked(false)
     }
   }
 
@@ -90,7 +108,7 @@ function RegisterPage() {
 
   // Handle Request Registration (Step 1)
   const handleRegisterRequest = async (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     if (!validateForm()) {
       toast.error('Vui lòng kiểm tra lại thông tin nhập liệu!')
       return
@@ -113,6 +131,10 @@ function RegisterPage() {
       if (response.data?.success) {
         toast.success(response.data.message || 'Mã OTP đã được gửi đến email của bạn!')
         setStep(2) // Move to OTP verification step
+        startCooldown(60) // Cooldown 60s
+        startExpiry(300) // Expiry 5m (300s)
+        setSpamBlocked(false)
+        setOtp('')
       } else {
         toast.error(response.data?.message || 'Có lỗi xảy ra, vui lòng thử lại!')
       }
@@ -121,6 +143,9 @@ function RegisterPage() {
       const status = err.response?.status
       
       if (errorData) {
+        if (errorData.message && errorData.message.includes("vượt quá giới hạn")) {
+          setSpamBlocked(true)
+        }
         if (errorData.errors && typeof errorData.errors === 'object') {
           // Validation errors from Spring Boot (e.g. FieldName -> ErrorMessage)
           setErrors(errorData.errors)
@@ -173,6 +198,7 @@ function RegisterPage() {
 
   // Handle Resend OTP Code
   const handleResendOtp = async () => {
+    if (timeLeft > 0 || isSpamBlocked) return
     setLoading(true)
     try {
       const requestPayload = {
@@ -185,12 +211,17 @@ function RegisterPage() {
       const response = await authService.registerRequest(requestPayload)
       if (response.data?.success) {
         toast.success('Mã OTP mới đã được gửi lại vào email của bạn!')
+        startCooldown(60) // Restart 60s cooldown
+        startExpiry(300) // Restart 5m expiry
       } else {
         toast.error(response.data?.message || 'Gửi lại mã OTP thất bại!')
       }
     } catch (err) {
       const errorData = err.response?.data
       toast.error(errorData?.message || 'Không thể gửi lại mã OTP!')
+      if (errorData?.message && errorData.message.includes("vượt quá giới hạn")) {
+        setSpamBlocked(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -399,12 +430,18 @@ function RegisterPage() {
                 </div>
               </div>
 
+              {isSpamBlocked && (
+                <p className="text-error text-xs text-center font-semibold bg-error-container/10 p-2.5 rounded border border-error/20 my-4">
+                  ⚠️ Bạn đã vượt quá giới hạn 3 yêu cầu OTP đăng ký trong ngày. Vui lòng quay lại sau 24 giờ.
+                </p>
+              )}
+
               {/* Submit Button */}
               <div className="pt-2">
                 <button
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed`}
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || isSpamBlocked}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -440,16 +477,28 @@ function RegisterPage() {
                   onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                   disabled={loading}
                 />
-                <p className="text-xs text-on-surface-variant mt-2 text-center">
-                  Vui lòng nhập đúng 6 chữ số được gửi trong email của bạn.
-                </p>
+                {otpExpiryTime > 0 ? (
+                  <p className="text-xs text-on-surface-variant mt-2 text-center">
+                    Mã OTP sẽ hết hạn sau: <span className="font-semibold text-error">{formatTime(otpExpiryTime)}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-error mt-2 text-center font-semibold animate-pulse">
+                    Mã OTP đã hết hạn, vui lòng gửi lại mã mới!
+                  </p>
+                )}
               </div>
+
+              {isSpamBlocked && (
+                <p className="text-error text-xs text-center font-semibold bg-error-container/10 p-2.5 rounded border border-error/20 my-4">
+                  ⚠️ Bạn đã vượt quá giới hạn 3 yêu cầu OTP đăng ký trong ngày. Vui lòng quay lại sau 24 giờ.
+                </p>
+              )}
 
               <div className="space-y-3 pt-2">
                 <button
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded bg-[#1E707D] text-white font-body-md text-body-md font-semibold hover:bg-[#165964] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1E707D] transition-colors h-[44px] items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || otpExpiryTime <= 0}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -466,9 +515,9 @@ function RegisterPage() {
                     className="text-[#1E707D] hover:underline font-semibold disabled:opacity-50"
                     type="button"
                     onClick={handleResendOtp}
-                    disabled={loading}
+                    disabled={loading || timeLeft > 0 || isSpamBlocked}
                   >
-                    Gửi lại mã OTP
+                    {timeLeft > 0 ? `Gửi lại sau (${timeLeft}s)` : 'Gửi lại mã OTP'}
                   </button>
                   <button
                     className="text-secondary hover:underline font-semibold"

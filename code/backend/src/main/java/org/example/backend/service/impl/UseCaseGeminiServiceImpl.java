@@ -130,26 +130,48 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
     }
 
     private String cleanJsonOutput(String response) {
-        if (response.startsWith("```json")) {
-            response = response.substring(7);
-        }
-        if (response.startsWith("```")) {
-            response = response.substring(3);
-        }
-        if (response.endsWith("```")) {
-            response = response.substring(0, response.length() - 3);
-        }
-        response = response.trim();
-        int firstBracket = response.indexOf("[");
-        int lastBracket = response.lastIndexOf("]");
-        if (firstBracket >= 0 && lastBracket >= 0 && lastBracket > firstBracket) {
-            response = response.substring(firstBracket, lastBracket + 1);
-        } else {
-            firstBracket = response.indexOf("{");
-            lastBracket = response.lastIndexOf("}");
-            if (firstBracket >= 0 && lastBracket >= 0 && lastBracket > firstBracket) {
-                response = response.substring(firstBracket, lastBracket + 1);
+        if (response == null) return "";
+        
+        int codeBlockStart = response.indexOf("```json");
+        if (codeBlockStart != -1) {
+            int codeBlockEnd = response.lastIndexOf("```");
+            if (codeBlockEnd > codeBlockStart) {
+                response = response.substring(codeBlockStart + 7, codeBlockEnd);
             }
+        } else {
+            codeBlockStart = response.indexOf("```");
+            if (codeBlockStart != -1) {
+                int codeBlockEnd = response.lastIndexOf("```");
+                if (codeBlockEnd > codeBlockStart && codeBlockStart != codeBlockEnd) {
+                    response = response.substring(codeBlockStart + 3, codeBlockEnd);
+                    if (response.trim().startsWith("json")) {
+                        response = response.trim().substring(4);
+                    }
+                }
+            }
+        }
+        
+        response = response.trim();
+        int firstCurly = response.indexOf("{");
+        int lastCurly = response.lastIndexOf("}");
+        int firstSquare = response.indexOf("[");
+        int lastSquare = response.lastIndexOf("]");
+        
+        if (firstCurly != -1 && lastCurly > firstCurly) {
+            if (firstSquare != -1 && lastSquare > firstSquare) {
+                if (firstCurly < firstSquare && lastCurly > lastSquare) {
+                    return response.substring(firstCurly, lastCurly + 1);
+                } else if (firstSquare < firstCurly && lastSquare > lastCurly) {
+                    return response.substring(firstSquare, lastSquare + 1);
+                } else {
+                    if (firstCurly < firstSquare) return response.substring(firstCurly, lastCurly + 1);
+                    else return response.substring(firstSquare, lastSquare + 1);
+                }
+            } else {
+                return response.substring(firstCurly, lastCurly + 1);
+            }
+        } else if (firstSquare != -1 && lastSquare > firstSquare) {
+            return response.substring(firstSquare, lastSquare + 1);
         }
         return response;
     }

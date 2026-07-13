@@ -244,6 +244,33 @@ public class AiGenerationService {
                 .map(uc -> uc.getCode() != null ? uc.getCode() + ": " + uc.getName() : uc.getName())
                 .toList();
 
+        sendProgress(userId, 2, "Checking cache for existing Use Cases...");
+        String reqIdsStr = reqs.stream().map(r -> r.getReqCode() != null ? r.getReqCode() : String.valueOf(r.getId())).sorted().collect(java.util.stream.Collectors.joining(","));
+        String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqIdsStr.getBytes());
+        java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.USE_CASE);
+
+        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+            AiGenerationStaging oldStaging = existingCache.get();
+            UUID generationId = UUID.randomUUID();
+            AiGenerationStaging newStaging = AiGenerationStaging.builder()
+                    .project(project)
+                    .stage(AiStage.USE_CASE)
+                    .generationId(generationId)
+                    .payload(oldStaging.getPayload())
+                    .fileHash(stagingHash)
+                    .status(AiGenerationStatus.PENDING)
+                    .build();
+            stagingRepository.save(newStaging);
+            try {
+                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            sendProgress(userId, 5, "Done!");
+            
+            return generationId;
+        }
+
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
         String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
 
@@ -316,6 +343,7 @@ public class AiGenerationService {
                 .generationId(generationId)
                 .stage(AiStage.USE_CASE)
                 .payload(finalPayload)
+                .fileHash(stagingHash)
                 .status(AiGenerationStatus.PENDING)
                 .build();
 
@@ -449,7 +477,10 @@ public class AiGenerationService {
     @Transactional
     public void deletePendingGenerations(Long projectId, AiStage stage) {
         List<AiGenerationStaging> pending = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
-        stagingRepository.deleteAll(pending);
+        for (AiGenerationStaging s : pending) {
+            s.setStatus(AiGenerationStatus.DISCARDED);
+        }
+        stagingRepository.saveAll(pending);
     }
 
     public List<AiGenerationStaging> getPendingGenerations(Long projectId, org.example.backend.entity.AiStage stage) {
@@ -520,36 +551,40 @@ public class AiGenerationService {
         UserAccount user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
         JsonNode stagingPayload = staging.getPayload();
-        JsonNode payload = modifiedPayload != null ? modifiedPayload : (stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload);
+        JsonNode payload = modifiedPayload != null && modifiedPayload.has("requirements") ? modifiedPayload.get("requirements") : (modifiedPayload != null ? modifiedPayload : (stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload));
         
         Integer maxSubId = requirementRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
         
-        // Save actors if present in staging payload
-        if (stagingPayload != null && stagingPayload.has("project_actors")) {
-            JsonNode actorsNode = stagingPayload.get("project_actors");
-            if (actorsNode.isArray()) {
-                List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
-                java.util.Set<String> existingNames = existingActors.stream()
-                        .map(a -> a.getName().toLowerCase())
-                        .collect(java.util.stream.Collectors.toSet());
-                
-                List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
-                for (JsonNode actorNode : actorsNode) {
-                    String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
-                    String desc = actorNode.has("description") ? actorNode.get("description").asText() : "";
-                    if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
-                        actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
-                                .project(project)
-                                .name(name)
-                                .description(desc)
-                                .build());
-                        existingNames.add(name.toLowerCase());
-                    }
+        // Save actors if present in modifiedPayload, else fallback to stagingPayload
+        JsonNode actorsNode = null;
+        if (modifiedPayload != null && modifiedPayload.has("project_actors")) {
+            actorsNode = modifiedPayload.get("project_actors");
+        } else if (stagingPayload != null && stagingPayload.has("project_actors")) {
+            actorsNode = stagingPayload.get("project_actors");
+        }
+
+        if (actorsNode != null && actorsNode.isArray()) {
+            List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
+            java.util.Set<String> existingNames = existingActors.stream()
+                    .map(a -> a.getName().toLowerCase())
+                    .collect(java.util.stream.Collectors.toSet());
+            
+            List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
+            for (JsonNode actorNode : actorsNode) {
+                String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
+                String desc = ""; // As requested, removing description
+                if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
+                    actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
+                            .project(project)
+                            .name(name)
+                            .description(desc)
+                            .build());
+                    existingNames.add(name.toLowerCase());
                 }
-                if (!actorsToSave.isEmpty()) {
-                    projectActorRepository.saveAll(actorsToSave);
-                }
+            }
+            if (!actorsToSave.isEmpty()) {
+                projectActorRepository.saveAll(actorsToSave);
             }
         }
         
