@@ -29,7 +29,7 @@ public class SystemResourceService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${spring.kafka.bootstrap-servers}")
+    @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
     // BUG FIX #3: default phải khớp với application.yaml (K8S_MONITORING_ENABLED default = true)
@@ -51,12 +51,17 @@ public class SystemResourceService {
 
     private AdminClient adminClient;
 
+    @Value("${app.events.publisher:local}")
+    private String eventPublisher;
+
     @PostConstruct
     public void init() {
-        Properties props = new Properties();
-        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
-        this.adminClient = AdminClient.create(props);
+        if (!"local".equalsIgnoreCase(eventPublisher)) {
+            Properties props = new Properties();
+            props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+            props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+            this.adminClient = AdminClient.create(props);
+        }
 
         if (kubernetesEnabled) {
             try {
@@ -172,7 +177,7 @@ public class SystemResourceService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error fetching Kubernetes status", e);
+            log.debug("Error fetching Kubernetes status: {}", e.getMessage());
             return KubernetesStatusResponse.builder()
                     .status("UNAVAILABLE")
                     .pods(Collections.emptyList())
@@ -238,6 +243,16 @@ public class SystemResourceService {
             } else {
                 log.warn("Redis cache read error", e);
             }
+        }
+
+        if (adminClient == null) {
+            return KafkaStatusResponse.builder()
+                    .status("DISABLED")
+                    .totalPartitions(0)
+                    .activeConsumers(0)
+                    .totalLag(0)
+                    .partitionDetails(java.util.Collections.emptyList())
+                    .build();
         }
 
         try {

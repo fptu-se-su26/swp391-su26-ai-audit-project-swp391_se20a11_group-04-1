@@ -950,7 +950,7 @@ export function DashboardPage() {
                 
                 {/* Tên dự án */}
                 <div className="space-y-1.5">
-                  <label htmlFor="projName" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                  <label htmlFor="projName" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                     Project Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -960,14 +960,14 @@ export function DashboardPage() {
                     placeholder="E.g., DevTrack Management System"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
+                    className="w-full bg-surface-container-lowest border border-outline/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Chuyên ngành */}
                   <div className="space-y-1.5">
-                    <label htmlFor="projMajor" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    <label htmlFor="projMajor" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                       Major / Subject <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -981,21 +981,21 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
+                          : 'bg-surface-container-lowest border-outline/50 text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
 
                   {/* Loại dự án */}
                   <div className="space-y-1.5">
-                    <label htmlFor="projType" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    <label htmlFor="projType" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                       Project Type
                     </label>
                     <select
                       id="projType"
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface-variant focus:outline-none focus:border-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
+                      className="w-full bg-surface-container-lowest border border-outline/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
                     >
                       <option value="WEB_APP">Web Application</option>
                       <option value="MOBILE">Mobile Application</option>
@@ -1009,7 +1009,7 @@ export function DashboardPage() {
                 {/* Dates */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="projStartDate" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    <label htmlFor="projStartDate" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                       Start Date <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1022,12 +1022,12 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
+                          : 'bg-surface-container-lowest border-outline/50 text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="projDeadline" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                    <label htmlFor="projDeadline" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                       Deadline <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1040,7 +1040,7 @@ export function DashboardPage() {
                       className={`w-full border rounded-xl px-4 py-2.5 text-sm transition-all ${
                         formData.classroomId 
                           ? 'bg-surface-container-high border-outline-variant/40 text-on-surface-variant cursor-not-allowed opacity-70' 
-                          : 'bg-surface-container-lowest border-outline-variant/60 text-on-surface-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
+                          : 'bg-surface-container-lowest border-outline/50 text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D]'
                       }`}
                     />
                   </div>
@@ -1048,7 +1048,7 @@ export function DashboardPage() {
 
                 {/* Mô tả */}
                 <div className="space-y-1.5">
-                  <label htmlFor="projDesc" className="block text-xs font-bold uppercase tracking-wider text-outline">
+                  <label htmlFor="projDesc" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                     Project Description
                   </label>
                   <textarea
@@ -1057,7 +1057,7 @@ export function DashboardPage() {
                     placeholder="Provide a high-level overview of your project, target audience, and core features..."
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-outline-variant focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all resize-none"
+                    className="w-full bg-surface-container-lowest border border-outline/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] transition-all resize-none"
                   ></textarea>
                 </div>
 

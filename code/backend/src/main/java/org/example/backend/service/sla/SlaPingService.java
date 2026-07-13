@@ -26,7 +26,7 @@ public class SlaPingService {
     private final EmailService emailService;
     private final GeminiService geminiService;
 
-    @Value("${app.base-url}")
+    @Value("${app.base-url:http://localhost:5173}")
     private String appBaseUrl;
 
     @Transactional

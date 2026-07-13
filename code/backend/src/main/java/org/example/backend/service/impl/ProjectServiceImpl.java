@@ -89,7 +89,7 @@ public class ProjectServiceImpl implements ProjectService {
 
 
 
-    @org.springframework.beans.factory.annotation.Value("${app.base-url}")
+    @org.springframework.beans.factory.annotation.Value("${app.base-url:http://localhost:5173}")
     private String appBaseUrl;
 
     private static final String CACHE_PREFIX = "projects:user:";

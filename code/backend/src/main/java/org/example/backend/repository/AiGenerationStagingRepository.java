@@ -19,5 +19,7 @@ public interface AiGenerationStagingRepository extends JpaRepository<AiGeneratio
     
     java.util.Optional<AiGenerationStaging> findFirstByFileHashOrderByCreatedAtDesc(String fileHash);
     
+    java.util.Optional<AiGenerationStaging> findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(String fileHash, Long projectId, AiStage stage);
+    
     boolean existsByRequirementIdAndStatus(Long requirementId, AiGenerationStatus status);
 }

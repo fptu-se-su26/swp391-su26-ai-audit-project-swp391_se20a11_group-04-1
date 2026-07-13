@@ -116,9 +116,12 @@ const KanbanBoardPage = () => {
         return false
       }
     } else {
-      // Feature / Task: only show sub-tasks (those with parentId), hide parent tasks
+      // Feature / Task: show sub-tasks, and show parent tasks ONLY IF they don't have any sub-tasks
       if (!task.parentId) {
-        return false
+        const hasSubtasks = tasks.some((t) => String(t.parentId) === String(task.id))
+        if (hasSubtasks) {
+          return false
+        }
       }
     }
 
