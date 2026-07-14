@@ -8,11 +8,11 @@ import { NotificationDropdown } from './NotificationDropdown';
 
 // ── Design tokens ──────────────────────────────────────────────
 const C = {
-  primary:      '#1E707D',
-  primaryHov:   '#278A99',
-  primaryDark:  '#165964',
-  primaryLight: '#D7EEF1',
-  accentGlow:   '#4EC6D8',
+  primary:      'var(--project-theme)',
+  primaryHov:   'var(--project-theme-hover)',
+  primaryDark:  'var(--project-theme-dark)',
+  primaryLight: 'var(--project-theme-light)',
+  accentGlow:   'var(--project-theme-hover)',
   surface:      '#FFFFFF',
   bg:           '#F8FAFC',
   border:       '#D9E7E4',
@@ -268,8 +268,8 @@ const DropdownItem = ({ icon, label, onClick, danger = false }) => (
       transition:    'background 150ms ease, color 150ms ease',
     }}
     onMouseEnter={(e) => {
-      e.currentTarget.style.background = danger ? '#FEF2F2' : '#D7EEF1'
-      e.currentTarget.style.color      = danger ? '#EF4444' : '#1E707D'
+      e.currentTarget.style.background = danger ? '#FEF2F2' : 'var(--project-theme-light)'
+      e.currentTarget.style.color      = danger ? '#EF4444' : 'var(--project-theme)'
     }}
     onMouseLeave={(e) => {
       e.currentTarget.style.background = 'transparent'

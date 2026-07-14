@@ -13,6 +13,32 @@ const ProjectLayout = () => {
   const error = useProjectStore((state) => state.error);
   const isForbidden = useProjectStore((state) => state.isForbidden);
 
+  // ── Inject project theme color as CSS variable ────────────────
+  // This allows inline `style={{ color: 'var(--project-theme)' }}` across the app
+  useEffect(() => {
+    const theme = activeProject?.themeColor
+    if (theme && /^#[0-9A-Fa-f]{6}$/.test(theme)) {
+      document.documentElement.style.setProperty('--project-theme', theme)
+      // Also derive a light tint (15% opacity) for backgrounds
+      document.documentElement.style.setProperty('--project-theme-light', theme + '26')
+      document.documentElement.style.setProperty('--project-theme-hover', `color-mix(in srgb, ${theme} 85%, white)`)
+      document.documentElement.style.setProperty('--project-theme-dark', `color-mix(in srgb, ${theme} 85%, black)`)
+    } else {
+      // Default DevTrack teal
+      document.documentElement.style.setProperty('--project-theme', '#1E707D')
+      document.documentElement.style.setProperty('--project-theme-light', '#1E707D26')
+      document.documentElement.style.setProperty('--project-theme-hover', '#278A99')
+      document.documentElement.style.setProperty('--project-theme-dark', '#165964')
+    }
+    return () => {
+      // Reset to default when leaving project workspace
+      document.documentElement.style.setProperty('--project-theme', '#1E707D')
+      document.documentElement.style.setProperty('--project-theme-light', '#1E707D26')
+      document.documentElement.style.setProperty('--project-theme-hover', '#278A99')
+      document.documentElement.style.setProperty('--project-theme-dark', '#165964')
+    }
+  }, [activeProject?.themeColor])
+
   // Clear previous store error/forbidden state on mount/reset
   useEffect(() => {
     useProjectStore.setState({ error: null, isForbidden: false });
