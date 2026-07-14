@@ -18,11 +18,22 @@ public class ProjectResponse {
     private String semester;
     private String role;
     private int atRiskReqCount;
-    private LocalDate startDate;
-    private LocalDate deadline;
+
+    // Serialized as "yyyy-MM-dd" string to be compatible with HTML date input
+    // and avoid Jackson 3 / JSR310 module conflicts
+    private String startDate;
+    private String deadline;
+
     private int progress;
     private String aiInsight;
     private List<MemberDto> members;
+    // Appearance
+    private String coverImageUrl;
+    private String themeColor;
+    private String color;
+    private String description;
+    private String type;
+    private Integer maxMembers;
 
     @Getter
     @Setter
@@ -59,5 +70,21 @@ public class ProjectResponse {
         private String repoOwner;
         private String repoName;
         private String webhookUrl;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UpdateProjectRequest {
+        private String name;
+        private String description;
+        private String type; // WEB_APP, MOBILE, DATABASE, RESEARCH, OTHER
+        private String startDate; // "yyyy-MM-dd" string to avoid Jackson 3 LocalDate issues
+        private String deadline;  // "yyyy-MM-dd" string
+        private Integer maxMembers;
+        private String coverImageUrl;
+        private String themeColor;
     }
 }
