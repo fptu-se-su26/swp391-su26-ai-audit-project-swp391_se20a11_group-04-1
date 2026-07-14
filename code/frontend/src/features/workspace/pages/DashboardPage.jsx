@@ -623,7 +623,7 @@ export function DashboardPage() {
             <p className="text-sm text-on-surface-variant">{error}</p>
             <button
               onClick={() => fetchProjects()}
-              className="bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md mt-2"
+              className="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary-dark transition-all shadow-md mt-2"
             >
               Retry
             </button>
@@ -676,7 +676,7 @@ export function DashboardPage() {
             </div>
             <button
               onClick={handleCreateProject}
-              className="flex items-center gap-2 bg-[#1E707D] text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-[#165964] transition-all shadow-md shadow-[#1E707D]/10 shrink-0"
+              className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary-dark transition-all shadow-md shadow-primary/10 shrink-0"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               <span>Create Project</span>
@@ -691,7 +691,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('all')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'all'
-                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -700,7 +700,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('active')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'active'
-                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -709,7 +709,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('completed')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'completed'
-                  ? 'bg-[#D7EEF1] text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -723,7 +723,7 @@ export function DashboardPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-surface-container-lowest border border-outline-variant px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-[#1E707D] cursor-pointer hover:bg-surface-container transition-colors"
+                className="bg-surface-container-lowest border border-outline-variant px-3 py-1.5 rounded-lg text-xs font-semibold text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer hover:bg-surface-container transition-colors"
               >
                 <option value="recent">Recent</option>
                 <option value="name">Name A-Z</option>
@@ -751,13 +751,13 @@ export function DashboardPage() {
                   >
 
                   {/* Banner Đầu: AI Insight */}
-                  <div className="bg-[#1E707D]/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-[#1E707D]">
+                  <div className="bg-primary/5 border-b border-outline-variant/30 px-4 py-2.5 flex items-center justify-between text-xs font-bold text-primary">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-sm font-bold">neurology</span>
                       <span className="tracking-wider uppercase text-[10px]">AI INSIGHT</span>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${project.aiInsight === 'On Track' ? 'bg-green-100 text-green-700' :
-                      project.aiInsight === 'At Risk' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-[#1E707D]'
+                      project.aiInsight === 'At Risk' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-primary'
                       }`}>
                       {project.aiInsight}
                     </span>
@@ -768,10 +768,10 @@ export function DashboardPage() {
 
                     {/* Nhãn chuyên ngành & Nhãn trạng thái */}
                     <div className="flex items-center gap-2">
-                      <span className="bg-[#1E707D]/5 text-[#1E707D] text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase">
+                      <span className="bg-primary/5 text-primary text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase">
                         {project.major}
                       </span>
-                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-[#1E707D]/10 text-[#1E707D]'
+                      <span className={`text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded uppercase ${project.status === 'ACTIVE' ? 'bg-green-500/10 text-green-600' : 'bg-primary/10 text-primary'
                         }`}>
                         {project.status}
                       </span>
@@ -780,7 +780,7 @@ export function DashboardPage() {
                     {/* Tên Dự Án */}
                     <h2
                       onClick={() => openProject(project)}
-                      className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-[#1E707D] transition-colors cursor-pointer"
+                      className="text-lg font-bold text-on-surface leading-snug mt-3 mb-1 line-clamp-2 hover:text-primary transition-colors cursor-pointer"
                     >
                       {project.title}
                     </h2>
@@ -837,7 +837,7 @@ export function DashboardPage() {
                       </div>
                       <div className="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-[#1E707D] transition-all duration-500"
+                          className="h-full rounded-full bg-primary transition-all duration-500"
                           style={{ width: `${project.progress}%` }}
                         ></div>
                       </div>
@@ -869,7 +869,7 @@ export function DashboardPage() {
                     {/* Nút Open Project */}
                     <button
                       onClick={() => openProject(project)}
-                      className="bg-[#1E707D] text-white hover:bg-[#165964] px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                      className="bg-primary text-white hover:bg-primary-dark px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
                     >
                       <span>Open Project</span>
                       <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -902,7 +902,7 @@ export function DashboardPage() {
                 >
                   {loading ? (
                     <>
-                      <svg className="animate-spin w-4 h-4 text-[#1E707D]" viewBox="0 0 24 24" fill="none">
+                      <svg className="animate-spin w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
@@ -917,7 +917,7 @@ export function DashboardPage() {
                 </button>
               ) : (
                 <div className="flex items-center gap-2 text-xs text-on-surface-variant px-4 py-2 rounded-full bg-surface-container-lowest border border-outline-variant/40">
-                  <span className="material-symbols-outlined text-sm text-[#1E707D]">check_circle</span>
+                  <span className="material-symbols-outlined text-sm text-primary">check_circle</span>
                   <span>Đã hiển thị hết tất cả dự án của bạn 🎉</span>
                 </div>
               )}
@@ -934,7 +934,7 @@ export function DashboardPage() {
               {/* Header Modal */}
               <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/40 bg-surface-container-low/35">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#1E707D] text-xl font-bold">add_box</span>
+                  <span className="material-symbols-outlined text-primary text-xl font-bold">add_box</span>
                   <h3 className="font-extrabold text-base text-on-surface">Create New Project</h3>
                 </div>
                 <button
@@ -1065,7 +1065,7 @@ export function DashboardPage() {
                 <div className="pt-4 border-t border-outline-variant/40 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#1E707D] text-[20px]">webhook</span>
+                      <span className="material-symbols-outlined text-primary text-[20px]">webhook</span>
                       GitHub Repository Integration
                     </h4>
                     {!['WEB_APP', 'MOBILE', 'DATABASE'].includes(formData.type) && (
@@ -1074,7 +1074,7 @@ export function DashboardPage() {
                           type="checkbox"
                           checked={enableGithub}
                           onChange={(e) => setEnableGithub(e.target.checked)}
-                          className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
+                          className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
                         />
                         <span className="text-xs font-semibold text-on-surface-variant">Enable GitHub</span>
                       </label>
@@ -1109,7 +1109,7 @@ export function DashboardPage() {
                               type="button"
                               onClick={() => setIsNewRepo(false)}
                               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                !isNewRepo ? 'bg-surface text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                                !isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               Choose Repository
@@ -1118,7 +1118,7 @@ export function DashboardPage() {
                               type="button"
                               onClick={() => setIsNewRepo(true)}
                               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                isNewRepo ? 'bg-surface text-[#1E707D] shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
+                                isNewRepo ? 'bg-surface text-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'
                               }`}
                             >
                               Create New Repo
@@ -1223,7 +1223,7 @@ export function DashboardPage() {
                                     type="checkbox"
                                     checked={newRepoData.isPrivate}
                                     onChange={(e) => setNewRepoData({ ...newRepoData, isPrivate: e.target.checked })}
-                                    className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
+                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
                                   />
                                   <span>Private Repository</span>
                                 </label>
@@ -1232,7 +1232,7 @@ export function DashboardPage() {
                                     type="checkbox"
                                     checked={newRepoData.autoInit}
                                     onChange={(e) => setNewRepoData({ ...newRepoData, autoInit: e.target.checked })}
-                                    className="rounded border-outline text-[#1E707D] focus:ring-[#1E707D] w-4 h-4"
+                                    className="rounded border-outline text-primary focus:ring-primary w-4 h-4"
                                   />
                                   <span>Add README.md</span>
                                 </label>
@@ -1343,7 +1343,7 @@ export function DashboardPage() {
     const upper = (role || '').toUpperCase()
     if (upper === 'PROJECT_LEADER' || upper === 'LEADER') {
       return (
-        <span className="text-[10px] bg-[#1E707D]/10 text-[#1E707D] border border-[#1E707D]/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+        <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
           Leader
         </span>
       )
@@ -1379,10 +1379,29 @@ export function DashboardPage() {
           const isArchived = activeProject.status === 'ARCHIVED'
           
           return (
-            <div className={`p-5 md:p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 ${isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container'}`}>
+            <div 
+              className={`p-5 md:p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 relative overflow-hidden ${!activeProject.coverImageUrl ? (isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container') : ''}`}
+            >
+              {/* Background image & overlay if present */}
+              {activeProject.coverImageUrl && (
+                <>
+                  <div
+                    className="absolute inset-0 z-0"
+                    style={{
+                      backgroundImage: `url(${activeProject.coverImageUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  />
+                  <div 
+                    className="absolute inset-0 z-0" 
+                    style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.10) 100%)' }} 
+                  />
+                </>
+              )}
               
               {/* Top Section: Info & Sprint */}
-              <div className="flex flex-col md:flex-row justify-between items-start gap-5">
+              <div className="flex flex-col md:flex-row justify-between items-start gap-5 relative z-10">
                 
                 {/* Left Side: Info */}
                 <div className="space-y-2.5 flex-1">

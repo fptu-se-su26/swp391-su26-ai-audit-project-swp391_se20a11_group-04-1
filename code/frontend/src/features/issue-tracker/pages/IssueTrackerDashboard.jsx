@@ -1328,7 +1328,7 @@ export function IssueTrackerDashboard() {
           <button
             onClick={() => setActiveListTab('open')}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'open'
-                ? 'bg-[#1E707D] text-white border-blue-600 shadow-sm'
+                ? 'bg-primary text-white border-primary shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >
@@ -1341,7 +1341,7 @@ export function IssueTrackerDashboard() {
           <button
             onClick={() => setActiveListTab('closed')}
             className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${activeListTab === 'closed'
-                ? 'bg-[#1E707D] text-white border-blue-600 shadow-sm'
+                ? 'bg-primary text-white border-primary shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
           >

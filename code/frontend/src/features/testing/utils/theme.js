@@ -1,8 +1,8 @@
 export const C = {
-  primary:     '#1E707D',
-  primaryHov:  '#278A99',
-  primaryDark: '#165964',
-  primaryLt:   '#D7EEF1',
+  primary:     'var(--project-theme, #1E707D)',
+  primaryHov:  'var(--project-theme-hover, #278A99)',
+  primaryDark: 'var(--project-theme-dark, #165964)',
+  primaryLt:   'var(--project-theme-light, #D7EEF1)',
   accent:      '#4EC6D8',
   bg:          '#F8FAFC',
   surface:     '#FFFFFF',

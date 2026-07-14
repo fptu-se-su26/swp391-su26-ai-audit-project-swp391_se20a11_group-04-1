@@ -224,16 +224,16 @@ const UseCasePage = () => {
             <div className="flex items-center bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
               <button
                 onClick={() => setViewMode('diagram-view')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-[#1E707D]'}`}
-                style={viewMode.startsWith('diagram') ? { background: 'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)' } : {}}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+                style={viewMode.startsWith('diagram') ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
               >
                 <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
                 Diagram
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-[#1E707D]'}`}
-                style={viewMode === 'list' ? { background: 'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)' } : {}}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+                style={viewMode === 'list' ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
               >
                 <span className="material-symbols-outlined text-[18px] mr-1">list</span>
                 List View

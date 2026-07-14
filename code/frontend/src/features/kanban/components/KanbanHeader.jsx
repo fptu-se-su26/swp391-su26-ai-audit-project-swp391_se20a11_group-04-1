@@ -14,7 +14,7 @@ const KanbanHeader = ({ isCompactBoard, onToggleCompact, onCreateTask, onGenerat
             onClick={onToggleCompact}
             className={`h-[36px] px-3 border rounded-lg font-semibold flex items-center space-x-2 transition-colors text-sm ${
               isCompactBoard
-                ? 'bg-[#D7EEF1] text-[#1E707D] border-[#1E707D]/20'
+                ? 'bg-primary-light text-primary border-primary/20'
                 : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
             }`}
             aria-pressed={isCompactBoard}
@@ -34,7 +34,7 @@ const KanbanHeader = ({ isCompactBoard, onToggleCompact, onCreateTask, onGenerat
           <button
             type="button"
             onClick={onCreateTask}
-            className="h-[36px] px-4 bg-[#1E707D] text-white rounded-lg font-semibold flex items-center space-x-2 hover:bg-surface-tint transition-colors text-sm"
+            className="h-[36px] px-4 bg-primary text-white rounded-lg font-semibold flex items-center space-x-2 hover:bg-primary-hover transition-colors text-sm"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             <span>New Task</span>

@@ -170,7 +170,7 @@ const EvidenceListPage = () => {
                 onClick={() => setViewMode('grid')}
                 className={`p-2 transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-[#1E707D] text-white'
+                    ? 'bg-primary text-white'
                     : 'text-on-surface-variant hover:bg-surface-container-high'
                 }`}
                 title="Grid View"
@@ -181,7 +181,7 @@ const EvidenceListPage = () => {
                 onClick={() => setViewMode('table')}
                 className={`p-2 transition-colors ${
                   viewMode === 'table'
-                    ? 'bg-[#1E707D] text-white'
+                    ? 'bg-primary text-white'
                     : 'text-on-surface-variant hover:bg-surface-container-high'
                 }`}
                 title="Table View"
@@ -214,7 +214,7 @@ const EvidenceListPage = () => {
           {loading ? (
             <div className="flex items-center justify-center flex-1 p-10">
               <div className="flex flex-col items-center gap-3">
-                <span className="material-symbols-outlined text-[#1E707D] text-[36px] animate-spin">progress_activity</span>
+                <span className="material-symbols-outlined text-primary text-[36px] animate-spin">progress_activity</span>
                 <span className="text-secondary font-medium font-body-md text-body-md">Loading evidence...</span>
               </div>
             </div>

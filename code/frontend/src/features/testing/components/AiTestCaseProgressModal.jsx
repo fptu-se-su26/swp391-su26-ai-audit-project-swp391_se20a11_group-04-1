@@ -3,9 +3,9 @@ import { testCaseService } from '../services/testCaseService'
 
 /* ── Design tokens ── */
 const C = {
-  primary: '#1E707D',
+  primary: 'var(--project-theme, #1E707D)',
   primaryDark: '#165964',
-  primaryLt: '#D7EEF1',
+  primaryLt: 'var(--project-theme-light, #D7EEF1)',
   bg: '#F8FAFC',
   surface: '#FFFFFF',
   border: '#E5E7EB',
