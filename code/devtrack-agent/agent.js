@@ -92,9 +92,12 @@ async function startAgent({ token, backendUrl }) {
                 apiResultPayload = apiResult.apiResult;
             } else {
                 result = await executeScript(task.script, task.taskId, task.baseUrl, {
-                    // Dùng wsUrl từ server (VPS relay) để frames được relay qua VPS
-                    // Frontend kết nối VPS relay để nhận frames
-                    WS_URL: wsUrl
+                    WS_URL: wsUrl,
+                    cloudConfig: {
+                        cloudName: task.cloudinaryCloudName || '',
+                        apiKey: task.cloudinaryApiKey || '',
+                        apiSecret: task.cloudinaryApiSecret || ''
+                    }
                 });
             }
 
@@ -126,9 +129,7 @@ async function startAgent({ token, backendUrl }) {
                 failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null
                     ? result.error.failedStepIndex : null,
                 steps: result.steps || [],
-                // screenshots là [{filename, url}] với url là data:image/...;base64,...
-                // Gửi thẳng về backend để frontend hiển thị trực tiếp
-                evidenceUrls: [],
+                evidenceUrls: result.evidenceUrls || [],
                 screenshots: result.screenshots || []
             };
 

@@ -25,13 +25,8 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     const scriptPath = path.join(tempDir, 'test.spec.js');
     const screenshotDir = path.join(tempDir, 'screenshots');
     const wsUrl = envOverrides.WS_URL || 'ws://localhost:4001';
-    // Script hardcode runId = testRunId (số nguyên) — extract từ script để connect đúng relay channel
-    // Script chứa: `runId=XX&role=provider` trong WS URL
+    const cloudConfig = envOverrides.cloudConfig || {};
     let scriptRunId = baseRunId.toString();
-    try {
-        const match = (envOverrides._scriptContent || script || '').match(/runId=(\d+)&role=provider/);
-        if (match) scriptRunId = match[1];
-    } catch(_) {}
 
     fs.mkdirSync(screenshotDir, { recursive: true });
 
@@ -118,42 +113,51 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
 
     result.duration = Date.now() - startTime;
 
-    // Đọc screenshots từ screenshotDir trước khi cleanup
+    // Đọc screenshots và upload lên Cloudinary
     result.screenshots = [];
+    result.evidenceUrls = [];
     try {
         if (fs.existsSync(screenshotDir)) {
             const files = fs.readdirSync(screenshotDir).sort();
-            console.log(`[Executor] Found ${files.length} screenshots in ${screenshotDir}`);
-            // Đọc runId từ script đã write để connect đúng relay channel
-            let relayRunId2 = relayRunId; // đã extract trước khi chạy Playwright
-            const WebSocket = require('ws');
-            const wsClient = new WebSocket(`${wsUrl}/?runId=${relayRunId2}&role=provider`);
-            console.log(`[Executor] Sending ${files.length} screenshots via WS: ${wsUrl}/?runId=${relayRunId2}&role=provider`);
-            await new Promise(resolve => {
-                wsClient.on('open', resolve);
-                wsClient.on('error', resolve);
-                setTimeout(resolve, 2000);
-            });
-            for (const file of files) {
-                if (file.endsWith('.png') || file.endsWith('.jpg')) {
-                    const filePath = path.join(screenshotDir, file);
+            const pngFiles = files.filter(f => f.endsWith('.png') || f.endsWith('.jpg'));
+            console.log(`[Executor] Found ${pngFiles.length} screenshots`);
+
+            if (pngFiles.length > 0) {
+                const filePaths = pngFiles.map(f => path.join(screenshotDir, f));
+
+                // Upload lên Cloudinary nếu có config
+                if (cloudConfig.cloudName) {
+                    const { uploadScreenshots } = require('./cloudinaryService');
+                    const urls = await uploadScreenshots(filePaths, relayRunId, cloudConfig);
+                    result.evidenceUrls = urls;
+                    result.screenshots = urls.map((url, i) => ({ filename: pngFiles[i], url }));
+                }
+
+                // Gửi screenshots qua WS relay để frontend nhận real-time
+                const WebSocket = require('ws');
+                const wsClient = new WebSocket(`${wsUrl}/?runId=${relayRunId}&role=provider`);
+                console.log(`[Executor] Sending screenshots via WS: ${wsUrl}/?runId=${relayRunId}&role=provider`);
+                await new Promise(resolve => {
+                    wsClient.on('open', resolve);
+                    wsClient.on('error', resolve);
+                    setTimeout(resolve, 2000);
+                });
+                for (let i = 0; i < pngFiles.length; i++) {
+                    const filePath = path.join(screenshotDir, pngFiles[i]);
+                    if (!fs.existsSync(filePath)) continue;
                     const data = fs.readFileSync(filePath).toString('base64');
-                    const ssObj = { filename: file, url: `data:image/png;base64,${data}` };
-                    result.screenshots.push(ssObj);
-                    // Gửi qua WS để frontend nhận real-time
+                    const match = pngFiles[i].match(/step-(\d+)-after/);
+                    const stepIndex = match ? parseInt(match[1]) - 1 : i;
                     if (wsClient.readyState === WebSocket.OPEN) {
-                        // Extract stepIndex từ filename (step-1-after.png → 0)
-                        const match = file.match(/step-(\d+)-after/);
-                        const stepIndex = match ? parseInt(match[1]) - 1 : 0;
-                        wsClient.send(JSON.stringify({ type: 'step_screenshot', stepIndex, filename: file, data }));
+                        wsClient.send(JSON.stringify({ type: 'step_screenshot', stepIndex, filename: pngFiles[i], data }));
                     }
                 }
+                await new Promise(r => setTimeout(r, 500));
+                try { wsClient.close(); } catch(_) {}
             }
-            await new Promise(r => setTimeout(r, 500));
-            try { wsClient.close(); } catch(_) {}
         }
     } catch (e) {
-        console.warn('[Executor] Failed to send screenshots via WS:', e.message);
+        console.warn('[Executor] Screenshot processing error:', e.message);
     }
 
     cleanupTempDir(tempDir);

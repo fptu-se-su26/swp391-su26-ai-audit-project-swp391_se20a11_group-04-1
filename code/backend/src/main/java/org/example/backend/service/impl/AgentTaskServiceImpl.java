@@ -35,6 +35,15 @@ public class AgentTaskServiceImpl implements AgentTaskService {
     @org.springframework.beans.factory.annotation.Value("${app.playwright.public-ws-url:ws://localhost:4001}")
     private String publicWsUrl;
 
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.cloud-name:}")
+    private String cloudinaryCloudName;
+
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.api-key:}")
+    private String cloudinaryApiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${cloudinary.api-secret:}")
+    private String cloudinaryApiSecret;
+
     // ── BUG 1 FIX: dùng builder() chữ thường (Lombok convention) ──
 
     @Override
@@ -96,6 +105,9 @@ public class AgentTaskServiceImpl implements AgentTaskService {
                 .wsUrl(publicWsUrl)
                 .runId(task.getTestRunId() + "-" + task.getExecutionId())
                 .taskType(task.getTaskType())
+                .cloudinaryCloudName(cloudinaryCloudName)
+                .cloudinaryApiKey(cloudinaryApiKey)
+                .cloudinaryApiSecret(cloudinaryApiSecret)
                 .build();
     }
 

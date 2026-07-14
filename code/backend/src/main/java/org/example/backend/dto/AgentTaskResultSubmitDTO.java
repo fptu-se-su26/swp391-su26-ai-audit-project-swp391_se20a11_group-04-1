@@ -10,6 +10,7 @@ public class AgentTaskResultSubmitDTO {
     private Integer failedStepIndex;
     private Object steps;   // Dùng Object thay JsonNode để tránh conflict Jackson 2.x vs 3.x
     private java.util.List<String> evidenceUrls;
+    private java.util.List<java.util.Map<String, String>> screenshots; // [{filename, url (base64)}]
 
     private java.util.Map<String, Object> extraProperties = new java.util.HashMap<>();
 

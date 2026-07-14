@@ -16,4 +16,7 @@ public class AgentTaskResponseDTO {
     private String wsUrl;
     private String runId;
     private String taskType;
+    private String cloudinaryCloudName;
+    private String cloudinaryApiKey;
+    private String cloudinaryApiSecret;
 }
