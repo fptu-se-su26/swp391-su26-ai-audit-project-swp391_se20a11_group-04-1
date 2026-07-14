@@ -25,8 +25,13 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     const scriptPath = path.join(tempDir, 'test.spec.js');
     const screenshotDir = path.join(tempDir, 'screenshots');
     const wsUrl = envOverrides.WS_URL || 'ws://localhost:4001';
-    // runId hardcoded trong script là baseRunId (testRunId)
-    const runId = baseRunId.toString().split('-')[0];
+    // Script hardcode runId = testRunId (số nguyên) — extract từ script để connect đúng relay channel
+    // Script chứa: `runId=XX&role=provider` trong WS URL
+    let scriptRunId = baseRunId.toString();
+    try {
+        const match = (envOverrides._scriptContent || script || '').match(/runId=(\d+)&role=provider/);
+        if (match) scriptRunId = match[1];
+    } catch(_) {}
 
     fs.mkdirSync(screenshotDir, { recursive: true });
 
@@ -47,6 +52,13 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     fs.writeFileSync(scriptPath, scriptWithAbsPath, 'utf8');
     console.log('[Executor] Script sanitized and written to:', scriptPath);
     console.log('[Executor] Sanitized script preview (first 500 chars):\n', scriptWithAbsPath.substring(0, 500));
+
+    // Extract runId từ script content (hardcoded khi generate: runId=XX&role=provider)
+    let relayRunId = scriptRunId;
+    try {
+        const m = scriptWithAbsPath.match(/runId=(\d+)&role=provider/);
+        if (m) { relayRunId = m[1]; console.log(`[Executor] Relay runId extracted from script: ${relayRunId}`); }
+    } catch(_) {}
 
     const startTime = Date.now();
     let result;
@@ -111,9 +123,12 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     try {
         if (fs.existsSync(screenshotDir)) {
             const files = fs.readdirSync(screenshotDir).sort();
-            // Gửi screenshots qua WS relay để frontend nhận được
+            console.log(`[Executor] Found ${files.length} screenshots in ${screenshotDir}`);
+            // Đọc runId từ script đã write để connect đúng relay channel
+            let relayRunId2 = relayRunId; // đã extract trước khi chạy Playwright
             const WebSocket = require('ws');
-            const wsClient = new WebSocket(`${wsUrl}/?runId=${runId}&role=provider`);
+            const wsClient = new WebSocket(`${wsUrl}/?runId=${relayRunId2}&role=provider`);
+            console.log(`[Executor] Sending ${files.length} screenshots via WS: ${wsUrl}/?runId=${relayRunId2}&role=provider`);
             await new Promise(resolve => {
                 wsClient.on('open', resolve);
                 wsClient.on('error', resolve);
