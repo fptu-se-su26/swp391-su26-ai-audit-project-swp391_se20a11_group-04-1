@@ -327,7 +327,19 @@ const RunTestCase = ({ testCase }) => {
                     npx devtrack-agent@latest --token={agentToken}
                   </pre>
                   <button 
-                    onClick={() => navigator.clipboard.writeText(`npx devtrack-agent@latest --token=${agentToken}`)}
+                    onClick={() => {
+                      const text = `npx devtrack-agent@latest --token=${agentToken}`;
+                      if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(text);
+                      } else {
+                        const el = document.createElement('textarea');
+                        el.value = text;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(el);
+                      }
+                    }}
                     className="absolute top-2 right-2 p-1.5 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 transition-colors"
                     title="Copy command"
                   >

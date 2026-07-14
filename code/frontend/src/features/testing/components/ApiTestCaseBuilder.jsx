@@ -189,7 +189,19 @@ export default function ApiTestCaseBuilder({ testCase, onSave, isSaving }) {
                       </code>
                     </div>
                     <button 
-                      onClick={() => navigator.clipboard.writeText(`npx devtrack-agent@latest --token=${agentToken}`)}
+                      onClick={() => {
+                        const text = `npx devtrack-agent@latest --token=${agentToken}`;
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          navigator.clipboard.writeText(text);
+                        } else {
+                          const el = document.createElement('textarea');
+                          el.value = text;
+                          document.body.appendChild(el);
+                          el.select();
+                          document.execCommand('copy');
+                          document.body.removeChild(el);
+                        }
+                      }}
                       className="ml-2 flex items-center justify-center w-8 h-8 bg-surface-container-highest rounded-xl border border-outline-variant/50 text-secondary hover:text-[#1E707D] hover:bg-surface-container hover:shadow-sm active:scale-[0.92] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] flex-shrink-0 cursor-pointer"
                       title="Copy command"
                     >

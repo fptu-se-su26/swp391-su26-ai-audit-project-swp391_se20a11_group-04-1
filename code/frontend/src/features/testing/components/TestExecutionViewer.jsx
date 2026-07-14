@@ -141,7 +141,20 @@ function StepTile({ step, index, stepStatus, isFocused, isFinished, isRunning,
 function AgentCommandCard({ agentToken }) {
   const [copied, setCopied] = useState(false);
   const cmd = `npx devtrack-agent@latest --token=${agentToken}`;
-  const handleCopy = () => { navigator.clipboard.writeText(cmd); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  const handleCopy = () => { 
+    const text = cmd;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setCopied(true); setTimeout(() => setCopied(false), 2000); 
+  };
   return (
     <div className="mx-5 mt-3 px-4 py-3 rounded-2xl"
       style={{ background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.22)' }}>
