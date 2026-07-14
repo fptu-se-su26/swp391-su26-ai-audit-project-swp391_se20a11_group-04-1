@@ -24,6 +24,9 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     const tempDir = path.join(__dirname, 'temp', uniqueRunId);
     const scriptPath = path.join(tempDir, 'test.spec.js');
     const screenshotDir = path.join(tempDir, 'screenshots');
+    const wsUrl = envOverrides.WS_URL || 'ws://localhost:4001';
+    // runId hardcoded trong script là baseRunId (testRunId)
+    const runId = baseRunId.toString().split('-')[0];
 
     fs.mkdirSync(screenshotDir, { recursive: true });
 
@@ -107,23 +110,35 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     result.screenshots = [];
     try {
         if (fs.existsSync(screenshotDir)) {
-            const files = fs.readdirSync(screenshotDir);
+            const files = fs.readdirSync(screenshotDir).sort();
+            // Gửi screenshots qua WS relay để frontend nhận được
+            const WebSocket = require('ws');
+            const wsClient = new WebSocket(`${wsUrl}/?runId=${runId}&role=provider`);
+            await new Promise(resolve => {
+                wsClient.on('open', resolve);
+                wsClient.on('error', resolve);
+                setTimeout(resolve, 2000);
+            });
             for (const file of files) {
-                if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg')) {
+                if (file.endsWith('.png') || file.endsWith('.jpg')) {
                     const filePath = path.join(screenshotDir, file);
-                    const data = fs.readFileSync(filePath);
-                    const base64 = data.toString('base64');
-                    const mime = file.endsWith('.png') ? 'image/png' : 'image/jpeg';
-                    result.screenshots.push({
-                        filename: file,
-                        url: `data:${mime};base64,${base64}`,
-                    });
+                    const data = fs.readFileSync(filePath).toString('base64');
+                    const ssObj = { filename: file, url: `data:image/png;base64,${data}` };
+                    result.screenshots.push(ssObj);
+                    // Gửi qua WS để frontend nhận real-time
+                    if (wsClient.readyState === WebSocket.OPEN) {
+                        // Extract stepIndex từ filename (step-1-after.png → 0)
+                        const match = file.match(/step-(\d+)-after/);
+                        const stepIndex = match ? parseInt(match[1]) - 1 : 0;
+                        wsClient.send(JSON.stringify({ type: 'step_screenshot', stepIndex, filename: file, data }));
+                    }
                 }
             }
-            result.screenshots.sort((a, b) => a.filename.localeCompare(b.filename));
+            await new Promise(r => setTimeout(r, 500));
+            try { wsClient.close(); } catch(_) {}
         }
     } catch (e) {
-        console.warn('[Executor] Failed to read screenshots:', e.message);
+        console.warn('[Executor] Failed to send screenshots via WS:', e.message);
     }
 
     cleanupTempDir(tempDir);
