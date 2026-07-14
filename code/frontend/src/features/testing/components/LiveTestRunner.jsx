@@ -1,5 +1,5 @@
 import { useTestRun } from '../hooks/useTestRun';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { testCaseService } from '../services/testCaseService';
 import TestExecutionViewer from './TestExecutionViewer';
 import { useParams } from 'react-router-dom';
@@ -13,6 +13,7 @@ export default function LiveTestRunner({ testCase }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(null);
   const [lastRunningStepIndex, setLastRunningStepIndex] = useState(null);
   const [liveScreenshots, setScreenshots] = useState([]);
+  const wsRef = useRef(null); // giữ WS reference để không bị đóng sớm khi status thay đổi
 
   const fetchTestCaseDetail = useTestCaseStore(s => s.fetchTestCaseDetail);
   const fetchRequirementsTree = useTestCaseStore(s => s.fetchRequirementsTree);
@@ -60,13 +61,14 @@ export default function LiveTestRunner({ testCase }) {
   }, [status]);
 
   useEffect(() => {
-    let ws;
     if (status === 'RUNNING' && runId) {
-      // Luôn connect VPS relay (VITE_WS_URL) — agent push frames lên VPS relay, frontend đọc từ đó
-      // ws://localhost:4001 không work vì browser page từ VPS không thể connect localhost của user
+      // Close WS cũ nếu còn
+      if (wsRef.current) { try { wsRef.current.close(); } catch(_) {} wsRef.current = null; }
+
       const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
       console.log(`[LiveTestRunner] Connecting WS: ${wsBase}/?runId=${runId}&role=client`);
-      ws = new WebSocket(`${wsBase}/?runId=${runId}&role=client`);
+      const ws = new WebSocket(`${wsBase}/?runId=${runId}&role=client`);
+      wsRef.current = ws;
       ws.onopen = () => console.log('[LiveTestRunner] WS connected');
       ws.onmessage = (event) => {
         try {
@@ -77,10 +79,9 @@ export default function LiveTestRunner({ testCase }) {
             setCurrentStepIndex(msg.stepIndex);
             setLastRunningStepIndex(msg.stepIndex);
           } else if (msg.type === 'step_screenshot') {
-            // Lưu screenshot của từng step để hiển thị sau khi test xong
+            console.log('[LiveTestRunner] Received screenshot:', msg.filename);
             const ssUrl = `data:image/png;base64,${msg.data}`;
             setScreenshots(prev => {
-              // Tránh duplicate
               const filtered = (prev || []).filter(s => s.filename !== msg.filename);
               return [...filtered, { filename: msg.filename, url: ssUrl }]
                 .sort((a, b) => a.filename.localeCompare(b.filename));
@@ -89,17 +90,19 @@ export default function LiveTestRunner({ testCase }) {
         } catch (e) { }
       };
       ws.onerror = () => console.error('[LiveTestRunner] WS error');
-      ws.onclose = () => {
-        console.log('[LiveTestRunner] WS closed');
-      };
+      ws.onclose = () => console.log('[LiveTestRunner] WS closed');
     }
-    return () => {
-      if (ws) ws.close();
-      // Chỉ reset currentStepIndex (dùng cho highlight đang chạy),
-      // KHÔNG reset lastRunningStepIndex — dùng để hiển thị step cuối đã chạy khi FAIL
-      setCurrentStepIndex(null);
-    };
+    // Không close WS khi status thay đổi — để nhận screenshots sau khi test xong
+    // WS sẽ tự đóng sau 8s hoặc khi reset
+    setCurrentStepIndex(null);
   }, [status, runId]);
+
+  // Đóng WS khi component unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) { try { wsRef.current.close(); } catch(_) {} wsRef.current = null; }
+    };
+  }, []);
 
   useEffect(() => {
     // Chỉ reset lastRunningStepIndex khi bắt đầu run mới (status chuyển từ non-RUNNING sang RUNNING)
@@ -112,6 +115,8 @@ export default function LiveTestRunner({ testCase }) {
 
   const handleReset = () => {
     setFocusedStepIndex(null);
+    setScreenshots([]);
+    if (wsRef.current) { try { wsRef.current.close(); } catch(_) {} wsRef.current = null; }
     reset();
   };
 
