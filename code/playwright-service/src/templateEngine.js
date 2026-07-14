@@ -55,11 +55,13 @@ function generateFromTemplate(testCase, runId) {
           if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
             code = `await highlight("${sel}", "Chọn ngày: ${val}");\n    await page.fill("${sel}", "${val}", { timeout: 5000 });\n    await page.waitForTimeout(200);`;
           } else {
-            code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "", { timeout: 5000 });\n    await page.locator("${sel}").pressSequentially("${val}", { delay: 50, timeout: 5000 });\n    await page.waitForTimeout(200);`;
+            // page.fill() triggers full input/change/focus events — đủ cho React controlled inputs
+            // pressSequentially chỉ dùng làm fallback vì đôi khi React cần key events
+            code = `await highlight("${sel}", "Gõ: ${val}");\n    await page.fill("${sel}", "${val}", { timeout: 5000 });\n    await page.dispatchEvent("${sel}", 'input');\n    await page.dispatchEvent("${sel}", 'change');\n    await page.waitForTimeout(300);`;
           }
           break;
         case 'click':
-          code = `await highlight("${sel}", "Click");\n    await page.click("${sel}", { timeout: 5000 });\n    await page.waitForTimeout(500);`;
+          code = `await highlight("${sel}", "Click");\n    await page.click("${sel}", { timeout: 5000 });\n    await page.waitForTimeout(1000);`;
           break;
         case 'wait_for':
           code = `await page.waitForSelector("${sel}", { timeout: 5000 });`;
@@ -80,7 +82,7 @@ function generateFromTemplate(testCase, runId) {
             ? fullExpectedUrl.replace('localhost', 'host.docker.internal').replace('127.0.0.1', 'host.docker.internal')
             : fullExpectedUrl;
           const safeExpectUrl = escapeJs(dockerSafeExpectUrl);
-          code = `await expect(page, "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?").toHaveURL("${safeExpectUrl}", { timeout: 5000 })`;
+          code = `await expect(page).toHaveURL("${safeExpectUrl}", { timeout: 10000, message: "Lỗi URL: Trang hiện tại không khớp. Bạn có quên bước Đăng nhập không?" });`;
           break;
         }
         case 'expect_text':
@@ -142,8 +144,8 @@ test("${title}", async ({ page }) => {
   });
 
   // Buffer wait: cho frontend client WS kịp kết nối trước khi bắt đầu các step
-  // 300ms là quá ngắn — frontend cần thời gian nhận API response, khởi tạo WS, và handshake
-  await page.waitForTimeout(1200);
+  // Cần ít nhất 1 polling cycle (2s) + WS handshake để frontend kịp connect
+  await page.waitForTimeout(3000);
 
   // Inject a highlighter function
   async function highlight(selector, text) {
