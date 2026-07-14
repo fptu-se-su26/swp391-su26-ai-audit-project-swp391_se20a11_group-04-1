@@ -62,12 +62,10 @@ export default function LiveTestRunner({ testCase }) {
   useEffect(() => {
     let ws;
     if (status === 'RUNNING' && runId) {
-      // Khi test URL là localhost, script Playwright kết nối local relay (ws://localhost:4001)
-      // Frontend phải kết nối cùng relay đó, không phải VPS relay
-      const wsBase = isLocalUrl
-        ? 'ws://localhost:4001'
-        : (import.meta.env.VITE_WS_URL || 'ws://localhost:4001');
-      console.log(`[LiveTestRunner] Connecting WS: ${wsBase}/?runId=${runId}&role=client, isLocalUrl=${isLocalUrl}`);
+      // Luôn connect VPS relay (VITE_WS_URL) — agent push frames lên VPS relay, frontend đọc từ đó
+      // ws://localhost:4001 không work vì browser page từ VPS không thể connect localhost của user
+      const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:4001';
+      console.log(`[LiveTestRunner] Connecting WS: ${wsBase}/?runId=${runId}&role=client`);
       ws = new WebSocket(`${wsBase}/?runId=${runId}&role=client`);
       ws.onopen = () => console.log('[LiveTestRunner] WS connected');
       ws.onmessage = (event) => {
