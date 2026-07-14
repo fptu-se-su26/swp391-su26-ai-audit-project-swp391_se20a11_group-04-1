@@ -90,5 +90,10 @@ public interface ProjectService {
      * Mở lại project đã đóng (ARCHIVED → ACTIVE)
      */
     void reopenProject(Long projectId, ProjectReopenRequest request, Long userId);
+
+    /**
+     * Cập nhật thông tin cơ bản và appearance của project (General Settings)
+     */
+    ProjectResponse updateProject(Long projectId, ProjectResponse.UpdateProjectRequest request, Long userId);
 }
 

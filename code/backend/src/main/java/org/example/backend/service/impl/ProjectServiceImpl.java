@@ -966,6 +966,69 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional
+    public ProjectResponse updateProject(Long projectId, ProjectResponse.UpdateProjectRequest request, Long userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
+
+        ensureLeaderOrMentor(projectId, userId);
+
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            project.setName(request.getName().trim());
+        }
+        if (request.getDescription() != null) {
+            project.setDescription(request.getDescription());
+        }
+        if (request.getType() != null && !request.getType().trim().isEmpty()) {
+            try {
+                project.setType(ProjectType.valueOf(request.getType().trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Loại dự án không hợp lệ: " + request.getType());
+            }
+        }
+        if (request.getStartDate() != null) {
+            try {
+                project.setStartDate(java.time.LocalDate.parse(request.getStartDate()));
+            } catch (Exception e) {
+                throw new BadRequestException("Ngày bắt đầu không hợp lệ. Vui lòng dùng định dạng yyyy-MM-dd.");
+            }
+        }
+        if (request.getDeadline() != null && !request.getDeadline().isBlank()) {
+            try {
+                project.setDeadline(java.time.LocalDate.parse(request.getDeadline()));
+            } catch (Exception e) {
+                throw new BadRequestException("Deadline không hợp lệ. Vui lòng dùng định dạng yyyy-MM-dd.");
+            }
+        }
+        if (request.getMaxMembers() != null && request.getMaxMembers() > 0) {
+            project.setMaxMembers(request.getMaxMembers());
+        }
+        if (request.getCoverImageUrl() != null) {
+            project.setCoverImageUrl(request.getCoverImageUrl().isBlank() ? null : request.getCoverImageUrl().trim());
+        }
+        if (request.getThemeColor() != null) {
+            String color = request.getThemeColor().trim();
+            if (!color.isEmpty() && !color.matches("^#[0-9A-Fa-f]{6}$")) {
+                throw new BadRequestException("Mã màu không hợp lệ. Vui lòng dùng định dạng #RRGGBB.");
+            }
+            project.setThemeColor(color.isEmpty() ? null : color);
+        }
+
+        project = projectRepository.save(project);
+
+        // Invalidate Redis cache
+        try {
+            Set<String> keys = redisTemplate.keys(CACHE_PREFIX + userId + ":*");
+            if (keys != null && !keys.isEmpty()) redisTemplate.delete(keys);
+        } catch (Exception e) {
+            log.warn("Failed to invalidate Redis cache after project update: {}", e.getMessage());
+        }
+
+        log.info("✅ Project ID: {} updated successfully by user ID: {}", projectId, userId);
+        return mapToProjectResponse(project, userId);
+    }
+
+    @Override
+    @Transactional
     public void deleteProject(Long projectId, Long userId) {
         Project project = projectRepository.findByIdWithPessimisticWrite(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dự án với ID: " + projectId));
@@ -1139,10 +1202,17 @@ public class ProjectServiceImpl implements ProjectService {
                 .semester(project.getAcademicContext() != null && project.getAcademicContext().getSemester() != null ? project.getAcademicContext().getSemester().name() + " " + project.getAcademicContext().getAcademicYear() : "PERSONAL " + java.time.LocalDate.now().getYear())
                 .role(localRole)
                 .atRiskReqCount(project.getAtRiskReqCount())
-                .deadline(project.getDeadline())
+                .startDate(project.getStartDate() != null ? project.getStartDate().toString() : null)
+                .deadline(project.getDeadline() != null ? project.getDeadline().toString() : null)
                 .progress(project.getProgress())
                 .aiInsight(project.getAiInsight() != null ? project.getAiInsight() : "On Track")
                 .members(memberDtos)
+                .coverImageUrl(project.getCoverImageUrl())
+                .themeColor(project.getThemeColor())
+                .color(project.getColor())
+                .description(project.getDescription())
+                .type(project.getType() != null ? project.getType().name() : null)
+                .maxMembers(project.getMaxMembers())
                 .build();
     }
 
