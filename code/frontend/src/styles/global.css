@@ -138,7 +138,7 @@ a:hover { color: var(--color-primary); }
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%);
+  background: linear-gradient(180deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%);
   color: #fff;
   box-shadow: var(--shadow-btn-primary);
   border-radius: 16px;
@@ -147,15 +147,15 @@ a:hover { color: var(--color-primary); }
 
 .btn-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 20px 48px rgba(30,112,125,0.20),
-              0 0 20px rgba(78,198,216,0.25);
-  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%);
+  box-shadow: 0 12px 28px var(--project-theme-light, rgba(30,112,125,0.35)), 0 20px 48px var(--project-theme-light, rgba(30,112,125,0.20)),
+              0 0 20px var(--project-theme-light, rgba(78,198,216,0.25));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--project-theme-hover, #278A99) 90%, white) 0%, var(--project-theme-hover, #278A99) 55%, var(--project-theme, #1E707D) 100%);
 }
 
 .btn-primary:active {
   transform: translateY(2px);
-  background: linear-gradient(180deg, #1E707D 0%, #165964 100%);
-  box-shadow: 0 4px 10px rgba(30,112,125,0.20);
+  background: linear-gradient(180deg, var(--project-theme, #1E707D) 0%, var(--project-theme-dark, #165964) 100%);
+  box-shadow: 0 4px 10px var(--project-theme-light, rgba(30,112,125,0.20));
 }
 
 .btn-secondary {
@@ -318,12 +318,12 @@ a:hover { color: var(--color-primary); }
   every individual component file.
 */
 
-/* bg-primary on buttons → teal gradient */
+/* bg-primary on buttons → theme gradient */
 button.bg-primary,
 button[class~="bg-primary"] {
-  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%) !important;
+  background: linear-gradient(180deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 8px 20px rgba(30,112,125,0.25), 0 4px 10px rgba(30,112,125,0.15),
+  box-shadow: 0 8px 20px var(--project-theme-light, rgba(30,112,125,0.25)), 0 4px 10px var(--project-theme-light, rgba(30,112,125,0.15)),
               inset 0 1px 0 rgba(255,255,255,0.30) !important;
   border: none !important;
   transition: transform 150ms cubic-bezier(0.4,0,0.2,1),
@@ -333,29 +333,29 @@ button[class~="bg-primary"] {
 
 button.bg-primary:hover,
 button[class~="bg-primary"]:hover {
-  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
-  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 0 16px rgba(78,198,216,0.20),
+  background: linear-gradient(180deg, color-mix(in srgb, var(--project-theme-hover, #278A99) 90%, white) 0%, var(--project-theme-hover, #278A99) 55%, var(--project-theme, #1E707D) 100%) !important;
+  box-shadow: 0 12px 28px var(--project-theme-light, rgba(30,112,125,0.35)), 0 0 16px var(--project-theme-light, rgba(78,198,216,0.20)),
               inset 0 1px 0 rgba(255,255,255,0.25) !important;
   transform: translateY(-2px) !important;
 }
 
 button.bg-primary:active,
 button[class~="bg-primary"]:active {
-  background: linear-gradient(180deg, #1E707D 0%, #165964 100%) !important;
-  box-shadow: 0 4px 10px rgba(30,112,125,0.20) !important;
+  background: linear-gradient(180deg, var(--project-theme, #1E707D) 0%, var(--project-theme-dark, #165964) 100%) !important;
+  box-shadow: 0 4px 10px var(--project-theme-light, rgba(30,112,125,0.20)) !important;
   transform: translateY(1px) !important;
 }
 
-/* bg-indigo-600, bg-indigo-500, bg-blue-600, bg-[#185FA5], bg-[#3C3489] → teal */
+/* bg-indigo-600, bg-indigo-500, bg-blue-600, bg-[#185FA5], bg-[#3C3489] → theme */
 button[class*="bg-indigo-6"],
 button[class*="bg-indigo-5"],
 button[class*="bg-blue-6"],
 button[class*="bg-blue-5"],
 button[class*="bg-\\[\\#185FA5\\]"],
 button[class*="bg-\\[\\#3C3489\\]"] {
-  background: linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%) !important;
+  background: linear-gradient(180deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 8px 20px rgba(30,112,125,0.25), 0 4px 10px rgba(30,112,125,0.15),
+  box-shadow: 0 8px 20px var(--project-theme-light, rgba(30,112,125,0.25)), 0 4px 10px var(--project-theme-light, rgba(30,112,125,0.15)),
               inset 0 1px 0 rgba(255,255,255,0.30) !important;
   border: none !important;
   transition: transform 150ms cubic-bezier(0.4,0,0.2,1),
@@ -368,8 +368,8 @@ button[class*="bg-blue-6"]:hover,
 button[class*="bg-blue-5"]:hover,
 button[class*="bg-\\[\\#185FA5\\]"]:hover,
 button[class*="bg-\\[\\#3C3489\\]"]:hover {
-  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
-  box-shadow: 0 12px 28px rgba(30,112,125,0.35), 0 0 16px rgba(78,198,216,0.20),
+  background: linear-gradient(180deg, color-mix(in srgb, var(--project-theme-hover, #278A99) 90%, white) 0%, var(--project-theme-hover, #278A99) 55%, var(--project-theme, #1E707D) 100%) !important;
+  box-shadow: 0 12px 28px var(--project-theme-light, rgba(30,112,125,0.35)), 0 0 16px var(--project-theme-light, rgba(78,198,216,0.20)),
               inset 0 1px 0 rgba(255,255,255,0.25) !important;
   transform: translateY(-2px) !important;
 }
@@ -378,8 +378,8 @@ button[class*="bg-indigo-6"]:active,
 button[class*="bg-indigo-5"]:active,
 button[class*="bg-blue-6"]:active,
 button[class*="bg-blue-5"]:active {
-  background: linear-gradient(180deg, #1E707D 0%, #165964 100%) !important;
-  box-shadow: 0 4px 10px rgba(30,112,125,0.20) !important;
+  background: linear-gradient(180deg, var(--project-theme, #1E707D) 0%, var(--project-theme-dark, #165964) 100%) !important;
+  box-shadow: 0 4px 10px var(--project-theme-light, rgba(30,112,125,0.20)) !important;
   transform: translateY(1px) !important;
 }
 
@@ -387,7 +387,7 @@ button[class*="bg-blue-5"]:active {
 button[class*="hover\\:bg-indigo-7"]:hover,
 button[class*="hover\\:bg-blue-7"]:hover,
 button[class*="hover\\:bg-\\[\\#0C447C\\]"]:hover {
-  background: linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--project-theme-hover, #278A99) 90%, white) 0%, var(--project-theme-hover, #278A99) 55%, var(--project-theme, #1E707D) 100%) !important;
 }
 
 /* Disabled state — keep muted regardless */
