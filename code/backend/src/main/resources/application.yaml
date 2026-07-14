@@ -1,0 +1,124 @@
+spring:
+  application:
+    name: backend
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../../.env[.properties]
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:dev_track_ai}?options=-c%20timezone=Asia/Ho_Chi_Minh
+    username: ${POSTGRES_USER:root}
+    password: ${POSTGRES_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+    mongodb:
+      host: ${MONGO_HOST:localhost}
+      port: ${MONGO_PORT:27017}
+      database: ${MONGO_DB:dev_track_ai}
+
+  session:
+    store-type: redis
+    timeout: 86400s
+
+  flyway:
+    enabled: true
+    out-of-order: true
+    ignore-migration-patterns:
+      - "*:missing"
+      - "*:future"
+    validate-on-migrate: false
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
+
+playwright:
+  service:
+    url: ${PLAYWRIGHT_SERVICE_URL:http://localhost:4001}
+
+app:
+  playwright:
+    public-ws-url: ${PLAYWRIGHT_PUBLIC_WS_URL:ws://localhost:4001}
+  base-url: ${APP_BASE_URL:http://localhost:5173}
+  api-base-url: ${API_BASE_URL:http://localhost:8080}
+  cors:
+    allowed-origins: ${APP_CORS_ORIGINS:http://localhost:5173,http://localhost:80}
+  events:
+    # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
+    publisher: ${APP_EVENTS_PUBLISHER:local}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+
+github:
+  encryption:
+    key: ${GITHUB_ENCRYPTION_KEY:1234567890123456}
+  client-id: ${GITHUB_CLIENT_ID:}
+  client-secret: ${GITHUB_CLIENT_SECRET:}
+  redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:5173/github/callback}
+  webhook-url: ${GITHUB_WEBHOOK_URL:}
+
+
+internal:
+  service:
+    key: ${INTERNAL_SERVICE_KEY:1234567890abcdef}
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  api:
+    keys: ${GEMINI_API_KEY:}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}
+
+kubernetes:
+  # Tắt khi backend chạy trong Docker container chưa mount kubeconfig
+  enabled: ${K8S_MONITORING_ENABLED:true}
+  namespace: ${K8S_NAMESPACE:devtrack}
+  # Để trống = tự detect (~/.kube/config hoặc in-cluster service account)
+  kubeconfig-path: ${KUBECONFIG_PATH:}
+
+kafka:
+  admin:
+    # Cache TTL = 1s để dashboard bắt được lag spike ngắn
+    # Với eager consumer (minReplica=1), lag window rất ngắn (<1s) nên TTL phải nhỏ nhất có thể
+    cache-ttl-seconds: 1
+    consumer-group: playwright-service-group
+    topic: test-run-jobs
+
+logging:
+  level:
+    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR

@@ -32,9 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 
-# Ignore application.yaml containing credentials
-src/main/resources/application.yaml
-
 # Ignore local .env file
 .env
 

@@ -69,7 +69,7 @@ jobs:
             
             # 4. Đảm bảo các container Docker Compose luôn chạy
             echo ">> Checking Infra Containers..."
-            docker compose -f docker-compose.dev.yml up -d kafka postgres redis mongodb architecture-parser playwright-server
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d kafka postgres redis mongodb architecture-parser playwright-server
             
             echo "=========================================="
             echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
