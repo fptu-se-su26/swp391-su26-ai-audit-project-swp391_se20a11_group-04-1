@@ -43,6 +43,8 @@ function startWsRelay(port = 4001) {
         const frameBuffer = new Map();
         // runId → string           (latest step_started, for late-connecting clients)
         const stepBuffer = new Map();
+        // runId → Map<filename, string>  (all screenshots, for late-connecting clients)
+        const screenshotBuffer = new Map();
 
         wss.on('connection', (ws, req) => {
             try {
@@ -63,6 +65,13 @@ function startWsRelay(port = 4001) {
                             frameBuffer.set(runId, msgStr);
                         } else if (msgStr.includes('"type":"step_started"')) {
                             stepBuffer.set(runId, msgStr);
+                        } else if (msgStr.includes('"type":"step_screenshot"')) {
+                            // Buffer tất cả screenshots theo filename
+                            try {
+                                const parsed = JSON.parse(msgStr);
+                                if (!screenshotBuffer.has(runId)) screenshotBuffer.set(runId, new Map());
+                                screenshotBuffer.get(runId).set(parsed.filename, msgStr);
+                            } catch(_) {}
                         }
 
                         // Relay to all clients watching this runId
@@ -80,6 +89,7 @@ function startWsRelay(port = 4001) {
                         providers.delete(runId);
                         frameBuffer.delete(runId);
                         stepBuffer.delete(runId);
+                        screenshotBuffer.delete(runId);
                     });
 
                     ws.on('error', () => { providers.delete(runId); });
@@ -98,6 +108,13 @@ function startWsRelay(port = 4001) {
                     const buffered = frameBuffer.get(runId);
                     if (buffered && ws.readyState === 1) {
                         try { ws.send(buffered); } catch (_) {}
+                    }
+                    // 3. Replay tất cả screenshots đã buffer
+                    const ssMap = screenshotBuffer.get(runId);
+                    if (ssMap && ws.readyState === 1) {
+                        for (const msgStr of ssMap.values()) {
+                            try { ws.send(msgStr); } catch (_) {}
+                        }
                     }
 
                     ws.on('close', () => {

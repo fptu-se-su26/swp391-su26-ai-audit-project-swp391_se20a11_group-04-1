@@ -189,7 +189,8 @@ test("${title}", async ({ page }) => {
 
 ${stepCode}
 
-  // Close WS at the end
+  // Đợi screenshots gửi xong trước khi close WS
+  await page.waitForTimeout(2000);
   try { ws.close(); } catch(e){}
 });
   `.trim();
