@@ -67,7 +67,9 @@ export default function LiveTestRunner({ testCase }) {
       const wsBase = isLocalUrl
         ? 'ws://localhost:4001'
         : (import.meta.env.VITE_WS_URL || 'ws://localhost:4001');
+      console.log(`[LiveTestRunner] Connecting WS: ${wsBase}/?runId=${runId}&role=client, isLocalUrl=${isLocalUrl}`);
       ws = new WebSocket(`${wsBase}/?runId=${runId}&role=client`);
+      ws.onopen = () => console.log('[LiveTestRunner] WS connected');
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
