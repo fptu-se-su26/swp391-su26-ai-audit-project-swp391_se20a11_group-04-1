@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 
 const C = {
-  primary: '#1E707D', primaryHov: '#278A99', primaryLt: '#D7EEF1',
+  primary: 'var(--project-theme, #1E707D)', primaryHov: 'var(--project-theme-hover, #278A99)', primaryLt: 'var(--project-theme-light, #D7EEF1)',
   bg: '#F8FAFC', surface: '#FFFFFF', border: '#E2E8F0', borderLt: '#F1F5F9',
   textPri: '#0F172A', textSec: '#475569', textMuted: '#94A3B8',
   success: '#10B981', successBg: '#ECFDF5', successBdr: '#A7F3D0',

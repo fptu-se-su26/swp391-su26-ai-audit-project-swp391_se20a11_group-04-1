@@ -9,11 +9,11 @@ export default {
     extend: {
       colors: {
         // ── DevTrack AI — Premium Deep Teal Palette ──
-        "primary":                  "#1E707D",
-        "primary-hover":            "#278A99",
-        "primary-dark":             "#165964",
-        "primary-light":            "#D7EEF1",
-        "accent-glow":              "#4EC6D8",
+        "primary":                  "var(--project-theme, #1E707D)",
+        "primary-hover":            "var(--project-theme-hover, #278A99)",
+        "primary-dark":             "var(--project-theme-dark, #165964)",
+        "primary-light":            "var(--project-theme-light, #D7EEF1)",
+        "accent-glow":              "var(--project-theme-hover, #4EC6D8)",
 
         // Semantic
         "success":                  "#22C55E",
@@ -61,25 +61,25 @@ export default {
         "on-error-container":       "#EF4444",
 
         // Legacy compat aliases
-        "primary-container":        "#1E707D",
+        "primary-container":        "var(--project-theme, #1E707D)",
         "on-primary-container":     "#FFFFFF",
-        "primary-fixed":            "#D7EEF1",
+        "primary-fixed":            "var(--project-theme-light, #D7EEF1)",
         "primary-fixed-dim":        "#BFDEEA",
-        "on-primary-fixed":         "#1E707D",
-        "on-primary-fixed-variant": "#165964",
-        "secondary-container":      "#D7EEF1",
-        "on-secondary-container":   "#1E707D",
-        "tertiary":                 "#278A99",
-        "tertiary-fixed":           "#D7EEF1",
+        "on-primary-fixed":         "var(--project-theme, #1E707D)",
+        "on-primary-fixed-variant": "var(--project-theme-dark, #165964)",
+        "secondary-container":      "var(--project-theme-light, #D7EEF1)",
+        "on-secondary-container":   "var(--project-theme, #1E707D)",
+        "tertiary":                 "var(--project-theme-hover, #278A99)",
+        "tertiary-fixed":           "var(--project-theme-light, #D7EEF1)",
         "on-tertiary":              "#FFFFFF",
-        "on-tertiary-fixed":        "#1E707D",
+        "on-tertiary-fixed":        "var(--project-theme, #1E707D)",
         "surface-dim":              "#D9E7E4",
         "surface-variant":          "#EBF5F7",
-        "surface-tint":             "#1E707D",
+        "surface-tint":             "var(--project-theme, #1E707D)",
         "on-secondary":             "#FFFFFF",
         "inverse-surface":          "#1F2937",
         "inverse-on-surface":       "#F8FAFC",
-        "inverse-primary":          "#4EC6D8",
+        "inverse-primary":          "var(--project-theme-hover, #4EC6D8)",
       },
       borderRadius: {
         "DEFAULT": "12px",

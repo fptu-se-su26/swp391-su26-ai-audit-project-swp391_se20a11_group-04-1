@@ -58,6 +58,12 @@ public class Project {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "cover_image_url", length = 1000)
+    private String coverImageUrl;
+
+    @Column(name = "theme_color", length = 7)
+    private String themeColor;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private UserAccount createdBy;

@@ -266,11 +266,40 @@ export const useProjectStore = create(
   },
 
   /**
+   * Cập nhật thông tin cơ bản + appearance của project (General Settings).
+   * Sync activeProject và projects list sau khi save thành công.
+   */
+  updateProject: async (projectId, payload) => {
+    set({ loading: true, error: null })
+    try {
+      const response = await axiosInstance.put(`/v1/projects/${projectId}`, payload)
+      const updated = response.data?.data
+      if (updated) {
+        const fullProject = transformProject(updated)
+        set((state) => ({
+          activeProject: state.activeProject?.id === String(projectId) ? fullProject : state.activeProject,
+          projects: state.projects.map((p) => p.id === String(projectId) ? fullProject : p),
+          loading: false,
+        }))
+        return fullProject
+      }
+      set({ loading: false })
+      return null
+    } catch (err) {
+      console.error('Error updating project:', err)
+      set({
+        error: err.response?.data?.message || err.message || 'Failed to update project',
+        loading: false,
+      })
+      return null
+    }
+  },
+
+  /**
    * Thay đổi vai trò thành viên (ví dụ phong cấp Mentor).
    * Cập nhật danh sách thành viên activeProject và projects ngay lập tức.
    */
-  changeProjectMemberRole: async (memberUserId, newRole) => {
-    const { activeProject } = get()
+  changeProjectMemberRole: async (memberUserId, newRole) => {    const { activeProject } = get()
     if (!activeProject) return false
     set({ loading: true, error: null })
     try {

@@ -4,9 +4,10 @@ import useTestCaseStore from '../stores/useTestCaseStore';
 import { testCaseService } from '../services/testCaseService';
 
 const C = {
-  primary: '#1E707D',
-  primaryDark: '#165964',
-  primaryLt: '#D7EEF1',
+  primary: 'var(--project-theme, #1E707D)',
+  primaryHov: 'var(--project-theme-hover, #278A99)',
+  primaryLt: 'var(--project-theme-light, #D7EEF1)',
+  accent: '#4EC6D8',
   bg: '#F8FAFC',
   surface: '#FFFFFF',
   border: '#D9E7E4',

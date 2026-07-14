@@ -13,6 +13,7 @@ import org.example.backend.dto.PaginatedResponse;
 import org.example.backend.exception.CustomException;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.service.ProjectService;
+import org.example.backend.service.FileStorageService;
 import org.example.backend.service.ProjectTrackingExportService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -31,6 +33,7 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final ProjectTrackingExportService exportService;
+    private final FileStorageService fileStorageService;
 
     /**
      * Lấy danh sách phân trang các dự án của tài khoản đang đăng nhập hiện tại.
@@ -284,6 +287,66 @@ public class ProjectController {
         projectService.changeMemberRole(projectId, memberUserId, newRole.trim().toUpperCase(), userId);
 
         return ResponseEntity.ok(ApiResponse.success(null, "Thay đổi vai trò thành viên thành công!"));
+    }
+
+    /**
+     * PUT /api/v1/projects/{projectId}
+     * Cập nhật thông tin cơ bản và appearance của project (General Settings).
+     * Chỉ LEADER hoặc MENTOR mới được phép.
+     */
+    @PutMapping("/{projectId}")
+    public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
+            @PathVariable Long projectId,
+            @RequestBody ProjectResponse.UpdateProjectRequest request,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        log.info("✏️ Request to update project ID: {} by user ID: {}", projectId, userId);
+        ProjectResponse updated = projectService.updateProject(projectId, request, userId);
+        return ResponseEntity.ok(ApiResponse.success(updated, "Cập nhật dự án thành công!"));
+    }
+
+    /**
+     * POST /api/v1/projects/{projectId}/cover-image
+     * Upload ảnh bìa cho project lên Cloudinary.
+     * Chỉ LEADER hoặc MENTOR mới được phép.
+     */
+    @PostMapping(value = "/{projectId}/cover-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadCoverImage(
+            @PathVariable Long projectId,
+            @RequestParam("file") MultipartFile file,
+            HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("File ảnh không được để trống.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.equals("image/jpeg") && !contentType.equals("image/png") && !contentType.equals("image/webp"))) {
+            throw new BadRequestException("Chỉ chấp nhận ảnh định dạng JPEG, PNG hoặc WebP.");
+        }
+
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new BadRequestException("Kích thước ảnh không được vượt quá 5MB.");
+        }
+
+        try {
+            String url = fileStorageService.storeFile(file);
+            log.info("🖼️ Cover image uploaded for project ID: {} by user ID: {} → {}", projectId, userId, url);
+            return ResponseEntity.ok(ApiResponse.success(Map.of("url", url), "Upload ảnh bìa thành công!"));
+        } catch (Exception e) {
+            log.error("Failed to upload cover image for project ID: {}", projectId, e);
+            throw new CustomException("Upload ảnh thất bại: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**

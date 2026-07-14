@@ -26,15 +26,15 @@ const Button = ({ children, variant = 'primary', className = '', style = {}, ...
   /* ── Primary — 3D teal gradient ── */
   if (variant === 'primary') {
     const bg = down
-      ? 'linear-gradient(180deg, #1E707D 0%, #165964 100%)'
+      ? 'linear-gradient(180deg, var(--project-theme) 0%, var(--project-theme-dark) 100%)'
       : hov
-        ? 'linear-gradient(180deg, #2E9AAB 0%, #278A99 55%, #1E707D 100%)'
-        : 'linear-gradient(180deg, #278A99 0%, #1E707D 55%, #165964 100%)';
+        ? 'linear-gradient(180deg, var(--project-theme-light, #2E9AAB) 0%, var(--project-theme-hover) 55%, var(--project-theme) 100%)'
+        : 'linear-gradient(180deg, var(--project-theme-hover) 0%, var(--project-theme) 55%, var(--project-theme-dark) 100%)';
     const shadow = down
-      ? '0 4px 10px rgba(30,112,125,0.20)'
+      ? '0 4px 10px rgba(0,0,0,0.10)'
       : hov
-        ? '0 12px 28px rgba(30,112,125,0.35), 0 0 16px rgba(78,198,216,0.20), inset 0 1px 0 rgba(255,255,255,0.25)'
-        : '0 8px 20px rgba(30,112,125,0.25), 0 4px 10px rgba(30,112,125,0.15), inset 0 1px 0 rgba(255,255,255,0.30)';
+        ? '0 12px 28px rgba(0,0,0,0.15), 0 0 16px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.25)'
+        : '0 8px 20px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.30)';
     return (
       <button
         {...props}
@@ -66,9 +66,9 @@ const Button = ({ children, variant = 'primary', className = '', style = {}, ...
         className={className}
         style={{
           ...base,
-          background:  hov ? '#D7EEF1' : '#FFFFFF',
-          color:       hov ? '#1E707D' : '#374151',
-          border:      `1.5px solid ${hov ? '#1E707D' : '#D9E7E4'}`,
+          background:  hov ? 'var(--project-theme-light, #D7EEF1)' : '#FFFFFF',
+          color:       hov ? 'var(--project-theme)' : '#374151',
+          border:      `1.5px solid ${hov ? 'var(--project-theme)' : '#D9E7E4'}`,
           boxShadow:   '0 2px 8px rgba(0,0,0,0.05)',
           transform:   hov ? 'translateY(-1px)' : 'translateY(0)',
           ...style,

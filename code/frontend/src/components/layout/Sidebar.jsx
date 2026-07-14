@@ -67,7 +67,7 @@ function NavGroup({ items, activeKey, collapsed }) {
       <div ref={pillRef} aria-hidden style={{
         position:      'absolute', left: 0, right: 0, top: 0, height: 40,
         borderRadius:  12,
-        background:    'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)',
+        background:    'linear-gradient(135deg, var(--project-theme, #278A99) 0%, color-mix(in srgb, var(--project-theme, #1E707D) 85%, #000) 55%, color-mix(in srgb, var(--project-theme, #165964) 70%, #000) 100%)',
         boxShadow:     '0 6px 20px rgba(30,112,125,0.28), 0 0 0 1px rgba(78,198,216,0.20)',
         opacity:       0, pointerEvents: 'none', zIndex: 0, willChange: 'transform, height',
       }} />
@@ -99,7 +99,7 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
         height:         40, borderRadius: 12,
         padding:        collapsed ? '0' : '0 12px',
         cursor:         'pointer', userSelect: 'none',
-        color:          isActive ? '#fff' : (hov ? '#1E707D' : '#374151'),
+        color:          isActive ? '#fff' : (hov ? 'var(--project-theme, #1E707D)' : '#374151'),
         transform:      !isActive && hov && !collapsed ? 'translateX(3px)' : 'none',
         transition:     `transform 180ms ${EASE_S}, color 180ms ${EASE_S}`,
       }}
@@ -107,7 +107,7 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
       {/* Icon */}
       <span className="material-symbols-outlined" style={{
         fontSize:              18, flexShrink: 0,
-        color:                 isActive ? '#fff' : (hov ? '#1E707D' : '#6B7280'),
+        color:                 isActive ? '#fff' : (hov ? 'var(--project-theme)' : '#6B7280'),
         fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
         transition:            `color 180ms ${EASE_S}`,
       }}>{icon}</span>
@@ -322,7 +322,7 @@ export default function Sidebar() {
           {!activeProject ? (
             <div style={{
               width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg, #278A99 0%, #1E707D 55%, #165964 100%)',
+              background: 'linear-gradient(135deg, var(--project-theme-light) 0%, var(--project-theme) 55%, var(--project-theme-dark) 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#fff', fontWeight: 800, fontSize: 14,
               boxShadow: '0 3px 10px rgba(30,112,125,0.25)',
@@ -330,7 +330,7 @@ export default function Sidebar() {
           ) : (
             <div style={{
               width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg, #278A99, #1E707D)',
+              background: 'linear-gradient(135deg, var(--project-theme-hover), var(--project-theme))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#fff', fontWeight: 700, fontSize: 14,
               boxShadow: '0 3px 10px rgba(30,112,125,0.22)',
@@ -359,8 +359,8 @@ export default function Sidebar() {
                     </p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 3 }}>
                       <span style={{
-                        fontSize: 9, fontWeight: 700, color: '#1E707D',
-                        background: 'rgba(30,112,125,0.10)', padding: '1px 5px',
+                        fontSize: 9, fontWeight: 700, color: 'var(--project-theme)',
+                        background: 'var(--project-theme-light)', padding: '1px 5px',
                         borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
                         display: 'inline-block'
                       }}>{activeProject.role}</span>
@@ -393,7 +393,7 @@ export default function Sidebar() {
             className="material-symbols-outlined"
             animate={{ rotate: collapsed ? 0 : 180 }}
             transition={{ duration: 0.26, ease: EASE }}
-            style={{ fontSize: 14, color: '#1E707D', display: 'block', lineHeight: 1 }}
+            style={{ fontSize: 14, color: 'var(--project-theme)', display: 'block', lineHeight: 1 }}
           >
             chevron_right
           </motion.span>
@@ -412,8 +412,8 @@ export default function Sidebar() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
               padding: '0 10px', borderRadius: 8,
-              background: '#D7EEF1', border: '1px solid rgba(30,112,125,0.18)',
-              color: '#1E707D', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              background: 'var(--project-theme-light)', border: '1px solid rgba(0,0,0,0.10)',
+              color: 'var(--project-theme)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
               alignSelf: 'flex-start', whiteSpace: 'nowrap', overflow: 'hidden',
             }}
           >

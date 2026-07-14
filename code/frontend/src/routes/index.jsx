@@ -14,6 +14,7 @@ import ClassroomDetailPage from '@features/workspace/pages/ClassroomDetailPage'
 import JoinClassroomPage from '@features/workspace/pages/JoinClassroomPage'
 import ContributionPage from '@features/workspace/pages/ContributionPage'
 import AcceptInvitePage from '@features/workspace/pages/AcceptInvitePage'
+import ProjectSettingsPage from '@features/workspace/pages/ProjectSettingsPage'
 
 // Feature Pages - Requirements
 import RequirementsPage from '@features/requirement/pages/RequirementsPage'
@@ -170,6 +171,9 @@ export function AppRoutes() {
             <Route path="reliability" element={<ReliabilityDashboardPage />} />
             <Route path="scheduler-logs" element={<SchedulerJobsPage />} />
             <Route path="recovery-plans" element={<RecoveryPlanDashboardPage />} />
+
+            {/* Module 10: Project Settings */}
+            <Route path="project-settings" element={<ProjectSettingsPage />} />
 
           </Route>
         </Route>
