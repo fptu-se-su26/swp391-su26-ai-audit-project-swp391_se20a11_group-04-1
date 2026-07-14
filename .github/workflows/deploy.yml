@@ -47,7 +47,7 @@ jobs:
             source ../../.env
             set +a
             
-            nohup java -Xmx512m -Dspring.profiles.active=docker -Dspring.kafka.bootstrap-servers=localhost:9092 -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+            nohup java -Xmx512m -Dspring.profiles.active=docker -Dspring.kafka.bootstrap-servers=localhost:9092 -Dspring.config.additional-location=file:../../.env -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
             echo "   Backend deployed OK"
             cd ../..
             

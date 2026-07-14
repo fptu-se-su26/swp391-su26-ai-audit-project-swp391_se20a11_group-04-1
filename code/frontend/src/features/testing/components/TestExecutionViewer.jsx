@@ -140,7 +140,8 @@ function StepTile({ step, index, stepStatus, isFocused, isFinished, isRunning,
 /* ─── AgentCommandCard ───────────────────────────────────────────── */
 function AgentCommandCard({ agentToken }) {
   const [copied, setCopied] = useState(false);
-  const cmd = `npx devtrack-agent@latest --token=${agentToken}`;
+  const backendUrl = `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`.replace(':5173', ':8080');
+  const cmd = `npx devtrack-agent@latest --token=${agentToken} --backend=${backendUrl}`;
   const handleCopy = () => { 
     const text = cmd;
     if (navigator.clipboard && navigator.clipboard.writeText) {
