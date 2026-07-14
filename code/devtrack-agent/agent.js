@@ -92,7 +92,9 @@ async function startAgent({ token, backendUrl }) {
                 apiResultPayload = apiResult.apiResult;
             } else {
                 result = await executeScript(task.script, task.taskId, task.baseUrl, {
-                    WS_URL: wsUrl
+                    // Luôn dùng local relay cho script vì script chạy trên máy local
+                    // Frontend cũng kết nối localhost:4001 → cùng relay → live stream hoạt động
+                    WS_URL: localWsUrl
                 });
             }
 
