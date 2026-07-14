@@ -24,58 +24,54 @@ jobs:
             echo "=========================================="
             echo "   BẮT ĐẦU TRIỂN KHAI CODE MỚI TRÊN VPS   "
             echo "=========================================="
-            
+
+            REPO_DIR=~/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1
+
             # 1. Đồng bộ code từ GitHub
-            cd ~/swp391-su26-ai-audit-project-swp391_se20a11_group-04-1
+            cd "${REPO_DIR}"
             git fetch origin develop
             git reset --hard origin/develop
-            
+
             # 2. Deploy Backend (Spring Boot)
             echo ">> Rebuilding Backend (Spring Boot)..."
-            cd code/backend
-            
-            # Tắt tiến trình cũ (xargs -r sẽ bỏ qua nếu không có tiến trình nào)
+            cd "${REPO_DIR}/code/backend"
+
             lsof -t -i:8080 | xargs -r kill -9 || true
-            
-            # Cấp lại quyền thực thi cho mvnw (bị reset bởi git reset --hard)
+            sleep 2
+
             chmod +x mvnw
-            
             export MAVEN_OPTS="-Xmx512m -XX:MaxMetaspaceSize=256m"
             ./mvnw clean package -Dmaven.test.skip=true
-            
-            set -a
-            source ../../.env
-            set +a
-            
-            nohup java -Xmx512m -Dspring.profiles.active=docker -Dspring.kafka.bootstrap-servers=localhost:9092 -Dspring.config.additional-location=file:../../.env -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+
+            # Spring Boot tự đọc .env qua application.yaml (optional:file:../../.env[.properties])
+            # KHÔNG dùng -Dspring.config.additional-location vì .env không phải .properties/.yaml
+            nohup java -Xmx512m \
+              -Dspring.profiles.active=docker \
+              -Dspring.kafka.bootstrap-servers=localhost:9092 \
+              -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+            echo "   Backend PID: $!"
             echo "   Backend deployed OK"
-            cd ../..
-            
+
             # 3. Deploy Frontend (Vite)
             echo ">> Restarting Frontend (Vite)..."
-            cd code/frontend
-            
-            # Tắt tiến trình cũ (xargs -r sẽ bỏ qua nếu không có tiến trình nào)
+            cd "${REPO_DIR}/code/frontend"
+
             lsof -t -i:5173 | xargs -r kill -9 || true
-            
-            set -a
-            source ../../.env
-            set +a
-            
+
             npm install
             nohup npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1 &
             echo "   Frontend deployed OK"
-            cd ../..
-            
-            # 4. Rebuild và restart playwright-server (chứa templateEngine.js)
-            echo ">> Rebuilding playwright-server..."
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d playwright-server
 
-            # 5. Đảm bảo các container Docker Compose còn lại luôn chạy
+            # 4. Rebuild playwright-server với code mới (templateEngine.js)
+            echo ">> Rebuilding playwright-server..."
+            cd "${REPO_DIR}"
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps playwright-server
+
+            # 5. Đảm bảo các infra container luôn chạy
             echo ">> Checking Infra Containers..."
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d kafka postgres redis mongodb architecture-parser
-            
+
             echo "=========================================="
             echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
             echo "=========================================="
