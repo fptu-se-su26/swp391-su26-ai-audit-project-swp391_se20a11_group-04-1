@@ -99,7 +99,7 @@ function generateFromTemplate(testCase, runId) {
       }
 
       const autoScreenshot = ['goto', 'click', 'fill', 'select', 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'].includes(step.action)
-        ? `\n    await page.screenshot({ path: 'step-${stepNum}-after.png' });`
+        ? `\n    await page.screenshot({ path: 'step-${stepNum}-after.png' });\n    try {\n      const fs = require('fs');\n      const ssPath = require('path').join(__dirname, 'step-${stepNum}-after.png');\n      if (fs.existsSync(ssPath)) {\n        const ssData = fs.readFileSync(ssPath).toString('base64');\n        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'step_screenshot', stepIndex: ${index}, filename: 'step-${stepNum}-after.png', data: ssData }));\n      }\n    } catch(e){}`
         : '';
 
       const stepDesc = escapeJs(step.description || step.action);

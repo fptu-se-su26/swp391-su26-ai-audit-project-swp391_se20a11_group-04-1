@@ -102,7 +102,29 @@ async function executeScript(script, baseRunId, baseUrl, envOverrides = {}) {
     }
 
     result.duration = Date.now() - startTime;
+
+    // Đọc screenshots từ screenshotDir trước khi cleanup
     result.screenshots = [];
+    try {
+        if (fs.existsSync(screenshotDir)) {
+            const files = fs.readdirSync(screenshotDir);
+            for (const file of files) {
+                if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg')) {
+                    const filePath = path.join(screenshotDir, file);
+                    const data = fs.readFileSync(filePath);
+                    const base64 = data.toString('base64');
+                    const mime = file.endsWith('.png') ? 'image/png' : 'image/jpeg';
+                    result.screenshots.push({
+                        filename: file,
+                        url: `data:${mime};base64,${base64}`,
+                    });
+                }
+            }
+            result.screenshots.sort((a, b) => a.filename.localeCompare(b.filename));
+        }
+    } catch (e) {
+        console.warn('[Executor] Failed to read screenshots:', e.message);
+    }
 
     cleanupTempDir(tempDir);
     return result;
@@ -199,12 +221,31 @@ function parseOutput(stdout, screenshotDir) {
         failedStepIndex = passedCount; // index của step đầu tiên không PASS
     }
 
+    // Lấy error message đầy đủ: ưu tiên message từ step bị fail, fallback về runResult error
+    const failedStep = steps.find(s => s.status === 'FAIL');
+    const rawMessage = failedStep?.error
+        || (rawError?.message ? rawError.message.replace(/\x1b\[[0-9;]*m/g, '') : null)
+        || 'Test thất bại';
+
+    // Nếu message quá ngắn/generic, thêm context từ stack
+    const rawStack = (rawError?.stack || '').replace(/\x1b\[[0-9;]*m/g, '');
+    // Lấy dòng đầu tiên của stack có chứa "Expected"/"Received"/"Error" để làm detail
+    const stackDetail = rawStack.split('\n')
+        .filter(l => l.includes('Expected') || l.includes('Received') || l.includes('Timeout'))
+        .slice(0, 3)
+        .join(' | ')
+        .trim();
+
+    const fullMessage = stackDetail && !rawMessage.includes('Expected')
+        ? `${rawMessage} — ${stackDetail}`
+        : rawMessage;
+
     const error = passed
         ? null
         : {
-            message: (rawError?.message || 'Test thất bại').replace(/\x1b\[[0-9;]*m/g, ''),
-            stack: (rawError?.stack || '').replace(/\x1b\[[0-9;]*m/g, ''),
-            failedStep: steps.find(s => s.status === 'FAIL')?.title || null,
+            message: fullMessage,
+            stack: rawStack,
+            failedStep: failedStep?.title || null,
             failedStepIndex: failedStepIndex >= 0 ? failedStepIndex : null
         };
 

@@ -12,6 +12,7 @@ export default function LiveTestRunner({ testCase }) {
   const [focusedStepIndex, setFocusedStepIndex] = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(null);
   const [lastRunningStepIndex, setLastRunningStepIndex] = useState(null);
+  const [liveScreenshots, setScreenshots] = useState([]);
 
   const fetchTestCaseDetail = useTestCaseStore(s => s.fetchTestCaseDetail);
   const fetchRequirementsTree = useTestCaseStore(s => s.fetchRequirementsTree);
@@ -54,6 +55,7 @@ export default function LiveTestRunner({ testCase }) {
       setLiveFrame(null);
       // Reset cả lastRunningStepIndex khi bắt đầu run mới
       setLastRunningStepIndex(null);
+      setScreenshots([]);
     }
   }, [status]);
 
@@ -69,6 +71,15 @@ export default function LiveTestRunner({ testCase }) {
           } else if (msg.type === 'step_started') {
             setCurrentStepIndex(msg.stepIndex);
             setLastRunningStepIndex(msg.stepIndex);
+          } else if (msg.type === 'step_screenshot') {
+            // Lưu screenshot của từng step để hiển thị sau khi test xong
+            const ssUrl = `data:image/png;base64,${msg.data}`;
+            setScreenshots(prev => {
+              // Tránh duplicate
+              const filtered = (prev || []).filter(s => s.filename !== msg.filename);
+              return [...filtered, { filename: msg.filename, url: ssUrl }]
+                .sort((a, b) => a.filename.localeCompare(b.filename));
+            });
           }
         } catch (e) { }
       };
@@ -136,7 +147,7 @@ export default function LiveTestRunner({ testCase }) {
       projectId={projectId}
       testCase={testCase}
       stepsArr={stepsArr}
-      screenshots={screenshots}
+      screenshots={liveScreenshots.length > 0 ? liveScreenshots : screenshots}
       error={error}
       status={status}
       durationMs={durationMs}

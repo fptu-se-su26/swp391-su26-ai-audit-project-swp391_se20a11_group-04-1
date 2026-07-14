@@ -124,7 +124,10 @@ async function startAgent({ token, backendUrl }) {
                 failedStepIndex: result.error?.failedStepIndex !== undefined && result.error?.failedStepIndex !== null
                     ? result.error.failedStepIndex : null,
                 steps: result.steps || [],
-                evidenceUrls: result.screenshots || []
+                // screenshots là [{filename, url}] với url là data:image/...;base64,...
+                // Gửi thẳng về backend để frontend hiển thị trực tiếp
+                evidenceUrls: [],
+                screenshots: result.screenshots || []
             };
 
             if (apiResultPayload) {
