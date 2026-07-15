@@ -321,7 +321,7 @@ public class TaskServiceImpl implements TaskService {
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
         if (task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
-            throw new BadRequestException("Project đã đóng, không thể chỉnh sửa task.");
+            throw new BadRequestException("Project is closed, cannot edit the task.");
         }
         TaskStatus oldStatus = task.getStatus();
         TaskStatus nextStatus = null;
@@ -338,7 +338,7 @@ public class TaskServiceImpl implements TaskService {
         if (!isProjectLeader(projectId, userId)) {
             Long assigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
             if (assigneeId == null || !assigneeId.equals(userId)) {
-                throw new BadRequestException("Bạn không có quyền kéo thả hoặc thay đổi trạng thái task của người khác.");
+                throw new BadRequestException("You do not have permission to drag-and-drop or change the status of another user's task.");
             }
         }
 
@@ -356,7 +356,7 @@ public class TaskServiceImpl implements TaskService {
         if (request.getColumnId() != null) {
             if (isTightlyBoundToIssue(task)) {
                 if (!isProjectLeader(projectId, userId)) {
-                    throw new BadRequestException("Chỉ có Project Leader mới được phép kéo thả task liên kết với GitHub issue trên Kanban board.");
+                    throw new BadRequestException("Only Project Leaders are allowed to drag-and-drop tasks linked to GitHub issues on the Kanban board.");
                 }
             }
             setColumn(task, request.getColumnId(), projectId, userId);
@@ -1257,7 +1257,7 @@ public class TaskServiceImpl implements TaskService {
         if (request.getColumnId() != null) {
             if (isTightlyBoundToIssue(task)) {
                 if (!isProjectLeader(projectId, userId)) {
-                    throw new BadRequestException("Chỉ có Project Leader mới được phép thay đổi cột của task liên kết với GitHub issue.");
+                    throw new BadRequestException("Only Project Leaders are allowed to change the column of tasks linked to GitHub issues.");
                 }
             }
             setColumn(task, request.getColumnId(), projectId, userId);
@@ -1273,7 +1273,7 @@ public class TaskServiceImpl implements TaskService {
             }
             boolean isAssignee = assigneeId != null && userId.equals(assigneeId);
             if (!isLeader && !isAssignee) {
-                throw new BadRequestException("Chỉ có Project Leader hoặc người được gán của task này mới được phép cập nhật checklist.");
+                throw new BadRequestException("Only Project Leaders or the assignee of this task are allowed to update the checklist.");
             }
             replaceChecklist(task, request.getChecklist());
         }
@@ -1311,13 +1311,13 @@ public class TaskServiceImpl implements TaskService {
 
         // ONLY block transition for unassigned task if it's moving FROM TODO
         if (task.getStatus() == TaskStatus.TODO && task.getPrimaryAssignee() == null && !hasSubTasks) {
-            throw new BadRequestException("Task chưa được assign, không thể chuyển sang trạng thái này!");
+            throw new BadRequestException("Task has not been assigned yet, cannot transition to this status!");
         }
 
         // Enforce flow: IN_PROGRESS -> IN_REVIEW
         if ((task.getStatus() == TaskStatus.IN_PROGRESS || task.getStatus() == TaskStatus.NEEDS_CHANGES)
                 && nextStatus == TaskStatus.DONE) {
-            throw new BadRequestException("Phải chuyển task sang trạng thái In Review để được phê duyệt trước khi chuyển sang Done.");
+            throw new BadRequestException("Task must be transitioned to In Review for approval before moving to Done.");
         }
 
         if (nextStatus == TaskStatus.IN_REVIEW || nextStatus == TaskStatus.DONE) {

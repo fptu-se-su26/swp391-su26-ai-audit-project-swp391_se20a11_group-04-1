@@ -87,11 +87,11 @@ function LoginPage() {
 
       if (response.data && response.data.success) {
         setEvidenceUrl(response.data.data)
-        toast.success('Tải lên tài liệu minh chứng thành công!')
+        toast.success('Evidence document uploaded successfully!')
       }
     } catch (err) {
       console.error('Failed to upload file:', err)
-      toast.error(err.response?.data?.message || 'Tải lên tài liệu minh chứng thất bại.')
+      toast.error(err.response?.data?.message || 'Failed to upload evidence document.')
       setFileName('')
       setEvidenceUrl('')
     } finally {
@@ -120,7 +120,7 @@ function LoginPage() {
   const handleAppealSubmit = async (e) => {
     e.preventDefault()
     if (!appealUser.trim() || !appealText.trim()) {
-      toast.error('Vui lòng điền đầy đủ thông tin!')
+      toast.error('Please fill in all information!')
       return
     }
 
@@ -135,7 +135,7 @@ function LoginPage() {
       )
 
       if (response.data?.success) {
-        toast.success('Gửi đơn kháng cáo thành công!')
+        toast.success('Appeal request submitted successfully!')
         setAppealSubmitted(true)
         setAppealText('')
         setFileName('')
@@ -143,7 +143,7 @@ function LoginPage() {
       }
     } catch (err) {
       console.error('Failed to submit appeal:', err)
-      toast.error(err.response?.data?.message || 'Gửi đơn kháng cáo thất bại.')
+      toast.error(err.response?.data?.message || 'Failed to submit appeal request.')
     } finally {
       setAppealLoading(false)
     }
@@ -227,18 +227,18 @@ function LoginPage() {
         const state = btoa(JSON.stringify({ loginFlow: true }))
         window.location.href = response.data.data + "&state=" + state
       } else {
-        toast.error('Không lấy được link đăng nhập GitHub!')
+        toast.error('Failed to get GitHub login URL!')
       }
     } catch (err) {
       console.error('Failed to get GitHub login URL:', err)
-      toast.error('Lỗi khi kết nối đến GitHub: ' + (err.response?.data?.message || err.message))
+      toast.error('Error connecting to GitHub: ' + (err.response?.data?.message || err.message))
     }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.usernameOrEmail || !formData.password) {
-      toast.error('Vui lòng nhập tên đăng nhập/email và mật khẩu!')
+      toast.error('Please enter username/email and password!')
       return
     }
 
@@ -252,7 +252,7 @@ function LoginPage() {
       )
 
       if (response.data?.success) {
-        toast.success('Đăng nhập thành công!')
+        toast.success('Logged in successfully!')
         
         // Lưu/Xóa tài khoản ghi nhớ
         if (formData.rememberMe) {
@@ -273,7 +273,7 @@ function LoginPage() {
           }
         }, 1000)
       } else {
-        toast.error(response.data?.message || 'Sai tài khoản hoặc mật khẩu!')
+        toast.error(response.data?.message || 'Incorrect account or password!')
       }
     } catch (err) {
       // Nếu API thật trả về lỗi (như 401, 423, 429), ta hiển thị lỗi chi tiết từ Backend
@@ -359,25 +359,25 @@ function LoginPage() {
           {permanentBanMessage && (
             <div className="mb-6 p-5 rounded-2xl bg-red-50 border border-red-200 shadow-sm text-left animate-in fade-in zoom-in-95 duration-300">
               <div className="mb-3">
-                <h3 className="font-bold text-red-900 text-sm">Tài khoản đã bị khóa</h3>
-                <p className="text-[10px] text-red-700 font-bold uppercase tracking-wider">Hệ thống</p>
+                <h3 className="font-bold text-red-900 text-sm">Account Locked</h3>
+                <p className="text-[10px] text-red-700 font-bold uppercase tracking-wider">System</p>
               </div>
               
               <div className="p-3 bg-white/95 rounded-xl border border-red-100 mb-3">
-                <p className="text-[10px] text-red-850 font-bold uppercase tracking-wider mb-1">Lý do khóa tài khoản:</p>
+                <p className="text-[10px] text-red-850 font-bold uppercase tracking-wider mb-1">Lock Reason:</p>
                 <p className="text-xs text-red-900 leading-relaxed italic font-medium">"{permanentBanMessage}"</p>
               </div>
 
               {!showAppealForm ? (
                 <div className="text-xs text-slate-600 leading-relaxed">
-                  {permanentBanMessage.includes("đang được xử lý") ? (
+                  {permanentBanMessage.includes("đang được xử lý") || permanentBanMessage.includes("under review") ? (
                     <span className="text-amber-700 font-bold flex items-center gap-1.5 mt-2 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
                       <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                      Đơn kháng cáo của bạn đang được Ban quản trị xem xét.
+                      Your appeal request is under review by the Administration.
                     </span>
                   ) : (
                     <>
-                      Nếu đây là sự nhầm lẫn hoặc bạn muốn giải trình, vui lòng{' '}
+                      If this is a mistake or you want to provide details, please{' '}
                       <button 
                         type="button" 
                         onClick={() => {
@@ -386,7 +386,7 @@ function LoginPage() {
                         }} 
                         className="text-[#1E707D] font-bold hover:underline bg-transparent border-none p-0 cursor-pointer text-xs focus:outline-none"
                       >
-                        gửi kháng cáo tại đây
+                        submit an appeal here
                       </button>
                       .
                     </>
@@ -395,9 +395,9 @@ function LoginPage() {
               ) : appealSubmitted ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center space-y-2 animate-in fade-in duration-300">
                   <span className="material-symbols-outlined text-2xl text-emerald-600">check_circle</span>
-                  <p className="text-xs font-bold text-emerald-950">Gửi đơn kháng cáo thành công!</p>
+                  <p className="text-xs font-bold text-emerald-950">Appeal submitted successfully!</p>
                   <p className="text-[11px] text-emerald-850 leading-relaxed">
-                    Đơn giải trình đã được gửi tới Ban quản trị. Chúng tôi sẽ xem xét và phản hồi sớm nhất qua email.
+                    Your explanation has been sent to the Administration. We will review and reply as soon as possible via email.
                   </p>
                   <button
                     type="button"
@@ -409,27 +409,27 @@ function LoginPage() {
                     }}
                     className="text-xs font-bold text-[#1E707D] hover:underline bg-transparent border-none p-0 cursor-pointer mt-1"
                   >
-                    Quay lại đăng nhập
+                    Back to Login
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleAppealSubmit} className="mt-4 pt-4 border-t border-red-150 space-y-3 animate-in slide-in-from-top-2 duration-200">
                   <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-sm text-[#1E707D]">edit_document</span>
-                    Gửi đơn giải trình & kháng cáo
+                    Submit Explanation & Appeal
                   </h4>
                   
                   {/* Account Identifier (Username or Email) */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                      Tên đăng nhập hoặc Email
+                      Username or Email
                     </label>
                     <input
                       type="text"
                       required
                       value={appealUser}
                       onChange={(e) => setAppealUser(e.target.value)}
-                      placeholder="Nhập tên đăng nhập hoặc email cần kháng cáo"
+                      placeholder="Enter username or email for appeal"
                       className="w-full px-3 py-2 border border-slate-200 rounded bg-white font-body-md text-xs text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed transition-colors"
                     />
                   </div>
@@ -437,13 +437,13 @@ function LoginPage() {
                   {/* Appeal Reason */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                      Nội dung giải trình
+                      Explanation Content
                     </label>
                     <textarea
                       required
                       value={appealText}
                       onChange={(e) => setAppealText(e.target.value)}
-                      placeholder="Nhập lý do chi tiết hoặc bằng chứng đối chứng để Admin xem xét..."
+                      placeholder="Enter detailed reasons or counter-evidence for Admin review..."
                       className="w-full p-2.5 border border-slate-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-[#1E707D] transition-colors h-20 resize-none"
                     />
                   </div>
@@ -451,7 +451,7 @@ function LoginPage() {
                   {/* Simulated File Upload Area */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                      Tài liệu minh chứng đính kèm (Tùy chọn)
+                      Attached Evidence Document (Optional)
                     </label>
                     <div className="relative border border-dashed border-slate-300 hover:border-[#1E707D] rounded-lg p-3 transition-colors bg-slate-50/50">
                       <input
@@ -469,18 +469,18 @@ function LoginPage() {
                             <span className="truncate">{fileName}</span>
                           </div>
                           {uploading ? (
-                            <span className="text-[10px] text-slate-400 shrink-0 font-medium">Đang tải... {uploadProgress}%</span>
+                            <span className="text-[10px] text-slate-400 shrink-0 font-medium">Uploading... {uploadProgress}%</span>
                           ) : (
                             <span className="text-[10px] text-green-600 shrink-0 font-bold flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-xs">check_circle</span> Đã đính kèm
+                              <span className="material-symbols-outlined text-xs">check_circle</span> Attached
                             </span>
                           )}
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center gap-0.5 text-slate-400 text-center">
                           <span className="material-symbols-outlined text-2xl">upload_file</span>
-                          <span className="text-[10px] font-bold text-slate-600">Chọn file hoặc kéo thả vào đây</span>
-                          <span className="text-[8px] text-slate-400">PDF, PNG, JPG, ZIP (Tối đa 10MB)</span>
+                          <span className="text-[10px] font-bold text-slate-600">Choose file or drag & drop here</span>
+                          <span className="text-[8px] text-slate-400">PDF, PNG, JPG, ZIP (Max 10MB)</span>
                         </div>
                       )}
                     </div>
@@ -508,14 +508,14 @@ function LoginPage() {
                       }}
                       className="flex-1 py-2 border border-slate-200 text-slate-700 font-bold rounded text-xs hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none"
                     >
-                      Hủy bỏ
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={appealLoading || uploading}
                       className="flex-1 py-2 bg-[#1E707D] hover:bg-[#154f59] text-white font-bold rounded text-xs transition-colors shadow-sm flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 focus:outline-none"
                     >
-                      {appealLoading ? 'Đang gửi...' : 'Gửi đơn'}
+                      {appealLoading ? 'Submitting...' : 'Submit'}
                     </button>
                   </div>
                 </form>
@@ -527,7 +527,7 @@ function LoginPage() {
           {isCurrentAccountLocked && (
             <div className="mb-6 p-4 rounded bg-red-500/10 border border-red-500/20 text-red-800 text-sm font-medium">
               <p className="font-semibold text-red-750 text-center">
-                Tài khoản của bạn đang bị khóa tạm thời, vui lòng thử lại sau: {Math.floor(lockoutTimeLeft / 60)} phút {lockoutTimeLeft % 60} giây
+                Your account is temporarily locked. Please try again in: {Math.floor(lockoutTimeLeft / 60)}m {lockoutTimeLeft % 60}s
               </p>
             </div>
           )}

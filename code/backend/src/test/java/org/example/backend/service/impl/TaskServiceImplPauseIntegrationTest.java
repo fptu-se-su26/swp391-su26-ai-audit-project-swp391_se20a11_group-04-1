@@ -67,10 +67,10 @@ class TaskServiceImplPauseIntegrationTest {
     private org.example.backend.repository.TaskReviewDecisionRepository taskReviewDecisionRepository;
     @Mock
     private org.example.backend.repository.ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
-    @Mock
-    private org.example.backend.repository.TaskCommentRepository taskCommentRepository;
-    @Mock
-    private org.example.backend.repository.TaskProposalRepository taskProposalRepository;
+//    @Mock
+//    private org.example.backend.repository.TaskCommentRepository taskCommentRepository;
+//    @Mock
+//    private org.example.backend.repository.TaskProposalRepository taskProposalRepository;
     @Mock
     private org.example.backend.service.NotificationService notificationService;
     @Mock
