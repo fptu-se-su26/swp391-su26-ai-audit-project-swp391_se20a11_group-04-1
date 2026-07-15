@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import axiosInstance from '@api/axiosConfig'
+import { getNotificationWebSocketUrl } from '@api/realtimeConfig'
 import React from 'react'
 import toast from 'react-hot-toast'
 
@@ -118,20 +119,7 @@ export const useNotificationStore = create((set, get) => ({
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_API_BASE_URL
-
-      let wsUrl = ''
-      if (backendUrl && backendUrl.startsWith('http')) {
-        let baseWs = backendUrl.replace(/^http/, 'ws')
-        if (baseWs.endsWith('/api')) {
-          wsUrl = baseWs + `/ws/notifications?userId=${userId}`
-        } else {
-          wsUrl = baseWs.replace(/\/$/, '') + `/api/ws/notifications?userId=${userId}`
-        }
-      } else {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        wsUrl = `${protocol}//${window.location.host}/api/ws/notifications?userId=${userId}`
-      }
+      const wsUrl = getNotificationWebSocketUrl(userId)
 
       const ws = new WebSocket(wsUrl)
       

@@ -64,15 +64,29 @@ export function NotificationDropdown() {
     rejectInvitation
   } = useNotificationStore()
 
-  const { activeProject, fetchProjects } = useProjectStore()
+  const { activeProject, fetchProjects, projects } = useProjectStore()
 
   const [isOpen, setIsOpen] = useState(false)
+  const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false)
+  const [selectedFilterProjectId, setSelectedFilterProjectId] = useState('all')
   const dropdownRef = useRef(null)
+  const filterDropdownRef = useRef(null)
 
   // Fetch thông báo ban đầu khi component mount
   useEffect(() => {
     fetchNotifications()
   }, [fetchNotifications])
+
+  // Đóng dropdown filter khi click ra ngoài
+  useEffect(() => {
+    function handleClickOutsideFilter(event) {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+        setIsProjectFilterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutsideFilter)
+    return () => document.removeEventListener('mousedown', handleClickOutsideFilter)
+  }, [])
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -147,6 +161,26 @@ export function NotificationDropdown() {
     }
   }
 
+  // Calculate unread counts by project and filter notifications
+  const unreadByProject = {}
+  let otherUnreadCount = 0
+
+  notifications.forEach((n) => {
+    if (!n.isRead) {
+      const pId = n.projectId ? String(n.projectId) : 'system'
+      unreadByProject[pId] = (unreadByProject[pId] || 0) + 1
+      if (selectedFilterProjectId !== 'all' && String(n.projectId) !== String(selectedFilterProjectId)) {
+        otherUnreadCount++
+      }
+    }
+  })
+
+  const filteredNotifications = notifications.filter((n) => {
+    if (selectedFilterProjectId === 'all') return true
+    if (n.type === 'INVITATION') return false // Lời mời chỉ hiện ở mục "Tất cả dự án"
+    return String(n.projectId) === String(selectedFilterProjectId)
+  })
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Nút Chuông */}
@@ -169,15 +203,70 @@ export function NotificationDropdown() {
       {isOpen && (
         <div className="absolute right-0 mt-2.5 w-[380px] bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-up">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/50 bg-surface-container-low/40">
-            <h4 className="font-extrabold text-sm text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#1E707D] text-lg">notifications_active</span>
-              Trung tâm thông báo
-            </h4>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/50 bg-surface-container-low/40">
+            <div className="relative" ref={filterDropdownRef}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIsProjectFilterOpen(!isProjectFilterOpen); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-left ${
+                  isProjectFilterOpen 
+                    ? 'bg-[#1E707D]/10 border-[#1E707D]/30 text-[#1E707D] shadow-inner' 
+                    : 'bg-surface-container-lowest border-outline-variant/60 hover:bg-surface-container-low hover:border-outline-variant text-on-surface shadow-sm'
+                }`}
+              >
+                <span className={`material-symbols-outlined text-[18px] ${isProjectFilterOpen ? 'text-[#1E707D]' : 'text-on-surface-variant'}`}>
+                  filter_list
+                </span>
+                <span className="font-bold text-[13px] flex items-center gap-1">
+                  <span className="truncate max-w-[140px]">
+                    {selectedFilterProjectId === 'all' 
+                      ? 'Trung tâm thông báo' 
+                      : (projects.find(p => p.id === selectedFilterProjectId)?.name || projects.find(p => p.id === selectedFilterProjectId)?.title || 'Dự án không xác định')}
+                  </span>
+                  <span className={`material-symbols-outlined text-[18px] leading-none opacity-60 transition-transform duration-200 ${isProjectFilterOpen ? 'rotate-180' : ''}`}>
+                    expand_more
+                  </span>
+                </span>
+                {otherUnreadCount > 0 && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-error ml-0.5 shadow-sm border border-white" title={`${otherUnreadCount} thông báo mới ở dự án khác`}></span>
+                )}
+              </button>
+              
+              {isProjectFilterOpen && (
+                <div className="absolute top-full left-0 mt-1 w-[260px] bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-lg z-50 overflow-hidden animate-scale-up">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedFilterProjectId('all'); setIsProjectFilterOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-surface-container flex items-center justify-between ${selectedFilterProjectId === 'all' ? 'bg-[#1E707D]/10 text-[#1E707D]' : 'text-on-surface'}`}
+                  >
+                    <span>Trung tâm thông báo</span>
+                    {unreadCount > 0 && (
+                      <span className="text-xs font-bold text-error bg-error/10 px-2 py-0.5 rounded-full">{unreadCount}</span>
+                    )}
+                  </button>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-outline-variant/20">
+                    {projects.map(p => {
+                      const pUnread = unreadByProject[p.id] || 0;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={(e) => { e.stopPropagation(); setSelectedFilterProjectId(p.id); setIsProjectFilterOpen(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-surface-container flex items-center justify-between ${selectedFilterProjectId === p.id ? 'bg-[#1E707D]/10 text-[#1E707D]' : 'text-on-surface-variant'}`}
+                        >
+                          <span className="truncate pr-2">{p.name || p.title}</span>
+                          {pUnread > 0 && (
+                            <span className="text-xs font-bold text-white bg-error px-2 py-0.5 rounded-full shrink-0 shadow-sm">{pUnread}</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs font-bold text-[#1E707D] hover:text-primary-container transition-colors"
+                className="text-xs font-bold text-[#1E707D] hover:text-[#165964] transition-colors shrink-0 px-2"
               >
                 Đọc tất cả
               </button>
@@ -186,18 +275,18 @@ export function NotificationDropdown() {
 
           {/* List Notifications */}
           <div className="max-h-[360px] overflow-y-auto divide-y divide-outline-variant/20">
-            {loading && notifications.length === 0 ? (
+            {loading && filteredNotifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
                 <div className="w-6 h-6 border-2 border-[#1E707D] border-t-transparent rounded-full animate-spin mx-auto"></div>
                 <p className="text-xs text-on-surface-variant">Đang tải thông báo...</p>
               </div>
-            ) : notifications.length === 0 ? (
+            ) : filteredNotifications.length === 0 ? (
               <div className="p-8 text-center space-y-3">
                 <span className="material-symbols-outlined text-4xl text-outline/60">notifications_off</span>
                 <p className="text-xs text-on-surface-variant font-medium">Bạn chưa có thông báo nào</p>
               </div>
             ) : (
-              notifications.map((n) => (
+              filteredNotifications.map((n) => (
                 <div
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
