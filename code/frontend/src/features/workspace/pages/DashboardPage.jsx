@@ -647,7 +647,7 @@ export function DashboardPage() {
                 For better security and to enable standard login, please click{' '}
                 <button
                   type="button"
-                  onClick={() => navigate(`/profile`)}
+                  onClick={() => navigate('/profile', { state: { openSettings: true } })}
                   className="font-bold underline text-amber-700 hover:text-amber-850 focus:outline-none cursor-pointer"
                 >
                   Change Password
