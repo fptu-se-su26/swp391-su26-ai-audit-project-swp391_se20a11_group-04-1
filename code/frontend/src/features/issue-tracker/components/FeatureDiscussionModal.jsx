@@ -684,7 +684,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Description Container */}
-          <div className={`px-5 bg-white transition-all duration-300 ease-in-out ${isDescCollapsed ? 'max-h-0 opacity-0 pt-0 overflow-hidden' : descExpanded ? 'max-h-[400px] overflow-y-auto opacity-100 pt-3' : 'max-h-24 opacity-100 pt-3'}`}>
+          <div className={`px-5 bg-white transition-all duration-300 ease-in-out shrink-0 ${isDescCollapsed ? 'max-h-0 opacity-0 pt-0 overflow-hidden' : descExpanded ? 'max-h-[400px] overflow-y-auto opacity-100 pt-3' : 'max-h-24 opacity-100 pt-3'}`}>
             <div className="bg-[#f8fafc] rounded-xl p-3.5 border border-slate-200/60 shadow-sm space-y-3">
               {isBugType ? (
                 // Bug Report Details
@@ -759,7 +759,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Sticky Container for Vote Summary and Tabs */}
-          <div className="sticky z-20 bg-white pb-3 top-[80px]">
+          <div className="sticky z-20 bg-white pb-3 top-[80px] shrink-0">
             {/* Vote Summary Bar */}
             <div className={`px-5 transition-all duration-300 ease-in-out ${isVoteCollapsed ? 'max-h-0 opacity-0 overflow-hidden pt-0 pb-0' : 'max-h-16 opacity-100 pt-2 pb-0.5'}`}>
               <div className="flex items-center gap-4 px-3 py-1.5 bg-[#f8fafc] rounded-xl border border-slate-200/60 select-none">
@@ -890,7 +890,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
           </div>
 
           {/* Tab Content Panels */}
-          <div className="px-5 py-3.5 bg-white flex-1 overflow-hidden">
+          <div className="px-5 py-3.5 bg-white flex-1 min-h-0 overflow-hidden flex flex-col">
             {/* TAB 1: COMMENT CHUNG */}
             {activeTab === 'comments' && (
               <CommentTab
@@ -929,7 +929,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
             {/* TAB 2: ĐỀ XUẤT CHECKLIST / TRỰC TIẾP CHECKLIST CHO BUG */}
             {activeTab === 'proposals' && (
               isBugType ? (
-                <div className="flex-1 flex flex-col min-h-0 bg-white p-5 overflow-y-auto" id="proposal-list-container" onScroll={handleContentScroll}>
+                <div className="flex-1 flex flex-col min-h-0 bg-white p-5" id="proposal-list-container">
+                  {/* Scrollable area: Requirement + Header + Checklist items */}
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1" onScroll={handleContentScroll}>
                   {/* Section gắn Requirement */}
                   {canViewRequirementLink && (
                     <div className="rounded-xl border border-blue-200 bg-[#1E707D]/5 p-4 shadow-sm shrink-0 space-y-3 mb-4">
@@ -1002,7 +1004,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                     </span>
                   </div>
                   
-                  <div className="space-y-2 mb-6 flex-1 min-h-0 overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     {!task?.checklist || task.checklist.length === 0 ? (
                       <p className="text-xs font-medium text-slate-500 text-center py-6 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                         No checklist items. Add one below to start!
@@ -1055,7 +1057,9 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       ))
                     )}
                   </div>
+                  </div>
 
+                  {/* Sticky bottom: Add form - always visible */}
                   {canManageChecklist ? (
                     <form
                       onSubmit={async (e) => {
@@ -1079,7 +1083,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                         setNewChecklistItemText('')
                         await fetchTaskById(task.id)
                       }}
-                      className="flex gap-2 pt-2 border-t border-slate-100"
+                      className="flex gap-2 pt-3 mt-2 border-t border-slate-100 shrink-0"
                     >
                       <input
                         type="text"
@@ -1096,7 +1100,7 @@ export default function FeatureDiscussionModal({ taskId, onClose, projectId, onR
                       </button>
                     </form>
                   ) : (
-                    <div className="text-center pt-2 border-t border-slate-100">
+                    <div className="text-center pt-2 border-t border-slate-100 shrink-0">
                       <p className="text-[11px] font-semibold text-slate-400">
                         Only Project Leaders or the Assignee of this task can modify the checklist.
                       </p>

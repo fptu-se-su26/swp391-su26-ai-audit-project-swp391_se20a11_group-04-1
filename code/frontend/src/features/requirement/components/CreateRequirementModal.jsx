@@ -105,7 +105,10 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-6 overflow-hidden">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-6 overflow-hidden"
+      onClick={(e) => e.stopPropagation()}
+    >
       <div
         className="w-full max-w-7xl max-h-full flex flex-col bg-surface rounded-xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
