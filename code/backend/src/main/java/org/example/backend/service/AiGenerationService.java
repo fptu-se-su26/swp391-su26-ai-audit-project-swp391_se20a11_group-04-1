@@ -28,6 +28,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
+import org.example.backend.service.AuditService;
 import org.example.backend.exception.BusinessException;
 
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ public class AiGenerationService {
     private final TestCaseRepository testCaseRepository;
     private final TestStepRepository testStepRepository;
     private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
+    private final AuditService auditService;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -70,7 +72,8 @@ public class AiGenerationService {
                                ObjectMapper objectMapper,
                                TestCaseRepository testCaseRepository,
                                TestStepRepository testStepRepository,
-                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper) {
+                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper,
+                               AuditService auditService) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.requirementGeminiService = requirementGeminiService;
@@ -85,6 +88,7 @@ public class AiGenerationService {
         this.testCaseRepository = testCaseRepository;
         this.testStepRepository = testStepRepository;
         this.testCaseMapper = testCaseMapper;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -261,12 +265,14 @@ public class AiGenerationService {
                     .status(AiGenerationStatus.PENDING)
                     .build();
             stagingRepository.save(newStaging);
-            try {
-                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            sendProgress(userId, 5, "Done!");
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(10000); // Synchronous fake AI delay (10s) so frontend shows loading
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                sendProgress(userId, 5, "Done!");
+            });
             
             return generationId;
         }
@@ -649,6 +655,12 @@ public class AiGenerationService {
 
         requirementRepository.saveAll(requirementsToSave);
         
+        for (Requirement req : requirementsToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_REQUIREMENT", 
+                    "Requirement", req.getId(), project.getId(), null, 
+                    "INTERNAL", "POST", "/api/generate/approve/" + generationId, 0L);
+        }
+        
         staging.setStatus(AiGenerationStatus.CONFIRMED);
         if (modifiedPayload != null) {
             staging.setPayload(modifiedPayload);
@@ -778,6 +790,12 @@ public class AiGenerationService {
         }
 
         useCaseRepository.saveAll(useCasesToSave);
+        
+        for (org.example.backend.entity.UseCase uc : useCasesToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_USE_CASE", 
+                    "UseCase", uc.getId(), project.getId(), null, 
+                    "INTERNAL", "POST", "/api/generate/approve-use-cases/" + generationId, 0L);
+        }
         
         staging.setStatus(AiGenerationStatus.CONFIRMED);
         if (modifiedPayload != null) {

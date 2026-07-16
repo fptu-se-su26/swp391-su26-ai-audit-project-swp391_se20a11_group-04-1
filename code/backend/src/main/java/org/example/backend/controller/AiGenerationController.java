@@ -44,11 +44,15 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Successfully analyzed file and extracted requirements.",
-                "generationId", generationId.toString()
-        ));
+        try {
+            UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Successfully analyzed file and extracted requirements.",
+                    "generationId", generationId.toString()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/debug/last-payload")
@@ -99,8 +103,12 @@ public class AiGenerationController {
             modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
         }
 
-        aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
+        try {
+            aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/regenerate/{generationId}")
@@ -111,8 +119,12 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        aiGenerationService.regenerateRequirements(generationId, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
+        try {
+            aiGenerationService.regenerateRequirements(generationId, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
     @PostMapping("/generate-use-cases/{projectId}")
     public ResponseEntity<?> generateUseCases(
@@ -123,11 +135,15 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Successfully started generating Use Cases.",
-                "generationId", generationId.toString()
-        ));
+        try {
+            UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Successfully started generating Use Cases.",
+                    "generationId", generationId.toString()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/approve-use-cases/{generationId}")
@@ -150,8 +166,12 @@ public class AiGenerationController {
             modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
         }
 
-        aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
+        try {
+            aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/use-cases/{useCaseId}/sync-preview")

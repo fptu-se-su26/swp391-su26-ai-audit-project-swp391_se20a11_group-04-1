@@ -21,6 +21,8 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const sidebarRef = useRef(null);
+  const isMounted = useRef(true);
+
   useEffect(() => {
     if (!projectId) return;
     
@@ -57,6 +59,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
 
     // Clear the store when unmounting
     return () => {
+      isMounted.current = false;
       reset();
     };
   }, [projectId, loadData, reset]);
@@ -69,7 +72,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       const currentState = useDiagramStore.getState();
       
       // Prevent saving empty state if unmounted (race condition fix)
-      if (currentState.actors.length === 0 && currentState.useCases.length === 0) {
+      if (!isMounted.current && currentState.actors.length === 0 && currentState.useCases.length === 0) {
           setSaveStatus('saved');
           return;
       }

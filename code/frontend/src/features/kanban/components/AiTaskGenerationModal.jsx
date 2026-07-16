@@ -34,9 +34,12 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
         let isValid = true;
         let warning = '';
 
-        if (reqUseCases.length === 0) {
+        if (req.type && req.type !== 'FUNCTIONAL') {
+          isValid = true;
+          warning = 'Requirement phi chức năng. Các Technical Task sẽ được tự động suy luận từ mô tả.';
+        } else if (reqUseCases.length === 0) {
           isValid = false;
-          warning = 'Requirement chưa có Use Case, không thể gen Task.';
+          warning = 'Requirement chức năng bắt buộc phải có Use Case mới cho đẻ Task.';
         } else {
           const hasInvalidUc = reqUseCases.some(uc => {
             const hasName = uc.name && uc.name.trim() !== '';

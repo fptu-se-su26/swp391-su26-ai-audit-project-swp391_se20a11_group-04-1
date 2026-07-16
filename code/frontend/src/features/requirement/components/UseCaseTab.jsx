@@ -67,7 +67,7 @@ const UseCaseTab = () => {
               onClick={() => !isHidden && handleFocus(uc.id)}
               title={isHidden ? "Hidden from diagram" : "Click to focus on diagram"}
             >
-              <div className={`w-2 h-2 rounded-full ${isHidden ? 'bg-gray-400' : (uc.isIsolated ? 'bg-red-400' : 'bg-green-400')}`} title={isHidden ? 'Hidden' : (uc.isIsolated ? 'Needs connection' : 'Connected')}></div>
+              <div className={`w-2 h-2 rounded-full ${isHidden ? 'bg-gray-400' : (uc.isIsolated !== false ? 'bg-red-400' : 'bg-green-400')}`} title={isHidden ? 'Hidden' : (uc.isIsolated !== false ? 'Needs connection' : 'Connected')}></div>
               <span className="text-sm font-medium text-gray-800 truncate">{uc.name}</span>
             </div>
             <div className="flex gap-1 ml-2">

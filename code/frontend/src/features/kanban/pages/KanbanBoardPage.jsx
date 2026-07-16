@@ -174,8 +174,35 @@ const KanbanBoardPage = () => {
     try {
       const payload = { requirementIds };
       const response = await taskService.generateAITasks(activeProject?.id, payload, { signal: abortControllerRef.current.signal });
-      setAiGenerationId(response.generationId);
-      toast.success('AI Task Generation completed!');
+      const genId = response.generationId;
+
+      const pollStatus = async () => {
+        if (!abortControllerRef.current) return; // User cancelled
+        
+        try {
+          const statusData = await taskService.getAIGenerationStatus(genId, { signal: abortControllerRef.current.signal });
+          if (statusData.status === 'PENDING') {
+            setTimeout(pollStatus, 3000);
+          } else {
+            setIsGeneratingTasks(false);
+            if (statusData.status === 'DISCARDED') {
+              toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
+            } else {
+              setAiGenerationId(genId);
+              toast.success('AI Task Generation completed!');
+            }
+            abortControllerRef.current = null;
+          }
+        } catch (e) {
+          if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            setIsGeneratingTasks(false);
+            toast.error("Lỗi khi kiểm tra trạng thái AI.");
+            abortControllerRef.current = null;
+          }
+        }
+      };
+
+      pollStatus();
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') {
         toast('Đã hủy quá trình Generate Tasks.', { icon: 'ℹ️' });
@@ -183,7 +210,6 @@ const KanbanBoardPage = () => {
         console.error(err);
         toast.error(err.response?.data?.error || 'Lỗi khi gọi AI Generate Tasks.');
       }
-    } finally {
       setIsGeneratingTasks(false);
       abortControllerRef.current = null;
     }

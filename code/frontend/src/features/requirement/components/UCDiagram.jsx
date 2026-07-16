@@ -154,8 +154,34 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [edgePopupPos, setEdgePopupPos] = useState({ x: 0, y: 0 });
 
+  const saveHistory = useCallback(() => {
+    const store = useDiagramStore.getState();
+    setHistory((prev) => [...prev.slice(-49), { // BUG 10 FIX: Limit to 50 items
+        nodes: nodes.map((n) => ({ ...n, position: { ...n.position } })),
+        edges: [...edges],
+        actors: [...store.actors], // BUG 6 FIX: Capture store state
+        useCases: [...store.useCases],
+        relations: [...store.relations]
+    }]);
+  }, [nodes, edges]);
+
   const onNodesChange = useCallback(
     (changes) => {
+        const removeChanges = changes.filter(c => c.type === 'remove');
+        if (removeChanges.length > 0) {
+            saveHistory();
+            removeChanges.forEach(change => {
+                const id = change.id;
+                if (id.startsWith('uc_')) {
+                    const rawId = id.replace('uc_', '');
+                    updateUseCase(rawId, { showInDiagram: false });
+                } else if (id.startsWith('actor_')) {
+                    const rawId = id.replace('actor_', '');
+                    removeActor(rawId);
+                }
+            });
+        }
+        
         setNodes((nds) => {
             const updatedNodes = applyNodeChanges(changes, nds);
             const isPositionChange = changes.some(c => c.type === 'position');
@@ -167,7 +193,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         const isSignificant = changes.some(c => c.type !== 'dimensions' && c.type !== 'select');
         if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
-    [onUnsavedChanges, setEdges]
+    [onUnsavedChanges, setEdges, saveHistory, updateUseCase, removeActor]
   );
   
   const onEdgesChange = useCallback(
@@ -178,17 +204,6 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
     },
     [onUnsavedChanges]
   );
-
-  const saveHistory = useCallback(() => {
-    const store = useDiagramStore.getState();
-    setHistory((prev) => [...prev.slice(-49), { // BUG 10 FIX: Limit to 50 items
-        nodes: nodes.map((n) => ({ ...n, position: { ...n.position } })),
-        edges: [...edges],
-        actors: [...store.actors], // BUG 6 FIX: Capture store state
-        useCases: [...store.useCases],
-        relations: [...store.relations]
-    }]);
-  }, [nodes, edges]);
 
   const onNodeDragStart = useCallback(() => {
     saveHistory();
@@ -255,7 +270,19 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
           if (existingRel && existingRel.type !== newType) {
               updateRelation(rawRelId, { type: newType });
           }
-          setEdges(eds => eds.map(edge => edge.id === edgeId ? { ...edge, data: { ...edge.data, relType: newType }, label: `<<${newType}>>` } : edge));
+          setEdges(eds => eds.map(edge => {
+              if (edge.id === edgeId) {
+                  const isDep = newType === 'include' || newType === 'extends';
+                  return { 
+                      ...edge, 
+                      data: { ...edge.data, relType: newType }, 
+                      label: `<<${newType}>>`,
+                      style: isDep ? { strokeDasharray: '5,5' } : {},
+                      markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
+                  };
+              }
+              return edge;
+          }));
           if (onUnsavedChanges) onUnsavedChanges();
       } else if (action === 'reverse') {
           const existingRel = relations.find(r => r.id.toString() === rawRelId);
@@ -382,7 +409,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                }
                return newNode;
            }
-           return { ...node, zIndex: node.id === 'system_boundary' ? 0 : 2 };
+           return { ...node, position: node.position || { x: 0, y: 0 }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
         });
         setNodes(restoredNodes);
         
@@ -412,22 +439,45 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
   useEffect(() => {
     if ((actors.length > 0 || useCases.length > 0) && !isInitialized) {
       initLayout();
-    } else if (actors.length === 0 && useCases.length === 0) {
-      setIsInitialized(false);
+    } else if (actors.length === 0 && useCases.length === 0 && !isInitialized) {
+      // If it's the first time loading an empty project, just stop loading.
+      // Do not revert isInitialized to false if it's already true, to preserve auto-save.
       setIsLoading(false);
     }
   }, [actors.length, useCases.length, initLayout, isInitialized]);
 
-  // Task 1: Sync new actors and useCases to the canvas dynamically
+  // Task 1: Sync new actors and useCases to the canvas dynamically and remove deleted ones
   useEffect(() => {
       if (!isInitialized) return;
       setNodes((nds) => {
           let updated = false;
           const newNodes = [...nds];
           
+          // 1. Remove nodes that no longer exist in the store
+          for (let i = newNodes.length - 1; i >= 0; i--) {
+              const node = newNodes[i];
+              if (node.id === 'system_boundary') continue;
+              
+              if (node.id.startsWith('actor_')) {
+                  const rawId = node.id.replace('actor_', '');
+                  if (!actors.find(a => a.id.toString() === rawId)) {
+                      newNodes.splice(i, 1);
+                      updated = true;
+                  }
+              } else if (node.id.startsWith('uc_')) {
+                  const rawId = node.id.replace('uc_', '');
+                  if (!useCases.find(uc => uc.id.toString() === rawId && uc.showInDiagram !== false)) {
+                      newNodes.splice(i, 1);
+                      updated = true;
+                  }
+              }
+          }
+          
+          // 2. Add or update actors
           actors.forEach(a => {
               const actorId = a.id.toString().startsWith('actor_') ? a.id.toString() : `actor_${a.id}`;
-              if (!newNodes.find(n => n.id === actorId)) {
+              const index = newNodes.findIndex(n => n.id === actorId);
+              if (index === -1) {
                   newNodes.push({
                       id: actorId,
                       type: 'actor',
@@ -440,13 +490,21 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                       }
                   });
                   updated = true;
+              } else if (newNodes[index].data.label !== a.name) {
+                  newNodes[index] = {
+                      ...newNodes[index],
+                      data: { ...newNodes[index].data, label: a.name || 'Actor' }
+                  };
+                  updated = true;
               }
           });
           
+          // 3. Add or update use cases
           useCases.forEach(uc => {
               if (uc.showInDiagram === false) return;
               const ucId = `uc_${uc.id}`;
-              if (!newNodes.find(n => n.id === ucId)) {
+              const index = newNodes.findIndex(n => n.id === ucId);
+              if (index === -1) {
                   newNodes.push({
                       id: ucId,
                       type: 'useCase',
@@ -459,6 +517,12 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                           onNameUpdate: handleNameUpdate
                       }
                   });
+                  updated = true;
+              } else if (newNodes[index].data.label !== uc.name) {
+                  newNodes[index] = {
+                      ...newNodes[index],
+                      data: { ...newNodes[index].data, label: uc.name || 'Untitled' }
+                  };
                   updated = true;
               }
           });
@@ -480,6 +544,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                   const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
                   const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
           
+                  const isDependency = rel.type === 'include' || rel.type === 'extends';
                   newEdges.push({
                       id: edgeId,
                       source,
@@ -490,6 +555,8 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                           onEdgeAction: handleEdgeAction
                       },
                       label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
+                      style: isDependency ? { strokeDasharray: '5,5' } : {},
+                      markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
                   });
                   updated = true;
               }

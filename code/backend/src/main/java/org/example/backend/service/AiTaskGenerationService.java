@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.example.backend.service.AuditService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -86,6 +87,9 @@ public class AiTaskGenerationService {
 
     @Autowired
     private org.example.backend.service.KanbanColumnService kanbanColumnService;
+    
+    @Autowired
+    private AuditService auditService;
 
     @Autowired
     public AiTaskGenerationService(TaskGeminiService taskGeminiService,
@@ -119,13 +123,16 @@ public class AiTaskGenerationService {
                 .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
 
         // 1. Data Collection
-        List<UseCase> useCases = self.fetchUseCases(request);
-        if (useCases.isEmpty()) {
-            throw new RuntimeException("No valid Use Cases found to generate tasks.");
+        List<UseCase> useCases = self.fetchUseCases(request, projectId);
+        List<Requirement> directReqs = self.fetchDirectRequirements(request, projectId, useCases);
+
+        if (useCases.isEmpty() && directReqs.isEmpty()) {
+            throw new RuntimeException("No valid Use Cases or Requirements found to generate tasks. For Functional Requirements, please generate Use Cases first, or they will be generated directly from the description.");
         }
 
-        String ucIdsStr = useCases.stream().map(uc -> uc.getCode() != null ? uc.getCode() : String.valueOf(uc.getId())).sorted().collect(Collectors.joining(","));
-        String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(ucIdsStr.getBytes());
+        String idsStr = useCases.stream().map(uc -> uc.getCode() != null ? uc.getCode() : String.valueOf(uc.getId())).sorted().collect(Collectors.joining(",")) +
+                        "|" + directReqs.stream().map(r -> r.getReqCode() != null ? r.getReqCode() : String.valueOf(r.getId())).sorted().collect(Collectors.joining(","));
+        String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(idsStr.getBytes());
         java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.TASK);
 
         if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
@@ -135,50 +142,22 @@ public class AiTaskGenerationService {
                     .project(project)
                     .stage(AiStage.TASK)
                     .generationId(generationId)
-                    .payload(oldStaging.getPayload())
+                    .payload(objectMapper.createObjectNode())
                     .fileHash(stagingHash)
                     .status(AiGenerationStatus.PENDING)
                     .build();
             stagingRepository.save(newStaging);
-            try {
-                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return generationId;
-        }
-
-        List<Task> existingTasks = self.fetchExistingTasks(projectId);
-        List<Map<String, Object>> members = self.fetchProjectMembers(projectId);
-
-        // 2. Chunking / Batching Phase 1: Task Generation
-        List<JsonNode> generatedTasksList = new ArrayList<>();
-        int batchSize = 5;
-        for (int i = 0; i < useCases.size(); i += batchSize) {
-            List<UseCase> batch = useCases.subList(i, Math.min(i + batchSize, useCases.size()));
-            JsonNode batchResult = generateTasksBatch(project, batch, existingTasks, members);
-            if (batchResult != null) {
-                if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
-                    batchResult.get("tasks").forEach(generatedTasksList::add);
-                } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
-                    batchResult.get("technical_tasks").forEach(generatedTasksList::add);
-                } else {
-                    log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(10000); // Synchronous fake AI delay (10s) so frontend shows loading
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-            }
-        }
-
-        // 3. Deterministic Checks (Circular Dependency, Invalid temp_id)
-        ArrayNode safeTasksNode = performDeterministicChecks(generatedTasksList);
-
-        // 4. Phase 2: Critical Audit
-        JsonNode auditResult = performCriticalAudit(safeTasksNode, useCases, existingTasks, members);
-
-        // 5. Staging
-        ObjectNode finalPayload = objectMapper.createObjectNode();
-        finalPayload.set("tasks", safeTasksNode);
-        if (auditResult != null && auditResult.has("ai_critical_assessment")) {
-            finalPayload.set("ai_critical_assessment", auditResult.get("ai_critical_assessment"));
+                newStaging.setPayload(oldStaging.getPayload());
+                newStaging.setStatus(AiGenerationStatus.CONFIRMED);
+                stagingRepository.save(newStaging);
+            });
+            return generationId;
         }
 
         UUID generationId = UUID.randomUUID();
@@ -186,17 +165,81 @@ public class AiTaskGenerationService {
                 .project(project)
                 .stage(AiStage.TASK)
                 .generationId(generationId)
-                .payload(finalPayload)
+                .payload(objectMapper.createObjectNode())
                 .fileHash(stagingHash)
                 .status(AiGenerationStatus.PENDING)
                 .build();
         stagingRepository.save(staging);
 
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                List<Task> existingTasks = self.fetchExistingTasks(projectId);
+                List<Map<String, Object>> members = self.fetchProjectMembers(projectId);
+
+                // 2. Chunking / Batching Phase 1: Task Generation
+                List<JsonNode> generatedTasksList = new ArrayList<>();
+                int batchSize = 5;
+                
+                // Process Functional Use Cases
+                for (int i = 0; i < useCases.size(); i += batchSize) {
+                    List<UseCase> batch = useCases.subList(i, Math.min(i + batchSize, useCases.size()));
+                    JsonNode batchResult = generateTasksBatch(project, batch, java.util.Collections.emptyList(), existingTasks, members);
+                    if (batchResult != null) {
+                        if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
+                            batchResult.get("tasks").forEach(generatedTasksList::add);
+                        } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
+                            batchResult.get("technical_tasks").forEach(generatedTasksList::add);
+                        } else {
+                            log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
+                        }
+                    }
+                }
+                
+                // Process Direct Requirements (Non-Functional or Functional without Use Cases)
+                for (int i = 0; i < directReqs.size(); i += batchSize) {
+                    List<Requirement> batch = directReqs.subList(i, Math.min(i + batchSize, directReqs.size()));
+                    JsonNode batchResult = generateTasksBatch(project, java.util.Collections.emptyList(), batch, existingTasks, members);
+                    if (batchResult != null) {
+                        if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
+                            batchResult.get("tasks").forEach(generatedTasksList::add);
+                        } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
+                            batchResult.get("technical_tasks").forEach(generatedTasksList::add);
+                        } else {
+                            log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
+                        }
+                    }
+                }
+
+                // 3. Deterministic Checks (Circular Dependency, Invalid temp_id)
+                ArrayNode safeTasksNode = performDeterministicChecks(generatedTasksList);
+
+                // 4. Phase 2: Critical Audit
+                JsonNode auditResult = performCriticalAudit(safeTasksNode, useCases, directReqs, existingTasks, members);
+
+                // 5. Update Staging
+                ObjectNode finalPayload = objectMapper.createObjectNode();
+                finalPayload.set("tasks", safeTasksNode);
+                if (auditResult != null && auditResult.has("ai_critical_assessment")) {
+                    finalPayload.set("ai_critical_assessment", auditResult.get("ai_critical_assessment"));
+                }
+                
+                staging.setPayload(finalPayload);
+                staging.setStatus(AiGenerationStatus.CONFIRMED);
+                stagingRepository.save(staging);
+            } catch (Exception e) {
+                log.error("Error during async task generation", e);
+                staging.setStatus(AiGenerationStatus.DISCARDED);
+                stagingRepository.save(staging);
+            }
+        });
+
         return generationId;
     }
 
+
+
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<UseCase> fetchUseCases(AiTaskGenerateRequest request) {
+    public List<UseCase> fetchUseCases(AiTaskGenerateRequest request, Long projectId) {
         List<UseCase> useCases = new ArrayList<>();
         if (request.getUseCaseIds() != null && !request.getUseCaseIds().isEmpty()) {
             useCases.addAll(useCaseRepository.findAllById(request.getUseCaseIds()));
@@ -204,14 +247,38 @@ public class AiTaskGenerationService {
             useCases.addAll(useCaseRepository.findByRequirementIdIn(request.getRequirementIds()));
         }
         
-        // Eagerly initialize Requirement to avoid LazyInitializationException outside transaction
         for (UseCase uc : useCases) {
+            if (!uc.getProjectId().equals(projectId)) {
+                throw new RuntimeException("UseCase ID " + uc.getId() + " không thuộc dự án này.");
+            }
             if (uc.getRequirement() != null) {
                 org.hibernate.Hibernate.initialize(uc.getRequirement());
             }
         }
         
         return useCases;
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Requirement> fetchDirectRequirements(AiTaskGenerateRequest request, Long projectId, List<UseCase> fetchedUseCases) {
+        List<Requirement> reqs = new ArrayList<>();
+        if (request.getRequirementIds() != null && !request.getRequirementIds().isEmpty()) {
+            reqs.addAll(requirementRepository.findAllById(request.getRequirementIds()));
+        }
+        for (Requirement req : reqs) {
+            if (!req.getProject().getId().equals(projectId)) {
+                throw new RuntimeException("Requirement ID " + req.getId() + " không thuộc dự án này.");
+            }
+        }
+        
+        java.util.Set<Long> reqIdsWithUseCases = fetchedUseCases.stream()
+            .filter(uc -> uc.getRequirement() != null)
+            .map(uc -> uc.getRequirement().getId())
+            .collect(Collectors.toSet());
+            
+        return reqs.stream()
+                .filter(r -> r.getType() != org.example.backend.entity.RequirementType.FUNCTIONAL || !reqIdsWithUseCases.contains(r.getId()))
+                .collect(Collectors.toList());
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -238,7 +305,7 @@ public class AiTaskGenerationService {
         return tasks;
     }
 
-    private JsonNode generateTasksBatch(Project project, List<UseCase> useCases, List<Task> existingTasks, List<Map<String, Object>> members) {
+    private JsonNode generateTasksBatch(Project project, List<UseCase> useCases, List<Requirement> nonFunctionalReqs, List<Task> existingTasks, List<Map<String, Object>> members) {
         try {
             String todayStr = java.time.LocalDate.now().toString();
             String startDateStr = project.getStartDate() != null ? project.getStartDate().toString() : todayStr;
@@ -260,11 +327,24 @@ public class AiTaskGenerationService {
                 map.put("alternativeFlows", uc.getAlternativeFlow());
                 return map;
             }).collect(Collectors.toList());
+            
+            List<Map<String, Object>> simpleNonFuncReqs = nonFunctionalReqs.stream().map(req -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", req.getId());
+                map.put("requirementCode", req.getReqCode());
+                map.put("title", req.getTitle());
+                map.put("description", req.getDescription());
+                map.put("type", req.getType() != null ? req.getType().name() : "N/A");
+                return map;
+            }).collect(Collectors.toList());
 
-            java.util.Set<Long> reqIds = useCases.stream()
+            java.util.Set<Long> reqIds = new java.util.HashSet<>();
+            reqIds.addAll(useCases.stream()
                 .filter(uc -> uc.getRequirement() != null)
                 .map(uc -> uc.getRequirement().getId())
-                .collect(Collectors.toSet());
+                .collect(Collectors.toSet()));
+            reqIds.addAll(nonFunctionalReqs.stream().map(Requirement::getId).collect(Collectors.toSet()));
+
             java.util.Set<Long> ucIds = useCases.stream()
                 .map(UseCase::getId)
                 .collect(Collectors.toSet());
@@ -282,6 +362,7 @@ public class AiTaskGenerationService {
             }).collect(Collectors.toList());
 
             dataNode.set("useCases", objectMapper.valueToTree(simpleUseCases));
+            dataNode.set("nonFunctionalRequirements", objectMapper.valueToTree(simpleNonFuncReqs));
             dataNode.set("existingTasks", objectMapper.valueToTree(simpleExistingTasks));
             
             // Calculate current workload
@@ -372,7 +453,7 @@ public class AiTaskGenerationService {
         return false;
     }
 
-    private JsonNode performCriticalAudit(ArrayNode generatedTasks, List<UseCase> useCases, List<Task> existingTasks, List<Map<String, Object>> members) {
+    private JsonNode performCriticalAudit(ArrayNode generatedTasks, List<UseCase> useCases, List<Requirement> nonFunctionalReqs, List<Task> existingTasks, List<Map<String, Object>> members) {
         try {
             ObjectNode dataNode = objectMapper.createObjectNode();
 
@@ -385,6 +466,15 @@ public class AiTaskGenerationService {
                 map.put("alternativeFlows", uc.getAlternativeFlow());
                 return map;
             }).collect(Collectors.toList());
+            
+            List<Map<String, Object>> simpleNonFuncReqs = nonFunctionalReqs.stream().map(req -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", req.getId());
+                map.put("requirementCode", req.getReqCode());
+                map.put("title", req.getTitle());
+                map.put("description", req.getDescription());
+                return map;
+            }).collect(Collectors.toList());
 
             List<Map<String, Object>> simpleExistingTasks = existingTasks.stream().map(t -> {
                 Map<String, Object> map = new HashMap<>();
@@ -395,6 +485,7 @@ public class AiTaskGenerationService {
             }).collect(Collectors.toList());
 
             dataNode.set("requirementsWithUCsJson", objectMapper.valueToTree(simpleUseCases));
+            dataNode.set("nonFunctionalRequirementsJson", objectMapper.valueToTree(simpleNonFuncReqs));
             dataNode.set("existingTasksJson", objectMapper.valueToTree(simpleExistingTasks));
             dataNode.set("projectMembersJson", objectMapper.valueToTree(members));
             dataNode.set("generatedTasksJson", generatedTasks);
@@ -713,6 +804,10 @@ public class AiTaskGenerationService {
                             if (task.getPrimaryAssignee() != null) existingTask.setPrimaryAssignee(task.getPrimaryAssignee());
                             taskRepository.save(existingTask);
                             
+                            auditService.publishSuccess(userId, creator.getUsername(), "UPDATE_TASK", 
+                                    "Task", existingTask.getId(), projectId, null, 
+                                    "INTERNAL", "POST", "/api/generate/approve-tasks/" + generationId, 0L);
+                            
                             // Save Checklists for existing task
                             if (taskNode.has("checklists") && taskNode.get("checklists").isArray()) {
                                 // Delete old checklists
@@ -740,6 +835,10 @@ public class AiTaskGenerationService {
                 }
 
                 taskRepository.save(task);
+
+                auditService.publishSuccess(userId, creator.getUsername(), "CREATE_TASK", 
+                        "Task", task.getId(), projectId, null, 
+                        "INTERNAL", "POST", "/api/generate/approve-tasks/" + generationId, 0L);
 
                 // Save Checklists
                 if (taskNode.has("checklists") && taskNode.get("checklists").isArray()) {

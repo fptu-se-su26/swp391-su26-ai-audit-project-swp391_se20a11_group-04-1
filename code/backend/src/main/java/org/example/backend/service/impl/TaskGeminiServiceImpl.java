@@ -18,11 +18,14 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     @Override
     public String generateTasksBatch(String contextDataJson) {
         String prompt = "SYSTEM:\n" +
-                "You are an expert Technical Project Manager. Your job is to break down Use Cases into logical technical tasks.\n\n" +
+                "You are an expert Technical Project Manager. Your job is to break down Use Cases AND Non-Functional Requirements into logical technical tasks.\n\n" +
                 "DUPLICATION PREVENTION RULES (CRITICAL):\n" +
                 "- You will be provided with 'existingTasks'. You MUST NOT generate any new tasks for scopes/features that are already covered by these 'existingTasks'.\n" +
-                "- Only generate tasks for the MISSING gaps in the Use Cases.\n" +
-                "- If a Use Case is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
+                "- Only generate tasks for the MISSING gaps in the Use Cases and Non-Functional Requirements.\n" +
+                "- If a Use Case or Requirement is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
+                "REQUIREMENT RULES:\n" +
+                "- For Functional Requirements (with Use Cases), break down tasks based on the main/alternative flows.\n" +
+                "- For Non-Functional Requirements (without Use Cases), generate technical tasks directly to fulfill the scope of the requirement (e.g. configuring servers, setting up auth).\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +
                 "- Medium (full feature): 3-5 days.\n" +
@@ -73,7 +76,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "    {\n" +
                 "      \"temp_id\": \"Unique string like t1, t2\",\n" +
                 "      \"requirement_code\": \"Code of the parent Requirement\",\n" +
-                "      \"use_case_code\": \"Code of the parent Use Case\",\n" +
+                "      \"use_case_code\": \"Code of the parent Use Case (Can be null or empty for non-functional requirements)\",\n" +
                 "      \"title\": \"Clear technical action\",\n" +
                 "      \"description\": \"Detailed scope and acceptance criteria\",\n" +
                 "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
@@ -97,11 +100,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     @Override
     public String auditTasks(String contextDataJson) {
         String prompt = "SYSTEM:\n" +
-                "You are an expert Technical Auditor. Your job is to review a freshly generated list of technical tasks against the original Use Cases and existing tasks.\n" +
+                "You are an expert Technical Auditor. Your job is to review a freshly generated list of technical tasks against the original Use Cases, Non-Functional Requirements, and existing tasks.\n" +
                 "Do not generate new tasks. Only analyze the provided tasks.\n" +
                 "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in Vietnamese. Be extremely concise and direct.\n\n" +
                 "Identify risks in these specific categories:\n" +
-                "1. Coverage Gaps: Are there any steps in the Use Case mainFlow/alternativeFlows that are not covered by any generated task?\n" +
+                "1. Coverage Gaps: Are there any steps in the Use Case flows, or any core scopes in the Non-Functional Requirements that are not covered by any generated task?\n" +
                 "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks?\n" +
                 "3. Technical & Workload Risks: Security vulnerabilities, architectural gaps, or severe workload imbalances.\n\n" +
                 "JSON FORMATTING RULES:\n" +
@@ -115,7 +118,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "  \"ai_critical_assessment\": {\n" +
                 "    \"coverage_gaps\": [\n" +
                 "      {\n" +
-                "        \"use_case_code\": \"UC-...\",\n" +
+                "        \"use_case_code\": \"UC-... (or Requirement Code if no UC)\",\n" +
                 "        \"missing_step\": \"Detailed description\",\n" +
                 "        \"severity\": \"CRITICAL|HIGH|MEDIUM|LOW\",\n" +
                 "        \"recommendation\": \"How to cover this gap\"\n" +

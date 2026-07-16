@@ -286,7 +286,7 @@ const EditableTaskCard = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Checklist ({(editForm.checklists || []).length})</span>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
               {(editForm.checklists || []).map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-slate-300 text-[20px]">check_box_outline_blank</span>
@@ -299,7 +299,7 @@ const EditableTaskCard = ({
                   />
                   <button 
                     onClick={() => handleRemoveChecklist(idx)}
-                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors shrink-0"
                     title="Xóa tiêu chí"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -308,7 +308,7 @@ const EditableTaskCard = ({
               ))}
               <button 
                 onClick={handleAddChecklist}
-                className="self-start mt-1 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200 transition-colors flex items-center gap-1"
+                className="self-start mt-1 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200 transition-colors flex items-center gap-1 shrink-0"
               >
                 <span className="material-symbols-outlined text-[14px]">add</span>
                 Thêm tiêu chí
@@ -383,7 +383,7 @@ const EditableTaskCard = ({
             </span>
             <span className="text-[11px] font-medium text-slate-500">0/{task.checklists.length}</span>
           </div>
-          <div className="p-2 flex flex-col gap-1.5">
+          <div className="p-2 flex flex-col gap-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
             {task.checklists.map((item, idx) => (
               <div key={idx} className="flex items-start gap-2 group">
                 <span className="material-symbols-outlined text-slate-300 text-[18px] mt-0.5 group-hover:text-indigo-300 transition-colors cursor-default">check_box_outline_blank</span>

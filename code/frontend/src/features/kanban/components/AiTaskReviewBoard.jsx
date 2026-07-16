@@ -85,6 +85,17 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         try { payloadData = JSON.parse(payloadData); } catch(e) {}
       }
       
+      // If somehow it's still PENDING, we shouldn't show it as completed
+      if (data.status === 'PENDING') {
+        return;
+      }
+      
+      if (data.status === 'DISCARDED') {
+        toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
+        onClose();
+        return;
+      }
+      
       const generatedTasks = payloadData.tasks || [];
       
       if (generatedTasks.length === 0) {
@@ -113,10 +124,10 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
       // Do NOT auto select generated tasks initially
       setSelectedIndices(new Set());
+      setLoading(false);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load generated Tasks.");
-    } finally {
       setLoading(false);
     }
   };
