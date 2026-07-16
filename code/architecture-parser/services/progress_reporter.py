@@ -2,6 +2,14 @@ import json
 import redis
 import os
 
+
+class DummyReporter:
+    """No-op reporter for operations that don't need progress tracking (e.g. selector scan)."""
+
+    def report(self, progress: int = 0, status: str = '', current_step: str = '', error_message: str = None):
+        pass
+
+
 class ProgressReporter:
     def __init__(self, project_id: int):
         self.project_id = project_id

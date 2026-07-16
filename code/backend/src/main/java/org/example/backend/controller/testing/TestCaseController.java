@@ -20,6 +20,7 @@ import org.example.backend.entity.AiGenerationStaging;
 import org.example.backend.entity.AiGenerationStatus;
 import org.example.backend.repository.AiGenerationStagingRepository;
 import org.example.backend.service.AiGenerationService;
+import org.example.backend.service.SelectorEnrichmentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.exception.ResourceNotFoundException;
 import java.util.UUID;
@@ -51,6 +52,7 @@ public class TestCaseController {
     private final AiGenerationStagingRepository aiGenerationStagingRepository;
     private final AiGenerationService aiGenerationService;
     private final ObjectMapper objectMapper;
+    private final SelectorEnrichmentService selectorEnrichmentService;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -170,14 +172,23 @@ public class TestCaseController {
             @Valid @RequestBody org.example.backend.dto.testing.AiTestCaseGenerateRequest request,
             Principal principal) {
         
+        UserAccount user = userAccountRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         // 1. Validate constraints and save PROCESSING staging
         AiGenerationStaging staging = aiTestCaseGeneratorService.createProcessingStaging(request, projectId);
         
         try {
-            // 2. Call Gemini
-            org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData = aiTestCaseGeneratorService.generateTestCases(request);
+            // 2. [NEW] Enrich with real selectors from GitHub source code if requested
+            String selectorContext = null;
+            if (request.isEnrichWithSelectors()) {
+                selectorContext = selectorEnrichmentService.extractSelectorContext(projectId, user.getId());
+            }
+
+            // 3. Call Gemini (with optional selectorContext)
+            org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData = aiTestCaseGeneratorService.generateTestCases(request, selectorContext);
             
-            // 3. Update staging to PENDING with payload
+            // 4. Update staging to PENDING with payload
             staging.setStatus(AiGenerationStatus.PENDING);
             staging.setPayload(objectMapper.valueToTree(generatedData));
             AiGenerationStaging saved = aiGenerationStagingRepository.save(staging);

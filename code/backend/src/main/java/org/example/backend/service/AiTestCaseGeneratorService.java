@@ -59,6 +59,10 @@ public class AiTestCaseGeneratorService {
     }
 
     public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request) {
+        return generateTestCases(request, null);
+    }
+
+    public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request, String selectorContext) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new BusinessException("Gemini API key is not configured.");
         }
@@ -95,7 +99,7 @@ public class AiTestCaseGeneratorService {
         }
 
         String prompt = buildPrompt(request.getTestType(), request.isSmartMode(), requirementContext,
-                useCaseContext, request.getAdditionalContext());
+                useCaseContext, request.getAdditionalContext(), selectorContext);
 
         String rawJson = callGemini(prompt, "application/json");
         AiTestCaseGenerateResponse generatedResponse = parseJsonObject(rawJson, new TypeReference<AiTestCaseGenerateResponse>() {});
@@ -264,7 +268,7 @@ public class AiTestCaseGeneratorService {
     // ── Prompt Builder (8-Step QA Engineer Framework) ─────────────────────────
 
     private String buildPrompt(TestType testType, boolean smartMode, String requirementContext,
-                               String useCaseContext, String additionalContext) {
+                               String useCaseContext, String additionalContext, String selectorContext) {
 
         String basePrompt =
                 "# ROLE\n" +
@@ -318,10 +322,26 @@ public class AiTestCaseGeneratorService {
                 "====================================================\n" +
                 "Before generating Test Cases, combine all information:\n" +
                 "Requirement + Acceptance Criteria + Use Cases + Business Rules + Additional Context.\n" +
-                "These together represent the complete understanding of the feature. Never rely on only one source.\n\n" +
+                "These together represent the complete understanding of the feature. Never rely on only one source.\n\n";
 
+        // [NEW] Inject real selector context from GitHub source scan if available
+        if (selectorContext != null && !selectorContext.isBlank()) {
+            basePrompt +=
                 "====================================================\n" +
-                "STEP 7 — Generate Test Cases\n" +
+                "STEP 6b \u2014 Source Code Selector Map (from GitHub)\n" +
+                "====================================================\n" +
+                selectorContext + "\n" +
+                "CRITICAL SELECTOR RULE:\n" +
+                "- For ALL UI test case steps, you MUST use selectors from the SOURCE CODE SELECTORS list above.\n" +
+                "- Prefer 'data-testid' selectors first, then 'id', then 'name', then 'aria-label', then 'placeholder'.\n" +
+                "- Format: [data-testid='value'] for data-testid, #value for id, [name='value'] for name.\n" +
+                "- If the exact element you need is not listed, use: button:has-text('ButtonText') or role selectors.\n" +
+                "- Do NOT invent selectors like [data-testid='submit-btn'] if 'submit-btn' is not in the list above.\n\n";
+        }
+
+        basePrompt +=
+                "====================================================\n" +
+                "STEP 7 \u2014 Generate Test Cases\n" +
                 "====================================================\n" +
                 "Generate Test Cases based on your understanding.\n" +
                 "Cover: Positive scenarios, Negative scenarios, Validation scenarios, Boundary scenarios, Business Rule scenarios.\n" +

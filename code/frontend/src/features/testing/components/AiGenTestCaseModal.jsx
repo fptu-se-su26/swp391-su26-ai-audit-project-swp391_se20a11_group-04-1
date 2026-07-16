@@ -25,6 +25,7 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [enrichWithSelectors, setEnrichWithSelectors] = useState(false)
 
   const getPresetText = (p) => {
     switch(p) {
@@ -44,6 +45,7 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
       setError(null)
       setIsSubmitting(false)
       setShowAdvanced(false)
+      setEnrichWithSelectors(false)
       // Fetch requirements
       requirementService.getRequirements(projectId)
         .then(res => setRequirements(res))
@@ -66,7 +68,8 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
       smartMode: testType === 'AI Decides',
       requirementId: parseInt(requirementId),
       additionalContext,
-      discardExisting: false
+      discardExisting: false,
+      enrichWithSelectors,
     }
     onSubmit(payload)
     // Removed immediate onClose() so the button stays disabled, the parent component handles closing
@@ -192,36 +195,74 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
             </button>
 
             {showAdvanced && (
-              <div style={{ marginTop: 12 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>Test Type</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['UI', 'API', 'MANUAL', 'AI Decides'].map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setTestType(type)}
-                      style={{
-                        flex: 1, padding: '10px 0', borderRadius: 10,
-                        border: `1.5px solid ${testType === type ? C.primary : C.border}`,
-                        background: testType === type ? '#F0F9FA' : C.surface,
-                        color: testType === type ? C.primary : C.textSec,
-                        fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                      }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                        {type === 'UI' ? 'web' : type === 'API' ? 'api' : type === 'MANUAL' ? 'assignment' : 'auto_awesome'}
-                      </span>
-                      {type === 'AI Decides' ? 'Smart' : type}
-                    </button>
-                  ))}
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Test Type selector */}
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 8 }}>Test Type</label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {['UI', 'API', 'MANUAL', 'AI Decides'].map(type => (
+                      <button
+                        key={type}
+                        onClick={() => setTestType(type)}
+                        style={{
+                          flex: 1, padding: '10px 0', borderRadius: 10,
+                          border: `1.5px solid ${testType === type ? C.primary : C.border}`,
+                          background: testType === type ? '#F0F9FA' : C.surface,
+                          color: testType === type ? C.primary : C.textSec,
+                          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                          {type === 'UI' ? 'web' : type === 'API' ? 'api' : type === 'MANUAL' ? 'assignment' : 'auto_awesome'}
+                        </span>
+                        {type === 'AI Decides' ? 'Smart' : type}
+                      </button>
+                    ))}
+                  </div>
+                  {testType === 'AI Decides' && (
+                    <p style={{ margin: '8px 0 0', fontSize: 12, color: C.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
+                      AI will choose the best type (UI, API, or MANUAL) for each test case.
+                    </p>
+                  )}
                 </div>
-                {testType === 'AI Decides' && (
-                  <p style={{ margin: '8px 0 0', fontSize: 12, color: C.primary, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
-                    AI will choose the best type (UI, API, or MANUAL) for each test case.
-                  </p>
-                )}
+
+                {/* Enrich with Source Selectors toggle */}
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: `1px solid ${enrichWithSelectors ? C.primary : C.border}`,
+                  background: enrichWithSelectors ? '#F0F9FA' : C.bg,
+                  transition: 'all 0.2s',
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={enrichWithSelectors}
+                      onChange={(e) => setEnrichWithSelectors(e.target.checked)}
+                      style={{ marginTop: 2, accentColor: C.primary, width: 16, height: 16, flexShrink: 0 }}
+                    />
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: enrichWithSelectors ? C.primary : C.textSec }}>
+                          code
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: enrichWithSelectors ? C.primaryDark : C.textPri }}>
+                          Enrich with Source Selectors
+                        </span>
+                      </div>
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
+                        AI scans your GitHub source code to find real <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>data-testid</code>,{' '}
+                        <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>id</code>, and{' '}
+                        <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>name</code> attributes.
+                        Generates accurate selectors instead of guessed ones.
+                        Requires GitHub integration. Adds ~20–30s.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
           </div>

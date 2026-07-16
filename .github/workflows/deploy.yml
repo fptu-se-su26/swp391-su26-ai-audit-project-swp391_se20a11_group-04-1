@@ -68,9 +68,14 @@ jobs:
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps playwright-server
 
-            # 5. Đảm bảo các infra container luôn chạy
+            # 5. Rebuild architecture-parser với code mới (selector_scan_service.py)
+            echo ">> Rebuilding architecture-parser..."
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build architecture-parser
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate architecture-parser
+
+            # 6. Đảm bảo các infra container luôn chạy
             echo ">> Checking Infra Containers..."
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d kafka postgres redis mongodb architecture-parser
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d kafka postgres redis mongodb
 
             echo "=========================================="
             echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
