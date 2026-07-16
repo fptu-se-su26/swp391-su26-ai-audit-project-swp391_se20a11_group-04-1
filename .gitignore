@@ -37,6 +37,8 @@ code/frontend/npm-debug.log*
 code/frontend/yarn-debug.log*
 code/frontend/yarn-error.log*
 code/frontend/pnpm-debug.log*
+code/frontend/playwright-report/
+code/frontend/test-results/
 
 # --- IDE & TOOLS ---
 .idea/

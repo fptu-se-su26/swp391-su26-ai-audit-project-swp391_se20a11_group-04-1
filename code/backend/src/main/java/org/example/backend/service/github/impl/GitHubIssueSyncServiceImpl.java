@@ -52,8 +52,11 @@ public class GitHubIssueSyncServiceImpl implements GitHubIssueSyncService {
     @Override
     public void createGitHubIssue(BugReport bugReport, Long userId) {
         Long projectId = bugReport.getProject().getId();
-        GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId)
-                .orElseThrow(() -> new CustomException("GitHub integration not found for this project", HttpStatus.BAD_REQUEST));
+        GitHubIntegration integration = gitHubIntegrationRepository.findByProjectId(projectId).orElse(null);
+        if (integration == null) {
+            log.warn("Skipping GitHub sync for Bug Report ID: {}. No integration found for project {}", bugReport.getId(), projectId);
+            return;
+        }
 
         UserGithubToken userToken = findIntegrationOwnerToken(integration);
         String accessToken = integrationService.decryptToken(userToken.getAccessTokenEncrypted());
