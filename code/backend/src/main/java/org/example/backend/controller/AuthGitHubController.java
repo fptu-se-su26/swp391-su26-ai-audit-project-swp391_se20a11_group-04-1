@@ -13,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -53,10 +52,6 @@ public class AuthGitHubController {
         String login = (String) profile.get("login");
         String avatarUrl = (String) profile.get("avatar_url");
 
-        if (login == null || login.trim().isEmpty() || accessToken == null || accessToken.trim().isEmpty()) {
-            throw new CustomException("GitHub did not return enough account information. Please try again.", HttpStatus.BAD_REQUEST);
-        }
-
         // 3. Handle private email case
         if (email == null || email.trim().isEmpty()) {
             log.info("GitHub profile email is private. Fetching from user emails API...");
@@ -72,11 +67,12 @@ public class AuthGitHubController {
 
         // 4. Check if user already exists
         if (!authService.existsByEmail(email)) {
-            Map<String, String> githubInfo = new HashMap<>();
-            githubInfo.put("email", email);
-            githubInfo.put("username", login);
-            githubInfo.put("avatarUrl", avatarUrl);
-            githubInfo.put("accessToken", accessToken);
+            Map<String, String> githubInfo = Map.of(
+                    "email", email,
+                    "username", login,
+                    "avatarUrl", avatarUrl,
+                    "accessToken", accessToken
+            );
             ApiResponse<Map<String, String>> errResponse = ApiResponse.<Map<String, String>>builder()
                     .success(false)
                     .errorCode("USER_NOT_REGISTERED")
