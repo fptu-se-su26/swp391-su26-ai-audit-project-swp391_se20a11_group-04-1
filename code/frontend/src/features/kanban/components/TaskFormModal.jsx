@@ -267,6 +267,8 @@ const TaskFormModal = ({
               <input
                 type="date"
                 value={formData.startDate}
+                min={new Date().toISOString().split('T')[0]}
+                max={requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
                 onChange={(event) => updateField('startDate', event.target.value)}
                 aria-invalid={Boolean(errors.startDate)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
@@ -281,6 +283,8 @@ const TaskFormModal = ({
                 <input
                   type="date"
                   value={formData.deadline}
+                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  max={requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
                   onChange={(event) => updateField('deadline', event.target.value)}
                   aria-invalid={Boolean(errors.deadline)}
                   className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${

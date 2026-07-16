@@ -18,4 +18,6 @@ public class UseCaseRequest {
     private List<String> actors;
     private org.example.backend.entity.UseCaseStatus status;
     private String version;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
 }

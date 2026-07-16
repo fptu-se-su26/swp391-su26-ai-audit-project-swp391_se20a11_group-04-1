@@ -51,6 +51,8 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Base tasks (no dependencies) MUST have start_date = projectStartDate (or today if projectStartDate is in the past).\n" +
                 "- Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
                 "- start_date >= projectStartDate AND suggested_deadline <= projectDeadline.\n" +
+                "- CRITICAL BOUNDARY RULE: If a task belongs to a Use Case, its start_date and suggested_deadline MUST fall strictly within that Use Case's start_date and deadline.\n" +
+                "- If a task belongs to a Requirement (and no Use Case), its dates MUST fall strictly within that Requirement's start_date and deadline.\n" +
                 "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap!\n\n" +
                 "PRIORITY RULES:\n" +
                 "- Core tasks (Database, Core API) MUST inherit the exact priority of their parent Requirement.\n" +
@@ -162,7 +164,8 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "8. NEVER generate past dates. start_date MUST BE >= today.\n" +
                 "9. suggested_deadline MUST BE >= start_date.\n" +
                 "10. Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
-                "11. The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n\n" +
+                "11. CRITICAL BOUNDARY RULE: The start_date and suggested_deadline of the sub-tasks MUST fall strictly within the start_date and deadline of the original Task provided below.\n" +
+                "12. The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n\n" +
                 "EXAMPLE OF FORCED SPLITTING FOR A TINY TASK:\n" +
                 "Input: {\"title\": \"Change button color to red\", \"description\": \"Update the hex code.\"}\n" +
                 "Output:\n" +
@@ -207,6 +210,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- You MUST generate 3 to 5 'checklists' items as the combined Definition of Done. Consolidate criteria from the original tasks.\n" +
                 "- NEVER generate past dates. start_date MUST BE >= today.\n" +
                 "- suggested_deadline MUST BE >= start_date.\n" +
+                "- CRITICAL BOUNDARY RULE: The start_date and suggested_deadline of the merged_task MUST fall strictly within the MIN(start_date) and MAX(suggested_deadline) of the original tasks provided below.\n" +
                 "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n" +
                 "- If the tasks CANNOT be logically merged (e.g., completely unrelated), return null for merged_task AND provide a 'reason' string explaining why briefly.\n" +
                 "- Return JSON only. No extra text.\n\n" +

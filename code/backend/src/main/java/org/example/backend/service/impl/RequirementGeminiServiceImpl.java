@@ -20,7 +20,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
     }
 
     @Override
-    public String extractRequirementsFromText(String documentText) {
+    public String extractRequirementsFromText(String documentText, org.example.backend.entity.Project project) {
         // Phase 1: Determine Domain and Priorities
         String phase1Prompt = "You are an expert System Architect. Analyze the following project document text. " +
                 "Your task is to identify the primary business domain of the project and list the top 3-5 most critical Non-Functional Requirements (NFRs) / Constraints for this specific domain. " +
@@ -72,6 +72,8 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
                 "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
                 "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
+                "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before the project start date: " + (project != null && project.getStartDate() != null ? project.getStartDate().toString() : "N/A") + ".\n" +
+                "   h. 'deadline': (String) Generate a logical deadline for this requirement in YYYY-MM-DD format. The date MUST NOT be after the project deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
                 "--- DOCUMENT TEXT ---\n" + documentText;

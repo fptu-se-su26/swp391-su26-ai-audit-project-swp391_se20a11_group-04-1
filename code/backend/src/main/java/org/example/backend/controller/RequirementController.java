@@ -71,6 +71,16 @@ public class RequirementController {
         return ResponseEntity.ok(ApiResponse.success(null, "Requirement deleted"));
     }
 
+    @PutMapping("/project/{projectId}/reorder")
+    public ResponseEntity<ApiResponse<Void>> reorderRequirements(
+            @PathVariable Long projectId,
+            @RequestBody org.example.backend.dto.ReorderRequestDTO request,
+            HttpSession session) {
+        requireUser(session);
+        requirementService.reorderRequirements(projectId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Requirements reordered"));
+    }
+
     @GetMapping("/tags")
     public ResponseEntity<ApiResponse<java.util.List<String>>> getTagsByProject(@RequestParam Long projectId, HttpSession session) {
         requireUser(session);

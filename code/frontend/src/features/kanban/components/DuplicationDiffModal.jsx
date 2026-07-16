@@ -131,6 +131,7 @@ const DuplicationDiffModal = ({
                 priorityColor={priorityColor}
                 getTypeConfig={getTypeConfig}
                 readOnlyMode={true}
+                maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-lg border border-slate-200 border-dashed text-slate-400">

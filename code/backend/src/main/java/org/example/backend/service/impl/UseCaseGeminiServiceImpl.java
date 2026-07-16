@@ -16,13 +16,15 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
     }
 
     @Override
-    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> projectActors, java.util.List<String> existingUseCases) {
+    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> projectActors, java.util.List<String> existingUseCases, org.example.backend.entity.Project project) {
         StringBuilder reqsContext = new StringBuilder();
         for (org.example.backend.entity.Requirement r : requirements) {
             reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
             reqsContext.append("Title: ").append(r.getTitle()).append("\n");
             reqsContext.append("Description: ").append(r.getDescription()).append("\n");
             reqsContext.append("Type: ").append(r.getType()).append("\n");
+            reqsContext.append("Start Date: ").append(r.getStartDate()).append("\n");
+            reqsContext.append("Deadline: ").append(r.getDeadline()).append("\n");
             if (r.getType() != null) {
                 switch (r.getType()) {
                     case FUNCTIONAL:
@@ -77,7 +79,9 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "   - RULE: Extend means this Use Case is an OPTIONAL/ALTERNATIVE extension to the base Use Case. \n" +
                 "   - Identify extending Use Cases by their names (e.g., View Detail, View Results, Cancel, Edit, Export). \n" +
                 "   - Direction: This Use Case (Extension) ---> Base Use Case. \n" +
-                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical extends.\n\n" +
+                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical extends.\n" +
+                "10. 'startDate': (String) Generate a logical start date for this use case in YYYY-MM-DD format. The date MUST NOT be before the requirement's start date, and MUST NOT be before the project's start date: " + (project != null && project.getStartDate() != null ? project.getStartDate().toString() : "N/A") + ".\n" +
+                "11. 'deadline': (String) Generate a logical deadline for this use case in YYYY-MM-DD format. The date MUST NOT be after the requirement's deadline, and MUST NOT be after the project's deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n\n" +
                 "STRICT UML BUSINESS RULES:\n" +
                 "- An isolated Use Case (no actors) CANNOT include or extend other isolated Use Cases. At least one must be connected to an actor.\n" +
                 "- Use Cases that represent system sub-routines (e.g., Record, Log, Verify) should generally NOT have an actor connected directly to them, and should only be 'included' by other Use Cases.\n" +

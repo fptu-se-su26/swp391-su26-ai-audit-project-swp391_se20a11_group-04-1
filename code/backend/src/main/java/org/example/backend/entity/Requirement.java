@@ -57,6 +57,21 @@ public class Requirement {
     @JoinColumn(name = "owner_id")
     private UserAccount owner;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "requirement_co_owners",
+        joinColumns = @JoinColumn(name = "requirement_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @Builder.Default
+    private java.util.Set<UserAccount> coOwners = new java.util.HashSet<>();
+
+    @Column(name = "start_date")
+    private java.time.LocalDate startDate;
+
+    @Column(name = "deadline")
+    private java.time.LocalDate deadline;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)

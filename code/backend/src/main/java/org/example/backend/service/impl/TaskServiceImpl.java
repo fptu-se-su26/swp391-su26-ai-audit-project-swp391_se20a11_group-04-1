@@ -1222,9 +1222,35 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.getType() != null) task.setType(parseEnum(request.getType(), TaskType.class, task.getType()));
         if (request.getPriority() != null) task.setPriority(parseEnum(request.getPriority(), Priority.class, task.getPriority()));
+        if (request.getStartDate() != null) {
+            if (task.getId() == null) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be in the past.");
+                }
+            } else if (!request.getStartDate().equals(task.getStartDate())) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be changed to a date in the past.");
+                }
+            }
+        }
+
         if (request.getStartDate() != null) task.setStartDate(request.getStartDate());
         if (request.getDeadline() != null) task.setDeadline(request.getDeadline());
+        
         org.example.backend.util.DateValidationUtils.validateDateRange(task.getStartDate(), task.getDeadline(), "Task");
+        
+        if (task.getUseCaseId() != null) {
+            org.example.backend.entity.UseCase uc = useCaseRepository.findById(task.getUseCaseId()).orElse(null);
+            if (uc != null) {
+                org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), uc.getStartDate(), uc.getDeadline(), "Task", "Use Case");
+            }
+        } else if (task.getRequirementId() != null) {
+            org.example.backend.entity.Requirement req = requirementRepository.findById(task.getRequirementId()).orElse(null);
+            if (req != null) {
+                org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), req.getStartDate(), req.getDeadline(), "Task", "Requirement");
+            }
+        }
+        
         if (task.getProject() != null) {
             org.example.backend.util.DateValidationUtils.validateBounds(task.getStartDate(), task.getDeadline(), task.getProject().getStartDate(), task.getProject().getDeadline(), "Task", "Project");
         }

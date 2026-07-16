@@ -134,6 +134,32 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @Transactional
+    public void reorderUseCases(Long projectId, Long requirementId, org.example.backend.dto.ReorderRequestDTO request) {
+        // Validate project and requirement
+        org.example.backend.entity.Requirement requirement = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+        if (!requirement.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Requirement does not belong to the project");
+        }
+
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) return;
+
+        List<UseCase> useCases = useCaseRepository.findByRequirementId(requirementId);
+        java.util.Map<Long, UseCase> ucMap = useCases.stream().collect(Collectors.toMap(UseCase::getId, u -> u));
+
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            UseCase uc = ucMap.get(id);
+            if (uc != null) {
+                uc.setUcOrder(i);
+                useCaseRepository.save(uc);
+            }
+        }
+    }
+
+    @Override
     public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -220,6 +246,37 @@ public class UseCaseServiceImpl implements UseCaseService {
                 }
             }
         }
+
+        if (request.getStartDate() != null && request.getDeadline() != null) {
+            if (request.getStartDate().isAfter(request.getDeadline())) {
+                throw new BadRequestException("Start date cannot be after deadline.");
+            }
+        }
+        if (useCase.getRequirement() != null) {
+            var req = useCase.getRequirement();
+            if (request.getStartDate() != null && req.getStartDate() != null) {
+                if (request.getStartDate().isBefore(req.getStartDate())) {
+                    throw new BadRequestException("Use Case start date cannot be before Requirement start date.");
+                }
+            }
+            if (request.getDeadline() != null && req.getDeadline() != null) {
+                if (request.getDeadline().isAfter(req.getDeadline())) {
+                    throw new BadRequestException("Use Case deadline cannot be after Requirement deadline.");
+                }
+            }
+        }
+        if (request.getStartDate() != null) {
+            if (useCase.getId() == null) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be in the past.");
+                }
+            } else if (!request.getStartDate().equals(useCase.getStartDate())) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be changed to a date in the past.");
+                }
+            }
+        }
+
         if (request.getCode() != null) useCase.setCode(request.getCode());
         if (request.getName() != null) useCase.setName(request.getName());
         if (request.getPrecondition() != null) useCase.setPrecondition(request.getPrecondition());
@@ -238,6 +295,8 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
+        if (request.getStartDate() != null) useCase.setStartDate(request.getStartDate());
+        if (request.getDeadline() != null) useCase.setDeadline(request.getDeadline());
         // Remove completeness score update here, it will be auto-calculated
 
         if (request.getActors() != null) {
@@ -303,6 +362,9 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setShowInDiagram(useCase.isShowInDiagram());
         res.setAiGenerated(useCase.isAiGenerated());
         res.setSourceGenerationId(useCase.getSourceGenerationId());
+        res.setStartDate(useCase.getStartDate());
+        res.setDeadline(useCase.getDeadline());
+        res.setUcOrder(useCase.getUcOrder());
         return res;
     }
 }

@@ -83,6 +83,7 @@ const MergeTaskReviewModal = ({
               members={members}
               priorityColor={priorityColor}
               getTypeConfig={getTypeConfig}
+              maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
               onUpdate={(updatedTask) => setMergedTask(updatedTask)}
               onChangeSprint={(newSprintId) => setMergedTask({ ...mergedTask, sprint_id: newSprintId })}
               onEditStateChange={(editing) => setIsEditingTask(editing)}

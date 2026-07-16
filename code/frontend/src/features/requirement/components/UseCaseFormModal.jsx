@@ -16,7 +16,9 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
     postcondition: '',
     mainFlowText: '',
     alternativeFlowText: '',
-    branchFromStep: ''
+    branchFromStep: '',
+    startDate: '',
+    deadline: ''
   });
 
   // Dynamically compute available main flow steps for the branchFromStep dropdown
@@ -88,7 +90,9 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         postcondition: formData.postcondition,
         mainFlow: mainFlowJson,
         alternativeFlow: altFlowJson,
-        completenessScore: 0
+        completenessScore: 0,
+        startDate: formData.startDate || null,
+        deadline: formData.deadline || null
       };
       
       // Update useCaseService to pass projectId if needed by backend, though it's typically sent in URL
@@ -99,7 +103,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
       setFormData({
         name: '', requirementId: '', actorsText: '', status: 'DRAFT', version: 'v1.0',
         precondition: '', postcondition: '', mainFlowText: '', alternativeFlowText: '',
-        branchFromStep: ''
+        branchFromStep: '', startDate: '', deadline: ''
       });
       onSuccess(); 
       onClose();   
@@ -177,7 +181,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                 <span className="material-symbols-outlined text-[18px]">link</span>
                 State & Links
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                 <div>
                   <label className="block font-label-md text-label-md text-on-surface mb-1.5">Linked Requirement *</label>
                   <div className="relative">
@@ -213,6 +217,28 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                   <input 
                     type="text" name="version" placeholder="v1.0"
                     value={formData.version} onChange={handleChange}
+                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface mb-1.5">Start Date</label>
+                  <input 
+                    type="date" name="startDate"
+                    value={formData.startDate} onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    max={requirements.find(r => r.id === parseInt(formData.requirementId))?.deadline || activeProject?.deadline}
+                    className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
+                  />
+                </div>
+                <div>
+                  <label className="block font-label-md text-label-md text-on-surface mb-1.5">Deadline</label>
+                  <input 
+                    type="date" name="deadline"
+                    value={formData.deadline} onChange={handleChange}
+                    min={formData.startDate || new Date().toISOString().split('T')[0]}
+                    max={requirements.find(r => r.id === parseInt(formData.requirementId))?.deadline || activeProject?.deadline}
                     className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
                   />
                 </div>

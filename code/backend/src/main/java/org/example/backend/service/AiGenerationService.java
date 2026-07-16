@@ -160,7 +160,7 @@ public class AiGenerationService {
             sendProgress(userId, 2, "AI is analyzing and extracting requirements...");
             // 2. Call Gemini API to extract requirements JSON
             // 2. Call Gemini API to extract requirements JSON
-            String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
+            String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText, project);
             
             JsonNode reqsArray;
             JsonNode actorsArray;
@@ -278,7 +278,7 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
-        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
+        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases, project);
 
         sendProgress(userId, 2, "Parsing AI results...");
         JsonNode payload;
@@ -427,7 +427,7 @@ public class AiGenerationService {
         staging.setContextWarning(contextWarning);
 
         // Call Gemini API again (bypassing cache)
-        String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
+        String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText, staging.getProject());
         
         JsonNode reqsArray;
         JsonNode actorsArray;
@@ -639,6 +639,8 @@ public class AiGenerationService {
                         .type(type)
                         .priority(priority)
                         .acceptanceCriteria(acceptanceCriteria)
+                        .startDate(reqNode.has("startDate") && !reqNode.get("startDate").isNull() && !reqNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(reqNode.get("startDate").asText()) : project.getStartDate())
+                        .deadline(reqNode.has("deadline") && !reqNode.get("deadline").isNull() && !reqNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(reqNode.get("deadline").asText()) : project.getDeadline())
                         .status(org.example.backend.entity.RequirementStatus.DRAFT)
                         .projectSubId(nextSubId)
                         .reqCode("REQ-" + nextSubId)
@@ -752,6 +754,8 @@ public class AiGenerationService {
                 uc.setCreatedBy(user);
                 uc.setAiGenerated(true);
                 uc.setSourceGenerationId(generationId);
+                uc.setStartDate(ucNode.has("startDate") && !ucNode.get("startDate").isNull() && !ucNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("startDate").asText()) : project.getStartDate());
+                uc.setDeadline(ucNode.has("deadline") && !ucNode.get("deadline").isNull() && !ucNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("deadline").asText()) : project.getDeadline());
                 
                 if (req != null) {
                     String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
@@ -1017,7 +1021,9 @@ public class AiGenerationService {
             "   - 'postcondition': (String) Postconditions\n" +
             "   - 'primaryActors': (String) Comma separated list of actors\n" +
             "   - 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
-            "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
+            "   - 'startDate': (String) A logical start date in YYYY-MM-DD format (must not be before requirement's start date).\n" +
+            "   - 'deadline': (String) A logical deadline in YYYY-MM-DD format (must not be after requirement's deadline).\n\n" +
             "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- OLD USE CASE ---\n" + oldUcContext;
@@ -1104,10 +1110,11 @@ public class AiGenerationService {
             "1. Preserve any existing logical flows, edge cases, and manual customizations in the Old Use Cases unless they explicitly contradict the new Requirement.\n" +
             "2. You MUST ADD missing flows or steps if the NEW REQUIREMENT mentions new features, rules, or criteria that are absent in the OLD USE CASE.\n" +
             "3. Your response MUST be a pure JSON object (without ```json wrappers) with EXACTLY two fields: 'updatedUseCases' and 'newUseCases'.\n" +
-            "3. 'updatedUseCases' must be an array of objects representing updates to the existing use cases. Each object MUST include 'id' (the integer ID of the use case being updated), 'name', 'precondition', 'postcondition', 'primaryActors', 'mainFlows', 'alternativeFlows'.\n" +
+            "3. 'updatedUseCases' must be an array of objects representing updates to the existing use cases. Each object MUST include 'id' (the integer ID of the use case being updated), 'name', 'precondition', 'postcondition', 'primaryActors', 'mainFlows', 'alternativeFlows', 'startDate', 'deadline'.\n" +
             "4. 'newUseCases' must be an array of objects representing entirely new use cases (do NOT include 'id' field). Format is the same as above.\n" +
-            "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
-            "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\\n2. ...'\n" +
+            "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
+            "7. For 'startDate' and 'deadline': (Strings) Must be logical dates in YYYY-MM-DD format respecting the requirement's dates.\n\n" +
             "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- EXISTING USE CASES ---\n" + existingUcsContext.toString();
@@ -1176,6 +1183,8 @@ public class AiGenerationService {
                         if (updatedNode.has("name")) uc.setName(updatedNode.get("name").asText());
                         if (updatedNode.has("precondition")) uc.setPrecondition(updatedNode.get("precondition").asText());
                         if (updatedNode.has("postcondition")) uc.setPostcondition(updatedNode.get("postcondition").asText());
+                        if (updatedNode.has("startDate") && !updatedNode.get("startDate").isNull() && !updatedNode.get("startDate").asText().equals("N/A")) uc.setStartDate(java.time.LocalDate.parse(updatedNode.get("startDate").asText()));
+                        if (updatedNode.has("deadline") && !updatedNode.get("deadline").isNull() && !updatedNode.get("deadline").asText().equals("N/A")) uc.setDeadline(java.time.LocalDate.parse(updatedNode.get("deadline").asText()));
                         
                         if (updatedNode.has("mainFlows")) {
                             String flows = updatedNode.get("mainFlows").asText();
@@ -1287,6 +1296,8 @@ public class AiGenerationService {
                 uc.setCreatedBy(user);
                 uc.setAiGenerated(true);
                 uc.setSourceGenerationId(staging.getGenerationId());
+                uc.setStartDate(newNode.has("startDate") && !newNode.get("startDate").isNull() && !newNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(newNode.get("startDate").asText()) : req.getStartDate());
+                uc.setDeadline(newNode.has("deadline") && !newNode.get("deadline").isNull() && !newNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(newNode.get("deadline").asText()) : req.getDeadline());
                 
                 String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
                 String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));

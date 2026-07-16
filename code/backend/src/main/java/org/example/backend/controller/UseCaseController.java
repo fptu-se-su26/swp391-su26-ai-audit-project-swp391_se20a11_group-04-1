@@ -94,6 +94,15 @@ public class UseCaseController {
         return ResponseEntity.ok(ApiResponse.success(null, "Use case deleted"));
     }
 
+    @PutMapping("/requirement/{requirementId}/reorder")
+    public ResponseEntity<ApiResponse<Void>> reorderUseCases(
+            @RequestParam Long projectId,
+            @PathVariable Long requirementId,
+            @RequestBody org.example.backend.dto.ReorderRequestDTO request) {
+        useCaseService.reorderUseCases(projectId, requirementId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Use cases reordered"));
+    }
+
     private Long requireUser(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {

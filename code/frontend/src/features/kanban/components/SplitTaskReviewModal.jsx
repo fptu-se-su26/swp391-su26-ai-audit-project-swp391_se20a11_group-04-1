@@ -62,6 +62,7 @@ const SplitTaskReviewModal = ({
                 priorityColor={priorityColor}
                 getTypeConfig={getTypeConfig}
                 readOnlyMode={true}
+                maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
               />
             </div>
           </div>
@@ -91,6 +92,7 @@ const SplitTaskReviewModal = ({
                   members={members}
                   priorityColor={priorityColor}
                   getTypeConfig={getTypeConfig}
+                  maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
                   onUpdate={(updatedTask) => handleSaveSubTask(idx, updatedTask)}
                   onChangeSprint={(newSprintId) => handleSaveSubTask(idx, { ...t, sprint_id: newSprintId })}
                   onEditStateChange={(editing) => {

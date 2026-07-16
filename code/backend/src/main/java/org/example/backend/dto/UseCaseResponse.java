@@ -30,4 +30,7 @@ public class UseCaseResponse {
     private boolean showInDiagram;
     private boolean aiGenerated;
     private java.util.UUID sourceGenerationId;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
+    private Integer ucOrder;
 }

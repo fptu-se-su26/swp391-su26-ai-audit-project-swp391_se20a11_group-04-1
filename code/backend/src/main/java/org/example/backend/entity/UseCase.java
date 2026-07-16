@@ -70,6 +70,15 @@ public class UseCase {
     @Column(name = "completeness_score")
     private Integer completenessScore = 0;
 
+    @Column(name = "start_date")
+    private java.time.LocalDate startDate;
+
+    @Column(name = "deadline")
+    private java.time.LocalDate deadline;
+
+    @Column(name = "uc_order")
+    private Integer ucOrder;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private UserAccount createdBy;

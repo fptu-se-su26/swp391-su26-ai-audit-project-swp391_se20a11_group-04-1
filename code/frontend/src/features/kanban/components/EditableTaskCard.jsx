@@ -11,7 +11,8 @@ const EditableTaskCard = ({
   onChangeSprint,
   isMergingToExisting = false,
   readOnlyMode = false, // When true, doesn't allow editing (for the top half of modals)
-  onEditStateChange // Callback to notify parent if card is currently being edited
+  onEditStateChange, // Callback to notify parent if card is currently being edited
+  maxAllowedDate // Add this to limit max deadline (from project or requirement)
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -35,7 +36,7 @@ const EditableTaskCard = ({
 
   const todayDateStr = new Date().toISOString().split('T')[0];
   let sprintMin = todayDateStr;
-  let sprintMax = '';
+  let sprintMax = maxAllowedDate || '';
   const currentSprintId = isEditing ? (editForm.sprint_id || task.sprint_id || task.sprintId) : (task.sprint_id || task.sprintId);
   if (currentSprintId) {
     const selectedSprint = sprints.find(s => String(s.id) === String(currentSprintId));

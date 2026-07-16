@@ -30,4 +30,7 @@ public class RequirementResponseDTO {
     private List<String> tags;
     private Boolean aiGenerated;
     private List<String> coveredCriteria;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
+    private List<Long> coOwnerIds;
 }

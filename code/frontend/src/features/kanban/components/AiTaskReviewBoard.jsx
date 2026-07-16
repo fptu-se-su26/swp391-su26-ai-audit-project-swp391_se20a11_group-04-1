@@ -731,6 +731,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                           priorityColor={priorityColor}
                           getTypeConfig={getTypeConfig}
                           isMergingToExisting={isMergingToExisting}
+                          maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
                           onUpdate={(updatedTask) => {
                             const newTasks = [...tasks];
                             newTasks[index] = updatedTask;
