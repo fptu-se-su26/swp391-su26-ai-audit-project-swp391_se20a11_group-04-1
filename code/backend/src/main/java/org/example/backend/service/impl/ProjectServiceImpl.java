@@ -1028,6 +1028,22 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Map<String, Long> getProjectCountsForUser(Long userId) {
+        long all = projectRepository.countProjectsByUserId(userId);
+        long active = projectRepository.countProjectsByUserIdAndStatus(userId, ProjectStatus.ACTIVE);
+        long completed = projectRepository.countProjectsByUserIdAndStatus(userId, ProjectStatus.COMPLETED);
+        long archived = projectRepository.countProjectsByUserIdAndStatus(userId, ProjectStatus.ARCHIVED);
+
+        Map<String, Long> counts = new java.util.HashMap<>();
+        counts.put("all", all);
+        counts.put("active", active);
+        counts.put("completed", completed);
+        counts.put("archived", archived);
+        return counts;
+    }
+
+    @Override
     @Transactional
     public void deleteProject(Long projectId, Long userId) {
         Project project = projectRepository.findByIdWithPessimisticWrite(projectId)

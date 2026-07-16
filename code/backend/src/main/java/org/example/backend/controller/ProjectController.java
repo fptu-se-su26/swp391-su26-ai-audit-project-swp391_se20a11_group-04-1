@@ -71,6 +71,20 @@ public class ProjectController {
     }
 
     /**
+     * GET /api/v1/projects/counts
+     * Lấy số lượng dự án theo từng trạng thái của user
+     */
+    @GetMapping("/counts")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getMyProjectCounts(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new CustomException("Vui lòng đăng nhập để thực hiện thao tác này.", HttpStatus.UNAUTHORIZED);
+        }
+        Map<String, Long> counts = projectService.getProjectCountsForUser(userId);
+        return ResponseEntity.ok(ApiResponse.success(counts, "Lấy số lượng dự án thành công!"));
+    }
+
+    /**
      * GET /api/v1/projects/{projectId}
      * Lấy chi tiết một dự án bằng ID
      */
