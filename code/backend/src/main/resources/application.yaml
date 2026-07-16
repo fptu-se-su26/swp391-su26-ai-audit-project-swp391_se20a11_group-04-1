@@ -69,6 +69,10 @@ playwright:
   service:
     url: ${PLAYWRIGHT_SERVICE_URL:http://localhost:4001}
 
+architecture:
+  parser:
+    url: ${ARCHITECTURE_PARSER_URL:http://localhost:4002}
+
 app:
   playwright:
     public-ws-url: ${PLAYWRIGHT_PUBLIC_WS_URL:ws://localhost:4001}
