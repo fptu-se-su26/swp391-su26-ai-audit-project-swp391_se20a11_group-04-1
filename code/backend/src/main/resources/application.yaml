@@ -104,6 +104,18 @@ gemini:
     keys: ${GEMINI_API_KEY:}
     url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}
 
+openrouter:
+  api:
+    keys: ${OPENROUTER_API_KEYS:}
+    url: ${OPENROUTER_API_URL:https://openrouter.ai/api/v1/chat/completions}
+    model: ${OPENROUTER_MODEL:google/gemini-2.5-flash:free}
+
+groq:
+  api:
+    keys: ${GROQ_API_KEYS:}
+    url: ${GROQ_API_URL:https://api.groq.com/openai/v1/chat/completions}
+    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+
 kubernetes:
   # Tắt khi backend chạy trong Docker container chưa mount kubeconfig
   enabled: ${K8S_MONITORING_ENABLED:true}
