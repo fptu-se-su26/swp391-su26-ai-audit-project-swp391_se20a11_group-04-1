@@ -20,6 +20,10 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
   const [coworkersLoading, setCoworkersLoading] = useState(true)
+
+  // GitHub integration state
+  const [githubStatus, setGithubStatus] = useState(null)
+  const [githubLoading, setGithubLoading] = useState(true)
   
   // Profile update form state
   const [fullName, setFullName] = useState('')
@@ -103,10 +107,27 @@ export default function ProfilePage() {
     }
   }
 
+  const loadGithubStatus = async () => {
+    if (isPublicView) {
+      setGithubLoading(false)
+      return
+    }
+    setGithubLoading(true)
+    try {
+      const data = await profileService.getGithubStatus()
+      setGithubStatus(data)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setGithubLoading(false)
+    }
+  }
+
   useEffect(() => {
     loadProfile()
     loadStats()
     loadCoworkers()
+    loadGithubStatus()
   }, [userId])
 
   useEffect(() => {
@@ -116,6 +137,31 @@ export default function ProfilePage() {
       setShowPasswordDialog(false)
     }
   }, [location.state])
+
+  const handleConnectGithub = async () => {
+    try {
+      const authUrl = await profileService.getGithubAuthUrl()
+      const state = btoa(JSON.stringify({ fromProfile: true }))
+      window.location.href = `${authUrl}&state=${state}`
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to get GitHub authorization link.')
+    }
+  }
+
+  const handleDisconnectGithub = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your GitHub account?')) return
+    const toastId = toast.loading('Disconnecting GitHub account...')
+    try {
+      await profileService.disconnectGithub()
+      setGithubStatus(null)
+      toast.success('GitHub account disconnected successfully!', { id: toastId })
+      loadGithubStatus()
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Failed to disconnect GitHub account.', { id: toastId })
+    }
+  }
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault()
@@ -327,6 +373,84 @@ export default function ProfilePage() {
               </button>
             )}
           </form>
+
+          {/* GitHub Connection */}
+          {!isPublicView && (
+            <div className="space-y-3 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-sm dark:bg-surface-dim">
+              <div className="flex items-center gap-2 border-b border-outline-variant/40 pb-2.5">
+                <span className="material-symbols-outlined text-[#1E707D]">link</span>
+                <h2 className="text-base font-bold text-on-surface">GitHub Integration</h2>
+              </div>
+
+              {githubLoading ? (
+                <div className="flex items-center justify-center py-4 text-on-surface-variant text-sm font-medium">
+                  <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+                  Checking GitHub link status...
+                </div>
+              ) : githubStatus?.hasToken ? (
+                <div className="flex flex-col gap-4 rounded-lg bg-surface-container-low p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    {githubStatus.avatarUrl ? (
+                      <img
+                        src={githubStatus.avatarUrl}
+                        alt={githubStatus.username}
+                        className="h-11 w-11 rounded-full border border-outline-variant object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1E707D] text-white text-lg font-bold">
+                        {githubStatus.username?.substring(0, 2).toUpperCase() || 'GH'}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-black text-on-surface">{githubStatus.name || githubStatus.username}</p>
+                        <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-green-600 dark:text-green-400">
+                          Connected
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-on-surface-variant">@{githubStatus.username}</p>
+                      {githubStatus.email && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[14px]">mail</span>
+                          {githubStatus.email}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConnectGithub}
+                      className="shrink-0 rounded-lg border border-outline px-3 py-2 text-xs font-bold text-on-surface transition-colors hover:bg-surface-container"
+                    >
+                      Reconnect
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectGithub}
+                      className="shrink-0 rounded-lg bg-error/10 px-3 py-2 text-xs font-bold text-error transition-colors hover:bg-error/25"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    Link your GitHub account to enable automatic sync for task issues, commit activity, pull requests, and audit evidence reports.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleConnectGithub}
+                    className="flex items-center gap-2 rounded-lg bg-[#24292e] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#24292e]/90"
+                  >
+                    <span className="material-symbols-outlined text-lg">link</span>
+                    Connect GitHub Account
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 4. Statistics Section */}
           <div className="space-y-3 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4 shadow-sm dark:bg-surface-dim">
