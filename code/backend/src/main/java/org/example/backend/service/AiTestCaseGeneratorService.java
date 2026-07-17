@@ -14,48 +14,34 @@ import org.example.backend.entity.enums.TestType;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UseCaseRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @Slf4j
 public class AiTestCaseGeneratorService {
 
-    @Value("${gemini.api-key:}")
-    private String apiKey;
-
-    @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}")
-    private String geminiApiUrl;
-
-    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final RequirementRepository requirementRepository;
     private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.AiGenerationStagingRepository stagingRepository;
     private final org.example.backend.repository.TestCaseRepository testCaseRepository;
+    private final GeminiService geminiService;
 
     public AiTestCaseGeneratorService(
-            RestTemplate restTemplate,
             ObjectMapper objectMapper,
             RequirementRepository requirementRepository,
             UseCaseRepository useCaseRepository,
             org.example.backend.repository.AiGenerationStagingRepository stagingRepository,
-            org.example.backend.repository.TestCaseRepository testCaseRepository) {
-        this.restTemplate = restTemplate;
+            org.example.backend.repository.TestCaseRepository testCaseRepository,
+            GeminiService geminiService) {
         this.objectMapper = objectMapper;
         this.requirementRepository = requirementRepository;
         this.useCaseRepository = useCaseRepository;
         this.stagingRepository = stagingRepository;
         this.testCaseRepository = testCaseRepository;
+        this.geminiService = geminiService;
     }
 
     public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request) {
@@ -63,10 +49,6 @@ public class AiTestCaseGeneratorService {
     }
 
     public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request, String selectorContext) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new BusinessException("Gemini API key is not configured.");
-        }
-
         String requirementContext = "";
         String useCaseContext = "";
         if (request.getRequirementId() != null) {
@@ -101,7 +83,8 @@ public class AiTestCaseGeneratorService {
         String prompt = buildPrompt(request.getTestType(), request.isSmartMode(), requirementContext,
                 useCaseContext, request.getAdditionalContext(), selectorContext);
 
-        String rawJson = callGemini(prompt, "application/json");
+        // Use GeminiService (with key rotation, 503 retry, and OpenRouter fallback)
+        String rawJson = geminiService.generateText(prompt);
         AiTestCaseGenerateResponse generatedResponse = parseJsonObject(rawJson, new TypeReference<AiTestCaseGenerateResponse>() {});
 
         if (generatedResponse != null && generatedResponse.getTestCases() != null) {
@@ -115,48 +98,6 @@ public class AiTestCaseGeneratorService {
             }
         }
         return generatedResponse;
-    }
-
-    private String callGemini(String prompt, String responseMimeType) {
-        String url = geminiApiUrl + "?key=" + apiKey;
-
-        Map<String, Object> payload = new HashMap<>();
-        Map<String, Object> content = new HashMap<>();
-        Map<String, Object> part = new HashMap<>();
-        part.put("text", prompt);
-        content.put("parts", List.of(part));
-        payload.put("contents", List.of(content));
-
-        if (responseMimeType != null) {
-            Map<String, Object> generationConfig = new HashMap<>();
-            generationConfig.put("responseMimeType", responseMimeType);
-            payload.put("generationConfig", generationConfig);
-        }
-
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.add("Content-Type", "application/json");
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, httpHeaders);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
-            Map<String, Object> bodyMap = response.getBody();
-            if (bodyMap != null && bodyMap.containsKey("candidates")) {
-                List<Map<String, Object>> candidates = (List<Map<String, Object>>) bodyMap.get("candidates");
-                if (!candidates.isEmpty()) {
-                    Map<String, Object> candidate = candidates.get(0);
-                    Map<String, Object> contentMap = (Map<String, Object>) candidate.get("content");
-                    List<Map<String, Object>> parts = (List<Map<String, Object>>) contentMap.get("parts");
-                    if (!parts.isEmpty()) {
-                        return (String) parts.get(0).get("text");
-                    }
-                }
-            }
-            throw new BusinessException("Empty response from AI.");
-        } catch (Exception e) {
-            log.error("Failed to call AI: ", e);
-            throw new BusinessException("Không thể kết nối AI, vui lòng thử lại! Lỗi: " + e.getMessage());
-        }
     }
 
     private <T> T parseJsonObject(String rawJson, TypeReference<T> typeRef) {
@@ -536,10 +477,6 @@ public class AiTestCaseGeneratorService {
     }
 
     public String analyzeCoverage(Long requirementId, Long projectId) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new BusinessException("Gemini API key is not configured.");
-        }
-
         Requirement req = requirementRepository.findById(requirementId)
                 .orElseThrow(() -> new BusinessException("Requirement not found"));
 
@@ -563,14 +500,10 @@ public class AiTestCaseGeneratorService {
 
         prompt += "Analyze coverage. Return explicit plain text only. Use simple bullet points (-). DO NOT use Markdown headers (#) or bold (**). Do not return JSON. Provide a concise summary of what is covered and what is missing.";
 
-        return callGemini(prompt, "text/plain");
+        return geminiService.generateText(prompt);
     }
 
     public List<org.example.backend.dto.testing.AiDraftTestCase> refineTestCases(org.example.backend.dto.testing.RefineAiRequest request) {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new BusinessException("Gemini API key is not configured.");
-        }
-
         String existingJson;
         try {
             existingJson = objectMapper.writeValueAsString(request.getExistingTestCases());
@@ -584,7 +517,7 @@ public class AiTestCaseGeneratorService {
                 "Existing Test Cases JSON:\n" + existingJson + "\n\n" +
                 "Return ONLY the updated JSON array matching the exact structure of the input (NO markdown code blocks, NO extra text).";
 
-        String rawJson = callGemini(prompt, "application/json");
+        String rawJson = geminiService.generateText(prompt);
         return parseJsonObject(rawJson, new TypeReference<List<org.example.backend.dto.testing.AiDraftTestCase>>() {});
     }
 }
