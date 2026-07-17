@@ -212,7 +212,7 @@ public class AuthServiceImpl implements AuthService {
         UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> {
                     log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
-                    throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
+                    throw new UnauthorizedException("Incorrect username or password.");
                 });
 
         if (!user.isActive()) {
