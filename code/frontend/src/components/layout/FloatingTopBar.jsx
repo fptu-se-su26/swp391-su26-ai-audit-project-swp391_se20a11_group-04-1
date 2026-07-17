@@ -15,12 +15,14 @@ const FloatingTopBar = () => {
 
   const [menuOpen, setMenuOpen]   = useState(false)
   const [avatarHov, setAvatarHov] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false)
+        setSettingsOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -29,6 +31,7 @@ const FloatingTopBar = () => {
 
   const handleLogout = () => {
     setMenuOpen(false)
+    setSettingsOpen(false)
     logout()
     toast.success('Đăng xuất thành công!')
     navigate('/login')
@@ -132,7 +135,11 @@ const FloatingTopBar = () => {
             </div>
 
             <div style={{ padding: 6 }}>
-              <DropItem icon="account_circle" label="My Profile" onClick={() => { setMenuOpen(false); navigate('/profile') }} />
+              <DropItem icon="account_circle" label="My Profile" onClick={() => { setMenuOpen(false); setSettingsOpen(false); navigate('/profile') }} />
+              <DropItem icon="settings" label="Cài đặt" onClick={() => setSettingsOpen((open) => !open)} trailingIcon={settingsOpen ? 'expand_less' : 'expand_more'} active={settingsOpen} />
+              {settingsOpen && (
+                <DropItem icon="lock_reset" label="Đổi mật khẩu" onClick={() => { setMenuOpen(false); setSettingsOpen(false); navigate('/profile', { state: { openSettings: true } }) }} nested />
+              )}
               <div style={{ height: 1, background: 'rgba(235,245,247,0.90)', margin: '4px 0' }} />
               <DropItem icon="logout" label="Đăng xuất" onClick={handleLogout} danger />
             </div>
@@ -144,7 +151,7 @@ const FloatingTopBar = () => {
 }
 
 /* ─── Dropdown row ─────────────────────────────────────────── */
-const DropItem = ({ icon, label, onClick, danger = false }) => {
+const DropItem = ({ icon, label, onClick, danger = false, active = false, nested = false, trailingIcon }) => {
   const [hov, setHov] = useState(false)
   return (
     <button
@@ -153,17 +160,18 @@ const DropItem = ({ icon, label, onClick, danger = false }) => {
       onMouseLeave={() => setHov(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 9,
-        width: '100%', padding: '8px 10px', borderRadius: 10,
+        width: '100%', padding: nested ? '8px 10px 8px 28px' : '8px 10px', borderRadius: 10,
         border: 'none',
-        background: hov ? (danger ? '#FEF2F2' : '#D7EEF1') : 'transparent',
-        color: danger ? '#EF4444' : (hov ? '#1E707D' : '#374151'),
+        background: hov || active ? (danger ? '#FEF2F2' : '#D7EEF1') : 'transparent',
+        color: danger ? '#EF4444' : (hov || active ? '#1E707D' : '#374151'),
         fontSize: 13, fontWeight: 500, cursor: 'pointer', textAlign: 'left',
         transition: `background 150ms ${EASE}, color 150ms ${EASE}`,
         fontFamily: 'Inter,-apple-system,sans-serif',
       }}
     >
       <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{icon}</span>
-      {label}
+      <span style={{ flex: 1 }}>{label}</span>
+      {trailingIcon && <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{trailingIcon}</span>}
     </button>
   )
 }

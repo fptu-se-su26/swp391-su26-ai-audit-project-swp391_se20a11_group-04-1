@@ -39,6 +39,23 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     long countByAcademicContextIsNotNullAndIsDeletedFalse();
 
+    @Query("SELECT COUNT(p) FROM Project p " +
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
+           "WHERE p.isDeleted = false " +
+           "AND p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId)")
+    long countProjectsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(p) FROM Project p " +
+           "LEFT JOIN p.academicContext ac " +
+           "LEFT JOIN ac.owner o " +
+           "WHERE p.isDeleted = false " +
+           "AND p.id IN (SELECT pm.project.id FROM ProjectMember pm WHERE pm.user.id = :userId) " +
+           "AND (ac IS NULL OR o IS NULL OR o.id != :userId) " +
+           "AND p.status = :status")
+    long countProjectsByUserIdAndStatus(@Param("userId") Long userId, @Param("status") ProjectStatus status);
+
     @Query("SELECT p FROM Project p WHERE p.academicContext.id = :academicContextId AND p.status != :status AND p.isDeleted = false")
     java.util.List<Project> findByAcademicContextIdAndStatusNot(@Param("academicContextId") Long academicContextId, @Param("status") ProjectStatus status);
 

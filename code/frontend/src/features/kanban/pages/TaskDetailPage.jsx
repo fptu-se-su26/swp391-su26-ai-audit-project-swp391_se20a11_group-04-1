@@ -4,6 +4,7 @@ import TaskFormModal from '../components/TaskFormModal'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { TASK_STATUSES } from '../store/useKanbanStore'
 import { normalizeTaskType } from '../utils/taskMapper'
+import toast from 'react-hot-toast'
 
 const isLeaderRole = (role = '') => {
   // Normalize project role labels so leader-only review actions show correctly.
@@ -16,6 +17,9 @@ const TaskDetailPage = () => {
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [newChecklistItemText, setNewChecklistItemText] = useState('')
+  const [showGitHelper, setShowGitHelper] = useState(true)
+  const [branchSuffix, setBranchSuffix] = useState('')
+  const [commitMessage, setCommitMessage] = useState('')
   const activeProject = useProjectStore((state) => state.activeProject)
   const {
     tasks,
@@ -189,40 +193,32 @@ const TaskDetailPage = () => {
               </span>
               <h1 className="font-headline-md text-headline-md text-on-surface truncate">{task.title}</h1>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5">
               {taskType !== 'BUG_FIX' && (
                 <button
                   type="button"
                   onClick={() => navigate(`/projects/${projectId}/features/${task.id}/discuss`)}
-                  className="h-[36px] px-4 flex items-center gap-2 bg-[#0ea5e9] hover:bg-[#0284c7] text-white rounded transition-colors text-body-md font-body-md shadow-sm cursor-pointer"
+                  title="Discussion"
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-[#0ea5e9]/10 text-[#0ea5e9] hover:bg-[#0ea5e9]/20 transition-colors"
                 >
-                  <span className="material-symbols-outlined text-[18px]">forum</span>
-                  Thảo luận
+                  <span className="material-symbols-outlined text-[20px]">forum</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setIsEditOpen(true)}
-                className="h-[36px] px-4 flex items-center gap-2 bg-surface-container-low text-on-surface-variant border border-outline-variant hover:bg-surface-container-high rounded transition-colors text-body-md font-body-md"
+                title="Edit task"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
-                Edit
+                <span className="material-symbols-outlined text-[20px]">edit</span>
               </button>
               <button
                 type="button"
                 onClick={handleDeleteTask}
-                className="h-[36px] px-4 flex items-center gap-2 bg-error/10 text-error border border-error/25 hover:bg-error/20 rounded transition-colors text-body-md font-body-md"
+                title="Delete task"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full text-error hover:bg-error/10 transition-colors"
               >
-                <span className="material-symbols-outlined text-[18px]">delete</span>
-                Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(codeInsightPath)}
-                className="h-[36px] px-4 flex items-center gap-2 bg-[#1E707D] text-white hover:bg-[#165964] rounded transition-colors text-body-md font-body-md shadow-sm"
-              >
-                <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-                Code Insight
+                <span className="material-symbols-outlined text-[20px]">delete</span>
               </button>
             </div>
           </div>
@@ -285,6 +281,157 @@ const TaskDetailPage = () => {
               )}
             </div>
           </div>
+
+          {/* Developer guidance panels based on task type */}
+          {task.status !== 'DONE' && (taskType === 'DEVELOPMENT' || taskType === 'BUG_FIX') && (() => {
+            const formattedSuffix = branchSuffix
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, '-')
+              .replace(/[^a-z0-9_-]/g, '');
+
+            const branchName = `${taskType === 'BUG_FIX' ? 'bugfix' : 'feature'}/${task.taskCode || 'TSK-' + task.id}${formattedSuffix ? '-' + formattedSuffix : '-branch-name'}`;
+            const checkoutCmd = `git checkout -b ${branchName}`;
+            const commitCmd = `git commit -m "feat(${task.taskCode || 'TSK-' + task.id}): ${commitMessage.trim() || 'your commit message'}"`;
+            const pushCmd = `git push origin ${branchName}`;
+
+            return (
+              <div className="mb-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm text-left">
+                <button
+                  type="button"
+                  onClick={() => setShowGitHelper(!showGitHelper)}
+                  className="w-full flex justify-between items-center font-bold text-sm text-on-surface-variant select-none"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[20px]">terminal</span>
+                    Git Workflow & Developer Guide
+                  </span>
+                  <span className="material-symbols-outlined text-on-surface-variant transition-transform duration-200" style={{ transform: showGitHelper ? 'rotate(180deg)' : 'none' }}>
+                    expand_more
+                  </span>
+                </button>
+
+                {showGitHelper && (
+                  <div className="mt-3 pt-3 border-t border-outline-variant/60 space-y-4 animate-fade-in">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Fill in the optional fields below to customize your commands, then follow the workflow to ensure the system can automatically link your evidence.
+                    </p>
+
+                    {/* Interactive Inputs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-surface-container-low p-3 rounded-lg border border-outline-variant/40">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">branch-name <span className="normal-case font-normal text-on-surface-variant/60">(optional suffix)</span></label>
+                        <input
+                          type="text"
+                          placeholder="e.g. jwt-auth"
+                          value={branchSuffix}
+                          onChange={(e) => setBranchSuffix(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:border-[#1E707D]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">your commit message <span className="normal-case font-normal text-on-surface-variant/60">(optional)</span></label>
+                        <input
+                          type="text"
+                          placeholder="e.g. implement jwt authentication"
+                          value={commitMessage}
+                          onChange={(e) => setCommitMessage(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs border border-outline-variant rounded bg-surface-container-lowest text-on-surface focus:outline-none focus:border-[#1E707D]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Step 1: Checkout branch */}
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">1. Create a new branch (must contain Task ID)</span>
+                        <div className="flex items-center bg-surface border border-outline-variant rounded-lg overflow-hidden font-mono text-xs text-on-surface select-all">
+                          <span className="flex-1 px-3 py-2 truncate">
+                            {checkoutCmd}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(checkoutCmd);
+                              toast.success("Copied checkout command!");
+                            }}
+                            className="px-3 py-2 bg-surface-container hover:bg-surface-container-high border-l border-outline-variant text-primary flex items-center justify-center shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Step 2: Commit */}
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">2. Commit your changes (must include Task tag)</span>
+                        <div className="flex items-center bg-surface border border-outline-variant rounded-lg overflow-hidden font-mono text-xs text-on-surface select-all">
+                          <span className="flex-1 px-3 py-2 truncate">
+                            {commitCmd}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(commitCmd);
+                              toast.success("Copied commit command!");
+                            }}
+                            className="px-3 py-2 bg-surface-container hover:bg-surface-container-high border-l border-outline-variant text-primary flex items-center justify-center shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Step 3: Push */}
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">3. Push your branch to GitHub</span>
+                        <div className="flex items-center bg-surface border border-outline-variant rounded-lg overflow-hidden font-mono text-xs text-on-surface select-all">
+                          <span className="flex-1 px-3 py-2 truncate">
+                            {pushCmd}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(pushCmd);
+                              toast.success("Copied push command!");
+                            }}
+                            className="px-3 py-2 bg-surface-container hover:bg-surface-container-high border-l border-outline-variant text-primary flex items-center justify-center shrink-0"
+                            title="Copy to clipboard"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 flex gap-2">
+                      <span className="material-symbols-outlined text-primary text-[16px] mt-0.5 shrink-0">info</span>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                        <b>Review requirement:</b> After pushing, open a <b>Pull Request (PR)</b> to the main branch and wait for the <b>CI/CD checks (if any)</b> to pass before clicking <b>Request Review</b>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {task.status !== 'DONE' && (taskType === 'DESIGN' || taskType === 'DOCUMENTATION' || taskType === 'RESEARCH') && (
+            <div className="mb-4 rounded-xl border border-dashed border-[#1E707D]/40 bg-[#D7EEF1]/10 p-4 text-left">
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[#1E707D] text-[20px] shrink-0 mt-0.5">folder_open</span>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-on-surface">Hướng dẫn nộp Bằng chứng (General Evidence)</h4>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    Task này thuộc loại phi kỹ thuật (Non-code task). Bạn <b>không cần commit code</b> trên Git. 
+                    Thay vào đó, hãy kéo xuống mục <b>General Evidence</b> bên dưới để tải lên tệp tin ảnh, tài liệu hoặc đính kèm liên kết ngoài (Figma/Drive) trước khi bấm <b>Request Review</b>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-outline-variant pt-4 mt-2">
             <label className="flex items-center gap-2">
@@ -367,6 +514,55 @@ const TaskDetailPage = () => {
                 {task.description || 'No description has been added yet.'}
               </p>
             </div>
+
+            {/* Review Checklist Summary — shown to members so they know what's needed before requesting review */}
+            {task.status !== 'DONE' && (() => {
+              const isCodeTask = taskType === 'DEVELOPMENT' || taskType === 'BUG_FIX';
+              const codeItems = [
+                { key: 'branch', label: 'Created a branch with Task ID in the name', done: false },
+                { key: 'commit', label: 'Committed with the required tag in the message', done: false },
+                { key: 'push', label: 'Pushed branch to GitHub', done: false },
+                { key: 'pr', label: 'Opened a Pull Request to main branch', done: false },
+                { key: 'ci', label: 'CI/CD checks passed (if applicable)', done: false },
+                { key: 'checklist', label: `All checklist items completed (${completedChecklist}/${task.checklist.length})`, done: task.checklist.length === 0 || task.checklist.every(i => i.done) },
+              ];
+              const nonCodeItems = [
+                { key: 'deliverable', label: 'Deliverable file/link is ready (Figma, Drive, PDF, etc.)', done: false },
+                { key: 'evidence', label: 'Evidence uploaded in the General Evidence section', done: false },
+                { key: 'checklist', label: `All checklist items completed (${completedChecklist}/${task.checklist.length})`, done: task.checklist.length === 0 || task.checklist.every(i => i.done) },
+              ];
+              const items = isCodeTask ? codeItems : nonCodeItems;
+              return (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-outline-variant">
+                    <h3 className="font-headline-sm text-body-lg text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-[#1E707D]">checklist</span>
+                      Review Checklist
+                    </h3>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      isCodeTask ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-amber-50 text-amber-600 border border-amber-200'
+                    }`}>
+                      {isCodeTask ? 'Code task' : 'Non-code task'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-3">Make sure all of the following are done before clicking <b>Request Review</b>:</p>
+                  <div className="space-y-2">
+                    {items.map(item => (
+                      <div key={item.key} className={`flex items-start gap-2.5 p-2 rounded-lg text-sm ${
+                        item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container-low text-on-surface-variant'
+                      }`}>
+                        <span className={`material-symbols-outlined text-[16px] mt-0.5 shrink-0 ${
+                          item.done ? 'text-emerald-500' : 'text-on-surface-variant/50'
+                        }`}>
+                          {item.done ? 'check_circle' : 'radio_button_unchecked'}
+                        </span>
+                        <span>{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant flex justify-between">
@@ -484,8 +680,16 @@ const TaskDetailPage = () => {
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant">Git Workflow</h3>
               <span className="text-label-md text-on-surface-variant uppercase mb-1 block">Commit Prefix</span>
               <div className="flex items-center bg-surface-container-low rounded border border-outline-variant p-2">
-                <code className="font-label-md text-on-surface flex-1">feat(PRJ{projectId}-{task.id}): </code>
-                <button className="text-on-surface-variant hover:text-[#1E707D] transition-colors" title="Copy to clipboard">
+                <code className="font-label-md text-on-surface flex-1">feat({task.taskCode || 'TSK-' + task.id}): </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`feat(${task.taskCode || 'TSK-' + task.id}): `);
+                    toast.success("Đã copy prefix commit!");
+                  }}
+                  className="text-on-surface-variant hover:text-[#1E707D] transition-colors"
+                  title="Copy to clipboard"
+                >
                   <span className="material-symbols-outlined text-[18px]">content_copy</span>
                 </button>
               </div>

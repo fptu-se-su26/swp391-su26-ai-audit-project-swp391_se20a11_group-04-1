@@ -95,5 +95,10 @@ public interface ProjectService {
      * Cập nhật thông tin cơ bản và appearance của project (General Settings)
      */
     ProjectResponse updateProject(Long projectId, ProjectResponse.UpdateProjectRequest request, Long userId);
+
+    /**
+     * Lấy số lượng dự án theo từng trạng thái của một người dùng
+     */
+    java.util.Map<String, Long> getProjectCountsForUser(Long userId);
 }
 

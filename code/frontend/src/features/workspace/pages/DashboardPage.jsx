@@ -122,6 +122,7 @@ export function DashboardPage() {
     visibleCount,
     totalItems,
     hasMorePages,
+    projectCounts,
   } = useProjectStore()
 
   const openProject = (project) => {
@@ -573,17 +574,15 @@ export function DashboardPage() {
 
   // Có thể hiện thêm không? (trong bộ nhớ hoặc backend)
   const canShowMore = visibleCount < filteredProjects.length || (filteredProjects.length >= projects.length && projects.length < totalItems && hasMorePages)
-  // Số dự án sẽ hiển thị khi bấm nút
+
   const nextBatchCount = Math.min(3, filteredProjects.length - visibleCount > 0
     ? filteredProjects.length - visibleCount
     : totalItems - visibleCount)
 
   // Số lượng dự án để hiển thị lên nhãn Tab
-  const totalCount = totalItems || projects.length
-  const activeCount = projects.filter((p) => p.status === 'ACTIVE').length
-  const completedCount = projects.filter((p) => p.status === 'COMPLETED').length
-
-  // ==========================================
+  const totalCount = projectCounts?.all || 0
+  const activeCount = projectCounts?.active || 0
+  const completedCount = projectCounts?.completed || 0
   // CHẾ ĐỘ 1: GIAO DIỆN DANH MỤC DỰ ÁN PORTFOLIO (HÌNH MẪU)
   // ==========================================
   if (isGlobalDashboard) {
@@ -647,7 +646,7 @@ export function DashboardPage() {
                 For better security and to enable standard login, please click{' '}
                 <button
                   type="button"
-                  onClick={() => navigate(`/profile`)}
+                  onClick={() => navigate('/profile', { state: { openSettings: true } })}
                   className="font-bold underline text-amber-700 hover:text-amber-850 focus:outline-none cursor-pointer"
                 >
                   Change Password
@@ -691,7 +690,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('all')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'all'
-                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-primary border-primary/20 shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -700,7 +699,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('active')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'active'
-                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-primary border-primary/20 shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >
@@ -709,7 +708,7 @@ export function DashboardPage() {
               <button
                 onClick={() => setActiveTab('completed')}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${activeTab === 'completed'
-                  ? 'bg-primary-light text-white border-primary-container shadow-sm'
+                  ? 'bg-primary-light text-primary border-primary/20 shadow-sm'
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
               >

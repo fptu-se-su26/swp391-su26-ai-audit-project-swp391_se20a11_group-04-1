@@ -312,9 +312,17 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
               <span className="text-xs font-semibold text-secondary block mb-1">Git Commit Prefix</span>
               <div className="flex items-center space-x-2 bg-surface-container-lowest p-2 rounded border border-outline-variant">
                 <code className="text-sm font-label-md text-on-background flex-1">
-                  feat(PRJ{projectId}-{task.id}): 
+                  feat({task.taskCode || 'TSK-' + task.id}): 
                 </code>
-                <button type="button" className="text-on-surface-variant hover:text-[#1E707D]" title="Copy prefix">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`feat(${task.taskCode || 'TSK-' + task.id}): `);
+                    toast.success("Đã copy prefix commit!");
+                  }}
+                  className="text-on-surface-variant hover:text-[#1E707D]"
+                  title="Copy prefix"
+                >
                   <span className="material-symbols-outlined text-[16px]">content_copy</span>
                 </button>
               </div>

@@ -35,12 +35,11 @@ export const useProjectStore = create(
 
   // ── Dự án đang xem (Workspace) ────────────────────────────────────────────
   activeProject: null,    // null = đang ở Portfolio toàn cục
-
   // ── Bộ lọc & sắp xếp ─────────────────────────────────────────────────────
   activeTab: 'all',       // 'all' | 'active' | 'completed' | 'archived'
   searchQuery: '',
   sortBy: 'recent',       // 'recent' | 'name' | 'progress'
-
+  projectCounts: { all: 0, active: 0, completed: 0, archived: 0 },
   // ═══════════════════════════════════════════════════════════════════════════
   // ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -72,6 +71,7 @@ export const useProjectStore = create(
         hasMorePages: paginatedData.hasMore || false,
         loading: false,
       })
+      get().fetchProjectCounts()
     } catch (err) {
       console.error('Error fetching projects:', err)
       set({
@@ -80,6 +80,21 @@ export const useProjectStore = create(
       })
     }
   },
+
+  /**
+   * Tải số lượng dự án theo từng trạng thái.
+   */
+  fetchProjectCounts: async () => {
+    try {
+      const response = await axiosInstance.get('/v1/projects/counts')
+      const counts = response.data?.data || { all: 0, active: 0, completed: 0, archived: 0 }
+      set({ projectCounts: counts })
+    } catch (err) {
+      console.error('Error fetching project counts:', err)
+    }
+  },
+
+
 
   /**
    * Tải chi tiết 1 dự án bằng ID.
