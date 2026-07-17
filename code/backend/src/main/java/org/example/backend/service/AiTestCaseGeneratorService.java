@@ -143,7 +143,7 @@ public class AiTestCaseGeneratorService {
 
             return objectMapper.readValue(cleanJson, typeRef);
         } catch (Exception e) {
-            log.error("Failed to parse JSON from AI: \n" + rawJson, e);
+            log.error("Failed to parse JSON from AI (exception: {}): \n{}", e.getMessage(), rawJson);
             throw new BusinessException("Không thể parse kết quả từ AI. Định dạng lỗi.");
         }
     }
