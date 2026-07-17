@@ -551,6 +551,7 @@ const AiStagingReviewPage = () => {
                   return (
                     <div 
                       key={req._idx}
+                      id={`req-item-${req._idx}`}
                       onClick={() => { if (editingIndex !== req._idx) toggleSelection(req._idx); }}
                       className={`relative flex flex-col bg-white rounded-[10px] border-[0.5px] p-4 cursor-pointer transition-all hover:shadow-md ${diffWrapperClass}`}
                       style={boxStyle}
@@ -575,8 +576,18 @@ const AiStagingReviewPage = () => {
                             newPayload[req._idx] = { ...newPayload[req._idx], ...editedReq };
                             setLocalPayload(newPayload);
                             setEditingIndex(null);
+                            setTimeout(() => {
+                              const el = document.getElementById(`req-item-${req._idx}`);
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
                           }}
-                          onCancel={() => setEditingIndex(null)}
+                          onCancel={() => {
+                            setEditingIndex(null);
+                            setTimeout(() => {
+                              const el = document.getElementById(`req-item-${req._idx}`);
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }, 100);
+                          }}
                         />
                       ) : (
                         <>
@@ -643,29 +654,98 @@ const AiStagingReviewPage = () => {
                                 {req._status === 'OK' && <FiCheckCircle size={12} />}
                                 {req._status}
                               </span>
+                              
+                              <div className="flex-1 flex justify-end">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingIndex(req._idx); }}
+                                  className={`text-[11px] font-medium px-[8px] py-[2px] rounded-[6px] flex items-center gap-1 transition-colors ${
+                                    (req.startDate || req.deadline) 
+                                      ? 'text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100'
+                                      : 'text-[#1E707D] bg-[#1E707D]/10 border border-[#1E707D]/20 hover:bg-[#1E707D]/20 border-dashed'
+                                  }`}
+                                  title="Click to set Dates"
+                                >
+                                  <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                                  {(req.startDate || req.deadline) 
+                                    ? `${req.startDate ? new Date(req.startDate).toLocaleDateString() : 'N/A'} - ${req.deadline ? new Date(req.deadline).toLocaleDateString() : 'N/A'}`
+                                    : 'Set Dates (Missing)'
+                                  }
+                                </button>
+                              </div>
                             </div>
+
+                            {/* Acceptance Criteria Checklist */}
+                            {req.acceptanceCriteria && req.acceptanceCriteria.length > 0 && (
+                              <div className="mt-3 bg-gray-50 rounded-[8px] border border-gray-200 overflow-hidden">
+                                <div className="px-3 py-2 bg-gray-100 border-b border-gray-200 flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[14px] text-gray-500">checklist</span>
+                                  <span className="text-[12px] font-bold text-gray-700">Acceptance Criteria</span>
+                                </div>
+                                <div className="p-3">
+                                  <ul className="flex flex-col gap-2">
+                                    {req.acceptanceCriteria.slice(0, req._showFullChecklist ? undefined : 2).map((item, idx) => (
+                                      <li key={idx} className="flex items-start gap-2 text-[12px] text-gray-600">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#1E707D] mt-1.5 shrink-0" />
+                                        <span className="leading-snug">{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  {req.acceptanceCriteria.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Modify localPayload state to toggle
+                                        setLocalPayload(prev => prev.map((p, i) => i === req._idx ? { ...p, _showFullChecklist: !p._showFullChecklist } : p));
+                                      }}
+                                      className="mt-2 text-[#1E707D] hover:text-[#155762] text-[11px] font-bold hover:underline flex items-center gap-1"
+                                    >
+                                      {req._showFullChecklist ? 'See less' : `See more (${req.acceptanceCriteria.length - 2} items)`}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Warnings/Errors Section */}
                             {(req.warnings?.length > 0 || req.errors?.length > 0) && (
                               <div className="mt-2 flex flex-col gap-2 mb-3">
-                                {req.errors?.map((err, i) => (
-                                  <div key={`err-${i}`} className="bg-[#FCEBEB] rounded-[6px] p-[8px_10px] flex items-start gap-[8px] border border-[#FECACA]">
+                                {req.errors?.length > 0 && (
+                                  <div className="bg-[#FCEBEB] rounded-[6px] p-[8px_10px] flex items-start gap-[8px] border border-[#FECACA]">
                                     <FiXCircle size={14} className="text-[#E24B4A] mt-[2px] shrink-0" />
-                                    <div>
-                                      <p className="text-[12px] font-bold text-[#E24B4A] leading-tight mb-1">Critical Error found</p>
-                                      <p className="text-[12px] text-[#C23A3A] leading-snug">{err}</p>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[12px] font-bold text-[#E24B4A] leading-tight mb-1.5">
+                                        Critical Error{req.errors.length > 1 ? 's' : ''} ({req.errors.length})
+                                      </p>
+                                      <ul className="flex flex-col gap-1">
+                                        {req.errors.map((err, i) => (
+                                          <li key={i} className="flex items-start gap-1.5">
+                                            <span className="text-[#E24B4A] text-[11px] mt-[1px] shrink-0">•</span>
+                                            <p className="text-[12px] text-[#C23A3A] leading-snug">{err}</p>
+                                          </li>
+                                        ))}
+                                      </ul>
                                     </div>
                                   </div>
-                                ))}
-                                {req.warnings?.map((warn, i) => (
-                                  <div key={`warn-${i}`} className="bg-[#FAEEDA] rounded-[6px] p-[8px_10px] flex items-start gap-[8px] border border-[#FDE68A]">
+                                )}
+                                {req.warnings?.length > 0 && (
+                                  <div className="bg-[#FAEEDA] rounded-[6px] p-[8px_10px] flex items-start gap-[8px] border border-[#FDE68A]">
                                     <FiAlertTriangle size={14} className="text-[#EF9F27] mt-[2px] shrink-0" />
-                                    <div>
-                                      <p className="text-[12px] font-bold text-[#D97706] leading-tight mb-1">Needs Review</p>
-                                      <p className="text-[12px] text-[#B45309] leading-snug">{warn}</p>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[12px] font-bold text-[#D97706] leading-tight mb-1.5">
+                                        Needs Review ({req.warnings.length} item{req.warnings.length > 1 ? 's' : ''})
+                                      </p>
+                                      <ul className="flex flex-col gap-1">
+                                        {req.warnings.map((warn, i) => (
+                                          <li key={i} className="flex items-start gap-1.5">
+                                            <span className="text-[#EF9F27] text-[11px] mt-[1px] shrink-0">•</span>
+                                            <p className="text-[12px] text-[#B45309] leading-snug">{warn}</p>
+                                          </li>
+                                        ))}
+                                      </ul>
                                     </div>
                                   </div>
-                                ))}
+                                )}
                               </div>
                             )}
 

@@ -4,6 +4,8 @@ import { normalizeFlowToText } from '../../../utils/flowFormatter';
 import { useCaseService } from '../services/useCaseService';
 import Button from '../../../components/ui/Button';
 
+const today = new Date().toISOString().split('T')[0];
+
 const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
@@ -259,6 +261,34 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                     
                     <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[16px]">calendar_today</span> Start Date
+                            </label>
+                            <input 
+                              type="date"
+                              value={uc.startDate || ''}
+                              min={today}
+                              max={uc.deadline || undefined}
+                              onChange={(e) => handleFieldChange(index, 'startDate', e.target.value)}
+                              className="w-full text-sm p-2 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[16px]">event</span> Deadline
+                            </label>
+                            <input 
+                              type="date"
+                              value={uc.deadline || ''}
+                              min={uc.startDate || today}
+                              onChange={(e) => handleFieldChange(index, 'deadline', e.target.value)}
+                              className="w-full text-sm p-2 bg-surface border border-outline-variant rounded-lg focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none"
+                            />
+                          </div>
+                        </div>
+
                         <div>
                           <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-1">
                             <span className="material-symbols-outlined text-[16px]">start</span> Precondition

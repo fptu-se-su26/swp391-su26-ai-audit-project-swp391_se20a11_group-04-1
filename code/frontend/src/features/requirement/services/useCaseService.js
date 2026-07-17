@@ -43,6 +43,17 @@ export const useCaseService = {
     return response.data;
   },
 
+  // Sắp xếp Use Case
+  reorderUseCases: async (projectId, requirementId, ids) => {
+    const response = await axiosInstance.put(`/v1/use-cases/requirement/${requirementId}/reorder`, { ids }, { params: { projectId } });
+    return response.data;
+  },
+
+  reorderUseCasesGlobal: async (projectId, ids) => {
+    const response = await axiosInstance.put(`/v1/use-cases/reorder`, { ids }, { params: { projectId } });
+    return response.data;
+  },
+
   // Approve Use Case từ Diagram
   approveUseCase: async (useCaseId, projectId, requirementId) => {
     const params = { projectId };
@@ -59,7 +70,7 @@ export const useCaseService = {
 
   // AI: Generate Use Cases
   generateUseCases: async (projectId, payload, config = {}) => {
-    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000, ...config });
+    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 300000, ...config });
     return response.data;
   },
 

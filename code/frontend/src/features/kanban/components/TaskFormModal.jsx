@@ -268,7 +268,7 @@ const TaskFormModal = ({
                 type="date"
                 value={formData.startDate}
                 min={new Date().toISOString().split('T')[0]}
-                max={requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
+                max={formData.deadline || requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
                 onChange={(event) => updateField('startDate', event.target.value)}
                 aria-invalid={Boolean(errors.startDate)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${

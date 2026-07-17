@@ -102,13 +102,13 @@ gemini:
   api-key: ${GEMINI_API_KEY:}
   api:
     keys: ${GEMINI_API_KEY:}
-    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent}
 
 openrouter:
   api:
     keys: ${OPENROUTER_API_KEYS:}
     url: ${OPENROUTER_API_URL:https://openrouter.ai/api/v1/chat/completions}
-    model: ${OPENROUTER_MODEL:google/gemini-2.5-flash:free}
+    model: ${OPENROUTER_MODEL:google/gemini-1.5-flash}
 
 groq:
   api:

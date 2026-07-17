@@ -35,9 +35,10 @@ public class RequirementController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String priority,
             @RequestParam(required = false) String tag,
+            @RequestParam(required = false) String search,
             HttpSession session) {
         requireUser(session);
-        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirements(page, size, projectId, status, priority, tag), "Requirements retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirements(page, size, projectId, status, priority, tag, search), "Requirements retrieved"));
     }
 
     @GetMapping("/{id}")

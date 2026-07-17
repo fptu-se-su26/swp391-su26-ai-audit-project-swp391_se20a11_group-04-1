@@ -23,6 +23,11 @@ export const requirementApi = {
     return response.data.data;
   },
 
+  reorderRequirements: async (projectId, reqIds) => {
+    const response = await axiosInstance.put(`${API_URL}/project/${projectId}/reorder`, { ids: reqIds });
+    return response.data;
+  },
+
   updateStatus: async (id, status) => {
     const response = await axiosInstance.patch(`${API_URL}/${id}/status`, null, {
       params: { status }
@@ -47,7 +52,7 @@ export const requirementApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 120000, // 120 seconds for AI Generation (2 API calls)
+      timeout: 300000, // 300 seconds for AI Generation
     });
     return response.data;
   },
@@ -73,7 +78,7 @@ export const requirementApi = {
 
   regenerateRequirementsWithAi: async (generationId) => {
     const response = await axiosInstance.post(`/ai/regenerate/${generationId}`, {}, {
-      timeout: 120000,
+      timeout: 300000,
     });
     return response.data;
   }

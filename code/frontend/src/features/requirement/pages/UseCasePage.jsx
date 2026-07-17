@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import UseCaseStats from '../components/UseCaseStats';
 import UseCaseToolbar from '../components/UseCaseToolbar';
-import UseCaseTable from '../components/UseCaseTable';
+import UseCaseList from '../components/UseCaseList';
 import UseCasePagination from '../components/UseCasePagination';
 import Button from '../../../components/ui/Button';
 import UseCaseFormModal from '../components/UseCaseFormModal';
@@ -56,9 +55,9 @@ const UseCasePage = () => {
     setIsDraftView(false);
   }, [activeProject?.id]);
 
-  const fetchUseCases = async () => {
+  const fetchUseCases = async (showLoading = true) => {
     if (!activeProject?.id) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const params = {
         projectId: activeProject.id,
@@ -80,7 +79,7 @@ const UseCasePage = () => {
       console.error('Failed to fetch use cases', error);
       toast.error('Không thể tải danh sách Use Case');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -104,11 +103,6 @@ const UseCasePage = () => {
     }
   };
 
-  const handleRefresh = () => {
-    fetchUseCases();
-    fetchAllUseCases();
-    fetchDiagramData();
-  };
 
   useEffect(() => {
     if (viewMode === 'list') {
@@ -184,6 +178,12 @@ const UseCasePage = () => {
     setGenerating(false);
   };
 
+  const handleRefresh = (silent = false) => {
+    fetchUseCases(!silent);
+    fetchAllUseCases();
+    fetchDiagramData();
+  };
+
   const handleDeleteUseCase = (id) => {
     setDeleteConfirmId(id);
   };
@@ -194,7 +194,7 @@ const UseCasePage = () => {
       await useCaseService.deleteUseCase(deleteConfirmId, activeProject.id);
       toast.success('Use Case deleted successfully');
       setDeleteConfirmId(null);
-      handleRefresh();
+      handleRefresh(true);
     } catch (error) {
       console.error(error);
       toast.error('Failed to delete Use Case');
@@ -202,8 +202,26 @@ const UseCasePage = () => {
   };
 
   const handleEditUseCase = (useCase) => {
-    // Navigate to UseCaseDetailPage for editing
-    navigate(`/projects/${activeProject.id}/use-cases/${useCase.id}`);
+    // Navigate to UseCaseDetailPage and trigger edit mode immediately
+    navigate(`/projects/${activeProject.id}/use-cases/${useCase.id}`, { state: { edit: true } });
+  };
+
+  const handleReorder = async (newItems) => {
+    setUseCases(newItems);
+    const ucIds = newItems.map(item => item.id);
+    try {
+      await useCaseService.reorderUseCasesGlobal(activeProject.id, ucIds);
+    } catch (error) {
+      console.error('Failed to reorder use cases:', error);
+      toast.error('Failed to save order');
+      fetchUseCases(false); // revert
+    }
+  };
+
+  const handleResetOrder = () => {
+    if (!useCases || useCases.length === 0) return;
+    const sorted = [...useCases].sort((a, b) => a.id - b.id);
+    handleReorder(sorted);
   };
 
   const handleApproveUseCase = async (id) => {
@@ -265,8 +283,6 @@ const UseCasePage = () => {
           </div>
         </div>
 
-        {viewMode === 'list' && <UseCaseStats useCases={allUseCases} />}
-
         {viewMode.startsWith('diagram') ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
             <UCDiagramEditorPage 
@@ -289,27 +305,33 @@ const UseCasePage = () => {
                 setIsDraftView(val);
                 setCurrentPage(0);
               }}
+              resultCount={totalElements}
+              onResetOrder={handleResetOrder}
             />
-          {loading ? (
-            <div className="flex items-center justify-center flex-1 p-10">
-              <span className="text-secondary font-medium">Đang tải dữ liệu...</span>
+            <div className="relative flex-1">
+              {loading && (
+                <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10 rounded-b-xl">
+                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E707D]"></div>
+                </div>
+              )}
+              {useCases.length === 0 && !loading ? (
+                <div className="flex items-center justify-center flex-1 p-10 flex-col">
+                  <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
+                  <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>
+                </div>
+              ) : (
+                <UseCaseList 
+                  useCases={useCases} 
+                  allUseCases={allUseCases}
+                  diagramData={diagramData}
+                  onEdit={isLeader ? handleEditUseCase : undefined} 
+                  onDelete={isLeader ? handleDeleteUseCase : undefined} 
+                  onRefresh={handleRefresh}
+                  enableReorder={isLeader}
+                  onReorder={handleReorder}
+                />
+              )}
             </div>
-          ) : useCases.length === 0 ? (
-            <div className="flex items-center justify-center flex-1 p-10 flex-col">
-              <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
-              <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>
-            </div>
-          ) : (
-            <UseCaseTable 
-              useCases={useCases} 
-              allUseCases={allUseCases}
-              diagramData={diagramData}
-              onEdit={isLeader ? handleEditUseCase : undefined} 
-              onDelete={isLeader ? handleDeleteUseCase : undefined} 
-              onApprove={isLeader ? handleApproveUseCase : undefined}
-              isDraftView={isDraftView}
-            />
-          )}
             <UseCasePagination 
               currentPage={currentPage}
               totalPages={totalPages}

@@ -174,16 +174,20 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           positionTree(tree, leftY, UC_LEFT_X, 1, 'left');
           leftY += tree.height;
       });
-      const endY = leftY - UC_GAP;
       
-      let y = UC_Y_START;
-      if (startY <= endY) {
-          y = (startY + endY) / 2;
+      // Actor y: center between start and end, or just at startY if no trees
+      let y = startY;
+      if (cluster.trees.length > 0) {
+          const endY = leftY - UC_GAP;
+          if (startY <= endY) y = (startY + endY) / 2;
       }
+      
       const actor = actors.find(a => a.id === cluster.actorId);
       actorNodes.push({ ...actor, position: { x: ACTOR_LEFT_X, y }, data: { ...actor.data, side: 'left' }});
       
-      leftY += CLUSTER_GAP;
+      // Ensure leftY advances even if no trees (disconnected actor takes space)
+      if (cluster.trees.length === 0) leftY += ACTOR_Y_SPACING;
+      else leftY += CLUSTER_GAP;
   });
 
   let rightY = UC_Y_START;
@@ -193,16 +197,20 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           positionTree(tree, rightY, UC_RIGHT_X, -1, 'right');
           rightY += tree.height;
       });
-      const endY = rightY - UC_GAP;
       
-      let y = UC_Y_START;
-      if (startY <= endY) {
-          y = (startY + endY) / 2;
+      // Actor y: center between start and end, or just at startY if no trees
+      let y = startY;
+      if (cluster.trees.length > 0) {
+          const endY = rightY - UC_GAP;
+          if (startY <= endY) y = (startY + endY) / 2;
       }
+      
       const actor = actors.find(a => a.id === cluster.actorId);
       actorNodes.push({ ...actor, position: { x: ACTOR_RIGHT_X, y }, data: { ...actor.data, side: 'right' }});
       
-      rightY += CLUSTER_GAP;
+      // Ensure rightY advances even if no trees (disconnected actor takes space)
+      if (cluster.trees.length === 0) rightY += ACTOR_Y_SPACING;
+      else rightY += CLUSTER_GAP;
   });
 
   const bottomLimit = Math.max(leftY, rightY);

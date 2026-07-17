@@ -52,6 +52,7 @@ public class RequirementServiceImpl implements RequirementService {
     private final TaskRepository taskRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
 
     private void checkLeaderAccess(Long projectId) {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -167,18 +168,19 @@ public class RequirementServiceImpl implements RequirementService {
             Long projectId,
             String status,
             String priority,
-            String tag) {
+            String tag,
+            String search) {
         int currentPage = Math.max(page, 0);
         int pageSize = Math.min(Math.max(size, 1), 1000);
 
         PageRequest pageRequest = PageRequest.of(
                 currentPage,
                 pageSize,
-                Sort.by(Sort.Direction.DESC, "id")
+                Sort.by(Sort.Order.asc("reqOrder").nullsLast(), Sort.Order.desc("id"))
         );
 
         Page<Requirement> requirementsPage = requirementRepository.findAll(
-                buildRequirementSpec(projectId, status, priority, tag),
+                buildRequirementSpec(projectId, status, priority, tag, search),
                 pageRequest
         );
 
@@ -376,8 +378,14 @@ public class RequirementServiceImpl implements RequirementService {
                 
         checkLeaderAccess(req.getProject().getId());
         
+        Long projectId = req.getProject().getId();
         RequirementResponseDTO response = mapToDTO(req);
         requirementRepository.deleteById(id);
+        requirementRepository.flush();
+        if (useCaseRepository.countByProjectId(projectId) == 0) {
+            List<org.example.backend.entity.ProjectActor> actors = projectActorRepository.findByProjectId(projectId);
+            projectActorRepository.deleteAll(actors);
+        }
         return response;
     }
 
@@ -436,7 +444,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .build();
     }
 
-    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag) {
+    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag, String search) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -460,6 +468,19 @@ public class RequirementServiceImpl implements RequirementService {
             if (tag != null && !tag.isBlank()) {
                 jakarta.persistence.criteria.Expression<String> tagsString = criteriaBuilder.function("array_to_string", String.class, root.get("tags"), criteriaBuilder.literal(","));
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(tagsString), "%" + tag.trim().toLowerCase(Locale.ROOT) + "%"));
+            }
+
+            if (search != null && !search.isBlank()) {
+                String searchTrimmed = search.trim().toLowerCase(Locale.ROOT);
+                String searchLower = "%" + searchTrimmed + "%";
+                Predicate titlePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), searchLower);
+                
+                if (searchTrimmed.matches(".*\\d.*") || searchTrimmed.startsWith("req-")) {
+                    Predicate reqCodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("reqCode")), searchLower);
+                    predicates.add(criteriaBuilder.or(titlePredicate, reqCodePredicate));
+                } else {
+                    predicates.add(titlePredicate);
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

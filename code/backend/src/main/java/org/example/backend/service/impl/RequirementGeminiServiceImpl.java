@@ -4,6 +4,7 @@ import org.example.backend.service.AiRoutingService;
 import org.example.backend.service.RequirementGeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -72,7 +73,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
                 "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
                 "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
-                "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before the project start date: " + (project != null && project.getStartDate() != null ? project.getStartDate().toString() : "N/A") + ".\n" +
+                "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past.\n" +
                 "   h. 'deadline': (String) Generate a logical deadline for this requirement in YYYY-MM-DD format. The date MUST NOT be after the project deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
@@ -98,6 +99,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "3. 'errors': (Array of Strings) List any factual errors or contradictions in ENGLISH (if any; empty array if none).\n" +
                 "4. 'source_excerpt': (String) Extract an EXACT text snippet (COPY WORD-FOR-WORD) from the original document as evidence for this Requirement. Do not rewrite or use the requirement's description.\n" +
                 "5. 'isDuplicate': (Boolean) Set to true if this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. Otherwise, set to false.\n\n" +
+                "CRITICAL RULE: YOU MUST PRESERVE ALL ORIGINAL FIELDS from the input JSON (especially 'startDate', 'deadline', 'acceptanceCriteria', 'type', 'priority', 'tags'). DO NOT REMOVE ANY EXISTING FIELD.\n\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
                 "--- EXISTING REQUIREMENTS LIST ---\n- " + existingReqsText + "\n\n" +
                 "--- RAW REQUIREMENTS JSON ---\n" + rawRequirementsJson + "\n\n" +

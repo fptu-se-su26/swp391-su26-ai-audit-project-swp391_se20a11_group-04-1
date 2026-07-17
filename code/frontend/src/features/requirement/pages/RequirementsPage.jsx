@@ -29,13 +29,13 @@ const RequirementsPage = () => {
   
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '0', 10);
-  const setCurrentPage = (page) => {
+  const setCurrentPage = React.useCallback((page) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.set('page', page);
       return newParams;
     });
-  };
+  }, [setSearchParams]);
 
   const [reqToDelete, setReqToDelete] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -48,7 +48,8 @@ const RequirementsPage = () => {
     projectId: activeProjectId,
     status: filters.status,
     priority: filters.priority,
-    tag: filters.tag
+    tag: filters.tag,
+    search: filters.search
   });
 
   const applyRequirementResponse = (data) => {
@@ -103,7 +104,7 @@ const RequirementsPage = () => {
       if (requirements.length === 1 && currentPage > 0) {
         setCurrentPage(currentPage - 1);
       } else {
-        fetchRequirements(currentPage);
+        silentFetchRequirements();
       }
     } catch (error) {
       console.error('Error deleting requirement:', error);
@@ -126,18 +127,51 @@ const RequirementsPage = () => {
   const handleModalSuccess = () => {
     const nextPage = editingReq ? currentPage : 0;
     setCurrentPage(nextPage);
-    fetchRequirements(nextPage);
+    fetchRequirements(nextPage, false);
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleFilterChange = (nextFilters) => {
-    setFilters(nextFilters);
-    setCurrentPage(0);
-  };
+  const handleFilterChange = React.useCallback((nextFilters) => {
+    setFilters(prev => {
+      const isSame = prev.status === nextFilters.status && 
+                     prev.priority === nextFilters.priority && 
+                     prev.tag === nextFilters.tag && 
+                     prev.search === nextFilters.search;
+      
+      if (!isSame) {
+        setTimeout(() => setCurrentPage(0), 0);
+        return nextFilters;
+      }
+      return prev;
+    });
+  }, [setCurrentPage]);
 
   const handlePageChange = (nextPage) => {
     if (nextPage < 0 || nextPage >= pagination.totalPages || nextPage === currentPage) return;
     setCurrentPage(nextPage);
+  };
+
+  const handleReorder = async (newItems) => {
+    // Optimistically update the UI
+    setRequirements(newItems);
+    
+    // Extract ordered IDs
+    const reqIds = newItems.map(item => item.id);
+    
+    try {
+      await requirementApi.reorderRequirements(activeProjectId, reqIds);
+      // Optional: show a toast or silently succeed
+    } catch (error) {
+      console.error('Failed to reorder requirements:', error);
+      // Revert on failure
+      fetchRequirements(currentPage);
+    }
+  };
+
+  const handleResetOrder = () => {
+    if (!requirements || requirements.length === 0) return;
+    const sorted = [...requirements].sort((a, b) => a.id - b.id);
+    handleReorder(sorted);
   };
 
   return (
@@ -148,29 +182,29 @@ const RequirementsPage = () => {
          resultCount={pagination.totalItems} 
          projectId={activeProjectId} 
          refreshTrigger={refreshTrigger} 
+         onResetOrder={handleResetOrder}
       />
 
-      {loading ? (
-        <div className="flex justify-center items-center py-10 text-secondary">
-          Loading requirements...
-        </div>
-      ) : errorMessage ? (
+      {errorMessage ? (
         <div className="flex justify-center items-center py-10 text-error">
           {errorMessage}
         </div>
-      ) : requirements.length === 0 ? (
+      ) : requirements.length === 0 && !loading ? (
         <div className="flex justify-center items-center py-10 text-secondary">
           No requirements match the current filters.
         </div>
       ) : (
-        <RequirementList
-          requirements={requirements}
-          onDelete={initiateDelete}
-          onEdit={handleEdit}
-          onRefresh={silentFetchRequirements}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-        />
+        <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+          <RequirementList
+            requirements={requirements}
+            onDelete={initiateDelete}
+            onEdit={handleEdit}
+            onRefresh={silentFetchRequirements}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+            onReorder={handleReorder}
+          />
+        </div>
       )}
 
       {isCreateModalOpen && (

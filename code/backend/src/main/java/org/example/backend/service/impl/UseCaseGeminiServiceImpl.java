@@ -4,6 +4,7 @@ import org.example.backend.service.AiRoutingService;
 import org.example.backend.service.UseCaseGeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 
 @Service
 public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
@@ -80,7 +81,7 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "   - Identify extending Use Cases by their names (e.g., View Detail, View Results, Cancel, Edit, Export). \n" +
                 "   - Direction: This Use Case (Extension) ---> Base Use Case. \n" +
                 "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical extends.\n" +
-                "10. 'startDate': (String) Generate a logical start date for this use case in YYYY-MM-DD format. The date MUST NOT be before the requirement's start date, and MUST NOT be before the project's start date: " + (project != null && project.getStartDate() != null ? project.getStartDate().toString() : "N/A") + ".\n" +
+                "10. 'startDate': (String) Generate a logical start date for this use case in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past. It should also be on or after the parent requirement's start date.\n" +
                 "11. 'deadline': (String) Generate a logical deadline for this use case in YYYY-MM-DD format. The date MUST NOT be after the requirement's deadline, and MUST NOT be after the project's deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n\n" +
                 "STRICT UML BUSINESS RULES:\n" +
                 "- An isolated Use Case (no actors) CANNOT include or extend other isolated Use Cases. At least one must be connected to an actor.\n" +
@@ -124,6 +125,7 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "2. 'warnings': (Array of Strings) List in ENGLISH any ambiguities, lack of details, or ACTOR VIOLATIONS (if they use an actor NOT in the ALLOWED ACTORS list, you MUST flag a warning).\n" +
                 "3. 'errors': (Array of Strings) List in ENGLISH any logical errors, disconnected alternative flows, contradictions, or SCOPE CREEP / COMPLETENESS ISSUES (e.g., Use Case has actions totally unrelated to the Parent Requirement, or postcondition fails to achieve the goal).\n" +
                 "4. 'isDuplicate': (Boolean) Set to true IF AND ONLY IF this newly generated Use Case is a SEMANTIC DUPLICATE or functionally identical to any Use Case in the EXISTING USE CASES list. Otherwise, false.\n\n" +
+                "CRITICAL RULE: YOU MUST PRESERVE ALL ORIGINAL FIELDS from the input JSON (especially 'startDate', 'deadline', 'includes', 'extendsList'). DO NOT REMOVE ANY EXISTING FIELD.\n\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
                 "--- ALLOWED ACTORS ---\n" + actorsContext + "\n\n" +
                 "--- EXISTING USE CASES ---\n" + existingUcsContext + "\n\n" +

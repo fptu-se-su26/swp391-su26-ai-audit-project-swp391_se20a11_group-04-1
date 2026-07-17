@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useCaseService } from '../services/useCaseService';
 import UseCaseDetailHeader from '../components/UseCaseDetailHeader';
 import UseCaseMetadataCards from '../components/UseCaseMetadataCards';
@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 
 const UseCaseDetailPage = () => {
   const { projectId, id } = useParams();
+  const location = useLocation();
   const activeProject = useProjectStore((state) => state.activeProject);
   const { userId } = useAuthStore();
   const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
@@ -26,6 +27,9 @@ const UseCaseDetailPage = () => {
   const [editData, setEditData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // Ref to track if we've already triggered auto-edit to prevent loops
+  const autoEditTriggered = useRef(false);
   
   // AI Sync Modal
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -45,6 +49,16 @@ const UseCaseDetailPage = () => {
   useEffect(() => {
     fetchUseCase();
   }, [fetchUseCase]);
+
+  // Auto-trigger edit mode if navigated with state.edit = true
+  useEffect(() => {
+    if (useCase && location.state?.edit && !autoEditTriggered.current) {
+      handleEdit();
+      autoEditTriggered.current = true;
+      // Clear the state so refreshing doesn't keep triggering edit mode
+      window.history.replaceState({}, document.title);
+    }
+  }, [useCase, location.state]);
 
   // Unsaved changes warning
   useEffect(() => {
@@ -74,6 +88,8 @@ const UseCaseDetailPage = () => {
       completenessScore: useCase.completenessScore || 0,
       includesList: useCase.includesList ? [...useCase.includesList] : [],
       extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
+      startDate: useCase.startDate || null,
+      deadline: useCase.deadline || null,
     });
     setIsEditing(true);
   };
@@ -93,6 +109,8 @@ const UseCaseDetailPage = () => {
       completenessScore: useCase.completenessScore || 0,
       includesList: useCase.includesList ? [...useCase.includesList] : [],
       extendsList: useCase.extendsList ? [...useCase.extendsList] : [],
+      startDate: useCase.startDate || null,
+      deadline: useCase.deadline || null,
     };
 
     if (JSON.stringify(editData) !== JSON.stringify(originalData)) {
@@ -145,6 +163,8 @@ const UseCaseDetailPage = () => {
         completenessScore: editData.completenessScore,
         includesList: editData.includesList,
         extendsList: editData.extendsList,
+        startDate: editData.startDate,
+        deadline: editData.deadline,
       };
 
       await useCaseService.updateUseCase(id, payload, projectId);

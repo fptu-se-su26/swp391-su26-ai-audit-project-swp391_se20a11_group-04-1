@@ -4,6 +4,7 @@ import Button from '../../../components/ui/Button';
 
 const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLeader, onEdit, onSave, onCancel, onFieldChange, onStatusChange, onAiSync }) => {
   const { projectId } = useParams();
+  const today = new Date().toISOString().split('T')[0];
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -63,18 +64,55 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
         </div>
 
         {isEditing ? (
-          <div className="flex items-center gap-2">
-            <span className="font-display-lg text-display-lg text-on-surface-variant">{useCase.code}:</span>
-            <input
-              type="text"
-              value={useCase.name || ''}
-              onChange={(e) => onFieldChange('name', e.target.value)}
-              className="flex-1 font-display-lg text-display-lg text-on-surface border-b-2 border-[#1E707D] bg-transparent outline-none pb-1 transition-all"
-              placeholder="Use Case Name"
-            />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-display-lg text-display-lg text-on-surface-variant">{useCase.code}:</span>
+              <input
+                type="text"
+                value={useCase.name || ''}
+                onChange={(e) => onFieldChange('name', e.target.value)}
+                className="flex-1 font-display-lg text-display-lg text-on-surface border-b-2 border-[#1E707D] bg-transparent outline-none pb-1 transition-all"
+                placeholder="Use Case Name"
+              />
+            </div>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-secondary font-body-md text-[13px] font-medium">Start Date:</span>
+                <input
+                  type="date"
+                  value={useCase.startDate ? new Date(useCase.startDate).toISOString().split('T')[0] : ''}
+                  min={today}
+                  max={useCase.deadline ? new Date(useCase.deadline).toISOString().split('T')[0] : undefined}
+                  onChange={(e) => onFieldChange('startDate', e.target.value)}
+                  className="px-3 py-1.5 border border-outline-variant rounded-md text-sm text-on-surface focus:border-[#1E707D] focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-secondary font-body-md text-[13px] font-medium">Deadline:</span>
+                <input
+                  type="date"
+                  value={useCase.deadline ? new Date(useCase.deadline).toISOString().split('T')[0] : ''}
+                  min={useCase.startDate ? new Date(useCase.startDate).toISOString().split('T')[0] : today}
+                  onChange={(e) => onFieldChange('deadline', e.target.value)}
+                  className="px-3 py-1.5 border border-outline-variant rounded-md text-sm text-on-surface focus:border-[#1E707D] focus:outline-none"
+                />
+              </div>
+            </div>
           </div>
         ) : (
-          <h1 className="font-display-lg text-display-lg text-on-surface mb-2">{useCase.code}: {useCase.name}</h1>
+          <div className="flex flex-col">
+            <h1 className="font-display-lg text-display-lg text-on-surface mb-2">{useCase.code}: {useCase.name}</h1>
+            {(useCase.startDate || useCase.deadline) && (
+              <div className="flex items-center gap-2 w-fit px-3 py-1.5 bg-surface-container-low rounded-lg border border-outline-variant/50">
+                <span className="material-symbols-outlined text-[16px] text-secondary">calendar_today</span>
+                <span className="font-body-md text-sm font-medium text-secondary">
+                  {useCase.startDate ? new Date(useCase.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '?'} 
+                  {' - '} 
+                  {useCase.deadline ? new Date(useCase.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '?'}
+                </span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -109,13 +147,6 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
         ) : (
           isLeader && (
             <>
-              <Button 
-                variant="outline"
-                onClick={onEdit}
-                className="h-11"
-              >
-                <span className="material-symbols-outlined text-[18px]">edit</span> Edit
-              </Button>
               <Button 
                 variant={useCase.outdated ? "danger" : "primary"}
                 onClick={onAiSync}

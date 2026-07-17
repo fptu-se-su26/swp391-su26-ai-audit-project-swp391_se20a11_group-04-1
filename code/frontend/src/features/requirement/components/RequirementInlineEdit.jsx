@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { FiSave, FiX, FiPlus, FiTrash2 } from 'react-icons/fi';
 
+const today = new Date().toISOString().split('T')[0];
+
 const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
   const [editedReq, setEditedReq] = useState({
     title: requirement.title || '',
     description: requirement.description || '',
     priority: requirement.priority || 'Medium',
     type: requirement.type || 'FUNCTIONAL',
+    startDate: requirement.startDate || '',
+    deadline: requirement.deadline || '',
+    status: requirement.status || 'Draft',
     acceptanceCriteria: requirement.acceptanceCriteria || [],
     tags: requirement.tags || [],
   });
@@ -71,6 +76,30 @@ const RequirementInlineEdit = ({ requirement, onSave, onCancel }) => {
             <option value="NON_FUNCTIONAL">Non-Functional</option>
             <option value="BUSINESS">Business</option>
           </select>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="flex flex-col gap-1 w-1/2">
+          <label className="text-[11px] font-medium text-gray-500 uppercase">Start Date</label>
+          <input 
+            type="date"
+            value={editedReq.startDate}
+            min={today}
+            max={editedReq.deadline || undefined}
+            onChange={(e) => handleChange('startDate', e.target.value)}
+            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none bg-white"
+          />
+        </div>
+        <div className="flex flex-col gap-1 w-1/2">
+          <label className="text-[11px] font-medium text-gray-500 uppercase">Deadline</label>
+          <input 
+            type="date"
+            value={editedReq.deadline}
+            min={editedReq.startDate || today}
+            onChange={(e) => handleChange('deadline', e.target.value)}
+            className="w-full h-[32px] px-2 text-[13px] border border-gray-300 rounded focus:ring-1 focus:ring-[#1E707D] focus:outline-none bg-white"
+          />
         </div>
       </div>
 

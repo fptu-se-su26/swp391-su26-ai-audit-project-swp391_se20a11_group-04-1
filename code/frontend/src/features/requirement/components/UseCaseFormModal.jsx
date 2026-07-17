@@ -228,7 +228,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     type="date" name="startDate"
                     value={formData.startDate} onChange={handleChange}
                     min={new Date().toISOString().split('T')[0]}
-                    max={requirements.find(r => r.id === parseInt(formData.requirementId))?.deadline || activeProject?.deadline}
+                    max={formData.deadline || requirements.find(r => r.id === parseInt(formData.requirementId))?.deadline || activeProject?.deadline}
                     className="w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant rounded-xl focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all" 
                   />
                 </div>

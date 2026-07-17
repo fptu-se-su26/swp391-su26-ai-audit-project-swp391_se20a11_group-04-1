@@ -4,6 +4,7 @@ import org.example.backend.service.AiRoutingService;
 import org.example.backend.service.TaskGeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 
 @Service
 public class TaskGeminiServiceImpl implements TaskGeminiService {
@@ -46,11 +47,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- BUG_FIX: Resolving specific issues or refactoring bad code.\n" +
                 "- REVIEW: Code review, architecture evaluation, security audit.\n\n" +
                 "TIMELINE RULES (Strictly enforced):\n" +
-                "- NEVER generate past dates. start_date MUST BE >= projectStartDate (or today if projectStartDate is in the past).\n" +
+                "- NEVER generate past dates. start_date MUST BE >= today's date: " + LocalDate.now().toString() + ". DO NOT generate a date before today.\n" +
                 "- suggested_deadline MUST BE >= start_date.\n" +
-                "- Base tasks (no dependencies) MUST have start_date = projectStartDate (or today if projectStartDate is in the past).\n" +
+                "- Base tasks (no dependencies) MUST have start_date = today's date: " + LocalDate.now().toString() + " or later.\n" +
                 "- Dependent tasks MUST have start_date >= suggested_deadline of their depends_on tasks.\n" +
-                "- start_date >= projectStartDate AND suggested_deadline <= projectDeadline.\n" +
+                "- suggested_deadline MUST NOT exceed projectDeadline.\n" +
                 "- CRITICAL BOUNDARY RULE: If a task belongs to a Use Case, its start_date and suggested_deadline MUST fall strictly within that Use Case's start_date and deadline.\n" +
                 "- If a task belongs to a Requirement (and no Use Case), its dates MUST fall strictly within that Requirement's start_date and deadline.\n" +
                 "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap!\n\n" +

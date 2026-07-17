@@ -163,7 +163,9 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
               <div className="w-[56px] h-[56px] bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
                 <FiX size={28} strokeWidth={2.5} />
               </div>
-              <h3 className="text-[15px] font-bold text-gray-900 mb-2">Document Context Mismatch!</h3>
+              <h3 className="text-[15px] font-bold text-gray-900 mb-2">
+                {errorData && errorData.toLowerCase().includes('context mismatch') ? 'Document Context Mismatch!' : 'Generation Failed'}
+              </h3>
               <p className="text-[13px] text-gray-600 px-2 mb-6 leading-relaxed">
                 {errorData}
               </p>

@@ -317,6 +317,47 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       handleEdgeActionRef.current?.(...args);
   }, []);
 
+  // Lightweight re-layout without showing loading spinner (for bulk-add sync)
+  const relayoutSilently = useCallback((currentActors, currentUcs, currentRelations, currentSystemName) => {
+    const buildNodes = [];
+    const buildEdges = [];
+    currentActors.forEach((a) => {
+      const actorId = a.id.toString().startsWith('actor_') ? a.id.toString() : `actor_${a.id}`;
+      buildNodes.push({
+        id: actorId, type: 'actor', position: { x: 0, y: 0 },
+        data: { label: a.name || 'Actor', side: a.side, onDelete: handleNodeDelete, onNameUpdate: handleNameUpdate },
+      });
+    });
+    currentUcs.forEach((uc) => {
+      if (uc.showInDiagram === false) return;
+      buildNodes.push({
+        id: `uc_${uc.id}`, type: 'useCase', position: { x: 0, y: 0 },
+        data: { label: uc.name || 'Untitled', group: uc.group, isIsolated: uc.isIsolated !== false, onDelete: handleNodeDelete, onNameUpdate: handleNameUpdate },
+      });
+    });
+    currentRelations.forEach((rel) => {
+      const sourceStr = rel.sourceId.toString();
+      const targetStr = rel.targetId.toString();
+      const isSourceActor = sourceStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === sourceStr);
+      const isTargetActor = targetStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === targetStr);
+      const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
+      const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
+      const isDep = rel.type === 'include' || rel.type === 'extends';
+      buildEdges.push({
+        id: `edge_${rel.id}`, source, target, type: 'custom',
+        data: { relType: rel.type, onEdgeAction: handleEdgeAction },
+        label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
+        style: isDep ? { strokeDasharray: '5,5' } : {},
+        markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined,
+      });
+    });
+    const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(buildNodes, buildEdges, currentSystemName);
+    const enhanced = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+    setNodes(enhanced);
+    setEdges(calculateDynamicHandles(layoutedEdges, enhanced).map(e => ({ ...e, zIndex: 1 })));
+    setTimeout(() => { fitView({ padding: 0.08, minZoom: 0.1 }); }, 150);
+  }, [handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges, fitView]);
+
   const initLayout = useCallback(async (forceReset = false) => {
     setIsLoading(true);
     
@@ -400,21 +441,32 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(initialNodes, initialEdges, systemName);
 
       if (savedPositions && !forceReset) {
-        const restoredNodes = layoutedNodes.map(node => {
-           if (savedPositions[node.id]) {
-               const posData = savedPositions[node.id];
-               const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
-               if (posData.width !== undefined && posData.height !== undefined) {
-                   newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
-               }
-               return newNode;
-           }
-           return { ...node, position: node.position || { x: 0, y: 0 }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
-        });
-        setNodes(restoredNodes);
-        
-        const restoredEdges = calculateDynamicHandles(layoutedEdges, restoredNodes).map(e => ({ ...e, zIndex: 1 }));
-        setEdges(restoredEdges);
+        // Check if any actor nodes are missing from saved positions — if so, force a full relayout
+        const actorNodes = layoutedNodes.filter(n => n.id.startsWith('actor_'));
+        const hasUnsavedActors = actorNodes.some(n => !savedPositions[n.id]);
+
+        if (hasUnsavedActors && actorNodes.length > 0) {
+          // Some actors are new (not in saved layout) — do a full auto-layout so everything is properly placed
+          const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+          setNodes(enhancedNodes);
+          setEdges(calculateDynamicHandles(layoutedEdges, enhancedNodes).map(e => ({ ...e, zIndex: 1 })));
+        } else {
+          const restoredNodes = layoutedNodes.map(node => {
+             if (savedPositions[node.id]) {
+                 const posData = savedPositions[node.id];
+                 const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
+                 if (posData.width !== undefined && posData.height !== undefined) {
+                     newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
+                 }
+                 return newNode;
+             }
+             return { ...node, position: node.position || { x: 0, y: 0 }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
+          });
+          setNodes(restoredNodes);
+          
+          const restoredEdges = calculateDynamicHandles(layoutedEdges, restoredNodes).map(e => ({ ...e, zIndex: 1 }));
+          setEdges(restoredEdges);
+        }
       } else {
         const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
         setNodes(enhancedNodes);
@@ -443,12 +495,28 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       // If it's the first time loading an empty project, just stop loading.
       // Do not revert isInitialized to false if it's already true, to preserve auto-save.
       setIsLoading(false);
+      setIsInitialized(true);
     }
   }, [actors.length, useCases.length, initLayout, isInitialized]);
+
+  // Track whether we need a full re-layout after a bulk add (e.g. AI generation)
+  const needsRelayoutRef = useRef(false);
+  const prevActorCountRef = useRef(actors.length);
+  const prevUcCountRef = useRef(useCases.length);
 
   // Task 1: Sync new actors and useCases to the canvas dynamically and remove deleted ones
   useEffect(() => {
       if (!isInitialized) return;
+      
+      // Detect if large number of nodes were added (bulk AI generation)
+      const actorDiff = actors.length - prevActorCountRef.current;
+      const ucDiff = useCases.length - prevUcCountRef.current;
+      prevActorCountRef.current = actors.length;
+      prevUcCountRef.current = useCases.length;
+      if (actorDiff > 1 || ucDiff > 1) {
+          needsRelayoutRef.current = true;
+      }
+
       setNodes((nds) => {
           let updated = false;
           const newNodes = [...nds];
@@ -460,7 +528,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               
               if (node.id.startsWith('actor_')) {
                   const rawId = node.id.replace('actor_', '');
-                  if (!actors.find(a => a.id.toString() === rawId)) {
+                  if (!actors.find(a => a.id.toString() === rawId || a.id.toString() === `actor_${rawId}`)) {
                       newNodes.splice(i, 1);
                       updated = true;
                   }
@@ -534,6 +602,20 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       setEdges((eds) => {
           let updated = false;
           const newEdges = [...eds];
+          
+          // 1. Remove edges that no longer exist in the store
+          for (let i = newEdges.length - 1; i >= 0; i--) {
+              const edge = newEdges[i];
+              if (edge.id.startsWith('edge_')) {
+                  const rawId = edge.id.replace('edge_', '');
+                  if (!relations.find(r => r.id.toString() === rawId)) {
+                      newEdges.splice(i, 1);
+                      updated = true;
+                  }
+              }
+          }
+
+          // 2. Add new edges
           relations.forEach(rel => {
               const edgeId = `edge_${rel.id}`;
               if (!newEdges.find(e => e.id === edgeId)) {
@@ -561,9 +643,18 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                   updated = true;
               }
           });
+          
           return updated ? newEdges : eds;
       });
-  }, [actors, useCases, relations, isInitialized, handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges]);
+
+      // If bulk nodes were added, do a silent re-layout AFTER state updates settle
+      if (needsRelayoutRef.current) {
+          needsRelayoutRef.current = false;
+          setTimeout(() => {
+              relayoutSilently(actors, useCases, relations, systemName);
+          }, 200);
+      }
+  }, [actors, useCases, relations, isInitialized, handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges, relayoutSilently, systemName]);
 
     // Unified Debounced Auto-save
     const autoSaveTimeout = useRef(null);

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -44,6 +45,9 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Autowired
     private org.example.backend.repository.ProjectRepository projectRepository;
+
+    @Autowired
+    private org.example.backend.repository.ProjectActorRepository projectActorRepository;
 
     @Override
     @org.example.backend.annotation.Auditable(action="CREATE_USECASE", entityType="UseCase")
@@ -130,6 +134,11 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         UseCaseResponse response = mapEntityToResponse(useCase);
         useCaseRepository.delete(useCase);
+        useCaseRepository.flush();
+        if (useCaseRepository.countByProjectId(projectId) == 0) {
+            List<org.example.backend.entity.ProjectActor> actors = projectActorRepository.findByProjectId(projectId);
+            projectActorRepository.deleteAll(actors);
+        }
         return response;
     }
 
@@ -160,6 +169,24 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    public void reorderUseCasesGlobal(Long projectId, org.example.backend.dto.ReorderRequestDTO request) {
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) return;
+
+        List<UseCase> useCases = useCaseRepository.findAllById(ids);
+        java.util.Map<Long, UseCase> ucMap = useCases.stream().collect(Collectors.toMap(UseCase::getId, u -> u));
+
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            UseCase uc = ucMap.get(id);
+            if (uc != null && uc.getProjectId().equals(projectId)) {
+                uc.setUcOrder(i);
+                useCaseRepository.save(uc);
+            }
+        }
+    }
+
+    @Override
     public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -169,10 +196,16 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             if (keyword != null && !keyword.trim().isEmpty()) {
-                String pattern = "%" + keyword.toLowerCase() + "%";
+                String searchTrimmed = keyword.trim().toLowerCase(Locale.ROOT);
+                String pattern = "%" + searchTrimmed + "%";
                 Predicate nameLike = cb.like(cb.lower(root.get("name")), pattern);
-                Predicate codeLike = cb.like(cb.lower(root.get("code")), pattern);
-                predicates.add(cb.or(nameLike, codeLike));
+                
+                if (searchTrimmed.matches(".*\\d.*") || searchTrimmed.startsWith("uc-")) {
+                    Predicate codeLike = cb.like(cb.lower(root.get("code")), pattern);
+                    predicates.add(cb.or(nameLike, codeLike));
+                } else {
+                    predicates.add(nameLike);
+                }
             }
 
             if (status != null && !status.trim().isEmpty()) {

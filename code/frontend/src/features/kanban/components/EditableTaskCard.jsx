@@ -219,7 +219,7 @@ const EditableTaskCard = ({
                 className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
                 value={editForm.start_date || ''}
                 min={sprintMin}
-                max={sprintMax || undefined}
+                max={editForm.deadline || editForm.suggested_deadline || sprintMax || undefined}
                 onChange={(e) => setEditForm({...editForm, start_date: e.target.value})}
               />
             </div>

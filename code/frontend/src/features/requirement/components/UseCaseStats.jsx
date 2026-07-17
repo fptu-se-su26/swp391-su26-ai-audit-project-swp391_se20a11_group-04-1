@@ -2,24 +2,22 @@ import React from 'react';
 
 const UseCaseStats = ({ useCases = [] }) => {
   const stats = [
-    { label: 'TOTAL ACTIVE', value: useCases.length, bg: 'bg-[#1E707D/10]', icon: 'grid_view', iconColor: 'text-[#1E707D]' },
-    { label: 'COMPLETED', value: useCases.filter(uc => uc.status === 'COMPLETED' || uc.status === 'DONE').length, bg: 'bg-[#E1F5EE]', icon: 'check_circle', iconColor: 'text-[#1D9E75]' },
-    { label: 'IN DRAFT', value: useCases.filter(uc => uc.status === 'DRAFT').length, bg: 'bg-[#F3F4F6]', icon: 'edit_document', iconColor: 'text-[#9CA3AF]' },
-    { label: 'AI REVIEWED', value: useCases.filter(uc => uc.aiGenerated).length, bg: 'bg-[#1E707D]/10', icon: 'smart_toy', iconColor: 'text-[#1E707D]' },
+    { label: 'Total Active', value: useCases.length, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Completed', value: useCases.filter(uc => uc.status === 'COMPLETED' || uc.status === 'DONE').length, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+    { label: 'In Draft', value: useCases.filter(uc => uc.status === 'DRAFT').length, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200' },
+    { label: 'AI Reviewed', value: useCases.filter(uc => uc.aiGenerated).length, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100' },
   ];
 
   return (
-    <div className="px-[32px] mt-[20px]">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-[12px]">
+    <div className="mt-4 mb-6">
+      <div className="flex flex-wrap gap-3">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white border border-[#E5E7EB] rounded-[12px] p-[16px_20px] flex items-center justify-between">
-            <div>
-              <p className="text-[24px] font-[600] text-[#111827] leading-none">{stat.value}</p>
-              <p className="text-[11px] uppercase tracking-[0.05em] text-[#9CA3AF] mt-2 font-medium">{stat.label}</p>
+          <div key={index} className={`flex-1 min-w-[180px] ${stat.bg} ${stat.border} border rounded-xl p-4 flex flex-col relative overflow-hidden transition-all hover:shadow-sm`}>
+            <div className="flex items-baseline gap-2 z-10">
+              <span className={`text-3xl font-extrabold ${stat.color}`}>{stat.value}</span>
             </div>
-            <div className={`w-[40px] h-[40px] rounded-[10px] flex items-center justify-center ${stat.bg} ${stat.iconColor}`}>
-              <span className="material-symbols-outlined text-[20px]">{stat.icon}</span>
-            </div>
+            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mt-1 z-10">{stat.label}</span>
+            <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 bg-current ${stat.color}`}></div>
           </div>
         ))}
       </div>

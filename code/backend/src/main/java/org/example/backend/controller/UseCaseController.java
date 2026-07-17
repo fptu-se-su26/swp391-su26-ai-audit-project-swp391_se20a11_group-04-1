@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import jakarta.servlet.http.HttpSession;
 
 import jakarta.validation.Valid;
@@ -44,7 +45,7 @@ public class UseCaseController {
             @RequestParam(defaultValue = "10") int size) {
         String searchKeyword = keyword.isEmpty() ? null : keyword;
         String searchStatus = status.isEmpty() ? null : status;
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("ucOrder").nullsLast(), Sort.Order.desc("id")));
         Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
@@ -101,6 +102,14 @@ public class UseCaseController {
             @RequestBody org.example.backend.dto.ReorderRequestDTO request) {
         useCaseService.reorderUseCases(projectId, requirementId, request);
         return ResponseEntity.ok(ApiResponse.success(null, "Use cases reordered"));
+    }
+
+    @PutMapping("/reorder")
+    public ResponseEntity<ApiResponse<Void>> reorderUseCasesGlobal(
+            @RequestParam Long projectId,
+            @RequestBody org.example.backend.dto.ReorderRequestDTO request) {
+        useCaseService.reorderUseCasesGlobal(projectId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Use cases reordered globally"));
     }
 
     private Long requireUser(HttpSession session) {
