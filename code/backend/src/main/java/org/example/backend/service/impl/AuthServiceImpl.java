@@ -212,7 +212,7 @@ public class AuthServiceImpl implements AuthService {
         UserAccount user = userAccountRepository.findByUsernameOrEmail(usernameOrEmail)
                 .orElseThrow(() -> {
                     log.warn("Login failed. User not found in DB: {}", usernameOrEmail);
-                    throw new UnauthorizedException("Thông tin đăng nhập không chính xác.");
+                    throw new UnauthorizedException("Incorrect username or password.");
                 });
 
         if (!user.isActive()) {
@@ -614,7 +614,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
                 .systemRole(roleName)
                 .isActive(user.isActive())
-                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
                 .lockReason(user.getLockReason())
                 .passwordSet(isPasswordSet(user))
@@ -653,7 +653,7 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(String.valueOf(epochSecond)))
                 .systemRole(defaultRole)
                 .isActive(true)
-                .verifyStatus(org.example.backend.entity.VerifyStatus.VERIFIED) // Auto-verify OAuth users
+                .verifyStatus(org.example.backend.entity.VerifyStatus.UNVERIFIED) // OAuth users start as UNVERIFIED
                 .createdAt(now)
                 .build();
 
@@ -700,7 +700,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getProfile() != null ? user.getProfile().getFullName() : user.getUsername())
                 .systemRole(roleName)
                 .isActive(user.isActive())
-                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "VERIFIED")
+                .verifyStatus(user.getVerifyStatus() != null ? user.getVerifyStatus().name() : "UNVERIFIED")
                 .createdAt(user.getCreatedAt())
                 .lockReason(user.getLockReason())
                 .passwordSet(isPasswordSet(user))

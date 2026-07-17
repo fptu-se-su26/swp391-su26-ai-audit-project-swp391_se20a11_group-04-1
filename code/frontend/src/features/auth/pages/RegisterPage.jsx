@@ -5,6 +5,8 @@ import authService from '../services/authService'
 import useFormPersist from '@hooks/useFormPersist'
 import useOtpTimer from '@hooks/useOtpTimer'
 
+const PERSIST_EXCLUDE = ['password', 'confirmPassword']
+
 function RegisterPage() {
   const navigate = useNavigate()
   
@@ -24,6 +26,7 @@ function RegisterPage() {
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({}) // Frontend & Backend Validation Errors
+  const [registeredEmail, setRegisteredEmail] = useState('')
 
   // Sử dụng custom hook useOtpTimer để quản lý bộ đếm ngược OTP và hạn chế spam
   const {
@@ -41,7 +44,7 @@ function RegisterPage() {
   useFormPersist('app-register-draft', {
     data: formData,
     setData: setFormData,
-    exclude: ['password', 'confirmPassword'],
+    exclude: PERSIST_EXCLUDE,
     storageType: 'session'
   })
 
@@ -130,6 +133,7 @@ function RegisterPage() {
       
       if (response.data?.success) {
         toast.success(response.data.message || 'Mã OTP đã được gửi đến email của bạn!')
+        setRegisteredEmail(formData.email)
         setStep(2) // Move to OTP verification step
         startCooldown(60) // Cooldown 60s
         startExpiry(300) // Expiry 5m (300s)
@@ -181,6 +185,15 @@ function RegisterPage() {
       if (response.data?.success) {
         toast.success('Đăng ký tài khoản thành công!')
         sessionStorage.removeItem('app-register-draft')
+        setFormData({
+          fullName: '',
+          username: '',
+          email: '',
+          phone: '',
+          password: '',
+          confirmPassword: '',
+          terms: false,
+        })
         // Chờ 1.5 giây để người dùng thấy thông báo thành công rồi chuyển hướng sang Login
         setTimeout(() => {
           navigate('/login')
@@ -252,7 +265,7 @@ function RegisterPage() {
           <p className="font-body-md text-body-md text-on-surface-variant">
             {step === 1 
               ? 'Join DevTrack AI to manage your projects.' 
-              : `Mã OTP đã được gửi tới email ${formData.email}`}
+              : `Mã OTP đã được gửi tới email ${registeredEmail || formData.email}`}
           </p>
         </div>
 
