@@ -41,6 +41,15 @@ class SelectorScanService:
     # Max unique selectors per attribute per file
     MAX_SELECTORS_PER_ATTR = 30
 
+    # Values to skip for the 'name' attribute — these are meta/link/script attributes, not form fields
+    NAME_BLOCKLIST = {
+        'viewport', 'description', 'keywords', 'author', 'robots', 'charset',
+        'generator', 'theme-color', 'application-name', 'msapplication-TileColor',
+        'twitter:card', 'twitter:title', 'twitter:description', 'og:title',
+        'og:description', 'og:type', 'og:url', 'og:image',
+        'csrf-token', '_csrf', 'referrer',
+    }
+
     # Regex patterns for each attribute type.
     # Each pattern captures the value in group 1.
     ATTR_PATTERNS: Dict[str, List[str]] = {
@@ -54,8 +63,10 @@ class SelectorScanService:
             r'\bid=\{["\']([^"\']+)["\']\}',                  # id={'email-input'}
         ],
         'name': [
-            r'\bname=["\']([^"\']+)["\']',                    # name="password"
-            r'\bname=\{["\']([^"\']+)["\']\}',                # name={'password'}
+            # Require that name appears inside an <input, <select, <textarea, or <button tag context
+            # Pattern: look for input/select/textarea/button tag then name attribute (within ~300 chars)
+            r'<(?:input|select|textarea|button)[^>]{0,300}\bname=["\']([^"\']+)["\']',
+            r'<(?:input|select|textarea|button)[^>]{0,300}\bname=\{["\']([^"\']+)["\']\}',
         ],
         'aria-label': [
             r'aria-label=["\']([^"\']+)["\']',                # aria-label="Close"
@@ -122,12 +133,17 @@ class SelectorScanService:
 
         for attr_name, patterns in cls.ATTR_PATTERNS.items():
             found: List[str] = []
+            # Use DOTALL for name patterns so multi-line tags are matched
+            flags = re.IGNORECASE | re.DOTALL if attr_name == 'name' else re.IGNORECASE
             for pattern in patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
+                matches = re.findall(pattern, content, flags)
                 for m in matches:
                     value = m.strip()
                     # Skip empty, dynamic expressions, or suspiciously long values
                     if value and not value.startswith('{') and len(value) <= 80:
+                        # For 'name', filter out meta/link attributes that are not form fields
+                        if attr_name == 'name' and value in cls.NAME_BLOCKLIST:
+                            continue
                         if value not in found:
                             found.append(value)
 

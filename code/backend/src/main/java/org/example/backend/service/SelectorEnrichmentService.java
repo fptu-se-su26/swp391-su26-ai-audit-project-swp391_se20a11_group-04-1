@@ -181,8 +181,12 @@ public class SelectorEnrichmentService {
                         ? requirementDesc : "No description provided.") + "\n\n" +
                 "AVAILABLE FRONTEND FILES:\n" + fileList + "\n" +
                 "TASK: Return ONLY a JSON array of file paths that contain UI elements directly " +
-                "used in this feature. Include login, register, or form pages if the requirement " +
-                "involves authentication or user input. Include at most 5 files.\n\n" +
+                "used in this feature. Rules:\n" +
+                "- Include login/signin pages (.jsp, .html, .jsx, .tsx) if the requirement involves authentication or user login.\n" +
+                "- Include registration/signup pages if the requirement involves user registration.\n" +
+                "- Include form pages if the requirement involves data submission.\n" +
+                "- Look for file names containing keywords from the requirement (e.g., 'login', 'register', 'profile', 'dashboard').\n" +
+                "- Include at most 8 files. Prefer specificity over breadth.\n\n" +
                 "Rules:\n" +
                 "- Return ONLY a raw JSON array, no explanation, no markdown.\n" +
                 "- Example: [\"src/views/auth/login.jsp\", \"src/views/auth/register.jsp\"]\n" +

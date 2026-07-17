@@ -764,23 +764,27 @@ class DevTrackControllerTest {
         return (a, b) -> {
             boolean aCompleted = "COMPLETED".equals(a.getStatus()) || "ARCHIVED".equals(a.getStatus());
             boolean bCompleted = "COMPLETED".equals(b.getStatus()) || "ARCHIVED".equals(b.getStatus());
-            boolean aOverdue = !aCompleted && a.getDeadline() != null && a.getDeadline().isBefore(today);
-            boolean bOverdue = !bCompleted && b.getDeadline() != null && b.getDeadline().isBefore(today);
+
+            java.time.LocalDate aDeadline = a.getDeadline() != null ? java.time.LocalDate.parse(a.getDeadline()) : null;
+            java.time.LocalDate bDeadline = b.getDeadline() != null ? java.time.LocalDate.parse(b.getDeadline()) : null;
+
+            boolean aOverdue = !aCompleted && aDeadline != null && aDeadline.isBefore(today);
+            boolean bOverdue = !bCompleted && bDeadline != null && bDeadline.isBefore(today);
 
             // Completed → cuối
             if (aCompleted != bCompleted) return aCompleted ? 1 : -1;
             // Non-overdue → trước overdue
             if (aOverdue != bOverdue) return aOverdue ? 1 : -1;
             // Cả 2 overdue → gần hôm nay nhất lên trước (DESC deadline)
-            if (aOverdue) return b.getDeadline().compareTo(a.getDeadline());
+            if (aOverdue) return bDeadline.compareTo(aDeadline);
             // Cả 2 non-overdue → deadline ASC
-            return a.getDeadline().compareTo(b.getDeadline());
+            return aDeadline.compareTo(bDeadline);
         };
     }
 
     private ProjectResponse buildProject(String id, String title, String status, LocalDate deadline) {
         return ProjectResponse.builder()
-                .id(id).title(title).status(status).deadline(deadline)
+                .id(id).title(title).status(status).deadline(deadline != null ? deadline.toString() : null)
                 .major("SE").semester("Summer 2026").role("Project Leader")
                 .progress(50).atRiskReqCount(0).aiInsight("On Track")
                 .members(List.of()).build();

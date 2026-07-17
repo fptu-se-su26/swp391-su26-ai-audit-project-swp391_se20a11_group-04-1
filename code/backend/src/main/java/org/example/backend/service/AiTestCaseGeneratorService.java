@@ -277,14 +277,17 @@ public class AiTestCaseGeneratorService {
                 "====================================================\n" +
                 "STEP 6b \u2014 Source Code Selector Map (from GitHub)\n" +
                 "====================================================\n" +
+                "The following selectors were extracted DIRECTLY from the project's actual source code.\n" +
+                "These are the ONLY valid selectors you are permitted to use for UI test steps.\n\n" +
                 selectorContext + "\n" +
-                "ABSOLUTE SELECTOR RULES — NO EXCEPTIONS:\n" +
-                "1. You MUST ONLY use the exact attribute values listed above. NEVER invent a selector.\n" +
-                "2. If the login username field has name='input', use [name='input'] — NOT [name='username'].\n" +
-                "3. If a button has no id/name/data-testid, use button:has-text('Sign In') or button[type='submit'].\n" +
-                "4. Match selectors EXACTLY as they appear in the source code above — character by character.\n" +
-                "5. If you cannot find a selector for an element, write a comment 'SELECTOR NOT FOUND' and skip that step.\n" +
-                "VIOLATION: Using any selector NOT in the list above is a critical error.\n\n";
+                "ABSOLUTE SELECTOR RULES — VIOLATION IS A CRITICAL ERROR:\n" +
+                "1. ONLY use selectors that appear verbatim in the SOURCE CODE SELECTORS list above.\n" +
+                "2. Copy attribute values CHARACTER FOR CHARACTER. Example: if source shows name='input', write [name='input'] — NEVER [name='username'] or [name='email'].\n" +
+                "3. Priority order: data-testid > name > id > aria-label > placeholder.\n" +
+                "4. For buttons: if a button has data-testid in the list, use [data-testid='...']. If no data-testid, check if it has a name or aria-label in the list. Only use button[type='submit'] as an absolute last resort when no other attribute is listed.\n" +
+                "5. NEVER use common-sense guesses like [name='email'], [name='username'], [id='loginBtn']. Only what is in the list.\n" +
+                "6. If no selector can be found for a required element, omit that step and add a note 'SELECTOR NOT FOUND IN SOURCE'.\n" +
+                "REMEMBER: The OUTPUT FORMAT example below uses placeholder values — do NOT copy those selectors. Use only the selectors from the SOURCE CODE SELECTORS list above.\n\n";
         }
 
         basePrompt +=
@@ -321,15 +324,22 @@ public class AiTestCaseGeneratorService {
                 "- Include 'apiQueryParams' if the API requires URL parameters.\n" +
                 "- Generate cases that assert 4xx/5xx HTTP status codes along with success cases.\n\n";
 
+        String uiSelectorRule = (selectorContext != null && !selectorContext.isBlank())
+                ? "- CRITICAL: Use ONLY selectors from the SOURCE CODE SELECTORS list in STEP 6b. Do NOT default to data-testid unless it appears in that list."
+                : "- CRITICAL: Use 'data-testid' attributes for selectors whenever possible.";
+
         basePrompt += "UI TEST CONSTRAINTS (inside 'configuration' object with 'type': 'UI'):\n" +
                 "- 'steps' array in 'configuration' must perfectly mirror the human-readable root 'steps' array.\n" +
                 "- Allowed Actions: 'goto', 'fill', 'click', 'select', 'wait_for'.\n" +
-                "- CRITICAL: Use 'data-testid' attributes for selectors whenever possible.\n" +
+                uiSelectorRule + "\n" +
                 "- Allowed Assertions: 'expect_url', 'expect_text', 'expect_visible', 'expect_hidden'.\n\n";
 
         // Output format with structured reasoning template
         basePrompt += "OUTPUT FORMAT\n" +
                 "Return a valid JSON object with this EXACT structure (NO markdown code blocks, NO extra text outside the JSON).\n" +
+                (selectorContext != null && !selectorContext.isBlank()
+                    ? "IMPORTANT: The selectors shown in the example below (e.g., [data-testid='email-input']) are PLACEHOLDERS ONLY. You MUST replace them with actual selectors from the SOURCE CODE SELECTORS list in STEP 6b.\n"
+                    : "") +
                 "The 'reasoning' field MUST follow this EXACT template format:\n\n" +
                 "REQUIREMENT ANALYSIS:\n" +
                 "✔ Feature: [feature name]\n" +

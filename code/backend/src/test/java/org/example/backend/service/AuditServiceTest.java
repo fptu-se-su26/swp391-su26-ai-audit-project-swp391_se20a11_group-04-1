@@ -38,7 +38,7 @@ class AuditServiceTest {
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
 
         AuditEvent event = new AuditEvent(this, 1L, "user1", "CREATE_TASK", "Task", 100L,
-                null, "{}", "127.0.0.1", "POST", "/api/tasks", "SUCCESS", null, 150L);
+                10L, null, "{}", "127.0.0.1", "POST", "/api/tasks", "SUCCESS", null, 150L);
 
         auditService.handleAuditEvent(event);
 
@@ -59,7 +59,7 @@ class AuditServiceTest {
         doThrow(new RuntimeException("DB Error")).when(auditLogRepository).save(any());
 
         AuditEvent event = new AuditEvent(this, 1L, "user1", "CREATE_TASK", "Task", 100L,
-                null, "{}", "127.0.0.1", "POST", "/api/tasks", "SUCCESS", null, 150L);
+                10L, null, "{}", "127.0.0.1", "POST", "/api/tasks", "SUCCESS", null, 150L);
 
         assertDoesNotThrow(() -> auditService.handleAuditEvent(event));
         verify(auditLogRepository, times(1)).save(any());
@@ -67,7 +67,7 @@ class AuditServiceTest {
 
     @Test
     void testPublishSuccess_PublishesAuditEvent() {
-        auditService.publishSuccess(1L, "user1", "CREATE_TASK", "Task", 100L, "{}",
+        auditService.publishSuccess(1L, "user1", "CREATE_TASK", "Task", 100L, 10L, "{}",
                 "127.0.0.1", "POST", "/api/tasks", 150L);
 
         ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
