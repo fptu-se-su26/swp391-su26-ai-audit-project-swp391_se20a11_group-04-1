@@ -9,7 +9,26 @@ class SelectorScanService:
     Groups results by relative file path to provide context for AI test case generation.
     """
 
-    FRONTEND_EXTS = {'.jsx', '.tsx', '.vue', '.html', '.htm'}
+    FRONTEND_EXTS = {
+        # React / Vue / Angular
+        '.jsx', '.tsx', '.vue', '.svelte',
+        # Plain HTML
+        '.html', '.htm', '.xhtml',
+        # Java server-side templates
+        '.jsp', '.jspx', '.jspf', '.tag',
+        # Python templates
+        '.jinja', '.jinja2', '.j2',
+        # Ruby / Rails
+        '.erb', '.haml', '.slim',
+        # PHP
+        '.php', '.phtml',
+        # .NET Razor
+        '.cshtml', '.razor', '.vbhtml',
+        # Thymeleaf / FreeMarker / Velocity
+        '.ftl', '.vm', '.twig',
+        # Django / Flask
+        '.html',  # already covered, but kept for clarity
+    }
 
     EXCLUDED_DIRS = {
         'node_modules', '.git', 'dist', 'build', '.next', '.nuxt',
