@@ -278,12 +278,13 @@ public class AiTestCaseGeneratorService {
                 "STEP 6b \u2014 Source Code Selector Map (from GitHub)\n" +
                 "====================================================\n" +
                 selectorContext + "\n" +
-                "CRITICAL SELECTOR RULE:\n" +
-                "- For ALL UI test case steps, you MUST use selectors from the SOURCE CODE SELECTORS list above.\n" +
-                "- Prefer 'data-testid' selectors first, then 'id', then 'name', then 'aria-label', then 'placeholder'.\n" +
-                "- Format: [data-testid='value'] for data-testid, #value for id, [name='value'] for name.\n" +
-                "- If the exact element you need is not listed, use: button:has-text('ButtonText') or role selectors.\n" +
-                "- Do NOT invent selectors like [data-testid='submit-btn'] if 'submit-btn' is not in the list above.\n\n";
+                "ABSOLUTE SELECTOR RULES — NO EXCEPTIONS:\n" +
+                "1. You MUST ONLY use the exact attribute values listed above. NEVER invent a selector.\n" +
+                "2. If the login username field has name='input', use [name='input'] — NOT [name='username'].\n" +
+                "3. If a button has no id/name/data-testid, use button:has-text('Sign In') or button[type='submit'].\n" +
+                "4. Match selectors EXACTLY as they appear in the source code above — character by character.\n" +
+                "5. If you cannot find a selector for an element, write a comment 'SELECTOR NOT FOUND' and skip that step.\n" +
+                "VIOLATION: Using any selector NOT in the list above is a critical error.\n\n";
         }
 
         basePrompt +=
