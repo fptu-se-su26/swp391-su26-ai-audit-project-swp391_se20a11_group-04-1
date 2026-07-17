@@ -103,15 +103,21 @@ public class AiTestCaseGeneratorService {
     private <T> T parseJsonObject(String rawJson, TypeReference<T> typeRef) {
         try {
             String cleanJson = rawJson.trim();
-            if (cleanJson.startsWith("```json")) {
-                cleanJson = cleanJson.substring(7);
-            } else if (cleanJson.startsWith("```")) {
-                cleanJson = cleanJson.substring(3);
+
+            // Strip ```json ... ``` or ``` ... ``` fences (with or without newline after opening fence)
+            if (cleanJson.startsWith("```")) {
+                // Remove opening fence: ```json or ```
+                int newlineIdx = cleanJson.indexOf('\n');
+                if (newlineIdx != -1) {
+                    cleanJson = cleanJson.substring(newlineIdx + 1).trim();
+                } else {
+                    // No newline after fence — strip the fence prefix manually
+                    cleanJson = cleanJson.replaceFirst("^```(json)?", "").trim();
+                }
             }
             if (cleanJson.endsWith("```")) {
-                cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
+                cleanJson = cleanJson.substring(0, cleanJson.length() - 3).trim();
             }
-            cleanJson = cleanJson.trim();
 
             int firstCurly = cleanJson.indexOf("{");
             int lastCurly = cleanJson.lastIndexOf("}");
