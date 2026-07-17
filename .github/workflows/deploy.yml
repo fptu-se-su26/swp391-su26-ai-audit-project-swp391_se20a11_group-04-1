@@ -43,8 +43,8 @@ jobs:
             export MAVEN_OPTS="-Xmx512m -XX:MaxMetaspaceSize=256m"
             ./mvnw clean package -Dmaven.test.skip=true
 
-            # Spring Boot tự đọc .env qua application.yaml (optional:file:../../.env[.properties])
-            # KHÔNG dùng -Dspring.config.additional-location vì .env không phải .properties/.yaml
+            # Spring Boot start — load env vars từ .env file trước khi chạy
+            set -a && source "${REPO_DIR}/.env" && set +a
             nohup java -Xmx512m \
               -Dspring.profiles.active=docker \
               -Dspring.kafka.bootstrap-servers=localhost:9092 \

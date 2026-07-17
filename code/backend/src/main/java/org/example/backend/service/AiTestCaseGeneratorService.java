@@ -27,7 +27,7 @@ public class AiTestCaseGeneratorService {
     private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.AiGenerationStagingRepository stagingRepository;
     private final org.example.backend.repository.TestCaseRepository testCaseRepository;
-    private final GeminiService geminiService;
+    private final AiRoutingService aiRoutingService;
 
     public AiTestCaseGeneratorService(
             ObjectMapper objectMapper,
@@ -35,13 +35,13 @@ public class AiTestCaseGeneratorService {
             UseCaseRepository useCaseRepository,
             org.example.backend.repository.AiGenerationStagingRepository stagingRepository,
             org.example.backend.repository.TestCaseRepository testCaseRepository,
-            GeminiService geminiService) {
+            AiRoutingService aiRoutingService) {
         this.objectMapper = objectMapper;
         this.requirementRepository = requirementRepository;
         this.useCaseRepository = useCaseRepository;
         this.stagingRepository = stagingRepository;
         this.testCaseRepository = testCaseRepository;
-        this.geminiService = geminiService;
+        this.aiRoutingService = aiRoutingService;
     }
 
     public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request) {
@@ -84,7 +84,7 @@ public class AiTestCaseGeneratorService {
                 useCaseContext, request.getAdditionalContext(), selectorContext);
 
         // Use GeminiService (with key rotation, 503 retry, and OpenRouter fallback)
-        String rawJson = geminiService.generateText(prompt);
+        String rawJson = aiRoutingService.generateText(prompt);
         AiTestCaseGenerateResponse generatedResponse = parseJsonObject(rawJson, new TypeReference<AiTestCaseGenerateResponse>() {});
 
         if (generatedResponse != null && generatedResponse.getTestCases() != null) {
@@ -500,7 +500,7 @@ public class AiTestCaseGeneratorService {
 
         prompt += "Analyze coverage. Return explicit plain text only. Use simple bullet points (-). DO NOT use Markdown headers (#) or bold (**). Do not return JSON. Provide a concise summary of what is covered and what is missing.";
 
-        return geminiService.generateText(prompt);
+        return aiRoutingService.generateText(prompt);
     }
 
     public List<org.example.backend.dto.testing.AiDraftTestCase> refineTestCases(org.example.backend.dto.testing.RefineAiRequest request) {
@@ -517,7 +517,7 @@ public class AiTestCaseGeneratorService {
                 "Existing Test Cases JSON:\n" + existingJson + "\n\n" +
                 "Return ONLY the updated JSON array matching the exact structure of the input (NO markdown code blocks, NO extra text).";
 
-        String rawJson = geminiService.generateText(prompt);
+        String rawJson = aiRoutingService.generateText(prompt);
         return parseJsonObject(rawJson, new TypeReference<List<org.example.backend.dto.testing.AiDraftTestCase>>() {});
     }
 }
