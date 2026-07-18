@@ -275,19 +275,19 @@ public class AiTestCaseGeneratorService {
         if (selectorContext != null && !selectorContext.isBlank()) {
             basePrompt +=
                 "====================================================\n" +
-                "STEP 6b \u2014 Source Code Selector Map (from GitHub)\n" +
+                "STEP 6b \u2014 Structured Form Map (from GitHub source code)\n" +
                 "====================================================\n" +
-                "The following selectors were extracted DIRECTLY from the project's actual source code.\n" +
-                "These are the ONLY valid selectors you are permitted to use for UI test steps.\n\n" +
+                "The following data was extracted DIRECTLY by parsing the actual HTML/JSP/JSX source files.\n" +
+                "Every element object includes a pre-computed SELECTOR field.\n\n" +
                 selectorContext + "\n" +
                 "ABSOLUTE SELECTOR RULES — VIOLATION IS A CRITICAL ERROR:\n" +
-                "1. ONLY use selectors that appear verbatim in the SOURCE CODE SELECTORS list above.\n" +
-                "2. Copy attribute values CHARACTER FOR CHARACTER. Example: if source shows name='input', write [name='input'] — NEVER [name='username'] or [name='email'].\n" +
-                "3. Priority order: data-testid > name > id > aria-label > placeholder.\n" +
-                "4. For buttons: if a button has data-testid in the list, use [data-testid='...']. If no data-testid, check if it has a name or aria-label in the list. Only use button[type='submit'] as an absolute last resort when no other attribute is listed.\n" +
-                "5. NEVER use common-sense guesses like [name='email'], [name='username'], [id='loginBtn']. Only what is in the list.\n" +
-                "6. If no selector can be found for a required element, omit that step and add a note 'SELECTOR NOT FOUND IN SOURCE'.\n" +
-                "REMEMBER: The OUTPUT FORMAT example below uses placeholder values — do NOT copy those selectors. Use only the selectors from the SOURCE CODE SELECTORS list above.\n\n";
+                "1. For every UI test step that interacts with a form element, use the SELECTOR value from the STRUCTURED FORM MAP above.\n" +
+                "2. Copy the SELECTOR value CHARACTER FOR CHARACTER. Example: if it says [name='input'], write [name='input'] — never [name='email'] or [name='username'].\n" +
+                "3. Use the 'role' field to match elements to test steps: username_or_email_field → the field for entering username/email.\n" +
+                "4. For buttons: use the selector shown. If it says button:has-text('Sign In'), use exactly that.\n" +
+                "5. NEVER invent a selector. NEVER use common-sense defaults like [name='email']. Only what is listed.\n" +
+                "6. If a needed element is not in the form map, write 'SELECTOR NOT FOUND IN SOURCE' and omit that step.\n" +
+                "REMEMBER: The OUTPUT FORMAT example below uses placeholder values — those are NOT real selectors for this project.\n\n";
         }
 
         basePrompt +=

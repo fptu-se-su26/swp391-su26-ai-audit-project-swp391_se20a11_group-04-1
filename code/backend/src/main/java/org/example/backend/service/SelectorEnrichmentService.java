@@ -1,7 +1,5 @@
 package org.example.backend.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.GitHubIntegration;
@@ -16,16 +14,18 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
- * Orchestrates GitHub source code scanning to extract frontend element selectors
- * (data-testid, id, name, aria-label, placeholder) and formats them for Gemini prompts.
+ * Orchestrates GitHub source code scanning to extract a STRUCTURED FORM MAP —
+ * each interactive HTML element (input, select, textarea, button) is represented
+ * as a full object with tag, type, name, id, placeholder, aria-label, resolved
+ * label text, semantic role hint, and a pre-computed Playwright selector.
  *
- * This enriches AI-generated test cases with real selectors from the project's codebase,
- * eliminating guessed/hallucinated selectors.
+ * This replaces the old flat-list approach (/extract-selectors) which still required
+ * AI to guess which selector belonged to which element. With the structured form map,
+ * AI receives the exact selector for each element with its semantic role — no guessing.
  *
- * Fail-safe: any exception is caught and logged — generation continues without enrichment.
+ * Fail-safe: any exception is caught and logged; generation continues without enrichment.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,24 +35,22 @@ public class SelectorEnrichmentService {
     @Value("${architecture.parser.url:http://localhost:4002}")
     private String architectureParserUrl;
 
-    // Maximum character length of the selectorContext injected into the prompt.
-    // Prevents prompt bloat for very large repos.
-    private static final int MAX_CONTEXT_CHARS = 6000;
+    // Maximum character length of the context injected into the Gemini prompt.
+    private static final int MAX_CONTEXT_CHARS = 8000;
 
     private final GitHubIntegrationService gitHubIntegrationService;
     private final RestTemplate restTemplate;
-    private final AiRoutingService aiRoutingService;
-    private final ObjectMapper objectMapper;
 
     /**
-     * Extracts a formatted selector context string from the project's GitHub repo.
-     * Uses two-step AI: first AI selects relevant files, then formats only those selectors.
+     * Extracts a structured form map from the project's GitHub repo and formats it
+     * for injection into the Gemini prompt. Uses the /extract-form-map endpoint which
+     * parses HTML/JSP/JSX/TSX structurally — not with flat regex extraction.
      *
-     * @param projectId          the current project
-     * @param userId             the user triggering the generation (their GitHub token is used)
-     * @param requirementTitle   requirement title for AI to determine relevant files
-     * @param requirementDesc    requirement description for AI to determine relevant files
-     * @return formatted selector context string to inject into the Gemini prompt,
+     * @param projectId        the current project
+     * @param userId           the user triggering the generation (their GitHub token is used)
+     * @param requirementTitle requirement title — used to filter relevant files
+     * @param requirementDesc  requirement description — used to filter relevant files
+     * @return formatted context string to inject into the Gemini prompt,
      *         or {@code null} if enrichment is unavailable or fails
      */
     public String extractSelectorContext(Long projectId, Long userId,
@@ -75,9 +73,9 @@ public class SelectorEnrichmentService {
             String repoUrl = String.format("https://github.com/%s/%s",
                     integration.getRepoOwner(), integration.getRepoName());
 
-            log.info("[SelectorEnrichment] Scanning repo {} for project {}", repoUrl, projectId);
+            log.info("[SelectorEnrichment] Scanning repo {} (form-map) for project {}", repoUrl, projectId);
 
-            // 3. Call architecture-parser /extract-selectors — get full selector map
+            // 3. Call architecture-parser /extract-form-map — structured element objects
             Map<String, Object> payload = Map.of(
                     "repoUrl", repoUrl,
                     "token", decryptedToken,
@@ -89,54 +87,48 @@ public class SelectorEnrichmentService {
 
             @SuppressWarnings("rawtypes")
             ResponseEntity<Map> response = restTemplate.postForEntity(
-                    architectureParserUrl + "/extract-selectors",
+                    architectureParserUrl + "/extract-form-map",
                     new HttpEntity<>(payload, headers),
                     Map.class
             );
 
             if (response.getBody() == null) {
-                log.warn("[SelectorEnrichment] Empty response from architecture-parser");
+                log.warn("[SelectorEnrichment] Empty response from architecture-parser /extract-form-map");
                 return null;
             }
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> fullSelectorMap =
-                    (Map<String, Object>) response.getBody().get("selectorMap");
+            Map<String, Object> fullFormMap =
+                    (Map<String, Object>) response.getBody().get("formMap");
 
-            if (fullSelectorMap == null || fullSelectorMap.isEmpty()) {
-                log.info("[SelectorEnrichment] No selectors found in repo {} — skipping", repoUrl);
+            if (fullFormMap == null || fullFormMap.isEmpty()) {
+                log.info("[SelectorEnrichment] No form elements found in repo {} — skipping", repoUrl);
                 return null;
             }
 
-            log.info("[SelectorEnrichment] Found {} files with selectors for project {}",
-                    fullSelectorMap.size(), projectId);
+            log.info("[SelectorEnrichment] Found {} files with form elements for project {}",
+                    fullFormMap.size(), projectId);
 
-            // 4. [TWO-STEP AI] Step 1: Let AI choose relevant files based on requirement
-            List<String> relevantFiles = selectRelevantFiles(
-                    fullSelectorMap, requirementTitle, requirementDesc);
+            // 4. Filter to relevant files based on requirement keywords (no AI call needed —
+            //    simple keyword matching on file path is sufficient and deterministic)
+            Map<String, Object> filteredMap = filterRelevantFiles(fullFormMap, requirementTitle, requirementDesc);
 
-            // 5. Filter selector map to only relevant files
-            Map<String, Object> filteredMap;
-            if (relevantFiles == null || relevantFiles.isEmpty()) {
-                // Fallback: use all files but truncate aggressively
-                log.warn("[SelectorEnrichment] AI file selection returned empty, using all files");
-                filteredMap = fullSelectorMap;
+            if (filteredMap.isEmpty()) {
+                log.warn("[SelectorEnrichment] No relevant files found after filtering, using all {} files",
+                        fullFormMap.size());
+                filteredMap = fullFormMap;
             } else {
-                log.info("[SelectorEnrichment] AI selected {} relevant files: {}",
-                        relevantFiles.size(), relevantFiles);
-                filteredMap = fullSelectorMap.entrySet().stream()
-                        .filter(e -> relevantFiles.contains(e.getKey()))
-                        .collect(Collectors.toMap(
-                                e -> (String) e.getKey(),
-                                e -> e.getValue()));
+                log.info("[SelectorEnrichment] Filtered to {} relevant files: {}",
+                        filteredMap.size(), filteredMap.keySet());
             }
 
-            // 6. Format filtered map for Gemini prompt
-            String context = formatSelectorMapForPrompt(filteredMap);
+            // 5. Format into prompt-ready text
+            String context = formatFormMapForPrompt(filteredMap);
 
-            // 7. Truncate if still too large
+            // 6. Truncate if still too large
             if (context.length() > MAX_CONTEXT_CHARS) {
-                context = context.substring(0, MAX_CONTEXT_CHARS) + "\n... (truncated — too many selectors)\n";
+                context = context.substring(0, MAX_CONTEXT_CHARS)
+                        + "\n... (truncated — too many elements)\n";
             }
 
             return context;
@@ -154,109 +146,121 @@ public class SelectorEnrichmentService {
         return extractSelectorContext(projectId, userId, "", "");
     }
 
-    /**
-     * Step 1 of two-step AI: Ask AI to select which files are relevant
-     * to the given requirement from the full list of scanned files.
-     *
-     * @param fullSelectorMap  all files and their selectors from the repo
-     * @param requirementTitle the requirement title
-     * @param requirementDesc  the requirement description
-     * @return list of file paths AI considers relevant, or null on failure
-     */
-    private List<String> selectRelevantFiles(Map<String, Object> fullSelectorMap,
-                                              String requirementTitle,
-                                              String requirementDesc) {
-        try {
-            // Build a compact file list — just paths, no selectors (cheap prompt)
-            StringBuilder fileList = new StringBuilder();
-            for (String filePath : fullSelectorMap.keySet()) {
-                fileList.append("- ").append(filePath).append("\n");
+    // -----------------------------------------------------------------------
+    // Deterministic keyword-based file filtering (replaces AI-based selection)
+    // Keyword matching on file path is faster, cheaper, and more reliable than
+    // asking an AI to select files from a list.
+    // -----------------------------------------------------------------------
+    private Map<String, Object> filterRelevantFiles(Map<String, Object> formMap,
+                                                     String requirementTitle,
+                                                     String requirementDesc) {
+        String combined = ((requirementTitle != null ? requirementTitle : "") + " "
+                + (requirementDesc != null ? requirementDesc : "")).toLowerCase();
+
+        // Extract keywords from requirement (words > 3 chars, strip common words)
+        java.util.Set<String> stopWords = java.util.Set.of(
+                "the", "and", "for", "with", "that", "this", "have", "from",
+                "user", "should", "must", "will", "when", "then", "given"
+        );
+        String[] words = combined.split("[^a-z0-9]+");
+        java.util.List<String> keywords = new java.util.ArrayList<>();
+        for (String w : words) {
+            if (w.length() > 3 && !stopWords.contains(w)) {
+                keywords.add(w);
             }
-
-            String selectionPrompt =
-                "You are a software QA analyst. Your task is to identify which frontend source files " +
-                "are relevant for testing the following requirement.\n\n" +
-                "REQUIREMENT TITLE: " + (requirementTitle != null ? requirementTitle : "Unknown") + "\n" +
-                "REQUIREMENT DESCRIPTION: " + (requirementDesc != null && !requirementDesc.isBlank()
-                        ? requirementDesc : "No description provided.") + "\n\n" +
-                "AVAILABLE FRONTEND FILES:\n" + fileList + "\n" +
-                "TASK: Return ONLY a JSON array of file paths that contain UI elements directly " +
-                "used in this feature. Rules:\n" +
-                "- Include login/signin pages (.jsp, .html, .jsx, .tsx) if the requirement involves authentication or user login.\n" +
-                "- Include registration/signup pages if the requirement involves user registration.\n" +
-                "- Include form pages if the requirement involves data submission.\n" +
-                "- Look for file names containing keywords from the requirement (e.g., 'login', 'register', 'profile', 'dashboard').\n" +
-                "- Include at most 8 files. Prefer specificity over breadth.\n\n" +
-                "Rules:\n" +
-                "- Return ONLY a raw JSON array, no explanation, no markdown.\n" +
-                "- Example: [\"src/views/auth/login.jsp\", \"src/views/auth/register.jsp\"]\n" +
-                "- If no files are relevant, return: []\n";
-
-            String rawResponse = aiRoutingService.generateText(selectionPrompt);
-
-            // Parse the JSON array response
-            String clean = rawResponse.trim();
-            if (clean.startsWith("```")) {
-                int newlineIdx = clean.indexOf('\n');
-                clean = newlineIdx != -1 ? clean.substring(newlineIdx + 1).trim()
-                                         : clean.replaceFirst("^```(json)?", "").trim();
-            }
-            if (clean.endsWith("```")) {
-                clean = clean.substring(0, clean.length() - 3).trim();
-            }
-            // Extract array portion
-            int start = clean.indexOf('[');
-            int end = clean.lastIndexOf(']');
-            if (start != -1 && end > start) {
-                clean = clean.substring(start, end + 1);
-            }
-
-            return objectMapper.readValue(clean, new TypeReference<List<String>>() {});
-
-        } catch (Exception e) {
-            log.warn("[SelectorEnrichment] File selection AI call failed: {}", e.getMessage());
-            return null;
         }
+
+        // Always include files matching common UI page patterns for known requirement types
+        java.util.List<String> alwaysInclude = new java.util.ArrayList<>();
+        if (combined.matches(".*\\b(login|sign.?in|authenticate|auth)\\b.*")) {
+            alwaysInclude.addAll(java.util.List.of("login", "signin", "sign_in"));
+        }
+        if (combined.matches(".*\\b(register|sign.?up|signup|registration)\\b.*")) {
+            alwaysInclude.addAll(java.util.List.of("register", "signup", "sign_up", "registration"));
+        }
+        if (combined.matches(".*\\b(password|reset|forgot|forget)\\b.*")) {
+            alwaysInclude.addAll(java.util.List.of("password", "reset", "forgot", "forget"));
+        }
+        if (combined.matches(".*\\b(otp|verif|confirm)\\b.*")) {
+            alwaysInclude.addAll(java.util.List.of("otp", "verif", "confirm"));
+        }
+        if (combined.matches(".*\\b(profile|account|setting)\\b.*")) {
+            alwaysInclude.addAll(java.util.List.of("profile", "account", "setting"));
+        }
+        keywords.addAll(alwaysInclude);
+
+        if (keywords.isEmpty()) {
+            return formMap; // no keywords → return all
+        }
+
+        Map<String, Object> filtered = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : formMap.entrySet()) {
+            String path = entry.getKey().toLowerCase();
+            for (String kw : keywords) {
+                if (path.contains(kw)) {
+                    filtered.put(entry.getKey(), entry.getValue());
+                    break;
+                }
+            }
+        }
+        return filtered;
     }
 
-    /**
-     * Converts the raw selectorMap JSON (from architecture-parser) into a
-     * human-readable text block for the Gemini prompt.
-     *
-     * Input shape:
-     * <pre>
-     * {
-     *   "src/pages/LoginPage.jsx": {
-     *     "data-testid": ["email-input", "password-input"],
-     *     "placeholder": ["Enter email"]
-     *   }
-     * }
-     * </pre>
-     */
+    // -----------------------------------------------------------------------
+    // Format structured form map into a deterministic text block for Gemini.
+    // The `selector` field is pre-computed by FormMapService — AI must use it
+    // verbatim, no deduction required.
+    // -----------------------------------------------------------------------
     @SuppressWarnings("unchecked")
-    private String formatSelectorMapForPrompt(Map<String, Object> selectorMap) {
+    private String formatFormMapForPrompt(Map<String, Object> formMap) {
         StringBuilder sb = new StringBuilder();
-        sb.append("SOURCE CODE SELECTORS (extracted from GitHub frontend source):\n");
-        sb.append("CRITICAL: For UI test cases, ONLY use selectors listed below. ")
-          .append("Do NOT invent selectors that are not present in this list.\n");
-        sb.append("If the exact element you need is missing, use the closest match ")
-          .append("(e.g., button text, aria-label, or placeholder).\n\n");
+        sb.append("STRUCTURED FORM MAP — extracted verbatim from actual source code.\n");
+        sb.append("Each element includes a pre-computed SELECTOR field.\n");
+        sb.append("RULE: Copy the SELECTOR value CHARACTER FOR CHARACTER. No changes allowed.\n\n");
 
-        int fileCount = 0;
-        for (Map.Entry<String, Object> entry : selectorMap.entrySet()) {
-            if (fileCount++ >= 60) {
-                sb.append("... (").append(selectorMap.size() - 60).append(" more files not shown)\n");
-                break;
+        for (Map.Entry<String, Object> fileEntry : formMap.entrySet()) {
+            String filePath = fileEntry.getKey();
+            Map<String, Object> fileData = (Map<String, Object>) fileEntry.getValue();
+            List<Map<String, Object>> forms = (List<Map<String, Object>>) fileData.get("forms");
+
+            if (forms == null || forms.isEmpty()) continue;
+
+            sb.append("FILE: ").append(filePath).append("\n");
+
+            for (Map<String, Object> form : forms) {
+                String action = (String) form.getOrDefault("action", "");
+                String method = (String) form.getOrDefault("method", "");
+                sb.append("  FORM");
+                if (action != null && !action.isBlank()) sb.append(" action=\"").append(action).append("\"");
+                if (method != null && !method.isBlank()) sb.append(" method=").append(method);
+                sb.append("\n");
+
+                List<Map<String, Object>> elements = (List<Map<String, Object>>) form.get("elements");
+                if (elements == null) continue;
+
+                for (Map<String, Object> elem : elements) {
+                    String role     = (String) elem.getOrDefault("role", "unknown");
+                    String tag      = (String) elem.getOrDefault("tag", "input");
+                    String type     = (String) elem.getOrDefault("type", "text");
+                    String selector = (String) elem.getOrDefault("selector", "");
+                    String name     = (String) elem.get("name");
+                    String id       = (String) elem.get("id");
+                    String label    = (String) elem.get("label");
+                    String ph       = (String) elem.get("placeholder");
+                    String text     = (String) elem.get("text");
+
+                    String meta = "tag=" + tag + " type=" + type;
+                    if (name != null) meta += " name=\"" + name + "\"";
+                    if (id   != null) meta += " id=\"" + id + "\"";
+
+                    sb.append("    [").append(role).append("] ").append(meta).append("\n");
+                    if (label != null) sb.append("      label: \"").append(label).append("\"\n");
+                    if (ph    != null) sb.append("      placeholder: \"").append(ph).append("\"\n");
+                    if (text  != null) sb.append("      text: \"").append(text).append("\"\n");
+                    sb.append("      SELECTOR (copy exactly): ").append(selector).append("\n");
+                }
             }
-
-            sb.append(entry.getKey()).append(":\n");
-
-            Map<String, Object> attrs = (Map<String, Object>) entry.getValue();
-            for (Map.Entry<String, Object> attrEntry : attrs.entrySet()) {
-                List<String> values = (List<String>) attrEntry.getValue();
-                sb.append("  ").append(attrEntry.getKey()).append(": ")
-                  .append(String.join(", ", values)).append("\n");
-            }
+            sb.append("\n");
         }
 
         return sb.toString();

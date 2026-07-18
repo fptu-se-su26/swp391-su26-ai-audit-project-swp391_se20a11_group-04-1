@@ -10,6 +10,7 @@ from services.clone_service import CloneService
 from services.parser_service import ParserService
 from services.graph_builder import GraphBuilder
 from services.selector_scan_service import SelectorScanService
+from services.form_map_service import FormMapService
 
 app = FastAPI(title="DevTrack Architecture Parser Microservice")
 
@@ -106,6 +107,56 @@ async def extract_selectors(request: ExtractSelectorsRequest):
     finally:
         if clone_dir:
             CloneService.cleanup(clone_dir)
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 4002))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+
+
+@app.post("/extract-form-map")
+async def extract_form_map(request: ExtractSelectorsRequest):
+    """
+    Clone a GitHub repository, parse all frontend/template files, and return a
+    STRUCTURED FORM MAP — each interactive element is represented as an object
+    with tag, type, name, id, placeholder, aria-label, label text, and a
+    pre-computed Playwright selector.
+
+    This is more accurate than /extract-selectors because:
+    - Elements are grouped by their parent <form> (context-aware)
+    - The `selector` field is pre-computed with priority: data-testid > name > id > aria-label
+    - Semantic `role` hints (username_field, password_field, submit_button) are included
+    - Label text is resolved from matching <label for="..."> tags
+
+    Used by the backend AI Test Case Generator as a replacement for /extract-selectors
+    when accurate selector mapping is required.
+    """
+    clone_dir = None
+    try:
+        reporter = DummyReporter()
+        clone_dir = CloneService.clone(
+            repo_url=request.repoUrl,
+            token=request.token,
+            branch=request.branch,
+            project_id=0,
+            reporter=reporter
+        )
+
+        form_map = FormMapService.scan(clone_dir)
+        stats = FormMapService.compute_stats(form_map)
+
+        return {
+            "formMap": form_map,
+            **stats
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if clone_dir:
+            CloneService.cleanup(clone_dir)
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 4002))
