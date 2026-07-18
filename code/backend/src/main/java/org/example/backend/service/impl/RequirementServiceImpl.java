@@ -444,7 +444,7 @@ public class RequirementServiceImpl implements RequirementService {
                     .toList();
             completedTasksCount = doneTaskIds.size();
 
-            evidenceCount = evidenceRepository.countByRequirementId(req.getId());
+            evidenceCount = evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.REQUIREMENT, req.getId());
 
             if (!doneTaskIds.isEmpty()) {
                 List<CodeInsightAiReview> reviews = aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);

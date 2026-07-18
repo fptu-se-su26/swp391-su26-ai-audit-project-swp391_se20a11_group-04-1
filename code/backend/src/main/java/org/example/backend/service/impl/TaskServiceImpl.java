@@ -973,7 +973,7 @@ public class TaskServiceImpl implements TaskService {
                 .sprintId(task.getSprintId())
                 .sprintName(resolveSprintName(task.getSprintId()))
                 .primaryAssignee(assigneeInfo)
-                .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
+                .evidenceCount(evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.TASK, task.getId()))
                 .build();
     }
 
@@ -1831,7 +1831,7 @@ public class TaskServiceImpl implements TaskService {
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
                 .hasAcceptedEvidence(context != null && context.hasAcceptedEvidence(task.getId()))
-                .evidenceCount(evidenceRepository.countByTaskId(task.getId()))
+                .evidenceCount(evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.TASK, task.getId()))
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ?
                         (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
