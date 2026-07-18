@@ -60,7 +60,8 @@ public class OpenRouterProvider implements LlmProvider {
         String model = openRouterProperties.getModel();
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", model != null ? model : "google/gemini-2.5-flash:free");
+        requestBody.put("model", model != null ? model : "google/gemini-2.5-flash");
+        requestBody.put("max_tokens", 8192); // Cap output to stay within free tier limits
         
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
@@ -97,6 +98,8 @@ public class OpenRouterProvider implements LlmProvider {
                 
                 if (statusCode == 401) {
                     log.warn("OpenRouter API {} for key ending in {}. Bỏ qua...", statusCode, apiKey.substring(Math.max(0, apiKey.length() - 4)));
+                } else if (statusCode == 402) {
+                    log.warn("OpenRouter key ending in {} has insufficient credits. Bỏ qua key này...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("insufficient") || errorBody.contains("balance")) {
                         log.warn("OpenRouter API Key kết thúc bằng {} đã hết Quota (RPD). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
