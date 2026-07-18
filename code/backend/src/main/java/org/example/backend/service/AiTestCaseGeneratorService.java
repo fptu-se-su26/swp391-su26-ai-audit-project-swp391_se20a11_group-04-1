@@ -520,24 +520,6 @@ public class AiTestCaseGeneratorService {
             throw new BusinessException(
                     "Please wait at least 1 minute before generating test cases for this requirement again.");
         }
-
-        // 3. Daily Quota Check (Max 3 times per day per HCM timezone)
-        java.time.ZoneId zoneId = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
-        java.time.LocalDate today = java.time.ZonedDateTime.now(zoneId).toLocalDate();
-
-        long countToday = recentStagings.stream().filter(stg -> stg.getCreatedAt().atZone(java.time.ZoneId.of("UTC"))
-                .withZoneSameInstant(zoneId).toLocalDate().equals(today)).count();
-
-        if (countToday >= 3) {
-            // Check if Requirement was updated after the latest generation
-            org.example.backend.entity.AiGenerationStaging mostRecent = recentStagings.get(0);
-            if (reqUpdated != null && reqUpdated.isAfter(mostRecent.getCreatedAt())) {
-                log.info("Quota limit reached (3/day) but requirement {} was updated. Resetting quota.", req.getId());
-            } else {
-                throw new BusinessException(
-                        "Daily generation quota reached (3 times) for this requirement. Please try again tomorrow or update the requirement.");
-            }
-        }
     }
 
     public String analyzeCoverage(Long requirementId, Long projectId) {
