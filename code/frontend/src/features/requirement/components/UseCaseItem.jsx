@@ -4,7 +4,17 @@ import useProjectStore from '../../../store/useProjectStore';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const UseCaseItem = ({ uc, allUseCases, diagramData, onEdit, onDelete, onRefresh, enableReorder }) => {
+const UseCaseItem = ({ 
+  uc, 
+  allUseCases = [], 
+  diagramData,
+  onDelete, 
+  onEdit, 
+  onRefresh,
+  enableReorder = false,
+  onApprove,
+  onReject
+}) => {
   const { id, name, status, aiGenerated, startDate, deadline, code, requirement, requirementId, outdated, aiScore } = uc;
   const navigate = useNavigate();
   const activeProject = useProjectStore((state) => state.activeProject);
@@ -222,7 +232,7 @@ const UseCaseItem = ({ uc, allUseCases, diagramData, onEdit, onDelete, onRefresh
       </div>
 
       <div className="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end pr-2 gap-2">
-        {(onEdit || onDelete) && (
+        {(onEdit || onDelete || onApprove || onReject) && (
           <div className="relative w-8 flex justify-end shrink-0" ref={actionMenuRef}>
             <button 
               onClick={toggleActionMenu}
@@ -249,6 +259,24 @@ const UseCaseItem = ({ uc, allUseCases, diagramData, onEdit, onDelete, onRefresh
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
                     Delete
+                  </button>
+                )}
+                {onApprove && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowActionMenu(false); onApprove(id); }}
+                    className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                    Approve
+                  </button>
+                )}
+                {onReject && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowActionMenu(false); onReject(id); }}
+                    className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">cancel</span>
+                    Reject
                   </button>
                 )}
               </div>

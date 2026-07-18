@@ -27,6 +27,12 @@ const RequirementsPage = () => {
   const [filters, setFilters] = useState({ status: null, priority: null, tag: null });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
+  // Bug-8: Leader default to 'all' to avoid misleading state
+  const [viewMode, setViewMode] = useState(() => {
+    const role = useProjectStore.getState().activeProject?.role;
+    return ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(role) ? 'all' : 'mine';
+  });
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '0', 10);
   const setCurrentPage = React.useCallback((page) => {
@@ -41,6 +47,7 @@ const RequirementsPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const activeProject = useProjectStore((state) => state.activeProject);
   const activeProjectId = activeProject?.id;
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
 
   const buildRequestParams = (page) => ({
     page,
@@ -49,7 +56,8 @@ const RequirementsPage = () => {
     status: filters.status,
     priority: filters.priority,
     tag: filters.tag,
-    search: filters.search
+    search: filters.search,
+    mine: (!isLeader && viewMode === 'mine') ? true : undefined
   });
 
   const applyRequirementResponse = (data) => {
@@ -85,7 +93,7 @@ const RequirementsPage = () => {
 
   useEffect(() => {
     fetchRequirements(currentPage);
-  }, [currentPage, filters, activeProjectId]);
+  }, [currentPage, filters, activeProjectId, viewMode]);
 
   const silentFetchRequirements = () => {
     fetchRequirements(currentPage, false);
@@ -99,7 +107,7 @@ const RequirementsPage = () => {
     if (!reqToDelete) return;
 
     try {
-      await requirementApi.deleteRequirement(reqToDelete);
+      await requirementApi.deleteRequirement(reqToDelete, activeProjectId);
 
       if (requirements.length === 1 && currentPage > 0) {
         setCurrentPage(currentPage - 1);
@@ -175,14 +183,42 @@ const RequirementsPage = () => {
   };
 
   return (
-    <>
-      <RequirementHeader onOpenCreateModal={() => { setEditingReq(null); setIsCreateModalOpen(true); }} />
+    <div className="flex flex-col gap-4">
+      <RequirementHeader onOpenCreateModal={() => setIsCreateModalOpen(true)} isLeader={isLeader}>
+        {!isLeader && (
+          <div className="flex items-center gap-2 bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
+            <button
+              onClick={() => { setViewMode('mine'); setCurrentPage(0); }}
+              className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${
+                viewMode === 'mine' 
+                  ? 'bg-[#F3F4F6] text-primary' 
+                  : 'bg-transparent text-[#6B7280] hover:text-primary'
+              }`}
+            >
+              Mine
+            </button>
+            <button
+              onClick={() => { setViewMode('all'); setCurrentPage(0); }}
+              className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${
+                viewMode === 'all' 
+                  ? 'bg-[#F3F4F6] text-primary' 
+                  : 'bg-transparent text-[#6B7280] hover:text-primary'
+              }`}
+            >
+              All
+            </button>
+          </div>
+        )}
+      </RequirementHeader>
+
       <RequirementFilters 
          onFilterChange={handleFilterChange} 
          resultCount={pagination.totalItems} 
          projectId={activeProjectId} 
          refreshTrigger={refreshTrigger} 
          onResetOrder={handleResetOrder}
+         isLeader={isLeader}
+         members={activeProject?.members || []}
       />
 
       {errorMessage ? (
@@ -196,14 +232,16 @@ const RequirementsPage = () => {
       ) : (
         <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           <RequirementList
-            requirements={requirements}
-            onDelete={initiateDelete}
-            onEdit={handleEdit}
-            onRefresh={silentFetchRequirements}
-            pagination={pagination}
-            onPageChange={handlePageChange}
-            onReorder={handleReorder}
-          />
+          requirements={requirements}
+          onDelete={isLeader ? initiateDelete : undefined}
+          onEdit={isLeader ? handleEdit : undefined}
+          onRefresh={silentFetchRequirements}
+          pagination={pagination}
+          onPageChange={handlePageChange}
+          onReorder={handleReorder}
+          enableReorder={isLeader}
+          isLeader={isLeader}
+        />
         </div>
       )}
 
@@ -227,7 +265,7 @@ const RequirementsPage = () => {
         onConfirm={confirmDelete}
         onCancel={() => setReqToDelete(null)}
       />
-    </>
+    </div>
   );
 };
 

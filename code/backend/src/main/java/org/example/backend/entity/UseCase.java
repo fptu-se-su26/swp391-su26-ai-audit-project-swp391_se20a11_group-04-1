@@ -70,6 +70,9 @@ public class UseCase {
     @Column(name = "completeness_score")
     private Integer completenessScore = 0;
 
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
+
     @Column(name = "start_date")
     private java.time.LocalDate startDate;
 

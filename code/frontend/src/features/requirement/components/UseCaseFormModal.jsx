@@ -5,7 +5,10 @@ import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
 import Button from '../../../components/ui/Button';
 
+import useAuthStore from '../../../store/useAuthStore';
+
 const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
+  const { userId } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
     requirementId: '',
@@ -30,12 +33,18 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
   const activeProject = useProjectStore((state) => state.activeProject);
   const [requirements, setRequirements] = useState([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
+  const [isLeader, setIsLeader] = useState(false);
 
   useEffect(() => {
     if (isOpen && activeProject?.id) {
       setLoadingReqs(true);
-      // Giả sử API requirement search có hỗ trợ projectId
-      requirementApi.getAllRequirements({ projectId: activeProject.id })
+      const isLeaderRole = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject.role);
+      setIsLeader(isLeaderRole);
+      const params = { projectId: activeProject.id };
+      if (!isLeaderRole) {
+          params.mine = true;
+      }
+      requirementApi.getAllRequirements(params)
         .then(res => {
           // Backend returns PaginatedResponse which has an 'items' array
           const reqs = res.items || res.data?.content || res.data || res || [];
@@ -194,7 +203,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     >
                       <option value="" disabled>{loadingReqs ? 'Loading...' : 'Select Requirement'}</option>
                       {requirements.map(req => (
-                        <option key={req.id} value={req.id}>{req.code} - {req.title}</option>
+                        <option key={req.id} value={req.id}>{req.reqCode} - {req.title}</option>
                       ))}
                     </select>
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant pointer-events-none">arrow_drop_down</span>
@@ -209,7 +218,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
                     <option value="DRAFT">Draft</option>
                     <option value="IN_PROGRESS">In Progress</option>
                     <option value="IN_REVIEW">In Review</option>
-                    <option value="DONE">Done</option>
+                    <option value="DONE" disabled={!isLeader}>Done</option>
                   </select>
                 </div>
                 <div>

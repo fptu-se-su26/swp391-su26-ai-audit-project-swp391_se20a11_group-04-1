@@ -23,6 +23,9 @@ public class RequirementResponseDTO {
     private Long ownerId;
     private RequirementStatus status;
     private Boolean evidenceRequired;
+    private Integer tasksCount;
+    private Integer completedTasksCount;
+    private Integer evidenceCount;
     private Integer reqOrder;
     private Long createdBy;
     private LocalDateTime createdAt;

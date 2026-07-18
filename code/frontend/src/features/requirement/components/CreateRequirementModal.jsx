@@ -95,9 +95,9 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
 
       let result;
       if (editingData?.id) {
-        result = await requirementApi.updateRequirement(editingData.id, payload);
+        result = await requirementApi.updateRequirement(editingData.id, resolvedProjectId, payload);
       } else {
-        result = await requirementApi.createRequirement(payload);
+        result = await requirementApi.createRequirement(resolvedProjectId, payload);
       }
 
       onSuccess(result?.data || result);

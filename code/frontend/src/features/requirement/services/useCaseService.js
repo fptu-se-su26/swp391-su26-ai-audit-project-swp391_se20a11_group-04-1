@@ -26,8 +26,10 @@ export const useCaseService = {
   },
 
   // Cập nhật trạng thái Use Case (Patch)
-  updateUseCaseStatus: async (useCaseId, status, projectId) => {
-    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, { status }, { params: { projectId } });
+  updateUseCaseStatus: async (useCaseId, status, projectId, rejectReason = null) => {
+    const payload = { status };
+    if (rejectReason) payload.rejectReason = rejectReason;
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, payload, { params: { projectId } });
     return response.data.data;
   },
 
@@ -63,8 +65,8 @@ export const useCaseService = {
   },
 
   // Lấy danh sách Requirement đề xuất từ AI cho Use Case
-  suggestRequirements: async (useCaseId) => {
-    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`);
+  suggestRequirements: async (useCaseId, projectId) => {
+    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`, { params: { projectId } });
     return response.data;
   },
 

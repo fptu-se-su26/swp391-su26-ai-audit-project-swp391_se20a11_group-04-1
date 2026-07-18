@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { requirementApi } from '../services/requirementApi';
 import { useCaseService } from '../services/useCaseService';
 import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 
 const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
+  const { userId } = useAuthStore();
   const [requirements, setRequirements] = useState([]);
   const [useCases, setUseCases] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -14,8 +16,13 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
   useEffect(() => {
     if (isOpen && activeProject?.id) {
       setLoading(true);
+      const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject.role);
+      const params = { projectId: activeProject.id, size: 1000 };
+      if (!isLeader) {
+          params.mine = true;
+      }
       Promise.all([
-        requirementApi.getAllRequirements({ projectId: activeProject.id, size: 1000 }),
+        requirementApi.getAllRequirements(params),
         useCaseService.getAllUseCases(activeProject.id)
       ])
         .then(([reqRes, ucRes]) => {

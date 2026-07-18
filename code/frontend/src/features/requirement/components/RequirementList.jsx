@@ -23,7 +23,8 @@ const RequirementList = ({
   onRefresh,
   pagination,
   onPageChange,
-  onReorder
+  onReorder,
+  isLeader
 }) => {
   const [items, setItems] = useState([]);
 
@@ -43,6 +44,7 @@ const RequirementList = ({
   );
 
   const handleDragEnd = (event) => {
+    if (!isLeader) return;
     const { active, over } = event;
 
     if (active.id !== over.id) {
@@ -80,16 +82,17 @@ const RequirementList = ({
       >
         <div className="flex flex-col gap-3 p-3 bg-gray-50/30">
           <SortableContext 
-            items={items.map(req => req.id)}
+            items={items.map(item => item.id)}
             strategy={verticalListSortingStrategy}
           >
             {items.map((req) => (
-              <RequirementItem
-                key={req.id}
+              <RequirementItem 
+                key={req.id} 
                 req={req}
                 onDelete={() => onDelete(req.id)}
                 onEdit={() => onEdit(req)}
                 onRefresh={onRefresh}
+                isLeader={isLeader}
               />
             ))}
           </SortableContext>

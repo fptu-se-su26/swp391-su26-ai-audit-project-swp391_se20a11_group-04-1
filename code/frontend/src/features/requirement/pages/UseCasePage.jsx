@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UseCaseToolbar from '../components/UseCaseToolbar';
 import UseCaseList from '../components/UseCaseList';
+import GroupedUseCaseList from '../components/GroupedUseCaseList';
+import GroupedUCDiagramList from '../components/GroupedUCDiagramList';
 import UseCasePagination from '../components/UseCasePagination';
 import Button from '../../../components/ui/Button';
 import UseCaseFormModal from '../components/UseCaseFormModal';
 import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
 import ApproveUseCaseModal from '../components/ApproveUseCaseModal';
+import RejectUseCaseModal from '../components/RejectUseCaseModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
 import UCDiagramEditorPage from './UCDiagramEditorPage';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
@@ -26,6 +29,7 @@ const UseCasePage = () => {
   const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
   const [useCases, setUseCases] = useState([]);
   const [allUseCases, setAllUseCases] = useState([]);
+  const [myRequirements, setMyRequirements] = useState([]);
   const [diagramData, setDiagramData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,12 +37,14 @@ const UseCasePage = () => {
   
   // View mode: 'list' or 'editor'
   const [viewMode, setViewMode] = useState('list');
+  const [listMode, setListMode] = useState('mine'); // 'mine', 'all', or 'overview'
 
   // AI modals
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [generationId, setGenerationId] = useState(null);
   const [approveModalData, setApproveModalData] = useState(null);
+  const [rejectModalData, setRejectModalData] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [generatingCount, setGeneratingCount] = useState(0);
 
@@ -49,6 +55,7 @@ const UseCasePage = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [reqFilter, setReqFilter] = useState('');
   const [isDraftView, setIsDraftView] = useState(false);
 
   useEffect(() => {
@@ -67,7 +74,14 @@ const UseCasePage = () => {
       };
       if (searchTerm) params.keyword = searchTerm;
       if (statusFilter && !isDraftView) params.status = statusFilter;
+      if (reqFilter) params.requirementId = reqFilter;
       if (isDraftView) params.isDraft = true;
+
+      if (listMode === 'mine') {
+        params.mine = true;
+      } else if (listMode === 'overview') {
+        params.status = 'DONE';
+      }
 
       const data = await useCaseService.searchUseCases(params);
       
@@ -96,13 +110,40 @@ const UseCasePage = () => {
   const fetchDiagramData = async () => {
     if (!activeProject?.id) return;
     try {
-      const data = await diagramService.getDiagramData(activeProject.id);
+      const targetUserId = listMode === 'mine' ? userId : null;
+      const data = await diagramService.getDiagramData(activeProject.id, targetUserId, listMode);
       setDiagramData(data);
     } catch (error) {
       console.error('Failed to fetch diagram data', error);
     }
   };
 
+  const [allRequirements, setAllRequirements] = useState([]);
+
+  const fetchMyRequirements = async () => {
+    if (!activeProject?.id || isLeader) return;
+    try {
+      const data = await requirementApi.getAllRequirements({ projectId: activeProject.id, mine: true, size: 1000 });
+      setMyRequirements(data.items || []);
+    } catch (error) {
+      console.error('Failed to fetch my requirements', error);
+    }
+  };
+
+  const fetchAllRequirements = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const data = await requirementApi.getAllRequirements({ projectId: activeProject.id, size: 1000 });
+      setAllRequirements(data.items || []);
+    } catch (error) {
+      console.error('Failed to fetch all requirements', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyRequirements();
+    fetchAllRequirements();
+  }, [activeProject?.id, isLeader]);
 
   useEffect(() => {
     if (viewMode === 'list') {
@@ -111,18 +152,18 @@ const UseCasePage = () => {
         fetchAllUseCases();
         fetchDiagramData();
       }, 500);
-
       return () => clearTimeout(delayDebounceFn);
     }
-  }, [currentPage, pageSize, searchTerm, statusFilter, activeProject?.id, viewMode, isDraftView]);
+  }, [currentPage, pageSize, searchTerm, statusFilter, reqFilter, activeProject?.id, viewMode, isDraftView, listMode]);
 
   useEffect(() => {
     setCurrentPage(0);
     setSearchTerm('');
     setStatusFilter('');
+    setReqFilter('');
+    setListMode('mine');
+    setViewMode('list');
     setUseCases([]);
-    fetchAllUseCases();
-    fetchDiagramData();
   }, [activeProject?.id]);
 
   const handleSearchChange = (val) => {
@@ -132,6 +173,11 @@ const UseCasePage = () => {
 
   const handleStatusFilterChange = (val) => {
     setStatusFilter(val);
+    setCurrentPage(0);
+  };
+
+  const handleReqFilterChange = (val) => {
+    setReqFilter(val);
     setCurrentPage(0);
   };
 
@@ -145,6 +191,7 @@ const UseCasePage = () => {
     abortControllerRef.current = new AbortController();
     
     try {
+      // Removed unused mineParam/statusParam logic
       const response = await useCaseService.generateUseCases(
         activeProject.id, 
         { requirementIds: selectedIds },
@@ -202,7 +249,6 @@ const UseCasePage = () => {
   };
 
   const handleEditUseCase = (useCase) => {
-    // Navigate to UseCaseDetailPage and trigger edit mode immediately
     navigate(`/projects/${activeProject.id}/use-cases/${useCase.id}`, { state: { edit: true } });
   };
 
@@ -214,7 +260,7 @@ const UseCasePage = () => {
     } catch (error) {
       console.error('Failed to reorder use cases:', error);
       toast.error('Failed to save order');
-      fetchUseCases(false); // revert
+      fetchUseCases(false);
     }
   };
 
@@ -228,6 +274,60 @@ const UseCasePage = () => {
     setApproveModalData(id);
   };
 
+  const handleRejectUseCase = async (id, reason) => {
+    if (reason) {
+      try {
+        await useCaseService.updateUseCaseStatus(id, 'DRAFT', activeProject.id, reason);
+        toast.success("Use Case Rejected.");
+        handleRefresh();
+      } catch (error) {
+        toast.error("Error rejecting Use Case");
+      }
+    } else {
+      setRejectModalData(id);
+    }
+  };
+
+  const handleConfirmReject = async (reason) => {
+    if (!rejectModalData) return;
+    try {
+      await useCaseService.updateUseCaseStatus(rejectModalData, 'DRAFT', activeProject.id, reason);
+      toast.success("Use Case đã bị từ chối.");
+      setRejectModalData(null);
+      handleRefresh();
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi từ chối Use Case");
+      throw error;
+    }
+  };
+
+  const myUseCaseReqIds = new Set(allUseCases.filter(uc => (uc.createdBy?.id || uc.createdById) === userId && uc.requirementId != null).map(uc => uc.requirementId));
+  const missingReqs = myRequirements.filter(req => !myUseCaseReqIds.has(req.id));
+  const canSubmit = myRequirements.length > 0 && missingReqs.length === 0;
+
+  const handleSubmitUseCases = async () => {
+    const myUCs = allUseCases.filter(uc => (uc.createdBy?.id || uc.createdById) === userId && uc.status !== 'IN_REVIEW' && uc.status !== 'DONE' && uc.status !== 'READY_FOR_REVIEW');
+    if (myUCs.length === 0) {
+      toast.info('No draft use cases to submit.');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      for (const uc of myUCs) {
+        await useCaseService.updateUseCaseStatus(uc.id, 'IN_REVIEW', activeProject.id);
+      }
+      toast.success('Successfully submitted all use cases to Leader for review!');
+      fetchUseCases();
+      fetchAllUseCases();
+    } catch (error) {
+      console.error('Failed to submit use cases', error);
+      toast.error('Failed to submit use cases');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 h-full relative">
       <AIGenerationProgressModal isOpen={generating} requirementCount={generatingCount} onClose={handleCancelGenerate} />
@@ -238,6 +338,28 @@ const UseCasePage = () => {
             <p className="text-[13px] text-[#6B7280] mt-1">Manage and track system interactions and actor goals.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* List Mode toggle */}
+            <div className="flex items-center gap-2 bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
+              <button
+                onClick={() => { setListMode('mine'); setCurrentPage(0); }}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'mine' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+              >
+                Mine
+              </button>
+              <button
+                onClick={() => { setListMode('all'); setCurrentPage(0); }}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'all' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => { setListMode('overview'); setCurrentPage(0); }}
+                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'overview' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+              >
+                Overview
+              </button>
+            </div>
+
             {/* View Mode toggle */}
             <div className="flex items-center bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
               <button
@@ -258,10 +380,7 @@ const UseCasePage = () => {
               </button>
             </div>
 
-
-
             {/* Group 3: Generate Usecase */}
-            {isLeader && (
             <button
               type="button"
               onClick={() => setIsSelectionModalOpen(true)}
@@ -269,29 +388,42 @@ const UseCasePage = () => {
             >
               Generate Usecase
             </button>
-            )}
 
             {/* Group 4: Add Use Case */}
-            {isLeader && (
             <Button
               onClick={() => setIsModalOpen(true)}
             >
               <span className="material-symbols-outlined text-[14px]">add</span>
               Add Use Case
             </Button>
-            )}
           </div>
         </div>
 
         {viewMode.startsWith('diagram') ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <UCDiagramEditorPage 
-              projectId={activeProject?.id} 
-              mode={viewMode === 'diagram-edit' ? 'edit' : 'view'} 
-              onClose={() => setViewMode('list')} 
-              onEdit={isLeader ? () => setViewMode('diagram-edit') : undefined}
-              onView={() => setViewMode('diagram-view')}
-            />
+            {listMode === 'all' ? (
+              <GroupedUCDiagramList 
+                projectId={activeProject?.id}
+                allUseCases={allUseCases}
+                isLeader={isLeader}
+                onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
+                onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
+                onRefresh={handleRefresh}
+              />
+            ) : (
+              <UCDiagramEditorPage 
+                projectId={activeProject?.id} 
+                currentUserId={listMode === 'mine' ? userId : null}
+                activeView={listMode}
+                mode={viewMode === 'diagram-edit' ? 'edit' : 'view'} 
+                onClose={() => setViewMode('list')} 
+                onEdit={(listMode === 'mine' || isLeader) ? () => setViewMode('diagram-edit') : undefined}
+                onView={() => setViewMode('diagram-view')}
+                isLeader={isLeader}
+                onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
+                onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
+              />
+            )}
           </div>
         ) : (
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col min-h-[400px]">
@@ -300,6 +432,9 @@ const UseCasePage = () => {
               onSearchChange={handleSearchChange}
               statusFilter={statusFilter}
               onStatusFilterChange={handleStatusFilterChange}
+              reqFilter={reqFilter}
+              onReqFilterChange={handleReqFilterChange}
+              requirements={allRequirements}
               isDraftView={isDraftView}
               setIsDraftView={(val) => {
                 setIsDraftView(val);
@@ -307,6 +442,8 @@ const UseCasePage = () => {
               }}
               resultCount={totalElements}
               onResetOrder={handleResetOrder}
+              hideStatusFilter={listMode === 'overview'}
+              hideDraftToggle={listMode === 'overview'}
             />
             <div className="relative flex-1">
               {loading && (
@@ -319,66 +456,111 @@ const UseCasePage = () => {
                   <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
                   <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>
                 </div>
+              ) : listMode === 'all' ? (
+                <GroupedUseCaseList 
+                  useCases={useCases} 
+                  allUseCases={allUseCases}
+                  diagramData={diagramData}
+                  listMode={listMode}
+                  onRefresh={handleRefresh}
+                  onApprove={isLeader ? handleApproveUseCase : undefined}
+                  onReject={isLeader ? handleRejectUseCase : undefined}
+                  pagination={{
+                    currentPage,
+                    totalPages,
+                    totalItems: totalElements,
+                    pageSize
+                  }}
+                  onPageChange={setCurrentPage}
+                />
               ) : (
                 <UseCaseList 
                   useCases={useCases} 
                   allUseCases={allUseCases}
                   diagramData={diagramData}
-                  onEdit={isLeader ? handleEditUseCase : undefined} 
-                  onDelete={isLeader ? handleDeleteUseCase : undefined} 
+                  onEdit={listMode === 'mine' || (isLeader && listMode === 'overview') ? handleEditUseCase : undefined} 
+                  onDelete={listMode === 'mine' || (isLeader && listMode === 'overview') ? handleDeleteUseCase : undefined} 
                   onRefresh={handleRefresh}
-                  enableReorder={isLeader}
+                  enableReorder={listMode === 'mine' || (isLeader && listMode === 'overview')}
                   onReorder={handleReorder}
+                  onApprove={isLeader ? handleApproveUseCase : undefined}
+                  onReject={isLeader ? handleRejectUseCase : undefined}
                 />
               )}
             </div>
-            <UseCasePagination 
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              pageSize={pageSize}
-              onPageChange={setCurrentPage}
-            />
+            {listMode !== 'all' && (
+              <UseCasePagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+              />
+            )}
+            
+            {/* Submit Button for Members in Mine tab */}
+            {!isLeader && listMode === 'mine' && !viewMode.startsWith('diagram') && (
+              <div className="flex justify-end p-4 border-t border-outline-variant bg-surface-container-lowest">
+                <Button 
+                  onClick={handleSubmitUseCases} 
+                  disabled={!canSubmit || loading}
+                  className="bg-primary text-white"
+                >
+                  <span className="material-symbols-outlined mr-2">send</span>
+                  Submit Use Cases
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
-      
-      <UseCaseFormModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={handleRefresh} 
+
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={confirmDeleteUseCase}
+        title="Delete Use Case"
+        message="Are you sure you want to delete this Use Case? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
       />
-      
+      <UseCaseFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        projectId={activeProject?.id}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          handleRefresh();
+        }}
+      />
       <RequirementSelectionModal
         isOpen={isSelectionModalOpen}
         onClose={() => setIsSelectionModalOpen(false)}
         onConfirm={handleGenerateAI}
       />
-      
       <AiUseCaseGenerationModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         generationId={generationId}
-        onSuccess={handleRefresh}
+        onSuccess={() => {
+          setIsAiModalOpen(false);
+          handleRefresh();
+        }}
       />
-      
-      <ConfirmModal
-        isOpen={!!deleteConfirmId}
-        title="Xóa Use Case"
-        message="Bạn có chắc chắn muốn xóa Use Case này? Hành động này không thể hoàn tác."
-        confirmText="Xóa"
-        cancelText="Hủy"
-        onConfirm={confirmDeleteUseCase}
-        onCancel={() => setDeleteConfirmId(null)}
-        type="danger"
-      />
-      
       <ApproveUseCaseModal
         isOpen={!!approveModalData}
         onClose={() => setApproveModalData(null)}
         useCaseId={approveModalData}
         projectId={activeProject?.id}
-        onSuccess={handleRefresh}
+        onSuccess={() => {
+          setApproveModalData(null);
+          handleRefresh();
+        }}
+      />
+      <RejectUseCaseModal
+        isOpen={!!rejectModalData}
+        onClose={() => setRejectModalData(null)}
+        onConfirm={handleConfirmReject}
       />
     </div>
   );

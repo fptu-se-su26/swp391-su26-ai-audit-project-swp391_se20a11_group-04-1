@@ -26,7 +26,9 @@ const UseCaseList = ({
   pagination,
   onPageChange,
   enableReorder = false,
-  onReorder
+  onReorder,
+  onApprove,
+  onReject
 }) => {
   const [items, setItems] = useState([]);
 
@@ -97,6 +99,8 @@ const UseCaseList = ({
                   onEdit={() => onEdit && onEdit(uc)}
                   onRefresh={onRefresh}
                   enableReorder={true}
+                  onApprove={onApprove}
+                  onReject={onReject}
                 />
               ))}
             </SortableContext>
@@ -114,6 +118,8 @@ const UseCaseList = ({
               onEdit={() => onEdit && onEdit(uc)}
               onRefresh={onRefresh}
               enableReorder={false}
+              onApprove={onApprove}
+              onReject={onReject}
             />
           ))}
         </div>

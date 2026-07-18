@@ -15,7 +15,8 @@ public interface RequirementService {
             String status,
             String priority,
             String tag,
-            String search);
+            String search,
+            Long ownerId);
     RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
     RequirementResponseDTO updateRequirementStatus(Long id, String status);
     RequirementResponseDTO deleteRequirement(Long id);

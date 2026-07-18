@@ -7,7 +7,7 @@ import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
 import Button from '../../../components/ui/Button';
 
-const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView }) => {
+const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }) => {
   const { actors, useCases, relations, loadData, reset } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
           console.warn("Failed to check requirements", err);
         }
 
-        const data = await diagramService.getDiagramData(projectId);
+        const data = await diagramService.getDiagramData(projectId, currentUserId, activeView);
         if (data) {
           loadData({
             actors: data.actors || [],
@@ -62,7 +62,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       isMounted.current = false;
       reset();
     };
-  }, [projectId, loadData, reset]);
+  }, [projectId, loadData, reset, currentUserId, activeView]);
 
   const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
@@ -71,9 +71,8 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       // 1. Sync semantic data
       const currentState = useDiagramStore.getState();
       
-      // Prevent saving empty state if unmounted (race condition fix)
-      if (!isMounted.current && currentState.actors.length === 0 && currentState.useCases.length === 0) {
-          setSaveStatus('saved');
+      // Prevent saving state if unmounted (race condition fix)
+      if (!isMounted.current) {
           return;
       }
 
@@ -81,7 +80,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
         actors: currentState.actors,
         useCases: currentState.useCases,
         relations: currentState.relations
-      });
+      }, currentUserId);
       
       const idMappings = response?.data;
       let newPositions = { ...positions };
@@ -116,13 +115,13 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       if (base64Png) {
           payload.imageBase64 = base64Png;
       }
-      await diagramService.saveDiagramLayout(projectId, payload);
+      await diagramService.saveDiagramLayout(projectId, payload, currentUserId);
       setSaveStatus('saved');
     } catch (error) {
       console.error("Failed to auto-save diagram", error);
       setSaveStatus('error');
     }
-  }, [projectId, systemName]);
+  }, [projectId, systemName, currentUserId]);
 
   const handleUnsavedChanges = useCallback(() => {
       setSaveStatus('unsaved');
@@ -240,10 +239,11 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
               <span className="material-symbols-outlined text-[#1E707D]">
                 {isViewMode ? 'visibility' : 'edit_document'}
               </span>
-              {isViewMode ? 'Use Case Diagram (View Only)' : 'View Diagram'}
+              {isViewMode ? 'Use Case Diagram (View Only)' : (activeView === 'mine' && currentUserId ? "Member's Diagram" : 'View Diagram')}
             </h1>
           </div>
-          <div className="flex items-center gap-4">
+
+          <div className="flex items-center gap-4 ml-3">
               <Button
                 variant="outline"
                 onClick={() => window.exportDiagramDrawio?.(systemName)}
@@ -313,6 +313,11 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
             onSystemNameLoad={setSystemName}
             onSave={!isViewMode ? handleDiagramSave : undefined}
             onUnsavedChanges={!isViewMode ? handleUnsavedChanges : undefined}
+            isLeader={isLeader}
+            onApproveUseCase={onApproveUseCase}
+            onRejectUseCase={onRejectUseCase}
+            activeView={activeView}
+            currentUserId={currentUserId}
           />
         </div>
       </div>

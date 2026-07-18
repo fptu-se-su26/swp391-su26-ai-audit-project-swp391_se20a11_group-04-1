@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { requirementApi } from '../services/requirementApi';
 
-const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refreshTrigger, onResetOrder }) => {
+const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refreshTrigger, onResetOrder, isLeader, members = [] }) => {
   const [activeDropdown, setActiveDropdown] = useState(null); // 'status', 'priority', 'tag', or null
   const [tagOptions, setTagOptions] = useState([]);
   
@@ -9,6 +9,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [selectedPriority, setSelectedPriority] = useState(null);
   const [selectedTag, setSelectedTag] = useState(null);
+  const [selectedMember, setSelectedMember] = useState(null);
   const [searchValue, setSearchValue] = useState('');
 
   const containerRef = useRef(null);
@@ -45,6 +46,7 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
     let newStatus = selectedStatus;
     let newPriority = selectedPriority;
     let newTag = selectedTag;
+    let newMember = selectedMember;
 
     if (type === 'status') {
       newStatus = selectedStatus === value ? null : value;
@@ -58,10 +60,14 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
       newTag = selectedTag === value ? null : value;
       setSelectedTag(newTag);
     }
+    if (type === 'member') {
+      newMember = selectedMember === value ? null : value;
+      setSelectedMember(newMember);
+    }
 
     setActiveDropdown(null); // Close after select
     if (onFilterChange) {
-      onFilterChange({ status: newStatus, priority: newPriority, tag: newTag });
+      onFilterChange({ status: newStatus, priority: newPriority, tag: newTag, member: newMember });
     }
   };
 
@@ -182,6 +188,41 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
               </div>
             )}
           </div>
+
+          {/* Member Filter (Leader Only) */}
+          {isLeader && (
+            <div className="relative">
+              <div 
+                onClick={() => toggleDropdown('member')}
+                className={`h-[34px] px-3 flex items-center justify-between gap-2 border rounded-full text-[12px] font-medium transition-colors cursor-pointer min-w-[110px] ${selectedMember ? 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/30' : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="material-symbols-outlined text-[14px]">person_search</span>
+                  <span className="truncate">
+                    {selectedMember ? members.find(m => m.id === selectedMember)?.name || 'Unknown' : 'Member'}
+                  </span>
+                </div>
+                {selectedMember ? (
+                  <span className="material-symbols-outlined text-[14px] hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleSelect('member', null); }}>close</span>
+                ) : (
+                  <span className="material-symbols-outlined text-[14px] text-gray-400">expand_more</span>
+                )}
+              </div>
+              {activeDropdown === 'member' && (
+                <div className="absolute top-full right-0 mt-2 w-[160px] bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-20 max-h-[200px] overflow-y-auto">
+                  {members.length === 0 ? (
+                     <div className="px-4 py-2 text-gray-400 text-[12px] italic">No members</div>
+                  ) : (
+                    members.map(option => (
+                      <button key={option.id} onClick={() => handleSelect('member', option.id)} className={`w-full text-left px-4 py-2 text-[12px] hover:bg-gray-50 transition-colors ${selectedMember === option.id ? 'text-[#1E707D] bg-[#1E707D]/5 font-bold' : 'text-gray-700'}`}>
+                        {option.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="text-[12px] font-bold text-gray-500 ml-1 bg-gray-100 px-2 py-1 rounded-md">
             {resultCount} items

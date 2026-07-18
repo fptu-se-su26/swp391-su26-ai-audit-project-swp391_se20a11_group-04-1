@@ -38,9 +38,21 @@ public class DiagramServiceImpl implements DiagramService {
 
     @Override
     @Transactional(readOnly = true)
-    public Object getDiagramData(Long projectId) {
-        // Retrieve ALL use cases for the given project, including hidden ones, so the frontend left panel can show them
+    public Object getDiagramData(Long projectId, Long targetUserId, String activeView) {
+        // Retrieve use cases for the given project
         List<UseCase> useCases = useCaseRepository.findByProjectId(projectId);
+        
+        if ("mine".equals(activeView) && targetUserId != null) {
+            useCases = useCases.stream()
+                .filter(uc -> (uc.getCreatedBy() != null && uc.getCreatedBy().getId().equals(targetUserId)) 
+                           || org.example.backend.entity.UseCaseStatus.DONE.equals(uc.getStatus()))
+                .collect(Collectors.toList());
+        } else if ("overview".equals(activeView)) {
+            useCases = useCases.stream()
+                .filter(uc -> org.example.backend.entity.UseCaseStatus.DONE.equals(uc.getStatus()))
+                .collect(Collectors.toList());
+        }
+        // "all" or null -> return all use cases
         
         DiagramSyncResponse response = new DiagramSyncResponse();
         List<DiagramSyncResponse.DiagramUseCaseDTO> ucDtos = new ArrayList<>();
@@ -143,7 +155,7 @@ public class DiagramServiceImpl implements DiagramService {
 
     @Override
     @Transactional
-    public java.util.Map<String, String> syncDiagramData(Long projectId, DiagramSyncRequest request, Long userId) {
+    public java.util.Map<String, String> syncDiagramData(Long projectId, DiagramSyncRequest request, Long userId, Long targetUserId) {
         UserAccount currentUser = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -151,6 +163,11 @@ public class DiagramServiceImpl implements DiagramService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
                 
         List<UseCase> existingUcsBeforeUpdate = useCaseRepository.findByProjectId(projectId);
+        if (targetUserId != null) {
+            existingUcsBeforeUpdate = existingUcsBeforeUpdate.stream()
+                .filter(uc -> uc.getCreatedBy() != null && uc.getCreatedBy().getId().equals(targetUserId))
+                .collect(Collectors.toList());
+        }
         Set<String> linkedActorNames = new HashSet<>();
         for (UseCase uc : existingUcsBeforeUpdate) {
             if (uc.getActors() != null) {
@@ -326,6 +343,11 @@ public class DiagramServiceImpl implements DiagramService {
         // 3. UPDATE RELATIONS (Includes, Extends, Actors)
         // Refresh mapping
         existingUcs = useCaseRepository.findByProjectId(projectId);
+        if (targetUserId != null) {
+            existingUcs = existingUcs.stream()
+                .filter(uc -> uc.getCreatedBy() != null && uc.getCreatedBy().getId().equals(targetUserId))
+                .collect(Collectors.toList());
+        }
         Map<String, UseCase> updatedMap = existingUcs.stream()
                 .collect(Collectors.toMap(u -> u.getId().toString(), u -> u));
                 
@@ -401,24 +423,40 @@ public class DiagramServiceImpl implements DiagramService {
 
     @Override
     @Transactional(readOnly = true)
-    public Object getDiagramLayout(Long projectId) {
-        return projectDiagramRepository.findByProjectId(projectId)
-                .orElse(null);
+    public Object getDiagramLayout(Long projectId, Long targetUserId) {
+        ProjectDiagram diagram;
+        if (targetUserId != null) {
+            diagram = projectDiagramRepository.findByProjectIdAndUserId(projectId, targetUserId).orElse(null);
+        } else {
+            diagram = projectDiagramRepository.findByProjectIdAndUserIdIsNull(projectId).orElse(null);
+        }
+        
+        if (diagram == null) {
+            return Map.of("layoutData", "{}", "imageBase64", "");
+        }
+        return Map.of(
+            "layoutData", diagram.getLayoutData() != null ? diagram.getLayoutData() : "{}",
+            "imageBase64", diagram.getImageBase64() != null ? diagram.getImageBase64() : ""
+        );
     }
 
     @Override
     @Transactional
-    public void saveDiagramLayout(Long projectId, DiagramSaveRequest request) {
-        ProjectDiagram pd = projectDiagramRepository.findByProjectId(projectId)
-                .orElse(new ProjectDiagram());
-        pd.setProjectId(projectId);
-        if (request.getLayoutData() != null) {
-            pd.setLayoutData(request.getLayoutData());
+    public void saveDiagramLayout(Long projectId, Long targetUserId, org.example.backend.dto.DiagramSaveRequest request) {
+        ProjectDiagram diagram;
+        if (targetUserId != null) {
+            diagram = projectDiagramRepository.findByProjectIdAndUserId(projectId, targetUserId)
+                    .orElse(new ProjectDiagram());
+            diagram.setUserId(targetUserId);
+        } else {
+            diagram = projectDiagramRepository.findByProjectIdAndUserIdIsNull(projectId)
+                    .orElse(new ProjectDiagram());
+            diagram.setUserId(null);
         }
-        if (request.getImageBase64() != null) {
-            pd.setImageBase64(request.getImageBase64());
-        }
-        projectDiagramRepository.save(pd);
+        diagram.setProjectId(projectId);
+        diagram.setLayoutData(request.getLayoutData());
+        diagram.setImageBase64(request.getImageBase64());
+        projectDiagramRepository.save(diagram);
     }
 
     private String resolveUseCaseIdRobustly(String targetName, Map<String, String> map) {

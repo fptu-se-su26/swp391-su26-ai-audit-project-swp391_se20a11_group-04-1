@@ -82,7 +82,7 @@ const calculateDynamicHandles = (edges, nodes) => {
     });
 };
 
-const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad }, ref) => {
+const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -398,6 +398,11 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
 
       useCases.forEach((uc) => {
         if (uc.showInDiagram === false) return; // Skip hidden UCs
+        
+        // Filter based on activeView
+        if (activeView === 'my' && uc.createdById !== currentUserId) return;
+        if (activeView === 'overview' && (uc.addedFromDiagram !== false || uc.status === 'REJECTED')) return;
+
         initialNodes.push({
           id: `uc_${uc.id}`,
           type: 'useCase',
@@ -408,7 +413,11 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               isNew: isRecentlyCreated(uc.id.toString()),
               isIsolated: uc.isIsolated !== false,
               onDelete: handleNodeDelete,
-              onNameUpdate: handleNameUpdate
+              onNameUpdate: handleNameUpdate,
+              isLeader: isLeader,
+              onApprove: onApproveUseCase,
+              onReject: onRejectUseCase,
+              status: uc.status
           },
         });
       });
@@ -1010,10 +1019,28 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       </ReactFlow>
     </div>
   );
-  });
-  
-export const UCDiagram = forwardRef((props, ref) => (
-   <ReactFlowProvider>
-      <FlowContent {...props} ref={ref} />
-   </ReactFlowProvider>
-));
+});
+
+export const UCDiagram = forwardRef(({ projectId, actors, useCases, relations, systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
+  return (
+    <ReactFlowProvider>
+      <FlowContent 
+        ref={ref}
+        projectId={projectId}
+        actors={actors}
+        useCases={useCases}
+        relations={relations}
+        systemName={systemName}
+        mode={mode}
+        onSave={onSave}
+        onUnsavedChanges={onUnsavedChanges}
+        onSystemNameLoad={onSystemNameLoad}
+        isLeader={isLeader}
+        onApproveUseCase={onApproveUseCase}
+        onRejectUseCase={onRejectUseCase}
+        activeView={activeView}
+        currentUserId={currentUserId}
+      />
+    </ReactFlowProvider>
+  );
+});

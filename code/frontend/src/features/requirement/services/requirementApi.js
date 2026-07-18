@@ -13,13 +13,13 @@ export const requirementApi = {
     return response.data.data;
   },
 
-  createRequirement: async (requirementData) => {
-    const response = await axiosInstance.post(API_URL, requirementData);
+  createRequirement: async (projectId, requirementData) => {
+    const response = await axiosInstance.post(API_URL, requirementData, { params: { projectId } });
     return response.data.data;
   },
 
-  updateRequirement: async (id, requirementData) => {
-    const response = await axiosInstance.put(`${API_URL}/${id}`, requirementData);
+  updateRequirement: async (id, projectId, requirementData) => {
+    const response = await axiosInstance.put(`${API_URL}/${id}`, requirementData, { params: { projectId } });
     return response.data.data;
   },
 
@@ -28,15 +28,15 @@ export const requirementApi = {
     return response.data;
   },
 
-  updateStatus: async (id, status) => {
+  updateStatus: async (id, projectId, status) => {
     const response = await axiosInstance.patch(`${API_URL}/${id}/status`, null, {
-      params: { status }
+      params: { status, projectId }
     });
     return response.data.data;
   },
 
-  deleteRequirement: async (id) => {
-    const response = await axiosInstance.delete(`${API_URL}/${id}`);
+  deleteRequirement: async (id, projectId) => {
+    const response = await axiosInstance.delete(`${API_URL}/${id}`, { params: { projectId } });
     return response.data;
   },
 

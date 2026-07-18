@@ -16,6 +16,7 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.CodeInsightAiReviewRepository;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.UseCase;
@@ -24,6 +25,7 @@ import org.example.backend.dto.ReqDiffAlignmentResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.example.backend.service.RequirementService;
+import org.example.backend.service.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -50,7 +52,9 @@ public class RequirementServiceImpl implements RequirementService {
     private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+    private final EvidenceRepository evidenceRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
 
@@ -149,6 +153,20 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         Requirement savedReq = requirementRepository.save(requirement);
+
+        // Send notification to the assignee if they are not the creator
+        if (owner != null && !owner.getId().equals(creator.getId())) {
+            notificationService.createAndPush(
+                    owner,
+                    project,
+                    org.example.backend.entity.NotificationEntityType.REQUIREMENT,
+                    savedReq.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "New Requirement Assigned",
+                    "You have been assigned to a new requirement: " + savedReq.getReqCode() + " by " + creator.getUsername()
+            );
+        }
+
         return mapToDTO(savedReq);
     }
 
@@ -169,7 +187,8 @@ public class RequirementServiceImpl implements RequirementService {
             String status,
             String priority,
             String tag,
-            String search) {
+            String search,
+            Long ownerId) {
         int currentPage = Math.max(page, 0);
         int pageSize = Math.min(Math.max(size, 1), 1000);
 
@@ -180,7 +199,7 @@ public class RequirementServiceImpl implements RequirementService {
         );
 
         Page<Requirement> requirementsPage = requirementRepository.findAll(
-                buildRequirementSpec(projectId, status, priority, tag, search),
+                buildRequirementSpec(projectId, status, priority, tag, search, ownerId),
                 pageRequest
         );
 
@@ -214,10 +233,14 @@ public class RequirementServiceImpl implements RequirementService {
         requirement.setPriority(requestDTO.getPriority());
         requirement.setAcceptanceCriteria(requestDTO.getAcceptanceCriteria());
         
+        Long oldOwnerId = requirement.getOwner() != null ? requirement.getOwner().getId() : null;
+
         if (requestDTO.getOwnerId() != null) {
             UserAccount owner = userAccountRepository.findById(requestDTO.getOwnerId())
                     .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
             requirement.setOwner(owner);
+        } else {
+            requirement.setOwner(null);
         }
 
         if (requestDTO.getStartDate() != null && requestDTO.getDeadline() != null) {
@@ -296,6 +319,21 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         Requirement updatedReq = requirementRepository.save(requirement);
+
+        // Send notification if owner changed
+        Long newOwnerId = updatedReq.getOwner() != null ? updatedReq.getOwner().getId() : null;
+        if (newOwnerId != null && !newOwnerId.equals(oldOwnerId)) {
+            notificationService.createAndPush(
+                    updatedReq.getOwner(),
+                    updatedReq.getProject(),
+                    org.example.backend.entity.NotificationEntityType.REQUIREMENT,
+                    updatedReq.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Requirement Assigned",
+                    "You have been assigned to requirement: " + updatedReq.getReqCode()
+            );
+        }
+
         return mapToDTO(updatedReq);
     }
 
@@ -393,12 +431,20 @@ public class RequirementServiceImpl implements RequirementService {
         List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
 
         List<String> covered = new ArrayList<>();
+        int tasksCount = 0;
+        int completedTasksCount = 0;
+        int evidenceCount = 0;
+
         if (req.getId() != null) {
             List<Task> tasks = taskRepository.findByRequirementId(req.getId());
+            tasksCount = tasks.size();
             List<Long> doneTaskIds = tasks.stream()
                     .filter(t -> t.getStatus() == org.example.backend.entity.TaskStatus.DONE)
                     .map(Task::getId)
                     .toList();
+            completedTasksCount = doneTaskIds.size();
+
+            evidenceCount = evidenceRepository.countByRequirementId(req.getId());
 
             if (!doneTaskIds.isEmpty()) {
                 List<CodeInsightAiReview> reviews = aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);
@@ -431,6 +477,9 @@ public class RequirementServiceImpl implements RequirementService {
                 .ownerId(req.getOwner() != null ? req.getOwner().getId() : null)
                 .status(req.getStatus())
                 .evidenceRequired(req.getEvidenceRequired())
+                .tasksCount(tasksCount)
+                .completedTasksCount(completedTasksCount)
+                .evidenceCount(evidenceCount)
                 .reqOrder(req.getReqOrder())
                 .createdBy(req.getCreatedBy() != null ? req.getCreatedBy().getId() : null)
                 .createdAt(req.getCreatedAt())
@@ -444,7 +493,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .build();
     }
 
-    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag, String search) {
+    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag, String search, Long ownerId) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -453,6 +502,14 @@ public class RequirementServiceImpl implements RequirementService {
 
             if (projectId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
+            }
+
+            if (ownerId != null) {
+                Predicate isOwner = criteriaBuilder.equal(root.get("owner").get("id"), ownerId);
+                Join<Requirement, UserAccount> coOwnersJoin = root.join("coOwners", JoinType.LEFT);
+                Predicate isCoOwner = criteriaBuilder.equal(coOwnersJoin.get("id"), ownerId);
+                predicates.add(criteriaBuilder.or(isOwner, isCoOwner));
+                query.distinct(true);
             }
 
             if (status != null && !status.isBlank()) {

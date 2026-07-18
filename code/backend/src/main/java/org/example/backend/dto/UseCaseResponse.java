@@ -23,6 +23,10 @@ public class UseCaseResponse {
     private String version;
     private Integer completenessScore;
     private Long createdById;
+    private String createdByName;
+    private String createdByEmail;
+    private String createdByAvatar;
+    private String createdByUsername;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean isOutdated;

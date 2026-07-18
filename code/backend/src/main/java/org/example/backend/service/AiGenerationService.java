@@ -1400,11 +1400,13 @@ public class AiGenerationService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId) {
+    public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId, Long projectId) {
         org.example.backend.entity.UseCase uc = useCaseRepository.findById(useCaseId)
                 .orElseThrow(() -> new RuntimeException("Use Case not found: " + useCaseId));
         
-        Long projectId = uc.getProjectId();
+        if (projectId == null) {
+            projectId = uc.getProjectId();
+        }
         List<Requirement> reqs = requirementRepository.findByProjectId(projectId).stream()
                 .filter(r -> !"System Architecture Diagram".equals(r.getTitle()))
                 .toList();

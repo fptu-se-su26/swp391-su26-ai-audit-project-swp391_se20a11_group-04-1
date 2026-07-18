@@ -235,13 +235,14 @@ public class AiGenerationController {
     @GetMapping("/use-cases/{useCaseId}/suggest-requirements")
     public ResponseEntity<?> suggestRequirements(
             @PathVariable Long useCaseId,
+            @RequestParam(required = false) Long projectId,
             jakarta.servlet.http.HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         try {
-            return ResponseEntity.ok(aiGenerationService.suggestRequirementsForUseCase(useCaseId));
+            return ResponseEntity.ok(aiGenerationService.suggestRequirementsForUseCase(useCaseId, projectId));
         } catch (Exception e) {
             log.error("Failed to suggest requirements", e);
             return ResponseEntity.status(500).build();

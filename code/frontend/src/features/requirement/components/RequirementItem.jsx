@@ -8,8 +8,8 @@ import RequirementReviewModal from './RequirementReviewModal';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
-  const { id, title, type, priority, status, tags, tasksCount = 0, evidenceCount = 0, reqCode, aiGenerated, startDate, deadline } = req;
+const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
+  const { id, title, type, priority, status, tags, tasksCount = 0, completedTasksCount = 0, evidenceCount = 0, reqCode, aiGenerated, startDate, deadline } = req;
   const navigate = useNavigate();
   
   const [showOwnerMenu, setShowOwnerMenu] = useState(false);
@@ -156,6 +156,15 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
     }
   };
 
+  const handleCloseReq = async () => {
+    try {
+      await requirementApi.updateStatus(req.id, 'CLOSED');
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error('Lỗi khi close Requirement:', error);
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -211,11 +220,14 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
     zIndex: isDragging ? 100 : (showActionMenu || showOwnerMenu || showReviewModal) ? 50 : 1,
   };
 
+  const allTasksDone = tasksCount > 0 && tasksCount === completedTasksCount;
+  const isDimmed = allTasksDone && status !== 'DONE' && status !== 'CLOSED';
+
   return (
     <div 
       ref={setNodeRef}
       style={style}
-      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()}`}
+      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()} ${isDimmed ? 'opacity-60 hover:opacity-100' : ''}`}
     >
       <div 
         {...attributes}
@@ -411,7 +423,32 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
         </div>
 
         {/* Quick Approve Button */}
-        {status === 'IN_REVIEW' && (
+        {allTasksDone && status !== 'DONE' && status !== 'CLOSED' ? (
+          <div className="flex-shrink-0 mr-1 flex items-center gap-2">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowReviewModal(true);
+              }}
+              className="text-[#1E707D] hover:bg-[#1E707D]/10 px-3 py-1 rounded-md transition-colors flex items-center justify-center border border-[#1E707D]/30 shadow-sm bg-white font-medium text-[12px]"
+              title="Review Requirement"
+            >
+              Review
+            </button>
+            {isLeader && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseReq();
+                }}
+                className="text-emerald-600 hover:bg-emerald-50 px-3 py-1 rounded-md transition-colors flex items-center justify-center border border-emerald-200 shadow-sm bg-white font-medium text-[12px]"
+                title="Close Requirement"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        ) : status === 'IN_REVIEW' ? (
           <div className="flex-shrink-0 mr-1">
             <button 
               onClick={(e) => {
@@ -424,7 +461,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh }) => {
               <span className="material-symbols-outlined text-[20px]">check_circle</span>
             </button>
           </div>
-        )}
+        ) : null}
 
         {/* Action Menu Section */}
         <div className="relative w-8 flex justify-end flex-shrink-0" ref={actionMenuRef}>

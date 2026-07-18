@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Input from '../../../components/ui/Input';
 
-const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilterChange, isDraftView, setIsDraftView, resultCount, onResetOrder }) => {
+const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilterChange, reqFilter, onReqFilterChange, requirements = [], isDraftView, setIsDraftView, resultCount, onResetOrder, hideStatusFilter, hideDraftToggle }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const containerRef = useRef(null);
 
@@ -38,6 +38,23 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
     setActiveDropdown(null);
   };
 
+  const handleReqSelect = (reqId) => {
+    if (!reqId) {
+      onReqFilterChange('');
+    } else {
+      onReqFilterChange(reqId);
+    }
+    setActiveDropdown(null);
+  };
+
+  const getSelectedReqTitle = () => {
+    if (!reqFilter) return 'All Requirements';
+    const req = requirements.find(r => r.id === reqFilter);
+    if (!req) return 'All Requirements';
+    const code = req.reqCode || `REQ-${String(req.id).padStart(2, '0')}`;
+    return `${code} - ${req.title}`;
+  };
+
   return (
     <div className="px-[32px] mt-[16px] mb-6" ref={containerRef}>
       <div className={`rounded-[12px] p-[16px] flex flex-col md:flex-row items-center justify-between gap-4 transition-colors shadow-sm border ${isDraftView ? 'bg-orange-50/50 border-orange-200' : 'bg-white border-[#E5E7EB]'}`}>
@@ -69,15 +86,64 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
             </button>
           )}
 
-          <button 
-            onClick={() => setIsDraftView(!isDraftView)}
-            className={`h-[34px] px-3 flex items-center justify-center gap-1.5 border rounded-full text-[12px] font-medium transition-colors ${isDraftView ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200' : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'}`}
-          >
-            <span className="material-symbols-outlined text-[16px]">edit_document</span>
-            Diagram Drafts
-          </button>
+          {/* Draft View Toggle */}
+          {!hideDraftToggle && (
+            <button 
+              onClick={() => setIsDraftView(!isDraftView)}
+              className={`h-[34px] px-3 flex items-center justify-center gap-1.5 border rounded-full text-[12px] font-medium transition-colors ${isDraftView ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200' : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'}`}
+            >
+              <span className="material-symbols-outlined text-[16px]">edit_document</span>
+              Diagram Drafts
+            </button>
+          )}
           
+          {/* Requirement Filter Dropdown */}
+          <div className="relative">
+            <div 
+              onClick={() => setActiveDropdown(activeDropdown === 'req' ? null : 'req')}
+              className={`h-[34px] px-3 flex items-center justify-between gap-2 border rounded-full text-[12px] font-medium transition-colors cursor-pointer min-w-[140px] max-w-[200px] ${
+                reqFilter ? 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/30' : 'bg-white text-[#374151] border-[#E5E7EB] hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="material-symbols-outlined text-[14px]">filter_alt</span>
+                <span className="truncate">{getSelectedReqTitle()}</span>
+              </div>
+              {reqFilter ? (
+                <span className="material-symbols-outlined text-[14px] hover:text-red-500 shrink-0" onClick={(e) => { e.stopPropagation(); handleReqSelect(null); }}>close</span>
+              ) : (
+                <span className="material-symbols-outlined text-[14px] text-gray-400 shrink-0">expand_more</span>
+              )}
+            </div>
+            
+            {activeDropdown === 'req' && (
+              <div className="absolute top-full right-0 mt-2 w-[220px] bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-20 max-h-[300px] overflow-y-auto custom-scrollbar">
+                <button 
+                  onClick={() => handleReqSelect('')} 
+                  className={`w-full text-left px-4 py-2 text-[12px] hover:bg-gray-50 transition-colors ${!reqFilter ? 'text-[#1E707D] bg-[#1E707D]/5 font-bold' : 'text-gray-700'}`}
+                >
+                  All Requirements
+                </button>
+                {requirements.map(req => {
+                  const isActive = reqFilter === req.id;
+                  const code = req.reqCode || `REQ-${String(req.id).padStart(2, '0')}`;
+                  return (
+                    <button 
+                      key={req.id} 
+                      onClick={() => handleReqSelect(req.id)} 
+                      className={`w-full text-left px-4 py-2 text-[12px] hover:bg-gray-50 transition-colors truncate ${isActive ? 'text-[#1E707D] bg-[#1E707D]/5 font-bold' : 'text-gray-700'}`}
+                      title={`${code} - ${req.title}`}
+                    >
+                      {code} - {req.title}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Custom Status Dropdown */}
+          {!hideStatusFilter && (
           <div className="relative">
             <div 
               onClick={() => !isDraftView && setActiveDropdown(activeDropdown === 'status' ? null : 'status')}
@@ -115,6 +181,7 @@ const UseCaseToolbar = ({ searchTerm, onSearchChange, statusFilter, onStatusFilt
               </div>
             )}
           </div>
+          )}
 
           <div className="text-[12px] font-bold text-gray-500 ml-1 bg-gray-100 px-2 py-1 rounded-md">
             {resultCount || 0} items

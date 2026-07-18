@@ -48,6 +48,12 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Autowired
     private org.example.backend.repository.ProjectActorRepository projectActorRepository;
+    
+    @Autowired
+    private org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+    
+    @Autowired
+    private org.example.backend.service.NotificationService notificationService;
 
     @Override
     @org.example.backend.annotation.Auditable(action="CREATE_USECASE", entityType="UseCase")
@@ -88,14 +94,33 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @org.example.backend.annotation.Auditable(action="UPDATE_USECASE_STATUS", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status) {
+    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
         
-        useCase.setStatus(status);
+        useCase.setStatus(request.getStatus());
+        if (request.getRejectReason() != null) {
+            useCase.setRejectReason(request.getRejectReason());
+        }
+        
+        if (org.example.backend.entity.UseCaseStatus.DRAFT.equals(request.getStatus()) && request.getRejectReason() != null && useCase.getCreatedBy() != null) {
+            org.example.backend.entity.Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null) {
+                notificationService.createAndPush(
+                    useCase.getCreatedBy(),
+                    project,
+                    org.example.backend.entity.NotificationEntityType.USE_CASE,
+                    useCase.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Use Case Rejected",
+                    "Your Use Case '" + useCase.getCode() + "' has been rejected. Reason: " + request.getRejectReason()
+                );
+            }
+        }
+        
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
@@ -103,12 +128,14 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     @org.example.backend.annotation.Auditable(action="UPDATE_USECASE", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request) {
+    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        
+        checkUseCasePermission(useCase, projectId, userId);
         
         mapRequestToEntity(request, useCase);
         
@@ -126,12 +153,14 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @org.example.backend.annotation.Auditable(action="DELETE_USECASE", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse deleteUseCase(Long id, Long projectId) {
+    public UseCaseResponse deleteUseCase(Long id, Long projectId, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        
+        checkUseCasePermission(useCase, projectId, userId);
         UseCaseResponse response = mapEntityToResponse(useCase);
         useCaseRepository.delete(useCase);
         useCaseRepository.flush();
@@ -187,7 +216,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -220,8 +249,14 @@ public class UseCaseServiceImpl implements UseCaseService {
             if (isDraft != null) {
                 predicates.add(cb.equal(root.get("addedFromDiagram"), isDraft));
             } else {
-                // By default, hide drafted UCs in list view unless explicitly requested
-                predicates.add(cb.equal(root.get("addedFromDiagram"), false));
+                predicates.add(cb.or(
+                    cb.isNull(root.get("addedFromDiagram")),
+                    cb.equal(root.get("addedFromDiagram"), false)
+                ));
+            }
+
+            if (ownerId != null) {
+                predicates.add(cb.equal(root.get("createdBy").get("id"), ownerId));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -256,6 +291,23 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         
         useCase.setAddedFromDiagram(false);
+        useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+        
+        if (useCase.getCreatedBy() != null) {
+            org.example.backend.entity.Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null) {
+                notificationService.createAndPush(
+                    useCase.getCreatedBy(),
+                    project,
+                    org.example.backend.entity.NotificationEntityType.USE_CASE,
+                    useCase.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Use Case Approved",
+                    "Your Use Case '" + useCase.getCode() + "' has been approved by the leader."
+                );
+            }
+        }
+        
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
@@ -388,7 +440,19 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setStatus(useCase.getStatus());
         res.setVersion(useCase.getVersion());
         res.setCompletenessScore(useCase.getCompletenessScore());
-        res.setCreatedById(useCase.getCreatedBy() != null ? useCase.getCreatedBy().getId() : null);
+        
+        if (useCase.getCreatedBy() != null) {
+            res.setCreatedById(useCase.getCreatedBy().getId());
+            res.setCreatedByUsername(useCase.getCreatedBy().getUsername());
+            res.setCreatedByEmail(useCase.getCreatedBy().getEmail());
+            if (useCase.getCreatedBy().getProfile() != null) {
+                res.setCreatedByName(useCase.getCreatedBy().getProfile().getFullName());
+                res.setCreatedByAvatar(useCase.getCreatedBy().getProfile().getAvatarUrl());
+            }
+        } else {
+            res.setCreatedById(null);
+        }
+        
         res.setCreatedAt(useCase.getCreatedAt());
         res.setUpdatedAt(useCase.getUpdatedAt());
         res.setAddedFromDiagram(useCase.isAddedFromDiagram());
@@ -399,5 +463,17 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setDeadline(useCase.getDeadline());
         res.setUcOrder(useCase.getUcOrder());
         return res;
+    }
+
+    private void checkUseCasePermission(UseCase useCase, Long projectId, Long userId) {
+        boolean isOwner = useCase.getCreatedBy() != null && useCase.getCreatedBy().getId().equals(userId);
+        if (isOwner) return;
+
+        org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Project member not found"));
+        String roleName = pm.getRole() != null ? pm.getRole().getName().toUpperCase() : "";
+        if (!"PROJECT_LEADER".equals(roleName) && !"LEADER".equals(roleName)) {
+            throw new org.example.backend.exception.ForbiddenException("Only the owner or project leader can modify this Use Case");
+        }
     }
 }

@@ -10,12 +10,12 @@ public interface UseCaseService {
     UseCaseResponse createUseCase(UseCaseRequest request, Long userId);
     UseCaseResponse getUseCaseById(Long id);
     List<UseCaseResponse> getAllUseCases(Long projectId);
-    UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request);
-    UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status);
-    UseCaseResponse deleteUseCase(Long id, Long projectId);
+    UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request, Long userId);
+    UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request);
+    UseCaseResponse deleteUseCase(Long id, Long projectId, Long userId);
     void reorderUseCases(Long projectId, Long requirementId, org.example.backend.dto.ReorderRequestDTO request);
     void reorderUseCasesGlobal(Long projectId, org.example.backend.dto.ReorderRequestDTO request);
-    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable);
+    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Pageable pageable);
 
     UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId);
 }
