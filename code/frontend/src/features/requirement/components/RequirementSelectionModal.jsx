@@ -29,7 +29,8 @@ const RequirementSelectionModal = ({ isOpen, onClose, onConfirm }) => {
           const reqs = reqRes.items || reqRes.data?.content || reqRes.data || reqRes || [];
           const ucs = ucRes || [];
           
-          setRequirements(Array.isArray(reqs) ? reqs : []);
+          const activeReqs = (Array.isArray(reqs) ? reqs : []).filter(r => r.status !== 'CLOSED');
+          setRequirements(activeReqs);
           setUseCases(Array.isArray(ucs) ? ucs : []);
           
           const reqsWithUcs = new Set(ucs.map(uc => uc.requirementId));

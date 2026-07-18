@@ -36,6 +36,8 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="IN_REVIEW">IN_REVIEW</option>
                 <option value="DONE">DONE</option>
+                {useCase.status === 'REJECTED' && <option value="REJECTED" disabled>REJECTED</option>}
+                {useCase.status === 'CLOSED' && <option value="CLOSED" disabled>CLOSED</option>}
               </select>
               <input
                 type="text"
@@ -57,6 +59,8 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
                 <option value="IN_PROGRESS" className="bg-white text-on-surface">IN_PROGRESS</option>
                 <option value="IN_REVIEW" className="bg-white text-on-surface">IN_REVIEW</option>
                 <option value="DONE" className="bg-white text-on-surface">DONE</option>
+                {useCase.status === 'REJECTED' && <option value="REJECTED" disabled className="bg-white text-on-surface">REJECTED</option>}
+                {useCase.status === 'CLOSED' && <option value="CLOSED" disabled className="bg-white text-on-surface">CLOSED</option>}
               </select>
               <span className="text-secondary font-label-md text-label-md">{useCase.version || 'v1.0'}</span>
             </>
@@ -145,8 +149,15 @@ const UseCaseDetailHeader = ({ useCase, isEditing, saving, updatingStatus, isLea
             </Button>
           </>
         ) : (
-          isLeader && (
+          isLeader && useCase?.requirement?.status !== 'CLOSED' && (
             <>
+              <Button 
+                variant="outline"
+                onClick={onEdit}
+                className="h-11 text-slate-600 hover:text-slate-900 border-slate-200"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span> Edit
+              </Button>
               <Button 
                 variant={useCase.outdated ? "danger" : "primary"}
                 onClick={onAiSync}

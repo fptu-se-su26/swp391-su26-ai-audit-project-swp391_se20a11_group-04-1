@@ -238,11 +238,18 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             if (status != null && !status.trim().isEmpty()) {
-                try {
-                    org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(status.toUpperCase());
-                    predicates.add(cb.equal(root.get("status"), enumStatus));
-                } catch (IllegalArgumentException e) {
-                    // Ignore invalid status format in search
+                String[] statuses = status.split(",");
+                List<Predicate> statusPredicates = new ArrayList<>();
+                for (String s : statuses) {
+                    try {
+                        org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(s.trim().toUpperCase());
+                        statusPredicates.add(cb.equal(root.get("status"), enumStatus));
+                    } catch (IllegalArgumentException e) {
+                        // Ignore invalid status format in search
+                    }
+                }
+                if (!statusPredicates.isEmpty()) {
+                    predicates.add(cb.or(statusPredicates.toArray(new Predicate[0])));
                 }
             }
 
@@ -267,7 +274,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId) {
+    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId, String type) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
@@ -291,7 +298,22 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         
         useCase.setAddedFromDiagram(false);
-        useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+        
+        if ("CONTENT".equalsIgnoreCase(type)) {
+            if (useCase.getStatus() == org.example.backend.entity.UseCaseStatus.DIAGRAM_APPROVED) {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+            } else {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.CONTENT_APPROVED);
+            }
+        } else if ("DIAGRAM".equalsIgnoreCase(type)) {
+            if (useCase.getStatus() == org.example.backend.entity.UseCaseStatus.CONTENT_APPROVED) {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+            } else {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DIAGRAM_APPROVED);
+            }
+        } else {
+            useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+        }
         
         if (useCase.getCreatedBy() != null) {
             org.example.backend.entity.Project project = projectRepository.findById(projectId).orElse(null);

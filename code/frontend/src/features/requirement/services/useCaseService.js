@@ -56,9 +56,9 @@ export const useCaseService = {
     return response.data;
   },
 
-  // Approve Use Case từ Diagram
-  approveUseCase: async (useCaseId, projectId, requirementId) => {
-    const params = { projectId };
+  // Approve Use Case
+  approveUseCase: async (useCaseId, projectId, requirementId, type = 'BOTH') => {
+    const params = { projectId, type };
     if (requirementId) params.requirementId = requirementId;
     const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params });
     return response.data.data;

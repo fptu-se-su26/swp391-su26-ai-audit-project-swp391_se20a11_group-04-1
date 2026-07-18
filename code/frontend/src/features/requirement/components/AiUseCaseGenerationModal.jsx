@@ -127,10 +127,13 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
               <p className="text-secondary font-medium">Loading generation results...</p>
             </div>
           ) : useCases.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-full gap-4 text-on-surface-variant">
-              <span className="material-symbols-outlined text-5xl opacity-50">warning</span>
-              <p>No Use Cases found in this generation result.</p>
-            </div>
+              <div className="flex flex-col justify-center items-center h-full gap-2 text-on-surface-variant max-w-sm mx-auto text-center py-12">
+                <span className="material-symbols-outlined text-5xl text-amber-500 mb-2">info</span>
+                <p className="font-bold text-[16px] text-slate-800">No Use Cases Generated</p>
+                <p className="text-[14px] text-slate-500 mt-1">
+                  Non-functional requirements are excluded as they do not contain actionable user flows.
+                </p>
+              </div>
           ) : (
             <div className="space-y-6">
               <div className="flex justify-between items-center bg-surface-container-lowest p-4 rounded-xl border border-outline-variant shadow-sm">

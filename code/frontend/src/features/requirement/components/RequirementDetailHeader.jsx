@@ -129,6 +129,16 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
           </Button>
         )}
         
+        {requirement.status !== 'CLOSED' && (
+          <Button 
+            variant="outline"
+            onClick={onEdit}
+            className="text-slate-600 hover:text-slate-900 border-slate-200"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span> Edit
+          </Button>
+        )}
+        
         <Button 
           variant={btnVariant}
           onClick={() => setIsSmartSyncModalOpen(true)}

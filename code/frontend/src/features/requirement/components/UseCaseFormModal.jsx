@@ -48,7 +48,10 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         .then(res => {
           // Backend returns PaginatedResponse which has an 'items' array
           const reqs = res.items || res.data?.content || res.data || res || [];
-          setRequirements(Array.isArray(reqs) ? reqs : []);
+          let arr = Array.isArray(reqs) ? reqs : [];
+          // Filter out CLOSED requirements unless we are editing a Use Case that already belongs to it
+          arr = arr.filter(r => r.status !== 'CLOSED' || (useCase && String(r.id) === String(useCase.requirementId)));
+          setRequirements(arr);
         })
         .catch(err => {
           console.error(err);
@@ -93,7 +96,7 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         requirementId: parseInt(formData.requirementId),
         projectId: activeProject?.id,
         actors: formData.actorsText ? formData.actorsText.split(',').map(a => a.trim()).filter(a => a) : [],
-        status: formData.status,
+        status: formData.status === 'REJECTED' ? 'DRAFT' : formData.status,
         version: formData.version,
         precondition: formData.precondition,
         postcondition: formData.postcondition,

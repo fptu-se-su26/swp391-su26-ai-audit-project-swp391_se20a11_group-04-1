@@ -80,12 +80,21 @@ const UseCasePage = () => {
       if (listMode === 'mine') {
         params.mine = true;
       } else if (listMode === 'overview') {
-        params.status = 'DONE';
+        params.status = 'DONE,CONTENT_APPROVED,DIAGRAM_APPROVED,CLOSED';
       }
 
       const data = await useCaseService.searchUseCases(params);
       
-      setUseCases(data.content || []);
+      let fetchedUseCases = data.content || [];
+      // Sort to push CLOSED Use Cases or Use Cases with CLOSED requirements to the bottom
+      fetchedUseCases.sort((a, b) => {
+        const aClosed = a.status === 'CLOSED' || a.requirement?.status === 'CLOSED';
+        const bClosed = b.status === 'CLOSED' || b.requirement?.status === 'CLOSED';
+        if (aClosed && !bClosed) return 1;
+        if (!aClosed && bClosed) return -1;
+        return 0;
+      });
+      setUseCases(fetchedUseCases);
       const pageInfo = data.page || data;
       setTotalPages(pageInfo.totalPages || 0);
       setTotalElements(pageInfo.totalElements || 0);
@@ -231,6 +240,51 @@ const UseCasePage = () => {
     fetchDiagramData();
   };
 
+  const myFullUseCases = allUseCases.filter(uc => uc.createdById == userId);
+  const functionalReqs = myRequirements.filter(req => req.type === 'FUNCTIONAL' && req.status !== 'CLOSED');
+  const coveredReqIds = myFullUseCases.map(uc => uc.requirement?.id || uc.requirementId);
+  const missingReqs = functionalReqs.filter(req => !coveredReqIds.includes(req.id));
+  const activeUseCases = myFullUseCases.filter(uc => uc.requirement?.status !== 'CLOSED');
+  const hasRejected = activeUseCases.some(uc => uc.status === 'REJECTED');
+  const submittableStatuses = ['DRAFT', 'IN_PROGRESS'];
+  const hasSubmittable = activeUseCases.some(uc => submittableStatuses.includes(uc.status));
+
+  let canSubmit = false;
+  let submitDisabledReason = '';
+
+  if (listMode === 'mine') {
+    if (missingReqs.length > 0) {
+      const missingCodes = missingReqs.map(r => r.reqCode).join(', ');
+      submitDisabledReason = `Missing Use Cases for ${missingReqs.length} assigned functional requirement(s): ${missingCodes}`;
+    } else if (hasRejected) {
+      submitDisabledReason = 'You have REJECTED Use Cases. Please edit and resolve them before submitting.';
+    } else if (!hasSubmittable) {
+      submitDisabledReason = 'No DRAFT or IN PROGRESS Use Cases to submit.';
+    } else {
+      canSubmit = true;
+      submitDisabledReason = 'Submit all DRAFT and IN PROGRESS Use Cases for review';
+    }
+  }
+
+  const handleSubmitUseCases = async () => {
+    const draftsToSubmit = myFullUseCases.filter(uc => submittableStatuses.includes(uc.status));
+    if (draftsToSubmit.length === 0) return;
+    
+    setLoading(true);
+    try {
+      await Promise.all(draftsToSubmit.map(uc => 
+        useCaseService.updateUseCaseStatus(uc.id, 'IN_REVIEW', activeProject.id)
+      ));
+      toast.success(`Successfully submitted ${draftsToSubmit.length} Use Cases!`);
+      handleRefresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to submit Use Cases.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteUseCase = (id) => {
     setDeleteConfirmId(id);
   };
@@ -266,7 +320,13 @@ const UseCasePage = () => {
 
   const handleResetOrder = () => {
     if (!useCases || useCases.length === 0) return;
-    const sorted = [...useCases].sort((a, b) => a.id - b.id);
+    const sorted = [...useCases].sort((a, b) => {
+      const aClosed = a.status === 'CLOSED' || a.requirement?.status === 'CLOSED';
+      const bClosed = b.status === 'CLOSED' || b.requirement?.status === 'CLOSED';
+      if (aClosed && !bClosed) return 1;
+      if (!aClosed && bClosed) return -1;
+      return a.id - b.id;
+    });
     handleReorder(sorted);
   };
 
@@ -298,33 +358,6 @@ const UseCasePage = () => {
     } catch (error) {
       toast.error("Có lỗi xảy ra khi từ chối Use Case");
       throw error;
-    }
-  };
-
-  const myUseCaseReqIds = new Set(allUseCases.filter(uc => (uc.createdBy?.id || uc.createdById) === userId && uc.requirementId != null).map(uc => uc.requirementId));
-  const missingReqs = myRequirements.filter(req => !myUseCaseReqIds.has(req.id));
-  const canSubmit = myRequirements.length > 0 && missingReqs.length === 0;
-
-  const handleSubmitUseCases = async () => {
-    const myUCs = allUseCases.filter(uc => (uc.createdBy?.id || uc.createdById) === userId && uc.status !== 'IN_REVIEW' && uc.status !== 'DONE' && uc.status !== 'READY_FOR_REVIEW');
-    if (myUCs.length === 0) {
-      toast.info('No draft use cases to submit.');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      for (const uc of myUCs) {
-        await useCaseService.updateUseCaseStatus(uc.id, 'IN_REVIEW', activeProject.id);
-      }
-      toast.success('Successfully submitted all use cases to Leader for review!');
-      fetchUseCases();
-      fetchAllUseCases();
-    } catch (error) {
-      console.error('Failed to submit use cases', error);
-      toast.error('Failed to submit use cases');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -483,8 +516,8 @@ const UseCasePage = () => {
                   onRefresh={handleRefresh}
                   enableReorder={listMode === 'mine' || (isLeader && listMode === 'overview')}
                   onReorder={handleReorder}
-                  onApprove={isLeader ? handleApproveUseCase : undefined}
-                  onReject={isLeader ? handleRejectUseCase : undefined}
+                  onApprove={isLeader && listMode !== 'mine' ? handleApproveUseCase : undefined}
+                  onReject={isLeader && listMode !== 'mine' ? handleRejectUseCase : undefined}
                 />
               )}
             </div>
@@ -497,18 +530,23 @@ const UseCasePage = () => {
                 onPageChange={setCurrentPage}
               />
             )}
-            
-            {/* Submit Button for Members in Mine tab */}
-            {!isLeader && listMode === 'mine' && !viewMode.startsWith('diagram') && (
-              <div className="flex justify-end p-4 border-t border-outline-variant bg-surface-container-lowest">
-                <Button 
-                  onClick={handleSubmitUseCases} 
-                  disabled={!canSubmit || loading}
-                  className="bg-primary text-white"
+            {/* Submit Button at Bottom Center */}
+            {listMode === 'mine' && !viewMode.startsWith('diagram') && (
+              <div className="flex justify-center pb-6 pt-2 bg-surface-container-lowest">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canSubmit) {
+                      toast.error(submitDisabledReason);
+                    } else {
+                      handleSubmitUseCases();
+                    }
+                  }}
+                  className="h-[36px] px-4 rounded-lg font-medium flex items-center justify-center transition-colors text-[13px] shadow hover:shadow-md bg-primary text-white hover:bg-[#11464f]"
                 >
-                  <span className="material-symbols-outlined mr-2">send</span>
-                  Submit Use Cases
-                </Button>
+                  <span className="material-symbols-outlined mr-1.5 text-[16px]">send</span>
+                  Submit
+                </button>
               </div>
             )}
           </div>

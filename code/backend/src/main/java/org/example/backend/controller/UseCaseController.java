@@ -73,8 +73,9 @@ public class UseCaseController {
     public ResponseEntity<ApiResponse<UseCaseResponse>> approveUseCase(
             @PathVariable Long id, 
             @RequestParam Long projectId,
-            @RequestParam(required = false) Long requirementId) {
-        UseCaseResponse response = useCaseService.approveUseCase(id, projectId, requirementId);
+            @RequestParam(required = false) Long requirementId,
+            @RequestParam(required = false, defaultValue = "BOTH") String type) {
+        UseCaseResponse response = useCaseService.approveUseCase(id, projectId, requirementId, type);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case approved"));
     }
 

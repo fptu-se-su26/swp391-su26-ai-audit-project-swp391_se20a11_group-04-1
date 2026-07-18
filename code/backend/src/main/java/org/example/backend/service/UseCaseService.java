@@ -17,5 +17,5 @@ public interface UseCaseService {
     void reorderUseCasesGlobal(Long projectId, org.example.backend.dto.ReorderRequestDTO request);
     Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Pageable pageable);
 
-    UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId);
+    UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId, String type);
 }

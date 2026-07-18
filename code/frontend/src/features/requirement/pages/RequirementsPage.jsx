@@ -61,7 +61,14 @@ const RequirementsPage = () => {
   });
 
   const applyRequirementResponse = (data) => {
-    const items = data.items ?? data;
+    let items = data.items ?? data;
+
+    // Push CLOSED requirements to the bottom
+    items = [...items].sort((a, b) => {
+      if (a.status === 'CLOSED' && b.status !== 'CLOSED') return 1;
+      if (a.status !== 'CLOSED' && b.status === 'CLOSED') return -1;
+      return 0;
+    });
 
     setRequirements(items);
     setPagination({
@@ -178,7 +185,11 @@ const RequirementsPage = () => {
 
   const handleResetOrder = () => {
     if (!requirements || requirements.length === 0) return;
-    const sorted = [...requirements].sort((a, b) => a.id - b.id);
+    const sorted = [...requirements].sort((a, b) => {
+      if (a.status === 'CLOSED' && b.status !== 'CLOSED') return 1;
+      if (a.status !== 'CLOSED' && b.status === 'CLOSED') return -1;
+      return a.id - b.id;
+    });
     handleReorder(sorted);
   };
 

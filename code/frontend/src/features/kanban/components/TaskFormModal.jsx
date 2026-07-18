@@ -178,7 +178,9 @@ const TaskFormModal = ({
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 <option value="">No requirement</option>
-                {requirementOptions.map((requirement) => (
+                {requirementOptions
+                  .filter(req => req.status !== 'CLOSED' || String(req.id) === formData.requirementId)
+                  .map((requirement) => (
                   <option key={requirement.id} value={requirement.id}>
                     {requirement.code} - {requirement.title}
                   </option>

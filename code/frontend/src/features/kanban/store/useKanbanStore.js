@@ -82,6 +82,7 @@ export const useKanbanStore = create((set, get) => ({
           id: requirement.id,
           code: requirement.reqCode || `REQ-${String(requirement.id).padStart(2, '0')}`,
           title: requirement.title || 'Untitled requirement',
+          status: requirement.status,
         })),
         sprintOptions: sprintOptions.map((sprint) => ({
           id: sprint.id,

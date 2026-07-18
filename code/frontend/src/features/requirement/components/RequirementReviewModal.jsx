@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiX, FiCheckCircle, FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import { requirementApi } from '../services/requirementApi';
 import { useCaseService } from '../services/useCaseService';
@@ -7,6 +8,7 @@ import useProjectStore from '../../../store/useProjectStore';
 
 const RequirementReviewModal = ({ requirement, onClose }) => {
   const { activeProject } = useProjectStore();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [useCases, setUseCases] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -19,7 +21,7 @@ const RequirementReviewModal = ({ requirement, onClose }) => {
     try {
       setLoading(true);
       // Fetch Use Cases
-      const ucRes = await useCaseService.getUseCases(activeProject.id);
+      const ucRes = await useCaseService.getAllUseCases(activeProject.id);
       // Filter Use Cases for this Requirement
       const filteredUc = (ucRes || []).filter(uc => uc.requirementId === requirement.id);
       setUseCases(filteredUc);
@@ -43,13 +45,9 @@ const RequirementReviewModal = ({ requirement, onClose }) => {
     return Math.round((completedTasks / tasks.length) * 100);
   };
 
-  const handleReopen = async () => {
-    try {
-      await requirementApi.updateStatus(requirement.id, 'IN_PROGRESS');
-      onClose(true); // true indicates a refresh is needed
-    } catch (error) {
-      console.error(error);
-    }
+  const handleViewDetail = () => {
+    onClose(false);
+    navigate(`/projects/${activeProject?.id}/requirements/${requirement.id}`);
   };
 
   const progress = calculateProgress();
@@ -166,11 +164,11 @@ const RequirementReviewModal = ({ requirement, onClose }) => {
         {/* Footer */}
         <div className="px-[24px] py-[16px] border-t border-gray-100 flex items-center justify-between bg-gray-50 rounded-b-[16px]">
           <button 
-            onClick={handleReopen}
-            className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 shadow-sm transition-colors"
+            onClick={handleViewDetail}
+            className="flex items-center gap-2 px-4 py-2 text-[13px] font-medium text-[#1E707D] bg-white border border-[#1E707D] rounded-lg hover:bg-gray-50 shadow-sm transition-colors"
           >
-            <FiAlertTriangle size={14} />
-            Re-open Requirement
+            <span className="material-symbols-outlined text-[16px]">visibility</span>
+            View Detail
           </button>
           <button 
             onClick={() => onClose(false)}

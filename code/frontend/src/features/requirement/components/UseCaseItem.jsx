@@ -112,7 +112,7 @@ const UseCaseItem = ({
   const actors = resolveActors(uc);
 
   const getRowStatus = () => {
-    if (!deadline || status === 'DONE') return 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300';
+    if (!deadline || status === 'DONE' || status === 'CLOSED') return 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300';
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -127,12 +127,19 @@ const UseCaseItem = ({
     return 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300';
   };
 
+  const isDimmed = status === 'CLOSED' || requirement?.status === 'CLOSED';
+
+  const isReqClosed = requirement?.status === 'CLOSED';
+
   return (
     <div 
       ref={enableReorder ? setNodeRef : null}
       style={enableReorder ? style : {}}
-      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()}`}
+      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'}`}
     >
+      {isDimmed && (
+        <div className="absolute inset-0 bg-white/40 backdrop-grayscale backdrop-blur-[0.5px] rounded-xl z-0 pointer-events-none"></div>
+      )}
       {enableReorder && (
         <div 
           {...attributes}
@@ -158,7 +165,7 @@ const UseCaseItem = ({
               let dateColorClass = "text-[#1E707D] bg-[#1E707D]/10 border border-[#1E707D]/20";
               let iconName = "calendar_today";
               if (deadline) {
-                if (status === 'DONE') {
+                if (status === 'DONE' || status === 'CLOSED') {
                   dateColorClass = "text-gray-500 bg-gray-100";
                 } else {
                   const today = new Date();
@@ -232,7 +239,7 @@ const UseCaseItem = ({
       </div>
 
       <div className="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end pr-2 gap-2">
-        {(onEdit || onDelete || onApprove || onReject) && (
+        {(!isDimmed && (onEdit || onDelete || onApprove || onReject)) && (
           <div className="relative w-8 flex justify-end shrink-0" ref={actionMenuRef}>
             <button 
               onClick={toggleActionMenu}

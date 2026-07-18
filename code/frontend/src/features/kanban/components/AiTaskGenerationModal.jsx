@@ -28,7 +28,9 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
         taskService.getProjectTasks(projectId)
       ]);
 
-      const reqsWithValidation = reqs.map(req => {
+      const activeReqs = reqs.filter(r => r.status !== 'CLOSED');
+
+      const reqsWithValidation = activeReqs.map(req => {
         const reqUseCases = ucs.filter(uc => uc.requirementId === req.id);
         const reqTasks = allTasks.filter(t => t.requirementId === req.id);
         let isValid = true;

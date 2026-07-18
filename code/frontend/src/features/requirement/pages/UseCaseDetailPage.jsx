@@ -154,7 +154,7 @@ const UseCaseDetailPage = () => {
         name: editData.name,
         requirementId: editData.requirementId,
         actors: editData.actors,
-        status: editData.status,
+        status: editData.status === 'REJECTED' ? 'DRAFT' : editData.status,
         version: editData.version,
         precondition: editData.precondition,
         postcondition: editData.postcondition,

@@ -108,7 +108,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
         tags: req.tags || [],
         status: req.status || 'IN_PROGRESS'
       };
-      await requirementApi.updateRequirement(req.id, payload);
+      await requirementApi.updateRequirement(req.id, activeProject?.id, payload);
       // We no longer call onRefresh() here to avoid full page re-render jitter.
       // The state is already updated locally.
     } catch (error) {
@@ -158,10 +158,20 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
 
   const handleCloseReq = async () => {
     try {
-      await requirementApi.updateStatus(req.id, 'CLOSED');
+      await requirementApi.updateStatus(req.id, activeProject?.id, 'CLOSED');
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error('Lỗi khi close Requirement:', error);
+    }
+  };
+
+  const handleReopen = async (e) => {
+    e.stopPropagation();
+    try {
+      await requirementApi.updateStatus(req.id, activeProject?.id, 'IN_PROGRESS');
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error('Lỗi khi re-open Requirement:', error);
     }
   };
 
@@ -173,7 +183,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
 
   const getDateStatus = () => {
     if (!deadline) return 'text-gray-500 bg-gray-100';
-    if (status === 'DONE') return 'text-gray-500 bg-gray-100';
+    if (status === 'DONE' || status === 'CLOSED') return 'text-gray-500 bg-gray-100';
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -189,7 +199,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
   };
 
   const getRowStatus = () => {
-    if (!deadline || status === 'DONE') return 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300';
+    if (!deadline || status === 'DONE' || status === 'CLOSED') return 'border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300';
     
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -221,14 +231,45 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
   };
 
   const allTasksDone = tasksCount > 0 && tasksCount === completedTasksCount;
-  const isDimmed = allTasksDone && status !== 'DONE' && status !== 'CLOSED';
+  const isReadyForReview = isLeader && allTasksDone && status !== 'DONE' && status !== 'CLOSED';
+  const isDimmed = status === 'CLOSED';
 
   return (
     <div 
       ref={setNodeRef}
       style={style}
-      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()} ${isDimmed ? 'opacity-60 hover:opacity-100' : ''}`}
+      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl relative ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'}`}
     >
+      {isDimmed && (
+        <div className="absolute inset-0 bg-white/40 backdrop-grayscale backdrop-blur-[0.5px] rounded-xl z-0 pointer-events-none"></div>
+      )}
+      {/* Ready for Review Overlay */}
+      {isReadyForReview && (
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1.5px] rounded-xl flex items-center justify-center gap-6 z-20 shadow-[inset_0_0_20px_rgba(255,255,255,0.8)]">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReviewModal(true);
+            }}
+            className="bg-[#1E707D] text-white hover:bg-[#15535D] px-4 py-1.5 rounded-md text-sm font-medium shadow-md transition-transform hover:scale-105 flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">assignment_turned_in</span>
+            Review
+          </button>
+          {isLeader && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCloseReq();
+              }}
+              className="bg-red-500 text-white hover:bg-red-600 px-4 py-1.5 rounded-md text-sm font-medium shadow-md transition-transform hover:scale-105 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+              Close
+            </button>
+          )}
+        </div>
+      )}
       <div 
         {...attributes}
         {...listeners}
@@ -260,7 +301,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
           </div>
         </div>
       </div>
-      <div className="col-span-3 sm:col-span-2 hidden sm:flex flex-row flex-wrap gap-1.5 items-center">
+      <div className="col-span-3 sm:col-span-2 hidden sm:flex flex-col gap-1.5 items-center justify-center min-w-0">
         {status && (
           <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${
             status === 'DRAFT'        ? 'bg-slate-50 text-slate-600 border-slate-200' :
@@ -294,10 +335,10 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
       <div className="col-span-3 lg:col-span-2 hidden md:flex flex-col justify-center pr-4">
         <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 mb-1">
           <span>PROGRESS</span>
-          <span className="text-[#1E707D]">0%</span>
+          <span className="text-[#1E707D]">{tasksCount > 0 ? Math.round((completedTasksCount / tasksCount) * 100) : 0}%</span>
         </div>
         <div className="w-full bg-slate-100 rounded-full h-1.5 mb-1.5 shadow-inner">
-          <div className="bg-[#1E707D] h-1.5 rounded-full" style={{ width: '0%' }}></div>
+          <div className="bg-[#1E707D] h-1.5 rounded-full transition-all duration-500" style={{ width: `${tasksCount > 0 ? Math.round((completedTasksCount / tasksCount) * 100) : 0}%` }}></div>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
           <span className="flex items-center gap-1" title="Tasks">
@@ -422,33 +463,8 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
           )}
         </div>
 
-        {/* Quick Approve Button */}
-        {allTasksDone && status !== 'DONE' && status !== 'CLOSED' ? (
-          <div className="flex-shrink-0 mr-1 flex items-center gap-2">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowReviewModal(true);
-              }}
-              className="text-[#1E707D] hover:bg-[#1E707D]/10 px-3 py-1 rounded-md transition-colors flex items-center justify-center border border-[#1E707D]/30 shadow-sm bg-white font-medium text-[12px]"
-              title="Review Requirement"
-            >
-              Review
-            </button>
-            {isLeader && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCloseReq();
-                }}
-                className="text-emerald-600 hover:bg-emerald-50 px-3 py-1 rounded-md transition-colors flex items-center justify-center border border-emerald-200 shadow-sm bg-white font-medium text-[12px]"
-                title="Close Requirement"
-              >
-                Close
-              </button>
-            )}
-          </div>
-        ) : status === 'IN_REVIEW' ? (
+        {/* Quick Approve Button (Replaced by overlay, keeping empty space or alternate logic if needed) */}
+        {allTasksDone && status !== 'DONE' && status !== 'CLOSED' ? null : status === 'IN_REVIEW' ? (
           <div className="flex-shrink-0 mr-1">
             <button 
               onClick={(e) => {
@@ -463,48 +479,63 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
           </div>
         ) : null}
 
-        {/* Action Menu Section */}
-        <div className="relative w-8 flex justify-end flex-shrink-0" ref={actionMenuRef}>
-          <button 
-            onClick={toggleActionMenu}
-            className="text-secondary hover:text-on-surface p-1 rounded-full hover:bg-surface-container-low transition-colors"
-          >
-            <span className="material-symbols-outlined text-[20px]">more_vert</span>
-          </button>
-
-          {/* Action Dropdown Menu */}
-          {showActionMenu && (
-            <div className="absolute top-full right-0 mt-1 w-32 bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-10">
+        {/* Action Menu Section or Re-open Button */}
+        {status === 'CLOSED' ? (
+          isLeader ? (
+            <div className="flex justify-end flex-shrink-0 z-10 relative">
               <button
-                onClick={(e) => handleAction(e, 'Edit')}
-                className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+                onClick={handleReopen}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100 shadow-sm transition-colors"
+                title="Re-open Requirement"
               >
-                <span className="material-symbols-outlined text-[16px]">edit</span>
-                Edit
-              </button>
-              {status === 'DONE' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowReviewModal(true);
-                    setShowActionMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-[#1E707D] hover:bg-surface-container-low flex items-center gap-2 transition-colors font-medium"
-                >
-                  <span className="material-symbols-outlined text-[16px]">assignment_turned_in</span>
-                  Leader Review
-                </button>
-              )}
-              <button
-                onClick={(e) => handleAction(e, 'Delete')}
-                className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-                Delete
+                <span className="material-symbols-outlined text-[14px]">refresh</span>
+                Re-open
               </button>
             </div>
-          )}
-        </div>
+          ) : null
+        ) : (
+          <div className="relative w-8 flex justify-end flex-shrink-0" ref={actionMenuRef}>
+            <button 
+              onClick={toggleActionMenu}
+              className="text-secondary hover:text-on-surface p-1 rounded-full hover:bg-surface-container-low transition-colors"
+            >
+              <span className="material-symbols-outlined text-[20px]">more_vert</span>
+            </button>
+
+            {/* Action Dropdown Menu */}
+            {showActionMenu && (
+              <div className="absolute top-full right-0 mt-1 w-32 bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-10">
+                <button
+                  onClick={(e) => handleAction(e, 'Edit')}
+                  className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                  Edit
+                </button>
+                {status === 'DONE' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowReviewModal(true);
+                      setShowActionMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-[#1E707D] hover:bg-surface-container-low flex items-center gap-2 transition-colors font-medium"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">assignment_turned_in</span>
+                    Leader Review
+                  </button>
+                )}
+                <button
+                  onClick={(e) => handleAction(e, 'Delete')}
+                  className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showReviewModal && (
