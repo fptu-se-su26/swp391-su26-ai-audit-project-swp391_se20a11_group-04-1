@@ -57,6 +57,7 @@ public class GroqProvider implements LlmProvider {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model != null ? model : "llama-3.3-70b-versatile");
+        requestBody.put("max_tokens", 8000);
         
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
