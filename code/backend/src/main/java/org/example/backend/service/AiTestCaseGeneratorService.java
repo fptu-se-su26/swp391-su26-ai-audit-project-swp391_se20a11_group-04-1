@@ -141,11 +141,58 @@ public class AiTestCaseGeneratorService {
                 cleanJson = cleanJson.substring(firstSquare, lastSquare + 1);
             }
 
+            // Sanitize control characters inside JSON string values.
+            // Some providers (e.g. Groq) embed raw newlines/tabs in string values,
+            // which is illegal per JSON spec and causes Jackson to throw:
+            // "Illegal unquoted character (CTRL-CHAR, code 10)"
+            cleanJson = sanitizeJsonControlChars(cleanJson);
+
             return objectMapper.readValue(cleanJson, typeRef);
         } catch (Exception e) {
             log.error("Failed to parse JSON from AI (exception: {}): \n{}", e.getMessage(), rawJson);
             throw new BusinessException("Không thể parse kết quả từ AI. Định dạng lỗi.");
         }
+    }
+
+    /**
+     * Replace raw control characters (newlines, tabs, carriage returns) that appear
+     * inside JSON string values with their escaped equivalents.
+     * Only replaces chars that are inside double-quoted strings (between " and ").
+     */
+    private String sanitizeJsonControlChars(String json) {
+        StringBuilder sb = new StringBuilder(json.length());
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (escaped) {
+                sb.append(c);
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                sb.append(c);
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                sb.append(c);
+                continue;
+            }
+            if (inString) {
+                // Replace unescaped control characters inside strings
+                if (c == '\n') { sb.append("\\n"); continue; }
+                if (c == '\r') { sb.append("\\r"); continue; }
+                if (c == '\t') { sb.append("\\t"); continue; }
+                if (c < 0x20) { // other control chars
+                    sb.append(String.format("\\u%04x", (int) c));
+                    continue;
+                }
+            }
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     // ── JSON → Plain Text Formatters ──────────────────────────────────────────
