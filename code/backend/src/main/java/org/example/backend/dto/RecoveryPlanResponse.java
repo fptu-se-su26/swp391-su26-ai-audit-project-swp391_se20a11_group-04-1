@@ -19,10 +19,8 @@ public class RecoveryPlanResponse {
     private String status;
     private String riskLevel;
     private List<String> riskCategories;
-    private String planDetailsJson;
     private String summary;
     private String generatedSource;
-    private String generationMode;
     private String rejectReason;
     private String priority;
     private boolean followUp;

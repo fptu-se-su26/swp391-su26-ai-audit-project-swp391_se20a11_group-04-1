@@ -124,9 +124,9 @@ public class SlaDecisionPackService {
                     .taskId(taskId)
                     .projectId(projectId)
                     .currentScore(100)
-                    .currentRiskLevel("HEALTHY")
+                    .currentRiskLevel("NORMAL")
                     .burnRateLevel("LOW")
-                    .predictedRiskLevel("HEALTHY")
+                    .predictedRiskLevel("NORMAL")
                     .predictionReasons(List.of())
                     .slaCategories(List.of("NORMAL"))
                     .reasons(List.of("SLA has not been evaluated yet."))
@@ -168,7 +168,7 @@ public class SlaDecisionPackService {
         List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
         
         return states.stream()
-                .filter(state -> !"HEALTHY".equals(state.getCurrentRiskLevel()))
+                .filter(state -> !"NORMAL".equals(state.getCurrentRiskLevel()))
                 .map(state -> {
                     Task task = state.getTask();
                     long daysUntilDeadline = -1;

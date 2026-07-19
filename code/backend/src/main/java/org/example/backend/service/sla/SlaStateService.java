@@ -7,10 +7,6 @@ import org.example.backend.entity.*;
 import org.example.backend.repository.SlaDecisionLogRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
-import org.example.backend.service.ml.MlFeatureBuilder;
-import org.example.backend.service.ml.MlServiceClient;
-import org.example.backend.service.ml.MlSlaRiskRequest;
-import org.example.backend.service.ml.MlSlaRiskResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,8 +30,6 @@ public class SlaStateService {
     private final TaskSlaRuleService taskSlaRuleService;
     private final SlaActionService slaActionService;
     private final SlaRiskAssessmentService slaRiskAssessmentService;
-    private final MlServiceClient mlServiceClient;
-    private final MlFeatureBuilder mlFeatureBuilder;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -89,22 +83,6 @@ public class SlaStateService {
         String previousRiskLevel = oldState != null ? oldState.getCurrentRiskLevel() : null;
         Integer previousScore = oldState != null ? oldState.getCurrentScore() : null;
 
-        // ML prediction — non-blocking, falls back to rule-based if unavailable
-        String mlPredictedRisk = assessment.getPredictedRiskLevel();
-        double mlConfidence    = assessment.getPredictionConfidence();
-        try {
-            MlSlaRiskRequest mlReq = mlFeatureBuilder.build(task, oldState);
-            java.util.Optional<MlSlaRiskResponse> mlOpt = mlServiceClient.predictSlaRisk(mlReq);
-            if (mlOpt.isPresent()) {
-                MlSlaRiskResponse ml = mlOpt.get();
-                mlPredictedRisk = ml.getRiskLevel();
-                mlConfidence    = ml.getConfidence();
-                log.debug("ML prediction for task {}: {} (conf={})", task.getId(), mlPredictedRisk, mlConfidence);
-            }
-        } catch (Exception ex) {
-            log.debug("ML prediction skipped for task {}: {}", task.getId(), ex.getMessage());
-        }
-
         // Upsert state
         if (changed) {
             TaskSlaState newState = oldState;
@@ -126,10 +104,10 @@ public class SlaStateService {
             newState.setBurnGap(assessment.getBurnGap());
             newState.setBurnRateLevel(assessment.getBurnRateLevel());
             newState.setSpi(assessment.getSpi());
-            newState.setPredictedRiskLevel(mlPredictedRisk);
+            newState.setPredictedRiskLevel(assessment.getPredictedRiskLevel());
             newState.setPredictionReasonsJson(predictionReasonsJson);
             newState.setScoreBreakdownJson(scoreBreakdownJson);
-            newState.setPredictionConfidence(mlConfidence);
+            newState.setPredictionConfidence(assessment.getPredictionConfidence());
             newState.setEvaluatedAt(LocalDateTime.now());
 
             taskSlaStateRepository.save(newState);

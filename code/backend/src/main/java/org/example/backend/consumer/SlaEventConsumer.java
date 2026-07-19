@@ -8,20 +8,14 @@ import org.example.backend.entity.TaskSlaState;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaStateService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.Executor;
-
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
 @RequiredArgsConstructor
 public class SlaEventConsumer {
 
@@ -29,10 +23,6 @@ public class SlaEventConsumer {
     private final SlaStateService slaStateService;
     private final TaskSlaStateRepository taskSlaStateRepository;
     private final RecoveryPlanService recoveryPlanService;
-
-    @Autowired
-    @Qualifier("slaJobExecutor")
-    private Executor slaJobExecutor;
 
     @KafkaListener(
             topics = {"devtrack.task.events", "devtrack.sla.events"},
@@ -73,9 +63,7 @@ public class SlaEventConsumer {
             }
 
             slaStateService.evaluateAndPersist(taskId, eventType);
-            // Fire-and-forget: chạy trong slaJobExecutor để không block Kafka consumer thread
-            final Long finalTaskId = taskId;
-            slaJobExecutor.execute(() -> maybeAutoGenerateRecoveryPlan(finalTaskId));
+            maybeAutoGenerateRecoveryPlan(taskId);
         } catch (Exception ex) {
             log.error("Failed to process SLA event from Kafka. Payload: {}", payload, ex);
             throw new RuntimeException("Error processing SLA event from Kafka. Payload: " + payload, ex);
@@ -90,7 +78,7 @@ public class SlaEventConsumer {
             }
 
             String riskLevel = state.getCurrentRiskLevel();
-            if (!"WARNING".equalsIgnoreCase(riskLevel) && !"BREACH".equalsIgnoreCase(riskLevel)) {
+            if (!"HIGH".equalsIgnoreCase(riskLevel) && !"CRITICAL".equalsIgnoreCase(riskLevel)) {
                 return;
             }
 

@@ -40,11 +40,6 @@ public class RecoveryPlan {
     private RecoveryPlanSource generatedSource = RecoveryPlanSource.RULE;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "generation_mode", nullable = false, length = 40)
-    @Builder.Default
-    private RecoveryPlanGenerationMode generationMode = RecoveryPlanGenerationMode.RULE_FALLBACK;
-
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
     private RecoveryPlanStatus status;
 
@@ -55,10 +50,6 @@ public class RecoveryPlan {
     @Column(name = "risk_categories_json", columnDefinition = "jsonb", nullable = false)
     @Builder.Default
     private String riskCategoriesJson = "[]";
-
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "plan_details_json", columnDefinition = "jsonb")
-    private String planDetailsJson;
 
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
