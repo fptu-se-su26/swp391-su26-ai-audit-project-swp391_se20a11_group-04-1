@@ -44,9 +44,10 @@ public class GeminiSprintNarrativeService {
             }
 
             String prompt = String.format("""
-                    You are a Scrum Master giving feedback at Sprint Retrospective. Write in Vietnamese, max 80 words, ONE paragraph.
+                    You are a Scrum Master giving feedback at Sprint Retrospective. Write in Vietnamese, max 80 words, ONE paragraph, plain text only.
 
                     Rules:
+                    - Do NOT use Markdown, bullets, headings, asterisks, or quotes for emphasis.
                     - NEVER use "có thể", "có vẻ", "dường như", "có thể là". Make direct statements only.
                     - Compare members directly: if one member has 100%% overdue while others have 0%%, state that contrast as a fact.
                     - Name the struggling member explicitly and name who can help them.
@@ -80,7 +81,7 @@ public class GeminiSprintNarrativeService {
 
             String text = extractText(response);
             if (text == null || text.isBlank()) return null;
-            return text.trim();
+            return stripMarkdownEmphasis(text).trim();
 
         } catch (Exception ex) {
             log.warn("GeminiSprintNarrativeService narrative generation failed: {}", ex.getMessage());
@@ -157,5 +158,14 @@ public class GeminiSprintNarrativeService {
             log.warn("Failed to extract Gemini sprint narrative text: {}", ex.getMessage());
             return null;
         }
+    }
+
+    private String stripMarkdownEmphasis(String value) {
+        if (value == null) return null;
+        return value
+                .replaceAll("\\*\\*\\*(.*?)\\*\\*\\*", "$1")
+                .replaceAll("\\*\\*(.*?)\\*\\*", "$1")
+                .replaceAll("\\*(.*?)\\*", "$1")
+                .replaceAll("\\s+", " ");
     }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getStompWebSocketUrl } from '@api/realtimeConfig';
 
 // Lightweight Native STOMP Client for WebSocket communication without external npm packages
 class NativeStompClient {
@@ -104,11 +105,7 @@ const useSyncStatus = (projectId) => {
     useEffect(() => {
         if (!projectId) return;
 
-        // Use standard STOMP ws endpoint
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // In dev it might be localhost:8080 or mapped
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const wsUrl = baseUrl.replace('http', 'ws') + '/ws';
+        const wsUrl = getStompWebSocketUrl();
         
         let stompClient = new NativeStompClient(wsUrl, () => {
             stompClient.subscribe(`/topic/project/${projectId}/sync`, (dest, body) => {
