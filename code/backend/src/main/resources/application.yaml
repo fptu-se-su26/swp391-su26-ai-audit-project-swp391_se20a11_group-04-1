@@ -69,6 +69,13 @@ playwright:
   service:
     url: ${PLAYWRIGHT_SERVICE_URL:http://localhost:4001}
 
+ml:
+  service:
+    url: ${ML_SERVICE_URL:http://localhost:8001}
+    enabled: ${ML_SERVICE_ENABLED:false}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:2000}
+    recovery-timeout-ms: ${ML_SERVICE_RECOVERY_TIMEOUT_MS:300000}
+
 architecture:
   parser:
     url: ${ARCHITECTURE_PARSER_URL:http://localhost:4002}

@@ -48,11 +48,11 @@ const ACTION_TYPE_LABEL = {
 }
 
 const RISK_SCORE_HINT = {
-  NORMAL: '100 points',
-  LOW: '76-99 points',
-  MEDIUM: '46-75 points',
-  HIGH: '21-45 points',
-  CRITICAL: '0-20 points',
+  HEALTHY: '100 points',
+  ON_TRACK: '76-99 points',
+  AT_RISK: '46-75 points',
+  WARNING: '21-45 points',
+  BREACH: '0-20 points',
 }
 
 const BURN_RATE_DESCRIPTION = {
@@ -64,11 +64,11 @@ const BURN_RATE_DESCRIPTION = {
 
 const getRiskBadgeClass = (riskLevel = '') => {
   const norm = riskLevel.toUpperCase()
-  if (norm === 'NORMAL') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (norm === 'LOW') return 'bg-teal-50 text-teal-700 border-teal-200'
-  if (norm === 'MEDIUM') return 'bg-yellow-50 text-yellow-800 border-yellow-200'
-  if (norm === 'HIGH') return 'bg-orange-50 text-orange-700 border-orange-200'
-  if (norm === 'CRITICAL') return 'bg-rose-50 text-rose-700 border-rose-200'
+  if (norm === 'HEALTHY') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  if (norm === 'ON_TRACK') return 'bg-teal-50 text-teal-700 border-teal-200'
+  if (norm === 'AT_RISK') return 'bg-yellow-50 text-yellow-800 border-yellow-200'
+  if (norm === 'WARNING') return 'bg-orange-50 text-orange-700 border-orange-200'
+  if (norm === 'BREACH') return 'bg-rose-50 text-rose-700 border-rose-200'
   return 'bg-slate-50 text-slate-700 border-slate-200'
 }
 
@@ -225,7 +225,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
   } = data
 
   const formattedDate = formatDateTime(evaluatedAt)
-  const normalizedRiskLevel = currentRiskLevel || 'NORMAL'
+  const normalizedRiskLevel = currentRiskLevel || 'HEALTHY'
   const showForecast = predictedRiskLevel && predictedRiskLevel !== currentRiskLevel
   const visibleActions = recentActions.filter(action =>
     action.status === 'EXECUTED'

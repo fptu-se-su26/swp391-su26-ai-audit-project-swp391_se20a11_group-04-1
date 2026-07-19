@@ -1,6 +1,6 @@
-ALTER TABLE outbox_events ADD COLUMN idempotency_key VARCHAR(64) UNIQUE NOT NULL DEFAULT gen_random_uuid()::text;
+ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(64) UNIQUE NOT NULL DEFAULT gen_random_uuid()::text;
 
-CREATE TABLE dead_letter_events (
+CREATE TABLE IF NOT EXISTS dead_letter_events (
     id BIGSERIAL PRIMARY KEY,
     original_event_id BIGINT,
     event_type VARCHAR(100),
@@ -13,10 +13,10 @@ CREATE TABLE dead_letter_events (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE processed_events (
+CREATE TABLE IF NOT EXISTS processed_events (
     idempotency_key VARCHAR(64) PRIMARY KEY,
     consumer_id VARCHAR(100),
     processed_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_processed_events_processed_at ON processed_events(processed_at);
+CREATE INDEX IF NOT EXISTS idx_processed_events_processed_at ON processed_events(processed_at);

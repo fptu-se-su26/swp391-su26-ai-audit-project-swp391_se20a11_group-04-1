@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Wand2, CheckCircle2, XCircle, AlertCircle, PlayCircle } from 'lucide-react';
 import taskService from '../services/taskService';
+import RecoveryEvidenceModal from '@features/sla/components/RecoveryEvidenceModal';
+import { AiRecoverySummary } from '@features/sla/components/AiRecoverySummary';
 import { toast } from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -21,6 +23,28 @@ const ACTION_STATUS_ICONS = {
   FAILED: <XCircle className="text-red-500 w-4 h-4" />
 };
 
+const GENERATION_MODE_STYLES = {
+  AI_GENERATED: 'bg-blue-50 text-blue-700 border-blue-200',
+  AI_FAILED_FALLBACK: 'bg-amber-50 text-amber-700 border-amber-200',
+  RULE_FALLBACK: 'bg-slate-50 text-slate-700 border-slate-200',
+};
+
+const GENERATION_MODE_LABELS = {
+  AI_GENERATED: 'AI generated',
+  AI_FAILED_FALLBACK: 'AI fallback',
+  RULE_FALLBACK: 'Rule fallback',
+};
+
+const parseActionPayload = (payload) => {
+  if (!payload) return {};
+  if (typeof payload === 'object') return payload;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return {};
+  }
+};
+
 export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact = true }) {
   const [loading, setLoading] = useState(true);
   const [riskLevel, setRiskLevel] = useState(null);
@@ -28,6 +52,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -125,7 +150,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
     return <div className="animate-pulse h-20 bg-gray-100 rounded-md mt-4"></div>;
   }
 
-  const isHighRisk = riskLevel === 'HIGH' || riskLevel === 'CRITICAL';
+  const isHighRisk = riskLevel === 'WARNING' || riskLevel === 'BREACH';
   if (!isHighRisk && !plan) return null;
 
   const renderStatusBadge = (status) => {
@@ -135,6 +160,20 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
       </span>
     );
   };
+
+  const resolveGenerationMode = () => plan?.generationMode || (plan?.generatedSource === 'AI' ? 'AI_GENERATED' : 'RULE_FALLBACK');
+
+  const renderGenerationBadge = () => {
+    if (!plan) return null;
+    const mode = resolveGenerationMode();
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${GENERATION_MODE_STYLES[mode] || GENERATION_MODE_STYLES.RULE_FALLBACK}`}>
+        {GENERATION_MODE_LABELS[mode] || GENERATION_MODE_LABELS.RULE_FALLBACK}
+      </span>
+    );
+  };
+
+  const openEvidence = () => setEvidenceOpen(true);
 
   const renderActionsList = (actions, maxActions = 2, showFailedOnly = false) => {
     if (!actions || actions.length === 0) return null;
@@ -149,15 +188,35 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
 
     return (
       <div className="mt-2 space-y-1">
-        {visibleActions.map(action => (
-          <div key={action.id} className="flex items-start gap-2 bg-white p-2 rounded border border-gray-100 shadow-sm text-xs">
-            <div className="mt-0.5">{ACTION_STATUS_ICONS[action.status]}</div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-800 line-clamp-1">{action.actionType.replace(/_/g, ' ')}</p>
-              <p className="text-gray-500 whitespace-pre-wrap break-words">{action.resultMessage || action.message}</p>
+        {visibleActions.map(action => {
+          const payload = parseActionPayload(action.payload);
+          return (
+            <div key={action.id} className="flex items-start gap-2 bg-white p-2 rounded border border-gray-100 shadow-sm text-xs">
+              <div className="mt-0.5">{ACTION_STATUS_ICONS[action.status]}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-800 line-clamp-1">{action.actionType.replace(/_/g, ' ')}</p>
+                <p className="text-gray-500 whitespace-pre-wrap break-words">{action.resultMessage || action.message}</p>
+                {payload.rationale && (
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Reason: <span className="font-medium text-gray-700">{payload.rationale}</span>
+                  </p>
+                )}
+                {Array.isArray(payload.checklistItems) && payload.checklistItems.length > 0 && (
+                  <ul className="mt-1 list-disc pl-4 text-[11px] text-gray-500 space-y-0.5">
+                    {payload.checklistItems.slice(0, 3).map((item, index) => (
+                      <li key={`${action.id}-check-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+                {payload.recommendedAssigneeName && (
+                  <p className="mt-1 text-[11px] text-[#1E707D] font-semibold">
+                    Suggested owner: {payload.recommendedAssigneeName}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {hasMore && (
           <div className="text-xs text-center text-gray-500 mt-1 italic">
             +{displayActions.length - maxActions} more action{displayActions.length - maxActions > 1 ? 's' : ''}
@@ -189,7 +248,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
   };
 
   const renderEffectiveness = () => {
-    if (!plan || plan.scoreBeforeExecution == null || plan.status !== 'EXECUTED') return null;
+    if (!plan || plan.scoreBeforeExecution == null || !['EXECUTED', 'DECLINED'].includes(plan.status)) return null;
 
     const hasAfterScore = plan.scoreAfterExecution != null;
     const improved = hasAfterScore && plan.scoreAfterExecution > plan.scoreBeforeExecution;
@@ -217,6 +276,38 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
     );
   };
 
+  const renderEvidence = () => {
+    if (!plan) return null;
+
+    return (
+      <div className="mb-2 text-xs bg-white border border-gray-100 rounded p-2 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-gray-700 flex items-center gap-1">
+            <span className="material-symbols-outlined text-[14px]">fact_check</span>
+            Evidence
+          </span>
+          {plan.evidenceSnapshotId ? (
+            <button
+              onClick={openEvidence}
+              className="text-[#1E707D] hover:underline font-semibold"
+              type="button"
+            >
+              Snapshot #{plan.evidenceSnapshotId}
+            </button>
+          ) : (
+            <span className="text-gray-400 italic">pending</span>
+          )}
+        </div>
+        {plan.gateResult && (
+          <p className="mt-1 text-gray-500">
+            Gate: <span className="font-semibold text-gray-700">{plan.gateResult.replace(/_/g, ' ')}</span>
+            {plan.gateReason ? ` - ${plan.gateReason}` : ''}
+          </p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={`mt-4 bg-gray-50 border border-gray-200 rounded-lg ${compact ? 'p-3' : 'p-5'}`}>
       <div className="flex items-center justify-between mb-2">
@@ -224,7 +315,12 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
           <ShieldAlert className="text-red-500 w-5 h-5" />
           <h3 className="font-semibold text-gray-800 text-sm">Recovery Plan</h3>
         </div>
-        {plan && renderStatusBadge(plan.status)}
+        {plan && (
+          <div className="flex flex-wrap justify-end gap-1">
+            {renderGenerationBadge()}
+            {renderStatusBadge(plan.status)}
+          </div>
+        )}
       </div>
 
       {!plan ? (
@@ -246,7 +342,13 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
         <div className="flex flex-col">
           {plan.status === 'PENDING_APPROVAL' && (
             <>
-              <p className="text-xs text-gray-600 whitespace-pre-wrap break-words mb-2">{plan.summary}</p>
+              <div className="mb-2">
+                <AiRecoverySummary 
+                  planDetailsJson={plan.planDetailsJson} 
+                  fallbackSummary={plan.summary} 
+                />
+              </div>
+              {renderEvidence()}
               <div className="flex justify-between items-center text-xs font-medium text-gray-500 mb-1">
                 <span>{plan.actions?.length || 0} Actions</span>
               </div>
@@ -309,6 +411,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
               <p className="text-xs text-[#1E707D] bg-[#1E707D]/10 p-2 rounded border border-blue-100 mb-2">
                 Approved and ready to execute.
               </p>
+              {renderEvidence()}
               {renderActionsList(plan.actions, 2)}
               {isLeader && (
                 <button
@@ -323,7 +426,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
             </>
           )}
 
-          {(plan.status === 'EXECUTED' || plan.status === 'FAILED') && (
+          {(plan.status === 'EXECUTED' || plan.status === 'FAILED' || plan.status === 'DECLINED') && (
             <>
               <div className="flex gap-3 text-xs text-gray-600 mb-2 font-medium bg-white p-2 rounded border border-gray-100 shadow-sm justify-center">
                 <span className="text-green-600">Executed: {plan.actions?.filter(a => a.status === 'EXECUTED').length || 0}</span>
@@ -331,8 +434,9 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
                 <span className="text-red-600">Failed: {plan.actions?.filter(a => a.status === 'FAILED').length || 0}</span>
               </div>
               {renderEffectiveness()}
+              {renderEvidence()}
               {renderActionsList(plan.actions, 2, true)}
-              {plan.status === 'FAILED' && isLeader && (
+              {(plan.status === 'FAILED' || plan.status === 'DECLINED') && isLeader && (
                 <button
                   onClick={handleGenerate}
                   disabled={actionLoading}
@@ -365,6 +469,7 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
           )}
 
           {renderAuditLogs()}
+          <RecoveryEvidenceModal plan={evidenceOpen ? plan : null} onClose={() => setEvidenceOpen(false)} />
         </div>
       )}
     </div>
