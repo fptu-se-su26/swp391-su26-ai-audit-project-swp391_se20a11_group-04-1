@@ -108,9 +108,45 @@ async def extract_selectors(request: ExtractSelectorsRequest):
         if clone_dir:
             CloneService.cleanup(clone_dir)
 
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 4002))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+@app.post("/extract-api-knowledge")
+async def extract_api_knowledge(request: ExtractSelectorsRequest):
+    """
+    Clone a GitHub repository, scan Java Spring Boot source files, and extract
+    controller/DTO annotation metadata to build a structured API Knowledge Model.
+
+    Returns a list of endpoint definitions — no Swagger, no OpenAPI, no running backend.
+    Pure static annotation analysis.
+
+    Used by ApiKnowledgeService (backend) to ground Gemini prompts with real
+    endpoint paths, HTTP methods, request body field names, validation constraints,
+    authentication requirements, and expected status codes.
+    """
+    clone_dir = None
+    try:
+        reporter = DummyReporter()
+        clone_dir = CloneService.clone(
+            repo_url=request.repoUrl,
+            token=request.token,
+            branch=request.branch,
+            project_id=0,
+            reporter=reporter
+        )
+
+        from services.java_api_knowledge_extractor import JavaApiKnowledgeExtractor
+        endpoints = JavaApiKnowledgeExtractor.extract(clone_dir)
+
+        return {
+            "endpoints": endpoints,
+            "totalEndpoints": len(endpoints),
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if clone_dir:
+            CloneService.cleanup(clone_dir)
 
 
 @app.post("/extract-form-map")
