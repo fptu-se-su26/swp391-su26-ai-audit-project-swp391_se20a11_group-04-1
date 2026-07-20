@@ -49,6 +49,12 @@ public class AiTestCaseGeneratorService {
     }
 
     public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request, String selectorContext) {
+        return generateTestCases(request, selectorContext, null);
+    }
+
+    public AiTestCaseGenerateResponse generateTestCases(AiTestCaseGenerateRequest request,
+                                                         String selectorContext,
+                                                         String apiKnowledgeContext) {
         String requirementContext = "";
         String useCaseContext = "";
         if (request.getRequirementId() != null) {
@@ -81,7 +87,7 @@ public class AiTestCaseGeneratorService {
         }
 
         String prompt = buildPrompt(request.getTestType(), request.isSmartMode(), requirementContext,
-                useCaseContext, request.getAdditionalContext(), selectorContext);
+                useCaseContext, request.getAdditionalContext(), selectorContext, apiKnowledgeContext);
 
         // Use GeminiService (with key rotation, 503 retry, and OpenRouter fallback)
         String rawJson = aiRoutingService.generateText(prompt);
@@ -262,7 +268,8 @@ public class AiTestCaseGeneratorService {
     // ── Prompt Builder (8-Step QA Engineer Framework) ─────────────────────────
 
     private String buildPrompt(TestType testType, boolean smartMode, String requirementContext,
-                               String useCaseContext, String additionalContext, String selectorContext) {
+                               String useCaseContext, String additionalContext,
+                               String selectorContext, String apiKnowledgeContext) {
 
         String basePrompt =
                 "# ROLE\n" +
@@ -335,6 +342,26 @@ public class AiTestCaseGeneratorService {
                 "5. NEVER invent a selector. NEVER use common-sense defaults like [name='email']. Only what is listed.\n" +
                 "6. If a needed element is not in the form map, write 'SELECTOR NOT FOUND IN SOURCE' and omit that step.\n" +
                 "REMEMBER: The OUTPUT FORMAT example below uses placeholder values — those are NOT real selectors for this project.\n\n";
+        }
+
+        // [NEW] Inject real API Knowledge from backend source code static analysis
+        if (apiKnowledgeContext != null && !apiKnowledgeContext.isBlank()) {
+            basePrompt +=
+                "====================================================\n" +
+                "STEP 6c \u2014 API KNOWLEDGE (from backend source code)\n" +
+                "====================================================\n" +
+                "The following API information was extracted DIRECTLY from the Spring Boot\n" +
+                "controller annotations. No Swagger. No guessing. Static analysis only.\n\n" +
+                "ABSOLUTE API RULES \u2014 VIOLATION IS A CRITICAL ERROR:\n" +
+                "1. Use ONLY endpoint paths listed below. NEVER invent an endpoint path.\n" +
+                "2. NEVER change the HTTP method (e.g. GET\u2192POST is forbidden).\n" +
+                "3. Copy field names CHARACTER FOR CHARACTER from the Request Body section.\n" +
+                "4. Required fields without values MUST produce 400/422 test cases.\n" +
+                "5. Respect validation constraints (email format, min/max, pattern) in boundary/negative cases.\n" +
+                "6. Include Authorization header for ALL endpoints marked Auth=Required.\n" +
+                "7. Use the listed expected status codes for assertions.\n" +
+                "8. If the needed endpoint is NOT listed: set url='ENDPOINT NOT FOUND' and mark type=MANUAL.\n\n" +
+                apiKnowledgeContext + "\n\n";
         }
 
         basePrompt +=
