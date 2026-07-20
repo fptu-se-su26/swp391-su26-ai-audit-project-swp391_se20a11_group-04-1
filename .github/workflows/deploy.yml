@@ -34,7 +34,8 @@ jobs:
 
             # 1b. Cập nhật Nginx config nếu có thay đổi
             echo ">> Syncing Nginx config..."
-            sudo cp "${REPO_DIR}/code/nginx/devtrack.conf" /etc/nginx/sites-available/devtrack.conf
+            sudo cp "${REPO_DIR}/code/nginx/devtrack.conf" /etc/nginx/sites-available/devtrack
+            sudo ln -sf /etc/nginx/sites-available/devtrack /etc/nginx/sites-enabled/devtrack
             sudo nginx -t && sudo systemctl reload nginx
             echo "   Nginx reloaded OK"
 
