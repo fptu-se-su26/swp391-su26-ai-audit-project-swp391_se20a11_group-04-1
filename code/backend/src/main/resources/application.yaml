@@ -83,6 +83,14 @@ app:
   events:
     # local = team members can run without Kafka; kafka = publish outbox events to Kafka topics
     publisher: ${APP_EVENTS_PUBLISHER:local}
+  ml:
+    enabled: ${ML_SERVICE_ENABLED:false}
+    service-url: ${ML_SERVICE_URL:http://localhost:8000}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:2000}
+  ollama:
+    enabled: ${OLLAMA_ENABLED:false}
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    timeout-ms: ${OLLAMA_TIMEOUT_MS:3000}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
