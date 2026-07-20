@@ -63,16 +63,20 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
     
     setIsSubmitting(true)
 
+    // When testType is API: always enrich with API Knowledge (auto-pull source code)
+    // When testType is UI: use the enrichWithSelectors toggle
+    const isApiType = testType === 'API'
+
     const payload = {
       testType: testType === 'AI Decides' ? null : testType,
       smartMode: testType === 'AI Decides',
       requirementId: parseInt(requirementId),
       additionalContext,
       discardExisting: false,
-      enrichWithSelectors,
+      enrichWithSelectors: !isApiType && enrichWithSelectors,
+      enrichWithApiKnowledge: isApiType,
     }
     onSubmit(payload)
-    // Removed immediate onClose() so the button stays disabled, the parent component handles closing
   }
 
   return (
@@ -229,40 +233,75 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
                   )}
                 </div>
 
-                {/* Enrich with Source Selectors toggle */}
-                <div style={{
-                  padding: '12px 14px',
-                  borderRadius: 10,
-                  border: `1px solid ${enrichWithSelectors ? C.primary : C.border}`,
-                  background: enrichWithSelectors ? '#F0F9FA' : C.bg,
-                  transition: 'all 0.2s',
-                }}>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={enrichWithSelectors}
-                      onChange={(e) => setEnrichWithSelectors(e.target.checked)}
-                      style={{ marginTop: 2, accentColor: C.primary, width: 16, height: 16, flexShrink: 0 }}
-                    />
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: enrichWithSelectors ? C.primary : C.textSec }}>
-                          code
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: enrichWithSelectors ? C.primaryDark : C.textPri }}>
-                          Enrich with Source Selectors
-                        </span>
+                {/* Enrich with Source Selectors toggle — only for UI type */}
+                {testType !== 'API' && (
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: `1px solid ${enrichWithSelectors ? C.primary : C.border}`,
+                    background: enrichWithSelectors ? '#F0F9FA' : C.bg,
+                    transition: 'all 0.2s',
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={enrichWithSelectors}
+                        onChange={(e) => setEnrichWithSelectors(e.target.checked)}
+                        style={{ marginTop: 2, accentColor: C.primary, width: 16, height: 16, flexShrink: 0 }}
+                      />
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16, color: enrichWithSelectors ? C.primary : C.textSec }}>
+                            code
+                          </span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: enrichWithSelectors ? C.primaryDark : C.textPri }}>
+                            Enrich with Source Selectors
+                          </span>
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
+                          AI scans your GitHub source code to find real <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>data-testid</code>,{' '}
+                          <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>id</code>, and{' '}
+                          <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>name</code> attributes.
+                          Generates accurate selectors instead of guessed ones.
+                          Requires GitHub integration. Adds ~20–30s.
+                        </p>
                       </div>
-                      <p style={{ margin: '4px 0 0', fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
-                        AI scans your GitHub source code to find real <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>data-testid</code>,{' '}
-                        <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>id</code>, and{' '}
-                        <code style={{ background: '#F1F5F9', padding: '1px 4px', borderRadius: 4, fontSize: 11 }}>name</code> attributes.
-                        Generates accurate selectors instead of guessed ones.
-                        Requires GitHub integration. Adds ~20–30s.
-                      </p>
+                    </label>
+                  </div>
+                )}
+
+                {/* API Grounding banner — auto-enabled when API type is selected */}
+                {testType === 'API' && (
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: `1px solid ${C.primary}`,
+                    background: '#F0F9FA',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 18, color: C.primary, flexShrink: 0, marginTop: 1 }}>
+                        hub
+                      </span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: C.primaryDark }}>
+                            API Knowledge — Auto Enabled
+                          </span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, color: C.primary,
+                            background: C.primaryLt, padding: '1px 7px', borderRadius: 20,
+                            textTransform: 'uppercase', letterSpacing: '0.5px'
+                          }}>AUTO</span>
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: C.textSec, lineHeight: 1.5 }}>
+                          AI will scan your GitHub backend source code to extract real endpoints,
+                          HTTP methods, request body fields, and validation constraints.
+                          No guessing. No invented field names. Requires GitHub integration. Adds ~15–30s.
+                        </p>
+                      </div>
                     </div>
-                  </label>
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

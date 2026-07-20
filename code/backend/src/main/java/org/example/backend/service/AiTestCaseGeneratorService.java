@@ -394,9 +394,16 @@ public class AiTestCaseGeneratorService {
         }
 
         basePrompt += "API TEST CONSTRAINTS (inside 'configuration' object with 'type': 'API'):\n" +
-                "- Explicitly define the 'Authorization' header in 'apiHeaders' if the endpoint requires authentication.\n" +
-                "- Include 'apiQueryParams' if the API requires URL parameters.\n" +
-                "- Generate cases that assert 4xx/5xx HTTP status codes along with success cases.\n\n";
+                "CRITICAL — ALL these fields MUST be present and non-null for every API test case:\n" +
+                "  - 'apiMethod': HTTP verb — exactly one of: GET, POST, PUT, DELETE, PATCH\n" +
+                "  - 'apiUrl': full URL including host and path — e.g. http://localhost:8080/api/v1/auth/login\n" +
+                "  - 'apiHeaders': JSON object — MUST include Content-Type: application/json. Add Authorization header if endpoint requires auth.\n" +
+                "  - 'apiQueryParams': JSON object — use {} if none\n" +
+                "  - 'apiBody': JSON object — request body fields. Use {} for GET/DELETE.\n" +
+                "  - 'apiAssertions': array — MUST have at least one STATUS_CODE assertion.\n" +
+                "Assertion format: { \"type\": \"STATUS_CODE\", \"operator\": \"EQUALS\", \"expectedValue\": \"200\" }\n" +
+                "Other assertion types: JSON_PATH ({ \"type\": \"JSON_PATH\", \"property\": \"$.field\", \"operator\": \"EXISTS\" })\n" +
+                "NEVER leave apiUrl as null. NEVER leave apiMethod as null.\n\n";
 
         String uiSelectorRule = (selectorContext != null && !selectorContext.isBlank())
                 ? "- CRITICAL: Use ONLY selectors from the SOURCE CODE SELECTORS list in STEP 6b. Do NOT default to data-testid unless it appears in that list."
@@ -447,25 +454,47 @@ public class AiTestCaseGeneratorService {
                 "  \"coverageSummary\": \"Your coverage summary following the template above.\",\n" +
                 "  \"testCases\": [\n" +
                 "    {\n" +
-                "      \"title\": \"Login fails with unregistered email\",\n" +
-                "      \"type\": \"UI\",\n" +
-                "      \"precondition\": \"User is on the login page.\",\n" +
-                "      \"expectedResult\": \"System displays error message 'Invalid credentials'.\",\n" +
+                "      \"title\": \"POST /api/v1/auth/login — success with valid credentials\",\n" +
+                "      \"type\": \"API\",\n" +
+                "      \"precondition\": \"User account exists in the system with email test@example.com.\",\n" +
+                "      \"expectedResult\": \"Response status 200. Response body contains accessToken field.\",\n" +
                 "      \"configuration\": {\n" +
-                "        \"type\": \"UI\",\n" +
-                "        \"baseUrl\": \"https://example.com/login\",\n" +
-                "        \"steps\": [\n" +
-                "          { \"action\": \"goto\", \"path\": \"/login\" },\n" +
-                "          { \"action\": \"fill\", \"selector\": \"[data-testid='email-input']\", \"value\": \"unregistered@abc.com\" },\n" +
-                "          { \"action\": \"click\", \"selector\": \"[data-testid='submit-btn']\" },\n" +
-                "          { \"action\": \"expect_text\", \"selector\": \".error-toast\", \"expected\": \"Invalid credentials\" }\n" +
+                "        \"type\": \"API\",\n" +
+                "        \"apiMethod\": \"POST\",\n" +
+                "        \"apiUrl\": \"http://localhost:8080/api/v1/auth/login\",\n" +
+                "        \"apiHeaders\": { \"Content-Type\": \"application/json\" },\n" +
+                "        \"apiQueryParams\": {},\n" +
+                "        \"apiBody\": { \"email\": \"test@example.com\", \"password\": \"password123\" },\n" +
+                "        \"apiAssertions\": [\n" +
+                "          { \"type\": \"STATUS_CODE\", \"operator\": \"EQUALS\", \"expectedValue\": \"200\" },\n" +
+                "          { \"type\": \"JSON_PATH\", \"property\": \"$.accessToken\", \"operator\": \"EXISTS\" }\n" +
                 "        ]\n" +
                 "      },\n" +
                 "      \"steps\": [\n" +
-                "        { \"stepNumber\": 1, \"description\": \"Navigate to the login page\" },\n" +
-                "        { \"stepNumber\": 2, \"description\": \"Enter unregistered email\" },\n" +
-                "        { \"stepNumber\": 3, \"description\": \"Click Submit\" },\n" +
-                "        { \"stepNumber\": 4, \"description\": \"Verify error message appears\" }\n" +
+                "        { \"stepNumber\": 1, \"description\": \"Send POST /api/v1/auth/login with valid email and password\" },\n" +
+                "        { \"stepNumber\": 2, \"description\": \"Verify response status is 200\" },\n" +
+                "        { \"stepNumber\": 3, \"description\": \"Verify response body contains accessToken\" }\n" +
+                "      ]\n" +
+                "    },\n" +
+                "    {\n" +
+                "      \"title\": \"POST /api/v1/auth/login — fail with wrong password\",\n" +
+                "      \"type\": \"API\",\n" +
+                "      \"precondition\": \"User account exists with email test@example.com.\",\n" +
+                "      \"expectedResult\": \"Response status 401. Response body contains error message.\",\n" +
+                "      \"configuration\": {\n" +
+                "        \"type\": \"API\",\n" +
+                "        \"apiMethod\": \"POST\",\n" +
+                "        \"apiUrl\": \"http://localhost:8080/api/v1/auth/login\",\n" +
+                "        \"apiHeaders\": { \"Content-Type\": \"application/json\" },\n" +
+                "        \"apiQueryParams\": {},\n" +
+                "        \"apiBody\": { \"email\": \"test@example.com\", \"password\": \"wrongpassword\" },\n" +
+                "        \"apiAssertions\": [\n" +
+                "          { \"type\": \"STATUS_CODE\", \"operator\": \"EQUALS\", \"expectedValue\": \"401\" }\n" +
+                "        ]\n" +
+                "      },\n" +
+                "      \"steps\": [\n" +
+                "        { \"stepNumber\": 1, \"description\": \"Send POST /api/v1/auth/login with wrong password\" },\n" +
+                "        { \"stepNumber\": 2, \"description\": \"Verify response status is 401\" }\n" +
                 "      ]\n" +
                 "    }\n" +
                 "  ]\n" +
