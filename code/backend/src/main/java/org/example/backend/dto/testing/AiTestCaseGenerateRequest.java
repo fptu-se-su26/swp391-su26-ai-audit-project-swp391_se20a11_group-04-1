@@ -25,4 +25,16 @@ public class AiTestCaseGenerateRequest {
      * Defaults to false (backward compatible).
      */
     private boolean enrichWithSelectors = false;
+
+    /**
+     * If true, the backend will clone the project's GitHub repo backend source,
+     * parse Spring Boot controller annotations, and inject real endpoint paths,
+     * HTTP methods, request body field names, validation constraints, and expected
+     * status codes into the Gemini prompt. Prevents AI from inventing API details.
+     *
+     * Requires GitHub integration and user token. Adds ~15–30s to generation time
+     * on first call (subsequent calls are served from a 30-min Redis cache).
+     * Defaults to false (backward compatible).
+     */
+    private boolean enrichWithApiKnowledge = false;
 }
