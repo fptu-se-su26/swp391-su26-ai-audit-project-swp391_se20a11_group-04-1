@@ -90,6 +90,7 @@ app:
   ollama:
     enabled: ${OLLAMA_ENABLED:false}
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:llama3.1:8b}
     timeout-ms: ${OLLAMA_TIMEOUT_MS:3000}
 
 cloudinary:

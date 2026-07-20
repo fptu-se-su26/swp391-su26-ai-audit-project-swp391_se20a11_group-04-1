@@ -4,8 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.service.impl.GeminiServiceImpl;
 import org.example.backend.service.impl.GroqProvider;
+import org.example.backend.service.impl.OllamaProvider;
 import org.example.backend.service.impl.OpenRouterProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,12 +20,16 @@ public class AiRoutingService {
     private final List<LlmProvider> providers;
 
     @Autowired
-    public AiRoutingService(GeminiServiceImpl gemini, OpenRouterProvider openRouter, GroqProvider groq) {
+    public AiRoutingService(GeminiServiceImpl gemini,
+                            OpenRouterProvider openRouter,
+                            GroqProvider groq,
+                            ObjectProvider<OllamaProvider> ollamaProvider) {
         this.providers = new ArrayList<>();
         // Thứ tự ưu tiên: Gemini -> OpenRouter -> Groq
         providers.add(gemini);
         providers.add(openRouter);
         providers.add(groq);
+        ollamaProvider.ifAvailable(providers::add);
     }
 
     public String generateText(String prompt) {
