@@ -8,6 +8,7 @@ volumes:
   redis-data:
   mongodb-data:
   playwright-temp:
+  ollama-data:
 
 services:
 
@@ -130,5 +131,20 @@ services:
       MODEL_PATH: ${ML_MODEL_PATH:-}
     ports:
       - "${ML_SERVICE_PORT:-8000}:8000"
+    networks:
+      - devtrack-net
+
+  # 8. OLLAMA - disabled by default.
+  # Start manually with: docker compose --profile ollama up -d ollama
+  ollama:
+    profiles:
+      - ollama
+    image: ollama/ollama:latest
+    container_name: devtrack-ollama-dev
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
     networks:
       - devtrack-net
