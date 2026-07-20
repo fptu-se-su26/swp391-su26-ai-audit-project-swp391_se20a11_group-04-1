@@ -47,6 +47,21 @@ const ACTION_TYPE_LABEL = {
   RESOLVE_SLA: 'SLA resolved',
 }
 
+const RECOVERY_PLAN_STATUS_LABEL = {
+  PENDING_APPROVAL: 'Pending approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+  EXECUTED: 'Executed',
+  CANCELLED: 'Cancelled',
+}
+
+const RECOVERY_PLAN_MODE_LABEL = {
+  RULE_BASED: 'Rule-based',
+  RULE_FALLBACK: 'Rule fallback',
+  AI_GENERATED: 'AI generated',
+  AI_FAILED_FALLBACK: 'AI failed, fallback used',
+}
+
 const RISK_SCORE_HINT = {
   NORMAL: '100 points',
   LOW: '76-99 points',
@@ -222,6 +237,11 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
     predictedRiskLevel,
     predictionReasons = [],
     scoreBreakdown,
+    reasons = [],
+    recommendedAction,
+    latestEventType,
+    latestActionTaken,
+    recoveryPlan,
   } = data
 
   const formattedDate = formatDateTime(evaluatedAt)
@@ -468,6 +488,55 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
             )}
           </div>
         </div>
+      )}
+
+      {recoveryPlan && (
+        <section className="bg-surface-container-low border border-outline-variant rounded p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-xs text-on-surface-variant uppercase block mb-1">Latest recovery plan</span>
+              <h4 className="text-sm font-bold text-on-surface leading-snug">
+                {recoveryPlan.summary || 'Recovery plan is available'}
+              </h4>
+            </div>
+            <span className={`text-[10px] font-bold border px-2 py-1 rounded-full uppercase shrink-0 ${getRiskBadgeClass(recoveryPlan.riskLevel)}`}>
+              {recoveryPlan.riskLevel || 'N/A'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1.5">
+              <span className="text-on-surface-variant block">Status</span>
+              <span className="font-semibold text-on-surface">
+                {getFriendlyLabel(RECOVERY_PLAN_STATUS_LABEL, recoveryPlan.status)}
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1.5">
+              <span className="text-on-surface-variant block">Mode</span>
+              <span className="font-semibold text-on-surface">
+                {getFriendlyLabel(RECOVERY_PLAN_MODE_LABEL, recoveryPlan.generationMode)}
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1.5">
+              <span className="text-on-surface-variant block">Source</span>
+              <span className="font-semibold text-on-surface">
+                {getFriendlyLabel({}, recoveryPlan.generatedSource)}
+              </span>
+            </div>
+            <div className="bg-surface-container-lowest border border-outline-variant rounded px-2 py-1.5">
+              <span className="text-on-surface-variant block">Effectiveness</span>
+              <span className="font-semibold text-on-surface">
+                {getFriendlyLabel({}, recoveryPlan.effectivenessStatus)}
+              </span>
+            </div>
+          </div>
+
+          {recoveryPlan.followUp && (
+            <div className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              Follow-up plan
+            </div>
+          )}
+        </section>
       )}
 
       {pauseData && (pauseData.totalPausedMinutes > 0 || pauseData.currentlyPaused) && (
