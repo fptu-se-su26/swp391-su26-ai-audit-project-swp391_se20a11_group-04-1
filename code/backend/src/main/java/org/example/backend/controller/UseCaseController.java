@@ -42,6 +42,7 @@ public class UseCaseController {
             @RequestParam(required = false, defaultValue = "") String status,
             @RequestParam(required = false) Boolean isDraft,
             @RequestParam(required = false) Boolean mine,
+            @RequestParam(required = false) Long moduleId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpSession session) {
@@ -50,7 +51,7 @@ public class UseCaseController {
         Long userId = requireUser(session);
         Long ownerId = (mine != null && mine) ? userId : null;
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("ucOrder").nullsLast(), Sort.Order.desc("id")));
-        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, ownerId, pageable);
+        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, ownerId, moduleId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 

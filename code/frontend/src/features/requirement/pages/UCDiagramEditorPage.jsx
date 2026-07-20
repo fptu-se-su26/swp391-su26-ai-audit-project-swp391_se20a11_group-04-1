@@ -7,7 +7,7 @@ import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
 import Button from '../../../components/ui/Button';
 
-const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }) => {
+const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentModuleId }) => {
   const { actors, useCases, relations, loadData, reset } = useDiagramStore();
   const [systemName, setSystemName] = useState("System");
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
           console.warn("Failed to check requirements", err);
         }
 
-        const data = await diagramService.getDiagramData(projectId, currentUserId, activeView);
+        const data = await diagramService.getDiagramData(projectId, currentModuleId, activeView);
         if (data) {
           loadData({
             actors: data.actors || [],
@@ -62,7 +62,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       isMounted.current = false;
       reset();
     };
-  }, [projectId, loadData, reset, currentUserId, activeView]);
+  }, [projectId, loadData, reset, currentModuleId, activeView]);
 
   const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
@@ -80,7 +80,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
         actors: currentState.actors,
         useCases: currentState.useCases,
         relations: currentState.relations
-      }, currentUserId);
+      }, currentModuleId);
       
       const idMappings = response?.data;
       let newPositions = { ...positions };
@@ -115,13 +115,13 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       if (base64Png) {
           payload.imageBase64 = base64Png;
       }
-      await diagramService.saveDiagramLayout(projectId, payload, currentUserId);
+      await diagramService.saveDiagramLayout(projectId, payload, currentModuleId);
       setSaveStatus('saved');
     } catch (error) {
       console.error("Failed to auto-save diagram", error);
       setSaveStatus('error');
     }
-  }, [projectId, systemName, currentUserId]);
+  }, [projectId, systemName, currentModuleId]);
 
   const handleUnsavedChanges = useCallback(() => {
       setSaveStatus('unsaved');
@@ -239,7 +239,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
               <span className="material-symbols-outlined text-[#1E707D]">
                 {isViewMode ? 'visibility' : 'edit_document'}
               </span>
-              {isViewMode ? 'Use Case Diagram (View Only)' : (activeView === 'mine' && currentUserId ? "Member's Diagram" : 'View Diagram')}
+              {isViewMode ? 'Use Case Diagram (View Only)' : (activeView === 'module' && currentModuleId ? "Module's Diagram" : 'View Diagram')}
             </h1>
           </div>
 
@@ -317,7 +317,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
             onApproveUseCase={onApproveUseCase}
             onRejectUseCase={onRejectUseCase}
             activeView={activeView}
-            currentUserId={currentUserId}
+            currentModuleId={currentModuleId}
           />
         </div>
       </div>

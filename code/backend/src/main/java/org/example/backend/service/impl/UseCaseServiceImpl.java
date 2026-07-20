@@ -216,12 +216,16 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (projectId != null) {
                 predicates.add(cb.equal(root.get("projectId"), projectId));
+            }
+
+            if (moduleId != null) {
+                predicates.add(cb.equal(root.join("businessModule", jakarta.persistence.criteria.JoinType.LEFT).get("id"), moduleId));
             }
 
             if (keyword != null && !keyword.trim().isEmpty()) {
@@ -438,6 +442,21 @@ public class UseCaseServiceImpl implements UseCaseService {
                 res.setOutdated(false);
             }
         }
+        
+        if (useCase.getRequirements() != null) {
+            List<org.example.backend.dto.RequirementResponseDTO> reqList = useCase.getRequirements().stream().map(req -> org.example.backend.dto.RequirementResponseDTO.builder()
+                    .id(req.getId())
+                    .reqCode(req.getReqCode())
+                    .title(req.getTitle())
+                    .build()).collect(Collectors.toList());
+            res.setRequirements(reqList);
+        }
+        
+        if (useCase.getBusinessModule() != null) {
+            res.setModuleId(useCase.getBusinessModule().getId());
+            res.setModuleName(useCase.getBusinessModule().getName());
+        }
+
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());
         res.setPrecondition(useCase.getPrecondition());

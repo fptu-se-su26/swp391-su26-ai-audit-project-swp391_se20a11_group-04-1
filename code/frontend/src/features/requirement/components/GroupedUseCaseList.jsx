@@ -1,243 +1,153 @@
-import React, { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
-import { useCaseService } from '../services/useCaseService';
+import React, { useMemo } from 'react';
 import useProjectStore from '../../../store/useProjectStore';
-import InlineUseCaseItem from './InlineUseCaseItem';
+import UseCaseItem from './UseCaseItem';
 import UseCasePagination from './UseCasePagination';
+import { taskService } from '../../kanban/services/taskService';
+import { useState, useEffect } from 'react';
 
-const UserGroupCard = ({ group, isLeader, onRefresh }) => {
-  const activeProject = useProjectStore((state) => state.activeProject);
-  const [isRejecting, setIsRejecting] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const pendingUseCases = group.useCases.filter(uc => uc.status !== 'DONE' && uc.status !== 'REJECTED' && uc.status !== 'CONTENT_APPROVED');
-  
-  const handleApproveAll = async () => {
-    if (pendingUseCases.length === 0) return;
-    setLoading(true);
-    try {
-      await Promise.all(pendingUseCases.map(uc => 
-        useCaseService.approveUseCase(uc.id, activeProject.id, uc.requirementId, 'CONTENT')
-      ));
-      toast.success(`Approved ${pendingUseCases.length} Use Cases (Content).`);
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to approve Use Cases");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRejectAll = async () => {
-    if (!rejectReason.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối");
-      return;
-    }
-    setLoading(true);
-    try {
-      await Promise.all(pendingUseCases.map(uc => 
-        useCaseService.updateUseCaseStatus(uc.id, 'REJECTED', activeProject.id, rejectReason)
-      ));
-      toast.success(`Rejected ${pendingUseCases.length} Use Cases.`);
-      setIsRejecting(false);
-      setRejectReason('');
-      if (onRefresh) onRefresh();
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to reject Use Cases");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col group/card">
-      {/* Header: User Info (Compact) */}
-      <div className="flex items-center p-2.5 bg-gradient-to-br from-surface-container-low to-white border-b border-outline-variant relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-full -z-0 transition-transform duration-500 group-hover/card:scale-110"></div>
-        
-        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary to-[#165964] text-white font-bold text-sm mr-2.5 shadow-sm overflow-hidden shrink-0 z-10 border border-white">
-          {group.creatorAvatar ? (
-            <img src={group.creatorAvatar} alt={group.creatorName} className="w-full h-full object-cover" />
-          ) : (
-            group.creatorName.charAt(0).toUpperCase()
-          )}
-        </div>
-        <div className="flex flex-col z-10 min-w-0">
-          <span className="font-bold text-on-surface text-[13px] truncate">{group.creatorName}</span>
-        </div>
-        
-        <div className="ml-auto z-10 shrink-0 pl-2">
-          <div className="flex items-center justify-center bg-primary/10 text-primary px-2 py-1 rounded-md gap-1">
-            <span className="text-[12px] font-bold leading-none">{group.useCases.length}</span>
-            <span className="text-[10px] font-semibold leading-none">Use Cases</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Body: Compact Use Cases List */}
-      <div className="flex flex-col flex-1 p-2 gap-2 overflow-y-auto max-h-[350px] custom-scrollbar bg-gray-50/30 pt-3">
-        {[...group.useCases].sort((a, b) => {
-          const aClosed = a.status === 'CLOSED' || a.requirement?.status === 'CLOSED';
-          const bClosed = b.status === 'CLOSED' || b.requirement?.status === 'CLOSED';
-          if (aClosed && !bClosed) return 1;
-          if (!aClosed && bClosed) return -1;
-          return 0;
-        }).map((uc) => (
-          <InlineUseCaseItem
-            key={uc.id}
-            uc={uc}
-            isLeader={isLeader}
-            onRefresh={onRefresh}
-          />
-        ))}
-      </div>
-
-      {/* Footer: Bulk Actions */}
-      {isLeader && pendingUseCases.length > 0 && (
-        <div className="border-t border-outline-variant bg-white p-3 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] font-medium text-gray-500">{pendingUseCases.length} pending review</span>
-            <div className="flex gap-2">
-              <button 
-                onClick={handleApproveAll} 
-                disabled={loading}
-                className="px-3 py-1.5 bg-primary hover:bg-[#11464f] text-white font-semibold rounded-md text-xs shadow-sm transition-all disabled:opacity-50 flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                Approve
-              </button>
-              <button 
-                onClick={() => setIsRejecting(!isRejecting)} 
-                disabled={loading}
-                className={`px-3 py-1.5 font-semibold rounded-md text-xs shadow-sm transition-all disabled:opacity-50 flex items-center gap-1 ${
-                  isRejecting 
-                    ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent' 
-                    : 'bg-white border border-red-200 text-red-600 hover:bg-red-50'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">{isRejecting ? 'close' : 'cancel'}</span>
-                {isRejecting ? 'Cancel' : 'Reject'}
-              </button>
-            </div>
-          </div>
-          
-          {/* Bulk Reject Reason Input */}
-          {isRejecting && (
-            <div className="mt-2 flex gap-2 animate-in slide-in-from-top-2">
-              <input 
-                type="text" 
-                placeholder="Lý do từ chối chung..." 
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                disabled={loading}
-                className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-primary disabled:opacity-50"
-              />
-              <button 
-                onClick={handleRejectAll} 
-                disabled={loading}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium whitespace-nowrap disabled:opacity-50"
-              >
-                Xác nhận
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+const ListHeader = () => (
+  <div className="grid grid-cols-12 gap-3 bg-surface-container-low px-stack_md py-2.5 border-b border-outline-variant font-label-md text-label-md text-secondary uppercase tracking-wider rounded-t-xl">
+    <div className="col-span-8 sm:col-span-4 md:col-span-4 lg:col-span-4">ID & Title</div>
+    <div className="col-span-4 sm:col-span-3 hidden sm:block">Linked Req</div>
+    <div className="col-span-2 hidden md:block">Primary Actor</div>
+    <div className="col-span-3 lg:col-span-2 hidden lg:flex justify-center">Status</div>
+    <div className="col-span-4 sm:col-span-2 lg:col-span-1 flex justify-end pr-2"></div>
+  </div>
+);
 
 const GroupedUseCaseList = ({
   useCases,
   allUseCases = [],
   diagramData,
-  listMode,
   onEdit,
   onDelete,
   onRefresh,
   pagination,
   onPageChange,
-  onApprove,
-  onReject
+  isLeader
 }) => {
-  
-  // Group the use cases by createdById
+  const activeProject = useProjectStore((state) => state.activeProject);
+  const [moduleTasks, setModuleTasks] = useState([]);
+
+  useEffect(() => {
+    if (!activeProject?.id) return;
+    taskService.getProjectTasks(activeProject.id)
+      .then(tasks => {
+        const mt = (tasks || []).filter(t => t.type === 'MODULE_TASK');
+        setModuleTasks(mt);
+      })
+      .catch(() => {});
+  }, [activeProject?.id]);
+
+  const getModulePriority = (moduleId) => {
+    const task = moduleTasks.find(t => String(t.businessModuleId) === String(moduleId));
+    return task?.priority || 'MEDIUM';
+  };
+
   const groupedUseCases = useMemo(() => {
     const groups = {};
     useCases.forEach(uc => {
-      // If we are in 'all' view, we only show pending review items (hide DONE/CLOSED/REJECTED/CONTENT_APPROVED/DRAFT)
-      if (listMode === 'all' && (uc.status === 'DONE' || uc.status === 'CLOSED' || uc.status === 'REJECTED' || uc.status === 'CONTENT_APPROVED' || uc.status === 'DRAFT')) return;
-
-      const creatorId = uc.createdById || 'unknown';
-      if (!groups[creatorId]) {
-        groups[creatorId] = {
-          creatorId,
-          creatorName: uc.createdByName || uc.createdByUsername || 'Unknown User',
-          creatorEmail: uc.createdByEmail || '',
-          creatorAvatar: uc.createdByAvatar || '',
+      const moduleName = uc.moduleName || 'General Module';
+      const moduleId = uc.moduleId || 'unknown';
+      if (!groups[moduleName]) {
+        groups[moduleName] = {
+          moduleName,
+          moduleId,
           useCases: []
         };
       }
-      groups[creatorId].useCases.push(uc);
+      groups[moduleName].useCases.push(uc);
     });
-      // Sort use cases within each group so that DONE/CLOSED are at the bottom
-      const result = Object.values(groups);
-      result.forEach(group => {
-        group.useCases.sort((a, b) => {
-          const aIsDone = a.status === 'DONE' || a.status === 'CLOSED';
-          const bIsDone = b.status === 'DONE' || b.status === 'CLOSED';
-          if (aIsDone && !bIsDone) return 1;
-          if (!aIsDone && bIsDone) return -1;
-          return 0;
-        });
-      });
-      return result;
-    }, [useCases, listMode]);
+    
+    return Object.values(groups).sort((a, b) => {
+      if (a.moduleName === 'General Module') return 1;
+      if (b.moduleName === 'General Module') return -1;
+      return a.moduleName.localeCompare(b.moduleName);
+    });
+  }, [useCases]);
 
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'DONE': return 'bg-green-100 text-green-700';
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-700';
-      case 'IN_REVIEW': return 'bg-purple-100 text-purple-700';
-      case 'REJECTED': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
+  if (!useCases || useCases.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-dashed border-gray-300">
+        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+          <span className="material-symbols-outlined text-gray-400 text-3xl">list_alt</span>
+        </div>
+        <h3 className="text-gray-900 font-semibold mb-1">No Use Cases Found</h3>
+        <p className="text-gray-500 text-sm text-center">Try adjusting your filters or generate new use cases.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6 pb-16 p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {groupedUseCases.map(group => (
-          <UserGroupCard 
-            key={group.creatorId} 
-            group={group} 
-            isLeader={!!onApprove} 
-            onRefresh={onRefresh} 
-          />
+    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-visible pb-16">
+      <ListHeader />
+      
+      <div className="flex flex-col">
+        {groupedUseCases.map((group, groupIdx) => (
+          <div key={groupIdx} className="flex flex-col">
+            {/* Module Header */}
+            <div className="bg-gradient-to-r from-surface-50 to-white px-5 py-3 border-y border-outline-variant flex items-center justify-between sticky top-0 z-10 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#1E707D] to-[#165964] text-white shadow-sm border border-white">
+                  <span className="material-symbols-outlined text-[16px]">view_module</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-[#111827] text-[14px]">{group.moduleName}</h3>
+                    {group.moduleId !== 'unknown' && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                        getModulePriority(group.moduleId) === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                        getModulePriority(group.moduleId) === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                        getModulePriority(group.moduleId) === 'LOW' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {getModulePriority(group.moduleId)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-center bg-[#1E707D]/10 text-[#1E707D] px-2.5 py-1 rounded-md gap-1">
+                <span className="text-[12px] font-bold leading-none">{group.useCases.length}</span>
+                <span className="text-[10px] font-semibold leading-none uppercase tracking-wider">Use Cases</span>
+              </div>
+            </div>
+            
+            {/* Module Items */}
+            <div className="flex flex-col">
+              {[...group.useCases].sort((a, b) => {
+                const aClosed = a.status === 'CLOSED' || a.requirement?.status === 'CLOSED';
+                const bClosed = b.status === 'CLOSED' || b.requirement?.status === 'CLOSED';
+                if (aClosed && !bClosed) return 1;
+                if (!aClosed && bClosed) return -1;
+                return 0;
+              }).map((uc) => (
+                <div key={uc.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition-colors pl-4">
+                  <UseCaseItem
+                    uc={uc}
+                    allUseCases={allUseCases}
+                    diagramData={diagramData}
+                    onDelete={() => isLeader && onDelete && onDelete(uc.id)}
+                    onEdit={() => isLeader && onEdit && onEdit(uc)}
+                    onRefresh={onRefresh}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
-      {groupedUseCases.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm">
-          <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-primary text-[40px]">inbox</span>
-          </div>
-          <span className="text-on-surface font-semibold text-lg mb-1">No Use Cases Found</span>
-          <span className="text-on-surface-variant text-sm text-center max-w-md">There are no use cases matching your criteria or no members have created any use cases yet.</span>
-        </div>
-      )}
-
       {pagination && (
-        <UseCasePagination
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          totalItems={pagination.totalItems}
-          pageSize={pagination.pageSize}
-          onPageChange={onPageChange}
-        />
+        <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-outline-variant rounded-b-xl z-20">
+          <UseCasePagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={onPageChange}
+            totalElements={pagination.totalElements}
+            pageSize={pagination.pageSize}
+          />
+        </div>
       )}
     </div>
   );

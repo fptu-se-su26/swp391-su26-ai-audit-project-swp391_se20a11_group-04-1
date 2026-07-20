@@ -55,13 +55,16 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
 
         // Phase 2: Generate Requirements with Domain Context
         String prompt = "Below is the text extracted from a project requirement document. " +
-                "Your task is to analyze and extract a list of Actors (Roles) and Requirements from this text. " +
+                "CRITICAL INSTRUCTION: You are an expert Senior Business Analyst. Your task is to analyze the text and extract Actors and Requirements. " +
+                "DO NOT just literally copy what is in the document. The document is often just a rough, incomplete draft. " +
+                "You MUST deeply analyze it, deduce the core business model, and generate a COMPLETE, COMPREHENSIVE set of standard industry requirements that fully cover this project from end to end. " +
+                "You MUST proactively add implicit, missing, but necessary requirements (e.g., Authentication, Authorization, Error Handling, Security, Audit Logs, standard CRUD operations for core entities) even if they are NOT explicitly mentioned in the text, so the final system architecture is logically sound, professional, and production-ready. " +
                 "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
                 "- Business Domain: " + domain + "\n" +
                 "- Strict Domain Priorities/Constraints: " + priorities + "\n" +
                 "When generating Acceptance Criteria (especially for Non-Functional requirements), you MUST strictly enforce and integrate the domain constraints mentioned above.\n\n" +
                 "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
-                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have only 'name' (String).\n" +
+                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have only 'name' (String). CRITICAL RULE: You MUST thoroughly analyze the text to identify ALL possible actors, roles, systems, or personas mentioned or implied (e.g., 'Admin', 'Customer', 'Manager', 'Guest', 'System', 'Staff'). DO NOT miss any role. Even if the text is short, you MUST ALWAYS include default standard actors such as 'User' and 'System' in this array, plus any domain-specific roles detected.\n" +
                 "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
                 "   a. 'title': (String) A concise title of the requirement.\n" +
                 "   b. 'description': (String) Detailed description.\n" +
@@ -72,7 +75,12 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "      - 'Low': 'Nice to have' features, minor UI tweaks, or rarely used edge cases.\n" +
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
                 "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
-                "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
+                "   f. 'acceptanceCriteria': (Array of Strings) You MUST act as a Senior Business Analyst. Generate comprehensive, professional Acceptance Criteria for each requirement. Format the criteria strictly as detailed bullet points (Kiểu gạch đầu dòng chi tiết). DO NOT use Gherkin (Given/When/Then). You must deduce and write detailed criteria covering:\n" +
+                "      - Positive flows (Luồng thành công).\n" +
+                "      - Negative/Error flows (Luồng lỗi/Ngoại lệ).\n" +
+                "      - Business Rules & Constraints (Luật kinh doanh).\n" +
+                "      - UI/UX constraints (Ràng buộc giao diện).\n" +
+                "      The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
                 "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past.\n" +
                 "   h. 'deadline': (String) Generate a logical deadline for this requirement in YYYY-MM-DD format. The date MUST NOT be after the project deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +

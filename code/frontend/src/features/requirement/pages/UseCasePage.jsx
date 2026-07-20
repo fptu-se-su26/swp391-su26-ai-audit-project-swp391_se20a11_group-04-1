@@ -37,7 +37,9 @@ const UseCasePage = () => {
   
   // View mode: 'list' or 'editor'
   const [viewMode, setViewMode] = useState('list');
-  const [listMode, setListMode] = useState('mine'); // 'mine', 'all', or 'overview'
+  const [listMode, setListMode] = useState('grouped'); // 'flat' or 'grouped'
+  const [diagramTab, setDiagramTab] = useState('module'); // 'module' | 'overview'
+
 
   // AI modals
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
@@ -77,12 +79,6 @@ const UseCasePage = () => {
       if (reqFilter) params.requirementId = reqFilter;
       if (isDraftView) params.isDraft = true;
 
-      if (listMode === 'mine') {
-        params.mine = true;
-      } else if (listMode === 'overview') {
-        params.status = 'DONE,CONTENT_APPROVED,DIAGRAM_APPROVED,CLOSED';
-      }
-
       const data = await useCaseService.searchUseCases(params);
       
       let fetchedUseCases = data.content || [];
@@ -119,8 +115,7 @@ const UseCasePage = () => {
   const fetchDiagramData = async () => {
     if (!activeProject?.id) return;
     try {
-      const targetUserId = listMode === 'mine' ? userId : null;
-      const data = await diagramService.getDiagramData(activeProject.id, targetUserId, listMode);
+      const data = await diagramService.getDiagramData(activeProject.id, null, 'all');
       setDiagramData(data);
     } catch (error) {
       console.error('Failed to fetch diagram data', error);
@@ -170,7 +165,7 @@ const UseCasePage = () => {
     setSearchTerm('');
     setStatusFilter('');
     setReqFilter('');
-    setListMode('mine');
+    setListMode('grouped');
     setViewMode('list');
     setUseCases([]);
   }, [activeProject?.id]);
@@ -194,6 +189,12 @@ const UseCasePage = () => {
 
   const handleGenerateAI = async (selectedIds) => {
     setIsSelectionModalOpen(false);
+    
+    if (!selectedIds || selectedIds.length === 0) {
+      toast.error("Không tìm thấy Requirement nào! Vui lòng tạo Requirement trước khi tự động sinh Use Case.");
+      return;
+    }
+
     setGeneratingCount(selectedIds.length);
     setGenerating(true);
     
@@ -240,50 +241,6 @@ const UseCasePage = () => {
     fetchDiagramData();
   };
 
-  const myFullUseCases = allUseCases.filter(uc => uc.createdById == userId);
-  const functionalReqs = myRequirements.filter(req => req.type === 'FUNCTIONAL' && req.status !== 'CLOSED');
-  const coveredReqIds = myFullUseCases.map(uc => uc.requirement?.id || uc.requirementId);
-  const missingReqs = functionalReqs.filter(req => !coveredReqIds.includes(req.id));
-  const activeUseCases = myFullUseCases.filter(uc => uc.requirement?.status !== 'CLOSED');
-  const hasRejected = activeUseCases.some(uc => uc.status === 'REJECTED');
-  const submittableStatuses = ['DRAFT', 'IN_PROGRESS'];
-  const hasSubmittable = activeUseCases.some(uc => submittableStatuses.includes(uc.status));
-
-  let canSubmit = false;
-  let submitDisabledReason = '';
-
-  if (listMode === 'mine') {
-    if (missingReqs.length > 0) {
-      const missingCodes = missingReqs.map(r => r.reqCode).join(', ');
-      submitDisabledReason = `Missing Use Cases for ${missingReqs.length} assigned functional requirement(s): ${missingCodes}`;
-    } else if (hasRejected) {
-      submitDisabledReason = 'You have REJECTED Use Cases. Please edit and resolve them before submitting.';
-    } else if (!hasSubmittable) {
-      submitDisabledReason = 'No DRAFT or IN PROGRESS Use Cases to submit.';
-    } else {
-      canSubmit = true;
-      submitDisabledReason = 'Submit all DRAFT and IN PROGRESS Use Cases for review';
-    }
-  }
-
-  const handleSubmitUseCases = async () => {
-    const draftsToSubmit = myFullUseCases.filter(uc => submittableStatuses.includes(uc.status));
-    if (draftsToSubmit.length === 0) return;
-    
-    setLoading(true);
-    try {
-      await Promise.all(draftsToSubmit.map(uc => 
-        useCaseService.updateUseCaseStatus(uc.id, 'IN_REVIEW', activeProject.id)
-      ));
-      toast.success(`Successfully submitted ${draftsToSubmit.length} Use Cases!`);
-      handleRefresh();
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to submit Use Cases.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDeleteUseCase = (id) => {
     setDeleteConfirmId(id);
@@ -371,90 +328,84 @@ const UseCasePage = () => {
             <p className="text-[13px] text-[#6B7280] mt-1">Manage and track system interactions and actor goals.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* List Mode toggle */}
-            <div className="flex items-center gap-2 bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
-              <button
-                onClick={() => { setListMode('mine'); setCurrentPage(0); }}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'mine' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
-              >
-                Mine
-              </button>
-              <button
-                onClick={() => { setListMode('all'); setCurrentPage(0); }}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'all' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => { setListMode('overview'); setCurrentPage(0); }}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${listMode === 'overview' ? 'bg-[#F3F4F6] text-primary' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
-              >
-                Overview
-              </button>
-            </div>
 
-            {/* View Mode toggle */}
-            <div className="flex items-center bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
-              <button
-                onClick={() => setViewMode('diagram-view')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
-                style={viewMode.startsWith('diagram') ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
-              >
-                <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
-                Diagram
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode === 'list' ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
-                style={viewMode === 'list' ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
-              >
-                <span className="material-symbols-outlined text-[18px] mr-1">list</span>
-                List View
-              </button>
-            </div>
+              <div className="flex bg-gray-100/50 p-1 rounded-xl items-center shadow-inner border border-gray-200">
+                <button
+                  onClick={() => setViewMode('diagram-view')}
+                  className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${viewMode.startsWith('diagram') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+                  style={viewMode.startsWith('diagram') ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
+                >
+                  <span className="material-symbols-outlined text-[18px] mr-1">account_tree</span>
+                  Diagram
+                </button>
+                <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+                <button
+                  onClick={() => { setViewMode('list'); setListMode('grouped'); }}
+                  className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${(viewMode === 'list' && listMode === 'grouped') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+                  style={(viewMode === 'list' && listMode === 'grouped') ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
+                >
+                  <span className="material-symbols-outlined text-[18px] mr-1">view_module</span>
+                  Module List
+                </button>
+                <button
+                  onClick={() => { setViewMode('list'); setListMode('flat'); }}
+                  className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${(viewMode === 'list' && listMode === 'flat') ? 'text-white' : 'bg-transparent text-[#6B7280] hover:text-primary'}`}
+                  style={(viewMode === 'list' && listMode === 'flat') ? { background: 'linear-gradient(135deg, var(--project-theme-hover, #278A99) 0%, var(--project-theme, #1E707D) 55%, var(--project-theme-dark, #165964) 100%)' } : {}}
+                >
+                  <span className="material-symbols-outlined text-[18px] mr-1">list</span>
+                  Flat List
+                </button>
+              </div>
 
-            {/* Group 3: Generate Usecase */}
-            <button
-              type="button"
-              onClick={() => setIsSelectionModalOpen(true)}
-              className="h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-[14px] shadow-sm"
-            >
-              Generate Usecase
-            </button>
-
-            {/* Group 4: Add Use Case */}
-            <Button
-              onClick={() => setIsModalOpen(true)}
-            >
-              <span className="material-symbols-outlined text-[14px]">add</span>
-              Add Use Case
-            </Button>
+            {isLeader && (
+              <>
+                {/* Group 3: Generate Usecase */}
+                <button
+                  type="button"
+                  className="h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-[14px] shadow-sm"
+                  onClick={() => setIsSelectionModalOpen(true)}
+                >
+                  Generate Usecase
+                </button>
+    
+                {/* Group 4: Add Use Case */}
+                <Button
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  <span className="material-symbols-outlined text-[14px]">add</span>
+                  Add Use Case
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
         {viewMode.startsWith('diagram') ? (
           <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            {listMode === 'all' ? (
+            {diagramTab === 'overview' ? (
+              <UCDiagramEditorPage 
+                projectId={activeProject?.id} 
+                currentModuleId={null}
+                activeView="all"
+                mode={isLeader ? 'edit' : 'view'} 
+                onClose={() => setDiagramTab('module')} 
+                onEdit={() => {}}
+                onView={() => {}}
+                isLeader={isLeader}
+                onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
+                onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
+              />
+            ) : (
               <GroupedUCDiagramList 
                 projectId={activeProject?.id}
                 allUseCases={allUseCases}
                 isLeader={isLeader}
+                currentUserId={userId}
+                diagramTab={diagramTab}
+                onDiagramTabChange={setDiagramTab}
                 onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
                 onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
                 onRefresh={handleRefresh}
-              />
-            ) : (
-              <UCDiagramEditorPage 
-                projectId={activeProject?.id} 
-                currentUserId={listMode === 'mine' ? userId : null}
-                activeView={listMode}
-                mode={viewMode === 'diagram-edit' ? 'edit' : 'view'} 
-                onClose={() => setViewMode('list')} 
-                onEdit={(listMode === 'mine' || isLeader) ? () => setViewMode('diagram-edit') : undefined}
-                onView={() => setViewMode('diagram-view')}
-                isLeader={isLeader}
-                onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
-                onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
               />
             )}
           </div>
@@ -475,8 +426,6 @@ const UseCasePage = () => {
               }}
               resultCount={totalElements}
               onResetOrder={handleResetOrder}
-              hideStatusFilter={listMode === 'overview'}
-              hideDraftToggle={listMode === 'overview'}
             />
             <div className="relative flex-1">
               {loading && (
@@ -489,15 +438,13 @@ const UseCasePage = () => {
                   <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
                   <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>
                 </div>
-              ) : listMode === 'all' ? (
+              ) : listMode === 'grouped' ? (
                 <GroupedUseCaseList 
                   useCases={useCases} 
                   allUseCases={allUseCases}
                   diagramData={diagramData}
                   listMode={listMode}
                   onRefresh={handleRefresh}
-                  onApprove={isLeader ? handleApproveUseCase : undefined}
-                  onReject={isLeader ? handleRejectUseCase : undefined}
                   pagination={{
                     currentPage,
                     totalPages,
@@ -511,17 +458,15 @@ const UseCasePage = () => {
                   useCases={useCases} 
                   allUseCases={allUseCases}
                   diagramData={diagramData}
-                  onEdit={listMode === 'mine' || (isLeader && listMode === 'overview') ? handleEditUseCase : undefined} 
-                  onDelete={listMode === 'mine' || (isLeader && listMode === 'overview') ? handleDeleteUseCase : undefined} 
+                  onEdit={handleEditUseCase} 
+                  onDelete={handleDeleteUseCase} 
                   onRefresh={handleRefresh}
-                  enableReorder={listMode === 'mine' || (isLeader && listMode === 'overview')}
+                  enableReorder={true}
                   onReorder={handleReorder}
-                  onApprove={isLeader && listMode !== 'mine' ? handleApproveUseCase : undefined}
-                  onReject={isLeader && listMode !== 'mine' ? handleRejectUseCase : undefined}
                 />
               )}
             </div>
-            {listMode !== 'all' && (
+            {listMode === 'flat' && (
               <UseCasePagination 
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -530,25 +475,7 @@ const UseCasePage = () => {
                 onPageChange={setCurrentPage}
               />
             )}
-            {/* Submit Button at Bottom Center */}
-            {listMode === 'mine' && !viewMode.startsWith('diagram') && (
-              <div className="flex justify-center pb-6 pt-2 bg-surface-container-lowest">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!canSubmit) {
-                      toast.error(submitDisabledReason);
-                    } else {
-                      handleSubmitUseCases();
-                    }
-                  }}
-                  className="h-[36px] px-4 rounded-lg font-medium flex items-center justify-center transition-colors text-[13px] shadow hover:shadow-md bg-primary text-white hover:bg-[#11464f]"
-                >
-                  <span className="material-symbols-outlined mr-1.5 text-[16px]">send</span>
-                  Submit
-                </button>
-              </div>
-            )}
+
           </div>
         )}
       </div>
@@ -570,11 +497,6 @@ const UseCasePage = () => {
           setIsModalOpen(false);
           handleRefresh();
         }}
-      />
-      <RequirementSelectionModal
-        isOpen={isSelectionModalOpen}
-        onClose={() => setIsSelectionModalOpen(false)}
-        onConfirm={handleGenerateAI}
       />
       <AiUseCaseGenerationModal
         isOpen={isAiModalOpen}

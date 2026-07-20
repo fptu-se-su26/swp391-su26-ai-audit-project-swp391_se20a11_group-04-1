@@ -20,8 +20,8 @@ public class ProjectDiagram {
     @Column(name = "project_id", nullable = false)
     private Long projectId;
     
-    @Column(name = "user_id")
-    private Long userId;
+    @Column(name = "module_id")
+    private Long moduleId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false, insertable = false, updatable = false)

@@ -1809,6 +1809,8 @@ public class TaskServiceImpl implements TaskService {
                 .useCaseCode(resolveUseCaseCode(task.getUseCaseId()))
                 .sprintId(task.getSprintId())
                 .sprintName(context != null ? context.sprintName(task.getSprintId()) : resolveSprintName(task.getSprintId()))
+                .businessModuleId(task.getBusinessModule() != null ? task.getBusinessModule().getId() : null)
+                .businessModuleName(task.getBusinessModule() != null ? task.getBusinessModule().getName() : null)
                 .title(task.getTitle())
                 .description(task.getDescription())
                 .type(task.getType() != null ? task.getType().name() : null)

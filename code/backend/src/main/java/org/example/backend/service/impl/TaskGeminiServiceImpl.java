@@ -24,9 +24,13 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- You will be provided with 'existingTasks'. You MUST NOT generate any new tasks for scopes/features that are already covered by these 'existingTasks'.\n" +
                 "- Only generate tasks for the MISSING gaps in the Use Cases and Non-Functional Requirements.\n" +
                 "- If a Use Case or Requirement is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
-                "REQUIREMENT RULES:\n" +
-                "- For Functional Requirements (with Use Cases), break down tasks based on the main/alternative flows.\n" +
-                "- For Non-Functional Requirements (without Use Cases), generate technical tasks directly to fulfill the scope of the requirement (e.g. configuring servers, setting up auth).\n\n" +
+                "SENIOR ARCHITECT TASK BREAKDOWN RULES (CRITICAL):\n" +
+                "- You MUST break down every Use Case into multiple technical layers (Database, Backend API, Frontend UI, QA/Testing). NEVER generate just a single 'Build feature' task.\n" +
+                "- Database: Create tables, migrations, relationships, indexing.\n" +
+                "- Backend API: Build endpoints, business logic validation, security checks, explicit error handling.\n" +
+                "- Frontend UI: Build UI components, integrate API, form validation, handle loading/error states.\n" +
+                "- QA/Testing: Write Unit Tests and Integration Tests covering positive and negative flows.\n" +
+                "- For Non-Functional Requirements, generate precise DevOps, Security, or Architectural configuration tasks.\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +
                 "- Medium (full feature): 3-5 days.\n" +
@@ -64,9 +68,11 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Balance the workload evenly among members based on their 'current_task_count' and 'current_workload_weight'. Assign new tasks to members with the lowest workload first.\n" +
                 "- Ignore their role completely for assignment. The ONLY priority is balancing workload and difficulty (weight) fairly.\n" +
                 "- The 'member_name' in 'suggested_assignee' MUST EXACTLY match the 'username' field of the chosen member.\n\n" +
-                "CHECKLIST RULES:\n" +
-                "- You MUST generate 3 to 5 'checklists' items for each task. These act as the Definition of Done (DoD).\n" +
-                "- Each checklist item must be specific, actionable, and testable (e.g., 'Validate email format', 'Hash password using bcrypt', 'Return JWT token').\n\n" +
+                "CHECKLIST RULES (DEFINITION OF DONE):\n" +
+                "- You MUST generate 3 to 5 'checklists' items for each task. These act as a rigorous Definition of Done (DoD).\n" +
+                "- Backend checklists MUST include validation, security checks, and error handling.\n" +
+                "- Frontend checklists MUST include responsive UI, API error handling, and state management.\n" +
+                "- DB checklists MUST include foreign keys, indexing, and correct data types.\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +
                 "- DO NOT include comments inside the JSON.\n\n" +

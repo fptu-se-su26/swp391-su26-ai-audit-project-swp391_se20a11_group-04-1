@@ -17,7 +17,7 @@ import ActorNode from './nodes/ActorNode';
 import UseCaseNode from './nodes/UseCaseNode';
 import SystemBoundaryNode from './nodes/SystemBoundaryNode';
 import CustomEdge from './edges/CustomEdge';
-import { ucLayoutEngine } from '../utils/ucLayoutEngine';
+import dagre from 'dagre';
 import { diagramService } from '../services/diagramService';
 import useDiagramStore from '../../../store/useDiagramStore';
 import toast from 'react-hot-toast';
@@ -399,9 +399,9 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       useCases.forEach((uc) => {
         if (uc.showInDiagram === false) return; // Skip hidden UCs
         
-        // Filter based on activeView
-        if (activeView === 'my' && uc.createdById !== currentUserId) return;
-        if (activeView === 'overview' && (uc.addedFromDiagram !== false || uc.status === 'REJECTED')) return;
+        // Filter based on activeView (handled by backend now)
+        const id = uc.id?.toString() || uc.name;
+
 
         initialNodes.push({
           id: `uc_${uc.id}`,
@@ -447,40 +447,149 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         });
       });
 
-      const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(initialNodes, initialEdges, systemName);
+        // --- DAGRE AUTO LAYOUT ENGINE ---
+        const getLayoutedElements = (nodes, edges, direction = 'LR') => {
+            const dagreGraph = new dagre.graphlib.Graph();
+            dagreGraph.setDefaultEdgeLabel(() => ({}));
+            
+            const isHorizontal = direction === 'LR';
+            // Increase spacing for better aesthetics
+            dagreGraph.setGraph({ 
+                rankdir: direction, 
+                nodesep: 80, // vertical space between nodes
+                ranksep: 180 // horizontal space between levels
+            });
+
+            // Add nodes to dagre
+            nodes.forEach((node) => {
+                // Skip system boundary for layout calculation
+                if (node.id === 'system_boundary') return;
+                
+                // Estimate dimensions based on type
+                const width = node.type === 'actor' ? 60 : 180;
+                const height = node.type === 'actor' ? 100 : 60;
+                
+                dagreGraph.setNode(node.id, { width, height });
+            });
+
+            // Add edges to dagre
+            edges.forEach((edge) => {
+                dagreGraph.setEdge(edge.source, edge.target);
+            });
+
+            // Calculate layout
+            dagre.layout(dagreGraph);
+
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minY = Infinity;
+            let maxY = -Infinity;
+
+            const newNodes = nodes.map((node) => {
+                if (node.id === 'system_boundary') return node;
+                
+                const nodeWithPosition = dagreGraph.node(node.id);
+                const x = nodeWithPosition.x - (node.type === 'actor' ? 30 : 90);
+                const y = nodeWithPosition.y - (node.type === 'actor' ? 50 : 30);
+                
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x + (node.type === 'actor' ? 60 : 180));
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y + (node.type === 'actor' ? 100 : 60));
+                
+                // Ensure actor ends up with a side property if they didn't have one
+                const side = node.data?.side || (dagreGraph.node(node.id).x < (dagreGraph.graph().width / 2) ? 'left' : 'right');
+
+                return {
+                    ...node,
+                    position: { x, y },
+                    data: { ...node.data, side },
+                    zIndex: 2,
+                };
+            });
+            
+            // Adjust system boundary to fit around Use Cases (not actors if possible, but for simplicity, we wrap all UCs)
+            const ucNodes = newNodes.filter(n => n.type === 'useCase');
+            let sysMinX = Infinity, sysMaxX = -Infinity, sysMinY = Infinity, sysMaxY = -Infinity;
+            
+            if (ucNodes.length > 0) {
+                ucNodes.forEach(uc => {
+                    sysMinX = Math.min(sysMinX, uc.position.x);
+                    sysMaxX = Math.max(sysMaxX, uc.position.x + 180);
+                    sysMinY = Math.min(sysMinY, uc.position.y);
+                    sysMaxY = Math.max(sysMaxY, uc.position.y + 60);
+                });
+            } else {
+                sysMinX = 200; sysMaxX = 600; sysMinY = 0; sysMaxY = 400;
+            }
+
+            const sysBoundary = nodes.find(n => n.id === 'system_boundary');
+            if (sysBoundary) {
+                // Add padding
+                const paddingX = 40;
+                const paddingY = 60; // Extra top padding for title
+                sysBoundary.position = { x: sysMinX - paddingX, y: sysMinY - paddingY };
+                sysBoundary.style = { 
+                    width: sysMaxX - sysMinX + (paddingX * 2), 
+                    height: sysMaxY - sysMinY + (paddingY * 2) 
+                };
+                sysBoundary.zIndex = 0;
+                
+                // Replace old boundary
+                const idx = newNodes.findIndex(n => n.id === 'system_boundary');
+                if (idx !== -1) newNodes[idx] = sysBoundary;
+                else newNodes.push(sysBoundary);
+            }
+
+            return { nodes: newNodes, edges };
+        };
+
+        let layoutedNodes, layoutedEdges;
 
       if (savedPositions && !forceReset) {
-        // Check if any actor nodes are missing from saved positions — if so, force a full relayout
-        const actorNodes = layoutedNodes.filter(n => n.id.startsWith('actor_'));
-        const hasUnsavedActors = actorNodes.some(n => !savedPositions[n.id]);
-
-        if (hasUnsavedActors && actorNodes.length > 0) {
-          // Some actors are new (not in saved layout) — do a full auto-layout so everything is properly placed
-          const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
-          setNodes(enhancedNodes);
-          setEdges(calculateDynamicHandles(layoutedEdges, enhancedNodes).map(e => ({ ...e, zIndex: 1 })));
-        } else {
-          const restoredNodes = layoutedNodes.map(node => {
+        // Try restoring positions
+        let hasUnsavedActors = false;
+        
+        const restoredNodes = initialNodes.map(node => {
+             if (node.id === 'system_boundary') return node;
+             
              if (savedPositions[node.id]) {
                  const posData = savedPositions[node.id];
-                 const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
+                 const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: 2 };
                  if (posData.width !== undefined && posData.height !== undefined) {
                      newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
                  }
                  return newNode;
              }
-             return { ...node, position: node.position || { x: 0, y: 0 }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
-          });
-          setNodes(restoredNodes);
-          
-          const restoredEdges = calculateDynamicHandles(layoutedEdges, restoredNodes).map(e => ({ ...e, zIndex: 1 }));
-          setEdges(restoredEdges);
+             
+             if (node.type === 'actor') hasUnsavedActors = true;
+             return { ...node, position: { x: 0, y: 0 }, zIndex: 2 };
+        });
+        
+        if (hasUnsavedActors) {
+            // Unsaved actors found! Auto layout everything
+            const layoutResult = getLayoutedElements(initialNodes, initialEdges);
+            layoutedNodes = layoutResult.nodes;
+            layoutedEdges = layoutResult.edges;
+        } else {
+            // Restore system boundary
+            const sysBoundary = restoredNodes.find(n => n.id === 'system_boundary');
+            if (sysBoundary && savedPositions['system_boundary']) {
+                sysBoundary.position = { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y };
+                sysBoundary.style = { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height };
+            }
+            layoutedNodes = restoredNodes;
+            layoutedEdges = initialEdges;
         }
       } else {
-        const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
-        setNodes(enhancedNodes);
-        setEdges(calculateDynamicHandles(layoutedEdges, enhancedNodes).map(e => ({ ...e, zIndex: 1 })));
+        // Force reset or no saved positions
+        const layoutResult = getLayoutedElements(initialNodes, initialEdges);
+        layoutedNodes = layoutResult.nodes;
+        layoutedEdges = layoutResult.edges;
       }
+
+      setNodes(layoutedNodes);
+      setEdges(calculateDynamicHandles(layoutedEdges, layoutedNodes).map(e => ({ ...e, zIndex: 1 })));
 
       setTimeout(() => {
         fitView({ padding: 0.08, minZoom: 0.1 });

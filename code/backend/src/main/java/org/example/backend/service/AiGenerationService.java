@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -57,6 +58,9 @@ public class AiGenerationService {
     private final TestStepRepository testStepRepository;
     private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
     private final AuditService auditService;
+    private final org.example.backend.repository.BusinessModuleRepository businessModuleRepository;
+    private final org.example.backend.repository.TaskRepository taskRepository;
+    private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -73,7 +77,10 @@ public class AiGenerationService {
                                TestCaseRepository testCaseRepository,
                                TestStepRepository testStepRepository,
                                org.example.backend.mapper.testing.TestCaseMapper testCaseMapper,
-                               AuditService auditService) {
+                               AuditService auditService,
+                               org.example.backend.repository.BusinessModuleRepository businessModuleRepository,
+                               org.example.backend.repository.TaskRepository taskRepository,
+                               org.example.backend.repository.ProjectMemberRepository projectMemberRepository) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.requirementGeminiService = requirementGeminiService;
@@ -89,6 +96,9 @@ public class AiGenerationService {
         this.testStepRepository = testStepRepository;
         this.testCaseMapper = testCaseMapper;
         this.auditService = auditService;
+        this.businessModuleRepository = businessModuleRepository;
+        this.taskRepository = taskRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
 
     @Transactional
@@ -241,7 +251,25 @@ public class AiGenerationService {
 
         sendProgress(userId, 1, "Fetching ecosystem context (Actors and Existing Use Cases)...");
         List<org.example.backend.entity.ProjectActor> dbActors = projectActorRepository.findByProjectId(projectId);
-        List<String> projectActors = dbActors.stream().map(org.example.backend.entity.ProjectActor::getName).toList();
+        java.util.Set<String> actorNames = new java.util.LinkedHashSet<>(dbActors.stream().map(org.example.backend.entity.ProjectActor::getName).toList());
+        // Also include actors from any PENDING or CONFIRMED REQ staging (actors added during review but not yet approved)
+        try {
+            List<AiGenerationStaging> reqStagings = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, AiStage.REQUIREMENT, AiGenerationStatus.PENDING);
+            for (AiGenerationStaging rs : reqStagings) {
+                JsonNode rPayload = rs.getPayload();
+                if (rPayload != null) {
+                    JsonNode actorsArr = rPayload.isObject() && rPayload.has("project_actors") ? rPayload.get("project_actors")
+                            : (rPayload.isArray() && rPayload.size() > 0 && rPayload.get(0).has("project_actors") ? rPayload.get(0).get("project_actors") : null);
+                    if (actorsArr != null && actorsArr.isArray()) {
+                        for (JsonNode an : actorsArr) {
+                            String aName = an.has("name") ? an.get("name").asText().trim() : an.asText().trim();
+                            if (!aName.isEmpty()) actorNames.add(aName);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        List<String> projectActors = new java.util.ArrayList<>(actorNames);
         
         List<org.example.backend.entity.UseCase> dbUseCases = useCaseRepository.findByProjectId(projectId);
         List<String> existingUseCases = dbUseCases.stream()
@@ -278,7 +306,13 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
-        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases, project);
+        // Fetch member usernames to pass to AI, avoiding project.setMembers() which breaks orphanRemoval
+        java.util.List<String> projectMemberUsernames = projectMemberRepository.findByProjectIdWithUsers(projectId).stream()
+                .filter(pm -> pm.getUser() != null)
+                .map(pm -> pm.getUser().getUsername())
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases, project, projectMemberUsernames);
 
         sendProgress(userId, 2, "Parsing AI results...");
         JsonNode payload;
@@ -306,21 +340,21 @@ public class AiGenerationService {
             if (payload.isArray()) {
                 if (reqs.size() == 1) {
                     Long actualReqId = reqs.get(0).getId();
-                    String actualReqCode = reqs.get(0).getReqCode();
                     for (JsonNode node : payload) {
                         if (node.isObject()) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementId", actualReqId);
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementCode", actualReqCode);
+                            com.fasterxml.jackson.databind.node.ArrayNode arr = ((com.fasterxml.jackson.databind.node.ObjectNode) node).putArray("requirementIds");
+                            arr.add(actualReqId);
                         }
                     }
                 } else {
-                    // For multiple requirements, map the requirementId to requirementCode if present
-                    java.util.Map<Long, String> reqCodeMap = reqs.stream().collect(java.util.stream.Collectors.toMap(Requirement::getId, Requirement::getReqCode));
+                    java.util.Set<Long> validReqIds = reqs.stream().map(Requirement::getId).collect(java.util.stream.Collectors.toSet());
                     for (JsonNode node : payload) {
-                        if (node.isObject() && node.has("requirementId")) {
-                            Long reqId = node.get("requirementId").asLong();
-                            if (reqCodeMap.containsKey(reqId)) {
-                                ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementCode", reqCodeMap.get(reqId));
+                        if (node.isObject() && node.has("requirementIds") && node.get("requirementIds").isArray()) {
+                            com.fasterxml.jackson.databind.node.ArrayNode arr = (com.fasterxml.jackson.databind.node.ArrayNode) node.get("requirementIds");
+                            for (int i = arr.size() - 1; i >= 0; i--) {
+                                if (!validReqIds.contains(arr.get(i).asLong())) {
+                                    arr.remove(i);
+                                }
                             }
                         }
                     }
@@ -692,21 +726,96 @@ public class AiGenerationService {
         
         List<org.example.backend.entity.UseCase> useCasesToSave = new ArrayList<>();
         
+        Map<String, org.example.backend.entity.BusinessModule> moduleCache = new HashMap<>();
+
         for (int i = 0; i < payload.size(); i++) {
             if (selectedIndices == null || selectedIndices.contains(i)) {
                 JsonNode ucNode = payload.get(i);
                 
+                String moduleName = ucNode.has("moduleName") && !ucNode.get("moduleName").isNull() ? ucNode.get("moduleName").asText() : "General";
+                String moduleDescription = ucNode.has("moduleDescription") && !ucNode.get("moduleDescription").isNull() ? ucNode.get("moduleDescription").asText() : "";
+                String modulePriority = ucNode.has("modulePriority") && !ucNode.get("modulePriority").isNull() ? ucNode.get("modulePriority").asText().toUpperCase() : "MEDIUM";
+                String moduleAssignee = ucNode.has("moduleAssignee") && !ucNode.get("moduleAssignee").isNull() ? ucNode.get("moduleAssignee").asText() : "System";
+                
+                // Get or create BusinessModule
+                org.example.backend.entity.BusinessModule businessModule = moduleCache.computeIfAbsent(moduleName, mName -> {
+                    List<org.example.backend.entity.BusinessModule> existing = businessModuleRepository.findByProjectId(project.getId());
+                    return existing.stream()
+                            .filter(m -> m.getName().equalsIgnoreCase(mName))
+                            .findFirst()
+                            .orElseGet(() -> {
+                                org.example.backend.entity.BusinessModule newModule = org.example.backend.entity.BusinessModule.builder()
+                                        .project(project)
+                                        .name(mName)
+                                        .description(moduleDescription)
+                                        .build();
+                                newModule = businessModuleRepository.save(newModule);
+                                
+                                // Create Task for this Module
+                                org.example.backend.entity.Task moduleTask = new org.example.backend.entity.Task();
+                                moduleTask.setProject(project);
+                                moduleTask.setTitle("Design Use Cases: " + mName);
+                                moduleTask.setDescription(moduleDescription);
+                                moduleTask.setType(org.example.backend.entity.TaskType.MODULE_TASK);
+                                moduleTask.setBusinessModule(newModule);
+                                
+                                moduleTask.setCreatedBy(user);
+                                moduleTask.setAiGenerated(true);
+                                moduleTask.setEstimatedHours(java.math.BigDecimal.ZERO);
+                                moduleTask.setWeight(java.math.BigDecimal.ONE);
+                                moduleTask.setStatus(org.example.backend.entity.TaskStatus.TODO);
+                                moduleTask.setOverduePenaltyApplied(false);
+                                moduleTask.setCreatedAt(java.time.LocalDateTime.now());
+                                moduleTask.setUpdatedAt(java.time.LocalDateTime.now());
+                                
+                                // Fix PostgreSQL NOT NULL constraint on start_date and deadline
+                                moduleTask.setStartDate(java.time.LocalDate.now());
+                                moduleTask.setDeadline(project.getDeadline() != null ? project.getDeadline() : java.time.LocalDate.now().plusMonths(1));
+                                
+                                try {
+                                    moduleTask.setPriority(org.example.backend.entity.Priority.valueOf(modulePriority));
+                                } catch (Exception e) {
+                                    moduleTask.setPriority(org.example.backend.entity.Priority.MEDIUM);
+                                }
+                                
+                                if (!"System".equalsIgnoreCase(moduleAssignee)) {
+                                    // IMPORTANT: Only set assignee if they are actually a member of this project
+                                    // A PostgreSQL trigger enforces this - violating it causes INSERT failure
+                                    Optional<UserAccount> optUser = Optional.empty();
+                                    try {
+                                        Long assigneeId = Long.parseLong(moduleAssignee);
+                                        optUser = userRepository.findById(assigneeId);
+                                    } catch (NumberFormatException e) {
+                                        optUser = userRepository.findByUsername(moduleAssignee);
+                                    }
+                                    optUser.ifPresent(assigneeUser -> {
+                                        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(project.getId(), assigneeUser.getId()).isPresent();
+                                        if (isMember) {
+                                            moduleTask.setPrimaryAssignee(assigneeUser);
+                                        }
+                                    });
+                                }
+                                
+                                taskRepository.save(moduleTask);
+                                
+                                return newModule;
+                            });
+                });
+
                 String name = ucNode.has("name") ? ucNode.get("name").asText() : "Untitled Use Case";
                 String primaryActors = ucNode.has("primaryActors") ? ucNode.get("primaryActors").asText() : "";
                 String precondition = ucNode.has("precondition") ? ucNode.get("precondition").asText() : "";
                 String postcondition = ucNode.has("postcondition") ? ucNode.get("postcondition").asText() : "";
                 String mainSuccessScenario = ucNode.has("mainSuccessScenario") ? ucNode.get("mainSuccessScenario").asText() : "";
                 String alternativeFlows = ucNode.has("alternativeFlows") ? ucNode.get("alternativeFlows").asText() : "";
-                Long requirementId = ucNode.has("requirementId") ? ucNode.get("requirementId").asLong() : null;
-
-                Requirement req = null;
-                if (requirementId != null) {
-                    req = requirementRepository.findById(requirementId).orElse(null);
+                
+                List<Requirement> mappedRequirements = new ArrayList<>();
+                if (ucNode.has("requirementIds") && ucNode.get("requirementIds").isArray()) {
+                    for (JsonNode reqIdNode : ucNode.get("requirementIds")) {
+                        requirementRepository.findById(reqIdNode.asLong()).ifPresent(mappedRequirements::add);
+                    }
+                } else if (ucNode.has("requirementId") && !ucNode.get("requirementId").isNull()) {
+                    requirementRepository.findById(ucNode.get("requirementId").asLong()).ifPresent(mappedRequirements::add);
                 }
 
                 // Convert text to JSON string as expected by DB & Frontend
@@ -722,8 +831,6 @@ public class AiGenerationService {
                     mainMap.put("steps", mainSteps);
                     mainFlowJson = objectMapper.writeValueAsString(mainMap);
                     
-                    // Frontend expects alternativeFlow: { flows: [ { name: "Flow A", steps: [...] } ] }
-                    // To keep it simple, we wrap the whole text as one flow
                     List<String> altSteps = new ArrayList<>();
                     for (String step : alternativeFlows.split("\n")) {
                         if (!step.trim().isEmpty()) altSteps.add(step.trim());
@@ -741,7 +848,13 @@ public class AiGenerationService {
 
                 org.example.backend.entity.UseCase uc = new org.example.backend.entity.UseCase();
                 uc.setProjectId(project.getId());
-                uc.setRequirement(req);
+                
+                // Fallback to primary requirement for backward compatibility
+                if (!mappedRequirements.isEmpty()) {
+                    uc.setRequirement(mappedRequirements.get(0));
+                }
+                
+                uc.setBusinessModule(businessModule);
                 uc.setName(name);
                 uc.setPrecondition(precondition);
                 uc.setPostcondition(postcondition);
@@ -757,11 +870,15 @@ public class AiGenerationService {
                 uc.setStartDate(ucNode.has("startDate") && !ucNode.get("startDate").isNull() && !ucNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("startDate").asText()) : project.getStartDate());
                 uc.setDeadline(ucNode.has("deadline") && !ucNode.get("deadline").isNull() && !ucNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("deadline").asText()) : project.getDeadline());
                 
-                if (req != null) {
-                    String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                if (!mappedRequirements.isEmpty()) {
+                    String reqContentToHash = mappedRequirements.stream()
+                            .map(r -> (r.getTitle() != null ? r.getTitle() : "") + "|" + (r.getDescription() != null ? r.getDescription() : ""))
+                            .collect(java.util.stream.Collectors.joining("||"));
                     String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     uc.setReqVersionHash(reqHash);
                 }
+                
+                uc.setRequirements(mappedRequirements);
                 
                 // Add actors if primaryActors is provided
                 if (primaryActors != null && !primaryActors.trim().isEmpty()) {

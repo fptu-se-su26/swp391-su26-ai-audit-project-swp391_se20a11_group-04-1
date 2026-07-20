@@ -10,6 +10,9 @@ public class UseCaseResponse {
     private Long id;
     private Long requirementId;
     private RequirementResponseDTO requirement;
+    private List<RequirementResponseDTO> requirements;
+    private Long moduleId;
+    private String moduleName;
     private String code;
     private String name;
     private String precondition;
