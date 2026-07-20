@@ -34,6 +34,7 @@ public class SlaDecisionPackResponse {
     private LocalDateTime evaluatedAt;
     private String latestEventType;
     private String latestActionTaken;
+    private RecoveryPlanSummary recoveryPlan;
     private List<DecisionLogItem> recentDecisions;
     private List<ActionLogItem> recentActions;
 
@@ -72,5 +73,22 @@ public class SlaDecisionPackResponse {
         private String status;
         private String message;
         private LocalDateTime createdAt;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RecoveryPlanSummary {
+        private Long id;
+        private String status;
+        private String generatedSource;
+        private String generationMode;
+        private String riskLevel;
+        private String summary;
+        private boolean followUp;
+        private String effectivenessStatus;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
     }
 }
