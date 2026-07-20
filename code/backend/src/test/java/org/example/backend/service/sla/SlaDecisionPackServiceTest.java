@@ -8,6 +8,7 @@ import org.example.backend.entity.TaskSlaState;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.SlaActionLogRepository;
 import org.example.backend.repository.SlaDecisionLogRepository;
+import org.example.backend.repository.RecoveryPlanRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,9 @@ class SlaDecisionPackServiceTest {
     private SlaActionLogRepository slaActionLogRepository;
 
     @Mock
+    private RecoveryPlanRepository recoveryPlanRepository;
+
+    @Mock
     private SlaStateService slaStateService;
 
     private ObjectMapper objectMapper;
@@ -54,6 +58,7 @@ class SlaDecisionPackServiceTest {
                 taskSlaStateRepository,
                 slaDecisionLogRepository,
                 slaActionLogRepository,
+                recoveryPlanRepository,
                 slaStateService,
                 objectMapper
         );
@@ -102,6 +107,8 @@ class SlaDecisionPackServiceTest {
         when(taskSlaStateRepository.findByTaskIdAndProjectId(100L, 1L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(state));
+        when(recoveryPlanRepository.findTopByProjectIdAndTaskIdOrderByCreatedAtDesc(1L, 100L))
+                .thenReturn(Optional.empty());
 
         SlaDecisionPackResponse response = slaDecisionPackService.getTaskDecisionPack(1L, 100L);
 

@@ -6,11 +6,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.SlaDecisionPackResponse;
 import org.example.backend.dto.SprintHealthTaskResponse;
+import org.example.backend.entity.RecoveryPlan;
 import org.example.backend.entity.SlaActionLog;
 import org.example.backend.entity.SlaDecisionLog;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskSlaState;
 import org.example.backend.exception.ResourceNotFoundException;
+import org.example.backend.repository.RecoveryPlanRepository;
 import org.example.backend.repository.SlaActionLogRepository;
 import org.example.backend.repository.SlaDecisionLogRepository;
 import org.example.backend.repository.TaskRepository;
@@ -31,6 +33,7 @@ public class SlaDecisionPackService {
     private final TaskSlaStateRepository taskSlaStateRepository;
     private final SlaDecisionLogRepository slaDecisionLogRepository;
     private final SlaActionLogRepository slaActionLogRepository;
+    private final RecoveryPlanRepository recoveryPlanRepository;
     private final SlaStateService slaStateService;
     private final ObjectMapper objectMapper;
 
@@ -54,6 +57,10 @@ public class SlaDecisionPackService {
         // Fetch recent decisions and actions (up to 5 items)
         List<SlaDecisionLog> decisions = slaDecisionLogRepository.findTop5ByTaskIdAndProjectIdOrderByEvaluatedAtDesc(taskId, projectId);
         List<SlaActionLog> actions = slaActionLogRepository.findTop5ByTaskIdAndProjectIdOrderByCreatedAtDesc(taskId, projectId);
+        SlaDecisionPackResponse.RecoveryPlanSummary latestRecoveryPlan = recoveryPlanRepository
+                .findTopByProjectIdAndTaskIdOrderByCreatedAtDesc(projectId, taskId)
+                .map(this::mapRecoveryPlanSummary)
+                .orElse(null);
 
         List<String> slaCategories = new ArrayList<>();
         List<String> reasons = new ArrayList<>();
@@ -131,6 +138,7 @@ public class SlaDecisionPackService {
                     .slaCategories(List.of("NORMAL"))
                     .reasons(List.of("SLA has not been evaluated yet."))
                     .recommendedAction("No action required.")
+                    .recoveryPlan(latestRecoveryPlan)
                     .recentDecisions(List.of())
                     .recentActions(List.of())
                     .build();
@@ -158,8 +166,24 @@ public class SlaDecisionPackService {
                 .evaluatedAt(state.getEvaluatedAt())
                 .latestEventType(latestEventType)
                 .latestActionTaken(latestActionTaken)
+                .recoveryPlan(latestRecoveryPlan)
                 .recentDecisions(recentDecisions)
                 .recentActions(recentActions)
+                .build();
+    }
+
+    private SlaDecisionPackResponse.RecoveryPlanSummary mapRecoveryPlanSummary(RecoveryPlan plan) {
+        return SlaDecisionPackResponse.RecoveryPlanSummary.builder()
+                .id(plan.getId())
+                .status(plan.getStatus() != null ? plan.getStatus().name() : null)
+                .generatedSource(plan.getGeneratedSource() != null ? plan.getGeneratedSource().name() : null)
+                .generationMode(plan.getGenerationMode() != null ? plan.getGenerationMode().name() : null)
+                .riskLevel(plan.getRiskLevel())
+                .summary(plan.getSummary())
+                .followUp(plan.isFollowUp())
+                .effectivenessStatus(plan.getGateResult())
+                .createdAt(plan.getCreatedAt())
+                .updatedAt(plan.getUpdatedAt())
                 .build();
     }
 
