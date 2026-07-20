@@ -217,8 +217,9 @@ public class RecoveryPlanService {
             throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only HIGH or CRITICAL tasks can have recovery plans.");
         }
 
-        GeminiRecoveryResult aiContent = geminiRecoveryService.generateContent(
-                buildGeminiContext(task, slaState, categories, isFollowUp, previousPlanId));
+        GeminiRecoveryResult aiContent = shouldUseAiRecoveryContent(source)
+                ? geminiRecoveryService.generateContent(buildGeminiContext(task, slaState, categories, isFollowUp, previousPlanId))
+                : null;
         String summary = aiContent != null && aiContent.getSummary() != null && !aiContent.getSummary().isBlank()
                 ? aiContent.getSummary()
                 : String.format("Task is %s risk because of %s. The system recommends recovery actions for leader approval.",
@@ -230,6 +231,7 @@ public class RecoveryPlanService {
                 .taskId(taskId)
                 .generatedByUserId(currentUserId)
                 .generatedSource(source)
+                .generationMode(resolveGenerationMode(source, aiContent))
                 .status(RecoveryPlanStatus.PENDING_APPROVAL)
                 .riskLevel(slaState.getCurrentRiskLevel())
                 .riskCategoriesJson(slaState.getCategoriesJson())
@@ -253,6 +255,7 @@ public class RecoveryPlanService {
             plan.setSummary(String.format("Task is %s risk because of %s. The system recommends %d recovery actions for leader approval.",
                     slaState.getCurrentRiskLevel(), String.join(" and ", categories), actions.size()));
         }
+        plan.setPlanDetailsJson(buildPlanDetailsJson(source, aiContent, categories, actions));
         recoveryPlanRepository.save(plan);
 
         String generationMessage = isFollowUp
@@ -268,6 +271,37 @@ public class RecoveryPlanService {
         }
 
         return mapToResponse(plan);
+    }
+
+    private boolean shouldUseAiRecoveryContent(RecoveryPlanSource source) {
+        return source == RecoveryPlanSource.AI;
+    }
+
+    private RecoveryPlanGenerationMode resolveGenerationMode(RecoveryPlanSource source, GeminiRecoveryResult aiContent) {
+        if (source != RecoveryPlanSource.AI) {
+            return RecoveryPlanGenerationMode.RULE_FALLBACK;
+        }
+        return aiContent == null ? RecoveryPlanGenerationMode.AI_FAILED_FALLBACK : RecoveryPlanGenerationMode.AI_GENERATED;
+    }
+
+    private String buildPlanDetailsJson(RecoveryPlanSource source, GeminiRecoveryResult aiContent,
+                                        List<String> categories, List<RecoveryPlanAction> actions) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("source", source != null ? source.name() : null);
+        details.put("aiContentUsed", aiContent != null);
+        details.put("categoryCount", categories != null ? categories.size() : 0);
+        details.put("actionCount", actions != null ? actions.size() : 0);
+        details.put("actionTypes", actions == null ? List.of() : actions.stream()
+                .map(RecoveryPlanAction::getActionType)
+                .filter(actionType -> actionType != null)
+                .map(Enum::name)
+                .collect(Collectors.toList()));
+        try {
+            return objectMapper.writeValueAsString(details);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize recovery plan details JSON: {}", ex.getMessage());
+            return "{}";
+        }
     }
 
     private List<RecoveryPlanAction> buildActions(RecoveryPlan plan, Task task, TaskSlaState slaState,
@@ -1000,8 +1034,10 @@ public class RecoveryPlanService {
                 .status(plan.getStatus() != null ? plan.getStatus().name() : null)
                 .riskLevel(plan.getRiskLevel())
                 .riskCategories(categories)
+                .planDetailsJson(plan.getPlanDetailsJson())
                 .summary(plan.getSummary())
                 .generatedSource(plan.getGeneratedSource() != null ? plan.getGeneratedSource().name() : null)
+                .generationMode(plan.getGenerationMode() != null ? plan.getGenerationMode().name() : null)
                 .rejectReason(plan.getRejectReason())
                 .priority(resolvePlanPriority(planActions))
                 .followUp(plan.isFollowUp())
