@@ -21,6 +21,7 @@ import org.example.backend.entity.AiGenerationStatus;
 import org.example.backend.repository.AiGenerationStagingRepository;
 import org.example.backend.service.AiGenerationService;
 import org.example.backend.service.SelectorEnrichmentService;
+import org.example.backend.service.ApiKnowledgeService;
 import org.example.backend.repository.RequirementRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.exception.ResourceNotFoundException;
@@ -54,6 +55,7 @@ public class TestCaseController {
     private final AiGenerationService aiGenerationService;
     private final ObjectMapper objectMapper;
     private final SelectorEnrichmentService selectorEnrichmentService;
+    private final ApiKnowledgeService apiKnowledgeService;
     private final RequirementRepository requirementRepository;
 
     @PostMapping
@@ -181,26 +183,36 @@ public class TestCaseController {
         AiGenerationStaging staging = aiTestCaseGeneratorService.createProcessingStaging(request, projectId);
         
         try {
-            // 2. [NEW] Enrich with real selectors from GitHub source code if requested
-            String selectorContext = null;
-            if (request.isEnrichWithSelectors()) {
-                // Fetch requirement title + description for two-step AI file selection
-                String reqTitle = "";
-                String reqDesc = "";
-                if (request.getRequirementId() != null) {
-                    org.example.backend.entity.Requirement req = requirementRepository
-                            .findById(request.getRequirementId()).orElse(null);
-                    if (req != null) {
-                        reqTitle = req.getTitle() != null ? req.getTitle() : "";
-                        reqDesc  = req.getDescription() != null ? req.getDescription() : "";
-                    }
+            // 2. Load requirement once for both enrichment steps
+            String enrichReqTitle = "";
+            String enrichReqDesc  = "";
+            if (request.getRequirementId() != null
+                    && (request.isEnrichWithSelectors() || request.isEnrichWithApiKnowledge())) {
+                org.example.backend.entity.Requirement enrichReq = requirementRepository
+                        .findById(request.getRequirementId()).orElse(null);
+                if (enrichReq != null) {
+                    enrichReqTitle = enrichReq.getTitle()       != null ? enrichReq.getTitle()       : "";
+                    enrichReqDesc  = enrichReq.getDescription() != null ? enrichReq.getDescription() : "";
                 }
-                selectorContext = selectorEnrichmentService.extractSelectorContext(
-                        projectId, user.getId(), reqTitle, reqDesc);
             }
 
-            // 3. Call Gemini (with optional selectorContext)
-            org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData = aiTestCaseGeneratorService.generateTestCases(request, selectorContext);
+            // 3. Enrich with real selectors from GitHub source code if requested
+            String selectorContext = null;
+            if (request.isEnrichWithSelectors()) {
+                selectorContext = selectorEnrichmentService.extractSelectorContext(
+                        projectId, user.getId(), enrichReqTitle, enrichReqDesc);
+            }
+
+            // 4. Enrich with API Knowledge from backend Spring Boot source code if requested
+            String apiKnowledgeContext = null;
+            if (request.isEnrichWithApiKnowledge()) {
+                apiKnowledgeContext = apiKnowledgeService.extractApiKnowledgeContext(
+                        projectId, user.getId(), enrichReqTitle, enrichReqDesc);
+            }
+
+            // 5. Call Gemini (with optional selectorContext and apiKnowledgeContext)
+            org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData =
+                    aiTestCaseGeneratorService.generateTestCases(request, selectorContext, apiKnowledgeContext);
             
             // 4. Update staging to PENDING with payload
             staging.setStatus(AiGenerationStatus.PENDING);
