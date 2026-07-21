@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import UCDiagramEditorPage from '../pages/UCDiagramEditorPage';
 import { useCaseService } from '../services/useCaseService';
-import { taskService } from '../../kanban/services/taskService';
+import { businessModuleService } from '../services/businessModuleService';
 import { diagramService } from '../services/diagramService';
 import toast from 'react-hot-toast';
 
@@ -97,6 +97,7 @@ const GroupedUCDiagramList = ({
   allUseCases = [],
   isLeader,
   currentUserId,
+  projectMembers = [],
   onApproveUseCase,
   onRejectUseCase,
   onRefresh,
@@ -104,26 +105,43 @@ const GroupedUCDiagramList = ({
   onDiagramTabChange    // callback(tab)
 }) => {
   const [activeModuleId, setActiveModuleId] = useState(null);
+  const [editorMode, setEditorMode] = useState('view');
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [moduleTasks, setModuleTasks] = useState([]); // MODULE_TASK tasks from backend
+  const [modules, setModules] = useState([]); // BusinessModules from backend
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Fetch MODULE_TASK tasks to know each module's assignee
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.assignee-dropdown-container')) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (!projectId) return;
-    taskService.getProjectTasks(projectId)
-      .then(tasks => {
-        const mt = (tasks || []).filter(t => t.type === 'MODULE_TASK');
-        setModuleTasks(mt);
-      })
+    businessModuleService.getModulesByProject(projectId)
+      .then(mods => setModules(mods || []))
       .catch(() => {});
   }, [projectId, refreshKey]);
 
   // Group use cases by module
   const groupedModules = useMemo(() => {
     const groups = {};
+    
+    modules.forEach(m => {
+      groups[m.id] = {
+        moduleId: m.id,
+        moduleName: m.name,
+        useCases: []
+      };
+    });
+
     allUseCases.forEach(uc => {
       const moduleId = uc.moduleId || 'unknown';
       if (!groups[moduleId]) {
@@ -135,19 +153,25 @@ const GroupedUCDiagramList = ({
       }
       groups[moduleId].useCases.push(uc);
     });
-    return Object.values(groups);
-  }, [allUseCases]);
+    return Object.values(groups).sort((a, b) => {
+      if (a.moduleName === 'General Module') return 1;
+      if (b.moduleName === 'General Module') return -1;
+      return a.moduleName.localeCompare(b.moduleName);
+    });
+  }, [allUseCases, modules]);
 
   // Get assignee for each module
   const getModuleAssignee = (moduleId) => {
-    const task = moduleTasks.find(t => String(t.businessModuleId) === String(moduleId));
-    return task?.primaryAssignee || null;
+    const mod = modules.find(m => String(m.id) === String(moduleId));
+    if (mod && mod.assigneeId) {
+      return { id: mod.assigneeId, name: mod.assigneeName, username: mod.assigneeUsername, avatarUrl: mod.assigneeAvatar };
+    }
+    return null;
   };
 
-  // Get priority for each module
+  // Get priority for each module (not applicable for BusinessModule anymore, just return MEDIUM for now)
   const getModulePriority = (moduleId) => {
-    const task = moduleTasks.find(t => String(t.businessModuleId) === String(moduleId));
-    return task?.priority || 'MEDIUM';
+    return 'MEDIUM';
   };
 
   // Check if current user is the assignee for a module
@@ -161,6 +185,23 @@ const GroupedUCDiagramList = ({
     return isLeader || isModuleAssignee(moduleId);
   };
 
+  const handleAssignMember = async (moduleId, moduleName, memberId, e) => {
+    e.stopPropagation();
+    setActiveDropdown(null);
+    try {
+      if (moduleId === 'unknown') {
+         toast.error("Cannot assign member to General Module");
+         return;
+      }
+      await businessModuleService.assignMember(projectId, moduleId, memberId);
+      setRefreshKey(k => k + 1); // Refresh modules
+      toast.success("Assigned member successfully");
+    } catch (err) {
+      console.error("Failed to assign member", err);
+      toast.error("Failed to assign member");
+    }
+  };
+
   const handleClose = () => {
     setActiveModuleId(null);
     setRefreshKey(k => k + 1); // refresh thumbnails after editing
@@ -169,112 +210,24 @@ const GroupedUCDiagramList = ({
   // --- Diagram view when a module is opened ---
   if (activeModuleId) {
     const activeGroup = groupedModules.find(g => g.moduleId === activeModuleId);
-    const pendingUseCases = activeGroup
-      ? activeGroup.useCases.filter(uc => uc.status !== 'DONE' && uc.status !== 'REJECTED' && uc.status !== 'DIAGRAM_APPROVED')
-      : [];
-    const editMode = canEditModule(activeModuleId) ? 'edit' : 'view';
-
-    const handleApproveAll = async () => {
-      if (pendingUseCases.length === 0) return;
-      setLoading(true);
-      try {
-        await Promise.all(pendingUseCases.map(uc => {
-          const reqId = (uc.requirements && uc.requirements.length > 0) ? uc.requirements[0].id : uc.requirementId;
-          return useCaseService.approveUseCase(uc.id, projectId, reqId, 'DIAGRAM');
-        }));
-        toast.success(`Approved ${pendingUseCases.length} Use Cases (Diagram).`);
-        if (onRefresh) onRefresh();
-      } catch {
-        toast.error("Failed to approve Use Cases");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const handleRejectAll = async () => {
-      if (!rejectReason.trim()) {
-        toast.error("Vui lòng nhập lý do từ chối");
-        return;
-      }
-      setLoading(true);
-      try {
-        await Promise.all(pendingUseCases.map(uc =>
-          useCaseService.updateUseCaseStatus(uc.id, 'REJECTED', projectId, rejectReason)
-        ));
-        toast.success(`Rejected ${pendingUseCases.length} Use Cases.`);
-        setIsRejecting(false);
-        setRejectReason('');
-        if (onRefresh) onRefresh();
-      } catch {
-        toast.error("Failed to reject Use Cases");
-      } finally {
-        setLoading(false);
-      }
-    };
 
     return (
       <div className="flex flex-col h-full bg-surface-container-lowest">
         <div className="flex-1 overflow-hidden">
           <UCDiagramEditorPage
             projectId={projectId}
-            mode={editMode}
+            mode={editorMode}
             onClose={handleClose}
+            onEdit={canEditModule(activeModuleId) ? () => setEditorMode('edit') : undefined}
+            onView={() => setEditorMode('view')}
             activeView="module"
             currentModuleId={activeModuleId}
+            currentModuleName={activeGroup?.moduleName || 'System'}
             isLeader={isLeader}
           />
         </div>
 
-        {/* Bulk Action Footer */}
-        {isLeader && pendingUseCases.length > 0 && (
-          <div className="border-t border-outline-variant bg-white p-3 flex flex-col gap-2 shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-medium text-gray-500">{pendingUseCases.length} pending review</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleApproveAll}
-                  disabled={loading}
-                  className="px-3 py-1.5 bg-primary hover:bg-[#11464f] text-white font-semibold rounded-md text-xs shadow-sm transition-all disabled:opacity-50 flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  Approve
-                </button>
-                <button
-                  onClick={() => setIsRejecting(!isRejecting)}
-                  disabled={loading}
-                  className={`px-3 py-1.5 font-semibold rounded-md text-xs shadow-sm transition-all disabled:opacity-50 flex items-center gap-1 ${
-                    isRejecting
-                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent'
-                      : 'bg-white border border-red-200 text-red-600 hover:bg-red-50'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[14px]">{isRejecting ? 'close' : 'cancel'}</span>
-                  {isRejecting ? 'Cancel' : 'Reject'}
-                </button>
-              </div>
-            </div>
-            {isRejecting && (
-              <div className="mt-2 flex gap-2 animate-in slide-in-from-top-2">
-                <input
-                  type="text"
-                  placeholder="Lý do từ chối chung..."
-                  value={rejectReason}
-                  onChange={e => setRejectReason(e.target.value)}
-                  disabled={loading}
-                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-primary disabled:opacity-50"
-                  autoFocus
-                />
-                <button
-                  onClick={handleRejectAll}
-                  disabled={loading}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium whitespace-nowrap disabled:opacity-50"
-                >
-                  Xác nhận
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+
       </div>
     );
   }
@@ -334,7 +287,10 @@ const GroupedUCDiagramList = ({
               return (
                 <div
                   key={group.moduleId}
-                  onClick={() => setActiveModuleId(group.moduleId)}
+                  onClick={() => {
+                    setActiveModuleId(group.moduleId);
+                    setEditorMode('view');
+                  }}
                   className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-primary/40 transition-all duration-300 overflow-hidden flex flex-col group/card cursor-pointer"
                 >
                   {/* Header */}
@@ -370,17 +326,60 @@ const GroupedUCDiagramList = ({
                     </div>
 
                     {/* Assignee Avatar */}
-                    {assignee ? (
-                      <div className="z-10 flex items-center gap-1.5 flex-shrink-0 ml-2" title={`Assigned to: ${assignee.name || assignee.username}`}>
-                        <AssigneeAvatar user={assignee} size={30} />
+                    <div className="z-10 flex-shrink-0 ml-2 relative assignee-dropdown-container">
+                      <div 
+                        className={`flex items-center gap-1.5 ${isLeader ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-full transition-all' : ''}`}
+                        title={assignee ? `Assigned to: ${assignee.name || assignee.username}` : "No assignee"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isLeader) {
+                            setActiveDropdown(activeDropdown === group.moduleId ? null : group.moduleId);
+                          }
+                        }}
+                      >
+                        {assignee ? (
+                          <AssigneeAvatar user={assignee} size={30} />
+                        ) : (
+                          <div className="w-[30px] h-[30px] rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-[14px] text-gray-400">person</span>
+                          </div>
+                        )}
+                        {isLeader && (
+                          <span className="material-symbols-outlined text-[12px] text-gray-400 bg-white rounded-full absolute -bottom-1 -right-1 shadow-sm">arrow_drop_down</span>
+                        )}
                       </div>
-                    ) : (
-                      <div className="z-10 flex-shrink-0 ml-2">
-                        <div title="No assignee" className="w-[30px] h-[30px] rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="material-symbols-outlined text-[14px] text-gray-400">person</span>
+
+                      {/* Dropdown Menu */}
+                      {activeDropdown === group.moduleId && isLeader && (
+                        <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-50 overflow-hidden py-1" onClick={e => e.stopPropagation()}>
+                          <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100">Assign to...</div>
+                          <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                            <button
+                              onClick={(e) => handleAssignMember(group.moduleId, group.moduleName, null, e)}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                            >
+                              <div className="w-[24px] h-[24px] rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                                <span className="material-symbols-outlined text-[12px] text-gray-400">close</span>
+                              </div>
+                              <span className="text-gray-500 italic">Unassigned</span>
+                            </button>
+                            {projectMembers.map(member => (
+                              <button
+                                key={member.id}
+                                onClick={(e) => handleAssignMember(group.moduleId, group.moduleName, member.id, e)}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                              >
+                                <AssigneeAvatar user={member} size={24} />
+                                <span className="truncate flex-1">{member.name || member.username}</span>
+                                {assignee?.id === member.id && (
+                                  <span className="material-symbols-outlined text-[16px] text-primary">check</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   {/* Thumbnail (preview image saved from diagram) */}

@@ -23,11 +23,19 @@ public class BusinessModule {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private UserAccount assignee;
+
     @Column(name = "name", nullable = false, length = 200)
     private String name;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "priority", length = 20)
+    @Builder.Default
+    private String priority = "MEDIUM";
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -123,6 +123,7 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "- Use Cases that represent system sub-routines (e.g., Record, Log, Verify) should generally NOT have an actor connected directly to them, and should only be 'included' by other Use Cases.\n" +
                 "- DO NOT connect actors to sub-routine Use Cases. DO NOT add include/extend relations if not completely obvious. Prefer a clean diagram over a messy one.\n\n" +
                 "CRITICAL INSTRUCTION: All generated text (except keys) MUST BE WRITTEN IN ENGLISH, to match the target audience.\n" +
+                "CRITICAL RULE ON DUPLICATES: DO NOT generate any Use Cases that are already listed in the 'EXISTING USE CASES' section below. If a requirement is already fulfilled by an existing use case, DO NOT generate a duplicate.\n" +
                 "YOU MUST RETURN ONLY A DIRECT JSON ARRAY. DO NOT WRAP IT IN A JSON OBJECT.\n\n" +
                 "--- ALLOWED ACTORS ---\n" + actorsContext + "\n\n" +
                 "--- EXISTING USE CASES ---\n" + existingUcContext + "\n\n" +

@@ -39,6 +39,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   
   const [selectedIndices, setSelectedIndices] = useState(new Set());
   const [globalSprintId, setGlobalSprintId] = useState('');
+  const [showCoverageWarning, setShowCoverageWarning] = useState(false);
   
   // Inline Edit State (REMOVED: Now handled by EditableTaskCard)
 
@@ -101,6 +102,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       if (generatedTasks.length === 0) {
         setTasks([]);
         setAssessment(payloadData.ai_critical_assessment || null);
+        setShowCoverageWarning(true);
         setLoading(false);
         return;
       }
@@ -1044,7 +1046,24 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           }
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '' });
         }}
-        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '' })}
+        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
+
+      <ConfirmModal
+        isOpen={showCoverageWarning}
+        title="Đã bao phủ toàn bộ"
+        message="AI không thể sinh thêm Task mới. Có vẻ như toàn bộ Use Case / Requirement hợp lệ đều đã được bao phủ bởi các Task hiện tại."
+        confirmText="Đã hiểu"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => {
+          setShowCoverageWarning(false);
+          onClose(); // Automatically close the modal after acknowledging there is nothing to do
+        }}
+        onCancel={() => {
+          setShowCoverageWarning(false);
+          onClose();
+        }}
       />
     </div>
   );

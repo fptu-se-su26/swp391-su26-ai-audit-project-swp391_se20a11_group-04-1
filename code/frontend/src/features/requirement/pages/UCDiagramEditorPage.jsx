@@ -7,9 +7,9 @@ import { requirementApi } from '../services/requirementApi';
 import toast from 'react-hot-toast';
 import Button from '../../../components/ui/Button';
 
-const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentModuleId }) => {
+const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentModuleId, currentModuleName }) => {
   const { actors, useCases, relations, loadData, reset } = useDiagramStore();
-  const [systemName, setSystemName] = useState("System");
+  const [systemName, setSystemName] = useState(currentModuleName || "System");
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved', 'unsaved', 'saving', 'error'
   const diagramRef = useRef(null);
@@ -63,6 +63,12 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       reset();
     };
   }, [projectId, loadData, reset, currentModuleId, activeView]);
+
+  useEffect(() => {
+    if (currentModuleName) {
+      setSystemName(currentModuleName);
+    }
+  }, [currentModuleName]);
 
   const handleDiagramSave = useCallback(async (base64Png, positions) => {
     if (!projectId) return;
@@ -225,29 +231,31 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full bg-gray-50 overflow-hidden relative">
-        <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-6 py-4 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] z-10 relative">
+          <div className="flex items-center gap-4">
             <button 
               onClick={!isViewMode && onView ? onView : onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-primary/10 text-gray-500 hover:text-primary transition-all duration-300 shadow-sm border border-gray-100"
               title={!isViewMode ? "View Diagram" : "Back to List"}
               disabled={saveStatus === 'saving'}
             >
-              <span className="material-symbols-outlined">arrow_back</span>
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
             </button>
-            <h1 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#1E707D]">
-                {isViewMode ? 'visibility' : 'edit_document'}
+            <h1 className="text-[18px] font-bold text-gray-800 flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[18px]">
+                  {isViewMode ? 'visibility' : 'edit_document'}
+                </span>
               </span>
-              {isViewMode ? 'Use Case Diagram (View Only)' : (activeView === 'module' && currentModuleId ? "Module's Diagram" : 'View Diagram')}
+              {activeView === 'module' && currentModuleId ? "Module's Diagram" : 'Project Overview'}
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 ml-3">
+            <div className="flex items-center gap-4 ml-3">
               <Button
                 variant="outline"
                 onClick={() => window.exportDiagramDrawio?.(systemName)}
-                className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 h-9"
+                className="text-primary border-primary/20 hover:bg-primary/5 h-[38px] rounded-lg shadow-sm font-semibold transition-all"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
                 Export Draw.io
@@ -257,18 +265,18 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
                 <Button
                   variant="primary"
                   onClick={onEdit}
-                  className="h-9"
+                  className="h-[38px] rounded-lg shadow-sm shadow-primary/20 font-semibold"
                 >
                   <span className="material-symbols-outlined text-[18px]">edit</span>
                   Edit Diagram
                 </Button>
               )
             ) : (
-              <div className={`flex items-center justify-center min-w-[150px] gap-2 px-4 h-9 rounded-md font-medium text-sm border 
-                  ${saveStatus === 'saved' ? 'bg-green-50 text-green-700 border-green-200' : ''}
-                  ${saveStatus === 'unsaved' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
-                  ${saveStatus === 'saving' ? 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/20' : ''}
-                  ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+              <div className={`flex items-center justify-center min-w-[140px] gap-2 px-4 h-[38px] rounded-lg font-bold text-[13px] shadow-sm transition-all
+                  ${saveStatus === 'saved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : ''}
+                  ${saveStatus === 'unsaved' ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : ''}
+                  ${saveStatus === 'saving' ? 'bg-primary/10 text-primary border border-primary/20' : ''}
+                  ${saveStatus === 'error' ? 'bg-red-50 text-red-700 border border-red-200/50' : ''}
               `}>
                 {saveStatus === 'saving' && (
                   <>

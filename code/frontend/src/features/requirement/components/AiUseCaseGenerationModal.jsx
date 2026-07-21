@@ -5,6 +5,7 @@ import { useCaseService } from '../services/useCaseService';
 import { requirementService } from '../services/requirementService';
 import Button from '../../../components/ui/Button';
 import axiosInstance from '../../../api/axiosConfig';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -13,12 +14,29 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   const [approving, setApproving] = useState(false);
   const [useCases, setUseCases] = useState([]);
   const [selectedIndices, setSelectedIndices] = useState(new Set());
+  const [showCoverageWarning, setShowCoverageWarning] = useState(false);
   const [projectId, setProjectId] = useState(null);
   const [viewMode, setViewMode] = useState('grouped'); // 'list' or 'grouped'
   const [requirements, setRequirements] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [deleteModuleTarget, setDeleteModuleTarget] = useState(null);
+  const [moduleDefs, setModuleDefs] = useState([]);
+  const [existingUseCases, setExistingUseCases] = useState([]);
   
   const activeMembers = projectMembers;
+
+  const handleScrollOnDrag = (e) => {
+    if (!e.clientY) return;
+    const container = document.getElementById('ai-gen-scroll-container');
+    if (!container) return;
+    const { top, bottom } = container.getBoundingClientRect();
+    const threshold = 100;
+    if (e.clientY - top < threshold) {
+      container.scrollTop -= 20;
+    } else if (bottom - e.clientY < threshold) {
+      container.scrollTop += 20;
+    }
+  };
 
   useEffect(() => {
     if (isOpen && generationId) {
@@ -52,6 +70,16 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
             } catch (err) {
               console.error("Failed to fetch project members", err);
             }
+            
+            // Fetch existing Use Cases for duplicate check
+            let existingUcs = [];
+            try {
+              existingUcs = await useCaseService.getAllUseCases(pId);
+              setExistingUseCases(existingUcs || []);
+            } catch (err) {
+              console.error("Failed to fetch existing use cases", err);
+            }
+
           }
 
           let payloadData = data.payload || [];
@@ -59,18 +87,42 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
             try { payloadData = JSON.parse(payloadData); } catch(e) {}
           }
           if (Array.isArray(payloadData)) {
+            // Check duplicates and format flows
+            const existingNames = new Set((existingUcs || []).map(u => u.name.trim().toLowerCase()));
             payloadData = payloadData.map(uc => ({
               ...uc,
+              isDuplicate: uc.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
               mainSuccessScenario: normalizeFlowToText(uc.mainSuccessScenario || uc.mainFlow || uc.mainFlows),
               alternativeFlows: normalizeFlowToText(uc.alternativeFlows || uc.alternativeFlow)
             }));
           }
           setUseCases(Array.isArray(payloadData) ? payloadData : []);
+          
+          const initialModules = [];
+          const moduleSet = new Set();
+          (Array.isArray(payloadData) ? payloadData : []).forEach(uc => {
+            const mName = uc.moduleName || 'General Module';
+            if (!moduleSet.has(mName)) {
+              moduleSet.add(mName);
+              initialModules.push({
+                moduleName: mName,
+                priority: uc.modulePriority || 'MEDIUM',
+                assignee: uc.moduleAssignee || 'System'
+              });
+            }
+          });
+          setModuleDefs(initialModules);
+
           const validIndices = (Array.isArray(payloadData) ? payloadData : [])
             .map((uc, i) => ({uc, i}))
-            .filter(({uc}) => !uc.isDuplicate)
+            .filter(({uc}) => !uc.isDuplicate && !uc.isDeleted)
             .map(({i}) => i);
+          
           setSelectedIndices(new Set(validIndices));
+
+          if (validIndices.length === 0) {
+            setShowCoverageWarning(true);
+          }
         })
         .catch(err => {
           console.error("Failed to load AI generation data", err);
@@ -101,6 +153,10 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
 
   const groupedUseCases = useMemo(() => {
     const groups = {};
+    moduleDefs.forEach(md => {
+      groups[md.moduleName] = { ...md, items: [] };
+    });
+
     useCases.forEach((uc, originalIndex) => {
       if (uc.isDeleted) return;
       const moduleName = uc.moduleName || 'General Module';
@@ -112,10 +168,18 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           items: [] 
         };
       }
-      groups[moduleName].items.push({ uc, originalIndex });
+      groups[moduleName].items.push({ ...uc, originalIndex });
     });
-    return Object.values(groups);
-  }, [useCases]);
+
+    return Object.values(groups).map(g => {
+      g.items.sort((a, b) => {
+        if (a.isDuplicate && !b.isDuplicate) return 1;
+        if (!a.isDuplicate && b.isDuplicate) return -1;
+        return 0;
+      });
+      return g;
+    });
+  }, [useCases, moduleDefs]);
 
   const totalModules = groupedUseCases.length;
   const totalUseCases = groupedUseCases.reduce((acc, g) => acc + g.items.length, 0);
@@ -148,6 +212,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
 
   const handleUpdateModuleName = (oldName, newName) => {
     if(oldName === newName || !newName.trim()) return;
+    setModuleDefs(prev => prev.map(m => m.moduleName === oldName ? { ...m, moduleName: newName } : m));
     setUseCases(prev => prev.map(uc => 
        (uc.moduleName || 'General Module') === oldName 
           ? { ...uc, moduleName: newName } 
@@ -156,6 +221,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   };
 
   const handleUpdateModuleField = (moduleName, field, value) => {
+    setModuleDefs(prev => prev.map(m => m.moduleName === moduleName ? { ...m, [field]: value } : m));
     setUseCases(prev => prev.map(uc => 
        (uc.moduleName || 'General Module') === moduleName 
           ? { ...uc, [field]: value } 
@@ -164,13 +230,54 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   };
 
   const handleDeleteModule = (moduleName) => {
-    if (!window.confirm(`Are you sure you want to delete module "${moduleName}" and all its Use Cases?`)) return;
+    setDeleteModuleTarget(moduleName);
+  };
+
+  const confirmDeleteModule = () => {
+    if (!deleteModuleTarget) return;
     
-    setUseCases(prev => prev.map(uc => 
-       (uc.moduleName || 'General Module') === moduleName 
-          ? { ...uc, isDeleted: true } 
-          : uc
-    ));
+    let fallbackModule;
+    setModuleDefs(prev => {
+      const remaining = prev.filter(m => m.moduleName !== deleteModuleTarget);
+      if (remaining.length > 0) {
+        fallbackModule = remaining[0].moduleName;
+        return remaining;
+      } else {
+        fallbackModule = 'Unassigned Use Cases';
+        return [{ moduleName: fallbackModule, priority: 'MEDIUM', assignee: 'System' }];
+      }
+    });
+    
+    setUseCases(prev => {
+      return prev.map(uc => 
+         (uc.moduleName || 'General Module') === deleteModuleTarget 
+            ? { ...uc, moduleName: fallbackModule } 
+            : uc
+      );
+    });
+    setDeleteModuleTarget(null);
+  };
+
+  const handleAddModule = () => {
+    const newName = `New Module ${moduleDefs.length + 1}`;
+    setModuleDefs(prev => [...prev, { moduleName: newName, priority: 'MEDIUM', assignee: 'System' }]);
+    
+    setTimeout(() => {
+      const container = document.getElementById('ai-gen-scroll-container');
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
+  const handleDeleteUC = (index, e) => {
+    e.stopPropagation();
+    const updated = [...useCases];
+    updated[index] = { ...updated[index], isDeleted: true };
+    setUseCases(updated);
+    if (selectedIndices.has(index)) {
+      toggleSelect(index);
+    }
   };
 
   const handleDragStart = (e, originalIndex, fromModule) => {
@@ -267,22 +374,30 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
               placeholder="Use Case Name"
               onClick={e => e.stopPropagation()}
             />
+            <button 
+              type="button"
+              onClick={(e) => handleDeleteUC(index, e)}
+              className="w-6 h-6 rounded flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0 ml-1"
+              title="Delete Use Case"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+            </button>
           </div>
         </div>
         
         <div className="p-3 space-y-3 flex-1 flex flex-col">
           {/* Display Critic Errors & Warnings */}
           {(uc.errors?.length > 0 || uc.warnings?.length > 0) && (
-            <div className="flex flex-col gap-1.5 shrink-0 mb-1">
+            <div className="flex flex-col gap-1 shrink-0 mb-1 text-xs bg-orange-50 border border-orange-100 rounded p-2">
               {uc.errors?.map((err, i) => (
-                <div key={`err-${i}`} className="flex items-start gap-1.5 text-xs text-red-700 bg-red-50 p-2 rounded border border-red-100">
-                  <span className="material-symbols-outlined text-[14px] mt-0.5">error</span>
+                <div key={`err-${i}`} className="flex items-start gap-1.5 text-red-700">
+                  <span className="material-symbols-outlined text-[13px] mt-0.5 shrink-0">error</span>
                   <span>{err}</span>
                 </div>
               ))}
               {uc.warnings?.map((warn, i) => (
-                <div key={`warn-${i}`} className="flex items-start gap-1.5 text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-100">
-                  <span className="material-symbols-outlined text-[14px] mt-0.5">warning</span>
+                <div key={`warn-${i}`} className="flex items-start gap-1.5 text-orange-700">
+                  <span className="material-symbols-outlined text-[13px] mt-0.5 shrink-0">warning</span>
                   <span>{warn}</span>
                 </div>
               ))}
@@ -379,6 +494,14 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                 <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
                   Total Use Cases: {totalUseCases}
                 </span>
+                <button
+                  type="button"
+                  onClick={handleAddModule}
+                  className="text-xs font-bold text-white bg-[#1E707D] hover:bg-[#165964] px-2 py-0.5 rounded flex items-center gap-1 transition-colors ml-2 shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[14px]">add</span>
+                  Add Module
+                </button>
               </div>
             </div>
           </div>
@@ -418,7 +541,11 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
         </div>
         
         {/* Body */}
-        <div className="overflow-y-auto flex-1 p-4 bg-surface-50">
+        <div 
+          id="ai-gen-scroll-container"
+          className="overflow-y-auto flex-1 p-4 bg-surface-50"
+          onDragOver={handleScrollOnDrag}
+        >
           {loading ? (
             <div className="flex flex-col justify-center items-center h-full gap-4">
               <span className="material-symbols-outlined animate-spin text-[#1E707D] text-4xl">progress_activity</span>
@@ -572,6 +699,27 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           </div>
         </div>
       </div>
+
+      <ConfirmModal 
+        isOpen={!!deleteModuleTarget}
+        title="Delete Module"
+        message={`Are you sure you want to delete module "${deleteModuleTarget}"? All Use Cases inside it will be moved to another available module.`}
+        confirmText="Delete"
+        onConfirm={confirmDeleteModule}
+        onCancel={() => setDeleteModuleTarget(null)}
+        type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showCoverageWarning}
+        title="Đã bao phủ toàn bộ"
+        message="AI không thể sinh thêm Use Case mới. Có vẻ như toàn bộ Requirement đã được Use Case bao phủ đầy đủ, hoặc kết quả sinh ra đều bị trùng lặp với dữ liệu hiện tại."
+        confirmText="Đã hiểu"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => setShowCoverageWarning(false)}
+        onCancel={() => setShowCoverageWarning(false)}
+      />
     </div>
   );
 };

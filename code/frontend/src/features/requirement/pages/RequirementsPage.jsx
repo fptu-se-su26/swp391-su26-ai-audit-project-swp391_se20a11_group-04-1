@@ -197,27 +197,34 @@ const RequirementsPage = () => {
     <div className="flex flex-col gap-4">
       <RequirementHeader onOpenCreateModal={() => setIsCreateModalOpen(true)} isLeader={isLeader}>
         {!isLeader && (
-          <div className="flex items-center gap-2 bg-white border border-[#D9E7E4] rounded-[10px] p-[3px]">
+          <div className="relative inline-flex items-center bg-gray-100/80 p-1 rounded-lg border border-gray-200/60 shadow-inner">
             <button
               onClick={() => { setViewMode('mine'); setCurrentPage(0); }}
-              className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${
+              className={`relative z-10 flex items-center justify-center h-[32px] w-[70px] rounded-md text-[13px] font-bold tracking-wide transition-all duration-300 ${
                 viewMode === 'mine' 
-                  ? 'bg-[#F3F4F6] text-primary' 
-                  : 'bg-transparent text-[#6B7280] hover:text-primary'
+                  ? 'text-primary' 
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Mine
             </button>
             <button
               onClick={() => { setViewMode('all'); setCurrentPage(0); }}
-              className={`flex items-center justify-center h-[36px] px-[14px] rounded-[8px] text-[13px] font-medium transition-colors ${
+              className={`relative z-10 flex items-center justify-center h-[32px] w-[70px] rounded-md text-[13px] font-bold tracking-wide transition-all duration-300 ${
                 viewMode === 'all' 
-                  ? 'bg-[#F3F4F6] text-primary' 
-                  : 'bg-transparent text-[#6B7280] hover:text-primary'
+                  ? 'text-primary' 
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               All
             </button>
+            
+            {/* Sliding Indicator */}
+            <div 
+              className={`absolute top-1 bottom-1 w-[70px] bg-white rounded-md shadow-[0_2px_8px_-2px_rgba(0,0,0,0.12)] border border-gray-200/50 transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                viewMode === 'mine' ? 'translate-x-0' : 'translate-x-[70px]'
+              }`}
+            />
           </div>
         )}
       </RequirementHeader>

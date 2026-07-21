@@ -5,8 +5,6 @@ const UseCaseNode = ({ data, id, isConnectable, selected }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(data.label);
   const inputRef = useRef(null);
-  const [isRejecting, setIsRejecting] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
       setName(data.label);
@@ -22,7 +20,6 @@ const UseCaseNode = ({ data, id, isConnectable, selected }) => {
   const handleDoubleClick = (e) => {
       e.stopPropagation();
       setIsEditing(true);
-      setIsRejecting(false);
   };
 
   const submitName = () => {
@@ -53,72 +50,14 @@ const UseCaseNode = ({ data, id, isConnectable, selected }) => {
         onDoubleClick={handleDoubleClick}
     >
       <NodeToolbar isVisible={selected && !isEditing} position={Position.Top}>
-          <div className="flex flex-col items-center gap-1">
-            <div className="flex items-center gap-1 bg-white border border-gray-200 shadow-md rounded-full p-1">
-              {data.isLeader && (
-                <>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); if (data.onApprove) data.onApprove(id); }}
-                    className="text-green-600 hover:bg-green-50 rounded-full p-1 flex items-center justify-center transition-colors"
-                    title="Approve Use Case"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setIsRejecting(!isRejecting); }}
-                    className={`${isRejecting ? 'bg-orange-100' : 'hover:bg-orange-50'} text-orange-500 rounded-full p-1 flex items-center justify-center transition-colors`}
-                    title="Reject Use Case"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">cancel</span>
-                  </button>
-                  <div className="w-[1px] h-4 bg-gray-200 mx-1"></div>
-                </>
-              )}
-              <button 
-                 onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
-                 className="text-red-500 hover:bg-red-50 rounded-full p-1 flex items-center justify-center transition-colors"
-                 title="Xóa Use Case"
-              >
-                 <span className="material-symbols-outlined text-[16px]">delete</span>
-              </button>
-            </div>
-            
-            {/* Inline Reject Form */}
-            {isRejecting && (
-              <div className="flex items-center gap-1 bg-white border border-gray-200 shadow-md rounded-lg p-1 mt-1 animate-in slide-in-from-top-2">
-                <input 
-                  type="text" 
-                  autoFocus
-                  placeholder="Lý do từ chối..."
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                    if (e.key === 'Enter' && rejectReason.trim()) {
-                      if (data.onReject) data.onReject(id, rejectReason);
-                      setIsRejecting(false);
-                      setRejectReason('');
-                    } else if (e.key === 'Escape') {
-                      setIsRejecting(false);
-                    }
-                  }}
-                  className="w-32 px-2 py-1 text-[11px] border-none outline-none rounded-md focus:ring-1 focus:ring-orange-300"
-                />
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (rejectReason.trim() && data.onReject) {
-                      data.onReject(id, rejectReason);
-                      setIsRejecting(false);
-                      setRejectReason('');
-                    }
-                  }}
-                  className="bg-orange-500 hover:bg-orange-600 text-white p-1 rounded transition-colors flex items-center justify-center"
-                >
-                  <span className="material-symbols-outlined text-[14px]">send</span>
-                </button>
-              </div>
-            )}
+          <div className="flex items-center gap-1 bg-white border border-gray-200 shadow-md rounded-full p-1">
+            <button 
+               onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
+               className="text-red-500 hover:bg-red-50 rounded-full p-1 flex items-center justify-center transition-colors"
+               title="Xóa Use Case"
+            >
+               <span className="material-symbols-outlined text-[16px]">delete</span>
+            </button>
           </div>
       </NodeToolbar>
 

@@ -23,4 +23,5 @@ UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpecificationExecutor
     java.util.List<UseCase> findByRequirementId(Long requirementId);
     java.util.List<UseCase> findByRequirementIdIn(java.util.List<Long> requirementIds);
     long countByProjectId(Long projectId);
+    boolean existsByBusinessModuleId(Long businessModuleId);
 }

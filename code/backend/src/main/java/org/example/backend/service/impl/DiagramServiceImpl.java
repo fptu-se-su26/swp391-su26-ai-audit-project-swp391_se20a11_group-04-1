@@ -147,7 +147,20 @@ public class DiagramServiceImpl implements DiagramService {
             ucDtos.add(ucDto);
         }
         
-        response.setActors(actorDtos);
+        java.util.Set<String> usedActorIds = relations.stream()
+            .map(r -> {
+                if (r.getSourceId().startsWith("actor_")) return r.getSourceId();
+                if (r.getTargetId().startsWith("actor_")) return r.getTargetId();
+                return null;
+            })
+            .filter(id -> id != null)
+            .collect(Collectors.toSet());
+            
+        List<DiagramSyncResponse.DiagramActorDTO> filteredActorDtos = actorDtos.stream()
+            .filter(a -> usedActorIds.contains(a.getId()))
+            .collect(Collectors.toList());
+        
+        response.setActors(filteredActorDtos);
         response.setUseCases(ucDtos);
         response.setRelations(relations);
         

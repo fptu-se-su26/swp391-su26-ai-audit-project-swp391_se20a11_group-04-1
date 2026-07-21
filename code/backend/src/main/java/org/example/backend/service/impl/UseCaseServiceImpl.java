@@ -8,6 +8,8 @@ import org.example.backend.entity.UserAccount;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.ProjectRepository;
+import org.example.backend.repository.BusinessModuleRepository;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.service.UseCaseService;
@@ -51,6 +53,9 @@ public class UseCaseServiceImpl implements UseCaseService {
     
     @Autowired
     private org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+
+    @Autowired
+    private org.example.backend.repository.BusinessModuleRepository businessModuleRepository;
     
     @Autowired
     private org.example.backend.service.NotificationService notificationService;
@@ -386,6 +391,14 @@ public class UseCaseServiceImpl implements UseCaseService {
                     throw new BadRequestException("Start date cannot be changed to a date in the past.");
                 }
             }
+        }
+        
+        if (request.getModuleId() != null) {
+            org.example.backend.entity.BusinessModule module = businessModuleRepository.findById(request.getModuleId())
+                .orElseThrow(() -> new BadRequestException("Business Module not found"));
+            useCase.setBusinessModule(module);
+        } else {
+            useCase.setBusinessModule(null);
         }
 
         if (request.getCode() != null) useCase.setCode(request.getCode());

@@ -7,6 +7,7 @@ import java.util.Map;
 @Data
 public class UseCaseRequest {
     private Long requirementId;
+    private Long moduleId;
     private String code;
     private String name;
     private String precondition;

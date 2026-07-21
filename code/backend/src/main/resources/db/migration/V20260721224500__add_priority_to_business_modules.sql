@@ -1,0 +1,1 @@
+ALTER TABLE business_modules ADD COLUMN priority VARCHAR(20) DEFAULT 'MEDIUM';

@@ -18,6 +18,7 @@ import UseCaseNode from './nodes/UseCaseNode';
 import SystemBoundaryNode from './nodes/SystemBoundaryNode';
 import CustomEdge from './edges/CustomEdge';
 import dagre from 'dagre';
+import { ucLayoutEngine } from '../utils/ucLayoutEngine';
 import { diagramService } from '../services/diagramService';
 import useDiagramStore from '../../../store/useDiagramStore';
 import toast from 'react-hot-toast';
@@ -82,7 +83,7 @@ const calculateDynamicHandles = (edges, nodes) => {
     });
 };
 
-const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
+const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -367,7 +368,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
 
       let savedPositions = null;
       if (projectId && !forceReset) {
-          const data = await diagramService.getDiagramLayout(projectId);
+          const data = await diagramService.getDiagramLayout(projectId, currentModuleId);
           if (data && data.layoutData) {
              const parsed = JSON.parse(data.layoutData);
              savedPositions = parsed.positions || parsed; // Support both new { positions, systemName } format and old backward compatible format
@@ -567,24 +568,38 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         });
         
         if (hasUnsavedActors) {
-            // Unsaved actors found! Auto layout everything
-            const layoutResult = getLayoutedElements(initialNodes, initialEdges);
-            layoutedNodes = layoutResult.nodes;
+            // Unsaved actors found! Auto layout everything with ucLayoutEngine
+            const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
+            layoutedNodes = layoutResult.nodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
             layoutedEdges = layoutResult.edges;
         } else {
-            // Restore system boundary
-            const sysBoundary = restoredNodes.find(n => n.id === 'system_boundary');
-            if (sysBoundary && savedPositions['system_boundary']) {
+            // Restore system boundary if missing from initialNodes (which is always true for backend data)
+            let sysBoundary = restoredNodes.find(n => n.id === 'system_boundary');
+            if (!sysBoundary && savedPositions['system_boundary']) {
+                sysBoundary = {
+                    id: 'system_boundary',
+                    type: 'systemBoundary',
+                    position: { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y },
+                    data: { label: systemName },
+                    draggable: false,
+                    selectable: true,
+                    className: '!pointer-events-none',
+                    style: { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height },
+                    zIndex: 0
+                };
+                restoredNodes.push(sysBoundary);
+            } else if (sysBoundary && savedPositions['system_boundary']) {
                 sysBoundary.position = { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y };
                 sysBoundary.style = { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height };
+                sysBoundary.data = { ...sysBoundary.data, label: systemName };
             }
             layoutedNodes = restoredNodes;
             layoutedEdges = initialEdges;
         }
       } else {
-        // Force reset or no saved positions
-        const layoutResult = getLayoutedElements(initialNodes, initialEdges);
-        layoutedNodes = layoutResult.nodes;
+        // Force reset or no saved positions — use ucLayoutEngine for proper 2-side actor split + system boundary
+        const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
+        layoutedNodes = layoutResult.nodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
         layoutedEdges = layoutResult.edges;
       }
 
@@ -602,7 +617,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       setIsLoading(false);
       setIsInitialized(true);
     }
-  }, [projectId, actors, useCases, relations, systemName, fitView]);
+  }, [projectId, actors, useCases, relations, systemName, fitView, currentModuleId]);
 
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -691,6 +706,28 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               const ucId = `uc_${uc.id}`;
               const index = newNodes.findIndex(n => n.id === ucId);
               if (index === -1) {
+                  // Check if this UC already has relations to actors (transitively) so it shouldn't appear as isolated
+                  const ucRawId = uc.id.toString();
+                  const visited = new Set();
+                  const queue = [ucRawId];
+                  let hasActorConnection = false;
+                  
+                  while(queue.length > 0 && !hasActorConnection) {
+                      const current = queue.shift();
+                      visited.add(current);
+                      const connectedRels = relations.filter(r => r.sourceId.toString() === current || r.targetId.toString() === current);
+                      for (const rel of connectedRels) {
+                          const otherStr = rel.sourceId.toString() === current ? rel.targetId.toString() : rel.sourceId.toString();
+                          if (actors.some(a => a.id.toString() === otherStr)) {
+                              hasActorConnection = true;
+                              break;
+                          }
+                          if (!visited.has(otherStr)) {
+                              queue.push(otherStr);
+                              visited.add(otherStr);
+                          }
+                      }
+                  }
                   newNodes.push({
                       id: ucId,
                       type: 'useCase',
@@ -698,7 +735,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                       data: {
                           label: uc.name || 'Untitled',
                           group: uc.group,
-                          isIsolated: true,
+                          isIsolated: !hasActorConnection,
                           onDelete: handleNodeDelete,
                           onNameUpdate: handleNameUpdate
                       }
@@ -818,7 +855,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         }, 2500); // 2.5s debounce
         
         return () => clearTimeout(autoSaveTimeout.current);
-    }, [nodes, edges, actors, useCases, relations, systemName, isInitialized, onSave]);
+    }, [nodes, edges, isInitialized, onSave]);
 
     useEffect(() => {
         const isConnectedToActor = (startId, currentEdges) => {
@@ -902,11 +939,6 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
           return;
       }
       
-      // Ràng buộc: UC cô đơn (không có actor nối) không được nối Include/Extend
-      const isUcIsolated = (ucId) => {
-         const node = nodes.find(n => n.id === ucId);
-         return node?.data?.isIsolated;
-      };
 
       if (isSourceUc && isTargetUc) {
           const sourceNode = nodes.find(n => n.id === source);
@@ -1105,7 +1137,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         elementsSelectable={!isView}
         panOnDrag={true}
         zoomOnScroll={true}
-        deleteKeyCode={['Backspace', 'Delete']}
+        deleteKeyCode={isView ? null : ['Backspace', 'Delete']}
         connectionMode={ConnectionMode.Loose}
         elevateNodesOnSelect={false}
       >
@@ -1130,12 +1162,13 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
   );
 });
 
-export const UCDiagram = forwardRef(({ projectId, actors, useCases, relations, systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
+export const UCDiagram = forwardRef(({ projectId, currentModuleId, actors, useCases, relations, systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
   return (
     <ReactFlowProvider>
       <FlowContent 
         ref={ref}
         projectId={projectId}
+        currentModuleId={currentModuleId}
         actors={actors}
         useCases={useCases}
         relations={relations}

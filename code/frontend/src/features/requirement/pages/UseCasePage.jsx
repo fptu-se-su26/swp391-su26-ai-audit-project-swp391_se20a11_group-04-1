@@ -357,26 +357,27 @@ const UseCasePage = () => {
                 </button>
               </div>
 
-            {isLeader && (
-              <>
-                {/* Group 3: Generate Usecase */}
-                <button
-                  type="button"
-                  className="h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center hover:bg-secondary-fixed transition-colors text-[14px] shadow-sm"
-                  onClick={() => setIsSelectionModalOpen(true)}
-                >
-                  Generate Usecase
-                </button>
-    
-                {/* Group 4: Add Use Case */}
-                <Button
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  <span className="material-symbols-outlined text-[14px]">add</span>
-                  Add Use Case
-                </Button>
-              </>
-            )}
+            {/* Group 3: Generate Usecase */}
+            <button
+              type="button"
+              className={`h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center transition-colors text-[14px] shadow-sm ${!isLeader ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary-fixed'}`}
+              onClick={() => isLeader && handleGenerateAI(allRequirements.map(req => req.id))}
+              disabled={!isLeader}
+              title={!isLeader ? "Only Project Leader can generate use cases" : ""}
+            >
+              Generate Usecase
+            </button>
+
+            {/* Group 4: Add Use Case */}
+            <Button
+              onClick={() => isLeader && setIsModalOpen(true)}
+              disabled={!isLeader}
+              className={!isLeader ? 'opacity-50 cursor-not-allowed' : ''}
+              title={!isLeader ? "Only Project Leader can add use cases" : ""}
+            >
+              <span className="material-symbols-outlined text-[14px]">add</span>
+              Add Use Case
+            </Button>
           </div>
         </div>
 
@@ -389,7 +390,7 @@ const UseCasePage = () => {
                 activeView="all"
                 mode={isLeader ? 'edit' : 'view'} 
                 onClose={() => setDiagramTab('module')} 
-                onEdit={() => {}}
+                onEdit={isLeader ? () => {} : undefined}
                 onView={() => {}}
                 isLeader={isLeader}
                 onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
@@ -401,6 +402,7 @@ const UseCasePage = () => {
                 allUseCases={allUseCases}
                 isLeader={isLeader}
                 currentUserId={userId}
+                projectMembers={activeProject?.members || []}
                 diagramTab={diagramTab}
                 onDiagramTabChange={setDiagramTab}
                 onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
@@ -444,6 +446,9 @@ const UseCasePage = () => {
                   allUseCases={allUseCases}
                   diagramData={diagramData}
                   listMode={listMode}
+                  isLeader={isLeader}
+                  onEdit={handleEditUseCase}
+                  onDelete={handleDeleteUseCase}
                   onRefresh={handleRefresh}
                   pagination={{
                     currentPage,
@@ -498,6 +503,7 @@ const UseCasePage = () => {
           handleRefresh();
         }}
       />
+
       <AiUseCaseGenerationModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
