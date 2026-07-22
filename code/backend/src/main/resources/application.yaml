@@ -19,9 +19,9 @@ spring:
       max-request-size: 50MB
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${POSTGRES_DB:dev_track_ai}?options=-c%20timezone=Asia/Ho_Chi_Minh
-    username: ${POSTGRES_USER:devtrack}
-    password: ${POSTGRES_PASSWORD:changeme}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${POSTGRES_DB:dev_track_ai}?options=-c%20timezone=Asia/Ho_Chi_Minh}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:devtrack}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:changeme}}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 30
@@ -30,11 +30,11 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${SPRING_DATA_REDIS_HOST:${REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${REDIS_PORT:6379}}
     mongodb:
-      host: ${MONGO_HOST:localhost}
-      port: ${MONGO_PORT:27017}
+      host: ${SPRING_DATA_MONGODB_HOST:${MONGO_HOST:localhost}}
+      port: ${SPRING_DATA_MONGODB_PORT:${MONGO_PORT:27017}}
       database: ${MONGO_DB:dev_track_ai}
 
   session:
