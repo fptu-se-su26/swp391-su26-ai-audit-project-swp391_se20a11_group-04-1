@@ -78,15 +78,22 @@ public class RtmBenchmarkTest {
         ProjectRole defaultProjRole = entityManager.createQuery("SELECT pr FROM ProjectRole pr", ProjectRole.class)
                 .getResultList().stream().findFirst().orElse(null);
         if (defaultProjRole != null) {
-            Query insertMember = entityManager.createNativeQuery(
-                "INSERT INTO project_members (project_id, user_id, project_role_id, joined_at) " +
-                "VALUES (:projectId, :userId, :roleId, CURRENT_TIMESTAMP)"
-            );
-            insertMember.setParameter("projectId", projectId);
-            insertMember.setParameter("userId", userId);
-            insertMember.setParameter("roleId", defaultProjRole.getId());
-            insertMember.executeUpdate();
-            System.out.println("Lien ket ProjectMember hoan tat!");
+            Number count = (Number) entityManager.createNativeQuery(
+                "SELECT COUNT(*) FROM project_members WHERE project_id = :projectId AND user_id = :userId")
+                .setParameter("projectId", projectId)
+                .setParameter("userId", userId)
+                .getSingleResult();
+            if (count.intValue() == 0) {
+                Query insertMember = entityManager.createNativeQuery(
+                    "INSERT INTO project_members (project_id, user_id, project_role_id, joined_at) " +
+                    "VALUES (:projectId, :userId, :roleId, CURRENT_TIMESTAMP)"
+                );
+                insertMember.setParameter("projectId", projectId);
+                insertMember.setParameter("userId", userId);
+                insertMember.setParameter("roleId", defaultProjRole.getId());
+                insertMember.executeUpdate();
+                System.out.println("Lien ket ProjectMember hoan tat!");
+            }
         }
 
         // 2. CHUAN BI DATA LON (Insert N=50 Requirements va cac thuc the lien quan)
