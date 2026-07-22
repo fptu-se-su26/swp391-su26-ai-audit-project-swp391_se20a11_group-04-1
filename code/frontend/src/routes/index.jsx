@@ -9,6 +9,7 @@ import LandingPage from '@features/landing/pages/LandingPage'
 
 // Feature Pages - Workspace & Dashboard
 import DashboardPage from '@features/workspace/pages/DashboardPage'
+import ArchivedProjectsPage from '@features/workspace/pages/ArchivedProjectsPage'
 import ClassroomsPage from '@features/workspace/pages/ClassroomsPage'
 import ClassroomDetailPage from '@features/workspace/pages/ClassroomDetailPage'
 import JoinClassroomPage from '@features/workspace/pages/JoinClassroomPage'
@@ -114,6 +115,7 @@ export function AppRoutes() {
         <Route element={<MainLayout />}>
           {/* Main Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/archived" element={<ArchivedProjectsPage />} />
           <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/classrooms/:classroomId" element={<ClassroomDetailPage />} />
           <Route path="/verify" element={<VerificationPage />} />

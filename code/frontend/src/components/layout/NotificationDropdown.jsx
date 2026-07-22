@@ -108,7 +108,7 @@ export function NotificationDropdown() {
 
   const handleMarkAllRead = async () => {
     await markAllAsRead()
-    toast.success('Đã đánh dấu đọc tất cả thông báo!')
+    toast.success('Marked all notifications as read!')
   }
 
   const handleNotificationClick = async (notification) => {
@@ -126,7 +126,7 @@ export function NotificationDropdown() {
     e.stopPropagation()
     const response = await acceptInvitation({ invitationId: notification.relatedId })
     if (response === true) {
-      toast.success('Đồng ý tham gia dự án thành công!')
+      toast.success('Accepted project invitation successfully!')
       // Cập nhật optimistic: đánh dấu đã xử lý và đã đọc ngay lập tức, không chờ re-fetch
       useNotificationStore.setState((state) => ({
         notifications: state.notifications.map((n) =>
@@ -138,7 +138,7 @@ export function NotificationDropdown() {
       }))
       fetchProjects() // Cập nhật danh sách dự án của user
     } else {
-      toast.error(response?.error || 'Có lỗi xảy ra khi đồng ý lời mời.')
+      toast.error(response?.error || 'Failed to accept invitation.')
     }
   }
 
@@ -146,7 +146,7 @@ export function NotificationDropdown() {
     e.stopPropagation()
     const response = await rejectInvitation({ invitationId: notification.relatedId })
     if (response === true) {
-      toast.success('Đã từ chối lời mời tham gia dự án.')
+      toast.success('Rejected project invitation.')
       // Cập nhật optimistic: đánh dấu đã xử lý và đã đọc ngay lập tức
       useNotificationStore.setState((state) => ({
         notifications: state.notifications.map((n) =>
@@ -157,7 +157,7 @@ export function NotificationDropdown() {
         unreadCount: Math.max(0, state.unreadCount - (notification.isRead ? 0 : 1)),
       }))
     } else {
-      toast.error(response?.error || 'Có lỗi xảy ra khi từ chối lời mời.')
+      toast.error(response?.error || 'Failed to reject invitation.')
     }
   }
 
@@ -189,7 +189,7 @@ export function NotificationDropdown() {
         className={`relative w-9 h-9 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-all ${
           isOpen ? 'bg-surface-container text-[#1E707D]' : ''
         }`}
-        title="Thông báo"
+        title="Notifications"
       >
         <span className="material-symbols-outlined text-xl">notifications</span>
         {unreadCount > 0 && (
@@ -219,15 +219,15 @@ export function NotificationDropdown() {
                 <span className="font-bold text-[13px] flex items-center gap-1">
                   <span className="truncate max-w-[140px]">
                     {selectedFilterProjectId === 'all' 
-                      ? 'Trung tâm thông báo' 
-                      : (projects.find(p => p.id === selectedFilterProjectId)?.name || projects.find(p => p.id === selectedFilterProjectId)?.title || 'Dự án không xác định')}
+                      ? 'Notification Center' 
+                      : (projects.find(p => p.id === selectedFilterProjectId)?.name || projects.find(p => p.id === selectedFilterProjectId)?.title || 'Unknown Project')}
                   </span>
                   <span className={`material-symbols-outlined text-[18px] leading-none opacity-60 transition-transform duration-200 ${isProjectFilterOpen ? 'rotate-180' : ''}`}>
                     expand_more
                   </span>
                 </span>
                 {otherUnreadCount > 0 && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-error ml-0.5 shadow-sm border border-white" title={`${otherUnreadCount} thông báo mới ở dự án khác`}></span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-error ml-0.5 shadow-sm border border-white" title={`${otherUnreadCount} new notifications in other projects`}></span>
                 )}
               </button>
               
@@ -237,7 +237,7 @@ export function NotificationDropdown() {
                     onClick={(e) => { e.stopPropagation(); setSelectedFilterProjectId('all'); setIsProjectFilterOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm font-medium hover:bg-surface-container flex items-center justify-between ${selectedFilterProjectId === 'all' ? 'bg-[#1E707D]/10 text-[#1E707D]' : 'text-on-surface'}`}
                   >
-                    <span>Trung tâm thông báo</span>
+                    <span>Notification Center</span>
                     {unreadCount > 0 && (
                       <span className="text-xs font-bold text-error bg-error/10 px-2 py-0.5 rounded-full">{unreadCount}</span>
                     )}
@@ -268,7 +268,7 @@ export function NotificationDropdown() {
                 onClick={handleMarkAllRead}
                 className="text-xs font-bold text-[#1E707D] hover:text-[#165964] transition-colors shrink-0 px-2"
               >
-                Đọc tất cả
+                Mark all as read
               </button>
             )}
           </div>
@@ -278,12 +278,12 @@ export function NotificationDropdown() {
             {loading && filteredNotifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
                 <div className="w-6 h-6 border-2 border-[#1E707D] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p className="text-xs text-on-surface-variant">Đang tải thông báo...</p>
+                <p className="text-xs text-on-surface-variant">Loading notifications...</p>
               </div>
             ) : filteredNotifications.length === 0 ? (
               <div className="p-8 text-center space-y-3">
                 <span className="material-symbols-outlined text-4xl text-outline/60">notifications_off</span>
-                <p className="text-xs text-on-surface-variant font-medium">Bạn chưa có thông báo nào</p>
+                <p className="text-xs text-on-surface-variant font-medium">No notifications yet</p>
               </div>
             ) : (
               filteredNotifications.map((n) => (
@@ -318,7 +318,7 @@ export function NotificationDropdown() {
                         <div className="flex items-center gap-1.5 pt-1.5">
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-500/15 text-green-600 text-[11px] font-bold rounded-lg border border-green-500/30">
                             <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                            Đã đồng ý tham gia
+                            Accepted
                           </span>
                         </div>
                       ) : n._resolved === 'REJECTED' ? (
@@ -326,7 +326,7 @@ export function NotificationDropdown() {
                         <div className="flex items-center gap-1.5 pt-1.5">
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-container-high text-on-surface-variant text-[11px] font-bold rounded-lg border border-outline-variant/50">
                             <span className="material-symbols-outlined text-[13px]">cancel</span>
-                            Đã từ chối
+                            Rejected
                           </span>
                         </div>
                       ) : (
@@ -336,13 +336,13 @@ export function NotificationDropdown() {
                             onClick={(e) => handleAccept(e, n)}
                             className="px-3.5 py-1.5 bg-[#1E707D] text-white text-[11px] font-bold rounded-lg hover:bg-[#D7EEF1] hover:text-[#1E707D] transition-all shadow-sm"
                           >
-                            Đồng ý
+                            Accept
                           </button>
                           <button
                             onClick={(e) => handleReject(e, n)}
                             className="px-3.5 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant text-[11px] font-bold rounded-lg transition-all"
                           >
-                            Từ chối
+                            Decline
                           </button>
                         </div>
                       )

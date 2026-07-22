@@ -8,6 +8,8 @@ import AnnouncementCarousel from '../components/AnnouncementCarousel'
 import AnnouncementTab from '../components/AnnouncementTab'
 import ClassroomDashboardTab from '../components/ClassroomDashboardTab'
 import ResourceTab from '../components/ResourceTab'
+import AnnouncementDetailModal from '../components/AnnouncementDetailModal'
+import { resourceApi } from '@api/resourceApi'
 import ConfirmModal from '../../../components/ui/ConfirmModal'
 
 const AVATAR_COLORS = [
@@ -47,6 +49,7 @@ export default function ClassroomDetailPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [selectedAnnouncementModal, setSelectedAnnouncementModal] = useState(null)
 
   // Random Group state
   const [isRandomGroupModalOpen, setIsRandomGroupModalOpen] = useState(false)
@@ -215,16 +218,55 @@ export default function ClassroomDetailPage() {
     )
   }
 
+  const handleResourceClick = async (resource, shouldDownload = false) => {
+    if (!resource) return;
+
+    if (!shouldDownload) {
+      setActiveTab('resources');
+      return;
+    }
+
+    if (resource.type === 'LINK') {
+      if (resource.url) {
+        window.open(resource.url, '_blank', 'noopener,noreferrer');
+      }
+    } else if (resource.type === 'FILE') {
+      const toastId = toast.loading('Preparing file for download...');
+      try {
+        const response = await resourceApi.downloadResource(classroomId, resource.id);
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        let fileName = `${resource.name.replace(/[^a-zA-Z0-9.-]/g, '_')}.zip`;
+        const contentDisposition = response.headers['content-disposition'];
+        if (contentDisposition && contentDisposition.includes('filename=')) {
+          const matches = contentDisposition.match(/filename="(.+)"/);
+          if (matches && matches[1]) {
+            fileName = matches[1];
+          }
+        }
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.success('Download started!', { id: toastId });
+      } catch (err) {
+        toast.error('An error occurred while downloading', { id: toastId });
+      }
+    }
+  };
+
   return (
     <div className="-mt-margin_mobile -mx-margin_mobile md:-mt-margin_desktop md:-mx-margin_desktop flex-1 overflow-y-auto bg-[#f8fafc] select-none">
       {/* Top Banner Area - Now handled by AnnouncementCarousel */}
       <AnnouncementCarousel 
         classroomData={data} 
         onShare={handleShareInviteLink} 
-        onAnnouncementClick={(annId) => {
-          setActiveTab('announcements');
-          // Optional: we can scroll to the announcement if needed, but switching tabs is the main goal
+        onAnnouncementClick={(ann) => {
+          setSelectedAnnouncementModal(ann);
         }}
+        onResourceClick={handleResourceClick}
       />
 
       {/* Tabs Navigation */}
@@ -510,7 +552,11 @@ export default function ClassroomDetailPage() {
           <ResourceTab classroomId={classroomId} classroomData={data} userId={userId} />
         )}
         {activeTab === 'announcements' && (
-          <AnnouncementTab classroomId={classroomId} classroomData={data} />
+          <AnnouncementTab 
+            classroomId={classroomId} 
+            classroomData={data} 
+            onAnnouncementClick={(ann) => setSelectedAnnouncementModal(ann)}
+          />
         )}
         {activeTab === 'dashboard' && (
           <ClassroomDashboardTab data={data} setActiveTab={setActiveTab} />
@@ -629,6 +675,13 @@ export default function ClassroomDetailPage() {
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
         }}
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
+
+      <AnnouncementDetailModal
+        isOpen={Boolean(selectedAnnouncementModal)}
+        onClose={() => setSelectedAnnouncementModal(null)}
+        announcement={selectedAnnouncementModal}
+        classroomId={classroomId}
       />
     </div>
   )

@@ -5,7 +5,7 @@ import announcementApi from '@api/announcementApi';
 import { getInitials } from '@utils/avatarHelper';
 import CreateAnnouncementModal from './CreateAnnouncementModal';
 
-export default function AnnouncementTab({ classroomId, classroomData }) {
+export default function AnnouncementTab({ classroomId, classroomData, onAnnouncementClick }) {
   const { userId } = useAuthStore();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
           if (prev.some(ann => ann.id === newAnnouncement.id)) return prev;
           return [newAnnouncement, ...prev];
         });
+        window.dispatchEvent(new CustomEvent('NEW_ANNOUNCEMENT_CREATED'));
       } catch (e) {
         console.error('Failed to parse SSE message', e);
       }
@@ -58,6 +59,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
       toast.success('Announcement posted successfully!');
       setIsModalOpen(false);
       fetchAnnouncements(); // refresh list
+      window.dispatchEvent(new CustomEvent('NEW_ANNOUNCEMENT_CREATED'));
     } catch (error) {
       toast.error(error.response?.data?.message || 'An error occurred while posting the announcement');
     } finally {
@@ -151,7 +153,11 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
               </h3>
               <div className="space-y-4">
                 {groupAnns.map((ann) => (
-                  <div key={ann.id} className="bg-white border border-slate-200 rounded-[20px] shadow-sm p-6 hover:shadow-md transition-shadow">
+                  <div 
+                    key={ann.id} 
+                    onClick={() => onAnnouncementClick && onAnnouncementClick(ann)}
+                    className="bg-white border border-slate-200 rounded-[20px] shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer group"
+                  >
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-full bg-[#1E707D] text-white flex items-center justify-center text-lg font-extrabold shadow-sm shrink-0">
                         {getInitials(ann.senderName || 'Mentor')}
