@@ -43,7 +43,7 @@ jobs:
             echo ">> Rebuilding Backend (Spring Boot)..."
             cd "${REPO_DIR}/code/backend"
 
-            lsof -t -i:8081 | xargs -r kill -9 || true
+            lsof -t -i:8080 | xargs -r kill -9 || true
             sleep 2
 
             chmod +x mvnw
