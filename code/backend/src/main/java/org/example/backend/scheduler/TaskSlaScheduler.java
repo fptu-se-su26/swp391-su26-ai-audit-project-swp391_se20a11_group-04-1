@@ -4,13 +4,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.backend.entity.NotificationEntityType;
 import org.example.backend.entity.NotificationType;
+import org.example.backend.entity.RecoveryPlanStatus;
 import org.example.backend.entity.SchedulerRunLog;
 import org.example.backend.entity.Task;
+import org.example.backend.entity.TaskSlaState;
 import org.example.backend.entity.TaskStatus;
 import org.example.backend.entity.ProjectStatus;
 import org.example.backend.repository.ProjectRepository;
 import org.example.backend.repository.NotificationRepository;
+import org.example.backend.repository.RecoveryPlanRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.NotificationService;
 import org.example.backend.service.TaskService;
 import org.example.backend.service.WeeklyReportService;
@@ -35,9 +39,11 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.function.Function;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 
 @Component
@@ -46,6 +52,12 @@ import org.springframework.data.domain.Pageable;
 public class TaskSlaScheduler {
 
     private static final int SLA_BATCH_SIZE = 100;
+    private static final List<String> RECOVERY_BACKFILL_RISK_LEVELS = List.of("WARNING", "BREACH");
+    private static final List<RecoveryPlanStatus> ACTIVE_RECOVERY_PLAN_STATUSES = List.of(
+            RecoveryPlanStatus.PENDING_APPROVAL,
+            RecoveryPlanStatus.APPROVED,
+            RecoveryPlanStatus.EXECUTING
+    );
 
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
@@ -59,10 +71,18 @@ public class TaskSlaScheduler {
     private final NotificationService notificationService;
     private final SlaStateService slaStateService;
     private final RecoveryPlanService recoveryPlanService;
+    private final RecoveryPlanRepository recoveryPlanRepository;
+    private final TaskSlaStateRepository taskSlaStateRepository;
     private final SprintRepository sprintRepository;
     private final SlaReliabilityMetricsService slaReliabilityMetricsService;
     private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
+
+    @Value("${app.sla.recovery-backfill-enabled:false}")
+    private boolean recoveryBackfillEnabled;
+
+    @Value("${app.sla.recovery-backfill-max-per-run:3}")
+    private int recoveryBackfillMaxPerRun;
 
     @EventListener(ApplicationReadyEvent.class)
     public void recheckSlaOnStartup() {
@@ -186,6 +206,52 @@ public class TaskSlaScheduler {
             schedulerRunLogService.finish(runLog, checked, checked, 0);
         } catch (Exception ex) {
             log.error("RECOVERY_PLAN_EFFECTIVENESS_CHECK failed", ex);
+            schedulerRunLogService.fail(runLog, ex);
+        }
+    }
+
+    @Scheduled(
+            initialDelayString = "${app.sla.recovery-backfill-initial-delay-ms:60000}",
+            fixedDelayString = "${app.sla.recovery-backfill-delay-ms:600000}")
+    public void backfillRecoveryPlansForRiskTasks() {
+        if (!recoveryBackfillEnabled) {
+            return;
+        }
+
+        SchedulerRunLog runLog = schedulerRunLogService.start("RECOVERY_PLAN_BACKFILL");
+        try {
+            int batchSize = Math.max(1, Math.min(recoveryBackfillMaxPerRun, SLA_BATCH_SIZE));
+            List<TaskSlaState> states = taskSlaStateRepository.findRecoveryPlanBackfillCandidates(
+                    RECOVERY_BACKFILL_RISK_LEVELS,
+                    TaskStatus.DONE,
+                    PageRequest.of(0, batchSize, Sort.by("evaluatedAt").descending()));
+
+            int scanned = 0;
+            int created = 0;
+            for (TaskSlaState state : states) {
+                scanned++;
+                Long projectId = state.getProjectId();
+                Long taskId = state.getTaskId();
+                if (projectId == null || taskId == null) {
+                    continue;
+                }
+                if (recoveryPlanRepository.existsByProjectIdAndTaskIdAndStatusIn(
+                        projectId, taskId, ACTIVE_RECOVERY_PLAN_STATUSES)) {
+                    continue;
+                }
+
+                try {
+                    recoveryPlanService.autoGenerateForTask(projectId, taskId);
+                    created++;
+                } catch (Exception ex) {
+                    log.warn("Failed to backfill recovery plan for task {}: {}", taskId, ex.getMessage());
+                }
+            }
+
+            schedulerRunLogService.finish(runLog, scanned, created, 0);
+            log.info("Recovery plan backfill completed. Scanned: {}, Created: {}", scanned, created);
+        } catch (Exception ex) {
+            log.error("RECOVERY_PLAN_BACKFILL failed", ex);
             schedulerRunLogService.fail(runLog, ex);
         }
     }

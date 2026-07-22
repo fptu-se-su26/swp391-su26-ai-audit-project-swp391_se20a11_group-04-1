@@ -8,6 +8,7 @@ import org.example.backend.entity.TaskSlaState;
 import org.example.backend.repository.TaskSlaStateRepository;
 import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaStateService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "app.kafka.consumers.enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class SlaEventConsumer {
 
