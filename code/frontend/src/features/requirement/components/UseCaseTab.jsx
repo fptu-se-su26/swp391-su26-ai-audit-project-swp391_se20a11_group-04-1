@@ -3,7 +3,7 @@ import useDiagramStore from '../../../store/useDiagramStore';
 import Button from '../../../components/ui/Button';
 
 const UseCaseTab = () => {
-  const { useCases, addUseCase, updateUseCase, removeUseCase } = useDiagramStore();
+  const { useCases, actors, relations, addUseCase, updateUseCase, removeUseCase } = useDiagramStore();
   const [newUseCaseName, setNewUseCaseName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -38,6 +38,36 @@ const UseCaseTab = () => {
     updateUseCase(uc.id, { showInDiagram: !(uc.showInDiagram !== false) });
   };
 
+  // Compute isolation from relations+actors (source of truth) using BFS to allow transitive connections
+  const isUCIsolated = (startUcId) => {
+    const startStr = startUcId.toString();
+    const visited = new Set();
+    const queue = [startStr];
+    
+    while(queue.length > 0) {
+      const current = queue.shift();
+      visited.add(current);
+      
+      const connectedRels = relations.filter(r => r.sourceId.toString() === current || r.targetId.toString() === current);
+      
+      for (const rel of connectedRels) {
+        const otherStr = rel.sourceId.toString() === current ? rel.targetId.toString() : rel.sourceId.toString();
+        
+        // If the other side is an actor, we found a path
+        if (actors.some(a => a.id.toString() === otherStr)) {
+          return false; // NOT isolated
+        }
+        
+        if (!visited.has(otherStr)) {
+          queue.push(otherStr);
+          visited.add(otherStr);
+        }
+      }
+    }
+    
+    return true; // IS isolated (no path to actor found)
+  };
+
   const visibleUseCases = useCases.filter(uc => uc.showInDiagram !== false);
   const hiddenUseCases = useCases.filter(uc => uc.showInDiagram === false);
 
@@ -67,7 +97,7 @@ const UseCaseTab = () => {
               onClick={() => !isHidden && handleFocus(uc.id)}
               title={isHidden ? "Hidden from diagram" : "Click to focus on diagram"}
             >
-              <div className={`w-2 h-2 rounded-full ${isHidden ? 'bg-gray-400' : (uc.isIsolated ? 'bg-red-400' : 'bg-green-400')}`} title={isHidden ? 'Hidden' : (uc.isIsolated ? 'Needs connection' : 'Connected')}></div>
+              <div className={`w-2 h-2 rounded-full ${isHidden ? 'bg-gray-400' : (isUCIsolated(uc.id) ? 'bg-red-400' : 'bg-green-400')}`} title={isHidden ? 'Hidden' : (isUCIsolated(uc.id) ? 'Needs connection' : 'Connected')}></div>
               <span className="text-sm font-medium text-gray-800 truncate">{uc.name}</span>
             </div>
             <div className="flex gap-1 ml-2">

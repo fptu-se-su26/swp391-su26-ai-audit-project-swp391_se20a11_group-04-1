@@ -23,6 +23,9 @@ public class RequirementResponseDTO {
     private Long ownerId;
     private RequirementStatus status;
     private Boolean evidenceRequired;
+    private Integer tasksCount;
+    private Integer completedTasksCount;
+    private Integer evidenceCount;
     private Integer reqOrder;
     private Long createdBy;
     private LocalDateTime createdAt;
@@ -30,4 +33,7 @@ public class RequirementResponseDTO {
     private List<String> tags;
     private Boolean aiGenerated;
     private List<String> coveredCriteria;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
+    private List<Long> coOwnerIds;
 }

@@ -1807,7 +1807,7 @@ export function DashboardPage() {
               {dashboardData?.recentActivities?.length > visibleActivities && (
                 <div className="pt-2 pb-2 text-center">
                   <button 
-                    onClick={() => setVisibleActivities(prev => prev + 5)}
+                    onClick={() => setVisibleActivities(dashboardData.recentActivities.length)}
                     className="text-[11px] font-bold text-primary uppercase tracking-wider px-4 py-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors shadow-sm"
                   >
                     Xem thêm...

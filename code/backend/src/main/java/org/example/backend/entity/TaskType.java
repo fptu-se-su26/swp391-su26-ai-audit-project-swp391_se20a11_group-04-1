@@ -8,5 +8,6 @@ public enum TaskType {
     RESEARCH,
     DEPLOYMENT,
     BUG_FIX,
-    REVIEW
+    REVIEW,
+    MODULE_TASK
 }

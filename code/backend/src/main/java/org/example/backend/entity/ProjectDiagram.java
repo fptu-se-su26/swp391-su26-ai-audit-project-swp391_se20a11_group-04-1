@@ -17,8 +17,11 @@ public class ProjectDiagram {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "project_id", nullable = false, unique = true)
+    @Column(name = "project_id", nullable = false)
     private Long projectId;
+    
+    @Column(name = "module_id")
+    private Long moduleId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false, insertable = false, updatable = false)

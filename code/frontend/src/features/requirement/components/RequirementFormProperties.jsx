@@ -1,6 +1,6 @@
 import React from 'react';
 
-const RequirementFormProperties = ({ formData, onChange }) => {
+const RequirementFormProperties = ({ formData, onChange, minDate, maxDate }) => {
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter' && e.target.value.trim() !== '') {
       e.preventDefault();
@@ -15,6 +15,12 @@ const RequirementFormProperties = ({ formData, onChange }) => {
   const removeTag = (tagToRemove) => {
     onChange('tags', formData.tags.filter(tag => tag !== tagToRemove));
   };
+
+  // Tính toán min date hợp lệ: nếu có startDate, deadline không được trước startDate
+  // Nhưng min của startDate có thể là ngày hiện tại (nếu yêu cầu logic) hoặc lấy minDate (từ Project)
+  const today = new Date().toISOString().split('T')[0];
+  const effectiveMinStartDate = minDate && minDate > today ? minDate : today;
+  const effectiveMinDeadline = formData.startDate ? formData.startDate : effectiveMinStartDate;
 
   return (
     <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-stack_lg flex flex-col gap-stack_lg">
@@ -51,6 +57,32 @@ const RequirementFormProperties = ({ formData, onChange }) => {
             <option value="LOW">Low</option>
           </select>
           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+        </div>
+      </div>
+
+      {/* Start Date & Deadline */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="font-label-md text-label-md text-on-surface-variant uppercase">Start Date</label>
+          <input
+            type="date"
+            className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all"
+            value={formData.startDate || ''}
+            min={effectiveMinStartDate}
+            max={maxDate}
+            onChange={(e) => onChange('startDate', e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="font-label-md text-label-md text-on-surface-variant uppercase">Deadline</label>
+          <input
+            type="date"
+            className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-[#1E707D]-fixed-dim transition-all"
+            value={formData.deadline || ''}
+            min={effectiveMinDeadline}
+            max={maxDate}
+            onChange={(e) => onChange('deadline', e.target.value)}
+          />
         </div>
       </div>
 

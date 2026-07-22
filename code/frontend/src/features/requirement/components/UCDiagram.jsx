@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperat
 import { exportToDrawio } from '../utils/drawioExporter';
 import {
   ReactFlow,
-  Controls,
   Background,
   applyNodeChanges,
   applyEdgeChanges,
@@ -17,6 +16,7 @@ import ActorNode from './nodes/ActorNode';
 import UseCaseNode from './nodes/UseCaseNode';
 import SystemBoundaryNode from './nodes/SystemBoundaryNode';
 import CustomEdge from './edges/CustomEdge';
+import dagre from 'dagre';
 import { ucLayoutEngine } from '../utils/ucLayoutEngine';
 import { diagramService } from '../services/diagramService';
 import useDiagramStore from '../../../store/useDiagramStore';
@@ -82,7 +82,7 @@ const calculateDynamicHandles = (edges, nodes) => {
     });
 };
 
-const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad }, ref) => {
+const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCases = [], relations = [], systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,8 +154,34 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [edgePopupPos, setEdgePopupPos] = useState({ x: 0, y: 0 });
 
+  const saveHistory = useCallback(() => {
+    const store = useDiagramStore.getState();
+    setHistory((prev) => [...prev.slice(-49), { // BUG 10 FIX: Limit to 50 items
+        nodes: nodes.map((n) => ({ ...n, position: { ...n.position } })),
+        edges: [...edges],
+        actors: [...store.actors], // BUG 6 FIX: Capture store state
+        useCases: [...store.useCases],
+        relations: [...store.relations]
+    }]);
+  }, [nodes, edges]);
+
   const onNodesChange = useCallback(
     (changes) => {
+        const removeChanges = changes.filter(c => c.type === 'remove');
+        if (removeChanges.length > 0) {
+            saveHistory();
+            removeChanges.forEach(change => {
+                const id = change.id;
+                if (id.startsWith('uc_')) {
+                    const rawId = id.replace('uc_', '');
+                    updateUseCase(rawId, { showInDiagram: false });
+                } else if (id.startsWith('actor_')) {
+                    const rawId = id.replace('actor_', '');
+                    removeActor(rawId);
+                }
+            });
+        }
+        
         setNodes((nds) => {
             const updatedNodes = applyNodeChanges(changes, nds);
             const isPositionChange = changes.some(c => c.type === 'position');
@@ -167,7 +193,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         const isSignificant = changes.some(c => c.type !== 'dimensions' && c.type !== 'select');
         if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
-    [onUnsavedChanges, setEdges]
+    [onUnsavedChanges, setEdges, saveHistory, updateUseCase, removeActor]
   );
   
   const onEdgesChange = useCallback(
@@ -178,17 +204,6 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
     },
     [onUnsavedChanges]
   );
-
-  const saveHistory = useCallback(() => {
-    const store = useDiagramStore.getState();
-    setHistory((prev) => [...prev.slice(-49), { // BUG 10 FIX: Limit to 50 items
-        nodes: nodes.map((n) => ({ ...n, position: { ...n.position } })),
-        edges: [...edges],
-        actors: [...store.actors], // BUG 6 FIX: Capture store state
-        useCases: [...store.useCases],
-        relations: [...store.relations]
-    }]);
-  }, [nodes, edges]);
 
   const onNodeDragStart = useCallback(() => {
     saveHistory();
@@ -255,7 +270,19 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
           if (existingRel && existingRel.type !== newType) {
               updateRelation(rawRelId, { type: newType });
           }
-          setEdges(eds => eds.map(edge => edge.id === edgeId ? { ...edge, data: { ...edge.data, relType: newType }, label: `<<${newType}>>` } : edge));
+          setEdges(eds => eds.map(edge => {
+              if (edge.id === edgeId) {
+                  const isDep = newType === 'include' || newType === 'extends';
+                  return { 
+                      ...edge, 
+                      data: { ...edge.data, relType: newType }, 
+                      label: `<<${newType}>>`,
+                      style: isDep ? { strokeDasharray: '5,5' } : {},
+                      markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
+                  };
+              }
+              return edge;
+          }));
           if (onUnsavedChanges) onUnsavedChanges();
       } else if (action === 'reverse') {
           const existingRel = relations.find(r => r.id.toString() === rawRelId);
@@ -290,6 +317,55 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       handleEdgeActionRef.current?.(...args);
   }, []);
 
+  // Lightweight re-layout without showing loading spinner (for bulk-add sync)
+  const relayoutSilently = useCallback((currentActors, currentUcs, currentRelations, currentSystemName) => {
+    const buildNodes = [];
+    const buildEdges = [];
+    currentActors.forEach((a) => {
+      const actorId = a.id.toString().startsWith('actor_') ? a.id.toString() : `actor_${a.id}`;
+      buildNodes.push({
+        id: actorId, type: 'actor', position: { x: 0, y: 0 },
+        data: { label: a.name || 'Actor', side: a.side, onDelete: handleNodeDelete, onNameUpdate: handleNameUpdate },
+      });
+    });
+    currentUcs.forEach((uc) => {
+      if (uc.showInDiagram === false) return;
+      buildNodes.push({
+        id: `uc_${uc.id}`, type: 'useCase', position: { x: 0, y: 0 },
+        data: { label: uc.name || 'Untitled', group: uc.group, isIsolated: uc.isIsolated !== false, onDelete: handleNodeDelete, onNameUpdate: handleNameUpdate },
+      });
+    });
+    currentRelations.forEach((rel) => {
+      const sourceStr = rel.sourceId.toString();
+      const targetStr = rel.targetId.toString();
+      if (sourceStr === targetStr) return; // Prevent self-loops from generating weird edge stubs
+      
+      const isSourceActor = sourceStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === sourceStr);
+      const isTargetActor = targetStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === targetStr);
+      const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
+      const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
+      
+      // Ensure both source and target exist in buildNodes to avoid dangling edge stubs
+      const sourceExists = buildNodes.some(n => n.id === source);
+      const targetExists = buildNodes.some(n => n.id === target);
+      if (!sourceExists || !targetExists) return;
+
+      const isDep = rel.type === 'include' || rel.type === 'extends';
+      buildEdges.push({
+        id: `edge_${rel.id}`, source, target, type: 'custom',
+        data: { relType: rel.type, onEdgeAction: handleEdgeAction },
+        label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
+        style: isDep ? { strokeDasharray: '5,5' } : {},
+        markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined,
+      });
+    });
+    const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(buildNodes, buildEdges, currentSystemName);
+    const enhanced = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+    setNodes(enhanced);
+    setEdges(calculateDynamicHandles(layoutedEdges, enhanced).map(e => ({ ...e, zIndex: 1 })));
+    setTimeout(() => { fitView({ padding: 0.08, minZoom: 0.1 }); }, 150);
+  }, [handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges, fitView]);
+
   const initLayout = useCallback(async (forceReset = false) => {
     setIsLoading(true);
     
@@ -299,7 +375,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
 
       let savedPositions = null;
       if (projectId && !forceReset) {
-          const data = await diagramService.getDiagramLayout(projectId);
+          const data = await diagramService.getDiagramLayout(projectId, currentModuleId);
           if (data && data.layoutData) {
              const parsed = JSON.parse(data.layoutData);
              savedPositions = parsed.positions || parsed; // Support both new { positions, systemName } format and old backward compatible format
@@ -330,6 +406,11 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
 
       useCases.forEach((uc) => {
         if (uc.showInDiagram === false) return; // Skip hidden UCs
+        
+        // Filter based on activeView (handled by backend now)
+        const id = uc.id?.toString() || uc.name;
+
+
         initialNodes.push({
           id: `uc_${uc.id}`,
           type: 'useCase',
@@ -340,7 +421,11 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
               isNew: isRecentlyCreated(uc.id.toString()),
               isIsolated: uc.isIsolated !== false,
               onDelete: handleNodeDelete,
-              onNameUpdate: handleNameUpdate
+              onNameUpdate: handleNameUpdate,
+              isLeader: isLeader,
+              onApprove: onApproveUseCase,
+              onReject: onRejectUseCase,
+              status: uc.status
           },
         });
       });
@@ -348,10 +433,17 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       relations.forEach((rel) => {
         const sourceStr = rel.sourceId.toString();
         const targetStr = rel.targetId.toString();
+        if (sourceStr === targetStr) return; // Prevent self-loops from generating weird edge stubs
+        
         const isSourceActor = sourceStr.startsWith('actor_') || actors.some(a => a.id.toString() === sourceStr);
         const isTargetActor = targetStr.startsWith('actor_') || actors.some(a => a.id.toString() === targetStr);
         const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
         const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
+
+        // Ensure both source and target exist in initialNodes to avoid dangling edge stubs
+        const sourceExists = initialNodes.some(n => n.id === source);
+        const targetExists = initialNodes.some(n => n.id === target);
+        if (!sourceExists || !targetExists) return;
 
         const isDependency = rel.type === 'include' || rel.type === 'extends';
 
@@ -370,29 +462,163 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         });
       });
 
-      const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(initialNodes, initialEdges, systemName);
+        // --- DAGRE AUTO LAYOUT ENGINE ---
+        const getLayoutedElements = (nodes, edges, direction = 'LR') => {
+            const dagreGraph = new dagre.graphlib.Graph();
+            dagreGraph.setDefaultEdgeLabel(() => ({}));
+            
+            const isHorizontal = direction === 'LR';
+            // Increase spacing for better aesthetics
+            dagreGraph.setGraph({ 
+                rankdir: direction, 
+                nodesep: 80, // vertical space between nodes
+                ranksep: 180 // horizontal space between levels
+            });
+
+            // Add nodes to dagre
+            nodes.forEach((node) => {
+                // Skip system boundary for layout calculation
+                if (node.id === 'system_boundary') return;
+                
+                // Estimate dimensions based on type
+                const width = node.type === 'actor' ? 60 : 180;
+                const height = node.type === 'actor' ? 100 : 60;
+                
+                dagreGraph.setNode(node.id, { width, height });
+            });
+
+            // Add edges to dagre
+            edges.forEach((edge) => {
+                dagreGraph.setEdge(edge.source, edge.target);
+            });
+
+            // Calculate layout
+            dagre.layout(dagreGraph);
+
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minY = Infinity;
+            let maxY = -Infinity;
+
+            const newNodes = nodes.map((node) => {
+                if (node.id === 'system_boundary') return node;
+                
+                const nodeWithPosition = dagreGraph.node(node.id);
+                const x = nodeWithPosition.x - (node.type === 'actor' ? 30 : 90);
+                const y = nodeWithPosition.y - (node.type === 'actor' ? 50 : 30);
+                
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x + (node.type === 'actor' ? 60 : 180));
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y + (node.type === 'actor' ? 100 : 60));
+                
+                // Ensure actor ends up with a side property if they didn't have one
+                const side = node.data?.side || (dagreGraph.node(node.id).x < (dagreGraph.graph().width / 2) ? 'left' : 'right');
+
+                return {
+                    ...node,
+                    position: { x, y },
+                    data: { ...node.data, side },
+                    zIndex: 2,
+                };
+            });
+            
+            // Adjust system boundary to fit around Use Cases (not actors if possible, but for simplicity, we wrap all UCs)
+            const ucNodes = newNodes.filter(n => n.type === 'useCase');
+            let sysMinX = Infinity, sysMaxX = -Infinity, sysMinY = Infinity, sysMaxY = -Infinity;
+            
+            if (ucNodes.length > 0) {
+                ucNodes.forEach(uc => {
+                    sysMinX = Math.min(sysMinX, uc.position.x);
+                    sysMaxX = Math.max(sysMaxX, uc.position.x + 180);
+                    sysMinY = Math.min(sysMinY, uc.position.y);
+                    sysMaxY = Math.max(sysMaxY, uc.position.y + 60);
+                });
+            } else {
+                sysMinX = 200; sysMaxX = 600; sysMinY = 0; sysMaxY = 400;
+            }
+
+            const sysBoundary = nodes.find(n => n.id === 'system_boundary');
+            if (sysBoundary) {
+                // Add padding
+                const paddingX = 40;
+                const paddingY = 60; // Extra top padding for title
+                sysBoundary.position = { x: sysMinX - paddingX, y: sysMinY - paddingY };
+                sysBoundary.style = { 
+                    width: sysMaxX - sysMinX + (paddingX * 2), 
+                    height: sysMaxY - sysMinY + (paddingY * 2) 
+                };
+                sysBoundary.zIndex = 0;
+                
+                // Replace old boundary
+                const idx = newNodes.findIndex(n => n.id === 'system_boundary');
+                if (idx !== -1) newNodes[idx] = sysBoundary;
+                else newNodes.push(sysBoundary);
+            }
+
+            return { nodes: newNodes, edges };
+        };
+
+        let layoutedNodes, layoutedEdges;
 
       if (savedPositions && !forceReset) {
-        const restoredNodes = layoutedNodes.map(node => {
-           if (savedPositions[node.id]) {
-               const posData = savedPositions[node.id];
-               const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: node.id === 'system_boundary' ? 0 : 2 };
-               if (posData.width !== undefined && posData.height !== undefined) {
-                   newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
-               }
-               return newNode;
-           }
-           return { ...node, zIndex: node.id === 'system_boundary' ? 0 : 2 };
-        });
-        setNodes(restoredNodes);
+        // Try restoring positions
+        let hasUnsavedActors = false;
         
-        const restoredEdges = calculateDynamicHandles(layoutedEdges, restoredNodes).map(e => ({ ...e, zIndex: 1 }));
-        setEdges(restoredEdges);
+        const restoredNodes = initialNodes.map(node => {
+             if (node.id === 'system_boundary') return node;
+             
+             if (savedPositions[node.id]) {
+                 const posData = savedPositions[node.id];
+                 const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: 2 };
+                 if (posData.width !== undefined && posData.height !== undefined) {
+                     newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
+                 }
+                 return newNode;
+             }
+             
+             if (node.type === 'actor') hasUnsavedActors = true;
+             return { ...node, position: { x: 0, y: 0 }, zIndex: 2 };
+        });
+        
+        if (hasUnsavedActors) {
+            // Unsaved actors found! Auto layout everything with ucLayoutEngine
+            const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
+            layoutedNodes = layoutResult.nodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+            layoutedEdges = layoutResult.edges;
+        } else {
+            // Restore system boundary if missing from initialNodes (which is always true for backend data)
+            let sysBoundary = restoredNodes.find(n => n.id === 'system_boundary');
+            if (!sysBoundary && savedPositions['system_boundary']) {
+                sysBoundary = {
+                    id: 'system_boundary',
+                    type: 'systemBoundary',
+                    position: { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y },
+                    data: { label: systemName },
+                    draggable: false,
+                    selectable: true,
+                    className: '!pointer-events-none',
+                    style: { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height },
+                    zIndex: 0
+                };
+                restoredNodes.push(sysBoundary);
+            } else if (sysBoundary && savedPositions['system_boundary']) {
+                sysBoundary.position = { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y };
+                sysBoundary.style = { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height };
+                sysBoundary.data = { ...sysBoundary.data, label: systemName };
+            }
+            layoutedNodes = restoredNodes;
+            layoutedEdges = initialEdges;
+        }
       } else {
-        const enhancedNodes = layoutedNodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
-        setNodes(enhancedNodes);
-        setEdges(calculateDynamicHandles(layoutedEdges, enhancedNodes).map(e => ({ ...e, zIndex: 1 })));
+        // Force reset or no saved positions — use ucLayoutEngine for proper 2-side actor split + system boundary
+        const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
+        layoutedNodes = layoutResult.nodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
+        layoutedEdges = layoutResult.edges;
       }
+
+      setNodes(layoutedNodes);
+      setEdges(calculateDynamicHandles(layoutedEdges, layoutedNodes).map(e => ({ ...e, zIndex: 1 })));
 
       setTimeout(() => {
         fitView({ padding: 0.08, minZoom: 0.1 });
@@ -405,29 +631,68 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       setIsLoading(false);
       setIsInitialized(true);
     }
-  }, [projectId, actors, useCases, relations, systemName, fitView]);
+  }, [projectId, actors, useCases, relations, systemName, fitView, currentModuleId]);
 
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if ((actors.length > 0 || useCases.length > 0) && !isInitialized) {
       initLayout();
-    } else if (actors.length === 0 && useCases.length === 0) {
-      setIsInitialized(false);
+    } else if (actors.length === 0 && useCases.length === 0 && !isInitialized) {
+      // If it's the first time loading an empty project, just stop loading.
+      // Do not revert isInitialized to false if it's already true, to preserve auto-save.
       setIsLoading(false);
+      setIsInitialized(true);
     }
   }, [actors.length, useCases.length, initLayout, isInitialized]);
 
-  // Task 1: Sync new actors and useCases to the canvas dynamically
+  // Track whether we need a full re-layout after a bulk add (e.g. AI generation)
+  const needsRelayoutRef = useRef(false);
+  const prevActorCountRef = useRef(actors.length);
+  const prevUcCountRef = useRef(useCases.length);
+
+  // Task 1: Sync new actors and useCases to the canvas dynamically and remove deleted ones
   useEffect(() => {
       if (!isInitialized) return;
+      
+      // Detect if large number of nodes were added (bulk AI generation)
+      const actorDiff = actors.length - prevActorCountRef.current;
+      const ucDiff = useCases.length - prevUcCountRef.current;
+      prevActorCountRef.current = actors.length;
+      prevUcCountRef.current = useCases.length;
+      if (actorDiff > 1 || ucDiff > 1) {
+          needsRelayoutRef.current = true;
+      }
+
       setNodes((nds) => {
           let updated = false;
           const newNodes = [...nds];
           
+          // 1. Remove nodes that no longer exist in the store
+          for (let i = newNodes.length - 1; i >= 0; i--) {
+              const node = newNodes[i];
+              if (node.id === 'system_boundary') continue;
+              
+              if (node.id.startsWith('actor_')) {
+                  const rawId = node.id.replace('actor_', '');
+                  if (!actors.find(a => a.id.toString() === rawId || a.id.toString() === `actor_${rawId}`)) {
+                      newNodes.splice(i, 1);
+                      updated = true;
+                  }
+              } else if (node.id.startsWith('uc_')) {
+                  const rawId = node.id.replace('uc_', '');
+                  if (!useCases.find(uc => uc.id.toString() === rawId && uc.showInDiagram !== false)) {
+                      newNodes.splice(i, 1);
+                      updated = true;
+                  }
+              }
+          }
+          
+          // 2. Add or update actors
           actors.forEach(a => {
               const actorId = a.id.toString().startsWith('actor_') ? a.id.toString() : `actor_${a.id}`;
-              if (!newNodes.find(n => n.id === actorId)) {
+              const index = newNodes.findIndex(n => n.id === actorId);
+              if (index === -1) {
                   newNodes.push({
                       id: actorId,
                       type: 'actor',
@@ -440,13 +705,43 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                       }
                   });
                   updated = true;
+              } else if (newNodes[index].data.label !== a.name) {
+                  newNodes[index] = {
+                      ...newNodes[index],
+                      data: { ...newNodes[index].data, label: a.name || 'Actor' }
+                  };
+                  updated = true;
               }
           });
           
+          // 3. Add or update use cases
           useCases.forEach(uc => {
               if (uc.showInDiagram === false) return;
               const ucId = `uc_${uc.id}`;
-              if (!newNodes.find(n => n.id === ucId)) {
+              const index = newNodes.findIndex(n => n.id === ucId);
+              if (index === -1) {
+                  // Check if this UC already has relations to actors (transitively) so it shouldn't appear as isolated
+                  const ucRawId = uc.id.toString();
+                  const visited = new Set();
+                  const queue = [ucRawId];
+                  let hasActorConnection = false;
+                  
+                  while(queue.length > 0 && !hasActorConnection) {
+                      const current = queue.shift();
+                      visited.add(current);
+                      const connectedRels = relations.filter(r => r.sourceId.toString() === current || r.targetId.toString() === current);
+                      for (const rel of connectedRels) {
+                          const otherStr = rel.sourceId.toString() === current ? rel.targetId.toString() : rel.sourceId.toString();
+                          if (actors.some(a => a.id.toString() === otherStr)) {
+                              hasActorConnection = true;
+                              break;
+                          }
+                          if (!visited.has(otherStr)) {
+                              queue.push(otherStr);
+                              visited.add(otherStr);
+                          }
+                      }
+                  }
                   newNodes.push({
                       id: ucId,
                       type: 'useCase',
@@ -454,11 +749,17 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                       data: {
                           label: uc.name || 'Untitled',
                           group: uc.group,
-                          isIsolated: true,
+                          isIsolated: !hasActorConnection,
                           onDelete: handleNodeDelete,
                           onNameUpdate: handleNameUpdate
                       }
                   });
+                  updated = true;
+              } else if (newNodes[index].data.label !== uc.name) {
+                  newNodes[index] = {
+                      ...newNodes[index],
+                      data: { ...newNodes[index].data, label: uc.name || 'Untitled' }
+                  };
                   updated = true;
               }
           });
@@ -470,6 +771,20 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
       setEdges((eds) => {
           let updated = false;
           const newEdges = [...eds];
+          
+          // 1. Remove edges that no longer exist in the store
+          for (let i = newEdges.length - 1; i >= 0; i--) {
+              const edge = newEdges[i];
+              if (edge.id.startsWith('edge_')) {
+                  const rawId = edge.id.replace('edge_', '');
+                  if (!relations.find(r => r.id.toString() === rawId)) {
+                      newEdges.splice(i, 1);
+                      updated = true;
+                  }
+              }
+          }
+
+          // 2. Add new edges
           relations.forEach(rel => {
               const edgeId = `edge_${rel.id}`;
               if (!newEdges.find(e => e.id === edgeId)) {
@@ -480,6 +795,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                   const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
                   const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
           
+                  const isDependency = rel.type === 'include' || rel.type === 'extends';
                   newEdges.push({
                       id: edgeId,
                       source,
@@ -490,13 +806,24 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
                           onEdgeAction: handleEdgeAction
                       },
                       label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
+                      style: isDependency ? { strokeDasharray: '5,5' } : {},
+                      markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
                   });
                   updated = true;
               }
           });
+          
           return updated ? newEdges : eds;
       });
-  }, [actors, useCases, relations, isInitialized, handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges]);
+
+      // If bulk nodes were added, do a silent re-layout AFTER state updates settle
+      if (needsRelayoutRef.current) {
+          needsRelayoutRef.current = false;
+          setTimeout(() => {
+              relayoutSilently(actors, useCases, relations, systemName);
+          }, 200);
+      }
+  }, [actors, useCases, relations, isInitialized, handleNodeDelete, handleNameUpdate, handleEdgeAction, setNodes, setEdges, relayoutSilently, systemName]);
 
     // Unified Debounced Auto-save
     const autoSaveTimeout = useRef(null);
@@ -542,7 +869,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         }, 2500); // 2.5s debounce
         
         return () => clearTimeout(autoSaveTimeout.current);
-    }, [nodes, edges, actors, useCases, relations, systemName, isInitialized, onSave]);
+    }, [nodes, edges, isInitialized, onSave]);
 
     useEffect(() => {
         const isConnectedToActor = (startId, currentEdges) => {
@@ -626,11 +953,6 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
           return;
       }
       
-      // Ràng buộc: UC cô đơn (không có actor nối) không được nối Include/Extend
-      const isUcIsolated = (ucId) => {
-         const node = nodes.find(n => n.id === ucId);
-         return node?.data?.isIsolated;
-      };
 
       if (isSourceUc && isTargetUc) {
           const sourceNode = nodes.find(n => n.id === source);
@@ -829,7 +1151,7 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
         elementsSelectable={!isView}
         panOnDrag={true}
         zoomOnScroll={true}
-        deleteKeyCode={['Backspace', 'Delete']}
+        deleteKeyCode={isView ? null : ['Backspace', 'Delete']}
         connectionMode={ConnectionMode.Loose}
         elevateNodesOnSelect={false}
       >
@@ -848,14 +1170,32 @@ const FlowContent = forwardRef(({ projectId, actors = [], useCases = [], relatio
           </div>
         )}
         <Background color="#E2E8F0" gap={24} size={1} />
-        {!isView && <Controls />}
       </ReactFlow>
     </div>
   );
-  });
-  
-export const UCDiagram = forwardRef((props, ref) => (
-   <ReactFlowProvider>
-      <FlowContent {...props} ref={ref} />
-   </ReactFlowProvider>
-));
+});
+
+export const UCDiagram = forwardRef(({ projectId, currentModuleId, actors, useCases, relations, systemName, mode, onSave, onUnsavedChanges, onSystemNameLoad, isLeader, onApproveUseCase, onRejectUseCase, activeView, currentUserId }, ref) => {
+  return (
+    <ReactFlowProvider>
+      <FlowContent 
+        ref={ref}
+        projectId={projectId}
+        currentModuleId={currentModuleId}
+        actors={actors}
+        useCases={useCases}
+        relations={relations}
+        systemName={systemName}
+        mode={mode}
+        onSave={onSave}
+        onUnsavedChanges={onUnsavedChanges}
+        onSystemNameLoad={onSystemNameLoad}
+        isLeader={isLeader}
+        onApproveUseCase={onApproveUseCase}
+        onRejectUseCase={onRejectUseCase}
+        activeView={activeView}
+        currentUserId={currentUserId}
+      />
+    </ReactFlowProvider>
+  );
+});

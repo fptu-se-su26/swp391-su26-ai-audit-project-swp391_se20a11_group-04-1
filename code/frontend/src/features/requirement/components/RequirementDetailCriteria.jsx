@@ -31,7 +31,7 @@ const RequirementDetailCriteria = ({ requirement }) => {
                   readOnly 
                 />
                 <span className={`font-body-md text-sm font-medium ${isChecked ? 'text-green-700 line-through opacity-80' : 'text-slate-700'}`}>
-                  {criteria}
+                  {typeof criteria === 'string' ? criteria.replace(/^[\*\-\s]+/, '') : criteria}
                 </span>
               </li>
             );
@@ -39,7 +39,7 @@ const RequirementDetailCriteria = ({ requirement }) => {
         </ul>
       ) : (
         <div className="text-secondary italic text-sm">
-          Chưa có tiêu chí nghiệm thu nào được định nghĩa cho Requirement này.
+          No acceptance criteria defined for this requirement.
         </div>
       )}
     </div>

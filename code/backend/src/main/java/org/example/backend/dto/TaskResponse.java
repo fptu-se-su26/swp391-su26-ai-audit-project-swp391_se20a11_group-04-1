@@ -21,6 +21,8 @@ public class TaskResponse {
     private String useCaseCode;
     private Long sprintId;
     private String sprintName;
+    private Long businessModuleId;
+    private String businessModuleName;
     private String title;
     private String description;
     private String type;

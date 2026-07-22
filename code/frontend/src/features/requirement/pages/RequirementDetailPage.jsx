@@ -8,6 +8,7 @@ import RequirementDetailTraceability from '../components/RequirementDetailTracea
 import RequirementDetailAIActions from '../components/RequirementDetailAIActions';
 import UseCaseFormModal from '../components/UseCaseFormModal';
 import TestCaseFormModal from '../../testing/components/TestCaseFormModal';
+import CreateRequirementModal from '../components/CreateRequirementModal';
 import { requirementApi } from '../services/requirementApi';
 
 const RequirementDetailPage = () => {
@@ -15,6 +16,7 @@ const RequirementDetailPage = () => {
 
   const [requirement, setRequirement] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUseCaseModalOpen, setIsUseCaseModalOpen] = useState(false);
   const [isTestCaseModalOpen, setIsTestCaseModalOpen] = useState(false);
 
@@ -109,7 +111,7 @@ const RequirementDetailPage = () => {
   return (
     <div className="max-w-[1600px] mx-auto pb-32">
 
-      <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} />
+      <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} onEdit={() => setIsEditModalOpen(true)} />
 
       <div className="grid grid-cols-1 gap-gutter mt-stack_md">
         {/* Main Content */}
@@ -123,6 +125,17 @@ const RequirementDetailPage = () => {
           />
         </div>
       </div>
+
+      <CreateRequirementModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={() => {
+          fetchRequirement();
+          setIsEditModalOpen(false);
+        }}
+        editingData={requirement}
+        projectId={projectId}
+      />
 
       <UseCaseFormModal 
         isOpen={isUseCaseModalOpen} 

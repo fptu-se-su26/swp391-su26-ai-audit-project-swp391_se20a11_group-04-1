@@ -10,8 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface EvidenceRepository extends JpaRepository<Evidence, Long>, JpaSpecificationExecutor<Evidence> {
-    @Query("SELECT COUNT(e) FROM Evidence e JOIN e.evidenceLinks l WHERE l.entityType = 'TASK' AND l.entityId = :taskId")
-    int countByTaskId(@Param("taskId") Long taskId);
+    @Query("SELECT COUNT(e) FROM Evidence e JOIN e.evidenceLinks l WHERE l.entityType = :entityType AND l.entityId = :entityId")
+    int countByEntityTypeAndEntityId(@Param("entityType") org.example.backend.entity.EvidenceEntityType entityType, @Param("entityId") Long entityId);
 
     @Query("SELECT COUNT(e) FROM Evidence e WHERE e.uploadedBy.id = :userId")
     long countByUploadedByUserId(@Param("userId") Long userId);

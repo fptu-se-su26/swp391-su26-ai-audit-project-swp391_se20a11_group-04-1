@@ -47,6 +47,7 @@ const KanbanBoardPage = () => {
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false)
   const [generatingReqCount, setGeneratingReqCount] = useState(1)
   const [aiGenerationId, setAiGenerationId] = useState(null)
+  const [showTaskCoverageWarning, setShowTaskCoverageWarning] = useState(false)
   const abortControllerRef = useRef(null)
 
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -172,10 +173,49 @@ const KanbanBoardPage = () => {
     abortControllerRef.current = new AbortController();
 
     try {
+      const startTime = Date.now();
       const payload = { requirementIds };
       const response = await taskService.generateAITasks(activeProject?.id, payload, { signal: abortControllerRef.current.signal });
-      setAiGenerationId(response.generationId);
-      toast.success('AI Task Generation completed!');
+      const genId = response.generationId;
+
+      const pollStatus = async () => {
+        if (!abortControllerRef.current) return; // User cancelled
+        
+        try {
+          const statusData = await taskService.getAIGenerationStatus(genId, { signal: abortControllerRef.current.signal });
+          if (statusData.status === 'PENDING') {
+            setTimeout(pollStatus, 3000);
+          } else {
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
+               await new Promise((resolve, reject) => {
+                   const timer = setTimeout(resolve, 12000 - elapsed);
+                   abortControllerRef.current.signal.addEventListener('abort', () => {
+                       clearTimeout(timer);
+                       reject(new Error('canceled'));
+                   });
+               });
+            }
+            
+            setIsGeneratingTasks(false);
+            if (statusData.status === 'DISCARDED') {
+              toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
+            } else {
+              setAiGenerationId(genId);
+              toast.success('AI Task Generation completed!');
+            }
+            abortControllerRef.current = null;
+          }
+        } catch (e) {
+          if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            setIsGeneratingTasks(false);
+            toast.error("Lỗi khi kiểm tra trạng thái AI.");
+            abortControllerRef.current = null;
+          }
+        }
+      };
+
+      pollStatus();
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') {
         toast('Đã hủy quá trình Generate Tasks.', { icon: 'ℹ️' });
@@ -183,7 +223,6 @@ const KanbanBoardPage = () => {
         console.error(err);
         toast.error(err.response?.data?.error || 'Lỗi khi gọi AI Generate Tasks.');
       }
-    } finally {
       setIsGeneratingTasks(false);
       abortControllerRef.current = null;
     }
@@ -560,6 +599,7 @@ const KanbanBoardPage = () => {
         generationId={aiGenerationId}
         projectId={activeProject?.id}
         onClose={() => setAiGenerationId(null)}
+        onFullyCovered={() => setShowTaskCoverageWarning(true)}
         onSuccess={() => {
           setAiGenerationId(null)
           fetchProjectTasks(activeProject?.id)
@@ -693,6 +733,16 @@ const KanbanBoardPage = () => {
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
         }}
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
+      <ConfirmModal
+        isOpen={showTaskCoverageWarning}
+        title="Fully Covered"
+        message="AI could not generate new Tasks. All Use Cases are already fully covered by existing Tasks."
+        confirmText="Understood"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => setShowTaskCoverageWarning(false)}
+        onCancel={() => setShowTaskCoverageWarning(false)}
       />
     </div>
   )

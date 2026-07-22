@@ -11,7 +11,8 @@ const EditableTaskCard = ({
   onChangeSprint,
   isMergingToExisting = false,
   readOnlyMode = false, // When true, doesn't allow editing (for the top half of modals)
-  onEditStateChange // Callback to notify parent if card is currently being edited
+  onEditStateChange, // Callback to notify parent if card is currently being edited
+  maxAllowedDate // Add this to limit max deadline (from project or requirement)
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -28,14 +29,14 @@ const EditableTaskCard = ({
     const tStart = formState.start_date || formState.startDate;
     const tEnd = formState.deadline || formState.suggested_deadline || formState.endDate;
     
-    if (tStart && tStart < sStart) return `Bắt đầu trước Sprint (${sStart})`;
-    if (tEnd && tEnd > sEnd) return `Kết thúc sau Sprint (${sEnd})`;
+    if (tStart && tStart < sStart) return `Starts before Sprint (${sStart})`;
+    if (tEnd && tEnd > sEnd) return `Ends after Sprint (${sEnd})`;
     return null;
   };
 
   const todayDateStr = new Date().toISOString().split('T')[0];
   let sprintMin = todayDateStr;
-  let sprintMax = '';
+  let sprintMax = maxAllowedDate || '';
   const currentSprintId = isEditing ? (editForm.sprint_id || task.sprint_id || task.sprintId) : (task.sprint_id || task.sprintId);
   if (currentSprintId) {
     const selectedSprint = sprints.find(s => String(s.id) === String(currentSprintId));
@@ -97,7 +98,7 @@ const EditableTaskCard = ({
     if (editForm.estimated_hours !== undefined && editForm.estimated_hours !== '') {
       const hours = Number(editForm.estimated_hours);
       if (isNaN(hours) || hours <= 0 || hours > 999) {
-        toast.error('Số giờ ước tính phải lớn hơn 0 và nhỏ hơn 1000!');
+        toast.error('Estimated hours must be between 0 and 1000!');
         return;
       }
     }
@@ -106,13 +107,13 @@ const EditableTaskCard = ({
     const tEnd = editForm.deadline || editForm.suggested_deadline || task.deadline || task.suggested_deadline;
     
     if (tStart && tEnd && tStart > tEnd) {
-      toast.error('Ngày bắt đầu không được lớn hơn Deadline!');
+      toast.error('Start date cannot be after Deadline!');
       return;
     }
     
     const sprintErr = checkSprintDateError({ ...task, ...editForm });
     if (sprintErr) {
-      toast.error('Ngày tháng không hợp lệ với Sprint: ' + sprintErr);
+      toast.error('Invalid date for Sprint: ' + sprintErr);
       return;
     }
 
@@ -218,7 +219,7 @@ const EditableTaskCard = ({
                 className="border border-slate-300 rounded px-2 py-1 text-sm outline-none focus:border-indigo-500"
                 value={editForm.start_date || ''}
                 min={sprintMin}
-                max={sprintMax || undefined}
+                max={editForm.deadline || editForm.suggested_deadline || sprintMax || undefined}
                 onChange={(e) => setEditForm({...editForm, start_date: e.target.value})}
               />
             </div>
@@ -286,7 +287,7 @@ const EditableTaskCard = ({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Checklist ({(editForm.checklists || []).length})</span>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
               {(editForm.checklists || []).map((item, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-slate-300 text-[20px]">check_box_outline_blank</span>
@@ -299,8 +300,8 @@ const EditableTaskCard = ({
                   />
                   <button 
                     onClick={() => handleRemoveChecklist(idx)}
-                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                    title="Xóa tiêu chí"
+                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors shrink-0"
+                    title="Delete criteria"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
@@ -308,10 +309,10 @@ const EditableTaskCard = ({
               ))}
               <button 
                 onClick={handleAddChecklist}
-                className="self-start mt-1 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200 transition-colors flex items-center gap-1"
+                className="self-start mt-1 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200 transition-colors flex items-center gap-1 shrink-0"
               >
                 <span className="material-symbols-outlined text-[14px]">add</span>
-                Thêm tiêu chí
+                Add criteria
               </button>
             </div>
           </div>
@@ -327,7 +328,7 @@ const EditableTaskCard = ({
                 sprintError ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
-              ✓ Lưu
+              ✓ Save
             </button>
           </div>
         </div>
@@ -368,7 +369,7 @@ const EditableTaskCard = ({
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-indigo-600 hover:underline text-xs font-medium mt-1 inline-flex items-center"
           >
-            {isExpanded ? "thu gọn ▴" : "xem thêm ▾"}
+            {isExpanded ? "collapse ▴" : "view more ▾"}
           </button>
         )}
       </div>
@@ -383,7 +384,7 @@ const EditableTaskCard = ({
             </span>
             <span className="text-[11px] font-medium text-slate-500">0/{task.checklists.length}</span>
           </div>
-          <div className="p-2 flex flex-col gap-1.5">
+          <div className="p-2 flex flex-col gap-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
             {task.checklists.map((item, idx) => (
               <div key={idx} className="flex items-start gap-2 group">
                 <span className="material-symbols-outlined text-slate-300 text-[18px] mt-0.5 group-hover:text-indigo-300 transition-colors cursor-default">check_box_outline_blank</span>
