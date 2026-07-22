@@ -82,12 +82,12 @@ public interface ProjectService {
     ProjectClosureCheckResponse checkProjectClosure(Long projectId, Long userId);
 
     /**
-     * Đóng project: xử lý task/bug còn mở, chuyển status → ARCHIVED, ghi audit log
+     * Đóng project: xử lý task/bug còn mở, chuyển status → COMPLETED, ghi audit log
      */
     void closeProject(Long projectId, ProjectCloseRequest request, Long userId);
 
     /**
-     * Mở lại project đã đóng (ARCHIVED → ACTIVE)
+     * Mở lại project đã đóng (COMPLETED/ARCHIVED → ACTIVE)
      */
     void reopenProject(Long projectId, ProjectReopenRequest request, Long userId);
 

@@ -320,7 +320,8 @@ public class TaskServiceImpl implements TaskService {
         Task task = findTask(taskId);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
-        if (task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+        if (task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.COMPLETED
+                || task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Project is closed, cannot edit the task.");
         }
         TaskStatus oldStatus = task.getStatus();

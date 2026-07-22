@@ -425,7 +425,7 @@ public class ProjectController {
 
     /**
      * POST /api/v1/projects/{projectId}/close
-     * Đóng project: xử lý task còn mở, chuyển trạng thái → ARCHIVED, ghi audit log.
+     * Đóng project: xử lý task còn mở, chuyển trạng thái → COMPLETED, ghi audit log.
      */
     @PostMapping("/{projectId}/close")
     public ResponseEntity<ApiResponse<Void>> closeProject(
@@ -445,7 +445,7 @@ public class ProjectController {
 
     /**
      * POST /api/v1/projects/{projectId}/reopen
-     * Mở lại project đã đóng (ARCHIVED → ACTIVE).
+     * Mở lại project đã đóng (COMPLETED/ARCHIVED → ACTIVE).
      */
     @PostMapping("/{projectId}/reopen")
     public ResponseEntity<ApiResponse<Void>> reopenProject(

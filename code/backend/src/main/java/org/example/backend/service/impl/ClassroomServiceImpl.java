@@ -460,7 +460,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                     .academicContext(ac)
                     .startDate(java.time.LocalDate.now())
                     .deadline(java.time.LocalDate.now().plusMonths(3))
-                    .status(org.example.backend.entity.ProjectStatus.PLANNING)
+                    .status(org.example.backend.entity.ProjectStatus.ACTIVE)
                     .createdBy(ac.getOwner())
                     .maxMembers(membersPerGroup)
                     .members(new java.util.ArrayList<>())
