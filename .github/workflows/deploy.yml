@@ -73,7 +73,7 @@ jobs:
             echo ">> Rebuilding playwright-server..."
             cd "${REPO_DIR}"
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps playwright-server
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate playwright-server
 
             # 5. Rebuild architecture-parser với code mới (selector_scan_service.py)
             echo ">> Rebuilding architecture-parser..."
