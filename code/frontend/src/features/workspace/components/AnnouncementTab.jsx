@@ -41,6 +41,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
           if (prev.some(ann => ann.id === newAnnouncement.id)) return prev;
           return [newAnnouncement, ...prev];
         });
+        window.dispatchEvent(new CustomEvent('NEW_ANNOUNCEMENT_CREATED'));
       } catch (e) {
         console.error('Failed to parse SSE message', e);
       }
@@ -58,6 +59,7 @@ export default function AnnouncementTab({ classroomId, classroomData }) {
       toast.success('Announcement posted successfully!');
       setIsModalOpen(false);
       fetchAnnouncements(); // refresh list
+      window.dispatchEvent(new CustomEvent('NEW_ANNOUNCEMENT_CREATED'));
     } catch (error) {
       toast.error(error.response?.data?.message || 'An error occurred while posting the announcement');
     } finally {

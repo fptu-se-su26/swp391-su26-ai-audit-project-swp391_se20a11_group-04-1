@@ -20,7 +20,7 @@ export default function AnnouncementCarousel({ classroomData, onShare, onAnnounc
   const [isVisible, setIsVisible] = useState(true);
   const [realAnnouncements, setRealAnnouncements] = useState([]);
 
-  useEffect(() => {
+  const fetchCarouselAnnouncements = () => {
     if (classroomData?.id) {
       announcementApi.getAnnouncements(classroomData.id, 0, 10)
         .then(data => {
@@ -52,6 +52,31 @@ export default function AnnouncementCarousel({ classroomData, onShare, onAnnounc
         })
         .catch(err => console.error("Failed to load announcements for carousel:", err));
     }
+  };
+
+  useEffect(() => {
+    if (!classroomData?.id) return;
+
+    fetchCarouselAnnouncements();
+
+    const handleRefresh = () => {
+      fetchCarouselAnnouncements();
+    };
+
+    window.addEventListener('NEW_ANNOUNCEMENT_CREATED', handleRefresh);
+
+    // Mở kết nối SSE trực tiếp cho Banner xoay (chạy trên mọi tab của Classroom)
+    const sseUrl = `${import.meta.env.VITE_API_BASE_URL || '/api'}/v1/classrooms/${classroomData.id}/announcements/stream`;
+    const eventSource = new EventSource(sseUrl, { withCredentials: true });
+
+    eventSource.addEventListener('NEW_ANNOUNCEMENT', () => {
+      fetchCarouselAnnouncements();
+    });
+
+    return () => {
+      window.removeEventListener('NEW_ANNOUNCEMENT_CREATED', handleRefresh);
+      eventSource.close();
+    };
   }, [classroomData?.id]);
 
   // Combine classroom info as the first slide if provided
@@ -154,7 +179,7 @@ export default function AnnouncementCarousel({ classroomData, onShare, onAnnounc
             {/* We use key={currentAnnouncement.id} to trigger simple fade animation on content change */}
             <div key={currentAnnouncement.id} className="animate-[fadeIn_0.5s_ease-out]">
               <p className="text-[10px] md:text-[11px] font-extrabold text-white/80 uppercase tracking-[0.15em] mb-1.5 md:mb-2">
-                Thông báo từ Mentor {currentAnnouncement.senderName ? ` - ${currentAnnouncement.senderName}` : ''}
+                MENTOR ANNOUNCEMENT {currentAnnouncement.senderName ? ` - ${currentAnnouncement.senderName}` : ''}
               </p>
               <h3 className="text-white font-bold text-xl md:text-2xl leading-tight mb-1.5 md:mb-2 truncate">
                 {currentAnnouncement.title}
