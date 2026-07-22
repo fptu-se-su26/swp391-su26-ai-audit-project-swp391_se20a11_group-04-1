@@ -50,7 +50,7 @@ public class Project {
     @Column(nullable = false, columnDefinition = "project_status_enum")
     @Builder.Default
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    private ProjectStatus status = ProjectStatus.PLANNING;
+    private ProjectStatus status = ProjectStatus.ACTIVE;
 
     @Column(length = 7)
     private String color;
