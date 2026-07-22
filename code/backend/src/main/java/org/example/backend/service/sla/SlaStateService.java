@@ -1,4 +1,4 @@
-﻿package org.example.backend.service.sla;
+package org.example.backend.service.sla;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
