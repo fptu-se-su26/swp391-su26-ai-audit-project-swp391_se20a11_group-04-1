@@ -73,7 +73,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                     className="inline-flex items-center gap-1.5 text-xs text-[#1E707D] font-bold hover:underline"
                   >
                     <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-                    <span>Quay lại task cha: {parentTask.title}</span>
+                    <span>Back to parent task: {parentTask.title}</span>
                   </button>
                 </div>
               ) : null
@@ -195,7 +195,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
                     const isIssueTaskOrSubtask = isIssueOwnedTask(task) || isIssueOwnedTask(parentTask)
 
                     if (isIssueTaskOrSubtask) {
-                      toast.error('Task liên kết với Issue một khi đã chuyển sang Done thì không thể chuyển về lại các trạng thái khác ngoại trừ Blocked.')
+                      toast.error('Tasks linked to an Issue cannot be moved back to other statuses once marked as Done, except Blocked.')
                       return
                     }
                   }

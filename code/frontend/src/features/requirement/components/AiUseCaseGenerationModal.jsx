@@ -9,12 +9,12 @@ import ConfirmModal from '../../../components/ui/ConfirmModal';
 
 const today = new Date().toISOString().split('T')[0];
 
-const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) => {
+const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, onFullyCovered }) => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
   const [useCases, setUseCases] = useState([]);
   const [selectedIndices, setSelectedIndices] = useState(new Set());
-  const [showCoverageWarning, setShowCoverageWarning] = useState(false);
+
   const [projectId, setProjectId] = useState(null);
   const [viewMode, setViewMode] = useState('grouped'); // 'list' or 'grouped'
   const [requirements, setRequirements] = useState([]);
@@ -50,6 +50,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           }
           const pId = data.project;
           setProjectId(pId);
+          
+          let existingUcs = [];
 
           // Fetch requirements for mapping IDs
           if (pId) {
@@ -72,7 +74,6 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
             }
             
             // Fetch existing Use Cases for duplicate check
-            let existingUcs = [];
             try {
               existingUcs = await useCaseService.getAllUseCases(pId);
               setExistingUseCases(existingUcs || []);
@@ -86,14 +87,24 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           if (typeof payloadData === 'string') {
             try { payloadData = JSON.parse(payloadData); } catch(e) {}
           }
+
+          if (!Array.isArray(payloadData) && typeof payloadData === 'object' && payloadData !== null) {
+            for (const key in payloadData) {
+              if (Array.isArray(payloadData[key])) {
+                payloadData = payloadData[key];
+                break;
+              }
+            }
+          }
+
           if (Array.isArray(payloadData)) {
             // Check duplicates and format flows
             const existingNames = new Set((existingUcs || []).map(u => u.name.trim().toLowerCase()));
             payloadData = payloadData.map(uc => ({
-              ...uc,
-              isDuplicate: uc.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
-              mainSuccessScenario: normalizeFlowToText(uc.mainSuccessScenario || uc.mainFlow || uc.mainFlows),
-              alternativeFlows: normalizeFlowToText(uc.alternativeFlows || uc.alternativeFlow)
+              ...(uc || {}),
+              isDuplicate: uc?.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
+              mainSuccessScenario: normalizeFlowToText(uc?.mainSuccessScenario || uc?.mainFlow || uc?.mainFlows),
+              alternativeFlows: normalizeFlowToText(uc?.alternativeFlows || uc?.alternativeFlow)
             }));
           }
           setUseCases(Array.isArray(payloadData) ? payloadData : []);
@@ -115,20 +126,22 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
 
           const validIndices = (Array.isArray(payloadData) ? payloadData : [])
             .map((uc, i) => ({uc, i}))
-            .filter(({uc}) => !uc.isDuplicate && !uc.isDeleted)
+            .filter(({uc}) => uc && !uc.isDuplicate && !uc.isDeleted)
             .map(({i}) => i);
           
           setSelectedIndices(new Set(validIndices));
 
+          // If AI produced nothing new → close and notify parent
           if (validIndices.length === 0) {
-            setShowCoverageWarning(true);
+            onClose();
+            onFullyCovered?.();
           }
+          setLoading(false);
         })
         .catch(err => {
-          console.error("Failed to load AI generation data", err);
-          toast.error("Failed to load generated Use Cases.");
-        })
-        .finally(() => {
+          const detail = err.response?.data?.details || err.response?.data?.error || err.message;
+          console.error("Failed to load AI generation data. Detail:", detail);
+          toast.error("Lỗi tải Use Case: " + (err.response?.data?.error || ""));
           setLoading(false);
         });
     }
@@ -168,13 +181,13 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
           items: [] 
         };
       }
-      groups[moduleName].items.push({ ...uc, originalIndex });
+      groups[moduleName].items.push({ uc, originalIndex });
     });
 
     return Object.values(groups).map(g => {
       g.items.sort((a, b) => {
-        if (a.isDuplicate && !b.isDuplicate) return 1;
-        if (!a.isDuplicate && b.isDuplicate) return -1;
+        if (a?.isDuplicate && !b?.isDuplicate) return 1;
+        if (!a?.isDuplicate && b?.isDuplicate) return -1;
         return 0;
       });
       return g;
@@ -187,7 +200,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   if (!isOpen) return null;
 
   const toggleSelectAll = () => {
-    const validIndices = useCases.map((uc, i) => ({uc, i})).filter(({uc}) => !uc.isDuplicate && !uc.isDeleted).map(({i}) => i);
+    const validIndices = useCases.map((uc, i) => ({uc, i})).filter(({uc}) => uc && !uc.isDuplicate && !uc.isDeleted).map(({i}) => i);
     const allSelected = validIndices.length > 0 && validIndices.every(i => selectedIndices.has(i));
     
     if (allSelected) {
@@ -331,6 +344,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   };
 
   const renderUseCaseCard = (uc, index, isDuplicate, moduleName) => {
+    if (!uc) return null;
     return (
       <div 
         key={index} 
@@ -476,6 +490,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface rounded-2xl w-full max-w-[95vw] h-[95vh] flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10" onClick={e => e.stopPropagation()}>
         
@@ -562,9 +577,9 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 
                     type="checkbox" 
-                    checked={selectedIndices.size > 0 && selectedIndices.size === useCases.filter(uc => !uc.isDuplicate && !uc.isDeleted).length}
+                    checked={selectedIndices.size > 0 && selectedIndices.size === useCases.filter(uc => uc && !uc.isDuplicate && !uc.isDeleted).length}
                     ref={input => {
-                      if (input) input.indeterminate = selectedIndices.size > 0 && selectedIndices.size < useCases.filter(uc => !uc.isDuplicate && !uc.isDeleted).length;
+                      if (input) input.indeterminate = selectedIndices.size > 0 && selectedIndices.size < useCases.filter(uc => uc && !uc.isDuplicate && !uc.isDeleted).length;
                     }}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D] cursor-pointer"
@@ -597,8 +612,15 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                           </div>
                           <input 
                             type="text"
-                            value={group.moduleName}
-                            onChange={(e) => handleUpdateModuleName(group.moduleName, e.target.value)}
+                            defaultValue={group.moduleName}
+                            onBlur={(e) => {
+                              const newName = e.target.value.trim();
+                              if (newName && newName !== group.moduleName) {
+                                handleUpdateModuleName(group.moduleName, newName);
+                              } else {
+                                e.target.value = group.moduleName; // Revert
+                              }
+                            }}
                             className="font-bold text-[#111827] text-sm bg-transparent border-b border-dashed border-gray-400 focus:border-[#1E707D] outline-none flex-1 truncate max-w-md"
                           />
                         </div>
@@ -652,7 +674,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                         ) : (
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                             {group.items.map(({ uc, originalIndex }) => 
-                              renderUseCaseCard(uc, originalIndex, uc.isDuplicate === true, group.moduleName)
+                              renderUseCaseCard(uc, originalIndex, uc?.isDuplicate === true, group.moduleName)
                             )}
                           </div>
                         )}
@@ -664,8 +686,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
                 /* List View - Flat Grid */
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
                   {useCases.map((uc, index) => {
-                    if (uc.isDeleted) return null;
-                    return renderUseCaseCard(uc, index, uc.isDuplicate === true, uc.moduleName);
+                    if (uc?.isDeleted) return null;
+                    return renderUseCaseCard(uc, index, uc?.isDuplicate === true, uc?.moduleName);
                   })}
                 </div>
               )}
@@ -710,17 +732,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess }) 
         type="danger"
       />
 
-      <ConfirmModal
-        isOpen={showCoverageWarning}
-        title="Đã bao phủ toàn bộ"
-        message="AI không thể sinh thêm Use Case mới. Có vẻ như toàn bộ Requirement đã được Use Case bao phủ đầy đủ, hoặc kết quả sinh ra đều bị trùng lặp với dữ liệu hiện tại."
-        confirmText="Đã hiểu"
-        hideCancel={true}
-        type="info"
-        onConfirm={() => setShowCoverageWarning(false)}
-        onCancel={() => setShowCoverageWarning(false)}
-      />
     </div>
+    </>
   );
 };
 

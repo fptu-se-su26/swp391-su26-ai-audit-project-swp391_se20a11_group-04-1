@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiCheck, FiX, FiRefreshCw, FiAlertTriangle, FiXCircle, FiCheckCircle, FiEdit2, FiFileText, FiPlus } from 'react-icons/fi';
 import { BsStars, BsArrowUpRight } from 'react-icons/bs';
 import RequirementInlineEdit from '../components/RequirementInlineEdit';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 
 const renderHighlightedText = (text, excerpt) => {
   if (!text) return "No original document text available.";
@@ -54,6 +55,7 @@ const AiStagingReviewPage = () => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [showCoverageWarning, setShowCoverageWarning] = useState(false);
   const [previousPayload, setPreviousPayload] = useState(null);
   const [localPayload, setLocalPayload] = useState([]);
   const [projectActors, setProjectActors] = useState([]);
@@ -116,6 +118,10 @@ const AiStagingReviewPage = () => {
           }
         });
         setSelectedIndices(initialIndices);
+        
+        if (initialIndices.size === 0) {
+          setShowCoverageWarning(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching staging data:', error);
@@ -686,7 +692,7 @@ const AiStagingReviewPage = () => {
                                     {req.acceptanceCriteria.slice(0, req._showFullChecklist ? undefined : 2).map((item, idx) => (
                                       <li key={idx} className="flex items-start gap-2 text-[12px] text-gray-600">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#1E707D] mt-1.5 shrink-0" />
-                                        <span className="leading-snug">{item}</span>
+                                        <span className="leading-snug">{typeof item === 'string' ? item.replace(/^[\*\-\s]+/, '') : item}</span>
                                       </li>
                                     ))}
                                   </ul>
@@ -856,10 +862,17 @@ const AiStagingReviewPage = () => {
               <div className="w-[38px] h-[38px] bg-[#1E707D/10] rounded-[10px] flex items-center justify-center shrink-0">
                 <BsStars size={18} className="text-[#1E707D]" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1">
                 <h2 className="text-[16px] font-medium text-gray-900 leading-snug">Re-generating Requirements</h2>
                 <p className="text-[12px] text-[#6B7280]">AI is re-analyzing your document...</p>
               </div>
+              <button 
+                onClick={() => setIsRegenerating(false)} 
+                className="w-[28px] h-[28px] flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Cancel Re-generation"
+              >
+                <FiX size={16} />
+              </button>
             </div>
 
             {/* Stepper */}
@@ -933,6 +946,20 @@ const AiStagingReviewPage = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showCoverageWarning}
+        title="Fully Covered"
+        message="AI could not generate new Requirements. All Requirements extracted from the document are already fully covered in the system."
+        confirmText="Return to Requirements"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => {
+          setShowCoverageWarning(false);
+          navigate(`/projects/${activeProject?.id}/requirements`);
+        }}
+        onCancel={() => setShowCoverageWarning(false)}
+      />
     </div>
   );
 };

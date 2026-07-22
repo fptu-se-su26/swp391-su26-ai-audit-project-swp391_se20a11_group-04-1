@@ -22,6 +22,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
     List<Task> findByProjectId(Long projectId);
+    List<Task> findByBusinessModuleId(Long businessModuleId);
 
     long countByProjectId(Long projectId);
 

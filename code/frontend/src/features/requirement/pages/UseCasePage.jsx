@@ -39,6 +39,7 @@ const UseCasePage = () => {
   const [viewMode, setViewMode] = useState('list');
   const [listMode, setListMode] = useState('grouped'); // 'flat' or 'grouped'
   const [diagramTab, setDiagramTab] = useState('module'); // 'module' | 'overview'
+  const [overviewEditorMode, setOverviewEditorMode] = useState('view');
 
 
   // AI modals
@@ -49,6 +50,7 @@ const UseCasePage = () => {
   const [rejectModalData, setRejectModalData] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [generatingCount, setGeneratingCount] = useState(0);
+  const [showUcCoverageWarning, setShowUcCoverageWarning] = useState(false);
 
   // Pagination & Filter state
   const [currentPage, setCurrentPage] = useState(0);
@@ -70,8 +72,8 @@ const UseCasePage = () => {
     try {
       const params = {
         projectId: activeProject.id,
-        page: currentPage,
-        size: pageSize,
+        page: listMode === 'grouped' ? 0 : currentPage,
+        size: listMode === 'grouped' ? 1000 : pageSize,
         sort: 'createdAt,desc'
       };
       if (searchTerm) params.keyword = searchTerm;
@@ -201,12 +203,23 @@ const UseCasePage = () => {
     abortControllerRef.current = new AbortController();
     
     try {
-      // Removed unused mineParam/statusParam logic
+      const startTime = Date.now();
       const response = await useCaseService.generateUseCases(
         activeProject.id, 
         { requirementIds: selectedIds },
         { signal: abortControllerRef.current.signal }
       );
+      
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
+         await new Promise((resolve, reject) => {
+             const timer = setTimeout(resolve, 12000 - elapsed);
+             abortControllerRef.current.signal.addEventListener('abort', () => {
+                 clearTimeout(timer);
+                 reject(new Error('canceled'));
+             });
+         });
+      }
       setGenerationId(response.generationId);
       setIsAiModalOpen(true);
     } catch (error) {
@@ -265,6 +278,7 @@ const UseCasePage = () => {
 
   const handleReorder = async (newItems) => {
     setUseCases(newItems);
+    if (!activeProject?.id) return;
     const ucIds = newItems.map(item => item.id);
     try {
       await useCaseService.reorderUseCasesGlobal(activeProject.id, ucIds);
@@ -361,7 +375,7 @@ const UseCasePage = () => {
             <button
               type="button"
               className={`h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center transition-colors text-[14px] shadow-sm ${!isLeader ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary-fixed'}`}
-              onClick={() => isLeader && handleGenerateAI(allRequirements.map(req => req.id))}
+              onClick={() => isLeader && handleGenerateAI(allRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id))}
               disabled={!isLeader}
               title={!isLeader ? "Only Project Leader can generate use cases" : ""}
             >
@@ -388,10 +402,10 @@ const UseCasePage = () => {
                 projectId={activeProject?.id} 
                 currentModuleId={null}
                 activeView="all"
-                mode={isLeader ? 'edit' : 'view'} 
-                onClose={() => setDiagramTab('module')} 
-                onEdit={isLeader ? () => {} : undefined}
-                onView={() => {}}
+                mode={overviewEditorMode} 
+                onClose={() => { setDiagramTab('module'); setOverviewEditorMode('view'); }} 
+                onEdit={isLeader ? () => setOverviewEditorMode('edit') : undefined}
+                onView={() => setOverviewEditorMode('view')}
                 isLeader={isLeader}
                 onApproveUseCase={isLeader ? handleApproveUseCase : undefined}
                 onRejectUseCase={isLeader ? handleRejectUseCase : undefined}
@@ -450,12 +464,11 @@ const UseCasePage = () => {
                   onEdit={handleEditUseCase}
                   onDelete={handleDeleteUseCase}
                   onRefresh={handleRefresh}
-                  pagination={{
-                    currentPage,
-                    totalPages,
-                    totalItems: totalElements,
-                    pageSize
-                  }}
+                  onApprove={handleApproveUseCase}
+                  onReject={handleRejectUseCase}
+                  isDraftView={isDraftView}
+                  hasFilters={!!(searchTerm || statusFilter || reqFilter)}
+                  pagination={null} // Grouped view shows all items at once, no pagination
                   onPageChange={setCurrentPage}
                 />
               ) : (
@@ -466,6 +479,8 @@ const UseCasePage = () => {
                   onEdit={handleEditUseCase} 
                   onDelete={handleDeleteUseCase} 
                   onRefresh={handleRefresh}
+                  onApprove={isDraftView ? handleApproveUseCase : undefined}
+                  onReject={isDraftView ? handleRejectUseCase : undefined}
                   enableReorder={true}
                   onReorder={handleReorder}
                 />
@@ -508,6 +523,7 @@ const UseCasePage = () => {
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         generationId={generationId}
+        onFullyCovered={() => setShowUcCoverageWarning(true)}
         onSuccess={() => {
           setIsAiModalOpen(false);
           handleRefresh();
@@ -527,6 +543,16 @@ const UseCasePage = () => {
         isOpen={!!rejectModalData}
         onClose={() => setRejectModalData(null)}
         onConfirm={handleConfirmReject}
+      />
+      <ConfirmModal
+        isOpen={showUcCoverageWarning}
+        title="Fully Covered"
+        message="AI could not generate new Use Cases. All Requirements are already fully covered by existing Use Cases."
+        confirmText="Understood"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => setShowUcCoverageWarning(false)}
+        onCancel={() => setShowUcCoverageWarning(false)}
       />
     </div>
   );

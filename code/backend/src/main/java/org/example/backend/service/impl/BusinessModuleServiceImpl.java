@@ -32,12 +32,12 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
     @Autowired
     private org.example.backend.repository.UseCaseRepository useCaseRepository;
 
+    @Autowired
+    private org.example.backend.repository.TaskRepository taskRepository;
+
     private void checkProjectPermission(Project project, Long userId) {
-        boolean isMember = project.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(userId));
-        boolean isLeader = project.getCreatedBy().getId().equals(userId);
-        if (!isMember && !isLeader) {
-            throw new BadRequestException("User does not have access to this project");
-        }
+        boolean isLeader = project.getMembers().stream()
+            .anyMatch(m -> m.getUser().getId().equals(userId) && m.getRole() != null && m.getRole().getName().toUpperCase().contains("LEADER"));
         if (!isLeader) {
             throw new BadRequestException("Only project leader can manage modules");
         }
@@ -132,8 +132,17 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
         }
         checkProjectPermission(module.getProject(), userId);
         
-        if (useCaseRepository.existsByBusinessModuleId(id)) {
-            throw new BadRequestException("Cannot delete module because it contains Use Cases. Please reassign or delete them first.");
+        // 1. Unlink all Use Cases from this module
+        List<org.example.backend.entity.UseCase> useCases = useCaseRepository.findByBusinessModuleId(id);
+        for (org.example.backend.entity.UseCase uc : useCases) {
+            uc.setBusinessModule(null);
+            useCaseRepository.save(uc);
+        }
+
+        // 2. Delete all Tasks associated with this module
+        List<org.example.backend.entity.Task> tasks = taskRepository.findByBusinessModuleId(id);
+        if (!tasks.isEmpty()) {
+            taskRepository.deleteAll(tasks);
         }
         
         businessModuleRepository.delete(module);

@@ -99,11 +99,20 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @org.example.backend.annotation.Auditable(action="UPDATE_USECASE_STATUS", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request) {
+    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
+        }
+        
+        if (request.getStatus() == org.example.backend.entity.UseCaseStatus.DONE) {
+            org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                    .orElse(null);
+            boolean isLeader = pm != null && pm.getRole() != null && pm.getRole().getName().toUpperCase().contains("LEADER");
+            if (!isLeader) {
+                throw new org.example.backend.exception.ForbiddenException("Only Project Leaders can manually set Use Case status to DONE");
+            }
         }
         
         useCase.setStatus(request.getStatus());
@@ -167,8 +176,35 @@ public class UseCaseServiceImpl implements UseCaseService {
         
         checkUseCasePermission(useCase, projectId, userId);
         UseCaseResponse response = mapEntityToResponse(useCase);
+        
+        String deletedIdStr = useCase.getId().toString();
+        String deletedName = useCase.getName();
+        String deletedCode = useCase.getCode();
+
         useCaseRepository.delete(useCase);
         useCaseRepository.flush();
+
+        // Cascade delete relationship from other UCs in the project
+        List<UseCase> allProjectUcs = useCaseRepository.findByProjectId(projectId);
+        for (UseCase otherUc : allProjectUcs) {
+            boolean changed = false;
+            if (otherUc.getIncludesList() != null) {
+                changed |= otherUc.getIncludesList().removeIf(target -> 
+                    target.equals(deletedIdStr) || 
+                    (deletedName != null && target.equalsIgnoreCase(deletedName)) || 
+                    (deletedCode != null && target.equalsIgnoreCase(deletedCode)));
+            }
+            if (otherUc.getExtendsList() != null) {
+                changed |= otherUc.getExtendsList().removeIf(target -> 
+                    target.equals(deletedIdStr) || 
+                    (deletedName != null && target.equalsIgnoreCase(deletedName)) || 
+                    (deletedCode != null && target.equalsIgnoreCase(deletedCode)));
+            }
+            if (changed) {
+                useCaseRepository.save(otherUc);
+            }
+        }
+
         if (useCaseRepository.countByProjectId(projectId) == 0) {
             List<org.example.backend.entity.ProjectActor> actors = projectActorRepository.findByProjectId(projectId);
             projectActorRepository.deleteAll(actors);
@@ -221,7 +257,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Pageable pageable) {
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Long requirementId, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -231,6 +267,10 @@ public class UseCaseServiceImpl implements UseCaseService {
 
             if (moduleId != null) {
                 predicates.add(cb.equal(root.join("businessModule", jakarta.persistence.criteria.JoinType.LEFT).get("id"), moduleId));
+            }
+
+            if (requirementId != null) {
+                predicates.add(cb.equal(root.join("requirement", jakarta.persistence.criteria.JoinType.LEFT).get("id"), requirementId));
             }
 
             if (keyword != null && !keyword.trim().isEmpty()) {
@@ -354,6 +394,14 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             useCase.setRequirement(req);
+            
+            // Sync M2M table
+            if (useCase.getRequirements() == null) {
+                useCase.setRequirements(new java.util.ArrayList<>());
+            }
+            useCase.getRequirements().clear();
+            useCase.getRequirements().add(req);
+            
             useCase.setProjectId(req.getProject().getId());
             
             if (req.getType() == org.example.backend.entity.RequirementType.FUNCTIONAL) {
@@ -526,7 +574,7 @@ public class UseCaseServiceImpl implements UseCaseService {
         org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Project member not found"));
         String roleName = pm.getRole() != null ? pm.getRole().getName().toUpperCase() : "";
-        if (!"PROJECT_LEADER".equals(roleName) && !"LEADER".equals(roleName)) {
+        if (!roleName.contains("LEADER")) {
             throw new org.example.backend.exception.ForbiddenException("Only the owner or project leader can modify this Use Case");
         }
     }

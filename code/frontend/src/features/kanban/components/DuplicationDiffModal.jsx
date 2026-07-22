@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import EditableTaskCard from './EditableTaskCard';
 import taskService from '../services/taskService';
+import useProjectStore from '../../../store/useProjectStore';
 
 const DuplicationDiffModal = ({
   isOpen,
@@ -28,7 +29,7 @@ const DuplicationDiffModal = ({
             const data = await taskService.getTask(parsedId);
             
             if (projectId && String(data.projectId) !== String(projectId)) {
-               setExistingTaskData({ title: "Task này thuộc về Project khác hoặc không tồn tại trong Project hiện tại." });
+               setExistingTaskData({ title: "This task belongs to another Project or does not exist in the current Project." });
                setIsLoading(false);
                return;
             }
@@ -55,7 +56,7 @@ const DuplicationDiffModal = ({
           }
         } catch (error) {
           console.error("Failed to fetch existing task", error);
-          setExistingTaskData({ title: "Không tìm thấy dữ liệu (N/A)" });
+          setExistingTaskData({ title: "Data not found (N/A)" });
         } finally {
           setIsLoading(false);
         }
@@ -76,7 +77,7 @@ const DuplicationDiffModal = ({
         <div className="px-6 py-4 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <span className="material-symbols-outlined text-teal-600">difference</span>
-            So sánh & Xử lý Trùng lặp
+            Compare & Resolve Duplication
           </h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -90,7 +91,7 @@ const DuplicationDiffModal = ({
           <div className="flex-1 flex flex-col gap-3 min-w-0">
             <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-bold flex items-center gap-2 border border-blue-200 shadow-sm">
               <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-              Task AI vừa sinh
+              AI Generated Task
             </div>
             <EditableTaskCard 
               task={activeDiffTask}
@@ -112,10 +113,10 @@ const DuplicationDiffModal = ({
             <div className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg font-bold flex items-center justify-between border border-orange-200 shadow-sm">
               <div className="flex items-center gap-2">
                  <span className="material-symbols-outlined text-[20px]">inventory_2</span>
-                 Task đã tồn tại
+                 Existing Task
               </div>
               <span className="text-[11px] bg-white text-orange-600 px-2 py-0.5 rounded-full font-bold shadow-sm">
-                 Ghi nhận từ Hệ thống
+                 From System
               </span>
             </div>
 
@@ -135,36 +136,36 @@ const DuplicationDiffModal = ({
               />
             ) : (
               <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-lg border border-slate-200 border-dashed text-slate-400">
-                 Không thể tải dữ liệu Task cũ
+                 Cannot load existing Task data
               </div>
             )}
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t bg-white rounded-b-xl flex justify-end gap-3 flex-wrap">
+        <div className="px-6 py-4 border-t bg-white rounded-b-xl flex justify-center gap-4 flex-wrap">
            <button 
               onClick={() => onResolve('DELETE_GENERATED')} 
-              className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium rounded-lg transition-colors flex items-center gap-2"
+              className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium text-sm rounded-lg transition-colors flex items-center gap-1.5"
            >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
-              Xóa Task AI
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+              Delete AI Task
            </button>
            
            <button 
               onClick={() => onResolve('KEEP_BOTH')} 
-              className="px-5 py-2.5 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium rounded-lg transition-colors flex items-center gap-2 ml-auto"
+              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium text-sm rounded-lg transition-colors flex items-center gap-1.5"
            >
-              <span className="material-symbols-outlined text-[18px]">call_split</span>
-              Giữ cả hai (Tạo mới)
+              <span className="material-symbols-outlined text-[16px]">call_split</span>
+              Keep both
            </button>
            
            <button 
               onClick={() => onResolve('MERGE_INTO_EXISTING')} 
-              className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium text-sm rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
            >
-              <span className="material-symbols-outlined text-[18px]">merge</span>
-              Gộp vào Task cũ (Ghi đè)
+              <span className="material-symbols-outlined text-[16px]">merge</span>
+              Merge into Existing
            </button>
         </div>
       </div>

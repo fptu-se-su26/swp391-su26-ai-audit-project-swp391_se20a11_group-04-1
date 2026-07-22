@@ -346,6 +346,8 @@ public class RequirementServiceImpl implements RequirementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
         var project = requirement.getProject();
+        checkLeaderAccess(project.getId());
+        
         if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
             throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
         }

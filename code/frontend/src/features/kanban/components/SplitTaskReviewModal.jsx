@@ -149,7 +149,7 @@ const SplitTaskReviewModal = ({
                 return false;
               });
               if (invalidDateIdx !== -1) {
-                toast.error(`Sub-task "${subTasks[invalidDateIdx].title}" có ngày tháng hoặc số giờ không hợp lệ. Vui lòng sửa lại!`);
+                toast.error(`Sub-task "${subTasks[invalidDateIdx].title}" has invalid date or hours. Please fix it!`);
                 return;
               }
               onApprove(subTasks);

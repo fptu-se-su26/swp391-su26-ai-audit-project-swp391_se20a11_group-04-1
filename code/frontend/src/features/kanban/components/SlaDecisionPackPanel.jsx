@@ -4,7 +4,7 @@ import taskService from '../services/taskService'
 const SCORE_BREAKDOWN_LABEL = {
   deadlinePenalty: {
     label: 'Trễ hạn (Deadline urgency)',
-    hint: 'Task sắp tới hạn hoặc đã quá hạn mà chưa hoàn thành.',
+    hint: 'Task is approaching deadline or overdue but not completed.',
   },
   burnRatePenalty: {
     label: 'Tiến độ chậm (Burn rate penalty)',
@@ -12,11 +12,11 @@ const SCORE_BREAKDOWN_LABEL = {
   },
   blockerPenalty: {
     label: 'Bị chặn (Blocker penalty)',
-    hint: 'Task bị kẹt (blocked) không thể làm tiếp được.',
+    hint: 'Task is blocked and cannot proceed.',
   },
   workloadPenalty: {
     label: 'Quá tải (Workload penalty)',
-    hint: 'Người được giao (assignee) đang phải ôm đồm quá nhiều task cùng một lúc.',
+    hint: 'Assignee is handling too many tasks at once.',
   },
 }
 
@@ -364,12 +364,12 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
               
               <div>
                 <strong className="text-on-surface">2. Tiến độ chậm (Burn rate penalty):</strong>
-                <p className="mt-0.5">Đánh giá qua Độ trễ (Gap) = % Thời gian đã dùng - % Tiến độ hoàn thành.</p>
+                <p className="mt-0.5">Evaluated via Gap = % Time spent - % Progress completed.</p>
                 <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                   <li>Gap &gt; 45% (Mức CRITICAL): <span className="text-error font-medium">-39 điểm</span> (30 điểm gốc × 1.3)</li>
                   <li>Gap từ 26% - 45% (Mức HIGH): <span className="text-error font-medium">-22 điểm</span> (18 điểm gốc × 1.2)</li>
                   <li>Gap từ 11% - 25% (Mức MEDIUM): <span className="text-error font-medium">-9 điểm</span> (8 điểm gốc × 1.1)</li>
-                  <li>Gap &le; 10% (Mức LOW): Không bị trừ điểm.</li>
+                  <li>Gap &le; 10% (LOW level): No point deduction.</li>
                 </ul>
               </div>
 
@@ -384,9 +384,9 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
               <div>
                 <strong className="text-on-surface">4. Quá tải (Workload penalty):</strong>
                 <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                  <li>Assignee đang ôm 6 task cùng lúc trở lên: <span className="text-error font-medium">-10 điểm</span></li>
-                  <li>Assignee đang ôm 3-5 task cùng lúc: <span className="text-error font-medium">-5 điểm</span></li>
-                  <li>Assignee xử lý dưới 3 task: Không bị trừ điểm.</li>
+                  <li>Assignee handling 6+ tasks: <span className="text-error font-medium">-10 points</span></li>
+                  <li>Assignee handling 3-5 tasks: <span className="text-error font-medium">-5 points</span></li>
+                  <li>Assignee handling &lt; 3 tasks: No point deduction.</li>
                 </ul>
               </div>
             </div>

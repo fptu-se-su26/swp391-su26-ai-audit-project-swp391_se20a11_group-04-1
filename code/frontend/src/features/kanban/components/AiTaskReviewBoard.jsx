@@ -28,7 +28,7 @@ const autoMapSprint = (t, sprintList) => {
   return '';
 };
 
-const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess }) => {
+const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess, onFullyCovered }) => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
   
@@ -39,8 +39,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   
   const [selectedIndices, setSelectedIndices] = useState(new Set());
   const [globalSprintId, setGlobalSprintId] = useState('');
-  const [showCoverageWarning, setShowCoverageWarning] = useState(false);
-  
+    
   // Inline Edit State (REMOVED: Now handled by EditableTaskCard)
 
   // Diff Popup State
@@ -77,7 +76,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     try {
       const data = await taskService.getAIGenerationStatus(generationId);
       if (data.stage !== 'TASK') {
-        toast.error("Bản nháp này không phải là Task.");
+        toast.error("This draft is not a Task.");
         onClose();
         return;
       }
@@ -92,7 +91,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       }
       
       if (data.status === 'DISCARDED') {
-        toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
+        toast.error("An error occurred during AI analysis. Please try again!");
         onClose();
         return;
       }
@@ -100,10 +99,9 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       const generatedTasks = payloadData.tasks || [];
       
       if (generatedTasks.length === 0) {
-        setTasks([]);
-        setAssessment(payloadData.ai_critical_assessment || null);
-        setShowCoverageWarning(true);
         setLoading(false);
+        onClose();
+        onFullyCovered?.();
         return;
       }
       
@@ -207,7 +205,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     });
 
     if (invalidTaskIdx !== undefined) {
-      toast.error(`Task "${tasks[invalidTaskIdx].title}" có ngày tháng không hợp lệ (lọt ngoài Sprint, quá khứ, sai Deadline) hoặc số giờ sai. Vui lòng sửa lại!`);
+      toast.error(`Task "${tasks[invalidTaskIdx].title}" has an invalid date (outside Sprint, in the past, wrong Deadline) or invalid hours. Please fix it!`);
       return;
     }
 
@@ -217,7 +215,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         let taskCopy = { ...t };
         if (selectedIndices.has(idx)) {
           if (taskCopy.depends_on && Array.isArray(taskCopy.depends_on) && taskCopy.depends_on.length > 0) {
-            taskCopy.description = (taskCopy.description || '') + `\n\n[Liên kết]: Phụ thuộc vào các task: ${taskCopy.depends_on.join(', ')}`;
+            taskCopy.description = (taskCopy.description || '') + `\n\n[Link]: Depends on tasks: ${taskCopy.depends_on.join(', ')}`;
           }
           if (!taskCopy.sprint_id || taskCopy.sprint_id === '') {
             taskCopy.sprint_id = null;
@@ -269,7 +267,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     
     setReviewingSplitData(null);
     setSplitSelectedIndex(null);
-    toast.success("Đã áp dụng Split!");
+    toast.success("Split applied successfully!");
   };
 
   const handleApproveMerge = (finalMergedTask) => {
@@ -303,7 +301,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     
     setReviewingMergeData(null);
     setMergeSelectedSet(new Set());
-    toast.success("Đã áp dụng Merge!");
+    toast.success("Merge applied successfully!");
   };
 
   const executeSplit = async () => {
@@ -345,8 +343,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           const newSub = {
             ...fullTask, // keep requirement, use_case, assignees by default
             ...st, // overwrite with AI generated fields
-            title: st.title || st.task_title || st.task_name || `${fullTask.title} (Phần nhỏ)`,
-            description: st.description || st.task_description || `${fullTask.description}\n\n(Tách từ task gốc)`
+            title: st.title || st.task_title || st.task_name || `${fullTask.title} (Subtask)`,
+            description: st.description || st.task_description || `${fullTask.description}\n\n(Split from original task)`
           };
           
           newSub.temp_id = idMap[st.temp_id || `ai_sub_${i}`];
@@ -365,19 +363,19 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           originalTask: fullTask,
           subTasks: enrichedSubTasks
         });
-        toast.success("AI đã tách xong, vui lòng kiểm tra lại!");
+        toast.success("AI split complete, please review!");
       } else {
-        const reason = result.data?.reason || result.reason || "Task này đã đạt mức tối thiểu hoặc không thể phân tách hợp lý theo logic nghiệp vụ.";
+        const reason = result.data?.reason || result.reason || "This task has reached its minimum size or cannot be logically split further.";
         setActionError({
-          title: "Không thể tách Task",
+          title: "Cannot split Task",
           reason: reason
         });
       }
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') {
-        toast('Đã hủy tiến trình tách Task.', { icon: 'ℹ️' });
+        toast('Task split cancelled.', { icon: 'ℹ️' });
       } else {
-        toast.error(err.response?.data?.error || "Lỗi khi Split task.");
+        toast.error(err.response?.data?.error || "Error splitting task.");
       }
     } finally {
       setIsSplitting(false);
@@ -419,8 +417,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         const enrichedMerge = {
             ...baseTask, // keep requirement, use_case, assignees by default
             ...aiMerged, // overwrite with AI generated fields
-            title: aiMerged.title || aiMerged.task_title || aiMerged.task_name || `${baseTask.title} (Đã gộp)`,
-            description: aiMerged.description || aiMerged.task_description || `${baseTask.description}\n\n(Đã gộp từ các task khác)`
+            title: aiMerged.title || aiMerged.task_title || aiMerged.task_name || `${baseTask.title} (Merged)`,
+            description: aiMerged.description || aiMerged.task_description || `${baseTask.description}\n\n(Merged from other tasks)`
         };
         
         enrichedMerge.temp_id = masterId;
@@ -442,19 +440,19 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           originalTasks: fullTasksToMerge,
           mergedTask: enrichedMerge
         });
-        toast.success("AI đã gộp xong, vui lòng kiểm tra lại!");
+        toast.success("AI merge complete, please review!");
       } else {
-        const reason = result.data?.reason || result.reason || "Các task này không có sự liên quan logic hoặc mâu thuẫn về phạm vi công việc.";
+        const reason = result.data?.reason || result.reason || "These tasks have no logical connection or their scopes conflict.";
         setActionError({
-          title: "Không thể gộp Task",
+          title: "Cannot merge Task",
           reason: reason
         });
       }
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') {
-        toast('Đã hủy tiến trình gộp Task.', { icon: 'ℹ️' });
+        toast('Task merge cancelled.', { icon: 'ℹ️' });
       } else {
-        toast.error(err.response?.data?.error || "Lỗi khi Merge task.");
+        toast.error(err.response?.data?.error || "Error merging task.");
       }
     } finally {
       setIsMerging(false);
@@ -555,50 +553,23 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
   const getTypeConfig = (type) => {
     switch(type) {
-      case 'DEVELOPMENT': return { label: 'Development', icon: '💻', color: 'bg-blue-50 text-blue-700 border-blue-200' };
-      case 'TESTING': return { label: 'Testing', icon: '🧪', color: 'bg-green-50 text-green-700 border-green-200' };
-      case 'DOCUMENTATION': return { label: 'Documentation', icon: '📄', color: 'bg-slate-100 text-slate-700 border-slate-300' };
-      case 'UI_UX': return { label: 'UI/UX', icon: '🎨', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' };
-      case 'RESEARCH': return { label: 'Research', icon: '🔍', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
-      case 'DEPLOYMENT': return { label: 'Deployment', icon: '🚀', color: 'bg-orange-50 text-orange-700 border-orange-200' };
-      case 'BUG_FIX': return { label: 'Bug Fix', icon: '🐛', color: 'bg-red-50 text-red-700 border-red-200' };
-      case 'REVIEW': return { label: 'Review', icon: '👁️', color: 'bg-teal-50 text-teal-700 border-teal-200' };
-      default: return { label: type || 'Unknown', icon: '📌', color: 'bg-gray-50 text-gray-700 border-gray-200' };
+      case 'DEVELOPMENT': return { label: 'Development', icon: 'ðŸ’»', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+      case 'TESTING': return { label: 'Testing', icon: 'ðŸ§ª', color: 'bg-green-50 text-green-700 border-green-200' };
+      case 'DOCUMENTATION': return { label: 'Documentation', icon: 'ðŸ“„', color: 'bg-slate-100 text-slate-700 border-slate-300' };
+      case 'UI_UX': return { label: 'UI/UX', icon: 'ðŸŽ¨', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' };
+      case 'RESEARCH': return { label: 'Research', icon: 'ðŸ”', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
+      case 'DEPLOYMENT': return { label: 'Deployment', icon: 'ðŸš€', color: 'bg-orange-50 text-orange-700 border-orange-200' };
+      case 'BUG_FIX': return { label: 'Bug Fix', icon: 'ðŸ›', color: 'bg-red-50 text-red-700 border-red-200' };
+      case 'REVIEW': return { label: 'Review', icon: 'ðŸ‘ï¸', color: 'bg-teal-50 text-teal-700 border-teal-200' };
+      default: return { label: type || 'Unknown', icon: 'ðŸ“Œ', color: 'bg-gray-50 text-gray-700 border-gray-200' };
     }
   };
 
   if (!isOpen) return null;
 
-  if (tasks.length === 0 && !loading) {
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div className="max-w-md w-full bg-white shadow-2xl rounded-2xl border border-slate-100 pointer-events-auto p-6 relative overflow-hidden animate-in zoom-in-95 duration-200">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-28 h-28 bg-emerald-50 rounded-full opacity-50 pointer-events-none"></div>
-          
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-full transition-colors z-10"
-          >
-            <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
-
-          <div className="flex flex-col items-center justify-center pt-2 pb-4">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center shadow-inner mb-4">
-              <span className="material-symbols-outlined text-3xl text-emerald-600">task_alt</span>
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-2 text-center">
-              Fully Covered!
-            </h3>
-            <p className="text-sm text-slate-600 leading-relaxed text-center px-2">
-              The AI system determined that these requirements are already fully covered by existing tasks. No new tasks were generated to avoid duplication.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
       <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden">
         
@@ -610,7 +581,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
               AI Task Review Board
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              Kiểm duyệt {tasks.length} Tasks từ {reqCount} Requirements · AI Audit: {coverageGaps.length} gaps, {duplicationRisks.length} risks
+              Reviewing {tasks.length} Tasks from {reqCount} Requirements · AI Audit: {coverageGaps.length} gaps, {duplicationRisks.length} risks
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
@@ -628,7 +599,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                 checked={tasks.length > 0 && selectedIndices.size === tasks.length}
                 onChange={handleSelectAll}
               />
-              Chọn tất cả
+              Select all
             </label>
             <span className="text-slate-300">|</span>
             <span className="font-semibold text-slate-800">Generated Tasks ({tasks.length})</span>
@@ -645,23 +616,23 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
               }}
             >
               <span className="material-symbols-outlined text-[18px] text-yellow-600">bolt</span>
-              Tách Task
+              Split Task
             </button>
             <button 
               className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
-              title="Gộp các task"
+              title="Merge tasks"
               onClick={() => {
                 setMergeSelectedSet(new Set(selectedIndices));
                 setMergeModalOpen(true);
               }}
             >
               <span className="material-symbols-outlined text-[18px] text-indigo-600">shuffle</span>
-              Gộp Task
+              Merge Task
             </button>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600 cursor-help" title="Chỉ dùng khi muốn ép toàn bộ task vào chung 1 Sprint">Ghi đè Sprint (Tất cả):</span>
+            <span className="text-sm font-medium text-slate-600 cursor-help" title="Use only when you want to force all tasks into 1 Sprint">Override Sprint (All):</span>
             {sprints.length > 0 ? (
               <select 
                 className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white min-w-[150px] outline-none focus:border-indigo-500"
@@ -671,18 +642,18 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                   setGlobalSprintId(val);
                   if (val) {
                     setTasks(tasks.map(t => ({ ...t, sprint_id: val })));
-                    toast.success("Đã ghi đè Sprint cho toàn bộ Task.");
+                    toast.success("Overrode Sprint for all Tasks.");
                   }
                 }}
               >
-                <option value="">-- Chọn Sprint --</option>
+                <option value="">-- Select Sprint --</option>
                 {sprints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             ) : (
               <span className="text-sm text-slate-400 italic">No sprints</span>
             )}
             <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-sm font-bold ml-2">
-              Đã chọn: {selectedIndices.size}
+              Selected: {selectedIndices.size}
             </span>
           </div>
         </div>
@@ -754,7 +725,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                         {hasWarning && (
                           <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded-r-lg">
                             <div className="flex items-center gap-2 text-red-700 font-bold text-sm mb-1">
-                              ⚠️ Cảnh báo (Coverage Gaps)
+                              ⚠️ Warning (Coverage Gaps)
                             </div>
                             <ul className="list-disc pl-5 text-sm text-red-600 space-y-1">
                               {gaps.map((g, i) => <li key={i}>{g.message}</li>)}
@@ -765,7 +736,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                         {hasDuplication && (
                           <div className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded-r-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-start sm:items-center gap-2 text-orange-800 text-sm font-bold">
-                              🔴 Trùng lặp với {duplication.existing_task_id} "{duplication.existing_task_title || 'Task cũ'}"
+                              🔴 Duplicated with {duplication.existing_task_id} "{duplication.existing_task_title || 'Old Task'}"
                             </div>
                             <button 
                               className="shrink-0 px-3 py-1.5 bg-white border border-orange-300 text-orange-700 text-sm font-semibold rounded hover:bg-orange-100 transition-colors shadow-sm"
@@ -775,7 +746,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                                 setDiffModalOpen(true);
                               }}
                             >
-                              So sánh & Xử lý →
+                              Compare & Resolve →
                             </button>
                           </div>
                         )}
@@ -810,7 +781,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
               </>
             ) : (
               <>
-                ✅ Approve Task ({selectedIndices.size})
+                <span className="material-symbols-outlined text-[20px]">check_circle</span>
+                Approve Task ({selectedIndices.size})
               </>
             )}
           </button>
@@ -839,8 +811,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="px-6 py-4 border-b bg-slate-50 rounded-t-xl flex justify-between items-start">
               <div>
-                <h3 className="text-lg font-bold text-slate-800">⚡ Chọn Task muốn Tách</h3>
-                <p className="text-sm text-slate-500">Chọn 1 task phức tạp để AI tách thành sub-tasks nhỏ hơn</p>
+                <h3 className="text-lg font-bold text-slate-800">⚡ Select Task to Split</h3>
+                <p className="text-sm text-slate-500">Select a complex task for AI to split into smaller sub-tasks</p>
               </div>
               <button onClick={() => !isSplitting && setSplitModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -865,13 +837,13 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
             </div>
 
             <div className="px-6 py-4 border-t flex justify-between items-center bg-slate-50 rounded-b-xl">
-              <button onClick={() => setSplitModalOpen(false)} disabled={isSplitting} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Hủy</button>
+              <button onClick={() => setSplitModalOpen(false)} disabled={isSplitting} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
               <button 
                 onClick={executeSplit} 
                 disabled={splitSelectedIndex === null || isSplitting}
                 className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-slate-300 text-white font-bold rounded shadow-sm flex items-center gap-2"
               >
-                {isSplitting ? 'Đang tách...' : '⚡ Tách Task này →'}
+                {isSplitting ? 'Splitting...' : '⚡ Split this Task →'}
               </button>
             </div>
           </div>
@@ -884,12 +856,12 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="px-6 py-4 border-b bg-slate-50 rounded-t-xl flex justify-between items-start">
               <div className="flex-1 mr-4">
-                <h3 className="text-lg font-bold text-slate-800">🔀 Chọn Tasks muốn Gộp</h3>
-                <p className="text-sm text-slate-500 mb-3">Chọn từ 2 task trở lên để AI gộp thành 1 task tổng hợp</p>
+                <h3 className="text-lg font-bold text-slate-800">🔀 Select Tasks to Merge</h3>
+                <p className="text-sm text-slate-500 mb-3">Select 2 or more tasks for AI to merge into 1 comprehensive task</p>
                 
                 <div className="flex items-center justify-between bg-white px-4 py-2 rounded border border-slate-200">
                   <span className="text-sm font-medium text-slate-700">
-                    Đã chọn: <strong className="text-indigo-600">{mergeSelectedSet.size}</strong> / {tasks.length} tasks
+                    Selected: <strong className="text-indigo-600">{mergeSelectedSet.size}</strong> / {tasks.length} tasks
                   </span>
                   <button
                     className="px-3 py-1.5 text-[13px] font-bold text-white bg-[#1D7A85] hover:bg-[#166069] rounded-md transition-colors shadow-sm disabled:opacity-50"
@@ -902,7 +874,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                       }
                     }}
                   >
-                    Chọn tất cả
+                    Select all
                   </button>
                 </div>
               </div>
@@ -933,15 +905,15 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
             </div>
 
             <div className="px-6 py-4 border-t flex justify-between items-center bg-slate-50 rounded-b-xl">
-              <span className="text-sm font-bold text-indigo-700">Đã chọn: {mergeSelectedSet.size} tasks</span>
+              <span className="text-sm font-bold text-indigo-700">Selected: {mergeSelectedSet.size} tasks</span>
               <div className="flex gap-3">
-                <button onClick={() => setMergeModalOpen(false)} disabled={isMerging} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Hủy</button>
+                <button onClick={() => setMergeModalOpen(false)} disabled={isMerging} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
                 <button 
                   onClick={executeMerge} 
                   disabled={mergeSelectedSet.size < 2 || isMerging}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold rounded shadow-sm flex items-center gap-2"
                 >
-                  {isMerging ? 'Đang gộp...' : `🔀 Gộp ${mergeSelectedSet.size} Tasks →`}
+                  {isMerging ? 'Merging...' : `🔀 Merge ${mergeSelectedSet.size} Tasks →`}
                 </button>
               </div>
             </div>
@@ -963,18 +935,18 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                 }
               }}
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              title="Hủy tiến trình"
+              title="Cancel process"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
             <span className="material-symbols-outlined text-5xl text-indigo-600 animate-spin mb-4 mt-2">progress_activity</span>
             <h3 className="text-lg font-bold text-slate-800 mb-1">
-              {isSplitting ? '⚡ AI đang phân tích...' : '🔀 AI đang gộp...'}
+              {isSplitting ? '⚡ AI is analyzing...' : '🔀 AI is merging...'}
             </h3>
             <p className="text-sm text-slate-500">
               {isSplitting 
-                ? `Đang xé nhỏ "${tasks[splitSelectedIndex]?.title}"...` 
-                : `Đang tóm tắt và hợp nhất ${mergeSelectedSet.size} tasks...`}
+                ? `Splitting "${tasks[splitSelectedIndex]?.title}"...` 
+                : `Summarizing and merging ${mergeSelectedSet.size} tasks...`}
             </p>
           </div>
         </div>
@@ -996,7 +968,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                 onClick={() => setActionError(null)}
                 className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg shadow-sm transition-colors"
               >
-                Đã hiểu
+                Got it
               </button>
             </div>
           </div>
@@ -1049,23 +1021,9 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
       />
 
-      <ConfirmModal
-        isOpen={showCoverageWarning}
-        title="Đã bao phủ toàn bộ"
-        message="AI không thể sinh thêm Task mới. Có vẻ như toàn bộ Use Case / Requirement hợp lệ đều đã được bao phủ bởi các Task hiện tại."
-        confirmText="Đã hiểu"
-        hideCancel={true}
-        type="info"
-        onConfirm={() => {
-          setShowCoverageWarning(false);
-          onClose(); // Automatically close the modal after acknowledging there is nothing to do
-        }}
-        onCancel={() => {
-          setShowCoverageWarning(false);
-          onClose();
-        }}
-      />
     </div>
+
+    </>
   );
 };
 

@@ -43,6 +43,7 @@ public class UseCaseController {
             @RequestParam(required = false) Boolean isDraft,
             @RequestParam(required = false) Boolean mine,
             @RequestParam(required = false) Long moduleId,
+            @RequestParam(required = false) Long requirementId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpSession session) {
@@ -51,7 +52,7 @@ public class UseCaseController {
         Long userId = requireUser(session);
         Long ownerId = (mine != null && mine) ? userId : null;
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("ucOrder").nullsLast(), Sort.Order.desc("id")));
-        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, ownerId, moduleId, pageable);
+        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, ownerId, moduleId, requirementId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 
@@ -82,8 +83,9 @@ public class UseCaseController {
 
     @PatchMapping("/{id}/status")
     @PreAuthorizeProjectMember
-    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseStatusUpdateRequest request) {
-        UseCaseResponse response = useCaseService.updateUseCaseStatus(id, projectId, request);
+    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseStatusUpdateRequest request, HttpSession session) {
+        Long userId = requireUser(session);
+        UseCaseResponse response = useCaseService.updateUseCaseStatus(id, projectId, request, userId);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case status updated"));
     }
 
@@ -104,6 +106,7 @@ public class UseCaseController {
     }
 
     @PutMapping("/requirement/{requirementId}/reorder")
+    @PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Void>> reorderUseCases(
             @RequestParam Long projectId,
             @PathVariable Long requirementId,
@@ -113,6 +116,7 @@ public class UseCaseController {
     }
 
     @PutMapping("/reorder")
+    @PreAuthorizeProjectMember
     public ResponseEntity<ApiResponse<Void>> reorderUseCasesGlobal(
             @RequestParam Long projectId,
             @RequestBody org.example.backend.dto.ReorderRequestDTO request) {

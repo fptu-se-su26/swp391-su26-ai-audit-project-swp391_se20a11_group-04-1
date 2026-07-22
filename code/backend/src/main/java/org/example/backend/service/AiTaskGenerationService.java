@@ -135,7 +135,8 @@ public class AiTaskGenerationService {
         String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(idsStr.getBytes());
         java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.TASK);
 
-        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+        List<Task> existingProjectTasks = taskRepository.findByProjectId(projectId);
+        if (existingProjectTasks.isEmpty() && existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
             AiGenerationStaging oldStaging = existingCache.get();
             UUID generationId = UUID.randomUUID();
             AiGenerationStaging newStaging = AiGenerationStaging.builder()

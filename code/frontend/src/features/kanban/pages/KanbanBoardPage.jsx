@@ -47,6 +47,7 @@ const KanbanBoardPage = () => {
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false)
   const [generatingReqCount, setGeneratingReqCount] = useState(1)
   const [aiGenerationId, setAiGenerationId] = useState(null)
+  const [showTaskCoverageWarning, setShowTaskCoverageWarning] = useState(false)
   const abortControllerRef = useRef(null)
 
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -172,6 +173,7 @@ const KanbanBoardPage = () => {
     abortControllerRef.current = new AbortController();
 
     try {
+      const startTime = Date.now();
       const payload = { requirementIds };
       const response = await taskService.generateAITasks(activeProject?.id, payload, { signal: abortControllerRef.current.signal });
       const genId = response.generationId;
@@ -184,6 +186,17 @@ const KanbanBoardPage = () => {
           if (statusData.status === 'PENDING') {
             setTimeout(pollStatus, 3000);
           } else {
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
+               await new Promise((resolve, reject) => {
+                   const timer = setTimeout(resolve, 12000 - elapsed);
+                   abortControllerRef.current.signal.addEventListener('abort', () => {
+                       clearTimeout(timer);
+                       reject(new Error('canceled'));
+                   });
+               });
+            }
+            
             setIsGeneratingTasks(false);
             if (statusData.status === 'DISCARDED') {
               toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
@@ -586,6 +599,7 @@ const KanbanBoardPage = () => {
         generationId={aiGenerationId}
         projectId={activeProject?.id}
         onClose={() => setAiGenerationId(null)}
+        onFullyCovered={() => setShowTaskCoverageWarning(true)}
         onSuccess={() => {
           setAiGenerationId(null)
           fetchProjectTasks(activeProject?.id)
@@ -719,6 +733,16 @@ const KanbanBoardPage = () => {
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
         }}
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
+      <ConfirmModal
+        isOpen={showTaskCoverageWarning}
+        title="Fully Covered"
+        message="AI could not generate new Tasks. All Use Cases are already fully covered by existing Tasks."
+        confirmText="Understood"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => setShowTaskCoverageWarning(false)}
+        onCancel={() => setShowTaskCoverageWarning(false)}
       />
     </div>
   )

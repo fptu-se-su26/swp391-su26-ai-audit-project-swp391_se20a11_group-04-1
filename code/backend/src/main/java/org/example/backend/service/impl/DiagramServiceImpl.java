@@ -120,7 +120,7 @@ public class DiagramServiceImpl implements DiagramService {
             if (uc.getIncludesList() != null) {
                 for (String includeTarget : uc.getIncludesList()) {
                     String targetId = validUcIds.contains(includeTarget) ? includeTarget : resolveUseCaseIdRobustly(includeTarget, ucNameToIdMap);
-                    if (targetId != null) {
+                    if (targetId != null && !targetId.equals(uc.getId().toString())) {
                         DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
                         rel.setType("include");
@@ -134,7 +134,7 @@ public class DiagramServiceImpl implements DiagramService {
             if (uc.getExtendsList() != null) {
                 for (String extendTarget : uc.getExtendsList()) {
                     String targetId = validUcIds.contains(extendTarget) ? extendTarget : resolveUseCaseIdRobustly(extendTarget, ucNameToIdMap);
-                    if (targetId != null) {
+                    if (targetId != null && !targetId.equals(uc.getId().toString())) {
                         DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
                         rel.setId("rel_" + (relationIdCounter++));
                         rel.setType("extends");

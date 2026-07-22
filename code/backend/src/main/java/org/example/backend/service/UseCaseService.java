@@ -11,11 +11,11 @@ public interface UseCaseService {
     UseCaseResponse getUseCaseById(Long id);
     List<UseCaseResponse> getAllUseCases(Long projectId);
     UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request, Long userId);
-    UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request);
+    UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request, Long userId);
     UseCaseResponse deleteUseCase(Long id, Long projectId, Long userId);
     void reorderUseCases(Long projectId, Long requirementId, org.example.backend.dto.ReorderRequestDTO request);
     void reorderUseCasesGlobal(Long projectId, org.example.backend.dto.ReorderRequestDTO request);
-    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Pageable pageable);
+    Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Long requirementId, Pageable pageable);
 
     UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId, String type);
 }

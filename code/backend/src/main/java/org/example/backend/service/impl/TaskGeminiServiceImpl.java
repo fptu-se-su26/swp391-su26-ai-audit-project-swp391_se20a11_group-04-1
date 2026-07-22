@@ -25,11 +25,10 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Only generate tasks for the MISSING gaps in the Use Cases and Non-Functional Requirements.\n" +
                 "- If a Use Case or Requirement is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
                 "SENIOR ARCHITECT TASK BREAKDOWN RULES (CRITICAL):\n" +
-                "- You MUST break down every Use Case into multiple technical layers (Database, Backend API, Frontend UI, QA/Testing). NEVER generate just a single 'Build feature' task.\n" +
-                "- Database: Create tables, migrations, relationships, indexing.\n" +
-                "- Backend API: Build endpoints, business logic validation, security checks, explicit error handling.\n" +
-                "- Frontend UI: Build UI components, integrate API, form validation, handle loading/error states.\n" +
-                "- QA/Testing: Write Unit Tests and Integration Tests covering positive and negative flows.\n" +
+                "- You MUST break down every Use Case into logical, actionable technical tasks based on actual complexity.\n" +
+                "- DO NOT arbitrarily force every single Use Case to have separate Database, Backend, Frontend, and QA tasks if it's a simple feature. Full-stack tasks are acceptable for simple operations.\n" +
+                "- For complex features, split them logically (e.g., API & DB together, Frontend UI separate, QA testing separate).\n" +
+                "- Task Titles MUST follow a clear [Verb] + [Noun] + [Context] format (e.g., 'Implement User Login API', 'Design Checkout UI', 'Write Unit Tests for Payment Flow').\n" +
                 "- For Non-Functional Requirements, generate precise DevOps, Security, or Architectural configuration tasks.\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +

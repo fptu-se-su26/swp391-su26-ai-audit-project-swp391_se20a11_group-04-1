@@ -25,6 +25,22 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Trigger onFilterChange when any filter changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onFilterChange) {
+        onFilterChange({
+          status: selectedStatus,
+          priority: selectedPriority,
+          tag: selectedTag,
+          member: selectedMember,
+          search: searchValue
+        });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchValue, selectedStatus, selectedPriority, selectedTag, selectedMember, onFilterChange]);
+
   useEffect(() => {
     const fetchTags = async () => {
       if (!projectId) return;
@@ -66,9 +82,6 @@ const RequirementFilters = ({ onFilterChange, resultCount = 0, projectId, refres
     }
 
     setActiveDropdown(null); // Close after select
-    if (onFilterChange) {
-      onFilterChange({ status: newStatus, priority: newPriority, tag: newTag, member: newMember });
-    }
   };
 
   const statusOptions = ['Draft', 'In Progress', 'In Review', 'Done'];

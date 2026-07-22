@@ -34,6 +34,7 @@ public class AiGenerationController {
     public ResponseEntity<?> generateRequirementsFromFile(
             @PathVariable Long projectId,
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "prompt", required = false) String prompt,
             jakarta.servlet.http.HttpSession session) {
         
         if (file.isEmpty()) {
@@ -45,7 +46,7 @@ public class AiGenerationController {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         try {
-            UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
+            UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId, prompt);
             return ResponseEntity.ok(Map.of(
                     "message", "Successfully analyzed file and extracted requirements.",
                     "generationId", generationId.toString()
@@ -73,7 +74,17 @@ public class AiGenerationController {
 
     @GetMapping("/staging/generation/{generationId}")
     public ResponseEntity<?> getGenerationById(@PathVariable UUID generationId) {
-        return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
+        try {
+            return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
+        } catch (Exception e) {
+            log.error("Error fetching generation staging for ID: " + generationId, e);
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Lỗi server: " + e.getMessage(),
+                "details", sw.toString()
+            ));
+        }
     }
 
     @DeleteMapping("/staging/pending/{projectId}")

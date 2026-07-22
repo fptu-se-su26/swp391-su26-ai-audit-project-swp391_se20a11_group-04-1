@@ -14,12 +14,14 @@ export const requirementApi = {
   },
 
   createRequirement: async (projectId, requirementData) => {
-    const response = await axiosInstance.post(API_URL, requirementData, { params: { projectId } });
+    const payload = { ...requirementData, projectId };
+    const response = await axiosInstance.post(API_URL, payload);
     return response.data.data;
   },
 
   updateRequirement: async (id, projectId, requirementData) => {
-    const response = await axiosInstance.put(`${API_URL}/${id}`, requirementData, { params: { projectId } });
+    const payload = { ...requirementData, projectId };
+    const response = await axiosInstance.put(`${API_URL}/${id}`, payload);
     return response.data.data;
   },
 
@@ -45,9 +47,12 @@ export const requirementApi = {
     return response.data.data;
   },
 
-  generateRequirementsWithAi: async (projectId, file) => {
+  generateRequirementsWithAi: async (projectId, file, prompt) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (prompt) {
+      formData.append('prompt', prompt);
+    }
     const response = await axiosInstance.post(`/ai/generate-requirements/${projectId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

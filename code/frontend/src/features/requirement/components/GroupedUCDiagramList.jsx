@@ -294,7 +294,7 @@ const GroupedUCDiagramList = ({
                   className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-primary/40 transition-all duration-300 overflow-hidden flex flex-col group/card cursor-pointer"
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between p-4 bg-gradient-to-br from-[#f0fafa] to-white border-b border-gray-100 relative overflow-hidden">
+                  <div className="flex items-start justify-between p-4 bg-gradient-to-br from-[#f0fafa] to-white border-b border-gray-100 relative z-20">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-bl-full -z-0 transition-transform duration-500 group-hover/card:scale-125" />
                     <div className="flex items-center gap-3 z-10 min-w-0">
                       <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#165964] text-white shadow-md border-2 border-white flex-shrink-0">

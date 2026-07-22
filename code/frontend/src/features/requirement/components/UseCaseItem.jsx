@@ -13,7 +13,8 @@ const UseCaseItem = ({
   onRefresh,
   enableReorder = false,
   onApprove,
-  onReject
+  onReject,
+  layoutMode = 'row'
 }) => {
   const { id, name, status, aiGenerated, startDate, deadline, code, requirement, requirementId, outdated, aiScore } = uc;
   const navigate = useNavigate();
@@ -131,11 +132,130 @@ const UseCaseItem = ({
 
   const isReqClosed = requirement?.status === 'CLOSED';
 
+  if (layoutMode === 'card') {
+    let dateColorClass = "text-[#1E707D] bg-[#1E707D]/10";
+    let iconName = "calendar_today";
+    if (deadline) {
+      if (status === 'DONE' || status === 'CLOSED') {
+        dateColorClass = "text-gray-500 bg-gray-100";
+      } else {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const dlDate = new Date(deadline); dlDate.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((dlDate - today) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) {
+          dateColorClass = "text-red-700 bg-red-100 border border-red-200"; iconName = "error";
+        } else if (diffDays <= 3) {
+          dateColorClass = "text-amber-700 bg-amber-100 border border-amber-200"; iconName = "warning";
+        }
+      }
+    }
+
+    return (
+      <div 
+        ref={enableReorder ? setNodeRef : null}
+        style={enableReorder ? style : {}}
+        onClick={() => navigate(`/projects/${activeProject?.id}/use-cases/${id}`)}
+        className={`flex items-center justify-between gap-4 p-3 transition-all border rounded-xl relative overflow-hidden group cursor-pointer ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'} ${showActionMenu ? 'z-50' : ''}`}
+      >
+        {isDimmed && (
+          <div className="absolute inset-0 bg-white/40 backdrop-grayscale backdrop-blur-[0.5px] rounded-xl z-0 pointer-events-none"></div>
+        )}
+        
+        {/* Left Side: ID, Title, Date */}
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[200px] relative z-10">
+           <div className="flex items-center gap-2 flex-wrap">
+             <span className="font-label-sm text-[10px] text-[#1E707D] bg-[#1E707D]/10 px-1.5 py-0.5 rounded font-bold shrink-0">{code || `UC-${String(id).padStart(3, '0')}`}</span>
+             {outdated && (
+               <span className="text-[#E24B4A] bg-[#FECACA]/30 px-1.5 py-0.5 rounded text-[9px] font-bold border border-[#E24B4A]/20 shrink-0">OUTDATED</span>
+             )}
+           </div>
+           <div className="font-bold text-[14px] text-gray-800 leading-snug break-words line-clamp-2">
+             {name}
+           </div>
+           {(startDate || deadline) && (
+             <div className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium w-fit ${dateColorClass}`}>
+               <span className="material-symbols-outlined text-[12px]">{iconName}</span>
+               {startDate ? formatDate(startDate) : '?'} - {deadline ? formatDate(deadline) : '?'}
+             </div>
+           )}
+        </div>
+        
+        {/* Middle Side: Req, Actor */}
+        <div className="flex items-center justify-evenly flex-1 min-w-[150px] border-l border-r border-gray-100 px-2 relative z-10">
+           <div 
+             className="flex flex-col items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded transition-colors"
+             onClick={(e) => { e.stopPropagation(); if (requirementId) navigate(`/projects/${activeProject?.id}/requirements/${requirementId}`); }}
+           >
+             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Linked Req</span>
+             <div className="flex items-center gap-1 text-[#1E707D]">
+               <span className="material-symbols-outlined text-[14px]">description</span>
+               <span className="text-[12px] font-medium truncate max-w-[80px]">{requirement?.reqCode || (requirementId ? `REQ-${requirementId}` : 'None')}</span>
+             </div>
+           </div>
+           <div className="flex flex-col items-center gap-0.5 px-2 py-1">
+             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Actor</span>
+             <div className="flex items-center gap-1 text-gray-600" title={actors.length > 0 ? actors.join(', ') : 'None'}>
+               <span className="material-symbols-outlined text-[14px] text-gray-400">person</span>
+               <span className="text-[12px] truncate max-w-[80px]">{actors.length > 0 ? actors.join(', ') : 'None'}</span>
+             </div>
+           </div>
+        </div>
+
+        {/* Right Side: Status & Actions */}
+        <div className="flex items-center gap-2 justify-end min-w-[120px] shrink-0 relative z-10">
+           <span className={`inline-flex items-center justify-center px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase border ${
+             status === 'DRAFT'        ? 'bg-slate-50 text-slate-600 border-slate-200' :
+             status === 'IN_PROGRESS'  ? 'bg-amber-50 text-amber-700 border-amber-200' :
+             status === 'IN_REVIEW'    ? 'bg-[#1E707D]/10 text-[#1E707D] border-[#1E707D]/20' :
+             status === 'DONE'         ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+             'bg-surface-container text-secondary border-outline-variant'
+           }`}>
+             {status ? status.replace('_', ' ') : 'DRAFT'}
+           </span>
+
+           <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+             {!isDimmed && onApprove && status === 'DRAFT' && (
+               <button onClick={() => onApprove(id)} className="text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 p-1 rounded-full transition-colors mx-0.5">
+                 <span className="material-symbols-outlined text-[14px]">check</span>
+               </button>
+             )}
+             {!isDimmed && onReject && status === 'DRAFT' && (
+               <button onClick={() => onReject(id)} className="text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded-full transition-colors mx-0.5">
+                 <span className="material-symbols-outlined text-[14px]">close</span>
+               </button>
+             )}
+             {(!isDimmed && (onEdit || onDelete)) && (
+               <div className="relative" ref={actionMenuRef}>
+                 <button onClick={toggleActionMenu} className="text-secondary hover:text-on-surface p-1 rounded-full hover:bg-surface-container-low transition-colors">
+                   <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                 </button>
+                 {showActionMenu && (
+                   <div className="absolute top-full right-0 mt-1 w-32 bg-surface border border-outline-variant rounded-lg shadow-lg py-1 z-50">
+                     {onEdit && (
+                       <button onClick={(e) => handleAction(e, 'Edit')} className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-low flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[16px]">edit</span> Edit
+                       </button>
+                     )}
+                     {onDelete && (
+                       <button onClick={(e) => handleAction(e, 'Delete')} className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container flex items-center gap-2">
+                         <span className="material-symbols-outlined text-[16px]">delete</span> Delete
+                       </button>
+                     )}
+                   </div>
+                 )}
+               </div>
+             )}
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={enableReorder ? setNodeRef : null}
       style={enableReorder ? style : {}}
-      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'}`}
+      className={`grid grid-cols-12 gap-3 px-stack_md py-3 items-center transition-all group border rounded-xl bg-white relative ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'} ${showActionMenu ? 'z-50' : ''}`}
     >
       {isDimmed && (
         <div className="absolute inset-0 bg-white/40 backdrop-grayscale backdrop-blur-[0.5px] rounded-xl z-0 pointer-events-none"></div>
@@ -239,7 +359,25 @@ const UseCaseItem = ({
       </div>
 
       <div className="col-span-4 sm:col-span-2 lg:col-span-1 flex items-center justify-end pr-2 gap-2">
-        {(!isDimmed && (onEdit || onDelete || onApprove || onReject)) && (
+        {!isDimmed && onApprove && status === 'DRAFT' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onApprove(id); }}
+            className="text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 p-1.5 rounded-full transition-colors flex items-center justify-center"
+            title="Approve"
+          >
+            <span className="material-symbols-outlined text-[16px]">check</span>
+          </button>
+        )}
+        {!isDimmed && onReject && status === 'DRAFT' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onReject(id); }}
+            className="text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded-full transition-colors flex items-center justify-center"
+            title="Reject"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        )}
+        {(!isDimmed && (onEdit || onDelete)) && (
           <div className="relative w-8 flex justify-end shrink-0" ref={actionMenuRef}>
             <button 
               onClick={toggleActionMenu}
@@ -266,24 +404,6 @@ const UseCaseItem = ({
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
                     Delete
-                  </button>
-                )}
-                {onApprove && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowActionMenu(false); onApprove(id); }}
-                    className="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    Approve
-                  </button>
-                )}
-                {onReject && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowActionMenu(false); onReject(id); }}
-                    className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">cancel</span>
-                    Reject
                   </button>
                 )}
               </div>

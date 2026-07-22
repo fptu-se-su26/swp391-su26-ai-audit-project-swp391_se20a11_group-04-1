@@ -29,8 +29,8 @@ const EditableTaskCard = ({
     const tStart = formState.start_date || formState.startDate;
     const tEnd = formState.deadline || formState.suggested_deadline || formState.endDate;
     
-    if (tStart && tStart < sStart) return `Bắt đầu trước Sprint (${sStart})`;
-    if (tEnd && tEnd > sEnd) return `Kết thúc sau Sprint (${sEnd})`;
+    if (tStart && tStart < sStart) return `Starts before Sprint (${sStart})`;
+    if (tEnd && tEnd > sEnd) return `Ends after Sprint (${sEnd})`;
     return null;
   };
 
@@ -98,7 +98,7 @@ const EditableTaskCard = ({
     if (editForm.estimated_hours !== undefined && editForm.estimated_hours !== '') {
       const hours = Number(editForm.estimated_hours);
       if (isNaN(hours) || hours <= 0 || hours > 999) {
-        toast.error('Số giờ ước tính phải lớn hơn 0 và nhỏ hơn 1000!');
+        toast.error('Estimated hours must be between 0 and 1000!');
         return;
       }
     }
@@ -107,13 +107,13 @@ const EditableTaskCard = ({
     const tEnd = editForm.deadline || editForm.suggested_deadline || task.deadline || task.suggested_deadline;
     
     if (tStart && tEnd && tStart > tEnd) {
-      toast.error('Ngày bắt đầu không được lớn hơn Deadline!');
+      toast.error('Start date cannot be after Deadline!');
       return;
     }
     
     const sprintErr = checkSprintDateError({ ...task, ...editForm });
     if (sprintErr) {
-      toast.error('Ngày tháng không hợp lệ với Sprint: ' + sprintErr);
+      toast.error('Invalid date for Sprint: ' + sprintErr);
       return;
     }
 
@@ -301,7 +301,7 @@ const EditableTaskCard = ({
                   <button 
                     onClick={() => handleRemoveChecklist(idx)}
                     className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors shrink-0"
-                    title="Xóa tiêu chí"
+                    title="Delete criteria"
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
@@ -312,7 +312,7 @@ const EditableTaskCard = ({
                 className="self-start mt-1 px-3 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200 transition-colors flex items-center gap-1 shrink-0"
               >
                 <span className="material-symbols-outlined text-[14px]">add</span>
-                Thêm tiêu chí
+                Add criteria
               </button>
             </div>
           </div>
@@ -328,7 +328,7 @@ const EditableTaskCard = ({
                 sprintError ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
-              ✓ Lưu
+              ✓ Save
             </button>
           </div>
         </div>
@@ -369,7 +369,7 @@ const EditableTaskCard = ({
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-indigo-600 hover:underline text-xs font-medium mt-1 inline-flex items-center"
           >
-            {isExpanded ? "thu gọn ▴" : "xem thêm ▾"}
+            {isExpanded ? "collapse ▴" : "view more ▾"}
           </button>
         )}
       </div>

@@ -70,7 +70,7 @@ const MergeTaskReviewModal = ({
             </div>
             <div className="relative bg-white px-4 flex flex-col items-center gap-1 text-indigo-500">
                <span className="material-symbols-outlined text-3xl animate-bounce">keyboard_double_arrow_down</span>
-               <span className="text-[10px] font-bold tracking-widest uppercase bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Gộp thành</span>
+               <span className="text-[10px] font-bold tracking-widest uppercase bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">MERGED INTO</span>
             </div>
           </div>
 
@@ -98,18 +98,18 @@ const MergeTaskReviewModal = ({
             onClick={onClose}
             className="px-4 py-2 border border-slate-300 rounded font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            Hủy Bỏ
+            Cancel
           </button>
           <button 
             onClick={() => {
               if (isEditingTask) {
-                alert("Vui lòng bấm '✓ Lưu' ở khung chỉnh sửa Task trước khi gộp nhé!");
+                alert("Please click '✓ Save' on editing task before merging!");
                 return;
               }
               if (mergedTask.estimated_hours !== undefined && mergedTask.estimated_hours !== null && mergedTask.estimated_hours !== '') {
                 const hours = Number(mergedTask.estimated_hours);
                 if (isNaN(hours) || hours <= 0 || hours > 999) {
-                  toast.error("Task có số giờ ước tính không hợp lệ. Vui lòng sửa lại!");
+                  toast.error("Task has invalid estimated hours. Please fix it!");
                   return;
                 }
               }
@@ -118,11 +118,11 @@ const MergeTaskReviewModal = ({
               const tEnd = mergedTask.deadline || mergedTask.suggested_deadline || mergedTask.endDate;
               const todayDateStr = new Date().toISOString().split('T')[0];
               if (tStart && tStart < todayDateStr) {
-                toast.error("Task có ngày bắt đầu nằm trong quá khứ. Vui lòng sửa lại!");
+                toast.error("Task start date is in the past. Please fix it!");
                 return;
               }
               if (tStart && tEnd && tStart > tEnd) {
-                toast.error("Task có ngày bắt đầu lớn hơn Deadline. Vui lòng sửa lại!");
+                toast.error("Task start date is after Deadline. Please fix it!");
                 return;
               }
 
@@ -133,11 +133,11 @@ const MergeTaskReviewModal = ({
                   const sStart = sprint.startDate || sprint.start_date;
                   const sEnd = sprint.endDate || sprint.end_date;
                   if (sStart && tStart && tStart < sStart) {
-                    toast.error("Task lọt ra khỏi khoảng thời gian của Sprint. Vui lòng sửa lại!");
+                    toast.error("Task date is outside the Sprint timeframe. Please fix it!");
                     return;
                   }
                   if (sEnd && tEnd && tEnd > sEnd) {
-                    toast.error("Task lọt ra khỏi khoảng thời gian của Sprint. Vui lòng sửa lại!");
+                    toast.error("Task date is outside the Sprint timeframe. Please fix it!");
                     return;
                   }
                 }
@@ -146,7 +146,7 @@ const MergeTaskReviewModal = ({
             }}
             className={`px-6 py-2 font-bold rounded shadow-sm transition-colors flex items-center gap-2 ${isEditingTask ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
           >
-            {isEditingTask ? "Đang chỉnh sửa..." : "✓ Chốt & Áp Dụng Merge"}
+            {isEditingTask ? "Editing..." : "✓ Confirm & Merge"}
           </button>
         </div>
 

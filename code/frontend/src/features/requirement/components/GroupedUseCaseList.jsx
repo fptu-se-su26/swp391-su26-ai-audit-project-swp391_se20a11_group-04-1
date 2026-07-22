@@ -6,6 +6,7 @@ import ModuleFormModal from './ModuleFormModal';
 import { useCaseService } from '../services/useCaseService';
 import { businessModuleService } from '../services/businessModuleService';
 import Button from '../../../components/ui/Button';
+import ConfirmModal from '../../../components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
 
 const ListHeader = () => (
@@ -27,11 +28,17 @@ const GroupedUseCaseList = ({
   onRefresh,
   pagination,
   onPageChange,
-  isLeader
+  isLeader,
+  onApprove,
+  onReject,
+  isDraftView,
+  hasFilters
 }) => {
   const { activeProject } = useProjectStore();
   const [modules, setModules] = useState([]); // BusinessModules from backend
   const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
+  const [editingModule, setEditingModule] = useState(null);
+  const [deletingModule, setDeletingModule] = useState(null);
 
   useEffect(() => {
     if (!activeProject?.id) return;
@@ -69,12 +76,24 @@ const GroupedUseCaseList = ({
       groups[moduleName].useCases.push(uc);
     });
     
-    return Object.values(groups).sort((a, b) => {
+    return Object.values(groups).filter(g => {
+       if (isDraftView) {
+          return g.moduleName === 'General Module' || g.useCases.length > 0;
+       }
+       if (hasFilters) {
+          return g.useCases.length > 0;
+       }
+       // Only show empty modules on the first page
+       if (pagination && pagination.currentPage > 0) {
+          return g.useCases.length > 0;
+       }
+       return true;
+    }).sort((a, b) => {
       if (a.moduleName === 'General Module') return 1;
       if (b.moduleName === 'General Module') return -1;
       return a.moduleName.localeCompare(b.moduleName);
     });
-  }, [useCases, modules]);
+  }, [useCases, modules, isDraftView]);
 
   const handleDragStart = (e, ucId, sourceModuleId, sourceModuleName) => {
     if (!isLeader) {
@@ -100,11 +119,18 @@ const GroupedUseCaseList = ({
       
       const targetUc = useCases.find(u => u.id === data.ucId);
       if (targetUc) {
-         await useCaseService.updateUseCase(targetUc.id, {
+         const payload = {
              ...targetUc,
+             requirementId: targetUc.requirement?.id || targetUc.requirementId || null,
              moduleId: targetModuleId === 'unknown' ? null : targetModuleId,
              moduleName: targetModuleName === 'General Module' ? null : targetModuleName
-         });
+         };
+         delete payload.requirement;
+         delete payload.module;
+         delete payload.creator;
+         delete payload.updater;
+
+         await useCaseService.updateUseCase(targetUc.id, payload, activeProject?.id);
          if (onRefresh) onRefresh();
       }
     } catch(err) {
@@ -134,20 +160,17 @@ const GroupedUseCaseList = ({
           </Button>
         </div>
       )}
-      <div className={!isLeader ? "rounded-t-xl overflow-hidden" : ""}>
-        <ListHeader />
-      </div>
       
-      <div className="flex flex-col">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 p-6 bg-surface-container-lowest">
         {groupedUseCases.map((group, groupIdx) => (
           <div 
             key={groupIdx} 
-            className="flex flex-col border-b border-outline-variant last:border-b-0"
+            className="flex flex-col border border-outline-variant rounded-xl shadow-sm bg-white overflow-hidden"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, group.moduleId, group.moduleName)}
           >
             {/* Module Header */}
-            <div className="bg-gradient-to-r from-surface-50 to-white px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+            <div className="group bg-gradient-to-r from-surface-50 to-white px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#1E707D] to-[#165964] text-white shadow-sm border border-white">
                   <span className="material-symbols-outlined text-[16px]">view_module</span>
@@ -168,16 +191,29 @@ const GroupedUseCaseList = ({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-center bg-[#1E707D]/10 text-[#1E707D] px-2.5 py-1 rounded-md gap-1">
-                <span className="text-[12px] font-bold leading-none">{group.useCases.length}</span>
-                <span className="text-[10px] font-semibold leading-none uppercase tracking-wider">Use Cases</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center justify-center bg-[#1E707D]/10 text-[#1E707D] px-2.5 py-1 rounded-md gap-1">
+                  <span className="text-[12px] font-bold leading-none">{group.useCases.length}</span>
+                  <span className="text-[10px] font-semibold leading-none uppercase tracking-wider">Use Cases</span>
+                </div>
+                {isLeader && group.moduleId !== 'unknown' && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <button title="Edit Module" onClick={() => setEditingModule(modules.find(m => m.id === group.moduleId))} className="p-1 flex items-center text-gray-400 hover:text-[#1E707D] rounded hover:bg-gray-100 transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                     </button>
+                     <button title="Delete Module" onClick={() => setDeletingModule(modules.find(m => m.id === group.moduleId))} className="p-1 flex items-center text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                     </button>
+                  </div>
+                )}
               </div>
             </div>
             
             {/* Module Items */}
-            <div className="flex flex-col min-h-[40px]">
+            <div className="flex flex-col min-h-[40px] p-3 bg-gray-50/30 grow">
+              <div className="flex flex-col gap-3">
               {group.useCases.length === 0 ? (
-                <div className="flex items-center justify-center p-4 text-sm text-gray-400 italic bg-gray-50/30">
+                <div className="flex items-center justify-center p-4 text-sm text-gray-400 italic bg-white rounded-lg border border-dashed border-gray-200">
                   {isLeader ? "Drag and drop Use Cases here" : "No Use Cases in this module"}
                 </div>
               ) : (
@@ -190,7 +226,7 @@ const GroupedUseCaseList = ({
                 }).map((uc) => (
                   <div 
                     key={uc.id} 
-                    className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition-colors pl-4 pr-1"
+                    className={`transition-colors ${isLeader ? "cursor-grab active:cursor-grabbing" : ""}`}
                     draggable={isLeader}
                     onDragStart={(e) => handleDragStart(e, uc.id, group.moduleId, group.moduleName)}
                   >
@@ -201,10 +237,14 @@ const GroupedUseCaseList = ({
                       onDelete={() => isLeader && onDelete && onDelete(uc.id)}
                       onEdit={() => isLeader && onEdit && onEdit(uc)}
                       onRefresh={onRefresh}
+                      onApprove={isDraftView ? onApprove : undefined}
+                      onReject={isDraftView ? onReject : undefined}
+                      layoutMode="card"
                     />
                   </div>
                 ))
               )}
+              </div>
             </div>
           </div>
         ))}
@@ -222,15 +262,43 @@ const GroupedUseCaseList = ({
         </div>
       )}
 
-      {isModuleModalOpen && (
-        <ModuleFormModal
-          isOpen={isModuleModalOpen}
-          onClose={() => setIsModuleModalOpen(false)}
-          onSuccess={() => {
-            if (onRefresh) onRefresh();
-          }}
-        />
-      )}
+      <ModuleFormModal 
+        isOpen={isModuleModalOpen || !!editingModule}
+        initialData={editingModule}
+        onClose={() => {
+          setIsModuleModalOpen(false);
+          setEditingModule(null);
+        }}
+        onSuccess={() => {
+          setIsModuleModalOpen(false);
+          setEditingModule(null);
+          businessModuleService.getModulesByProject(activeProject.id).then(mods => setModules(mods || []));
+          if (onRefresh) onRefresh();
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={!!deletingModule}
+        title="Delete Module"
+        message={`Are you sure you want to delete module "${deletingModule?.name}"? Use cases within this module will be moved to the General Module.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        onConfirm={async () => {
+          try {
+             await businessModuleService.deleteModule(activeProject.id, deletingModule.id);
+             toast.success('Module deleted successfully');
+             businessModuleService.getModulesByProject(activeProject.id).then(mods => setModules(mods || []));
+             if (onRefresh) onRefresh();
+          } catch(err) {
+             console.error(err);
+             toast.error(err.response?.data?.message || 'Failed to delete module');
+          } finally {
+             setDeletingModule(null);
+          }
+        }}
+        onCancel={() => setDeletingModule(null)}
+      />
     </div>
   );
 };

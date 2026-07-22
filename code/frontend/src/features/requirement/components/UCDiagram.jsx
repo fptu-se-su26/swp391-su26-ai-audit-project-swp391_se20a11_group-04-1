@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperat
 import { exportToDrawio } from '../utils/drawioExporter';
 import {
   ReactFlow,
-  Controls,
   Background,
   applyNodeChanges,
   applyEdgeChanges,
@@ -339,10 +338,18 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
     currentRelations.forEach((rel) => {
       const sourceStr = rel.sourceId.toString();
       const targetStr = rel.targetId.toString();
+      if (sourceStr === targetStr) return; // Prevent self-loops from generating weird edge stubs
+      
       const isSourceActor = sourceStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === sourceStr);
       const isTargetActor = targetStr.startsWith('actor_') || currentActors.some(a => a.id.toString() === targetStr);
       const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
       const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
+      
+      // Ensure both source and target exist in buildNodes to avoid dangling edge stubs
+      const sourceExists = buildNodes.some(n => n.id === source);
+      const targetExists = buildNodes.some(n => n.id === target);
+      if (!sourceExists || !targetExists) return;
+
       const isDep = rel.type === 'include' || rel.type === 'extends';
       buildEdges.push({
         id: `edge_${rel.id}`, source, target, type: 'custom',
@@ -426,10 +433,17 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
       relations.forEach((rel) => {
         const sourceStr = rel.sourceId.toString();
         const targetStr = rel.targetId.toString();
+        if (sourceStr === targetStr) return; // Prevent self-loops from generating weird edge stubs
+        
         const isSourceActor = sourceStr.startsWith('actor_') || actors.some(a => a.id.toString() === sourceStr);
         const isTargetActor = targetStr.startsWith('actor_') || actors.some(a => a.id.toString() === targetStr);
         const source = isSourceActor ? (sourceStr.startsWith('actor_') ? sourceStr : `actor_${sourceStr}`) : `uc_${sourceStr}`;
         const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
+
+        // Ensure both source and target exist in initialNodes to avoid dangling edge stubs
+        const sourceExists = initialNodes.some(n => n.id === source);
+        const targetExists = initialNodes.some(n => n.id === target);
+        if (!sourceExists || !targetExists) return;
 
         const isDependency = rel.type === 'include' || rel.type === 'extends';
 
@@ -1156,7 +1170,6 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
           </div>
         )}
         <Background color="#E2E8F0" gap={24} size={1} />
-        {!isView && <Controls />}
       </ReactFlow>
     </div>
   );

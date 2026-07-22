@@ -166,11 +166,17 @@ const ModuleFormModal = ({ isOpen, onClose, onSuccess, initialData = null }) => 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-shadow bg-white"
               >
                 <option value="">-- Unassigned --</option>
-                {members.map(member => (
-                  <option key={member.user.id} value={member.user.id}>
-                    {member.user.username} ({member.role})
-                  </option>
-                ))}
+                {members.filter(member => member?.user || member?.id).map(member => {
+                  // Support both { user: { id, username }, role } and { id, username, role } shapes
+                  const uid = member?.user?.id ?? member?.id;
+                  const uname = member?.user?.username ?? member?.username ?? member?.name ?? 'Unknown';
+                  const urole = member?.role?.name ?? member?.role ?? '';
+                  return (
+                    <option key={uid} value={uid}>
+                      {uname}{urole ? ` (${urole})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </form>

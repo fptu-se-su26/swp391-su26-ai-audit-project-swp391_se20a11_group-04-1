@@ -17,7 +17,7 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
     }
 
     @Override
-    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> projectActors, java.util.List<String> existingUseCases, org.example.backend.entity.Project project, java.util.List<String> projectMembersUsernames) {
+    public String generateUseCasesFromRequirements(java.util.List<org.example.backend.entity.Requirement> requirements, java.util.List<String> projectActors, java.util.List<String> existingUseCases, org.example.backend.entity.Project project, java.util.List<String> projectMembersUsernames, java.util.List<String> existingModuleNames) {
         StringBuilder reqsContext = new StringBuilder();
         for (org.example.backend.entity.Requirement r : requirements) {
             reqsContext.append("Requirement ID: ").append(r.getId()).append("\n");
@@ -63,6 +63,11 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
         if (projectMembersUsernames != null && !projectMembersUsernames.isEmpty()) {
             projectMembersContext = String.join(", ", projectMembersUsernames);
         }
+        
+        String modulesContext = "(No existing modules)";
+        if (existingModuleNames != null && !existingModuleNames.isEmpty()) {
+            modulesContext = String.join(", ", existingModuleNames);
+        }
 
         String prompt = "You are a Senior Business Analyst and Software Architect. I will provide you with one or more System Requirements.\n" +
                 "Your task is to analyze these requirements and break them down into detailed Use Cases.\n" +
@@ -71,7 +76,7 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "For EACH requirement, generate one or more Use Cases that fulfill it and complete its business ecosystem.\n\n" +
                 "Your response MUST be a pure JSON array (without ```json wrappers). " +
                 "Each object in the array represents ONE Use Case and must have EXACTLY these fields:\n" +
-                "1. 'moduleName': (String) [MANDATORY] The overarching Business Module this Use Case belongs to (e.g., 'Authentication', 'Order Management', 'Inventory'). You MUST group use cases logically based on standard business processes. Group similar requirements into the same module to create a cohesive system architecture. DO NOT use generic names like 'General Module'. Avoid creating too many small, fragmented modules.\n" +
+                "1. 'moduleName': (String) [MANDATORY] The overarching Business Module this Use Case belongs to (e.g., 'Authentication', 'Order Management', 'Inventory'). CRITICAL RULE: You MUST choose ONLY from these EXISTING modules if they logically fit: [" + modulesContext + "]. IF AND ONLY IF no existing module fits the requirement, you may invent a new, highly appropriate module name. DO NOT invent generic names like 'General Module'. Avoid creating too many small, fragmented modules.\n" +
                 "2. 'moduleDescription': (String) [MANDATORY] A short description of the Business Module.\n" +
                 "3. 'modulePriority': (String) [MANDATORY] The priority of this module. MUST be exactly one of: 'HIGH', 'MEDIUM', 'LOW'.\n" +
                 "4. 'moduleAssignee': (String) [MANDATORY] The username of the member who will be responsible for developing this module. Choose ONLY from these allowed project members: [" + projectMembersContext + "]. Distribute work evenly across members. If no suitable member is found or list is empty, return 'System'.\n" +
@@ -82,46 +87,29 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
                 "9. 'mainSuccessScenario': (String) The main success flow, 1 step per line. MUST include explicit system logic (e.g., 'System validates token, calculates total, and saves to DB'). Number the steps like '1. ...\\n2. ...'\n" +
                 "10. 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
                 "11. 'requirementIds': (Array of Numbers) The exact IDs of the Requirements this Use Case belongs to. You MUST copy the exact 'Requirement ID' numbers from the input as raw numbers (e.g. [182]). DO NOT output strings or prefixes like 'Req #'.\n" +
-                "12. 'includes': (Array of Strings) A list of existing Use Case names that this Use Case INCLUDES. \n" +
+                "12. 'includes': (Array of Strings) A list of Use Case names that this Use Case INCLUDES (can be from the ones you are generating right now, or existing ones). \n" +
                 "   - RULE: Include means this Use Case strictly REQUIRES the included Use Case to complete its main flow. \n" +
-                "   - Identify included Use Cases by their names (e.g., Record, Log, Verify, Validate, Save, Authenticate). \n" +
+                "   - Proactively extract shared sub-routines (e.g., 'User Login', 'Process Payment', 'Send Notification') and INCLUDE them in main flows. \n" +
                 "   - Direction: This Use Case ---> Included Use Case. \n" +
-                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical includes.\n" +
-                "13. 'extendsList': (Array of Strings) A list of existing Use Case names that this Use Case EXTENDS. \n" +
+                "   - Return [] if none.\n" +
+                "13. 'extendsList': (Array of Strings) A list of Use Case names that this Use Case EXTENDS (can be from the ones you are generating right now, or existing ones). \n" +
                 "   - RULE: Extend means this Use Case is an OPTIONAL/ALTERNATIVE extension to the base Use Case. \n" +
-                "   - Identify extending Use Cases by their names (e.g., View Detail, View Results, Cancel, Edit, Export). \n" +
+                "   - Proactively use EXTEND for optional features (e.g., 'Apply Discount Code' extends 'Checkout'). \n" +
                 "   - Direction: This Use Case (Extension) ---> Base Use Case. \n" +
-                "   - Return [] if none. Do NOT guess. Limit to 1-2 most critical extends.\n" +
+                "   - Return [] if none.\n" +
                 "14. 'startDate': (String) Generate a logical start date for this use case in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past. It should also be on or after the parent requirement's start date.\n" +
                 "15. 'deadline': (String) Generate a logical deadline for this use case in YYYY-MM-DD format. The date MUST NOT be after the requirement's deadline, and MUST NOT be after the project's deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n\n" +
-                "=== MANDATORY COMPLETENESS RULES (HIGHEST PRIORITY) ===\n" +
-                "You MUST think like a professional Senior BA writing full production-grade specs. Do NOT generate only 1-2 UCs per requirement. " +
-                "For EACH business module, generate the COMPLETE, EXHAUSTIVE set of Use Cases. Follow ALL rules below:\n\n" +
-                "RULE A - FULL CRUD COVERAGE: For EVERY entity in a module (User, Product, Order, Report, Category, etc.) you MUST generate ALL applicable operations:\n" +
-                "  * CREATE: 'Create [Entity]', 'Register [Entity]', 'Add [Entity]'\n" +
-                "  * READ LIST: 'View [Entity] List', 'Search [Entity]', 'Browse [Entity]', 'Filter [Entity]'\n" +
-                "  * READ DETAIL: 'View [Entity] Detail', 'View [Entity] Profile', 'View [Entity] History'\n" +
-                "  * UPDATE: 'Update [Entity]', 'Edit [Entity] Information', 'Modify [Entity]'\n" +
-                "  * DELETE/DEACTIVATE: 'Delete [Entity]', 'Remove [Entity]', 'Deactivate [Entity]'\n" +
-                "  * STATUS TRANSITIONS: 'Approve [Entity]', 'Reject [Entity]', 'Publish [Entity]', 'Archive [Entity]', 'Cancel [Entity]'\n" +
-                "  * EXPORT/IMPORT: 'Export [Entity] Data', 'Import [Entity] Data' (if applicable)\n\n" +
-                "RULE B - AUTHENTICATION MODULE: If ANY requirement mentions user accounts, login, or security, you MUST generate ALL of these:\n" +
-                "  Register, Login, Logout, Forgot Password, Reset Password, Change Password, View My Profile, Update My Profile, Upload Avatar, Verify Email.\n\n" +
-                "RULE C - ADMIN PANEL: If an Admin actor exists, generate dedicated Admin management UCs for every core entity:\n" +
-                "  'Manage [Entity]s', 'View [Entity] Analytics', 'Generate [Entity] Report', 'Configure [Module] Settings', 'View Audit Log'.\n\n" +
-                "RULE D - SEARCH & FILTER: Every list view MUST have a corresponding 'Search and Filter [Entity]' UC.\n\n" +
-                "RULE E - NOTIFICATIONS: For any user action that changes state, add: 'Receive Notification', 'View Notification List', 'Mark Notification as Read'.\n\n" +
-                "RULE F - ROLE-SPECIFIC VIEWS: If multiple actors exist, generate separate UCs for each role's view (e.g., 'View My Orders' for User, 'View All Orders' for Admin, 'View Assigned Orders' for Staff).\n\n" +
-                "RULE G - DASHBOARD: Every role should have a 'View [Role] Dashboard' UC that aggregates key information.\n\n" +
-                "MINIMUM VOLUME EXPECTATION:\n" +
-                "- A small/simple module: MINIMUM 5 Use Cases\n" +
-                "- A medium module (User Management, Order Management): MINIMUM 10-15 Use Cases\n" +
-                "- A large/complex module (Inventory, Reporting, Scheduling): MINIMUM 15-20 Use Cases\n" +
-                "A module with fewer Use Cases than the minimum is considered INCOMPLETE and UNACCEPTABLE.\n\n" +
+                "=== PROFESSIONAL STANDARDS (HIGHEST PRIORITY) ===\n" +
+                "You MUST think like a professional Senior BA writing full production-grade specs. Focus on QUALITY, RELEVANCE, and LOGICAL COMPLETENESS over sheer volume.\n\n" +
+                "RULE A - IMPLICIT FOUNDATIONAL UCs: You MUST proactively generate foundational Use Cases (e.g., 'User Login', 'Forgot Password', 'Reset Password', 'View Profile', 'Update Profile') if the system involves users/accounts, EVEN IF they are not explicitly written in the requirements. A production-ready system requires these basic flows.\n\n" +
+                "RULE B - LOGICAL CRUD COVERAGE: For core business entities (e.g., Order, Course, User, Product, Report), you MUST proactively generate standard Management CRUD Use Cases (Create, View List, View Detail, Update, Delete/Deactivate, Search/Filter) EVEN IF the requirement only mentions one aspect of it. For example, if a requirement says 'Admin views orders', you MUST also generate 'Update Order', 'Cancel Order' to make the ecosystem complete. Do NOT just copy the text; deduce the missing pieces!\n\n" +
+                "RULE C - ROLE-BASED ACCESS: If multiple actors exist (e.g., User, Admin), generate separate UCs if their flows differ significantly (e.g., 'View My Orders' vs 'Manage All Orders').\n\n" +
+                "RULE D - ACTIONABLE NAMES: Use Case names MUST follow a clear [Verb] + [Noun] format (e.g., 'Approve Invoice', 'Generate Monthly Report').\n\n" +
                 "STRICT UML BUSINESS RULES:\n" +
+                "- NO NON-FUNCTIONAL USE CASES: DO NOT generate Use Cases for Non-Functional Requirements (e.g., 'Ensure Data Security', 'Validate Educational Standards', 'Maintain Performance'). A Use Case MUST represent a specific functional goal of an actor.\n" +
+                "- AVOID REDUNDANT LOGIN/AUTH: If a feature applies to all actors (like Login, Logout, Reset Password), assign it to a single generic base actor if possible, OR just pick one to avoid generating 'Student Logs In', 'Tutor Logs In', 'Guest Logs In' as separate redundant Use Cases.\n" +
                 "- An isolated Use Case (no actors) CANNOT include or extend other isolated Use Cases. At least one must be connected to an actor.\n" +
-                "- Use Cases that represent system sub-routines (e.g., Record, Log, Verify) should generally NOT have an actor connected directly to them, and should only be 'included' by other Use Cases.\n" +
-                "- DO NOT connect actors to sub-routine Use Cases. DO NOT add include/extend relations if not completely obvious. Prefer a clean diagram over a messy one.\n\n" +
+                "- Proactively build a rich UML tree. Do not just output flat UCs. Use Include/Extend aggressively where it makes logical sense to reuse behavior.\n\n" +
                 "CRITICAL INSTRUCTION: All generated text (except keys) MUST BE WRITTEN IN ENGLISH, to match the target audience.\n" +
                 "CRITICAL RULE ON DUPLICATES: DO NOT generate any Use Cases that are already listed in the 'EXISTING USE CASES' section below. If a requirement is already fulfilled by an existing use case, DO NOT generate a duplicate.\n" +
                 "YOU MUST RETURN ONLY A DIRECT JSON ARRAY. DO NOT WRAP IT IN A JSON OBJECT.\n\n" +
@@ -174,6 +162,10 @@ public class UseCaseGeminiServiceImpl implements UseCaseGeminiService {
     private String cleanJsonOutput(String response) {
         if (response == null) return "";
         
+        // Fix Gemini JSON hallucinations with invalid escapes like \0
+        response = response.replace("\\0", "");
+        
+
         int codeBlockStart = response.indexOf("```json");
         if (codeBlockStart != -1) {
             int codeBlockEnd = response.lastIndexOf("```");
