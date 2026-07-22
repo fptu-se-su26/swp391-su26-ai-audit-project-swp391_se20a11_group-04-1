@@ -40,9 +40,9 @@ class SlaRiskAssessmentServiceTest {
 
         SlaRiskAssessmentService.AssessmentResult result = service.assess(task, evaluation);
         assertThat(result.getScore()).isEqualTo(46);
-        assertThat(result.getRiskLevel()).isEqualTo("AT_RISK");
+        assertThat(result.getRiskLevel()).isEqualTo("MEDIUM");
         assertThat(result.getBurnRateLevel()).isEqualTo("CRITICAL");
-        assertThat(result.getPredictedRiskLevel()).isEqualTo("WARNING");
+        assertThat(result.getPredictedRiskLevel()).isEqualTo("HIGH");
         assertThat(result.getReasons()).contains("Task deadline is today.");
         assertThat(result.getRecommendedAction()).contains("Finish or update this task before the end of today.");
     }
@@ -62,7 +62,7 @@ class SlaRiskAssessmentServiceTest {
 
         SlaRiskAssessmentService.AssessmentResult result = service.assess(task, evaluation);
         assertThat(result.getScore()).isEqualTo(26);
-        assertThat(result.getRiskLevel()).isEqualTo("WARNING");
+        assertThat(result.getRiskLevel()).isEqualTo("HIGH");
         assertThat(result.getReasons()).contains("Task is overdue by 3 day(s) and qualifies for penalty.");
         assertThat(result.getRecommendedAction()).contains("Escalate this task and request recovery action.");
     }
@@ -80,7 +80,7 @@ class SlaRiskAssessmentServiceTest {
 
         SlaRiskAssessmentService.AssessmentResult result = service.assess(task, evaluation);
         assertThat(result.getScore()).isEqualTo(80); // 100 - 20 = 80
-        assertThat(result.getRiskLevel()).isEqualTo("ON_TRACK");
+        assertThat(result.getRiskLevel()).isEqualTo("LOW");
         assertThat(result.getReasons()).contains("Task is blocked.");
         assertThat(result.getRecommendedAction()).contains("Clarify blocker and request leader support.");
     }
@@ -98,7 +98,7 @@ class SlaRiskAssessmentServiceTest {
 
         SlaRiskAssessmentService.AssessmentResult result = service.assess(task, evaluation);
         assertThat(result.getScore()).isEqualTo(100);
-        assertThat(result.getRiskLevel()).isEqualTo("HEALTHY");
+        assertThat(result.getRiskLevel()).isEqualTo("NORMAL");
         assertThat(result.getReasons()).contains("Task is resolved (DONE).");
         assertThat(result.getRecommendedAction()).isEqualTo("No action required.");
     }
