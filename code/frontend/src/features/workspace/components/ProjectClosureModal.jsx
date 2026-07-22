@@ -90,7 +90,7 @@ export default function ProjectClosureModal({ projectId, projectTitle, onClose, 
                 <li>Mọi task còn mở sẽ được hủy hoặc chuyển project khác.</li>
                 <li>Bug chưa xử lý sẽ tự động đóng.</li>
                 <li>Sprint đang chạy sẽ được kết thúc.</li>
-                <li>Project chuyển sang trạng thái <strong>ARCHIVED</strong> — chỉ đọc.</li>
+                <li>Project chuyển sang trạng thái <strong>COMPLETED</strong> — chỉ đọc.</li>
                 <li>Bạn vẫn có thể mở lại project sau này nếu cần.</li>
               </ul>
               <button
@@ -193,7 +193,7 @@ export default function ProjectClosureModal({ projectId, projectTitle, onClose, 
                 <p className="font-bold">Xác nhận thao tác:</p>
                 <p>• {checkData?.openTaskCount || 0} task sẽ bị <strong>{action === 'CANCEL_ALL' ? 'Cancelled' : 'chuyển project'}</strong></p>
                 <p>• {checkData?.openBugCount || 0} bug sẽ bị đóng tự động</p>
-                <p>• Project chuyển sang <strong>ARCHIVED</strong> (chỉ đọc)</p>
+                <p>• Project chuyển sang <strong>COMPLETED</strong> (chỉ đọc)</p>
               </div>
 
               <button
