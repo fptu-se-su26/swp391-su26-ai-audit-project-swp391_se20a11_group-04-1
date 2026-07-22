@@ -34,6 +34,7 @@ public class AiGenerationController {
     public ResponseEntity<?> generateRequirementsFromFile(
             @PathVariable Long projectId,
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "prompt", required = false) String prompt,
             jakarta.servlet.http.HttpSession session) {
         
         if (file.isEmpty()) {
@@ -44,11 +45,15 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Successfully analyzed file and extracted requirements.",
-                "generationId", generationId.toString()
-        ));
+        try {
+            UUID generationId = aiGenerationService.generateRequirementsFromFile(projectId, file, userId, prompt);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Successfully analyzed file and extracted requirements.",
+                    "generationId", generationId.toString()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/debug/last-payload")
@@ -69,7 +74,17 @@ public class AiGenerationController {
 
     @GetMapping("/staging/generation/{generationId}")
     public ResponseEntity<?> getGenerationById(@PathVariable UUID generationId) {
-        return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
+        try {
+            return ResponseEntity.ok(aiGenerationService.getGenerationById(generationId));
+        } catch (Exception e) {
+            log.error("Error fetching generation staging for ID: " + generationId, e);
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Lỗi server: " + e.getMessage(),
+                "details", sw.toString()
+            ));
+        }
     }
 
     @DeleteMapping("/staging/pending/{projectId}")
@@ -99,8 +114,12 @@ public class AiGenerationController {
             modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
         }
 
-        aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
+        try {
+            aiGenerationService.approveGeneration(generationId, selectedIndices, modifiedPayload, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Requirement thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/regenerate/{generationId}")
@@ -111,8 +130,12 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        aiGenerationService.regenerateRequirements(generationId, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
+        try {
+            aiGenerationService.regenerateRequirements(generationId, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã phân tích lại Requirement thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
     @PostMapping("/generate-use-cases/{projectId}")
     public ResponseEntity<?> generateUseCases(
@@ -123,11 +146,15 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Successfully started generating Use Cases.",
-                "generationId", generationId.toString()
-        ));
+        try {
+            UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Successfully started generating Use Cases.",
+                    "generationId", generationId.toString()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/approve-use-cases/{generationId}")
@@ -150,8 +177,12 @@ public class AiGenerationController {
             modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
         }
 
-        aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
+        try {
+            aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/use-cases/{useCaseId}/sync-preview")
@@ -215,13 +246,14 @@ public class AiGenerationController {
     @GetMapping("/use-cases/{useCaseId}/suggest-requirements")
     public ResponseEntity<?> suggestRequirements(
             @PathVariable Long useCaseId,
+            @RequestParam(required = false) Long projectId,
             jakarta.servlet.http.HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         try {
-            return ResponseEntity.ok(aiGenerationService.suggestRequirementsForUseCase(useCaseId));
+            return ResponseEntity.ok(aiGenerationService.suggestRequirementsForUseCase(useCaseId, projectId));
         } catch (Exception e) {
             log.error("Failed to suggest requirements", e);
             return ResponseEntity.status(500).build();

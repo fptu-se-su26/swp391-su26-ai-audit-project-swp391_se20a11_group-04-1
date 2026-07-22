@@ -28,15 +28,20 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
         taskService.getProjectTasks(projectId)
       ]);
 
-      const reqsWithValidation = reqs.map(req => {
+      const activeReqs = reqs.filter(r => r.status !== 'CLOSED');
+
+      const reqsWithValidation = activeReqs.map(req => {
         const reqUseCases = ucs.filter(uc => uc.requirementId === req.id);
         const reqTasks = allTasks.filter(t => t.requirementId === req.id);
         let isValid = true;
         let warning = '';
 
-        if (reqUseCases.length === 0) {
+        if (req.type && req.type !== 'FUNCTIONAL') {
+          isValid = true;
+          warning = 'Non-functional requirement. Technical tasks will be automatically inferred from the description.';
+        } else if (reqUseCases.length === 0) {
           isValid = false;
-          warning = 'Requirement chưa có Use Case, không thể gen Task.';
+          warning = 'Functional requirements must have Use Cases to generate Tasks.';
         } else {
           const hasInvalidUc = reqUseCases.some(uc => {
             const hasName = uc.name && uc.name.trim() !== '';
@@ -66,7 +71,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
 
           if (hasInvalidUc) {
             isValid = false;
-            warning = 'Use Case con thiếu dữ liệu cơ bản (tên hoặc luồng chính), vui lòng bổ sung trước khi gen Task.';
+            warning = 'Child Use Case is missing basic data (name or main flow), please add before generating Tasks.';
           }
         }
 
@@ -99,7 +104,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
 
   const handleGenerate = () => {
     if (selectedReqIds.size === 0) {
-      toast.error('Vui lòng chọn ít nhất 1 Requirement hợp lệ.');
+      toast.error('Please select at least 1 valid Requirement.');
       return;
     }
     onGenerate(Array.from(selectedReqIds));
@@ -134,7 +139,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
               AI Task Generation
             </h2>
             <p className="text-sm text-slate-500 mt-1">
-              Chọn Requirements để AI bóc tách thành Technical Tasks
+              Select Requirements for AI to extract into Technical Tasks
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors">
@@ -147,11 +152,11 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <span className="material-symbols-outlined animate-spin text-4xl text-indigo-600 mb-4">progress_activity</span>
-              <p className="text-slate-500 font-medium">Đang phân tích Requirements & Use Cases...</p>
+              <p className="text-slate-500 font-medium">Analyzing Requirements & Use Cases...</p>
             </div>
           ) : requirements.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
-              Không có Requirement nào trong dự án.
+              No Requirements in this project.
             </div>
           ) : (
             <div className="space-y-6">
@@ -160,16 +165,16 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center justify-center gap-6 text-sm font-medium text-slate-700 mb-3">
                   <span className="flex items-center gap-1.5">
-                    <span className="text-green-600">✅</span> {validReqs.length} có thể gen
+                    <span className="text-green-600">✅</span> {validReqs.length} can generate
                   </span>
                   <span className="text-slate-300">•</span>
                   <span className="flex items-center gap-1.5">
-                    <span className="text-amber-500">⚠️</span> {invalidReqs.length} không hợp lệ
+                    <span className="text-amber-500">⚠️</span> {invalidReqs.length} invalid
                   </span>
                 </div>
                 <div className="flex items-center justify-between bg-white px-4 py-2 rounded border border-slate-200">
                   <span className="text-sm font-medium text-slate-700">
-                    Đã chọn: <strong className="text-indigo-600">{selectedReqIds.size}</strong> / {validReqs.length} hợp lệ
+                    Selected: <strong className="text-indigo-600">{selectedReqIds.size}</strong> / {validReqs.length} valid
                   </span>
                   <button
                     className="px-3 py-1.5 text-[13px] font-bold text-white bg-[#1D7A85] hover:bg-[#166069] rounded-md transition-colors shadow-sm"
@@ -182,7 +187,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
                       }
                     }}
                   >
-                    Chọn tất cả
+                    Select All
                   </button>
                 </div>
               </div>
@@ -192,7 +197,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
                 <div>
                   <div className="flex items-center gap-3 mb-3">
                     <div className="h-px bg-slate-200 flex-1"></div>
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Có thể gen Task ({validReqs.length})</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Can generate Task ({validReqs.length})</span>
                     <div className="h-px bg-slate-200 flex-1"></div>
                   </div>
                   
@@ -254,13 +259,13 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
                   >
                     <div className="h-px bg-slate-200 flex-1"></div>
                     <span className="text-sm font-bold text-slate-400 uppercase tracking-wider group-hover:text-slate-600 transition-colors">
-                      Không hợp lệ ({invalidReqs.length}) {isInvalidExpanded ? '▲' : '▼'}
+                      Invalid ({invalidReqs.length}) {isInvalidExpanded ? '▲' : '▼'}
                     </span>
                     <div className="h-px bg-slate-200 flex-1"></div>
                   </div>
                   
                   {!isInvalidExpanded && (
-                    <p className="text-xs text-center text-slate-400 italic mb-2">(thu gọn mặc định, bấm để xem)</p>
+                    <p className="text-xs text-center text-slate-400 italic mb-2">(collapsed by default, click to view)</p>
                   )}
 
                   {isInvalidExpanded && (
@@ -300,7 +305,7 @@ const AiTaskGenerationModal = ({ isOpen, onClose, projectId, onGenerate }) => {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
           <Button variant="outlined" onClick={onClose} className="border-slate-300 text-slate-600 hover:bg-slate-100">
-            Hủy
+            Cancel
           </Button>
           <Button 
             variant="primary" 

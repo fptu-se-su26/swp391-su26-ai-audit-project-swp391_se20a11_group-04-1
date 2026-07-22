@@ -29,6 +29,12 @@ public class RateLimitServiceImpl implements RateLimitService {
         if (currentRequests != null && currentRequests == 1) {
             // Thiết lập TTL cho IP lần đầu truy cập trong chu kỳ
             redisTemplate.expire(rateKey, durationInMinutes, TimeUnit.MINUTES);
+        } else if (currentRequests != null) {
+            // Self-healing: Đảm bảo key luôn có TTL, tránh kẹt vĩnh viễn (TTL = -1) do lỗi hoặc crash
+            Long ttl = redisTemplate.getExpire(rateKey);
+            if (ttl != null && ttl == -1) {
+                redisTemplate.expire(rateKey, durationInMinutes, TimeUnit.MINUTES);
+            }
         }
 
         if (currentRequests != null && currentRequests > maxRequests) {

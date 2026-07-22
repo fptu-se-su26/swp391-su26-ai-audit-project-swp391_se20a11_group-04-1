@@ -24,7 +24,7 @@ const ApproveUseCaseModal = ({ isOpen, onClose, useCaseId, projectId, onSuccess 
         const reqsData = await requirementApi.getAllRequirements({ projectId, size: 1000 });
         setAllReqs(reqsData.content || reqsData.items || (Array.isArray(reqsData) ? reqsData : []));
         
-        const suggData = await useCaseService.suggestRequirements(useCaseId);
+        const suggData = await useCaseService.suggestRequirements(useCaseId, projectId);
         setSuggestions(suggData || []);
         
         if (suggData && suggData.length > 0) {

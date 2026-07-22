@@ -26,8 +26,10 @@ export const useCaseService = {
   },
 
   // Cập nhật trạng thái Use Case (Patch)
-  updateUseCaseStatus: async (useCaseId, status, projectId) => {
-    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, { status }, { params: { projectId } });
+  updateUseCaseStatus: async (useCaseId, status, projectId, rejectReason = null) => {
+    const payload = { status };
+    if (rejectReason) payload.rejectReason = rejectReason;
+    const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/status`, payload, { params: { projectId } });
     return response.data.data;
   },
 
@@ -43,23 +45,34 @@ export const useCaseService = {
     return response.data;
   },
 
-  // Approve Use Case từ Diagram
-  approveUseCase: async (useCaseId, projectId, requirementId) => {
-    const params = { projectId };
+  // Sắp xếp Use Case
+  reorderUseCases: async (projectId, requirementId, ids) => {
+    const response = await axiosInstance.put(`/v1/use-cases/requirement/${requirementId}/reorder`, { ids }, { params: { projectId } });
+    return response.data;
+  },
+
+  reorderUseCasesGlobal: async (projectId, ids) => {
+    const response = await axiosInstance.put(`/v1/use-cases/reorder`, { ids }, { params: { projectId } });
+    return response.data;
+  },
+
+  // Approve Use Case
+  approveUseCase: async (useCaseId, projectId, requirementId, type = 'BOTH') => {
+    const params = { projectId, type };
     if (requirementId) params.requirementId = requirementId;
     const response = await axiosInstance.patch(`/v1/use-cases/${useCaseId}/approve`, {}, { params });
     return response.data.data;
   },
 
   // Lấy danh sách Requirement đề xuất từ AI cho Use Case
-  suggestRequirements: async (useCaseId) => {
-    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`);
+  suggestRequirements: async (useCaseId, projectId) => {
+    const response = await axiosInstance.get(`/ai/use-cases/${useCaseId}/suggest-requirements`, { params: { projectId } });
     return response.data;
   },
 
   // AI: Generate Use Cases
   generateUseCases: async (projectId, payload, config = {}) => {
-    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 180000, ...config });
+    const response = await axiosInstance.post(`/ai/generate-use-cases/${projectId}`, payload, { timeout: 300000, ...config });
     return response.data;
   },
 

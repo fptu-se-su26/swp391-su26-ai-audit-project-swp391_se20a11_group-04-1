@@ -8,5 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface ProjectDiagramRepository extends JpaRepository<ProjectDiagram, Long> {
-    Optional<ProjectDiagram> findByProjectId(Long projectId);
+    Optional<ProjectDiagram> findFirstByProjectIdAndModuleIdOrderByUpdatedAtDesc(Long projectId, Long moduleId);
+    Optional<ProjectDiagram> findFirstByProjectIdAndModuleIdIsNullOrderByUpdatedAtDesc(Long projectId);
 }

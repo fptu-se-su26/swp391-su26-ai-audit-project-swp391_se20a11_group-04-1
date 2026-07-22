@@ -23,6 +23,8 @@ public class DiagramSyncResponse {
         private String group;
         private boolean showInDiagram;
         private boolean addedFromDiagram;
+        private Long moduleId;
+        private String moduleName;
     }
 
     @Data

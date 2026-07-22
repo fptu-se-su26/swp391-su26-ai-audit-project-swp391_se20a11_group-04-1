@@ -14,6 +14,7 @@ const STEPS = [
 
 const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
   const [file, setFile] = useState(null);
+  const [promptText, setPromptText] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -27,6 +28,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
       isCancelledRef.current = false;
     } else {
       setFile(null);
+      setPromptText("");
       setIsUploading(false);
       setIsDragging(false);
       setCurrentStep(-1);
@@ -97,7 +99,7 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
     setCurrentStep(0);
     
     try {
-      const response = await requirementApi.generateRequirementsWithAi(activeProject.id, file);
+      const response = await requirementApi.generateRequirementsWithAi(activeProject.id, file, promptText);
       
       if (isCancelledRef.current) return;
       
@@ -163,7 +165,9 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
               <div className="w-[56px] h-[56px] bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
                 <FiX size={28} strokeWidth={2.5} />
               </div>
-              <h3 className="text-[15px] font-bold text-gray-900 mb-2">Document Context Mismatch!</h3>
+              <h3 className="text-[15px] font-bold text-gray-900 mb-2">
+                {errorData && errorData.toLowerCase().includes('context mismatch') ? 'Document Context Mismatch!' : 'Generation Failed'}
+              </h3>
               <p className="text-[13px] text-gray-600 px-2 mb-6 leading-relaxed">
                 {errorData}
               </p>
@@ -250,23 +254,22 @@ const AiUploadModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* Tips row - hidden during upload */}
+          {/* Prompt Area - hidden during upload */}
           {!isUploading && (
-            <div className="mt-[20px] grid grid-cols-2 gap-[12px]">
-              <div className="bg-gray-50 rounded-[8px] border border-[#E5E7EB] p-[12px]">
-                <div className="flex items-center gap-[6px] mb-[4px]">
-                  <FiCheckCircle size={14} className="text-gray-500" />
-                  <span className="text-[12px] font-medium text-gray-900">Suitable files</span>
-                </div>
-                <p className="text-[11px] text-gray-500 leading-tight">Project briefs, SRS, requirements documents</p>
+            <div className="mt-[20px] bg-gray-50/50 border border-[#E5E7EB] rounded-[10px] p-[14px] transition-colors hover:border-[#D1D5DB]">
+              <div className="flex items-center gap-[6px] mb-[8px]">
+                <BsStars size={14} className="text-[#1E707D]" />
+                <label className="block text-[13px] font-medium text-gray-800">
+                  Additional Instructions
+                </label>
+                <span className="text-[11px] text-gray-400 font-normal ml-auto border border-gray-200 px-[6px] py-[2px] rounded-full bg-white">Optional</span>
               </div>
-              <div className="bg-gray-50 rounded-[8px] border border-[#E5E7EB] p-[12px]">
-                <div className="flex items-center gap-[6px] mb-[4px]">
-                  <FiEdit3 size={14} className="text-gray-500" />
-                  <span className="text-[12px] font-medium text-gray-900">Review before saving</span>
-                </div>
-                <p className="text-[11px] text-gray-500 leading-tight">AI suggests &mdash; you review and confirm before saving</p>
-              </div>
+              <textarea
+                value={promptText}
+                onChange={(e) => setPromptText(e.target.value)}
+                placeholder="E.g., Focus on the payment flow, ignore the admin dashboard..."
+                className="w-full h-[76px] p-[12px] text-[13px] text-gray-900 bg-white border border-[#E5E7EB] rounded-[8px] resize-none focus:outline-none focus:ring-[2px] focus:ring-[#1E707D]/20 focus:border-[#1E707D] transition-all placeholder:text-gray-400 shadow-sm"
+              />
             </div>
           )}
           </>

@@ -8,6 +8,8 @@ import org.example.backend.entity.UserAccount;
 import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.UserAccountRepository;
+import org.example.backend.repository.ProjectRepository;
+import org.example.backend.repository.BusinessModuleRepository;
 import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.service.UseCaseService;
@@ -23,6 +25,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -44,6 +47,18 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Autowired
     private org.example.backend.repository.ProjectRepository projectRepository;
+
+    @Autowired
+    private org.example.backend.repository.ProjectActorRepository projectActorRepository;
+    
+    @Autowired
+    private org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+
+    @Autowired
+    private org.example.backend.repository.BusinessModuleRepository businessModuleRepository;
+    
+    @Autowired
+    private org.example.backend.service.NotificationService notificationService;
 
     @Override
     @org.example.backend.annotation.Auditable(action="CREATE_USECASE", entityType="UseCase")
@@ -84,14 +99,42 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @org.example.backend.annotation.Auditable(action="UPDATE_USECASE_STATUS", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.entity.UseCaseStatus status) {
+    public UseCaseResponse updateUseCaseStatus(Long id, Long projectId, org.example.backend.dto.UseCaseStatusUpdateRequest request, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
         
-        useCase.setStatus(status);
+        if (request.getStatus() == org.example.backend.entity.UseCaseStatus.DONE) {
+            org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                    .orElse(null);
+            boolean isLeader = pm != null && pm.getRole() != null && pm.getRole().getName().toUpperCase().contains("LEADER");
+            if (!isLeader) {
+                throw new org.example.backend.exception.ForbiddenException("Only Project Leaders can manually set Use Case status to DONE");
+            }
+        }
+        
+        useCase.setStatus(request.getStatus());
+        if (request.getRejectReason() != null) {
+            useCase.setRejectReason(request.getRejectReason());
+        }
+        
+        if (org.example.backend.entity.UseCaseStatus.DRAFT.equals(request.getStatus()) && request.getRejectReason() != null && useCase.getCreatedBy() != null) {
+            org.example.backend.entity.Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null) {
+                notificationService.createAndPush(
+                    useCase.getCreatedBy(),
+                    project,
+                    org.example.backend.entity.NotificationEntityType.USE_CASE,
+                    useCase.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Use Case Rejected",
+                    "Your Use Case '" + useCase.getCode() + "' has been rejected. Reason: " + request.getRejectReason()
+                );
+            }
+        }
+        
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
@@ -99,12 +142,14 @@ public class UseCaseServiceImpl implements UseCaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     @org.example.backend.annotation.Auditable(action="UPDATE_USECASE", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request) {
+    public UseCaseResponse updateUseCase(Long id, Long projectId, UseCaseRequest request, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        
+        checkUseCasePermission(useCase, projectId, userId);
         
         mapRequestToEntity(request, useCase);
         
@@ -122,19 +167,97 @@ public class UseCaseServiceImpl implements UseCaseService {
 
     @Override
     @org.example.backend.annotation.Auditable(action="DELETE_USECASE", entityType="UseCase", entityIdArgIndex=0)
-    public UseCaseResponse deleteUseCase(Long id, Long projectId) {
+    public UseCaseResponse deleteUseCase(Long id, Long projectId, Long userId) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        
+        checkUseCasePermission(useCase, projectId, userId);
         UseCaseResponse response = mapEntityToResponse(useCase);
+        
+        String deletedIdStr = useCase.getId().toString();
+        String deletedName = useCase.getName();
+        String deletedCode = useCase.getCode();
+
         useCaseRepository.delete(useCase);
+        useCaseRepository.flush();
+
+        // Cascade delete relationship from other UCs in the project
+        List<UseCase> allProjectUcs = useCaseRepository.findByProjectId(projectId);
+        for (UseCase otherUc : allProjectUcs) {
+            boolean changed = false;
+            if (otherUc.getIncludesList() != null) {
+                changed |= otherUc.getIncludesList().removeIf(target -> 
+                    target.equals(deletedIdStr) || 
+                    (deletedName != null && target.equalsIgnoreCase(deletedName)) || 
+                    (deletedCode != null && target.equalsIgnoreCase(deletedCode)));
+            }
+            if (otherUc.getExtendsList() != null) {
+                changed |= otherUc.getExtendsList().removeIf(target -> 
+                    target.equals(deletedIdStr) || 
+                    (deletedName != null && target.equalsIgnoreCase(deletedName)) || 
+                    (deletedCode != null && target.equalsIgnoreCase(deletedCode)));
+            }
+            if (changed) {
+                useCaseRepository.save(otherUc);
+            }
+        }
+
+        if (useCaseRepository.countByProjectId(projectId) == 0) {
+            List<org.example.backend.entity.ProjectActor> actors = projectActorRepository.findByProjectId(projectId);
+            projectActorRepository.deleteAll(actors);
+        }
         return response;
     }
 
     @Override
-    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Pageable pageable) {
+    @Transactional
+    public void reorderUseCases(Long projectId, Long requirementId, org.example.backend.dto.ReorderRequestDTO request) {
+        // Validate project and requirement
+        org.example.backend.entity.Requirement requirement = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+        if (!requirement.getProject().getId().equals(projectId)) {
+            throw new BadRequestException("Requirement does not belong to the project");
+        }
+
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) return;
+
+        List<UseCase> useCases = useCaseRepository.findByRequirementId(requirementId);
+        java.util.Map<Long, UseCase> ucMap = useCases.stream().collect(Collectors.toMap(UseCase::getId, u -> u));
+
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            UseCase uc = ucMap.get(id);
+            if (uc != null) {
+                uc.setUcOrder(i);
+                useCaseRepository.save(uc);
+            }
+        }
+    }
+
+    @Override
+    public void reorderUseCasesGlobal(Long projectId, org.example.backend.dto.ReorderRequestDTO request) {
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) return;
+
+        List<UseCase> useCases = useCaseRepository.findAllById(ids);
+        java.util.Map<Long, UseCase> ucMap = useCases.stream().collect(Collectors.toMap(UseCase::getId, u -> u));
+
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            UseCase uc = ucMap.get(id);
+            if (uc != null && uc.getProjectId().equals(projectId)) {
+                uc.setUcOrder(i);
+                useCaseRepository.save(uc);
+            }
+        }
+    }
+
+    @Override
+    public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Long requirementId, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -142,27 +265,54 @@ public class UseCaseServiceImpl implements UseCaseService {
                 predicates.add(cb.equal(root.get("projectId"), projectId));
             }
 
+            if (moduleId != null) {
+                predicates.add(cb.equal(root.join("businessModule", jakarta.persistence.criteria.JoinType.LEFT).get("id"), moduleId));
+            }
+
+            if (requirementId != null) {
+                predicates.add(cb.equal(root.join("requirement", jakarta.persistence.criteria.JoinType.LEFT).get("id"), requirementId));
+            }
+
             if (keyword != null && !keyword.trim().isEmpty()) {
-                String pattern = "%" + keyword.toLowerCase() + "%";
+                String searchTrimmed = keyword.trim().toLowerCase(Locale.ROOT);
+                String pattern = "%" + searchTrimmed + "%";
                 Predicate nameLike = cb.like(cb.lower(root.get("name")), pattern);
-                Predicate codeLike = cb.like(cb.lower(root.get("code")), pattern);
-                predicates.add(cb.or(nameLike, codeLike));
+                
+                if (searchTrimmed.matches(".*\\d.*") || searchTrimmed.startsWith("uc-")) {
+                    Predicate codeLike = cb.like(cb.lower(root.get("code")), pattern);
+                    predicates.add(cb.or(nameLike, codeLike));
+                } else {
+                    predicates.add(nameLike);
+                }
             }
 
             if (status != null && !status.trim().isEmpty()) {
-                try {
-                    org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(status.toUpperCase());
-                    predicates.add(cb.equal(root.get("status"), enumStatus));
-                } catch (IllegalArgumentException e) {
-                    // Ignore invalid status format in search
+                String[] statuses = status.split(",");
+                List<Predicate> statusPredicates = new ArrayList<>();
+                for (String s : statuses) {
+                    try {
+                        org.example.backend.entity.UseCaseStatus enumStatus = org.example.backend.entity.UseCaseStatus.valueOf(s.trim().toUpperCase());
+                        statusPredicates.add(cb.equal(root.get("status"), enumStatus));
+                    } catch (IllegalArgumentException e) {
+                        // Ignore invalid status format in search
+                    }
+                }
+                if (!statusPredicates.isEmpty()) {
+                    predicates.add(cb.or(statusPredicates.toArray(new Predicate[0])));
                 }
             }
 
             if (isDraft != null) {
                 predicates.add(cb.equal(root.get("addedFromDiagram"), isDraft));
             } else {
-                // By default, hide drafted UCs in list view unless explicitly requested
-                predicates.add(cb.equal(root.get("addedFromDiagram"), false));
+                predicates.add(cb.or(
+                    cb.isNull(root.get("addedFromDiagram")),
+                    cb.equal(root.get("addedFromDiagram"), false)
+                ));
+            }
+
+            if (ownerId != null) {
+                predicates.add(cb.equal(root.get("createdBy").get("id"), ownerId));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -173,7 +323,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
-    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId) {
+    public UseCaseResponse approveUseCase(Long id, Long projectId, Long requirementId, String type) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
         
@@ -197,6 +347,38 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         
         useCase.setAddedFromDiagram(false);
+        
+        if ("CONTENT".equalsIgnoreCase(type)) {
+            if (useCase.getStatus() == org.example.backend.entity.UseCaseStatus.DIAGRAM_APPROVED) {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+            } else {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.CONTENT_APPROVED);
+            }
+        } else if ("DIAGRAM".equalsIgnoreCase(type)) {
+            if (useCase.getStatus() == org.example.backend.entity.UseCaseStatus.CONTENT_APPROVED) {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+            } else {
+                useCase.setStatus(org.example.backend.entity.UseCaseStatus.DIAGRAM_APPROVED);
+            }
+        } else {
+            useCase.setStatus(org.example.backend.entity.UseCaseStatus.DONE);
+        }
+        
+        if (useCase.getCreatedBy() != null) {
+            org.example.backend.entity.Project project = projectRepository.findById(projectId).orElse(null);
+            if (project != null) {
+                notificationService.createAndPush(
+                    useCase.getCreatedBy(),
+                    project,
+                    org.example.backend.entity.NotificationEntityType.USE_CASE,
+                    useCase.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Use Case Approved",
+                    "Your Use Case '" + useCase.getCode() + "' has been approved by the leader."
+                );
+            }
+        }
+        
         UseCase saved = useCaseRepository.save(useCase);
         return mapEntityToResponse(saved);
     }
@@ -212,6 +394,14 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
 
             useCase.setRequirement(req);
+            
+            // Sync M2M table
+            if (useCase.getRequirements() == null) {
+                useCase.setRequirements(new java.util.ArrayList<>());
+            }
+            useCase.getRequirements().clear();
+            useCase.getRequirements().add(req);
+            
             useCase.setProjectId(req.getProject().getId());
             
             if (req.getType() == org.example.backend.entity.RequirementType.FUNCTIONAL) {
@@ -220,6 +410,45 @@ public class UseCaseServiceImpl implements UseCaseService {
                 }
             }
         }
+
+        if (request.getStartDate() != null && request.getDeadline() != null) {
+            if (request.getStartDate().isAfter(request.getDeadline())) {
+                throw new BadRequestException("Start date cannot be after deadline.");
+            }
+        }
+        if (useCase.getRequirement() != null) {
+            var req = useCase.getRequirement();
+            if (request.getStartDate() != null && req.getStartDate() != null) {
+                if (request.getStartDate().isBefore(req.getStartDate())) {
+                    throw new BadRequestException("Use Case start date cannot be before Requirement start date.");
+                }
+            }
+            if (request.getDeadline() != null && req.getDeadline() != null) {
+                if (request.getDeadline().isAfter(req.getDeadline())) {
+                    throw new BadRequestException("Use Case deadline cannot be after Requirement deadline.");
+                }
+            }
+        }
+        if (request.getStartDate() != null) {
+            if (useCase.getId() == null) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be in the past.");
+                }
+            } else if (!request.getStartDate().equals(useCase.getStartDate())) {
+                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
+                    throw new BadRequestException("Start date cannot be changed to a date in the past.");
+                }
+            }
+        }
+        
+        if (request.getModuleId() != null) {
+            org.example.backend.entity.BusinessModule module = businessModuleRepository.findById(request.getModuleId())
+                .orElseThrow(() -> new BadRequestException("Business Module not found"));
+            useCase.setBusinessModule(module);
+        } else {
+            useCase.setBusinessModule(null);
+        }
+
         if (request.getCode() != null) useCase.setCode(request.getCode());
         if (request.getName() != null) useCase.setName(request.getName());
         if (request.getPrecondition() != null) useCase.setPrecondition(request.getPrecondition());
@@ -238,6 +467,8 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         if (request.getStatus() != null) useCase.setStatus(request.getStatus());
         if (request.getVersion() != null) useCase.setVersion(request.getVersion());
+        if (request.getStartDate() != null) useCase.setStartDate(request.getStartDate());
+        if (request.getDeadline() != null) useCase.setDeadline(request.getDeadline());
         // Remove completeness score update here, it will be auto-calculated
 
         if (request.getActors() != null) {
@@ -272,6 +503,21 @@ public class UseCaseServiceImpl implements UseCaseService {
                 res.setOutdated(false);
             }
         }
+        
+        if (useCase.getRequirements() != null) {
+            List<org.example.backend.dto.RequirementResponseDTO> reqList = useCase.getRequirements().stream().map(req -> org.example.backend.dto.RequirementResponseDTO.builder()
+                    .id(req.getId())
+                    .reqCode(req.getReqCode())
+                    .title(req.getTitle())
+                    .build()).collect(Collectors.toList());
+            res.setRequirements(reqList);
+        }
+        
+        if (useCase.getBusinessModule() != null) {
+            res.setModuleId(useCase.getBusinessModule().getId());
+            res.setModuleName(useCase.getBusinessModule().getName());
+        }
+
         res.setCode(useCase.getCode());
         res.setName(useCase.getName());
         res.setPrecondition(useCase.getPrecondition());
@@ -296,13 +542,40 @@ public class UseCaseServiceImpl implements UseCaseService {
         res.setStatus(useCase.getStatus());
         res.setVersion(useCase.getVersion());
         res.setCompletenessScore(useCase.getCompletenessScore());
-        res.setCreatedById(useCase.getCreatedBy() != null ? useCase.getCreatedBy().getId() : null);
+        
+        if (useCase.getCreatedBy() != null) {
+            res.setCreatedById(useCase.getCreatedBy().getId());
+            res.setCreatedByUsername(useCase.getCreatedBy().getUsername());
+            res.setCreatedByEmail(useCase.getCreatedBy().getEmail());
+            if (useCase.getCreatedBy().getProfile() != null) {
+                res.setCreatedByName(useCase.getCreatedBy().getProfile().getFullName());
+                res.setCreatedByAvatar(useCase.getCreatedBy().getProfile().getAvatarUrl());
+            }
+        } else {
+            res.setCreatedById(null);
+        }
+        
         res.setCreatedAt(useCase.getCreatedAt());
         res.setUpdatedAt(useCase.getUpdatedAt());
         res.setAddedFromDiagram(useCase.isAddedFromDiagram());
         res.setShowInDiagram(useCase.isShowInDiagram());
         res.setAiGenerated(useCase.isAiGenerated());
         res.setSourceGenerationId(useCase.getSourceGenerationId());
+        res.setStartDate(useCase.getStartDate());
+        res.setDeadline(useCase.getDeadline());
+        res.setUcOrder(useCase.getUcOrder());
         return res;
+    }
+
+    private void checkUseCasePermission(UseCase useCase, Long projectId, Long userId) {
+        boolean isOwner = useCase.getCreatedBy() != null && useCase.getCreatedBy().getId().equals(userId);
+        if (isOwner) return;
+
+        org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Project member not found"));
+        String roleName = pm.getRole() != null ? pm.getRole().getName().toUpperCase() : "";
+        if (!roleName.contains("LEADER")) {
+            throw new org.example.backend.exception.ForbiddenException("Only the owner or project leader can modify this Use Case");
+        }
     }
 }

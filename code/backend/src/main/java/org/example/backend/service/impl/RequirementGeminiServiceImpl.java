@@ -4,6 +4,7 @@ import org.example.backend.service.AiRoutingService;
 import org.example.backend.service.RequirementGeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -20,7 +21,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
     }
 
     @Override
-    public String extractRequirementsFromText(String documentText) {
+    public String extractRequirementsFromText(String documentText, org.example.backend.entity.Project project) {
         // Phase 1: Determine Domain and Priorities
         String phase1Prompt = "You are an expert System Architect. Analyze the following project document text. " +
                 "Your task is to identify the primary business domain of the project and list the top 3-5 most critical Non-Functional Requirements (NFRs) / Constraints for this specific domain. " +
@@ -54,16 +55,24 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
 
         // Phase 2: Generate Requirements with Domain Context
         String prompt = "Below is the text extracted from a project requirement document. " +
-                "Your task is to analyze and extract a list of Actors (Roles) and Requirements from this text. " +
+                "CRITICAL INSTRUCTION: You are an expert Senior Business Analyst. Your task is to analyze the text and extract Actors and Requirements. " +
+                "DO NOT just literally copy what is in the document. Deeply analyze it and deduce the core business model.\n" +
+                "=== GRANULARITY RULE ===\n" +
+                "You MUST break down the system into GRANULAR, ATOMIC, and ACTIONABLE requirements. " +
+                "DO NOT generate high-level, generic Epics or Modules like 'Order Management', 'User Management', or 'Authentication System'.\n" +
+                "Instead, break them down into specific functional units. For example:\n" +
+                " - BAD: 'User Management'. GOOD: 'User Registration via Email', 'User Password Reset', 'Admin suspends user account'.\n" +
+                " - BAD: 'Order Management'. GOOD: 'Customer places an order', 'System calculates order tax', 'Admin updates order status'.\n" +
+                "You MUST proactively add implicit, missing, but necessary ATOMIC requirements to make the system production-ready (e.g., specific security rules, specific CRUD workflows for entities).\n" +
                 "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
                 "- Business Domain: " + domain + "\n" +
                 "- Strict Domain Priorities/Constraints: " + priorities + "\n" +
                 "When generating Acceptance Criteria (especially for Non-Functional requirements), you MUST strictly enforce and integrate the domain constraints mentioned above.\n\n" +
                 "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
-                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have only 'name' (String).\n" +
+                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have only 'name' (String). CRITICAL RULE: You MUST identify SPECIFIC actors, roles, or external systems (e.g., 'Admin', 'Student', 'Tutor', 'Payment Gateway'). DO NOT generate a generic 'User' actor if you already have specific roles, as it creates redundancy. DO NOT include the 'System' actor unless it specifically refers to an automated background job or an external third-party system. Be precise and professional with actor naming.\n" +
                 "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
-                "   a. 'title': (String) A concise title of the requirement.\n" +
-                "   b. 'description': (String) Detailed description.\n" +
+                "   a. 'title': (String) A concise, specific, and actionable title of the requirement (e.g., 'Customer cancels pending order'). DO NOT use generic module names.\n" +
+                "   b. 'description': (String) Detailed description of the requirement, explaining the 'Who', 'What', and 'Why'.\n" +
                 "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High', 'Critical'. Determine priority based on:\n" +
                 "      - 'Critical': Core system functionality (auth, payments, security, primary business logic) without which the system cannot function.\n" +
                 "      - 'High': Important features that significantly impact user experience or business value but are not absolute blockers for basic operation.\n" +
@@ -71,7 +80,14 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "      - 'Low': 'Nice to have' features, minor UI tweaks, or rarely used edge cases.\n" +
                 "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
                 "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
-                "   f. 'acceptanceCriteria': (Array of Strings) Automatically infer and generate an appropriate number of acceptance criteria for each requirement. The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
+                "   f. 'acceptanceCriteria': (Array of Strings) You MUST act as a Senior Business Analyst. Generate comprehensive, professional Acceptance Criteria for each requirement. Each string in the array must be a single criterion. DO NOT start the strings with bullet characters (like '*' or '-'). DO NOT use Gherkin (Given/When/Then). You must deduce and write detailed criteria covering:\n" +
+                "      - Positive flows (Luồng thành công).\n" +
+                "      - Negative/Error flows (Luồng lỗi/Ngoại lệ).\n" +
+                "      - Business Rules & Constraints (Luật kinh doanh).\n" +
+                "      - UI/UX constraints (Ràng buộc giao diện).\n" +
+                "      The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
+                "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past.\n" +
+                "   h. 'deadline': (String) Generate a logical deadline for this requirement in YYYY-MM-DD format. The date MUST NOT be after the project deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n" +
                 "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
                 "--- DOCUMENT TEXT ---\n" + documentText;
@@ -96,6 +112,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "3. 'errors': (Array of Strings) List any factual errors or contradictions in ENGLISH (if any; empty array if none).\n" +
                 "4. 'source_excerpt': (String) Extract an EXACT text snippet (COPY WORD-FOR-WORD) from the original document as evidence for this Requirement. Do not rewrite or use the requirement's description.\n" +
                 "5. 'isDuplicate': (Boolean) Set to true if this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. Otherwise, set to false.\n\n" +
+                "CRITICAL RULE: YOU MUST PRESERVE ALL ORIGINAL FIELDS from the input JSON (especially 'startDate', 'deadline', 'acceptanceCriteria', 'type', 'priority', 'tags'). DO NOT REMOVE ANY EXISTING FIELD.\n\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
                 "--- EXISTING REQUIREMENTS LIST ---\n- " + existingReqsText + "\n\n" +
                 "--- RAW REQUIREMENTS JSON ---\n" + rawRequirementsJson + "\n\n" +
@@ -131,6 +148,10 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
     private String cleanJsonOutput(String response) {
         if (response == null) return "";
         
+        // Fix Gemini JSON hallucinations with invalid escapes like \0
+        response = response.replace("\\0", "");
+        
+
         int codeBlockStart = response.indexOf("```json");
         if (codeBlockStart != -1) {
             int codeBlockEnd = response.lastIndexOf("```");

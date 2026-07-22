@@ -10,6 +10,9 @@ public class UseCaseResponse {
     private Long id;
     private Long requirementId;
     private RequirementResponseDTO requirement;
+    private List<RequirementResponseDTO> requirements;
+    private Long moduleId;
+    private String moduleName;
     private String code;
     private String name;
     private String precondition;
@@ -23,6 +26,10 @@ public class UseCaseResponse {
     private String version;
     private Integer completenessScore;
     private Long createdById;
+    private String createdByName;
+    private String createdByEmail;
+    private String createdByAvatar;
+    private String createdByUsername;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean isOutdated;
@@ -30,4 +37,7 @@ public class UseCaseResponse {
     private boolean showInDiagram;
     private boolean aiGenerated;
     private java.util.UUID sourceGenerationId;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
+    private Integer ucOrder;
 }

@@ -12,5 +12,6 @@ public enum NotificationEntityType {
     WEEKLY_REPORT,
     MENTOR_VERIFICATION,
     PROJECT,
-    ANNOUNCEMENT
+    ANNOUNCEMENT,
+    USE_CASE
 }

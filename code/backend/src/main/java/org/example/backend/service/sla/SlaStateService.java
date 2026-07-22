@@ -229,6 +229,7 @@ public class SlaStateService {
             case DEPLOYMENT -> 6;
             case BUG_FIX -> 7;
             case REVIEW -> 8;
+            case MODULE_TASK -> 9;
         };
     }
 
@@ -241,3 +242,4 @@ public class SlaStateService {
         }
     }
 }
+

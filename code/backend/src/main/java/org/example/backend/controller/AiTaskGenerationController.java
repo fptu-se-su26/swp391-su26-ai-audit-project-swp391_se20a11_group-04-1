@@ -30,11 +30,15 @@ public class AiTaskGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        UUID generationId = aiTaskGenerationService.generateTasks(projectId, request, userId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Successfully started generating Tasks.",
-                "generationId", generationId.toString()
-        ));
+        try {
+            UUID generationId = aiTaskGenerationService.generateTasks(projectId, request, userId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Successfully started generating Tasks.",
+                    "generationId", generationId.toString()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/split")

@@ -1,11 +1,18 @@
-import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import UseCaseList from '../UseCaseList';
+import { useCaseService } from '../../services/useCaseService';
+import toast from 'react-hot-toast';
 
 const UseCaseTabContent = ({ useCases, requirement, onOpenUseCaseModal }) => {
-  const navigate = useNavigate();
   const { projectId } = useParams();
+  const [localUseCases, setLocalUseCases] = useState([]);
 
-  if (!useCases || useCases.length === 0) {
+  useEffect(() => {
+    setLocalUseCases(useCases || []);
+  }, [useCases]);
+
+  if (!localUseCases || localUseCases.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-3">
@@ -16,57 +23,25 @@ const UseCaseTabContent = ({ useCases, requirement, onOpenUseCaseModal }) => {
     );
   }
 
-
-
-  const getStatusColor = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'APPROVED': return 'text-slate-600 bg-slate-100 border-slate-200/50';
-      case 'DRAFT': return 'text-slate-500 bg-slate-50 border-slate-200/50';
-      case 'NEED_REVIEW': return 'text-[#1E707D] bg-[#1E707D]/10 border-[#1E707D]/20';
-      default: return 'text-slate-600 bg-slate-100 border-slate-200/50';
+  const handleReorder = async (newItems) => {
+    setLocalUseCases(newItems);
+    try {
+      const ids = newItems.map(item => item.id);
+      await useCaseService.reorderUseCases(projectId, requirement.id, ids);
+    } catch (error) {
+      console.error('Failed to reorder use cases:', error);
+      toast.error('Failed to save order');
+      setLocalUseCases(useCases); // revert
     }
   };
 
   return (
     <div className="w-full">
-      {/* List Header */}
-      <div className="grid grid-cols-[100px_1fr_1fr_120px] gap-4 px-6 py-3 border-b border-slate-100 bg-slate-50/30 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-        <div>ID</div>
-        <div>Use Case Name</div>
-        <div>Actors</div>
-        <div className="text-right">Status</div>
-      </div>
-
-      {/* List Body */}
-      <div className="flex flex-col">
-        {useCases.map((uc, index) => {
-          const code = uc.code || `UC-${String(uc.id).padStart(3, '0')}`;
-          const actor = uc.primaryActors || 'System';
-          const status = uc.status || 'DRAFT';
-
-          return (
-            <div 
-              key={uc.id} 
-              onClick={() => navigate(`/projects/${projectId}/use-cases/${uc.id}`)}
-              className={`grid grid-cols-[100px_1fr_1fr_120px] gap-4 px-6 py-3 items-center hover:bg-[#1E707D]/10/40 transition-colors cursor-pointer ${index !== useCases.length - 1 ? 'border-b border-slate-100' : ''}`}
-            >
-              <div className="text-sm font-medium text-[#1E707D]">{code}</div>
-              <div className="text-sm font-medium text-slate-800 truncate pr-4" title={uc.name}>{uc.name}</div>
-              
-              <div className="flex items-center gap-1.5 text-sm text-slate-600 truncate" title={actor}>
-                <span className="material-symbols-outlined text-[16px] text-slate-400">person</span>
-                <span className="truncate">{actor}</span>
-              </div>
-              
-              <div className="text-right">
-                <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold tracking-wide uppercase border ${getStatusColor(status)}`}>
-                  {status}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <UseCaseList 
+        useCases={localUseCases}
+        enableReorder={true}
+        onReorder={handleReorder}
+      />
     </div>
   );
 };

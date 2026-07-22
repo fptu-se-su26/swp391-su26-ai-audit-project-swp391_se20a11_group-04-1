@@ -36,4 +36,10 @@ public class RequirementRequestDTO {
     private Boolean evidenceRequired;
 
     private List<String> tags;
+    
+    private java.time.LocalDate startDate;
+    
+    private java.time.LocalDate deadline;
+    
+    private List<Long> coOwnerIds;
 }

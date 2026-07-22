@@ -1,0 +1,1 @@
+ALTER TABLE project_diagrams ADD COLUMN IF NOT EXISTS module_id BIGINT; ALTER TABLE project_diagrams DROP COLUMN IF EXISTS user_id; ALTER TABLE project_diagrams ADD CONSTRAINT fk_project_diagrams_module FOREIGN KEY (module_id) REFERENCES business_modules(id) ON DELETE CASCADE;

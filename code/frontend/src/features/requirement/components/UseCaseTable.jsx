@@ -85,7 +85,6 @@ const UseCaseTable = ({ useCases, allUseCases = [], diagramData, onEdit, onDelet
             <th className="py-3 px-4 font-semibold uppercase">Linked Req</th>
             <th className="py-3 px-4 font-semibold uppercase">Primary Actor</th>
             <th className="py-3 px-4 font-semibold uppercase">Status</th>
-            <th className="py-3 px-4 font-semibold uppercase">AI Score</th>
             <th className="py-3 px-4 font-semibold uppercase w-16 text-center"></th>
           </tr>
         </thead>
@@ -145,17 +144,7 @@ const UseCaseTable = ({ useCases, allUseCases = [], diagramData, onEdit, onDelet
                   {uc.status ? uc.status.replace('_', ' ') : 'DRAFT'}
                 </span>
               </td>
-              <td className="py-3 px-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-full bg-surface-variant rounded-full h-1.5 max-w-[60px]">
-                    <div 
-                      className={`h-1.5 rounded-full ${(uc.completenessScore || 0) < 50 ? 'bg-error' : 'bg-[#1E707D]'}`} 
-                      style={{ width: `${uc.completenessScore || 0}%` }}
-                    ></div>
-                  </div>
-                  <span className="font-label-md text-label-md text-on-surface-variant">{uc.completenessScore || 0}%</span>
-                </div>
-              </td>
+
               <td className="py-3 px-4 text-right">
                 {isDraftView ? (
                   onApprove && (

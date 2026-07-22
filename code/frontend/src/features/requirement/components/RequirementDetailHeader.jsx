@@ -86,24 +86,35 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
             </span>
           )}
         </h1>
-        <p className="font-body-md text-body-md text-secondary mt-1 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[16px]">person</span>
-          Owner: {(() => {
-            const activeProject = useProjectStore((state) => state.activeProject);
-            const projectMembers = activeProject?.members || [];
-            const member = projectMembers.find(m => m.id === requirement.ownerId);
-            return member ? (
-              <span className="flex items-center gap-1.5">
-                <span 
-                  className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[9px] shadow-sm"
-                  style={{ backgroundColor: member.bg || '#1E707D' }}
-                >
-                  {member.initials}
+        <p className="font-body-md text-body-md text-secondary mt-2 flex flex-wrap items-center gap-4">
+          <span className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]">person</span>
+            Owner: {(() => {
+              const activeProject = useProjectStore((state) => state.activeProject);
+              const projectMembers = activeProject?.members || [];
+              const member = projectMembers.find(m => m.id === requirement.ownerId);
+              return member ? (
+                <span className="flex items-center gap-1.5">
+                  <span 
+                    className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[9px] shadow-sm"
+                    style={{ backgroundColor: member.bg || '#1E707D' }}
+                  >
+                    {member.initials}
+                  </span>
+                  <span className="font-medium text-on-surface">{member.name}</span>
                 </span>
-                <span className="font-medium text-on-surface">{member.name}</span>
-              </span>
-            ) : <span className="italic">Chưa phân công</span>;
-          })()}
+              ) : <span className="italic">Chưa phân công</span>;
+            })()}
+          </span>
+
+          {(requirement.startDate || requirement.deadline) && (
+            <span className="flex items-center gap-1.5 text-[12px] bg-surface-container-low px-2.5 py-0.5 rounded-md border border-outline-variant/50 font-medium">
+              <span className="material-symbols-outlined text-[14px] text-gray-500">calendar_month</span>
+              {requirement.startDate ? new Date(requirement.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '?'} 
+              {' - '} 
+              {requirement.deadline ? new Date(requirement.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '?'}
+            </span>
+          )}
         </p>
       </div>
       
@@ -115,6 +126,16 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
             className="text-emerald-700"
           >
             <span className="material-symbols-outlined text-[18px]">check_circle</span> Duyệt (Approve)
+          </Button>
+        )}
+        
+        {requirement.status !== 'CLOSED' && (
+          <Button 
+            variant="outline"
+            onClick={onEdit}
+            className="text-slate-600 hover:text-slate-900 border-slate-200"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span> Edit
           </Button>
         )}
         

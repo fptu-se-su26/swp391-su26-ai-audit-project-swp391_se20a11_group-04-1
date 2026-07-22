@@ -33,6 +33,10 @@ public class Task {
     @Column(name = "requirement_id")
     private Long requirementId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "module_id")
+    private BusinessModule businessModule;
+
     @Column(name = "use_case_id")
     private Long useCaseId;
 
