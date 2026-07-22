@@ -15,8 +15,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.kafka.annotation.EnableKafka;
 
 @Configuration
+@EnableKafka
 @ConditionalOnProperty(name = "app.events.publisher", havingValue = "kafka")
 public class KafkaConfig {
 
