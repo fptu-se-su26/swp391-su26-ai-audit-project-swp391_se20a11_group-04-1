@@ -100,5 +100,10 @@ public interface ProjectService {
      * Lấy số lượng dự án theo từng trạng thái của một người dùng
      */
     java.util.Map<String, Long> getProjectCountsForUser(Long userId);
+
+    /**
+     * Tự động đóng các dự án quá hạn (deadline < today và status ACTIVE/PLANNING)
+     */
+    int autoCloseOverdueProjects();
 }
 

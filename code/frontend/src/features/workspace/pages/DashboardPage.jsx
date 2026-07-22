@@ -117,6 +117,8 @@ export function DashboardPage() {
     loading,
     error,
     fetchProjects,
+    fetchProjectById,
+    reopenProject,
     createProject,
     loadMore,
     visibleCount,
@@ -157,9 +159,8 @@ export function DashboardPage() {
     }
     setReopening(true)
     try {
-      await axiosInstance.post(`/v1/projects/${projectId}/reopen`, { reason: reason.trim() })
+      await reopenProject(projectId, reason.trim())
       toast.success('Project has been reopened!')
-      fetchProjects()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to reopen project.')
     } finally {
@@ -524,49 +525,34 @@ export function DashboardPage() {
     }
   }
 
-  // --- SMART SORT: ưu tiên deadline gần hôm nay nhất ---
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const filteredProjects = projects
-    // 1. Lọc theo Tab (bổ sung client-side nếu đã lọc server-side)
+    // Filter out ARCHIVED projects (they belong under /archived)
     .filter((project) => {
-      if (activeTab === 'active') return project.status === 'ACTIVE'
+      if (activeTab === 'active') return project.status === 'ACTIVE' || !project.status
       if (activeTab === 'completed') return project.status === 'COMPLETED'
-      return true
+      return project.status !== 'ARCHIVED'
     })
     // 2. Lọc theo tìm kiếm (client-side)
     .filter((project) => {
       const q = searchQuery.toLowerCase().trim()
       if (!q) return true
       return (
-        project.title.toLowerCase().includes(q) ||
-        project.major.toLowerCase().includes(q) ||
-        project.role.toLowerCase().includes(q)
+        (project.title && project.title.toLowerCase().includes(q)) ||
+        (project.major && project.major.toLowerCase().includes(q)) ||
+        (project.role && project.role.toLowerCase().includes(q))
       )
     })
-    // 3. Smart Sort theo deadline priority
+    // 3. Smart Sort
     .sort((a, b) => {
-      // Nếu user chọn sort khác (name, progress) thì dùng sort đó
-      if (sortBy === 'name') return a.title.localeCompare(b.title)
-      if (sortBy === 'progress') return b.progress - a.progress
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '')
+      if (sortBy === 'progress') return (b.progress || 0) - (a.progress || 0)
 
-      // sortBy === 'recent' → Smart deadline sort
-      const aDeadline = new Date(a.deadline)
-      const bDeadline = new Date(b.deadline)
-      const aCompleted = a.status === 'COMPLETED' || a.status === 'ARCHIVED'
-      const bCompleted = b.status === 'COMPLETED' || b.status === 'ARCHIVED'
-      const aOverdue = !aCompleted && aDeadline < today
-      const bOverdue = !bCompleted && bDeadline < today
-
-      // Completed/Archived → cuối danh sách
-      if (aCompleted !== bCompleted) return aCompleted ? 1 : -1
-      // Non-overdue → trước overdue
-      if (aOverdue !== bOverdue) return aOverdue ? 1 : -1
-      // Cả 2 đều overdue → gần hôm nay nhất lên trước (DESC deadline)
-      if (aOverdue && bOverdue) return bDeadline - aDeadline
-      // Cả 2 đều non-overdue → deadline gần nhất lên trước (ASC deadline)
-      return aDeadline - bDeadline
+      const dateA = new Date(a.updatedAt || a.createdAt || a.deadline || 0)
+      const dateB = new Date(b.updatedAt || b.createdAt || b.deadline || 0)
+      return dateB - dateA
     })
 
   // Danh sách visible (slice theo visibleCount)
@@ -888,7 +874,7 @@ export function DashboardPage() {
               {/* Counter */}
               <p className="text-xs text-on-surface-variant">
                 Showing <span className="font-bold text-on-surface">{Math.min(visibleCount, filteredProjects.length)}</span>
-                {' '}of <span className="font-bold text-on-surface">{totalCount}</span> projects
+                {' '}of <span className="font-bold text-on-surface">{filteredProjects.length}</span> active projects
               </p>
 
               {/* Load More Button */}
@@ -1867,7 +1853,16 @@ export function DashboardPage() {
           projectId={activeProject.id}
           projectTitle={activeProject.title}
           onClose={() => setIsClosureModalOpen(false)}
-          onClosed={() => fetchProjects()}
+          onClosed={() => {
+            useProjectStore.setState((state) => ({
+              projects: state.projects.map((p) => (p.id === activeProject.id ? { ...p, status: 'ARCHIVED' } : p)),
+              activeProject: state.activeProject?.id === activeProject.id ? { ...state.activeProject, status: 'ARCHIVED' } : state.activeProject
+            }))
+            fetchProjects()
+            if (activeProject?.id) {
+              fetchProjectById(activeProject.id)
+            }
+          }}
         />
       )}
 

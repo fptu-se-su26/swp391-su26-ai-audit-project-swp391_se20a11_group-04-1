@@ -35,6 +35,7 @@ import org.example.backend.repository.CodeInsightEvidenceLinkRepository;
 import org.example.backend.repository.ManualEvidenceLinkRepository;
 import org.example.backend.service.ProjectService;
 import org.example.backend.service.EmailService;
+import org.example.backend.util.DateValidationUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -1346,7 +1347,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Ghi audit log
         UserAccount caller = userAccountRepository.findById(userId).orElse(null);
-        AuditLog log = AuditLog.builder()
+        AuditLog auditLog = AuditLog.builder()
                 .userId(userId)
                 .username(caller != null ? caller.getUsername() : "unknown")
                 .action("PROJECT_CLOSED")
@@ -1357,7 +1358,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .projectId(projectId)
                 .status("SUCCESS")
                 .build();
-        auditLogRepository.save(log);
+        auditLogRepository.save(auditLog);
 
         // Publish PROJECT_CLOSED event — consumer gửi notification cho toàn nhóm
         outboxEventService.createEvent("PROJECT_CLOSED", "Project", projectId, Map.of(
@@ -1399,6 +1400,23 @@ public class ProjectServiceImpl implements ProjectService {
                     savedNotif.getCreatedAt().toString());
             notificationWebSocketHandler.sendToUser(member.getUser().getId(), jsonPayload);
         }
+
+        try {
+            Set<String> keys = redisTemplate.keys("projects:*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear Redis keys on closeProject", e);
+        }
+
+        try {
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(
+                "{\"type\":\"REFRESH_PROJECTS\",\"projectId\":" + projectId + ",\"message\":\"Project has been closed.\"}"
+            );
+        } catch (Exception e) {
+            log.warn("Failed to broadcast REFRESH_PROJECTS on closeProject", e);
+        }
     }
 
     @Override
@@ -1408,6 +1426,17 @@ public class ProjectServiceImpl implements ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
         ensureLeaderOrMentor(projectId, userId);
 
+        if (project.getStatus() == ProjectStatus.ACTIVE) {
+            log.info("Project ID {} is already ACTIVE. Invalidating cache...", projectId);
+            try {
+                Set<String> keys = redisTemplate.keys("projects:*");
+                if (keys != null && !keys.isEmpty()) {
+                    redisTemplate.delete(keys);
+                }
+            } catch (Exception e) {}
+            return;
+        }
+
         if (project.getStatus() != ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Chỉ project đang ở trạng thái ARCHIVED mới có thể mở lại.");
         }
@@ -1415,10 +1444,11 @@ public class ProjectServiceImpl implements ProjectService {
         project.setStatus(ProjectStatus.ACTIVE);
         project.setClosedAt(null);
         project.setClosedReason(null);
+        project.setUpdatedAt(LocalDateTime.now());
         projectRepository.save(project);
 
         UserAccount caller = userAccountRepository.findById(userId).orElse(null);
-        AuditLog log = AuditLog.builder()
+        AuditLog auditLog = AuditLog.builder()
                 .userId(userId)
                 .username(caller != null ? caller.getUsername() : "unknown")
                 .action("PROJECT_REOPENED")
@@ -1429,7 +1459,24 @@ public class ProjectServiceImpl implements ProjectService {
                 .projectId(projectId)
                 .status("SUCCESS")
                 .build();
-        auditLogRepository.save(log);
+        auditLogRepository.save(auditLog);
+
+        try {
+            Set<String> keys = redisTemplate.keys("projects:*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear Redis keys on reopenProject", e);
+        }
+
+        try {
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(
+                "{\"type\":\"REFRESH_PROJECTS\",\"projectId\":" + projectId + ",\"message\":\"Project has been reopened.\"}"
+            );
+        } catch (Exception e) {
+            log.warn("Failed to broadcast REFRESH_PROJECTS on reopenProject", e);
+        }
     }
 
     private void ensureLeaderOrMentor(Long projectId, Long userId) {
@@ -1440,5 +1487,77 @@ public class ProjectServiceImpl implements ProjectService {
         if (!authorized) {
             throw new CustomException("Chỉ Leader hoặc Mentor mới có quyền thực hiện thao tác này.", HttpStatus.FORBIDDEN);
         }
+    }
+
+    @Override
+    @Transactional
+    public int autoCloseOverdueProjects() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        List<Project> allProjects = projectRepository.findAll();
+        List<Project> overdueProjects = allProjects.stream()
+                .filter(p -> p.getStatus() == ProjectStatus.ACTIVE || p.getStatus() == ProjectStatus.PLANNING)
+                .filter(p -> p.getDeadline() != null && p.getDeadline().isBefore(today))
+                .filter(p -> {
+                    // Nếu dự án đã được Leader/Mentor mở lại hoặc cập nhật sau ngày deadline -> Không tự đóng lại
+                    if (p.getUpdatedAt() != null && p.getUpdatedAt().toLocalDate().isAfter(p.getDeadline())) {
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        if (overdueProjects.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        int closedCount = 0;
+
+        for (Project project : overdueProjects) {
+            project.setStatus(ProjectStatus.ARCHIVED);
+            project.setClosedAt(now);
+            project.setClosedReason("Project execution deadline has expired");
+            projectRepository.save(project);
+            closedCount++;
+
+            log.info("⏰ Auto-closed overdue project ID: {} | Name: '{}' | Deadline: {}",
+                    project.getId(), project.getName(), project.getDeadline());
+
+            try {
+                AuditLog audit = AuditLog.builder()
+                        .userId(null)
+                        .username("SYSTEM_WATCHDOG")
+                        .action("PROJECT_AUTO_CLOSED_OVERDUE")
+                        .entityType("PROJECT")
+                        .entityId(project.getId())
+                        .oldValue("{\"status\":\"ACTIVE\",\"deadline\":\"" + project.getDeadline() + "\"}")
+                        .newValue("{\"status\":\"ARCHIVED\",\"reason\":\"Project execution deadline has expired\"}")
+                        .projectId(project.getId())
+                        .status("SUCCESS")
+                        .build();
+                auditLogRepository.save(audit);
+            } catch (Exception e) {
+                log.warn("Failed to create audit log for auto-closed project ID: {}", project.getId(), e);
+            }
+        }
+
+        try {
+            Set<String> keys = redisTemplate.keys("projects:*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear Redis keys after auto-closing overdue projects", e);
+        }
+
+        try {
+            org.example.backend.config.NotificationWebSocketHandler.broadcast(
+                "{\"type\":\"REFRESH_PROJECTS\",\"message\":\"Overdue projects automatically archived.\"}"
+            );
+        } catch (Exception e) {
+            log.warn("Failed to broadcast REFRESH_PROJECTS on autoCloseOverdueProjects", e);
+        }
+
+        return closedCount;
     }
 }
