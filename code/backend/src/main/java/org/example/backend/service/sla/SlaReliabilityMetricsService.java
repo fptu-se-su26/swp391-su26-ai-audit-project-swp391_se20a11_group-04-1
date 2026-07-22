@@ -32,8 +32,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SlaReliabilityMetricsService {
 
-    private static final Set<String> FAILURE_LEVELS = Set.of("WARNING", "BREACH");
-    private static final Set<String> HEALTHY_LEVELS = Set.of("HEALTHY", "ON_TRACK");
+    private static final Set<String> FAILURE_LEVELS = Set.of("HIGH", "CRITICAL");
+    private static final Set<String> HEALTHY_LEVELS = Set.of("NORMAL", "LOW");
 
     private final SlaDecisionLogRepository decisionLogRepository;
     private final TaskPenaltyLogRepository penaltyLogRepository;

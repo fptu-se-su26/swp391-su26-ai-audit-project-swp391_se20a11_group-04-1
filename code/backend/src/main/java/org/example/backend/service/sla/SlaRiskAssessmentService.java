@@ -74,15 +74,15 @@ public class SlaRiskAssessmentService {
 
         String riskLevel;
         if (score <= 20) {
-            riskLevel = "BREACH";
+            riskLevel = "CRITICAL";
         } else if (score <= 45) {
-            riskLevel = "WARNING";
+            riskLevel = "HIGH";
         } else if (score <= 75) {
-            riskLevel = "AT_RISK";
+            riskLevel = "MEDIUM";
         } else if (score < 100) {
-            riskLevel = "ON_TRACK";
+            riskLevel = "LOW";
         } else {
-            riskLevel = "HEALTHY";
+            riskLevel = "NORMAL";
         }
 
         List<String> reasons = new ArrayList<>();
@@ -125,8 +125,8 @@ public class SlaRiskAssessmentService {
 
         if (task.getStatus() == TaskStatus.DONE) {
             score = 100;
-            riskLevel = "HEALTHY";
-            predictedRiskLevel = "HEALTHY";
+            riskLevel = "NORMAL";
+            predictedRiskLevel = "NORMAL";
             reasons = List.of("Task is resolved (DONE).");
             predictionReasons = List.of();
             recommendedAction = "No action required.";
@@ -233,13 +233,13 @@ public class SlaRiskAssessmentService {
     private String predictRiskLevel(Task task, TaskSlaEvaluation evaluation, String riskLevel,
                                     String burnRateLevel, double progressPercent, LocalDate today) {
         String predictedRiskLevel = riskLevel;
-        if ("AT_RISK".equals(riskLevel) && "HIGH".equals(burnRateLevel)) {
-            predictedRiskLevel = "WARNING";
+        if ("MEDIUM".equals(riskLevel) && "HIGH".equals(burnRateLevel)) {
+            predictedRiskLevel = "HIGH";
         }
         if (task.getDeadline() != null) {
             long daysLeft = ChronoUnit.DAYS.between(today, task.getDeadline());
             if (daysLeft <= 1 && progressPercent < 50) {
-                predictedRiskLevel = "WARNING";
+                predictedRiskLevel = "HIGH";
             }
         }
         return predictedRiskLevel;
