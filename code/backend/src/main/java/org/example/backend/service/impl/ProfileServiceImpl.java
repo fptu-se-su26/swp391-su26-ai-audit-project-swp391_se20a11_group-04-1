@@ -13,9 +13,11 @@ import org.example.backend.entity.Task;
 import org.example.backend.entity.UserAccount;
 import org.example.backend.entity.UserProfile;
 import org.example.backend.exception.BadRequestException;
+import org.example.backend.exception.CustomException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.repository.*;
 import org.example.backend.service.ProfileService;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,13 @@ public class ProfileServiceImpl implements ProfileService {
                 .passwordSet(isPasswordSet(user))
                 .projectRoles(projectRoles)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProfileResponse getProfile(Long viewerId, Long targetUserId) {
+        ensureCanViewProfile(viewerId, targetUserId);
+        return getProfile(targetUserId);
     }
 
     @Override
@@ -195,6 +204,13 @@ public class ProfileServiceImpl implements ProfileService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ProfileStatisticsResponse getProfileStatistics(Long viewerId, Long targetUserId) {
+        ensureCanViewProfile(viewerId, targetUserId);
+        return getProfileStatistics(targetUserId);
+    }
+
     private long safeCount(String fieldName, java.util.function.Supplier<Long> countSupplier) {
         try {
             Long result = countSupplier.get();
@@ -242,6 +258,39 @@ public class ProfileServiceImpl implements ProfileService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CoWorkerResponse> getCoWorkers(Long viewerId, Long targetUserId) {
+        ensureCanViewProfile(viewerId, targetUserId);
+        return getCoWorkers(targetUserId);
+    }
+
+    private void ensureCanViewProfile(Long viewerId, Long targetUserId) {
+        if (viewerId == null || targetUserId == null) {
+            throw new CustomException("Không có quyền xem profile này.", HttpStatus.FORBIDDEN);
+        }
+
+        UserAccount target = userAccountRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
+
+        if (viewerId.equals(targetUserId)) {
+            return;
+        }
+
+        UserAccount viewer = userAccountRepository.findById(viewerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không tồn tại."));
+
+        if (viewer.getSystemRole() != null
+                && viewer.getSystemRole().getName() != null
+                && viewer.getSystemRole().getName().toUpperCase().contains("ADMIN")) {
+            return;
+        }
+
+        if (!projectMemberRepository.existsSharedProjectMembership(viewerId, target.getId())) {
+            throw new CustomException("Chỉ có thể xem profile của thành viên cùng project.", HttpStatus.FORBIDDEN);
+        }
     }
 
     private boolean isPasswordSet(UserAccount user) {

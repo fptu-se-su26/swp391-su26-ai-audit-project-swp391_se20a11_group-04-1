@@ -41,6 +41,12 @@ const notificationPath = (notification, fallbackProjectId) => {
   }
 
   if (notification.entityType === 'TASK' && notification.relatedId) {
+    if (/recovery plan/i.test(`${notification.title} ${notification.message}`)) {
+      return `/projects/${projectId}/recovery-plans?taskId=${notification.relatedId}`
+    }
+    if (/Blocker update required/i.test(notification.title)) {
+      return `/projects/${projectId}/tasks/${notification.relatedId}?action=update-blocker`
+    }
     return `/projects/${projectId}/tasks/${notification.relatedId}`
   }
 

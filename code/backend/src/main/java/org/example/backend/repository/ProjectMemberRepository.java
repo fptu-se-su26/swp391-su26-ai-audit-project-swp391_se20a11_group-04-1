@@ -31,4 +31,13 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
            "GROUP BY other.user.id, other.user.username, other.user.email, profile.fullName, profile.avatarUrl " +
            "ORDER BY COUNT(other.project.id) DESC, profile.fullName ASC")
     List<Object[]> findCoWorkersByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(pm.id) > 0 " +
+           "FROM ProjectMember pm, ProjectMember other " +
+           "WHERE pm.project.id = other.project.id " +
+           "AND pm.user.id = :viewerId " +
+           "AND other.user.id = :targetUserId")
+    boolean existsSharedProjectMembership(
+            @Param("viewerId") Long viewerId,
+            @Param("targetUserId") Long targetUserId);
 }
