@@ -7,6 +7,11 @@ spring:
       - optional:file:.env[.properties]
       - optional:file:../../.env[.properties]
 
+  server:
+    port: 8081
+    error:
+      include-message: always
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:

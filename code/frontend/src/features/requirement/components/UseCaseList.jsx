@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   DndContext, 
   closestCenter,
@@ -31,10 +31,23 @@ const UseCaseList = ({
   onReject
 }) => {
   const [items, setItems] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [edgeZone, setEdgeZone] = useState(null); // 'top' | 'bottom' | null
+  const edgeTimerRef = useRef(null);
+  const listRef = useRef(null);
+  const EDGE_ZONE_PX = 80;
+  const PAGE_CHANGE_DELAY_MS = 500;
 
   useEffect(() => {
     setItems(useCases);
   }, [useCases]);
+
+  const clearEdgeTimer = useCallback(() => {
+    if (edgeTimerRef.current) {
+      clearTimeout(edgeTimerRef.current);
+      edgeTimerRef.current = null;
+    }
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -45,11 +58,51 @@ const UseCaseList = ({
     })
   );
 
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleDragMove = useCallback((event) => {
+    if (!listRef.current || !pagination) return;
+    const listRect = listRef.current.getBoundingClientRect();
+    const pointerY = event.activatorEvent?.clientY ?? (event.delta?.y ?? 0);
+    const distFromTop = pointerY - listRect.top;
+    const distFromBottom = listRect.bottom - pointerY;
+
+    if (distFromTop < EDGE_ZONE_PX && pagination.currentPage > 1) {
+      if (edgeZone !== 'top') {
+        setEdgeZone('top');
+        clearEdgeTimer();
+        edgeTimerRef.current = setTimeout(() => {
+          onPageChange(pagination.currentPage - 1);
+          setEdgeZone(null);
+        }, PAGE_CHANGE_DELAY_MS);
+      }
+    } else if (distFromBottom < EDGE_ZONE_PX && pagination.currentPage < pagination.totalPages) {
+      if (edgeZone !== 'bottom') {
+        setEdgeZone('bottom');
+        clearEdgeTimer();
+        edgeTimerRef.current = setTimeout(() => {
+          onPageChange(pagination.currentPage + 1);
+          setEdgeZone(null);
+        }, PAGE_CHANGE_DELAY_MS);
+      }
+    } else {
+      if (edgeZone !== null) {
+        setEdgeZone(null);
+        clearEdgeTimer();
+      }
+    }
+  }, [edgeZone, pagination, onPageChange, clearEdgeTimer]);
+
   const handleDragEnd = (event) => {
+    setIsDragging(false);
+    setEdgeZone(null);
+    clearEdgeTimer();
     if (!enableReorder) return;
     const { active, over } = event;
 
-    if (active.id !== over.id) {
+    if (active.id !== over?.id) {
       setItems((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
@@ -75,13 +128,45 @@ const UseCaseList = ({
   );
 
   return (
-    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-visible pb-16">
+    <div ref={listRef} className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-visible pb-16 relative">
       <ListHeader />
+
+      {/* Edge zone indicators */}
+      {isDragging && pagination && pagination.currentPage > 1 && (
+        <div className={`absolute top-0 left-0 right-0 h-20 z-30 flex items-center justify-center gap-2 rounded-t-xl transition-all duration-200 pointer-events-none ${
+          edgeZone === 'top'
+            ? 'bg-indigo-500/20 border-2 border-indigo-400 border-dashed'
+            : 'bg-indigo-100/10 border border-indigo-200 border-dashed'
+        }`}>
+          <span className={`text-xs font-semibold flex items-center gap-1 ${
+            edgeZone === 'top' ? 'text-indigo-600 scale-110' : 'text-indigo-400'
+          }`}>
+            <span className={edgeZone === 'top' ? 'animate-bounce' : ''}>↑</span>
+            {edgeZone === 'top' ? 'Switching to Previous Page...' : `Drag here for Page ${pagination.currentPage - 1}`}
+          </span>
+        </div>
+      )}
+      {isDragging && pagination && pagination.currentPage < pagination.totalPages && (
+        <div className={`absolute bottom-16 left-0 right-0 h-20 z-30 flex items-center justify-center gap-2 transition-all duration-200 pointer-events-none ${
+          edgeZone === 'bottom'
+            ? 'bg-indigo-500/20 border-2 border-indigo-400 border-dashed'
+            : 'bg-indigo-100/10 border border-indigo-200 border-dashed'
+        }`}>
+          <span className={`text-xs font-semibold flex items-center gap-1 ${
+            edgeZone === 'bottom' ? 'text-indigo-600 scale-110' : 'text-indigo-400'
+          }`}>
+            <span className={edgeZone === 'bottom' ? 'animate-bounce' : ''}>↓</span>
+            {edgeZone === 'bottom' ? 'Switching to Next Page...' : `Drag here for Page ${pagination.currentPage + 1}`}
+          </span>
+        </div>
+      )}
 
       {enableReorder ? (
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
         >
           <div className="flex flex-col gap-3 p-3 bg-gray-50/30">
