@@ -1053,9 +1053,10 @@ Em nhan xet rang Gemini dang sinh recovery plan theo prompt thuan tuy, khong bie
 
 - Tao `ml-service/app/rag/`: `embedder.py`, `faiss_store.py`, `build_index.py`.
 - Tao endpoint `/recovery/similar` tim top-k plan tuong tu.
+- Tao endpoint `/recovery/generate-plan` de FastAPI ML Service lam gateway chinh cho Recovery Plan generation: nhan context tu Spring Boot `MlServiceClient`, inject RAG context, roi goi Ollama/Gemini.
 - Tao endpoint `/feedback/signal` nhan RLHF signal tu Spring Boot.
 - Tao endpoint `/train/trigger` va `/train/status` quan ly viec rebuild FAISS.
-- Them `generateWithRagContext()` trong `GeminiRecoveryService`: lay top-3 plan tu `/recovery/similar`, inject vao Gemini prompt.
+- Ghi ro `GeminiRecoveryService.generateWithRagContext()` chi con la legacy/deprecated direct-Gemini path, khong phai flow chinh.
 - Hook RLHF signal vao `RecoveryPlanService`: approve/reject/gate_result deu gui signal.
 - Fix FAISS Unicode path issue tren Windows bang `serialize_index` bytes + joblib.
 

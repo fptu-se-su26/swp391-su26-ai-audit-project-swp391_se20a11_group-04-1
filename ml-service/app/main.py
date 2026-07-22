@@ -1,76 +1,88 @@
-from typing import Dict
+"""
+DevTrack ML Microservice — FastAPI
+Port: 8001
+
+Endpoints:
+  POST /predict/sla-risk      -> SLA risk level + penalty prob + recovery priority
+  POST /predict/sprint-health -> Sprint success probability + completion rate
+  POST /detect/anomaly        -> Anomaly detection on AuditLog sequences
+  POST /feedback              -> RLHF feedback (approve/reject prediction)
+  GET  /health                -> Service health + model status
+"""
+import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.model_loader import append_feedback_entry, get_registry
+from app.routers import sla, sprint, anomaly, recovery, feedback, training
+from app.schemas import MlFeedbackRequest, MlFeedbackResponse, HealthResponse
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+log = logging.getLogger(__name__)
 
 
-app = FastAPI(title="DevTrack ML Service", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("Loading ML models...")
+    reg = get_registry()
+    log.info("Models ready: sla=%s sprint=%s anomaly=%s",
+             reg.sla_model is not None,
+             reg.sprint_bundle is not None,
+             reg.anomaly_model is not None)
+    yield
+    log.info("ML service shutting down.")
 
 
-class SlaRiskRequest(BaseModel):
-    deadline_penalty: float = 0
-    burn_rate_penalty: float = 0
-    blocker_penalty: float = 0
-    workload_penalty: float = 0
-    burn_gap: float = 0
-    spi: float = 1
-    days_until_deadline: float = 999
-    overdue_days: float = 0
-    estimated_hours: float = 0
-    weight: float = 1
-    priority_encoded: int = 0
-    task_type_encoded: int = 0
+app = FastAPI(
+    title="DevTrack ML Microservice",
+    description="SLA Risk Prediction | Sprint Health | Anomaly Detection",
+    version="2.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(sla.router)
+app.include_router(sprint.router)
+app.include_router(anomaly.router)
+app.include_router(recovery.router)
+app.include_router(feedback.router)
+app.include_router(training.router)
 
 
-class SlaRiskResponse(BaseModel):
-    risk_level: str
-    risk_probabilities: Dict[str, float] = Field(default_factory=dict)
-    penalty_probability: float = 0
-    recovery_priority: str = "LOW"
-    confidence: float = 0.5
-    model_version: str = "rule-fallback-v0"
-
-
-@app.get("/health")
-def health() -> dict:
-    return {"status": "ok", "model_loaded": False, "mode": "rule-fallback"}
-
-
-@app.post("/predict/sla-risk", response_model=SlaRiskResponse)
-def predict_sla_risk(request: SlaRiskRequest) -> SlaRiskResponse:
-    penalty = (
-        request.deadline_penalty
-        + request.burn_rate_penalty
-        + request.blocker_penalty
-        + request.workload_penalty
+@app.get("/health", response_model=HealthResponse, tags=["System"])
+def health():
+    reg = get_registry()
+    return HealthResponse(
+        status="ok",
+        models_loaded={
+            "sla_multitask_v2":       reg.sla_model is not None,
+            "sprint_predictor_v1":    reg.sprint_bundle is not None,
+            "lstm_autoencoder_v1":    reg.anomaly_model is not None,
+        },
     )
-    score = max(0, min(100, 100 - penalty))
 
-    if score <= 20:
-        risk = "CRITICAL"
-        priority = "CRITICAL"
-        confidence = 0.82
-    elif score <= 45:
-        risk = "HIGH"
-        priority = "HIGH"
-        confidence = 0.74
-    elif score <= 75:
-        risk = "MEDIUM"
-        priority = "MEDIUM"
-        confidence = 0.64
-    elif score < 100:
-        risk = "LOW"
-        priority = "LOW"
-        confidence = 0.58
-    else:
-        risk = "NORMAL"
-        priority = "LOW"
-        confidence = 0.9
 
-    return SlaRiskResponse(
-        risk_level=risk,
-        risk_probabilities={risk: confidence},
-        penalty_probability=max(0, min(1, penalty / 100)),
-        recovery_priority=priority,
-        confidence=confidence,
+@app.post("/feedback", response_model=MlFeedbackResponse, tags=["RLHF"])
+def receive_feedback(req: MlFeedbackRequest):
+    reg = get_registry()
+    append_feedback_entry(reg, req.model_dump())
+    log.info("Feedback received: task=%s type=%s correct=%s",
+             req.task_id, req.prediction_type, req.is_correct)
+    return MlFeedbackResponse(
+        accepted=True,
+        message=f"Feedback recorded. Buffer size: {len(reg.feedback_buffer)}",
     )
+
+
+@app.get("/", tags=["System"])
+def root():
+    return {"service": "DevTrack ML Microservice", "version": "2.0.0", "docs": "/docs"}

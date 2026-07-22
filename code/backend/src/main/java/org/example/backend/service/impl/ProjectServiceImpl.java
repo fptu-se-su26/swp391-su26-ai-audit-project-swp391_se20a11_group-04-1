@@ -478,7 +478,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .academicContext(academicContext)
                 .startDate(startDate)
                 .deadline(deadline)
-                .status(ProjectStatus.ACTIVE)
+                .status(ProjectStatus.PLANNING)
                 .createdBy(creator)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -1293,7 +1293,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project."));
         ensureLeaderOrMentor(projectId, userId);
 
-        if (project.getStatus() == ProjectStatus.COMPLETED || project.getStatus() == ProjectStatus.ARCHIVED) {
+        if (project.getStatus() == ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Project đã được đóng trước đó.");
         }
 
@@ -1340,7 +1340,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         // Chuyển project → ARCHIVED
         String oldStatus = project.getStatus().name();
-        project.setStatus(ProjectStatus.COMPLETED);
+        project.setStatus(ProjectStatus.ARCHIVED);
         project.setClosedAt(LocalDateTime.now());
         project.setClosedReason(request.getReason());
         projectRepository.save(project);
@@ -1354,7 +1354,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .entityType("PROJECT")
                 .entityId(projectId)
                 .oldValue("{\"status\":\"" + oldStatus + "\"}")
-                .newValue("{\"status\":\"COMPLETED\",\"reason\":\"" + request.getReason().replace("\"", "'") + "\"}")
+                .newValue("{\"status\":\"ARCHIVED\",\"reason\":\"" + request.getReason().replace("\"", "'") + "\"}")
                 .projectId(projectId)
                 .status("SUCCESS")
                 .build();
@@ -1437,11 +1437,10 @@ public class ProjectServiceImpl implements ProjectService {
             return;
         }
 
-        if (project.getStatus() != ProjectStatus.COMPLETED && project.getStatus() != ProjectStatus.ARCHIVED) {
+        if (project.getStatus() != ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Chỉ project đang ở trạng thái ARCHIVED mới có thể mở lại.");
         }
 
-        String oldStatus = project.getStatus().name();
         project.setStatus(ProjectStatus.ACTIVE);
         project.setClosedAt(null);
         project.setClosedReason(null);
@@ -1455,7 +1454,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .action("PROJECT_REOPENED")
                 .entityType("PROJECT")
                 .entityId(projectId)
-                .oldValue("{\"status\":\"" + oldStatus + "\"}")
+                .oldValue("{\"status\":\"ARCHIVED\"}")
                 .newValue("{\"status\":\"ACTIVE\",\"reason\":\"" + request.getReason().replace("\"", "'") + "\"}")
                 .projectId(projectId)
                 .status("SUCCESS")
@@ -1515,7 +1514,7 @@ public class ProjectServiceImpl implements ProjectService {
         int closedCount = 0;
 
         for (Project project : overdueProjects) {
-            project.setStatus(ProjectStatus.COMPLETED);
+            project.setStatus(ProjectStatus.ARCHIVED);
             project.setClosedAt(now);
             project.setClosedReason("Project execution deadline has expired");
             projectRepository.save(project);
@@ -1532,7 +1531,7 @@ public class ProjectServiceImpl implements ProjectService {
                         .entityType("PROJECT")
                         .entityId(project.getId())
                         .oldValue("{\"status\":\"ACTIVE\",\"deadline\":\"" + project.getDeadline() + "\"}")
-                        .newValue("{\"status\":\"COMPLETED\",\"reason\":\"Project execution deadline has expired\"}")
+                        .newValue("{\"status\":\"ARCHIVED\",\"reason\":\"Project execution deadline has expired\"}")
                         .projectId(project.getId())
                         .status("SUCCESS")
                         .build();
@@ -1553,7 +1552,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         try {
             org.example.backend.config.NotificationWebSocketHandler.broadcast(
-                "{\"type\":\"REFRESH_PROJECTS\",\"message\":\"Overdue projects automatically completed.\"}"
+                "{\"type\":\"REFRESH_PROJECTS\",\"message\":\"Overdue projects automatically archived.\"}"
             );
         } catch (Exception e) {
             log.warn("Failed to broadcast REFRESH_PROJECTS on autoCloseOverdueProjects", e);

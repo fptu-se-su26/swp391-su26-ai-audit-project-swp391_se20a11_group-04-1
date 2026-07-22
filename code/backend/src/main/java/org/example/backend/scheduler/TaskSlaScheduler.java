@@ -32,6 +32,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -43,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.function.Function;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 
 @Component
@@ -78,7 +78,7 @@ public class TaskSlaScheduler {
     private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
 
-    @Value("${app.sla.recovery-backfill-enabled:false}")
+    @Value("${app.sla.recovery-backfill-enabled:true}")
     private boolean recoveryBackfillEnabled;
 
     @Value("${app.sla.recovery-backfill-max-per-run:3}")

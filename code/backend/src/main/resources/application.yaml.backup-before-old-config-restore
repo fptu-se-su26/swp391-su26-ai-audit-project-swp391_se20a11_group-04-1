@@ -1,0 +1,108 @@
+﻿server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: backend
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/dev_track_ai}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    enabled: true
+    validate-on-migrate: false
+    out-of-order: true
+    ignore-migration-patterns:
+      - "*:missing"
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/devtrack_ai?serverSelectionTimeoutMS=500}
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: devtrack-sla-consumer
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 20000
+          timeout: 20000
+          writetimeout: 20000
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}
+  api-key: ${GEMINI_API_KEY:}
+
+github:
+  client-id: ${GITHUB_CLIENT_ID:}
+  client-secret: ${GITHUB_CLIENT_SECRET:}
+  redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:5173/github/callback}
+  webhook-url: ${GITHUB_WEBHOOK_URL:http://localhost:8081/api/v1/github/webhook}
+  encryption:
+    key: ${GITHUB_ENCRYPTION_KEY:}
+
+internal:
+  service:
+    key: ${INTERNAL_SERVICE_KEY:1234567890abcdef}
+
+app:
+  monitoring:
+    admin-email: ${APP_MONITORING_ADMIN_EMAIL:}
+  base-url: ${APP_BASE_URL:http://localhost:8081}
+  sla:
+    timezone: "Asia/Ho_Chi_Minh"
+  events:
+    publisher: ${APP_EVENTS_PUBLISHER:kafka}
+
+ml:
+  service:
+    url: ${ML_SERVICE_URL:http://localhost:8001}
+    enabled: ${ML_SERVICE_ENABLED:true}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:2000}
+
+management:
+  health:
+    mongo:
+      enabled: false
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health
