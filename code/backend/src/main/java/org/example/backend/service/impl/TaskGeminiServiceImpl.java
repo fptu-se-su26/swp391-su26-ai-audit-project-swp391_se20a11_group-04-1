@@ -74,7 +74,8 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- DB checklists MUST include foreign keys, indexing, and correct data types.\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +
-                "- DO NOT include comments inside the JSON.\n\n" +
+                "- DO NOT include comments inside the JSON.\n" +
+                "- ALL text outputs (title, description, checklists, reason) MUST be strictly in English.\n\n" +
                 "USER:\n" +
                 "Here is the context data:\n" +
                 contextDataJson + "\n\n" +
@@ -110,7 +111,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
         String prompt = "SYSTEM:\n" +
                 "You are an expert Technical Auditor. Your job is to review a freshly generated list of technical tasks against the original Use Cases, Non-Functional Requirements, and existing tasks.\n" +
                 "Do not generate new tasks. Only analyze the provided tasks.\n" +
-                "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in Vietnamese. Be extremely concise and direct.\n\n" +
+                "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in English. Be extremely concise and direct.\n\n" +
                 "Identify risks in these specific categories:\n" +
                 "1. Coverage Gaps: Are there any steps in the Use Case flows, or any core scopes in the Non-Functional Requirements that are not covered by any generated task?\n" +
                 "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks?\n" +
@@ -163,7 +164,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "1. You MUST return a JSON object with a 'sub_tasks' array containing AT LEAST 2 items.\n" +
                 "2. NEVER return an empty array []. NEVER return a 'reason'. NEVER refuse to split.\n" +
                 "3. If the task is already extremely small (e.g., 'Update color to red'), you MUST still split it by phases. For example: Subtask 1: 'Research exact hex code', Subtask 2: 'Apply color code to CSS'.\n" +
-                "4. All text outputs MUST be in English.\n" +
+                "4. All text outputs MUST be strictly in English.\n" +
                 "5. Inherit priority exactly.\n" +
                 "6. Sub-tasks MUST establish an execution order using 'depends_on'.\n" +
                 "7. Provide 3-5 'checklists' per sub-task.\n" +
@@ -189,16 +190,22 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "  \"sub_tasks\": [\n" +
                 "    {\n" +
                 "      \"temp_id\": \"New unique string like sub1, sub2\",\n" +
-                "      \"title\": \"Clear action in Vietnamese\",\n" +
-                "      \"description\": \"Detailed scope in Vietnamese\",\n" +
+                "      \"requirement_code\": \"Inherit strictly from original\",\n" +
+                "      \"use_case_code\": \"Inherit strictly from original\",\n" +
+                "      \"title\": \"Clear action in English\",\n" +
+                "      \"description\": \"Detailed scope in English\",\n" +
                 "      \"checklists\": [\"Actionable step 1\"],\n" +
                 "      \"estimated_hours\": 8.0,\n" +
                 "      \"weight\": 1.0,\n" +
                 "      \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
-                "      \"priority\": \"Must match original\",\n" +
+                "      \"priority\": \"LOW | MEDIUM | HIGH | CRITICAL (Inherit strictly from original)\",\n" +
                 "      \"start_date\": \"YYYY-MM-DD\",\n" +
                 "      \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
-                "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks\"]\n" +
+                "      \"depends_on\": [\"Array of temp_id of OTHER sub-tasks\"],\n" +
+                "      \"suggested_assignee\": {\n" +
+                "        \"member_name\": \"Inherit strictly from original\",\n" +
+                "        \"reason\": \"Why this person?\"\n" +
+                "      }\n" +
                 "    }\n" +
                 "  ]\n" +
                 "}";
@@ -211,15 +218,19 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "You are an expert Technical Project Manager. Your job is to merge multiple small tasks into one comprehensive task.\n\n" +
                 "RULES:\n" +
                 "- Combine scopes without losing details.\n" +
-                "- Establish a logical title and description.\n" +
+                "- Establish a logical title and description in English.\n" +
                 "- Sum the estimated_hours of all original tasks.\n" +
                 "- You MUST generate 3 to 5 'checklists' items as the combined Definition of Done. Consolidate criteria from the original tasks.\n" +
                 "- NEVER generate past dates. start_date MUST BE >= today.\n" +
                 "- suggested_deadline MUST BE >= start_date.\n" +
                 "- CRITICAL BOUNDARY RULE: The start_date and suggested_deadline of the merged_task MUST fall strictly within the MIN(start_date) and MAX(suggested_deadline) of the original tasks provided below.\n" +
                 "- The gap between start_date and suggested_deadline MUST strictly fit the estimated_hours (assume max 8h/day). E.g., a 40h task MUST have at least a 5-day gap! Try your best to calculate this.\n" +
+                "- If all tasks belong to the same requirement/use_case, inherit it. Otherwise, set to null.\n" +
+                "- If tasks share the same assignee, keep it. Otherwise, pick the most relevant one.\n" +
+                "- Combine any external dependencies (depends_on) from the original tasks.\n" +
                 "- If the tasks CANNOT be logically merged (e.g., completely unrelated), return null for merged_task AND provide a 'reason' string explaining why briefly.\n" +
-                "- Return JSON only. No extra text.\n\n" +
+                "- Return JSON only. No extra text.\n" +
+                "- ALL text outputs MUST be strictly in English.\n\n" +
                 "USER:\n" +
                 "Tasks to merge:\n" +
                 tasksDataJson + "\n\n" +
@@ -227,15 +238,22 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "{\n" +
                 "  \"merged_task\": {\n" +
                 "    \"temp_id\": \"New unique string like merged1\",\n" +
-                "    \"title\": \"Combined action\",\n" +
-                "    \"description\": \"Combined detailed scope\",\n" +
+                "    \"requirement_code\": \"Inherited or null\",\n" +
+                "    \"use_case_code\": \"Inherited or null\",\n" +
+                "    \"title\": \"Combined action in English\",\n" +
+                "    \"description\": \"Combined detailed scope in English\",\n" +
                 "    \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +
                 "    \"estimated_hours\": 16.0, // MUST BE A NUMBER ONLY, DO NOT ADD 'h'\n" +
                 "    \"weight\": 1.0, // MUST BE A NUMBER ONLY\n" +
                 "    \"task_type\": \"DEVELOPMENT | TESTING | DOCUMENTATION | UI_UX | RESEARCH | DEPLOYMENT | BUG_FIX | REVIEW\",\n" +
                 "    \"priority\": \"Highest priority among merged tasks\",\n" +
                 "    \"start_date\": \"YYYY-MM-DD\",\n" +
-                "    \"suggested_deadline\": \"YYYY-MM-DD\"\n" +
+                "    \"suggested_deadline\": \"YYYY-MM-DD\",\n" +
+                "    \"depends_on\": [\"Combined array of external dependencies\"],\n" +
+                "    \"suggested_assignee\": {\n" +
+                "      \"member_name\": \"Inherited or most relevant member\",\n" +
+                "      \"reason\": \"Why this person?\"\n" +
+                "    }\n" +
                 "  },\n" +
                 "  \"reason\": \"(Optional) Explain briefly why they cannot be merged if merged_task is null\"\n" +
                 "}";

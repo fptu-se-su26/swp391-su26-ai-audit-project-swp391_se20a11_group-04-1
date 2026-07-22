@@ -38,10 +38,14 @@ public class RequirementController {
             @RequestParam(required = false) String tag,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Boolean mine,
+            @RequestParam(required = false) Long ownerId,
             HttpSession session) {
         Long userId = requireUser(session);
-        Long ownerId = (mine != null && mine) ? userId : null;
-        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirements(page, size, projectId, status, priority, tag, search, ownerId), "Requirements retrieved"));
+        Long finalOwnerId = ownerId;
+        if (mine != null && mine) {
+            finalOwnerId = userId;
+        }
+        return ResponseEntity.ok(ApiResponse.success(requirementService.getRequirements(page, size, projectId, status, priority, tag, search, finalOwnerId), "Requirements retrieved"));
     }
 
     @GetMapping("/{id}")

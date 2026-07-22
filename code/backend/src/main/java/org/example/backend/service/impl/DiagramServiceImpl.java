@@ -42,7 +42,9 @@ public class DiagramServiceImpl implements DiagramService {
     @Transactional(readOnly = true)
     public Object getDiagramData(Long projectId, Long moduleId, String activeView) {
         // Retrieve use cases for the given project
-        List<UseCase> useCases = useCaseRepository.findByProjectId(projectId);
+        List<UseCase> useCases = useCaseRepository.findByProjectId(projectId).stream()
+            .filter(uc -> uc.getStatus() != org.example.backend.entity.UseCaseStatus.REJECTED)
+            .collect(Collectors.toList());
         
         if ("module".equals(activeView) && moduleId != null) {
             useCases = useCases.stream()

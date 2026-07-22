@@ -359,6 +359,44 @@ export const useProjectStore = create(
       return false
     }
   },
+
+  /**
+   * Chuyển quyền Leader cho một thành viên khác.
+   * Leader hiện tại sẽ trở thành MEMBER, người được chọn trở thành LEADER.
+   */
+  changeProjectLeader: async (newLeaderUserId) => {
+    const { activeProject } = get()
+    if (!activeProject) return false
+    set({ loading: true, error: null })
+    try {
+      await axiosInstance.put(`/v1/projects/${activeProject.id}/leader`, { newLeaderUserId })
+
+      const updatedMembers = (activeProject.members || []).map((member) => {
+        if (member.id === newLeaderUserId) return { ...member, role: 'LEADER' }
+        // Người gọi api (Leader cũ)
+        if (member.role === 'LEADER' || member.role === 'PROJECT_LEADER') {
+          return { ...member, role: 'MEMBER' }
+        }
+        return member
+      })
+      
+      const updatedProject = { ...activeProject, members: updatedMembers, role: 'MEMBER' } // Cập nhật luôn role của current user trong activeProject
+      
+      const updatedProjects = get().projects.map((p) => p.id === activeProject.id ? updatedProject : p)
+
+      set({
+        activeProject: updatedProject,
+        projects: updatedProjects,
+        loading: false,
+      })
+      return true
+    } catch (err) {
+      console.error('Error changing project leader:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Chuyển quyền Leader thất bại'
+      set({ error: errMsg, loading: false })
+      return false
+    }
+  },
     }),
     {
       name: 'devtrack-project-storage',

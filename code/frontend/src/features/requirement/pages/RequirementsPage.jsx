@@ -27,11 +27,8 @@ const RequirementsPage = () => {
   const [filters, setFilters] = useState({ status: null, priority: null, tag: null });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Bug-8: Leader default to 'all' to avoid misleading state
-  const [viewMode, setViewMode] = useState(() => {
-    const role = useProjectStore.getState().activeProject?.role;
-    return ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(role) ? 'all' : 'mine';
-  });
+  // Default to 'all' for all roles
+  const [viewMode, setViewMode] = useState('all');
   
   const [searchParams, setSearchParams] = useSearchParams();
   const currentPage = parseInt(searchParams.get('page') || '0', 10);
@@ -57,6 +54,7 @@ const RequirementsPage = () => {
     priority: filters.priority,
     tag: filters.tag,
     search: filters.search,
+    ownerId: filters.member,
     mine: (!isLeader && viewMode === 'mine') ? true : undefined
   });
 

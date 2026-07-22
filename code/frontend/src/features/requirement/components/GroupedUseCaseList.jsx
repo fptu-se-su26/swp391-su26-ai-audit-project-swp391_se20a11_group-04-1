@@ -165,7 +165,7 @@ const GroupedUseCaseList = ({
         {groupedUseCases.map((group, groupIdx) => (
           <div 
             key={groupIdx} 
-            className="flex flex-col border border-outline-variant rounded-xl shadow-sm bg-white overflow-hidden"
+            className="flex flex-col border border-outline-variant rounded-xl shadow-sm bg-white"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, group.moduleId, group.moduleName)}
           >
