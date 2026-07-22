@@ -46,18 +46,18 @@ public class SlaActionService {
         int score = assessment != null ? assessment.getScore() : 100;
 
         if (task.getStatus() == TaskStatus.DONE) {
-            String actionKey = buildActionKey(projectId, taskId, "SYSTEM", "RESOLVE_SLA", "NORMAL");
+            String actionKey = buildActionKey(projectId, taskId, "SYSTEM", "RESOLVE_SLA", "HEALTHY");
             if (slaActionLogRepository.existsByActionKey(actionKey)) {
                 actions.add("SKIPPED_DUPLICATE_ACTION");
             } else {
                 TaskSlaState oldState = taskSlaStateRepository.findById(taskId).orElse(null);
-                if (oldState == null || !"NORMAL".equals(oldState.getCurrentRiskLevel())) {
-                    saveActionLog(projectId, task, null, "RESOLVE_SLA", "NORMAL", actionKey, "EXECUTED",
-                            "Task is completed (DONE) and SLA state resolved to NORMAL.");
+                if (oldState == null || !"HEALTHY".equals(oldState.getCurrentRiskLevel())) {
+                    saveActionLog(projectId, task, null, "RESOLVE_SLA", "HEALTHY", actionKey, "EXECUTED",
+                            "Task is completed (DONE) and SLA state resolved to HEALTHY.");
                     actions.add("RESOLVE_SLA");
                 } else {
-                    saveActionLog(projectId, task, null, "RESOLVE_SLA", "NORMAL", actionKey, "SKIPPED_DUPLICATE",
-                            "Task was already in NORMAL state.");
+                    saveActionLog(projectId, task, null, "RESOLVE_SLA", "HEALTHY", actionKey, "SKIPPED_DUPLICATE",
+                            "Task was already in HEALTHY state.");
                     actions.add("SKIPPED_DUPLICATE_ACTION");
                 }
             }
