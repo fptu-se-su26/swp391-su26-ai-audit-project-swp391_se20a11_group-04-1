@@ -30,8 +30,10 @@ export const evidenceService = {
 
   // Tạo mới Evidence (hỗ trợ multipart/form-data cho file upload)
   createEvidence: async (formData) => {
+    const projectId = formData?.get?.('projectId');
     const response = await axiosInstance.post('/v1/evidence', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      params: projectId ? { projectId } : undefined,
     });
     return response.data.data;
   },

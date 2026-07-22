@@ -9,7 +9,9 @@ import TaskFormModal from '../components/TaskFormModal'
 import AiTaskGenerationModal from '../components/AiTaskGenerationModal'
 import AITaskGenerationProgressModal from '../components/AITaskGenerationProgressModal'
 import AiTaskReviewBoard from '../components/AiTaskReviewBoard'
+import EvidenceFormModal from '../../evidence/components/EvidenceFormModal'
 import taskService from '../services/taskService'
+import { evidenceService } from '../../evidence/services/evidenceService'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 import { isIssueOwnedTask } from '../utils/taskMapper'
@@ -41,6 +43,7 @@ const KanbanBoardPage = () => {
   const [reviewMoveModal, setReviewMoveModal] = useState(null)
   const [reviewMoveReason, setReviewMoveReason] = useState('')
   const [selectedTargetStatus, setSelectedTargetStatus] = useState('NEEDS_CHANGES')
+  const [reviewEvidenceModal, setReviewEvidenceModal] = useState(null)
   const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '', payload: null })
 
   const [isAiTaskGenModalOpen, setIsAiTaskGenModalOpen] = useState(false)
@@ -319,7 +322,11 @@ const KanbanBoardPage = () => {
 
         if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
           if (targetStatusKey === 'IN_REVIEW' && !task.evidenceCount) {
-            toast.error('Vui lòng upload evidence trước khi chuyển sang IN REVIEW.')
+            setReviewEvidenceModal({
+              taskId,
+              taskTitle: task.title,
+              columnId: column?.id || null,
+            })
             setDraggingTaskId(null)
             setDragOverStatus(null)
             return
@@ -493,6 +500,29 @@ const KanbanBoardPage = () => {
     }
   }
 
+  const handleSubmitReviewEvidence = async (formData) => {
+    if (!reviewEvidenceModal || !activeProject?.id) return
+
+    try {
+      formData.append('projectId', activeProject.id)
+      await evidenceService.createEvidence(formData)
+      toast.success('Evidence uploaded successfully.')
+      const target = reviewEvidenceModal
+      setReviewEvidenceModal(null)
+      await updateTaskStatus(target.taskId, 'IN_REVIEW', target.columnId)
+      await fetchProjectTasks(activeProject.id)
+    } catch (error) {
+      console.error('Failed to upload evidence before review:', error)
+      const message = error.response?.data?.message
+        || error.response?.data?.error
+        || error.response?.data?.errors?.[0]?.defaultMessage
+        || error.message
+        || 'Failed to upload evidence'
+      toast.error(message)
+      throw error
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface-bright relative">
       <KanbanHeader
@@ -624,6 +654,28 @@ const KanbanBoardPage = () => {
         columnOptions={columns}
         onClose={closeTaskForm}
         onSubmit={handleSubmitTaskForm}
+      />
+
+      <EvidenceFormModal
+        isOpen={!!reviewEvidenceModal}
+        onClose={() => setReviewEvidenceModal(null)}
+        onSkip={async () => {
+          const target = reviewEvidenceModal
+          setReviewEvidenceModal(null)
+          if (target) {
+            await updateTaskStatus(target.taskId, 'IN_REVIEW', target.columnId)
+            await fetchProjectTasks(activeProject?.id)
+            toast('Task đã chuyển sang In Review. Bạn có thể nộp evidence sau.')
+          }
+        }}
+        onSuccess={handleSubmitReviewEvidence}
+        defaultLinkedTask={reviewEvidenceModal ? {
+          id: reviewEvidenceModal.taskId,
+          title: reviewEvidenceModal.taskTitle,
+        } : null}
+        contextNotice="Bạn có thể upload evidence ngay để gửi review đầy đủ, hoặc bấm Để sau để chuyển task sang In Review và bổ sung evidence sau."
+        skipText="Để sau"
+        compact
       />
 
       {reviewMoveModal && (

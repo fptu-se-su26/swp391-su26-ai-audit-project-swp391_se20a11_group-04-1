@@ -13,10 +13,27 @@ const URL_TYPES = ['GITHUB_COMMIT', 'API_RESPONSE', 'FIGMA_LINK', 'DEPLOY_LINK']
 /**
  * EvidenceFormModal — Modal form cho Create / Edit evidence
  */
-const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
+const EvidenceFormModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  editData = null,
+  defaultLinkedTask = null,
+  contextNotice = '',
+  skipText = 'Cancel',
+  onSkip = null,
+  compact = false,
+}) => {
   const isEditMode = !!editData;
   const fileInputRef = useRef(null);
   const activeProject = useProjectStore(state => state.activeProject);
+  const defaultTaskLink = defaultLinkedTask
+    ? {
+        entityType: 'TASK',
+        entityId: Number(defaultLinkedTask.id),
+        entityLabel: `[TSK-${defaultLinkedTask.id}] ${defaultLinkedTask.title || 'Selected task'}`,
+      }
+    : null;
 
   const [formData, setFormData] = useState({
     title: '',
@@ -46,16 +63,16 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
       });
     } else {
       setFormData({
-        title: '',
+        title: defaultLinkedTask?.title ? `Evidence for ${defaultLinkedTask.title}` : '',
         type: 'SCREENSHOT',
-        description: '',
+        description: defaultLinkedTask?.title ? `Evidence submitted before moving "${defaultLinkedTask.title}" to review.` : '',
         externalUrl: '',
         file: null,
-        linkedEntities: [],
+        linkedEntities: defaultTaskLink ? [defaultTaskLink] : [],
       });
     }
     setErrors({});
-  }, [editData, isOpen]);
+  }, [editData, isOpen, defaultLinkedTask?.id]);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -211,6 +228,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
 
   const showFileUpload = FILE_UPLOAD_TYPES.includes(formData.type);
   const showUrlInput = URL_TYPES.includes(formData.type);
+  const hideEntityLinking = compact && !!defaultLinkedTask;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -218,9 +236,11 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col overflow-hidden animate-[fadeInUp_0.2s_ease-out]">
+      <div className={`relative bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl w-full mx-4 flex flex-col overflow-hidden animate-[fadeInUp_0.2s_ease-out] ${
+        compact ? 'max-w-lg max-h-[82vh]' : 'max-w-2xl max-h-[90vh]'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-low">
+        <div className={`flex items-center justify-between border-b border-outline-variant bg-surface-container-low ${compact ? 'px-5 py-3' : 'px-6 py-4'}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-[#D7EEF1]/30 flex items-center justify-center">
               <span className="material-symbols-outlined text-[#1E707D] text-[20px]">
@@ -240,8 +260,17 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${compact ? 'space-y-3 px-5 py-4' : 'space-y-5 px-6 py-5'}`}>
           {/* Title */}
+          {contextNotice && (
+            <div className="rounded-lg border border-[#1E707D]/20 bg-[#D7EEF1]/30 px-4 py-3 text-sm text-on-surface">
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined mt-0.5 text-[18px] text-[#1E707D]">info</span>
+                <p>{contextNotice}</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block font-body-md text-body-md text-on-surface font-medium mb-1.5">
               Title <span className="text-error">*</span>
@@ -292,7 +321,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
               placeholder="Describe what this evidence demonstrates..."
-              rows={3}
+              rows={compact ? 2 : 3}
               className="w-full px-3 py-2.5 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all resize-none"
             />
           </div>
@@ -308,7 +337,7 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                className={`border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${compact ? 'p-4' : 'p-6'} ${
                   dragOver
                     ? 'border-[#1E707D] bg-[#D7EEF1]/10'
                     : errors.file
@@ -387,83 +416,84 @@ const EvidenceFormModal = ({ isOpen, onClose, onSuccess, editData = null }) => {
             </div>
           )}
 
-          {/* Entity Linking */}
-          <div>
-            <label className="block font-body-md text-body-md text-on-surface font-medium mb-1.5">
-              Link to Entities
-            </label>
-            <div className="flex items-center gap-2 mb-2">
-              <select
-                value={linkInput.entityType}
-                disabled
-                className="w-1/3 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-low outline-none"
-              >
-                <option value="TASK">Task</option>
-              </select>
-              <select
-                value={linkInput.entityId}
-                onChange={handleTargetChange}
-                disabled={loadingTargets || targetOptions.length === 0}
-                className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
-              >
-                <option value="" disabled>
-                  {loadingTargets ? 'Loading...' : targetOptions.length === 0 ? 'No items found' : 'Select Target'}
-                </option>
-                {targetOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>
-                    [{opt.code || '?'}] {opt.title}
+          {!hideEntityLinking && (
+            <div>
+              <label className="block font-body-md text-body-md text-on-surface font-medium mb-1.5">
+                Link to Entities
+              </label>
+              <div className="flex items-center gap-2 mb-2">
+                <select
+                  value={linkInput.entityType}
+                  disabled
+                  className="w-1/3 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-low outline-none"
+                >
+                  <option value="TASK">Task</option>
+                </select>
+                <select
+                  value={linkInput.entityId}
+                  onChange={handleTargetChange}
+                  disabled={loadingTargets || targetOptions.length === 0}
+                  className="flex-1 px-3 py-2 border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest outline-none focus:border-[#1E707D] focus:ring-2 focus:ring-primary-fixed-dim transition-all cursor-pointer"
+                >
+                  <option value="" disabled>
+                    {loadingTargets ? 'Loading...' : targetOptions.length === 0 ? 'No items found' : 'Select Target'}
                   </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={addLinkedEntity}
-                disabled={!linkInput.entityId}
-                className="px-3 py-2 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-[20px]">add</span>
-              </button>
-            </div>
-            {errors.linkedEntities && (
-              <p className="mt-1 font-body-md text-[12px] text-error flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">error</span>
-                {errors.linkedEntities}
-              </p>
-            )}
-
-            {/* Linked entity chips */}
-            {formData.linkedEntities.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                {formData.linkedEntities.map((link, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-surface border border-outline-variant rounded-lg font-label-md text-[11px] text-on-surface-variant"
-                  >
-                    <span className="font-semibold text-[#1E707D]">{link.entityType.replace('_', ' ')}:</span>
-                    {link.entityLabel || `#${link.entityId}`}
-                    <button
-                      type="button"
-                      onClick={() => removeLinkedEntity(idx)}
-                      className="ml-1 hover:text-error transition-colors flex items-center"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">close</span>
-                    </button>
-                  </span>
-                ))}
+                  {targetOptions.map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      [{opt.code || '?'}] {opt.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addLinkedEntity}
+                  disabled={!linkInput.entityId}
+                  className="px-3 py-2 bg-[#1E707D] text-white rounded-lg hover:bg-[#1E707D]/90 transition-colors disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[20px]">add</span>
+                </button>
               </div>
-            )}
-          </div>
+              {errors.linkedEntities && (
+                <p className="mt-1 font-body-md text-[12px] text-error flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">error</span>
+                  {errors.linkedEntities}
+                </p>
+              )}
+
+              {/* Linked entity chips */}
+              {formData.linkedEntities.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {formData.linkedEntities.map((link, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-surface border border-outline-variant rounded-lg font-label-md text-[11px] text-on-surface-variant"
+                    >
+                      <span className="font-semibold text-[#1E707D]">{link.entityType.replace('_', ' ')}:</span>
+                      {link.entityLabel || `#${link.entityId}`}
+                      <button
+                        type="button"
+                        onClick={() => removeLinkedEntity(idx)}
+                        className="ml-1 hover:text-error transition-colors flex items-center"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-outline-variant bg-surface-container-low">
+        <div className={`flex items-center justify-end gap-3 border-t border-outline-variant bg-surface-container-low ${compact ? 'px-5 py-3' : 'px-6 py-4'}`}>
           <button
             type="button"
-            onClick={onClose}
+            onClick={onSkip || onClose}
             disabled={isSubmitting}
             className="px-4 py-2.5 rounded-lg font-body-md text-body-md text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-50"
           >
-            Cancel
+            {skipText}
           </button>
           <button
             type="submit"
