@@ -59,15 +59,21 @@ jobs:
             echo "   Backend PID: $!"
             echo "   Backend deployed OK"
 
-            # 3. Deploy Frontend (Vite)
-            echo ">> Restarting Frontend (Vite)..."
+            # 3. Deploy Frontend (Vite - Static Build)
+            echo ">> Building and Deploying Frontend (Vite)..."
             cd "${REPO_DIR}/code/frontend"
 
+            # Dọn dẹp dev server cũ nếu có (để giải phóng RAM)
             lsof -t -i:5173 | xargs -r kill -9 || true
 
             npm install
-            nohup npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1 &
-            echo "   Frontend deployed OK"
+            npm run build
+            
+            # Copy file build tĩnh sang thư mục web root của Nginx
+            sudo mkdir -p /var/www/devtrack/html
+            sudo cp -r dist/* /var/www/devtrack/html/
+            
+            echo "   Frontend built and deployed OK"
 
             # 4. Rebuild playwright-server với code mới (templateEngine.js)
             echo ">> Rebuilding playwright-server..."
