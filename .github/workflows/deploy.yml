@@ -78,7 +78,7 @@ jobs:
             set -a && source "${REPO_DIR}/.env" && set +a
 
             # Explicit truyền các biến DB vào JVM để tránh Spring dùng default sai
-            nohup java -Xmx512m \
+            nohup java -Xmx400m \
               -Dspring.profiles.active=docker \
               -Dspring.kafka.bootstrap-servers=localhost:9092 \
               -DDB_HOST="${DB_HOST:-localhost}" \
@@ -122,7 +122,7 @@ jobs:
             lsof -t -i:5173 | xargs -r kill -9 || true
 
             npm install
-            npm run build
+            NODE_OPTIONS="--max-old-space-size=512" npm run build
 
             # Copy file build tĩnh sang thư mục web root của Nginx
             sudo mkdir -p /var/www/devtrack/html
