@@ -23,6 +23,7 @@ import org.example.backend.service.AiGenerationService;
 import org.example.backend.service.SelectorEnrichmentService;
 import org.example.backend.service.ApiKnowledgeService;
 import org.example.backend.repository.RequirementRepository;
+import org.example.backend.repository.UseCaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.backend.exception.ResourceNotFoundException;
 import java.util.UUID;
@@ -57,6 +58,7 @@ public class TestCaseController {
     private final SelectorEnrichmentService selectorEnrichmentService;
     private final ApiKnowledgeService apiKnowledgeService;
     private final RequirementRepository requirementRepository;
+    private final UseCaseRepository useCaseRepository;
 
     @PostMapping
     @PreAuthorizeProjectMember
@@ -191,6 +193,7 @@ public class TestCaseController {
             // 2. Load requirement once for both enrichment steps
             String enrichReqTitle = "";
             String enrichReqDesc  = "";
+            java.util.List<org.example.backend.entity.UseCase> enrichUseCases = java.util.List.of();
             if (request.getRequirementId() != null
                     && (shouldEnrichSelectors || shouldEnrichApiKnowledge)) {
                 org.example.backend.entity.Requirement enrichReq = requirementRepository
@@ -198,14 +201,17 @@ public class TestCaseController {
                 if (enrichReq != null) {
                     enrichReqTitle = enrichReq.getTitle()       != null ? enrichReq.getTitle()       : "";
                     enrichReqDesc  = enrichReq.getDescription() != null ? enrichReq.getDescription() : "";
+                    enrichUseCases = useCaseRepository.findByRequirementId(enrichReq.getId());
                 }
             }
 
             // 3. Enrich with real selectors from GitHub source code if requested
             String selectorContext = null;
             if (shouldEnrichSelectors) {
+                String testTypeStr = request.getTestType() != null ? request.getTestType().name() : "UI";
                 selectorContext = selectorEnrichmentService.extractSelectorContext(
-                        projectId, user.getId(), enrichReqTitle, enrichReqDesc);
+                        projectId, user.getId(), enrichReqTitle, enrichReqDesc,
+                        enrichUseCases, testTypeStr);
                 if (request.getTestType() == TestType.UI && (selectorContext == null || selectorContext.isBlank())) {
                     throw new org.example.backend.exception.BusinessException(
                             "Không thể quét selector từ GitHub source code. Vui lòng kiểm tra GitHub integration, GitHub token và architecture-parser service ở http://localhost:4002. AI generation đã dừng để tránh tạo selector không tồn tại.");

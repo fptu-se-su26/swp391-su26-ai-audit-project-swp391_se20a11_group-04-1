@@ -97,6 +97,30 @@ class FormMapService:
     }
 
     @classmethod
+    def scan_files(cls, clone_dir: str, file_paths: list) -> Dict[str, dict]:
+        """
+        Extract form map ONLY for the given relative file paths.
+        Used in Layer 2 after AI has selected relevant files.
+        """
+        result: Dict[str, dict] = {}
+        for rel_path in file_paths:
+            full_path = os.path.join(clone_dir, rel_path.replace('/', os.sep))
+            if not os.path.isfile(full_path):
+                continue
+            _, ext = os.path.splitext(full_path)
+            if ext.lower() not in cls.FRONTEND_EXTS:
+                continue
+            try:
+                with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            except Exception:
+                continue
+            forms = cls._extract_forms(content)
+            if forms:
+                result[rel_path] = {'forms': forms}
+        return result
+
+    @classmethod
     def scan(cls, clone_dir: str) -> Dict[str, dict]:
         """
         Walk clone_dir, parse frontend files, extract structured form maps.

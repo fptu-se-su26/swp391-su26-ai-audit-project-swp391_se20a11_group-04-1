@@ -150,6 +150,33 @@ class JavaApiKnowledgeExtractor:
     # Public entry point
     # -----------------------------------------------------------------------
     @classmethod
+    def list_controller_files(cls, clone_dir: str) -> list:
+        """
+        Returns a list of relative file paths that contain Spring Boot controllers
+        or Java Servlets — without extracting endpoint details.
+        Used as Layer 1 input for AI-assisted file selection.
+        """
+        result = []
+        for root, dirs, files in os.walk(clone_dir):
+            dirs[:] = [d for d in dirs if d not in {'node_modules', '.git', 'target', 'build', '__pycache__'}]
+            for filename in files:
+                if not filename.endswith('.java'):
+                    continue
+                full_path = os.path.join(root, filename)
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                except Exception:
+                    continue
+                if (CONTROLLER_PATTERN.search(content)
+                        or WEBSERVLET_PATTERN.search(content)
+                        or HTTP_SERVLET_PATTERN.search(content)):
+                    rel_path = os.path.relpath(full_path, clone_dir).replace('\\', '/')
+                    result.append(rel_path)
+        return result
+
+    # -----------------------------------------------------------------------
+    @classmethod
     def extract(cls, clone_dir: str) -> list:
         """
         Returns a list of endpoint dicts (ApiEndpointInfo).
