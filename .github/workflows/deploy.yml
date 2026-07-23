@@ -122,7 +122,7 @@ jobs:
             lsof -t -i:5173 | xargs -r kill -9 || true
 
             npm install
-            NODE_OPTIONS="--max-old-space-size=512" npm run build
+            NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
             # Copy file build tĩnh sang thư mục web root của Nginx
             sudo mkdir -p /var/www/devtrack/html
