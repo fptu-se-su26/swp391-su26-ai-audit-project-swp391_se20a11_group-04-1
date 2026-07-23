@@ -39,14 +39,27 @@ jobs:
             sudo nginx -t && sudo systemctl reload nginx
             echo "   Nginx reloaded OK"
 
-            # 2. Deploy Backend (Spring Boot)
+            # 2. Đảm bảo infra containers up TRƯỚC khi build/start backend
+            echo ">> Ensuring Infra Containers (postgres, redis, mongodb, kafka) are UP..."
+            cd "${REPO_DIR}"
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d postgres redis mongodb kafka
+            # Chờ postgres thực sự accept connections (tối đa 30 giây)
+            echo "   Waiting for PostgreSQL to be ready..."
+            for i in $(seq 1 30); do
+              if docker compose -f docker-compose.dev.yml -f docker-compose.override.yml exec -T postgres pg_isready -U "${POSTGRES_USER:-devtrack}" > /dev/null 2>&1; then
+                echo "   PostgreSQL ready after ${i}s"
+                break
+              fi
+              sleep 1
+            done
+
+            # 3. Deploy Backend (Spring Boot)
             echo ">> Rebuilding Backend (Spring Boot)..."
             cd "${REPO_DIR}/code/backend"
 
             # Kill existing backend và chờ port thực sự được giải phóng
             echo "   Killing existing backend on port 8080..."
             lsof -t -i:8080 | xargs -r kill -9 || true
-            # Chờ port 8080 được giải phóng hoàn toàn (tối đa 15 giây)
             for i in $(seq 1 15); do
               if ! lsof -i:8080 -sTCP:LISTEN -t > /dev/null 2>&1; then
                 echo "   Port 8080 is free after ${i}s"
@@ -59,16 +72,47 @@ jobs:
             export MAVEN_OPTS="-Xmx512m -XX:MaxMetaspaceSize=256m"
             ./mvnw clean package -Dmaven.test.skip=true
 
-            # Spring Boot start — load env vars từ .env file trước khi chạy
+            # Load env vars từ .env trước khi start
             set -a && source "${REPO_DIR}/.env" && set +a
+
+            # Explicit truyền DB_PORT vào JVM để tránh Spring dùng default :5432
             nohup java -Xmx512m \
               -Dspring.profiles.active=docker \
               -Dspring.kafka.bootstrap-servers=localhost:9092 \
+              -DDB_HOST="${DB_HOST:-localhost}" \
+              -DDB_PORT="${DB_PORT:-5433}" \
+              -DPOSTGRES_DB="${POSTGRES_DB:-dev_track_ai}" \
+              -DPOSTGRES_USER="${POSTGRES_USER:-devtrack}" \
+              -DPOSTGRES_PASSWORD="${POSTGRES_PASSWORD:-changeme}" \
+              -DREDIS_HOST="${REDIS_HOST:-localhost}" \
+              -DREDIS_PORT="${REDIS_PORT:-6379}" \
+              -DMONGO_HOST="${MONGO_HOST:-localhost}" \
+              -DMONGO_PORT="${MONGO_PORT:-27017}" \
               -jar target/backend-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
-            echo "   Backend PID: $!"
+            BACKEND_PID=$!
+            echo "   Backend PID: ${BACKEND_PID}"
+
+            # Health check — chờ backend sẵn sàng (tối đa 90 giây)
+            echo ">> Waiting for backend to be healthy..."
+            HEALTH_OK=false
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8080/api/v1/auth/github/url > /dev/null 2>&1; then
+                echo "   Backend health OK after $((i * 3))s"
+                HEALTH_OK=true
+                break
+              fi
+              echo "   Backend not ready yet ($i/30)..."
+              sleep 3
+            done
+
+            if [ "${HEALTH_OK}" = "false" ]; then
+              echo "ERROR: Backend failed to start after 90s. Last 50 lines of log:"
+              tail -n 50 backend.log
+              exit 1
+            fi
             echo "   Backend deployed OK"
 
-            # 3. Deploy Frontend (Vite)
+            # 4. Deploy Frontend (Vite)
             echo ">> Restarting Frontend (Vite)..."
             cd "${REPO_DIR}/code/frontend"
 
@@ -78,20 +122,16 @@ jobs:
             nohup npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1 &
             echo "   Frontend deployed OK"
 
-            # 4. Rebuild playwright-server với code mới (templateEngine.js)
+            # 5. Rebuild playwright-server với code mới (templateEngine.js)
             echo ">> Rebuilding playwright-server..."
             cd "${REPO_DIR}"
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps playwright-server
 
-            # 5. Rebuild architecture-parser với code mới (selector_scan_service.py)
+            # 6. Rebuild architecture-parser với code mới (selector_scan_service.py)
             echo ">> Rebuilding architecture-parser..."
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build architecture-parser
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate architecture-parser
-
-            # 6. Đảm bảo các infra container luôn chạy
-            echo ">> Checking Infra Containers..."
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d kafka postgres redis mongodb
 
             echo "=========================================="
             echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
