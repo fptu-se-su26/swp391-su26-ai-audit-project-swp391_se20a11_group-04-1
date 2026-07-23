@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { resourceApi } from '@api/resourceApi';
 
@@ -69,6 +70,7 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
       setIsModalOpen(false);
       resetForm();
       fetchResources();
+      window.dispatchEvent(new CustomEvent('NEW_RESOURCE_CREATED'));
     } catch (err) {
       toast.error(err.response?.data?.message || 'An error occurred while adding the document');
     } finally {
@@ -83,6 +85,7 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
       await resourceApi.deleteResource(classroomId, resourceId);
       toast.success('Document deleted successfully!');
       fetchResources();
+      window.dispatchEvent(new CustomEvent('NEW_RESOURCE_CREATED'));
     } catch (err) {
       toast.error(err.response?.data?.message || 'An error occurred while deleting the document');
     }
@@ -228,9 +231,9 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
         )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-[slideUp_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="text-lg font-bold text-slate-800">Add Resource</h3>
               <button 
@@ -246,74 +249,94 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
                 <button
                   type="button"
                   onClick={() => setUploadType('FILE')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${uploadType === 'FILE' ? 'bg-white shadow-sm text-sky-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 py-2 font-semibold text-xs rounded-lg transition-all ${uploadType === 'FILE' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Upload File
                 </button>
                 <button
                   type="button"
                   onClick={() => setUploadType('LINK')}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${uploadType === 'LINK' ? 'bg-white shadow-sm text-sky-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 py-2 font-semibold text-xs rounded-lg transition-all ${uploadType === 'LINK' ? 'bg-white text-[#0284c7] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   Paste Link
                 </button>
               </div>
 
               {uploadType === 'FILE' ? (
-                <div className="space-y-4">
+                <>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Document Name</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Document Name <span className="text-rose-500">*</span>
+                    </label>
                     <input 
-                      type="text" 
+                      type="text"
                       value={fileName}
                       onChange={(e) => setFileName(e.target.value)}
-                      placeholder="e.g. Lecture slides week 1..."
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                      placeholder="e.g. Lecture Slide 01..."
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-[#0284c7]"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Select file (PDF, Word, Excel, Image, Slide)</label>
-                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors relative">
-                    <input 
-                      type="file" 
-                      onChange={(e) => setSelectedFile(e.target.files[0])}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      accept=".doc,.docx,.xls,.xlsx,.pdf,.txt,.jpg,.jpeg,.png,.ppt,.pptx"
-                    />
-                    <span className="material-symbols-outlined text-4xl text-sky-400 mb-2">cloud_upload</span>
-                    <p className="font-semibold text-slate-700">
-                      {selectedFile ? selectedFile.name : 'Drag & drop or click to select file'}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">The system will automatically compress the file into .zip when downloading</p>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      File <span className="text-rose-500">*</span>
+                    </label>
+                    <div 
+                      onClick={() => document.getElementById('file-input-resource').click()}
+                      className="border-2 border-dashed border-slate-200 hover:border-sky-300 rounded-xl p-6 text-center cursor-pointer transition-colors"
+                    >
+                      <input 
+                        id="file-input-resource"
+                        type="file" 
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setSelectedFile(e.target.files[0]);
+                            if (!fileName) {
+                              setFileName(e.target.files[0].name.replace(/\.[^/.]+$/, ''));
+                            }
+                          }
+                        }}
+                      />
+                      <span className="material-symbols-outlined text-3xl text-slate-400 mb-1">upload_file</span>
+                      <p className="text-xs font-bold text-slate-700">
+                        {selectedFile ? selectedFile.name : 'Click to upload file'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-1">Maximum 10MB</p>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
               ) : (
-                <div className="space-y-4">
+                <>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Document Name</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Link Name <span className="text-rose-500">*</span>
+                    </label>
                     <input 
-                      type="text" 
+                      type="text"
                       value={linkName}
                       onChange={(e) => setLinkName(e.target.value)}
-                      placeholder="e.g. Lecture slides week 1..."
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                      placeholder="e.g. Official Documentation..."
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-[#0284c7]"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Link (URL)</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Link (URL) <span className="text-rose-500">*</span>
+                    </label>
                     <input 
-                      type="url" 
+                      type="url"
                       value={linkUrl}
                       onChange={(e) => setLinkUrl(e.target.value)}
                       placeholder="https://..."
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-[#0284c7]"
                     />
                   </div>
-                </div>
+                </>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button 
                   type="button"
                   onClick={() => { setIsModalOpen(false); resetForm(); }}
@@ -331,7 +354,8 @@ export default function ResourceTab({ classroomId, classroomData, userId }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

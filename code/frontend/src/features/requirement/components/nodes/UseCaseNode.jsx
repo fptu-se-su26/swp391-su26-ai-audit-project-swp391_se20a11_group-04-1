@@ -50,13 +50,15 @@ const UseCaseNode = ({ data, id, isConnectable, selected }) => {
         onDoubleClick={handleDoubleClick}
     >
       <NodeToolbar isVisible={selected && !isEditing} position={Position.Top}>
-          <button 
-             onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
-             className="bg-white text-red-500 border border-red-200 shadow-md rounded-full p-1 flex items-center justify-center hover:bg-red-50 transition-colors"
-             title="Xóa Use Case"
-          >
-             <span className="material-symbols-outlined text-[16px]">delete</span>
-          </button>
+          <div className="flex items-center gap-1 bg-white border border-gray-200 shadow-md rounded-full p-1">
+            <button 
+               onClick={(e) => { e.stopPropagation(); if (data.onDelete) data.onDelete(id); }}
+               className="text-red-500 hover:bg-red-50 rounded-full p-1 flex items-center justify-center transition-colors"
+               title="Xóa Use Case"
+            >
+               <span className="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+          </div>
       </NodeToolbar>
 
       {/* Handles: Đã ẩn hoàn toàn nhưng vẫn hoạt động nhờ ConnectionMode.Loose */}

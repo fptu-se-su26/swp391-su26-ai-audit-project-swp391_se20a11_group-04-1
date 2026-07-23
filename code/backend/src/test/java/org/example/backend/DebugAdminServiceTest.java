@@ -1,6 +1,7 @@
 package org.example.backend;
 
 import org.example.backend.service.SystemAdminService;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.nio.file.Path;
 
 @SpringBootTest
+@Disabled("Debug-only smoke test that writes local alert files and depends on mutable seeded data.")
 public class DebugAdminServiceTest {
 
     @Autowired

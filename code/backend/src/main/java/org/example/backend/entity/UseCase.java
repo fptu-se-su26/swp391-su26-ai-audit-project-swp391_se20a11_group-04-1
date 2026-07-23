@@ -29,8 +29,20 @@ public class UseCase {
     private Integer projectSubId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "requirement_id", nullable = false)
+    @JoinColumn(name = "requirement_id")
     private Requirement requirement;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "requirement_use_cases",
+            joinColumns = @JoinColumn(name = "use_case_id"),
+            inverseJoinColumns = @JoinColumn(name = "requirement_id")
+    )
+    private java.util.List<Requirement> requirements = new java.util.ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "module_id")
+    private BusinessModule businessModule;
 
     @Column(name = "code", unique = true, length = 20)
     private String code;
@@ -69,6 +81,18 @@ public class UseCase {
 
     @Column(name = "completeness_score")
     private Integer completenessScore = 0;
+
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
+
+    @Column(name = "start_date")
+    private java.time.LocalDate startDate;
+
+    @Column(name = "deadline")
+    private java.time.LocalDate deadline;
+
+    @Column(name = "uc_order")
+    private Integer ucOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)

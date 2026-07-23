@@ -82,6 +82,22 @@ public class ProjectMemberAspect {
                 return (Long) args[i];
             }
         }
+        
+        // Fallback: look for an argument that has a getProjectId() method
+        for (Object arg : args) {
+            if (arg != null) {
+                try {
+                    java.lang.reflect.Method getProjectIdMethod = arg.getClass().getMethod("getProjectId");
+                    Object value = getProjectIdMethod.invoke(arg);
+                    if (value instanceof Long) {
+                        return (Long) value;
+                    }
+                } catch (Exception e) {
+                    // Ignore if method doesn't exist
+                }
+            }
+        }
+        
         return null;
     }
 }

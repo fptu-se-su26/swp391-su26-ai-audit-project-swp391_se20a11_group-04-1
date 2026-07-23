@@ -396,13 +396,14 @@ Ngay 29/06 la ngay em di vao vung ky thuat sau nhat trong ca project: xay dung M
 
 - Giai thich loi ich cua viec tach ML ra microservice rieng so voi embed vao Spring Boot (deploy doc lap, train lai khong can restart backend).
 - De xuat feature engineering 37 chieu cho SLA risk model, giai thich y nghia tung nhom feature.
-- Giai thich RAG voi FAISS va cach inject context vao Gemini prompt de nang chat luong output.
+- Giai thich RAG voi FAISS va cach inject context vao recovery-plan prompt de nang chat luong output qua FastAPI ML Service.
 - Giai thich RLHF signal classification va co che rebuild index tu strong signals.
 - Canh bao va giai phap cho van de Unicode path tren Windows khi dung FAISS: dung `serialize_index` ra bytes + joblib bundle.
 
 ### 15.3. Phan em tu suy nghi va quyet dinh
 
 - Them fallback trong `MlServiceClient`: neu FastAPI khong tra loi trong 3s thi dung rule-based, dam bao he thong khong phu thuoc vao ML service.
+- Chot flow hien tai cua Recovery Plan la Spring Boot `MlServiceClient` -> FastAPI ML Service -> RAG -> Ollama/Gemini; `GeminiRecoveryService` chi la legacy/deprecated direct-Gemini path.
 - Dat nguong `MIN_SIGNALS = 50` va chi lay `STRONG_POSITIVE` voi `improvement >= 15` de chong model drift tu noise.
 - Khong rebuild FAISS theo schedule ma chi rebuild khi du signals, tranh lam index xau di vi du lieu chua du.
 

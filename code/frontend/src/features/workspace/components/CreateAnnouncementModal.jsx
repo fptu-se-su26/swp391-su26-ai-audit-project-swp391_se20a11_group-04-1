@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 
 export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, isCreating }) {
@@ -37,8 +38,8 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]">
       <div 
         className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-[slideUp_0.2s_ease-out]"
         onClick={(e) => e.stopPropagation()}
@@ -149,6 +150,7 @@ export default function CreateAnnouncementModal({ isOpen, onClose, onCreated, is
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

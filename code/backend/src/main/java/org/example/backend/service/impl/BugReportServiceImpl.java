@@ -71,7 +71,8 @@ public class BugReportServiceImpl implements BugReportService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException("Project not found", HttpStatus.NOT_FOUND));
 
-        if (project.getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+        if (project.getStatus() == org.example.backend.entity.ProjectStatus.COMPLETED
+                || project.getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Project đã đóng, không thể tạo bug report mới.");
         }
 
@@ -182,7 +183,8 @@ public class BugReportServiceImpl implements BugReportService {
 
         Long projectId = bug.getProject().getId();
 
-        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.COMPLETED
+                || bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Project đã đóng, không thể duyệt bug report.");
         }
 
@@ -286,7 +288,8 @@ public class BugReportServiceImpl implements BugReportService {
 
         Long projectId = bug.getProject().getId();
 
-        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
+        if (bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.COMPLETED
+                || bug.getProject().getStatus() == org.example.backend.entity.ProjectStatus.ARCHIVED) {
             throw new BadRequestException("Project đã đóng, không thể cập nhật bug report.");
         }
 

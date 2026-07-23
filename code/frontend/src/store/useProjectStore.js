@@ -55,7 +55,7 @@ export const useProjectStore = create(
 
       const params = {
         page: 0,
-        size: 15,
+        size: 100,
         status: activeTab && activeTab !== 'all' ? activeTab.toUpperCase() : undefined,
         search: searchQuery || undefined,
         sortBy: sortBy || 'recent',
@@ -131,6 +131,25 @@ export const useProjectStore = create(
     }
   },
 
+  /**
+   * Mở lại dự án đã bị đóng/lưu trữ (ARCHIVED → ACTIVE)
+   */
+  reopenProject: async (projectId, reason) => {
+    try {
+      await axiosInstance.post(`/v1/projects/${projectId}/reopen`, { reason })
+      set((state) => ({
+        projects: state.projects.map((p) => (p.id === projectId ? { ...p, status: 'ACTIVE' } : p)),
+        activeProject: state.activeProject?.id === projectId ? { ...state.activeProject, status: 'ACTIVE' } : state.activeProject
+      }))
+      get().fetchProjects()
+      if (get().activeProject?.id === projectId) {
+        get().fetchProjectById(projectId)
+      }
+      return true
+    } catch (err) {
+      throw err
+    }
+  },
   /**
    * Hiển thị thêm 3 thẻ dự án.
    * - Nếu đã có đủ dữ liệu trong bộ nhớ → chỉ tăng visibleCount.

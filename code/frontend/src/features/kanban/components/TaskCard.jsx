@@ -193,15 +193,12 @@ const TaskCard = ({ task, isSelected, isDragging, isCompact, onClick, onEdit, on
           className={`flex items-center space-x-1 text-[11px] ${
             task.overduePenaltyApplied
               ? 'text-error font-semibold'
-              : isDefaultDeadline
-                ? 'text-[#ea580c] font-bold bg-[#fff7ed] px-1.5 py-0.5 rounded border border-[#fed7aa]'
-                : 'text-outline'
+              : 'text-outline'
           }`}
-          title={isDefaultDeadline ? "Default project end date deadline. Click to edit." : "Deadline"}
+          title="Deadline"
         >
           <span className="material-symbols-outlined text-[14px]">event</span>
           <span>{formatShortDate(task.deadline)}</span>
-          {isDefaultDeadline && <span className="text-[9px] font-black uppercase text-[#c2410c] ml-0.5">(Default)</span>}
         </div>
         <div className="flex items-center space-x-1 text-[11px] text-outline" title="Weight">
           <span className="material-symbols-outlined text-[14px]">fitness_center</span>

@@ -6,6 +6,7 @@ import RequirementFormCriteria from './RequirementFormCriteria';
 import RequirementFormProperties from './RequirementFormProperties';
 import RequirementFormActionBar from './RequirementFormActionBar';
 import { requirementApi } from '../services/requirementApi';
+import useProjectStore from '@/store/useProjectStore';
 
 const emptyForm = (projectId) => ({
   title: '',
@@ -15,12 +16,15 @@ const emptyForm = (projectId) => ({
   tags: [],
   acceptanceCriteria: [],
   ownerId: null,
+  startDate: '',
+  deadline: '',
   projectId
 });
 
 const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, projectId }) => {
   const [formData, setFormData] = useState(emptyForm(projectId));
   const [loading, setLoading] = useState(false);
+  const activeProject = useProjectStore((state) => state.activeProject);
 
   useEffect(() => {
     if (!editingData) {
@@ -49,7 +53,9 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
       acceptanceCriteria: Array.isArray(parsedCriteria) ? parsedCriteria : [],
       ownerId: editingData.ownerId || null,
       projectId: editingData.projectId || projectId,
-      status: editingData.status || 'IN_PROGRESS'
+      status: editingData.status || 'IN_PROGRESS',
+      startDate: editingData.startDate || '',
+      deadline: editingData.deadline || ''
     });
   }, [editingData, projectId]);
 
@@ -89,9 +95,9 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
 
       let result;
       if (editingData?.id) {
-        result = await requirementApi.updateRequirement(editingData.id, payload);
+        result = await requirementApi.updateRequirement(editingData.id, resolvedProjectId, payload);
       } else {
-        result = await requirementApi.createRequirement(payload);
+        result = await requirementApi.createRequirement(resolvedProjectId, payload);
       }
 
       onSuccess(result?.data || result);
@@ -124,7 +130,12 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
             </div>
 
             <div className="col-span-12 lg:col-span-4 flex flex-col gap-gutter">
-              <RequirementFormProperties formData={formData} onChange={handleChange} />
+              <RequirementFormProperties 
+                formData={formData} 
+                onChange={handleChange} 
+                minDate={activeProject?.startDate}
+                maxDate={activeProject?.deadline}
+              />
             </div>
           </div>
         </div>

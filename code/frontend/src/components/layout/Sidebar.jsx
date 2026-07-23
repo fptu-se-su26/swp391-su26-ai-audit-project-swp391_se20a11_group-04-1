@@ -271,7 +271,7 @@ export default function Sidebar() {
   const portfolioRaw = [
     { key: 'projects',   icon: 'grid_view',    label: 'My Projects',     path: '/dashboard' },
     { key: 'classrooms', icon: 'school',       label: 'Classrooms',      path: '/classrooms' },
-    { key: 'archived',   icon: 'inbox',        label: 'Archived',        path: '#' },
+    { key: 'archived',   icon: 'inbox',        label: 'Archived',        path: '/archived' },
     { key: 'settings',   icon: 'settings',     label: 'Global Settings', path: '#' },
   ]
   if (userRole !== 'ADMIN') portfolioRaw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
@@ -291,6 +291,7 @@ export default function Sidebar() {
     const p = location.pathname
     if (p === '/dashboard') return 'projects'
     if (p.startsWith('/classrooms')) return 'classrooms'
+    if (p.startsWith('/archived')) return 'archived'
     if (p.startsWith('/verify')) return 'verify'
     if (p === '/admin') return 'admin'
     if (p.startsWith('/admin/jobs')) return 'admin-jobs'

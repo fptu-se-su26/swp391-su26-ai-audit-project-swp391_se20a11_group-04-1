@@ -48,7 +48,7 @@ const RequirementFormCriteria = ({ formData, onChange }) => {
             <input 
               className="flex-1 bg-transparent border-b border-transparent hover:border-outline-variant focus:border-[#1E707D] focus:outline-none font-body-md text-body-md py-1 transition-colors" 
               type="text" 
-              value={criterion}
+              value={typeof criterion === 'string' ? criterion.replace(/^[\*\-\s]+/, '') : criterion}
               onChange={(e) => updateCriterion(index, e.target.value)}
             />
             <button type="button" onClick={() => removeCriterion(index)} className="opacity-0 group-hover:opacity-100 text-outline hover:text-error transition-all">

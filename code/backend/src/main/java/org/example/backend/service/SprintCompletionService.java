@@ -267,54 +267,59 @@ public class SprintCompletionService {
             int totalMembers, int redMembers, List<SprintMemberSummary> memberSummaries) {
 
         double completionRate = totalTasks == 0 ? 0 : (double) completedTasks / totalTasks * 100;
-        double onTimeRate = totalTasks == 0 ? 0 : (double) completedOnTime / totalTasks * 100;
 
         List<String> redNames = memberSummaries.stream()
                 .filter(m -> "RED".equals(m.riskLevel())).map(SprintMemberSummary::name).collect(Collectors.toList());
-        List<String> greenNames = memberSummaries.stream()
-                .filter(m -> "GREEN".equals(m.riskLevel())).map(SprintMemberSummary::name).collect(Collectors.toList());
+        List<String> yellowNames = memberSummaries.stream()
+                .filter(m -> "YELLOW".equals(m.riskLevel())).map(SprintMemberSummary::name).collect(Collectors.toList());
 
         StringBuilder sb = new StringBuilder();
 
-        // Goal + Delivery (1 câu)
         if (sprintGoal != null && !sprintGoal.isBlank()) {
-            sb.append("Mục tiêu **\"").append(sprintGoal).append("\"** ");
-            sb.append(completionRate >= 80 ? "đạt được" : "chưa đạt");
+            sb.append("Mục tiêu \"").append(sprintGoal).append("\" ");
+            sb.append(completionRate >= 80 ? "đã đạt" : "chưa đạt");
         } else {
-            sb.append("Sprint không có goal cụ thể");
+            sb.append("Sprint chưa có mục tiêu rõ ràng");
         }
-        sb.append(" — **").append(completedTasks).append("/").append(totalTasks)
-          .append(" tasks** hoàn thành (").append(String.format("%.0f%%", completionRate)).append(")");
-        sb.append(", đúng hạn **").append(completedOnTime).append("** (").append(String.format("%.0f%%", onTimeRate)).append("). ");
+        sb.append(": ").append(completedTasks).append("/").append(totalTasks)
+          .append(" task hoàn thành, ").append(completedOnTime).append(" task đúng hạn. ");
 
-        // Quality (1 câu)
         if (overdueTasks == 0 && penalizedTasks == 0) {
-            sb.append("Không có task trễ hay penalty — chất lượng sprint tốt. ");
+            sb.append("Sprint không có task trễ hoặc penalty, nhịp giao việc ổn định. ");
         } else {
-            sb.append("**").append(overdueTasks).append(" task trễ hạn**");
-            if (penalizedTasks > 0) sb.append(", **").append(penalizedTasks).append(" bị penalty**");
-            sb.append(". ");
+            sb.append("Vấn đề chính nằm ở tiến độ: ").append(overdueTasks).append(" task trễ");
+            if (penalizedTasks > 0) sb.append(", ").append(penalizedTasks).append(" task bị penalty");
+            sb.append(", nên rủi ro đã ảnh hưởng kết quả sprint. ");
         }
 
-        // Team Performance (1 câu, nêu tên cụ thể)
-        if (redMembers == 0) {
-            if (!greenNames.isEmpty()) sb.append(String.join(", ", greenNames)).append(" duy trì GREEN toàn sprint. ");
+        if (!redNames.isEmpty()) {
+            sb.append("Cần follow-up trực tiếp với ").append(String.join(", ", redNames))
+              .append(" vì đây là nguồn rủi ro chính của sprint. ");
+        } else if (!yellowNames.isEmpty()) {
+            sb.append("Cần theo sát ").append(String.join(", ", yellowNames))
+              .append(" trước khi các task trễ chuyển thành penalty. ");
         } else {
-            sb.append(String.join(", ", redNames)).append(" ở mức **RED**");
-            if (!greenNames.isEmpty()) sb.append("; ").append(String.join(", ", greenNames)).append(" GREEN");
-            sb.append(". ");
+            sb.append("Không có member ở trạng thái rủi ro cao. ");
         }
 
-        // Process + Improvement (1 câu kết)
-        if (!redNames.isEmpty() && penalizedTasks > 0) {
-            sb.append("Sprint sau nên raise flag sớm khi có nguy cơ trễ và 1:1 với ").append(String.join(", ", redNames)).append(" để unblock kịp thời.");
+        if (!redNames.isEmpty()) {
+            sb.append("Sprint sau nên chốt checkpoint giữa sprint và 1:1 với member rủi ro để gỡ blocker trước deadline.");
         } else if (overdueTasks > 0) {
             sb.append("Sprint sau cần mid-sprint check để phát hiện task trễ sớm hơn.");
         } else {
-            sb.append("Giữ vững quy trình hiện tại và tiếp tục duy trì chất lượng này cho sprint sau.");
+            sb.append("Sprint sau tiếp tục giữ nhịp cập nhật hiện tại và dùng report này làm baseline.");
         }
 
-        return sb.toString().trim();
+        return stripSprintNarrativeMarkdown(sb.toString()).trim();
+    }
+
+    private String stripSprintNarrativeMarkdown(String value) {
+        if (value == null) return "";
+        return value
+                .replaceAll("\\*\\*\\*(.*?)\\*\\*\\*", "$1")
+                .replaceAll("\\*\\*(.*?)\\*\\*", "$1")
+                .replaceAll("\\*(.*?)\\*", "$1")
+                .replaceAll("\\s+", " ");
     }
 
     private boolean isDeliverableEmail(String email) {

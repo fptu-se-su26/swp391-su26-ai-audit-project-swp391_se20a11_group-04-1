@@ -65,20 +65,29 @@ public class ProfileController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProfileResponse>> getUserProfile(@PathVariable Long id) {
-        ProfileResponse response = profileService.getProfile(id);
+    public ResponseEntity<ApiResponse<ProfileResponse>> getUserProfile(
+            @PathVariable Long id,
+            HttpSession session) {
+        Long viewerId = requireUserId(session);
+        ProfileResponse response = profileService.getProfile(viewerId, id);
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy thông tin profile thành công!"));
     }
 
     @GetMapping("/{id}/statistics")
-    public ResponseEntity<ApiResponse<ProfileStatisticsResponse>> getUserProfileStatistics(@PathVariable Long id) {
-        ProfileStatisticsResponse response = profileService.getProfileStatistics(id);
+    public ResponseEntity<ApiResponse<ProfileStatisticsResponse>> getUserProfileStatistics(
+            @PathVariable Long id,
+            HttpSession session) {
+        Long viewerId = requireUserId(session);
+        ProfileStatisticsResponse response = profileService.getProfileStatistics(viewerId, id);
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy thống kê profile thành công!"));
     }
 
     @GetMapping("/{id}/coworkers")
-    public ResponseEntity<ApiResponse<java.util.List<org.example.backend.dto.CoWorkerResponse>>> getUserCoWorkers(@PathVariable Long id) {
-        java.util.List<org.example.backend.dto.CoWorkerResponse> response = profileService.getCoWorkers(id);
+    public ResponseEntity<ApiResponse<java.util.List<org.example.backend.dto.CoWorkerResponse>>> getUserCoWorkers(
+            @PathVariable Long id,
+            HttpSession session) {
+        Long viewerId = requireUserId(session);
+        java.util.List<org.example.backend.dto.CoWorkerResponse> response = profileService.getCoWorkers(viewerId, id);
         return ResponseEntity.ok(ApiResponse.success(response, "Lấy danh sách đồng nghiệp thành công!"));
     }
 

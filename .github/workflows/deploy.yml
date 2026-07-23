@@ -75,7 +75,7 @@ jobs:
             # Load env vars từ .env trước khi start
             set -a && source "${REPO_DIR}/.env" && set +a
 
-            # Explicit truyền DB_PORT vào JVM để tránh Spring dùng default :5432
+            # Explicit truyền các biến DB vào JVM để tránh Spring dùng default sai
             nohup java -Xmx512m \
               -Dspring.profiles.active=docker \
               -Dspring.kafka.bootstrap-servers=localhost:9092 \
@@ -106,27 +106,32 @@ jobs:
             done
 
             if [ "${HEALTH_OK}" = "false" ]; then
-              echo "ERROR: Backend failed to start after 90s. Last 50 lines of log:"
-              tail -n 50 backend.log
+              echo "ERROR: Backend failed to start after 90s. Last 100 lines of log:"
+              tail -n 100 backend.log
               exit 1
             fi
             echo "   Backend deployed OK"
 
-            # 4. Deploy Frontend (Vite)
-            echo ">> Restarting Frontend (Vite)..."
+            # 4. Deploy Frontend (Vite - Static Build)
+            echo ">> Building and Deploying Frontend (Vite)..."
             cd "${REPO_DIR}/code/frontend"
 
+            # Dọn dẹp dev server cũ nếu có (để giải phóng RAM)
             lsof -t -i:5173 | xargs -r kill -9 || true
 
             npm install
-            nohup npm run dev -- --host 0.0.0.0 --port 5173 > frontend.log 2>&1 &
-            echo "   Frontend deployed OK"
+            npm run build
+
+            # Copy file build tĩnh sang thư mục web root của Nginx
+            sudo mkdir -p /var/www/devtrack/html
+            sudo cp -r dist/* /var/www/devtrack/html/
+            echo "   Frontend built and deployed OK"
 
             # 5. Rebuild playwright-server với code mới (templateEngine.js)
             echo ">> Rebuilding playwright-server..."
             cd "${REPO_DIR}"
             docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps playwright-server
+            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate playwright-server
 
             # 6. Rebuild architecture-parser với code mới (selector_scan_service.py)
             echo ">> Rebuilding architecture-parser..."

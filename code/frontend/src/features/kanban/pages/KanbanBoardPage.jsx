@@ -9,7 +9,9 @@ import TaskFormModal from '../components/TaskFormModal'
 import AiTaskGenerationModal from '../components/AiTaskGenerationModal'
 import AITaskGenerationProgressModal from '../components/AITaskGenerationProgressModal'
 import AiTaskReviewBoard from '../components/AiTaskReviewBoard'
+import EvidenceFormModal from '../../evidence/components/EvidenceFormModal'
 import taskService from '../services/taskService'
+import { evidenceService } from '../../evidence/services/evidenceService'
 import useProjectStore from '@store/useProjectStore'
 import useKanbanStore, { priorityOptions } from '../store/useKanbanStore'
 import { isIssueOwnedTask } from '../utils/taskMapper'
@@ -41,12 +43,14 @@ const KanbanBoardPage = () => {
   const [reviewMoveModal, setReviewMoveModal] = useState(null)
   const [reviewMoveReason, setReviewMoveReason] = useState('')
   const [selectedTargetStatus, setSelectedTargetStatus] = useState('NEEDS_CHANGES')
+  const [reviewEvidenceModal, setReviewEvidenceModal] = useState(null)
   const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '', payload: null })
 
   const [isAiTaskGenModalOpen, setIsAiTaskGenModalOpen] = useState(false)
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false)
   const [generatingReqCount, setGeneratingReqCount] = useState(1)
   const [aiGenerationId, setAiGenerationId] = useState(null)
+  const [showTaskCoverageWarning, setShowTaskCoverageWarning] = useState(false)
   const abortControllerRef = useRef(null)
 
   const activeProject = useProjectStore((state) => state.activeProject)
@@ -172,10 +176,49 @@ const KanbanBoardPage = () => {
     abortControllerRef.current = new AbortController();
 
     try {
+      const startTime = Date.now();
       const payload = { requirementIds };
       const response = await taskService.generateAITasks(activeProject?.id, payload, { signal: abortControllerRef.current.signal });
-      setAiGenerationId(response.generationId);
-      toast.success('AI Task Generation completed!');
+      const genId = response.generationId;
+
+      const pollStatus = async () => {
+        if (!abortControllerRef.current) return; // User cancelled
+        
+        try {
+          const statusData = await taskService.getAIGenerationStatus(genId, { signal: abortControllerRef.current.signal });
+          if (statusData.status === 'PENDING') {
+            setTimeout(pollStatus, 3000);
+          } else {
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
+               await new Promise((resolve, reject) => {
+                   const timer = setTimeout(resolve, 12000 - elapsed);
+                   abortControllerRef.current.signal.addEventListener('abort', () => {
+                       clearTimeout(timer);
+                       reject(new Error('canceled'));
+                   });
+               });
+            }
+            
+            setIsGeneratingTasks(false);
+            if (statusData.status === 'DISCARDED') {
+              toast.error("Có lỗi xảy ra trong quá trình AI phân tích. Vui lòng thử lại!");
+            } else {
+              setAiGenerationId(genId);
+              toast.success('AI Task Generation completed!');
+            }
+            abortControllerRef.current = null;
+          }
+        } catch (e) {
+          if (e.name !== 'CanceledError' && e.message !== 'canceled') {
+            setIsGeneratingTasks(false);
+            toast.error("Lỗi khi kiểm tra trạng thái AI.");
+            abortControllerRef.current = null;
+          }
+        }
+      };
+
+      pollStatus();
     } catch (err) {
       if (err.name === 'CanceledError' || err.message === 'canceled') {
         toast('Đã hủy quá trình Generate Tasks.', { icon: 'ℹ️' });
@@ -183,7 +226,6 @@ const KanbanBoardPage = () => {
         console.error(err);
         toast.error(err.response?.data?.error || 'Lỗi khi gọi AI Generate Tasks.');
       }
-    } finally {
       setIsGeneratingTasks(false);
       abortControllerRef.current = null;
     }
@@ -280,7 +322,11 @@ const KanbanBoardPage = () => {
 
         if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
           if (targetStatusKey === 'IN_REVIEW' && !task.evidenceCount) {
-            toast.error('Vui lòng upload evidence trước khi chuyển sang IN REVIEW.')
+            setReviewEvidenceModal({
+              taskId,
+              taskTitle: task.title,
+              columnId: column?.id || null,
+            })
             setDraggingTaskId(null)
             setDragOverStatus(null)
             return
@@ -454,6 +500,29 @@ const KanbanBoardPage = () => {
     }
   }
 
+  const handleSubmitReviewEvidence = async (formData) => {
+    if (!reviewEvidenceModal || !activeProject?.id) return
+
+    try {
+      formData.append('projectId', activeProject.id)
+      await evidenceService.createEvidence(formData)
+      toast.success('Evidence uploaded successfully.')
+      const target = reviewEvidenceModal
+      setReviewEvidenceModal(null)
+      await updateTaskStatus(target.taskId, 'IN_REVIEW', target.columnId)
+      await fetchProjectTasks(activeProject.id)
+    } catch (error) {
+      console.error('Failed to upload evidence before review:', error)
+      const message = error.response?.data?.message
+        || error.response?.data?.error
+        || error.response?.data?.errors?.[0]?.defaultMessage
+        || error.message
+        || 'Failed to upload evidence'
+      toast.error(message)
+      throw error
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface-bright relative">
       <KanbanHeader
@@ -560,6 +629,7 @@ const KanbanBoardPage = () => {
         generationId={aiGenerationId}
         projectId={activeProject?.id}
         onClose={() => setAiGenerationId(null)}
+        onFullyCovered={() => setShowTaskCoverageWarning(true)}
         onSuccess={() => {
           setAiGenerationId(null)
           fetchProjectTasks(activeProject?.id)
@@ -584,6 +654,28 @@ const KanbanBoardPage = () => {
         columnOptions={columns}
         onClose={closeTaskForm}
         onSubmit={handleSubmitTaskForm}
+      />
+
+      <EvidenceFormModal
+        isOpen={!!reviewEvidenceModal}
+        onClose={() => setReviewEvidenceModal(null)}
+        onSkip={async () => {
+          const target = reviewEvidenceModal
+          setReviewEvidenceModal(null)
+          if (target) {
+            await updateTaskStatus(target.taskId, 'IN_REVIEW', target.columnId)
+            await fetchProjectTasks(activeProject?.id)
+            toast('Task đã chuyển sang In Review. Bạn có thể nộp evidence sau.')
+          }
+        }}
+        onSuccess={handleSubmitReviewEvidence}
+        defaultLinkedTask={reviewEvidenceModal ? {
+          id: reviewEvidenceModal.taskId,
+          title: reviewEvidenceModal.taskTitle,
+        } : null}
+        contextNotice="Bạn có thể upload evidence ngay để gửi review đầy đủ, hoặc bấm Để sau để chuyển task sang In Review và bổ sung evidence sau."
+        skipText="Để sau"
+        compact
       />
 
       {reviewMoveModal && (
@@ -693,6 +785,16 @@ const KanbanBoardPage = () => {
           setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })
         }}
         onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
+      />
+      <ConfirmModal
+        isOpen={showTaskCoverageWarning}
+        title="Fully Covered"
+        message="AI could not generate new Tasks. All Use Cases are already fully covered by existing Tasks."
+        confirmText="Understood"
+        hideCancel={true}
+        type="info"
+        onConfirm={() => setShowTaskCoverageWarning(false)}
+        onCancel={() => setShowTaskCoverageWarning(false)}
       />
     </div>
   )

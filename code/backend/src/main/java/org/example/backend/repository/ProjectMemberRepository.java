@@ -13,6 +13,9 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
     List<ProjectMember> findByProjectId(Long projectId);
     Optional<ProjectMember> findByProjectIdAndUserId(Long projectId, Long userId);
 
+    @Query("SELECT pm FROM ProjectMember pm JOIN FETCH pm.user WHERE pm.project.id = :projectId")
+    List<ProjectMember> findByProjectIdWithUsers(@Param("projectId") Long projectId);
+
     @Query("select pm from ProjectMember pm join pm.role r where pm.project.id = :projectId and upper(r.name) = upper(:roleName)")
     List<ProjectMember> findByProjectIdAndRoleName(@Param("projectId") Long projectId, @Param("roleName") String roleName);
 
@@ -28,4 +31,13 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
            "GROUP BY other.user.id, other.user.username, other.user.email, profile.fullName, profile.avatarUrl " +
            "ORDER BY COUNT(other.project.id) DESC, profile.fullName ASC")
     List<Object[]> findCoWorkersByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(pm.id) > 0 " +
+           "FROM ProjectMember pm, ProjectMember other " +
+           "WHERE pm.project.id = other.project.id " +
+           "AND pm.user.id = :viewerId " +
+           "AND other.user.id = :targetUserId")
+    boolean existsSharedProjectMembership(
+            @Param("viewerId") Long viewerId,
+            @Param("targetUserId") Long targetUserId);
 }

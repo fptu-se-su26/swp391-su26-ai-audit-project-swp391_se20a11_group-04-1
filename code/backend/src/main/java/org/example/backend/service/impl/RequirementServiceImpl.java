@@ -16,13 +16,16 @@ import org.example.backend.repository.RequirementRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.repository.UseCaseRepository;
 import org.example.backend.repository.TaskRepository;
+import org.example.backend.repository.EvidenceRepository;
 import org.example.backend.repository.CodeInsightAiReviewRepository;
 import org.example.backend.entity.Task;
+import org.example.backend.entity.UseCase;
 import org.example.backend.entity.CodeInsightAiReview;
 import org.example.backend.dto.ReqDiffAlignmentResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.example.backend.service.RequirementService;
+import org.example.backend.service.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -49,8 +52,11 @@ public class RequirementServiceImpl implements RequirementService {
     private final UseCaseRepository useCaseRepository;
     private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
+    private final EvidenceRepository evidenceRepository;
     private final CodeInsightAiReviewRepository aiReviewRepository;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
 
     private void checkLeaderAccess(Long projectId) {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -93,6 +99,25 @@ public class RequirementServiceImpl implements RequirementService {
         UserAccount creator = userAccountRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Creator not found"));
 
+        if (requestDTO.getStartDate() != null && requestDTO.getDeadline() != null) {
+            if (requestDTO.getStartDate().isAfter(requestDTO.getDeadline())) {
+                throw new BadRequestException("Start date cannot be after deadline.");
+            }
+        }
+        if (requestDTO.getStartDate() != null && project.getStartDate() != null) {
+            if (requestDTO.getStartDate().isBefore(project.getStartDate())) {
+                throw new BadRequestException("Requirement start date cannot be before Project start date.");
+            }
+        }
+        if (requestDTO.getDeadline() != null && project.getDeadline() != null) {
+            if (requestDTO.getDeadline().isAfter(project.getDeadline())) {
+                throw new BadRequestException("Requirement deadline cannot be after Project deadline.");
+            }
+        }
+        if (requestDTO.getStartDate() != null && requestDTO.getStartDate().isBefore(java.time.LocalDate.now())) {
+            throw new BadRequestException("Start date cannot be in the past.");
+        }
+
         Requirement requirement = Requirement.builder()
                 .title(requestDTO.getTitle())
                 .description(requestDTO.getDescription())
@@ -103,7 +128,14 @@ public class RequirementServiceImpl implements RequirementService {
                 .evidenceRequired(requestDTO.getEvidenceRequired() != null ? requestDTO.getEvidenceRequired() : false)
                 .project(project)
                 .createdBy(creator)
+                .startDate(requestDTO.getStartDate())
+                .deadline(requestDTO.getDeadline())
                 .build();
+                
+        if (requestDTO.getCoOwnerIds() != null && !requestDTO.getCoOwnerIds().isEmpty()) {
+            List<UserAccount> coOwnersList = userAccountRepository.findAllById(requestDTO.getCoOwnerIds());
+            requirement.setCoOwners(new java.util.HashSet<>(coOwnersList));
+        }
 
         // Calculate next projectSubId and reqCode safely inside the transaction with Pessimistic Lock
         Integer maxSubId = requirementRepository.findMaxProjectSubIdByProjectId(project.getId());
@@ -121,6 +153,20 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         Requirement savedReq = requirementRepository.save(requirement);
+
+        // Send notification to the assignee if they are not the creator
+        if (owner != null && !owner.getId().equals(creator.getId())) {
+            notificationService.createAndPush(
+                    owner,
+                    project,
+                    org.example.backend.entity.NotificationEntityType.REQUIREMENT,
+                    savedReq.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "New Requirement Assigned",
+                    "You have been assigned to a new requirement: " + savedReq.getReqCode() + " by " + creator.getUsername()
+            );
+        }
+
         return mapToDTO(savedReq);
     }
 
@@ -140,18 +186,20 @@ public class RequirementServiceImpl implements RequirementService {
             Long projectId,
             String status,
             String priority,
-            String tag) {
+            String tag,
+            String search,
+            Long ownerId) {
         int currentPage = Math.max(page, 0);
         int pageSize = Math.min(Math.max(size, 1), 1000);
 
         PageRequest pageRequest = PageRequest.of(
                 currentPage,
                 pageSize,
-                Sort.by(Sort.Direction.DESC, "id")
+                Sort.by(Sort.Order.asc("reqOrder").nullsLast(), Sort.Order.desc("id"))
         );
 
         Page<Requirement> requirementsPage = requirementRepository.findAll(
-                buildRequirementSpec(projectId, status, priority, tag),
+                buildRequirementSpec(projectId, status, priority, tag, search, ownerId),
                 pageRequest
         );
 
@@ -185,17 +233,56 @@ public class RequirementServiceImpl implements RequirementService {
         requirement.setPriority(requestDTO.getPriority());
         requirement.setAcceptanceCriteria(requestDTO.getAcceptanceCriteria());
         
+        Long oldOwnerId = requirement.getOwner() != null ? requirement.getOwner().getId() : null;
+
         if (requestDTO.getOwnerId() != null) {
             UserAccount owner = userAccountRepository.findById(requestDTO.getOwnerId())
                     .orElseThrow(() -> new ResourceNotFoundException("Owner not found"));
             requirement.setOwner(owner);
+        } else {
+            requirement.setOwner(null);
+        }
+
+        if (requestDTO.getStartDate() != null && requestDTO.getDeadline() != null) {
+            if (requestDTO.getStartDate().isAfter(requestDTO.getDeadline())) {
+                throw new BadRequestException("Start date cannot be after deadline.");
+            }
+        }
+        var project = requirement.getProject();
+        if (requestDTO.getStartDate() != null && project.getStartDate() != null) {
+            if (requestDTO.getStartDate().isBefore(project.getStartDate())) {
+                throw new BadRequestException("Requirement start date cannot be before Project start date.");
+            }
+        }
+        if (requestDTO.getDeadline() != null && project.getDeadline() != null) {
+            if (requestDTO.getDeadline().isAfter(project.getDeadline())) {
+                throw new BadRequestException("Requirement deadline cannot be after Project deadline.");
+            }
+        }
+        if (requestDTO.getStartDate() != null && !requestDTO.getStartDate().equals(requirement.getStartDate())) {
+            if (requestDTO.getStartDate().isBefore(java.time.LocalDate.now())) {
+                throw new BadRequestException("Start date cannot be changed to a date in the past.");
+            }
+        }
+
+        requirement.setStartDate(requestDTO.getStartDate());
+        requirement.setDeadline(requestDTO.getDeadline());
+
+        if (requestDTO.getCoOwnerIds() != null) {
+            List<UserAccount> coOwnersList = userAccountRepository.findAllById(requestDTO.getCoOwnerIds());
+            if (requirement.getCoOwners() == null) {
+                requirement.setCoOwners(new java.util.HashSet<>(coOwnersList));
+            } else {
+                requirement.getCoOwners().clear();
+                requirement.getCoOwners().addAll(coOwnersList);
+            }
         }
 
         if (requestDTO.getStatus() != null) {
             // Check project status before status update
-            var project = requirement.getProject();
-            if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
-                throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
+            var updateProject = requirement.getProject();
+            if (updateProject.getStatus() != ProjectStatus.ACTIVE && updateProject.getStatus() != ProjectStatus.PLANNING) {
+                throw new BadRequestException("Cannot update requirements in a project that is " + updateProject.getStatus());
             }
 
             // Enforce DONE State Constraints
@@ -204,6 +291,21 @@ public class RequirementServiceImpl implements RequirementService {
                 if (hasPendingUseCases) {
                     throw new BadRequestException("Cannot mark Requirement as DONE because it has pending UseCases.");
                 }
+            }
+            if (requestDTO.getStatus() == RequirementStatus.CLOSED && requirement.getStatus() != RequirementStatus.CLOSED) {
+                List<UseCase> useCases = useCaseRepository.findByRequirementId(id);
+                for (UseCase uc : useCases) {
+                    uc.setStatus(org.example.backend.entity.UseCaseStatus.CLOSED);
+                }
+                useCaseRepository.saveAll(useCases);
+            } else if (requirement.getStatus() == RequirementStatus.CLOSED && requestDTO.getStatus() != RequirementStatus.CLOSED) {
+                List<UseCase> useCases = useCaseRepository.findByRequirementId(id);
+                for (UseCase uc : useCases) {
+                    if (uc.getStatus() == org.example.backend.entity.UseCaseStatus.CLOSED) {
+                        uc.setStatus(org.example.backend.entity.UseCaseStatus.IN_PROGRESS);
+                    }
+                }
+                useCaseRepository.saveAll(useCases);
             }
             requirement.setStatus(requestDTO.getStatus());
         }
@@ -217,6 +319,21 @@ public class RequirementServiceImpl implements RequirementService {
         }
 
         Requirement updatedReq = requirementRepository.save(requirement);
+
+        // Send notification if owner changed
+        Long newOwnerId = updatedReq.getOwner() != null ? updatedReq.getOwner().getId() : null;
+        if (newOwnerId != null && !newOwnerId.equals(oldOwnerId)) {
+            notificationService.createAndPush(
+                    updatedReq.getOwner(),
+                    updatedReq.getProject(),
+                    org.example.backend.entity.NotificationEntityType.REQUIREMENT,
+                    updatedReq.getId(),
+                    org.example.backend.entity.NotificationType.SYSTEM,
+                    "Requirement Assigned",
+                    "You have been assigned to requirement: " + updatedReq.getReqCode()
+            );
+        }
+
         return mapToDTO(updatedReq);
     }
 
@@ -229,6 +346,8 @@ public class RequirementServiceImpl implements RequirementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
         var project = requirement.getProject();
+        checkLeaderAccess(project.getId());
+        
         if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
             throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
         }
@@ -247,9 +366,46 @@ public class RequirementServiceImpl implements RequirementService {
             }
         }
 
+        if (parsedStatus == RequirementStatus.CLOSED && requirement.getStatus() != RequirementStatus.CLOSED) {
+            List<UseCase> useCases = useCaseRepository.findByRequirementId(id);
+            for (UseCase uc : useCases) {
+                uc.setStatus(org.example.backend.entity.UseCaseStatus.CLOSED);
+            }
+            useCaseRepository.saveAll(useCases);
+        } else if (requirement.getStatus() == RequirementStatus.CLOSED && parsedStatus != RequirementStatus.CLOSED) {
+            List<UseCase> useCases = useCaseRepository.findByRequirementId(id);
+            for (UseCase uc : useCases) {
+                if (uc.getStatus() == org.example.backend.entity.UseCaseStatus.CLOSED) {
+                    uc.setStatus(org.example.backend.entity.UseCaseStatus.IN_PROGRESS);
+                }
+            }
+            useCaseRepository.saveAll(useCases);
+        }
+
         requirement.setStatus(parsedStatus);
         Requirement updatedReq = requirementRepository.save(requirement);
         return mapToDTO(updatedReq);
+    }
+    @Override
+    @Transactional
+    public void reorderRequirements(Long projectId, org.example.backend.dto.ReorderRequestDTO request) {
+        log.info("Reordering requirements for project id: {}", projectId);
+        checkLeaderAccess(projectId);
+        
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) return;
+
+        List<Requirement> requirements = requirementRepository.findByProjectId(projectId);
+        java.util.Map<Long, Requirement> reqMap = requirements.stream().collect(Collectors.toMap(Requirement::getId, r -> r));
+
+        for (int i = 0; i < ids.size(); i++) {
+            Long id = ids.get(i);
+            Requirement req = reqMap.get(id);
+            if (req != null) {
+                req.setReqOrder(i);
+                requirementRepository.save(req);
+            }
+        }
     }
 
     @Override
@@ -262,8 +418,14 @@ public class RequirementServiceImpl implements RequirementService {
                 
         checkLeaderAccess(req.getProject().getId());
         
+        Long projectId = req.getProject().getId();
         RequirementResponseDTO response = mapToDTO(req);
         requirementRepository.deleteById(id);
+        requirementRepository.flush();
+        if (useCaseRepository.countByProjectId(projectId) == 0) {
+            List<org.example.backend.entity.ProjectActor> actors = projectActorRepository.findByProjectId(projectId);
+            projectActorRepository.deleteAll(actors);
+        }
         return response;
     }
 
@@ -271,12 +433,20 @@ public class RequirementServiceImpl implements RequirementService {
         List<String> tags = req.getTags() != null ? new ArrayList<>(req.getTags()) : new ArrayList<>();
 
         List<String> covered = new ArrayList<>();
+        int tasksCount = 0;
+        int completedTasksCount = 0;
+        int evidenceCount = 0;
+
         if (req.getId() != null) {
             List<Task> tasks = taskRepository.findByRequirementId(req.getId());
+            tasksCount = tasks.size();
             List<Long> doneTaskIds = tasks.stream()
                     .filter(t -> t.getStatus() == org.example.backend.entity.TaskStatus.DONE)
                     .map(Task::getId)
                     .toList();
+            completedTasksCount = doneTaskIds.size();
+
+            evidenceCount = tasks.stream().mapToInt(t -> evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.TASK, t.getId())).sum();
 
             if (!doneTaskIds.isEmpty()) {
                 List<CodeInsightAiReview> reviews = aiReviewRepository.findLatestReviewsForTasks(doneTaskIds);
@@ -309,6 +479,9 @@ public class RequirementServiceImpl implements RequirementService {
                 .ownerId(req.getOwner() != null ? req.getOwner().getId() : null)
                 .status(req.getStatus())
                 .evidenceRequired(req.getEvidenceRequired())
+                .tasksCount(tasksCount)
+                .completedTasksCount(completedTasksCount)
+                .evidenceCount(evidenceCount)
                 .reqOrder(req.getReqOrder())
                 .createdBy(req.getCreatedBy() != null ? req.getCreatedBy().getId() : null)
                 .createdAt(req.getCreatedAt())
@@ -316,10 +489,13 @@ public class RequirementServiceImpl implements RequirementService {
                 .tags(tags)
                 .aiGenerated(req.getAiGenerated() != null ? req.getAiGenerated() : false)
                 .coveredCriteria(covered)
+                .startDate(req.getStartDate())
+                .deadline(req.getDeadline())
+                .coOwnerIds(req.getCoOwners() != null ? req.getCoOwners().stream().map(org.example.backend.entity.UserAccount::getId).toList() : null)
                 .build();
     }
 
-    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag) {
+    private Specification<Requirement> buildRequirementSpec(Long projectId, String status, String priority, String tag, String search, Long ownerId) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -328,6 +504,14 @@ public class RequirementServiceImpl implements RequirementService {
 
             if (projectId != null) {
                 predicates.add(criteriaBuilder.equal(root.get("project").get("id"), projectId));
+            }
+
+            if (ownerId != null) {
+                Predicate isOwner = criteriaBuilder.equal(root.get("owner").get("id"), ownerId);
+                Join<Requirement, UserAccount> coOwnersJoin = root.join("coOwners", JoinType.LEFT);
+                Predicate isCoOwner = criteriaBuilder.equal(coOwnersJoin.get("id"), ownerId);
+                predicates.add(criteriaBuilder.or(isOwner, isCoOwner));
+                query.distinct(true);
             }
 
             if (status != null && !status.isBlank()) {
@@ -343,6 +527,19 @@ public class RequirementServiceImpl implements RequirementService {
             if (tag != null && !tag.isBlank()) {
                 jakarta.persistence.criteria.Expression<String> tagsString = criteriaBuilder.function("array_to_string", String.class, root.get("tags"), criteriaBuilder.literal(","));
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(tagsString), "%" + tag.trim().toLowerCase(Locale.ROOT) + "%"));
+            }
+
+            if (search != null && !search.isBlank()) {
+                String searchTrimmed = search.trim().toLowerCase(Locale.ROOT);
+                String searchLower = "%" + searchTrimmed + "%";
+                Predicate titlePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), searchLower);
+                
+                if (searchTrimmed.matches(".*\\d.*") || searchTrimmed.startsWith("req-")) {
+                    Predicate reqCodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("reqCode")), searchLower);
+                    predicates.add(criteriaBuilder.or(titlePredicate, reqCodePredicate));
+                } else {
+                    predicates.add(titlePredicate);
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

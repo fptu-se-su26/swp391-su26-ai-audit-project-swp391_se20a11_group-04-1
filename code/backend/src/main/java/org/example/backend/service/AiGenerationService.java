@@ -28,6 +28,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
+import org.example.backend.service.AuditService;
 import org.example.backend.exception.BusinessException;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -56,6 +58,10 @@ public class AiGenerationService {
     private final TestCaseRepository testCaseRepository;
     private final TestStepRepository testStepRepository;
     private final org.example.backend.mapper.testing.TestCaseMapper testCaseMapper;
+    private final AuditService auditService;
+    private final org.example.backend.repository.BusinessModuleRepository businessModuleRepository;
+    private final org.example.backend.repository.TaskRepository taskRepository;
+    private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -71,7 +77,11 @@ public class AiGenerationService {
                                ObjectMapper objectMapper,
                                TestCaseRepository testCaseRepository,
                                TestStepRepository testStepRepository,
-                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper) {
+                               org.example.backend.mapper.testing.TestCaseMapper testCaseMapper,
+                               AuditService auditService,
+                               org.example.backend.repository.BusinessModuleRepository businessModuleRepository,
+                               org.example.backend.repository.TaskRepository taskRepository,
+                               org.example.backend.repository.ProjectMemberRepository projectMemberRepository) {
         this.documentParserService = documentParserService;
         this.geminiService = geminiService;
         this.requirementGeminiService = requirementGeminiService;
@@ -86,10 +96,14 @@ public class AiGenerationService {
         this.testCaseRepository = testCaseRepository;
         this.testStepRepository = testStepRepository;
         this.testCaseMapper = testCaseMapper;
+        this.auditService = auditService;
+        this.businessModuleRepository = businessModuleRepository;
+        this.taskRepository = taskRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
 
     @Transactional
-    public UUID generateRequirementsFromFile(Long projectId, MultipartFile file, Long userId) {
+    public UUID generateRequirementsFromFile(Long projectId, MultipartFile file, Long userId, String userPrompt) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy dự án với ID: " + projectId));
 
@@ -128,7 +142,8 @@ public class AiGenerationService {
         } else {
             sendProgress(userId, 0, "Reading and processing file...");
             // 1. Parse text from file
-            documentText = documentParserService.parseDocument(file);
+            String rawDocumentText = documentParserService.parseDocument(file);
+            documentText = rawDocumentText;
 
             sendProgress(userId, 1, "AI is evaluating document relevance...");
             
@@ -139,13 +154,13 @@ public class AiGenerationService {
                 contextStrings.add(r.getTitle() + (r.getDescription() != null ? ": " + r.getDescription() : ""));
             }
             
-            String evalJson = requirementGeminiService.evaluateDocumentContext(contextStrings, documentText);
+            String evalJson = requirementGeminiService.evaluateDocumentContext(contextStrings, rawDocumentText);
             try {
                 JsonNode evalNode = objectMapper.readTree(evalJson);
                 int score = evalNode.has("relevanceScore") ? evalNode.get("relevanceScore").asInt() : 100;
                 String reason = evalNode.has("reason") ? evalNode.get("reason").asText() : "";
                 
-                if (score <= 30) {
+                if (score < 40) {
                     throw new org.example.backend.exception.BusinessException("Document rejected due to context mismatch with the project (Relevance score: " + score + "%). Reason: " + reason);
                 } else if (score < 100) {
                     contextWarning = reason;
@@ -154,10 +169,19 @@ public class AiGenerationService {
                 log.warn("Failed to parse context evaluation JSON: {}", evalJson);
             }
 
+            if (userPrompt != null && !userPrompt.trim().isEmpty()) {
+                documentText = "=== USER ADDITIONAL INSTRUCTIONS ===\n" +
+                        userPrompt + "\n" +
+                        "=== END OF USER INSTRUCTIONS ===\n\n" +
+                        "CRITICAL INSTRUCTION FOR AI: You MUST critically evaluate the 'USER ADDITIONAL INSTRUCTIONS' provided above. If the text is meaningless, conversational chit-chat, spam, or entirely unrelated to software engineering and project requirements, you MUST completely ignore it and proceed with analyzing the main document below. Only apply these instructions if they provide valid, constructive context or constraints for generating the software requirements.\n" +
+                        "====================================\n\n" +
+                        rawDocumentText;
+            }
+
             sendProgress(userId, 2, "AI is analyzing and extracting requirements...");
             // 2. Call Gemini API to extract requirements JSON
             // 2. Call Gemini API to extract requirements JSON
-            String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
+            String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText, project);
             
             JsonNode reqsArray;
             JsonNode actorsArray;
@@ -238,7 +262,25 @@ public class AiGenerationService {
 
         sendProgress(userId, 1, "Fetching ecosystem context (Actors and Existing Use Cases)...");
         List<org.example.backend.entity.ProjectActor> dbActors = projectActorRepository.findByProjectId(projectId);
-        List<String> projectActors = dbActors.stream().map(org.example.backend.entity.ProjectActor::getName).toList();
+        java.util.Set<String> actorNames = new java.util.LinkedHashSet<>(dbActors.stream().map(org.example.backend.entity.ProjectActor::getName).toList());
+        // Also include actors from any PENDING or CONFIRMED REQ staging (actors added during review but not yet approved)
+        try {
+            List<AiGenerationStaging> reqStagings = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, AiStage.REQUIREMENT, AiGenerationStatus.PENDING);
+            for (AiGenerationStaging rs : reqStagings) {
+                JsonNode rPayload = rs.getPayload();
+                if (rPayload != null) {
+                    JsonNode actorsArr = rPayload.isObject() && rPayload.has("project_actors") ? rPayload.get("project_actors")
+                            : (rPayload.isArray() && rPayload.size() > 0 && rPayload.get(0).has("project_actors") ? rPayload.get(0).get("project_actors") : null);
+                    if (actorsArr != null && actorsArr.isArray()) {
+                        for (JsonNode an : actorsArr) {
+                            String aName = an.has("name") ? an.get("name").asText().trim() : an.asText().trim();
+                            if (!aName.isEmpty()) actorNames.add(aName);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        List<String> projectActors = new java.util.ArrayList<>(actorNames);
         
         List<org.example.backend.entity.UseCase> dbUseCases = useCaseRepository.findByProjectId(projectId);
         List<String> existingUseCases = dbUseCases.stream()
@@ -250,7 +292,14 @@ public class AiGenerationService {
         String stagingHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqIdsStr.getBytes());
         java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.USE_CASE);
 
-        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+        if (dbUseCases.isEmpty() && existingCache.isPresent() && 
+            (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || 
+             existingCache.get().getStatus() == AiGenerationStatus.PENDING || 
+             existingCache.get().getStatus() == AiGenerationStatus.DISCARDED) &&
+             existingCache.get().getPayload() != null &&
+             existingCache.get().getPayload().isArray() &&
+             existingCache.get().getPayload().size() > 0 &&
+             existingCache.get().getPayload().get(0).has("quality_status")) {
             AiGenerationStaging oldStaging = existingCache.get();
             UUID generationId = UUID.randomUUID();
             AiGenerationStaging newStaging = AiGenerationStaging.builder()
@@ -262,18 +311,30 @@ public class AiGenerationService {
                     .status(AiGenerationStatus.PENDING)
                     .build();
             stagingRepository.save(newStaging);
-            try {
-                Thread.sleep(15000); // Synchronous fake AI delay (15s) so frontend shows loading
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            sendProgress(userId, 5, "Done!");
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(10000); // Synchronous fake AI delay (10s) so frontend shows loading
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                sendProgress(userId, 5, "Done!");
+            });
             
             return generationId;
         }
 
         sendProgress(userId, 2, "AI is analyzing requirements and generating Use Cases...");
-        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases);
+        // Fetch member usernames to pass to AI, avoiding project.setMembers() which breaks orphanRemoval
+        java.util.List<String> projectMemberUsernames = projectMemberRepository.findByProjectIdWithUsers(projectId).stream()
+                .filter(pm -> pm.getUser() != null)
+                .map(pm -> pm.getUser().getUsername())
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        java.util.List<String> existingModuleNames = businessModuleRepository.findByProjectId(projectId).stream()
+                .map(org.example.backend.entity.BusinessModule::getName)
+                .collect(java.util.stream.Collectors.toList());
+
+        String rawJsonResponse = useCaseGeminiService.generateUseCasesFromRequirements(reqs, projectActors, existingUseCases, project, projectMemberUsernames, existingModuleNames);
 
         sendProgress(userId, 2, "Parsing AI results...");
         JsonNode payload;
@@ -301,21 +362,21 @@ public class AiGenerationService {
             if (payload.isArray()) {
                 if (reqs.size() == 1) {
                     Long actualReqId = reqs.get(0).getId();
-                    String actualReqCode = reqs.get(0).getReqCode();
                     for (JsonNode node : payload) {
                         if (node.isObject()) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementId", actualReqId);
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementCode", actualReqCode);
+                            com.fasterxml.jackson.databind.node.ArrayNode arr = ((com.fasterxml.jackson.databind.node.ObjectNode) node).putArray("requirementIds");
+                            arr.add(actualReqId);
                         }
                     }
                 } else {
-                    // For multiple requirements, map the requirementId to requirementCode if present
-                    java.util.Map<Long, String> reqCodeMap = reqs.stream().collect(java.util.stream.Collectors.toMap(Requirement::getId, Requirement::getReqCode));
+                    java.util.Set<Long> validReqIds = reqs.stream().map(Requirement::getId).collect(java.util.stream.Collectors.toSet());
                     for (JsonNode node : payload) {
-                        if (node.isObject() && node.has("requirementId")) {
-                            Long reqId = node.get("requirementId").asLong();
-                            if (reqCodeMap.containsKey(reqId)) {
-                                ((com.fasterxml.jackson.databind.node.ObjectNode) node).put("requirementCode", reqCodeMap.get(reqId));
+                        if (node.isObject() && node.has("requirementIds") && node.get("requirementIds").isArray()) {
+                            com.fasterxml.jackson.databind.node.ArrayNode arr = (com.fasterxml.jackson.databind.node.ArrayNode) node.get("requirementIds");
+                            for (int i = arr.size() - 1; i >= 0; i--) {
+                                if (!validReqIds.contains(arr.get(i).asLong())) {
+                                    arr.remove(i);
+                                }
                             }
                         }
                     }
@@ -333,6 +394,9 @@ public class AiGenerationService {
         JsonNode finalPayload;
         try {
             finalPayload = objectMapper.readTree(evaluatedJson);
+            if (finalPayload == null || finalPayload.isMissingNode()) {
+                finalPayload = payload;
+            }
         } catch (Exception e) {
             log.warn("Failed to parse evaluated JSON, falling back to raw payload");
             finalPayload = payload;
@@ -368,10 +432,14 @@ public class AiGenerationService {
         
         // Fix Jackson serializing JsonNode as POJO
         try {
-            Object payloadObj = objectMapper.treeToValue(staging.getPayload(), Object.class);
-            map.put("payload", payloadObj);
+            if (staging.getPayload() != null) {
+                Object payloadObj = objectMapper.treeToValue(staging.getPayload(), Object.class);
+                map.put("payload", payloadObj);
+            } else {
+                map.put("payload", new ArrayList<>());
+            }
         } catch (Exception e) {
-            map.put("payload", staging.getPayload().toString());
+            map.put("payload", staging.getPayload() != null ? staging.getPayload().toString() : "[]");
         }
         
         map.put("status", staging.getStatus().name());
@@ -422,7 +490,7 @@ public class AiGenerationService {
         staging.setContextWarning(contextWarning);
 
         // Call Gemini API again (bypassing cache)
-        String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText);
+        String rawJsonResponse = requirementGeminiService.extractRequirementsFromText(documentText, staging.getProject());
         
         JsonNode reqsArray;
         JsonNode actorsArray;
@@ -634,6 +702,8 @@ public class AiGenerationService {
                         .type(type)
                         .priority(priority)
                         .acceptanceCriteria(acceptanceCriteria)
+                        .startDate(reqNode.has("startDate") && !reqNode.get("startDate").isNull() && !reqNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(reqNode.get("startDate").asText()) : project.getStartDate())
+                        .deadline(reqNode.has("deadline") && !reqNode.get("deadline").isNull() && !reqNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(reqNode.get("deadline").asText()) : project.getDeadline())
                         .status(org.example.backend.entity.RequirementStatus.DRAFT)
                         .projectSubId(nextSubId)
                         .reqCode("REQ-" + nextSubId)
@@ -649,6 +719,12 @@ public class AiGenerationService {
         }
 
         requirementRepository.saveAll(requirementsToSave);
+        
+        for (Requirement req : requirementsToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_REQUIREMENT", 
+                    "Requirement", req.getId(), project.getId(), null, 
+                    "INTERNAL", "POST", "/api/generate/approve/" + generationId, 0L);
+        }
         
         staging.setStatus(AiGenerationStatus.CONFIRMED);
         if (modifiedPayload != null) {
@@ -679,21 +755,100 @@ public class AiGenerationService {
         
         List<org.example.backend.entity.UseCase> useCasesToSave = new ArrayList<>();
         
+        Map<String, org.example.backend.entity.BusinessModule> moduleCache = new HashMap<>();
+
         for (int i = 0; i < payload.size(); i++) {
             if (selectedIndices == null || selectedIndices.contains(i)) {
                 JsonNode ucNode = payload.get(i);
                 
+                String moduleName = ucNode.has("moduleName") && !ucNode.get("moduleName").isNull() ? ucNode.get("moduleName").asText() : "General";
+                String moduleDescription = ucNode.has("moduleDescription") && !ucNode.get("moduleDescription").isNull() ? ucNode.get("moduleDescription").asText() : "";
+                String modulePriority = ucNode.has("modulePriority") && !ucNode.get("modulePriority").isNull() ? ucNode.get("modulePriority").asText().toUpperCase() : "MEDIUM";
+                String moduleAssignee = ucNode.has("moduleAssignee") && !ucNode.get("moduleAssignee").isNull() ? ucNode.get("moduleAssignee").asText() : "System";
+                
+                // Get or create BusinessModule
+                org.example.backend.entity.BusinessModule businessModule = moduleCache.computeIfAbsent(moduleName, mName -> {
+                    List<org.example.backend.entity.BusinessModule> existing = businessModuleRepository.findByProjectId(project.getId());
+                    return existing.stream()
+                            .filter(m -> m.getName().equalsIgnoreCase(mName))
+                            .findFirst()
+                            .orElseGet(() -> {
+                                org.example.backend.entity.BusinessModule newModule = org.example.backend.entity.BusinessModule.builder()
+                                        .project(project)
+                                        .name(mName)
+                                        .description(moduleDescription)
+                                        .build();
+                                newModule = businessModuleRepository.save(newModule);
+                                
+                                // Create Task for this Module
+                                try {
+                                    org.example.backend.entity.Task moduleTask = new org.example.backend.entity.Task();
+                                    moduleTask.setProject(project);
+                                    moduleTask.setTitle("Design Use Cases: " + mName);
+                                    moduleTask.setDescription(moduleDescription);
+                                    moduleTask.setType(org.example.backend.entity.TaskType.MODULE_TASK);
+                                    moduleTask.setBusinessModule(newModule);
+                                    
+                                    moduleTask.setCreatedBy(user);
+                                    moduleTask.setAiGenerated(true);
+                                    moduleTask.setEstimatedHours(java.math.BigDecimal.ZERO);
+                                    moduleTask.setWeight(java.math.BigDecimal.ONE);
+                                    moduleTask.setStatus(org.example.backend.entity.TaskStatus.TODO);
+                                    moduleTask.setOverduePenaltyApplied(false);
+                                    moduleTask.setCreatedAt(java.time.LocalDateTime.now());
+                                    moduleTask.setUpdatedAt(java.time.LocalDateTime.now());
+                                    
+                                    // Fix PostgreSQL NOT NULL constraint on start_date and deadline
+                                    moduleTask.setStartDate(java.time.LocalDate.now());
+                                    moduleTask.setDeadline(project.getDeadline() != null ? project.getDeadline() : java.time.LocalDate.now().plusMonths(1));
+                                    
+                                    try {
+                                        moduleTask.setPriority(org.example.backend.entity.Priority.valueOf(modulePriority));
+                                    } catch (Exception e) {
+                                        moduleTask.setPriority(org.example.backend.entity.Priority.MEDIUM);
+                                    }
+                                    
+                                    if (!"System".equalsIgnoreCase(moduleAssignee)) {
+                                        // IMPORTANT: Only set assignee if they are actually a member of this project
+                                        // A PostgreSQL trigger enforces this - violating it causes INSERT failure
+                                        Optional<UserAccount> optUser = Optional.empty();
+                                        try {
+                                            Long assigneeId = Long.parseLong(moduleAssignee);
+                                            optUser = userRepository.findById(assigneeId);
+                                        } catch (NumberFormatException e) {
+                                            optUser = userRepository.findByUsername(moduleAssignee);
+                                        }
+                                        optUser.ifPresent(assigneeUser -> {
+                                            boolean isMember = projectMemberRepository.findByProjectIdAndUserId(project.getId(), assigneeUser.getId()).isPresent();
+                                            if (isMember) {
+                                                moduleTask.setPrimaryAssignee(assigneeUser);
+                                            }
+                                        });
+                                    }
+                                    
+                                    taskRepository.save(moduleTask);
+                                } catch (Exception taskEx) {
+                                    log.warn("Failed to create MODULE_TASK for module '{}': {}", mName, taskEx.getMessage());
+                                }
+                                
+                                return newModule;
+                            });
+                });
+
                 String name = ucNode.has("name") ? ucNode.get("name").asText() : "Untitled Use Case";
                 String primaryActors = ucNode.has("primaryActors") ? ucNode.get("primaryActors").asText() : "";
                 String precondition = ucNode.has("precondition") ? ucNode.get("precondition").asText() : "";
                 String postcondition = ucNode.has("postcondition") ? ucNode.get("postcondition").asText() : "";
                 String mainSuccessScenario = ucNode.has("mainSuccessScenario") ? ucNode.get("mainSuccessScenario").asText() : "";
                 String alternativeFlows = ucNode.has("alternativeFlows") ? ucNode.get("alternativeFlows").asText() : "";
-                Long requirementId = ucNode.has("requirementId") ? ucNode.get("requirementId").asLong() : null;
-
-                Requirement req = null;
-                if (requirementId != null) {
-                    req = requirementRepository.findById(requirementId).orElse(null);
+                
+                List<Requirement> mappedRequirements = new ArrayList<>();
+                if (ucNode.has("requirementIds") && ucNode.get("requirementIds").isArray()) {
+                    for (JsonNode reqIdNode : ucNode.get("requirementIds")) {
+                        requirementRepository.findById(reqIdNode.asLong()).ifPresent(mappedRequirements::add);
+                    }
+                } else if (ucNode.has("requirementId") && !ucNode.get("requirementId").isNull()) {
+                    requirementRepository.findById(ucNode.get("requirementId").asLong()).ifPresent(mappedRequirements::add);
                 }
 
                 // Convert text to JSON string as expected by DB & Frontend
@@ -709,8 +864,6 @@ public class AiGenerationService {
                     mainMap.put("steps", mainSteps);
                     mainFlowJson = objectMapper.writeValueAsString(mainMap);
                     
-                    // Frontend expects alternativeFlow: { flows: [ { name: "Flow A", steps: [...] } ] }
-                    // To keep it simple, we wrap the whole text as one flow
                     List<String> altSteps = new ArrayList<>();
                     for (String step : alternativeFlows.split("\n")) {
                         if (!step.trim().isEmpty()) altSteps.add(step.trim());
@@ -728,7 +881,13 @@ public class AiGenerationService {
 
                 org.example.backend.entity.UseCase uc = new org.example.backend.entity.UseCase();
                 uc.setProjectId(project.getId());
-                uc.setRequirement(req);
+                
+                // Fallback to primary requirement for backward compatibility
+                if (!mappedRequirements.isEmpty()) {
+                    uc.setRequirement(mappedRequirements.get(0));
+                }
+                
+                uc.setBusinessModule(businessModule);
                 uc.setName(name);
                 uc.setPrecondition(precondition);
                 uc.setPostcondition(postcondition);
@@ -741,12 +900,18 @@ public class AiGenerationService {
                 uc.setCreatedBy(user);
                 uc.setAiGenerated(true);
                 uc.setSourceGenerationId(generationId);
+                uc.setStartDate(ucNode.has("startDate") && !ucNode.get("startDate").isNull() && !ucNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("startDate").asText()) : project.getStartDate());
+                uc.setDeadline(ucNode.has("deadline") && !ucNode.get("deadline").isNull() && !ucNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(ucNode.get("deadline").asText()) : project.getDeadline());
                 
-                if (req != null) {
-                    String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
+                if (!mappedRequirements.isEmpty()) {
+                    String reqContentToHash = mappedRequirements.stream()
+                            .map(r -> (r.getTitle() != null ? r.getTitle() : "") + "|" + (r.getDescription() != null ? r.getDescription() : ""))
+                            .collect(java.util.stream.Collectors.joining("||"));
                     String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     uc.setReqVersionHash(reqHash);
                 }
+                
+                uc.setRequirements(mappedRequirements);
                 
                 // Add actors if primaryActors is provided
                 if (primaryActors != null && !primaryActors.trim().isEmpty()) {
@@ -779,6 +944,12 @@ public class AiGenerationService {
         }
 
         useCaseRepository.saveAll(useCasesToSave);
+        
+        for (org.example.backend.entity.UseCase uc : useCasesToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_USE_CASE", 
+                    "UseCase", uc.getId(), project.getId(), null, 
+                    "INTERNAL", "POST", "/api/generate/approve-use-cases/" + generationId, 0L);
+        }
         
         staging.setStatus(AiGenerationStatus.CONFIRMED);
         if (modifiedPayload != null) {
@@ -1211,7 +1382,9 @@ public class AiGenerationService {
             "   - 'postcondition': (String) Postconditions\n" +
             "   - 'primaryActors': (String) Comma separated list of actors\n" +
             "   - 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
-            "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "   - 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
+            "   - 'startDate': (String) A logical start date in YYYY-MM-DD format (must not be before requirement's start date).\n" +
+            "   - 'deadline': (String) A logical deadline in YYYY-MM-DD format (must not be after requirement's deadline).\n\n" +
             "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- OLD USE CASE ---\n" + oldUcContext;
@@ -1298,10 +1471,11 @@ public class AiGenerationService {
             "1. Preserve any existing logical flows, edge cases, and manual customizations in the Old Use Cases unless they explicitly contradict the new Requirement.\n" +
             "2. You MUST ADD missing flows or steps if the NEW REQUIREMENT mentions new features, rules, or criteria that are absent in the OLD USE CASE.\n" +
             "3. Your response MUST be a pure JSON object (without ```json wrappers) with EXACTLY two fields: 'updatedUseCases' and 'newUseCases'.\n" +
-            "3. 'updatedUseCases' must be an array of objects representing updates to the existing use cases. Each object MUST include 'id' (the integer ID of the use case being updated), 'name', 'precondition', 'postcondition', 'primaryActors', 'mainFlows', 'alternativeFlows'.\n" +
+            "3. 'updatedUseCases' must be an array of objects representing updates to the existing use cases. Each object MUST include 'id' (the integer ID of the use case being updated), 'name', 'precondition', 'postcondition', 'primaryActors', 'mainFlows', 'alternativeFlows', 'startDate', 'deadline'.\n" +
             "4. 'newUseCases' must be an array of objects representing entirely new use cases (do NOT include 'id' field). Format is the same as above.\n" +
-            "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\n2. ...'\n" +
-            "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\n'). Example: 'AF7: If user saves as draft:\n1. System saves privately.\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n\n" +
+            "5. For 'mainFlows': (String) The main success flow, 1 step per line. Number the steps like '1. ...\\n2. ...'\n" +
+            "6. For 'alternativeFlows': (String) Alternative or error flows. The number in 'AF[Number]' MUST BE THE EXACT STEP NUMBER from the main flow that it replaces or branches from. For example, if the flow branches from step 7, it MUST be named 'AF7:'. DO NOT name it 'AF1:' unless it branches from step 1. You MUST separate steps with NEWLINES ('\\n'). Example: 'AF7: If user saves as draft:\\n1. System saves privately.\\n2. User exits.' DO NOT write steps on a single line. DO NOT use markdown formatting like `**` or `*`.\n" +
+            "7. For 'startDate' and 'deadline': (Strings) Must be logical dates in YYYY-MM-DD format respecting the requirement's dates.\n\n" +
             "STRICT BUSINESS RULE: A Use Case MUST have at least one valid actor in 'primaryActors' if it includes or extends another Use Case. An isolated Use Case without an actor CANNOT include or extend other Use Cases.\n\n" +
             "--- NEW REQUIREMENT ---\n" + reqContext + "\n\n" +
             "--- EXISTING USE CASES ---\n" + existingUcsContext.toString();
@@ -1370,6 +1544,8 @@ public class AiGenerationService {
                         if (updatedNode.has("name")) uc.setName(updatedNode.get("name").asText());
                         if (updatedNode.has("precondition")) uc.setPrecondition(updatedNode.get("precondition").asText());
                         if (updatedNode.has("postcondition")) uc.setPostcondition(updatedNode.get("postcondition").asText());
+                        if (updatedNode.has("startDate") && !updatedNode.get("startDate").isNull() && !updatedNode.get("startDate").asText().equals("N/A")) uc.setStartDate(java.time.LocalDate.parse(updatedNode.get("startDate").asText()));
+                        if (updatedNode.has("deadline") && !updatedNode.get("deadline").isNull() && !updatedNode.get("deadline").asText().equals("N/A")) uc.setDeadline(java.time.LocalDate.parse(updatedNode.get("deadline").asText()));
                         
                         if (updatedNode.has("mainFlows")) {
                             String flows = updatedNode.get("mainFlows").asText();
@@ -1481,6 +1657,8 @@ public class AiGenerationService {
                 uc.setCreatedBy(user);
                 uc.setAiGenerated(true);
                 uc.setSourceGenerationId(staging.getGenerationId());
+                uc.setStartDate(newNode.has("startDate") && !newNode.get("startDate").isNull() && !newNode.get("startDate").asText().equals("N/A") ? java.time.LocalDate.parse(newNode.get("startDate").asText()) : req.getStartDate());
+                uc.setDeadline(newNode.has("deadline") && !newNode.get("deadline").isNull() && !newNode.get("deadline").asText().equals("N/A") ? java.time.LocalDate.parse(newNode.get("deadline").asText()) : req.getDeadline());
                 
                 String reqContentToHash = (req.getTitle() != null ? req.getTitle() : "") + "|" + (req.getDescription() != null ? req.getDescription() : "");
                 String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -1583,11 +1761,13 @@ public class AiGenerationService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId) {
+    public List<org.example.backend.dto.RequirementResponseDTO> suggestRequirementsForUseCase(Long useCaseId, Long projectId) {
         org.example.backend.entity.UseCase uc = useCaseRepository.findById(useCaseId)
                 .orElseThrow(() -> new RuntimeException("Use Case not found: " + useCaseId));
         
-        Long projectId = uc.getProjectId();
+        if (projectId == null) {
+            projectId = uc.getProjectId();
+        }
         List<Requirement> reqs = requirementRepository.findByProjectId(projectId).stream()
                 .filter(r -> !"System Architecture Diagram".equals(r.getTitle()))
                 .toList();

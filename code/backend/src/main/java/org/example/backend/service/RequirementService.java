@@ -14,9 +14,12 @@ public interface RequirementService {
             Long projectId,
             String status,
             String priority,
-            String tag);
+            String tag,
+            String search,
+            Long ownerId);
     RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
     RequirementResponseDTO updateRequirementStatus(Long id, String status);
     RequirementResponseDTO deleteRequirement(Long id);
+    void reorderRequirements(Long projectId, org.example.backend.dto.ReorderRequestDTO request);
     List<String> getTagsByProject(Long projectId);
 }

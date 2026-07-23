@@ -7,6 +7,7 @@ import java.util.Map;
 @Data
 public class UseCaseRequest {
     private Long requirementId;
+    private Long moduleId;
     private String code;
     private String name;
     private String precondition;
@@ -18,4 +19,6 @@ public class UseCaseRequest {
     private List<String> actors;
     private org.example.backend.entity.UseCaseStatus status;
     private String version;
+    private java.time.LocalDate startDate;
+    private java.time.LocalDate deadline;
 }

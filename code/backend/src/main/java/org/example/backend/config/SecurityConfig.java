@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/internal/test-runs/**").permitAll()
                         .requestMatchers("/internal/agent-tasks/**").permitAll()
                         .requestMatchers("/api/v1/agent-tasks/**").permitAll()
-                        .requestMatchers("/api/ws/**", "/ws/notifications/**").permitAll()
+                        .requestMatchers("/api/ws/**", "/ws/notifications/**", "/ws/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()

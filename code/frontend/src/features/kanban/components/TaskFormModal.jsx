@@ -178,7 +178,9 @@ const TaskFormModal = ({
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-[#1E707D]"
               >
                 <option value="">No requirement</option>
-                {requirementOptions.map((requirement) => (
+                {requirementOptions
+                  .filter(req => req.status !== 'CLOSED' || String(req.id) === formData.requirementId)
+                  .map((requirement) => (
                   <option key={requirement.id} value={requirement.id}>
                     {requirement.code} - {requirement.title}
                   </option>
@@ -267,6 +269,8 @@ const TaskFormModal = ({
               <input
                 type="date"
                 value={formData.startDate}
+                min={new Date().toISOString().split('T')[0]}
+                max={formData.deadline || requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
                 onChange={(event) => updateField('startDate', event.target.value)}
                 aria-invalid={Boolean(errors.startDate)}
                 className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${
@@ -281,6 +285,8 @@ const TaskFormModal = ({
                 <input
                   type="date"
                   value={formData.deadline}
+                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  max={requirementOptions.find((r) => String(r.id) === formData.requirementId)?.deadline || activeProject?.deadline}
                   onChange={(event) => updateField('deadline', event.target.value)}
                   aria-invalid={Boolean(errors.deadline)}
                   className={`w-full bg-surface-container-lowest border rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 ${

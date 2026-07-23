@@ -103,55 +103,68 @@ export function TaskReviewDashboardPage() {
 
       <div className="relative z-10 w-full space-y-8">
         
-        {/* Banner */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-2">
-            <span className="bg-white/10 text-white text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-md uppercase">
-              {activeProject?.major} • {activeProject?.semester}
-            </span>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">Task Review Dashboard</h1>
-            <p className="text-white/80 text-sm font-medium">
-              Manage and review pending tasks across all pillars: Gate Result, Evidence Confidence, and Code Risk.
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="bg-primary-container/50 text-primary text-[10px] font-extrabold tracking-wider px-2 py-0.5 rounded-md uppercase">
+                {activeProject?.major || 'PROJ'} • {activeProject?.semester || 'SEM'}
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-on-surface">Task Review</h1>
+            <p className="text-on-surface-variant text-sm max-w-2xl">
+              Monitor and evaluate pending task deliverables, check automated gate results, and ensure requirement alignment.
             </p>
           </div>
           <button
             onClick={loadReviewQueue}
-            className="flex items-center gap-2 bg-white text-primary px-4 py-2 rounded-xl font-bold text-sm hover:bg-surface-container-lowest transition-all shadow-md shrink-0"
+            className="flex items-center gap-2 bg-surface text-on-surface border border-outline-variant px-4 py-2 rounded-xl font-bold text-sm hover:bg-surface-container-low transition-all shadow-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-lg">refresh</span>
+            <span className="material-symbols-outlined text-[18px]">refresh</span>
             Refresh Queue
           </button>
         </div>
 
-        {/* Metrics */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Pending Review</span>
-              <span className="material-symbols-outlined text-primary text-2xl">pending_actions</span>
+        {/* Metrics Section */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-surface border border-outline-variant/40 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div>
+              <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider block mb-1">Total Pending</span>
+              <span className="text-3xl font-black text-on-surface group-hover:text-primary transition-colors">{metrics.total}</span>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">{metrics.total}</p>
+            <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-on-surface-variant text-[22px]">inbox</span>
+            </div>
           </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Ready to Approve</span>
-              <span className="material-symbols-outlined text-green-600 text-2xl">verified</span>
+          
+          <div className="bg-surface border border-outline-variant/40 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div>
+              <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider block mb-1">Ready to Approve</span>
+              <span className="text-3xl font-black text-on-surface group-hover:text-green-600 transition-colors">{metrics.ready}</span>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">{metrics.ready}</p>
+            <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-green-600 text-[22px]">verified</span>
+            </div>
           </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Needs Attention</span>
-              <span className="material-symbols-outlined text-amber-500 text-2xl">warning</span>
+
+          <div className="bg-surface border border-outline-variant/40 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div>
+              <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider block mb-1">Needs Attention</span>
+              <span className="text-3xl font-black text-on-surface group-hover:text-amber-500 transition-colors">{metrics.warning}</span>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">{metrics.warning}</p>
+            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-amber-500 text-[22px]">warning</span>
+            </div>
           </div>
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-5 shadow-sm">
-            <div className="flex justify-between items-center text-outline">
-              <span className="text-xs font-bold uppercase tracking-wider">Blocked</span>
-              <span className="material-symbols-outlined text-error text-2xl">lock</span>
+
+          <div className="bg-surface border border-outline-variant/40 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow group cursor-default">
+            <div>
+              <span className="text-[11px] font-extrabold text-on-surface-variant uppercase tracking-wider block mb-1">Blocked</span>
+              <span className="text-3xl font-black text-on-surface group-hover:text-error transition-colors">{metrics.blocked}</span>
             </div>
-            <p className="text-3xl font-black mt-3 text-on-surface">{metrics.blocked}</p>
+            <div className="w-12 h-12 rounded-full bg-error-container/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-error text-[22px]">lock</span>
+            </div>
           </div>
         </section>
 

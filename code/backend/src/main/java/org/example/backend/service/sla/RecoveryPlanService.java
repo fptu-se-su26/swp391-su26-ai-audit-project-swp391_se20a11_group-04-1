@@ -69,7 +69,7 @@ public class RecoveryPlanService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final List<RecoveryActionExecutor> executorList;
-    private final GeminiRecoveryService geminiRecoveryService;
+    private final org.example.backend.service.ml.MlServiceClient mlServiceClient;
 
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -133,6 +133,11 @@ public class RecoveryPlanService {
 
     @Transactional
     public RecoveryPlanResponse autoGenerateFollowUpPlan(Long projectId, Long taskId, Long previousPlanId) {
+        return generateFollowUpPlan(projectId, taskId, previousPlanId, false);
+    }
+
+    private RecoveryPlanResponse generateFollowUpPlan(Long projectId, Long taskId, Long previousPlanId,
+                                                       boolean bypassRecentPlanCooldown) {
         Task task = taskRepository.findWithDetailsById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
@@ -149,19 +154,23 @@ public class RecoveryPlanService {
             return getLatestActivePlan(projectId, taskId, ACTIVE_STATUSES);
         }
 
-        LocalDateTime recentCutoff = LocalDateTime.now().minusHours(24);
-        if (recoveryPlanRepository.existsByProjectIdAndTaskIdAndGeneratedSourceAndFollowUpTrueAndCreatedAtAfter(
-                projectId, taskId, RecoveryPlanSource.AI, recentCutoff)) {
-            log.debug("Recent follow-up recovery plan already exists for task {}, skipping retry", taskId);
-            return getLatestForTaskInternal(projectId, taskId);
+        if (!bypassRecentPlanCooldown) {
+            LocalDateTime recentCutoff = LocalDateTime.now().minusHours(24);
+            if (recoveryPlanRepository.existsByProjectIdAndTaskIdAndGeneratedSourceAndFollowUpTrueAndCreatedAtAfter(
+                    projectId, taskId, RecoveryPlanSource.AI, recentCutoff)) {
+                log.debug("Recent follow-up recovery plan already exists for task {}, skipping retry", taskId);
+                return getLatestForTaskInternal(projectId, taskId);
+            }
         }
 
-        int aiPlanCountInSprint = recoveryPlanRepository.countByProjectIdAndTaskIdAndGeneratedSourceAndSprintId(
-                projectId, taskId, RecoveryPlanSource.AI, task.getSprintId());
-        if (aiPlanCountInSprint >= MAX_AI_PLANS_PER_TASK_SPRINT) {
-            log.info("Task {} already has {} AI recovery plans in sprint {}, skipping follow-up",
-                    taskId, aiPlanCountInSprint, task.getSprintId());
-            return getLatestForTaskInternal(projectId, taskId);
+        if (!bypassRecentPlanCooldown) {
+            int aiPlanCountInSprint = recoveryPlanRepository.countByProjectIdAndTaskIdAndGeneratedSourceAndSprintId(
+                    projectId, taskId, RecoveryPlanSource.AI, task.getSprintId());
+            if (aiPlanCountInSprint >= MAX_AI_PLANS_PER_TASK_SPRINT) {
+                log.info("Task {} already has {} AI recovery plans in sprint {}, skipping follow-up",
+                        taskId, aiPlanCountInSprint, task.getSprintId());
+                return getLatestForTaskInternal(projectId, taskId);
+            }
         }
 
         return createRecoveryPlan(projectId, task, null, RecoveryPlanSource.AI,
@@ -207,21 +216,21 @@ public class RecoveryPlanService {
             throw new BusinessException("Corrupted SLA state data for task " + taskId + ": invalid categories JSON");
         }
 
-        // Remove NORMAL from categories — it's just a placeholder meaning "no issue"
-        categories.removeIf(c -> "NORMAL".equalsIgnoreCase(c));
+        // Remove NORMAL from categories - it is just a placeholder meaning "no issue"
+        categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
 
         String riskLevel = slaState.getCurrentRiskLevel();
-        boolean isHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+        boolean isHighRisk = "WARNING".equalsIgnoreCase(riskLevel) || "BREACH".equalsIgnoreCase(riskLevel);
 
         if (!isHighRisk && categories.isEmpty()) {
-            throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only HIGH or CRITICAL tasks can have recovery plans.");
+            throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only WARNING or BREACH tasks can have recovery plans.");
         }
 
-        GeminiRecoveryResult aiContent = shouldUseAiRecoveryContent(source)
-                ? geminiRecoveryService.generateContent(buildGeminiContext(task, slaState, categories, isFollowUp, previousPlanId))
-                : null;
-        String summary = aiContent != null && aiContent.getSummary() != null && !aiContent.getSummary().isBlank()
-                ? aiContent.getSummary()
+        AiRecoveryContext aiCtx = buildAiContext(task, slaState, categories, isFollowUp, previousPlanId);
+        AiRecoveryResult aiContent = mlServiceClient.generateRecoveryPlan(aiCtx);
+        
+        String summary = aiContent != null && aiContent.getSelectedPlan() != null && aiContent.getSelectedPlan().getSummary() != null && !aiContent.getSelectedPlan().getSummary().isBlank()
+                ? aiContent.getSelectedPlan().getSummary()
                 : String.format("Task is %s risk because of %s. The system recommends recovery actions for leader approval.",
                         slaState.getCurrentRiskLevel(), String.join(" and ", categories));
 
@@ -231,7 +240,6 @@ public class RecoveryPlanService {
                 .taskId(taskId)
                 .generatedByUserId(currentUserId)
                 .generatedSource(source)
-                .generationMode(resolveGenerationMode(source, aiContent))
                 .status(RecoveryPlanStatus.PENDING_APPROVAL)
                 .riskLevel(slaState.getCurrentRiskLevel())
                 .riskCategoriesJson(slaState.getCategoriesJson())
@@ -247,15 +255,23 @@ public class RecoveryPlanService {
         }
 
         List<RecoveryPlanAction> actions = buildActions(plan, task, slaState, categories, aiContent);
+        plan.setGenerationMode(resolveGenerationMode(aiContent));
 
         recoveryPlanActionRepository.saveAll(actions);
         
+        if (aiContent != null) {
+            try {
+                plan.setPlanDetailsJson(objectMapper.writeValueAsString(aiContent));
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize AI content to JSON", e);
+            }
+        }
+        
         // Update summary with action count
-        if (aiContent == null || aiContent.getSummary() == null || aiContent.getSummary().isBlank()) {
+        if (aiContent == null || aiContent.getSelectedPlan() == null || aiContent.getSelectedPlan().getSummary() == null || aiContent.getSelectedPlan().getSummary().isBlank()) {
             plan.setSummary(String.format("Task is %s risk because of %s. The system recommends %d recovery actions for leader approval.",
                     slaState.getCurrentRiskLevel(), String.join(" and ", categories), actions.size()));
         }
-        plan.setPlanDetailsJson(buildPlanDetailsJson(source, aiContent, categories, actions));
         recoveryPlanRepository.save(plan);
 
         String generationMessage = isFollowUp
@@ -273,39 +289,8 @@ public class RecoveryPlanService {
         return mapToResponse(plan);
     }
 
-    private boolean shouldUseAiRecoveryContent(RecoveryPlanSource source) {
-        return source == RecoveryPlanSource.AI;
-    }
-
-    private RecoveryPlanGenerationMode resolveGenerationMode(RecoveryPlanSource source, GeminiRecoveryResult aiContent) {
-        if (source != RecoveryPlanSource.AI) {
-            return RecoveryPlanGenerationMode.RULE_FALLBACK;
-        }
-        return aiContent == null ? RecoveryPlanGenerationMode.AI_FAILED_FALLBACK : RecoveryPlanGenerationMode.AI_GENERATED;
-    }
-
-    private String buildPlanDetailsJson(RecoveryPlanSource source, GeminiRecoveryResult aiContent,
-                                        List<String> categories, List<RecoveryPlanAction> actions) {
-        Map<String, Object> details = new LinkedHashMap<>();
-        details.put("source", source != null ? source.name() : null);
-        details.put("aiContentUsed", aiContent != null);
-        details.put("categoryCount", categories != null ? categories.size() : 0);
-        details.put("actionCount", actions != null ? actions.size() : 0);
-        details.put("actionTypes", actions == null ? List.of() : actions.stream()
-                .map(RecoveryPlanAction::getActionType)
-                .filter(actionType -> actionType != null)
-                .map(Enum::name)
-                .collect(Collectors.toList()));
-        try {
-            return objectMapper.writeValueAsString(details);
-        } catch (JsonProcessingException ex) {
-            log.warn("Failed to serialize recovery plan details JSON: {}", ex.getMessage());
-            return "{}";
-        }
-    }
-
     private List<RecoveryPlanAction> buildActions(RecoveryPlan plan, Task task, TaskSlaState slaState,
-                                                  List<String> categories, GeminiRecoveryResult aiContent) {
+                                                  List<String> categories, AiRecoveryResult aiContent) {
         List<RecoveryPlanAction> aiActions = buildAiSelectedActions(plan, task, aiContent);
         if (!aiActions.isEmpty()) {
             return assignIdempotencyKeys(plan, aiActions, "AI");
@@ -314,25 +299,44 @@ public class RecoveryPlanService {
         return assignIdempotencyKeys(plan, buildRuleBasedActions(plan, task, slaState, categories, aiContent), "RULE");
     }
 
-    private List<RecoveryPlanAction> buildAiSelectedActions(RecoveryPlan plan, Task task, GeminiRecoveryResult aiContent) {
-        if (aiContent == null || aiContent.getSelectedActions() == null || aiContent.getSelectedActions().isEmpty()) {
+    private RecoveryPlanGenerationMode resolveGenerationMode(AiRecoveryResult aiContent) {
+        if (hasUsableAiSelectedActions(aiContent)) {
+            return RecoveryPlanGenerationMode.AI_GENERATED;
+        }
+        return RecoveryPlanGenerationMode.AI_FAILED_FALLBACK;
+    }
+
+    private boolean hasUsableAiSelectedActions(AiRecoveryResult aiContent) {
+        if (aiContent == null || aiContent.getSelectedPlan() == null || aiContent.getSelectedPlan().getActions() == null || aiContent.getSelectedPlan().getActions().isEmpty()) {
+            return false;
+        }
+        return aiContent.getSelectedPlan().getActions().stream()
+                .filter(action -> action != null)
+                .map(action -> parseActionType(action.getActionType()))
+                .anyMatch(actionType -> actionType != null && ALLOWED_AI_ACTION_TYPES.contains(actionType));
+    }
+
+    private List<RecoveryPlanAction> buildAiSelectedActions(RecoveryPlan plan, Task task, AiRecoveryResult aiContent) {
+        if (aiContent == null || aiContent.getSelectedPlan() == null || aiContent.getSelectedPlan().getActions() == null || aiContent.getSelectedPlan().getActions().isEmpty()) {
             return List.of();
         }
 
         List<RecoveryPlanAction> actions = new ArrayList<>();
-        for (GeminiRecoveryAction selectedAction : aiContent.getSelectedActions()) {
+        for (AiRecoveryAction selectedAction : aiContent.getSelectedPlan().getActions()) {
             if (actions.size() >= MAX_AI_ACTIONS || selectedAction == null) {
                 break;
             }
 
             RecoveryActionType actionType = parseActionType(selectedAction.getActionType());
             if (actionType == null || !ALLOWED_AI_ACTION_TYPES.contains(actionType)) {
-                log.debug("Ignoring unsupported Gemini recovery action: {}", selectedAction.getActionType());
+                log.debug("Ignoring unsupported AI recovery action: {}", selectedAction.getActionType());
                 continue;
             }
 
             RecoveryActionPriority priority = parsePriority(selectedAction.getPriority(), RecoveryActionPriority.MEDIUM);
-            String message = selectedAction.getMessage();
+            String message = selectedAction.getActionDetails() != null && !selectedAction.getActionDetails().isBlank() 
+                    ? selectedAction.getActionDetails() 
+                    : defaultMessageForAction(actionType);
             if (message == null || message.isBlank()) {
                 message = defaultMessageForAction(actionType);
             }
@@ -346,6 +350,7 @@ public class RecoveryPlanService {
                     .status(RecoveryPlanActionStatus.PENDING)
                     .priority(priority)
                     .message(message)
+                    .payloadJson(buildAiActionPayload(selectedAction))
                     .build());
         }
 
@@ -353,7 +358,7 @@ public class RecoveryPlanService {
     }
 
     private List<RecoveryPlanAction> buildRuleBasedActions(RecoveryPlan plan, Task task, TaskSlaState slaState,
-                                                           List<String> categories, GeminiRecoveryResult aiContent) {
+                                                           List<String> categories, AiRecoveryResult aiContent) {
         List<RecoveryPlanAction> actions = new ArrayList<>();
         for (String category : categories) {
             RecoveryPlanAction action = createRuleBasedActionForCategory(category, plan, task, aiContent);
@@ -362,7 +367,7 @@ public class RecoveryPlanService {
             }
         }
 
-        if (Arrays.asList("HIGH", "CRITICAL").contains(slaState.getCurrentRiskLevel().toUpperCase())) {
+        if (Arrays.asList("WARNING", "BREACH").contains(slaState.getCurrentRiskLevel().toUpperCase())) {
             actions.add(RecoveryPlanAction.builder()
                     .recoveryPlan(plan)
                     .projectId(plan.getProjectId())
@@ -380,7 +385,7 @@ public class RecoveryPlanService {
     }
 
     private RecoveryPlanAction createRuleBasedActionForCategory(String category, RecoveryPlan plan, Task task,
-                                                               GeminiRecoveryResult aiContent) {
+                                                               AiRecoveryResult aiContent) {
         RecoveryActionType actionType = null;
         RecoveryActionPriority priority = null;
         String message = null;
@@ -486,6 +491,8 @@ public class RecoveryPlanService {
         return task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
     }
 
+
+
     private String defaultMessageForAction(RecoveryActionType actionType) {
         return switch (actionType) {
             case NOTIFY_ASSIGNEE -> "Please update progress and the remaining work for this task.";
@@ -499,11 +506,56 @@ public class RecoveryPlanService {
         };
     }
 
-    private GeminiRecoveryContext buildGeminiContext(Task task, TaskSlaState slaState, List<String> categories,
+    private AiRecoveryContext buildAiContext(Task task, TaskSlaState slaState, List<String> categories,
                                                      boolean isFollowUp, Long previousPlanId) {
         RecoveryPlan previousPlan = resolvePreviousPlan(task.getProject().getId(), task.getId(), previousPlanId);
-        return GeminiRecoveryContext.builder()
+        
+        Double remainingHours = null;
+        List<String> dataGaps = new ArrayList<>();
+        
+        if (task.getEstimatedHours() != null && task.getActualHours() != null) {
+            double est = task.getEstimatedHours().doubleValue();
+            double act = task.getActualHours().doubleValue();
+            remainingHours = Math.max(est - act, 0.0);
+        } else {
+            dataGaps.add("missing_estimate_or_actual_hours");
+        }
+        
+        AiRecoveryContext.ChecklistCompletion checklistCompletion = null;
+        if (task.getChecklist() != null && !task.getChecklist().isEmpty()) {
+            int total = task.getChecklist().size();
+            int done = (int) task.getChecklist().stream().filter(item -> item != null && item.isDone()).count();
+            List<String> openItems = task.getChecklist().stream()
+                    .filter(item -> item != null && !item.isDone() && item.getContent() != null && !item.getContent().isBlank())
+                    .map(item -> item.getContent().trim())
+                    .collect(Collectors.toList());
+            checklistCompletion = AiRecoveryContext.ChecklistCompletion.builder()
+                    .total(total)
+                    .done(done)
+                    .open(total - done)
+                    .openItems(openItems)
+                    .build();
+        } else {
+            if (task.getSubTasks() == null || task.getSubTasks().isEmpty()) {
+                dataGaps.add("missing_checklist_and_subtasks");
+            }
+        }
+
+        return AiRecoveryContext.builder()
                 .taskTitle(task.getTitle())
+                .taskDescription(task.getDescription())
+                .taskType(task.getType() != null ? task.getType().name() : null)
+                .taskPriority(task.getPriority() != null ? task.getPriority().name() : null)
+                .taskStatus(task.getStatus() != null ? task.getStatus().name() : null)
+                .startDate(task.getStartDate() != null ? task.getStartDate().toString() : null)
+                .deadline(task.getDeadline() != null ? task.getDeadline().toString() : null)
+                .blockedReason(task.getBlockedReason())
+                .estimatedHours(task.getEstimatedHours() != null ? task.getEstimatedHours().stripTrailingZeros().toPlainString() : null)
+                .actualHours(task.getActualHours() != null ? task.getActualHours().stripTrailingZeros().toPlainString() : null)
+                .githubIssueUrl(task.getGithubIssueUrl())
+                .currentChecklistItems(resolveChecklistItems(task, false))
+                .openChecklistItems(resolveChecklistItems(task, true))
+                .subTaskTitles(resolveSubTaskTitles(task))
                 .riskLevel(slaState.getCurrentRiskLevel())
                 .categories(categories)
                 .reasons(parseStringList(slaState.getReasonsJson()))
@@ -518,7 +570,130 @@ public class RecoveryPlanService {
                 .lastScoreBefore(previousPlan != null ? previousPlan.getScoreBeforeExecution() : null)
                 .lastScoreAfter(previousPlan != null ? previousPlan.getScoreAfterExecution() : null)
                 .followUp(isFollowUp)
+                .memberCandidates(buildMemberCandidates(task))
+                .aiProvider("ollama")
+                .aiModel("my-agile-coach")
+                .remainingHours(remainingHours)
+                .checklistCompletion(checklistCompletion)
+                // The ML API accepts arrays, not JSON null, for these optional facts.
+                .dependencies(List.of())
+                .previousPlanOutcomes(List.of())
+                .evidenceGaps(dataGaps)
+                .taskFacts(List.of())
                 .build();
+    }
+
+    private List<String> resolveChecklistItems(Task task, boolean openOnly) {
+        if (task == null || task.getChecklist() == null || task.getChecklist().isEmpty()) {
+            return List.of();
+        }
+        return task.getChecklist().stream()
+                .filter(item -> item != null && item.getContent() != null && !item.getContent().isBlank())
+                .filter(item -> !openOnly || !item.isDone())
+                .sorted(Comparator.comparingInt(TaskChecklist::getOrderIndex))
+                .map(item -> (item.isDone() ? "[done] " : "[open] ") + item.getContent().trim())
+                .limit(8)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> resolveSubTaskTitles(Task task) {
+        if (task == null || task.getSubTasks() == null || task.getSubTasks().isEmpty()) {
+            return List.of();
+        }
+        return task.getSubTasks().stream()
+                .filter(subTask -> subTask != null && subTask.getTitle() != null && !subTask.getTitle().isBlank())
+                .map(subTask -> {
+                    String status = subTask.getStatus() != null ? subTask.getStatus().name() : "UNKNOWN";
+                    return "[" + status + "] " + subTask.getTitle().trim();
+                })
+                .limit(8)
+                .collect(Collectors.toList());
+    }
+
+    private List<AiRecoveryMemberCandidate> buildMemberCandidates(Task task) {
+        if (task == null || task.getProject() == null || task.getProject().getId() == null) {
+            return List.of();
+        }
+        List<ProjectMember> members = projectMemberRepository.findByProjectId(task.getProject().getId());
+        if (members == null || members.isEmpty()) {
+            return List.of();
+        }
+        Long currentAssigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
+        return members.stream()
+                .filter(member -> member != null && member.getUser() != null && member.getUser().isActive())
+                .filter(member -> member.getRole() == null || !LEADER_ROLE_NAMES.contains(normalizeRoleName(member.getRole().getName())))
+                .map(member -> {
+                    Long userId = member.getUser().getId();
+                    return AiRecoveryMemberCandidate.builder()
+                            .userId(userId)
+                            .displayName(resolveDisplayName(member.getUser()))
+                            .roleName(member.getRole() != null ? member.getRole().getName() : null)
+                            .activeTaskCount(userId != null ? taskRepository.countActiveTasksByAssignee(userId) : 0)
+                            .overdueTaskCount(userId != null ? taskRepository.countOverdueTasks(userId) : 0)
+                            .currentAssignee(currentAssigneeId != null && currentAssigneeId.equals(userId))
+                            .build();
+                })
+                .sorted(Comparator.comparingLong(AiRecoveryMemberCandidate::getActiveTaskCount)
+                        .thenComparing(AiRecoveryMemberCandidate::getDisplayName, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .limit(6)
+                .collect(Collectors.toList());
+    }
+
+    private String normalizeRoleName(String roleName) {
+        return roleName == null ? "" : roleName.trim().toUpperCase();
+    }
+
+    private String resolveDisplayName(UserAccount user) {
+        if (user == null) {
+            return "Unknown member";
+        }
+        if (user.getProfile() != null && user.getProfile().getFullName() != null && !user.getProfile().getFullName().isBlank()) {
+            return user.getProfile().getFullName();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getEmail() != null ? user.getEmail() : "Member #" + user.getId();
+    }
+
+    private String buildAiActionPayload(AiRecoveryAction selectedAction) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (selectedAction == null) {
+            return "{}";
+        }
+        if (selectedAction.getRationale() != null && !selectedAction.getRationale().isBlank()) {
+            payload.put("rationale", selectedAction.getRationale().trim());
+        }
+        List<String> checklistItems = sanitizeChecklistItems(selectedAction.getChecklistItems());
+        if (!checklistItems.isEmpty()) {
+            payload.put("checklistItems", checklistItems);
+        }
+        if (selectedAction.getRecommendedAssigneeId() != null) {
+            payload.put("recommendedAssigneeId", selectedAction.getRecommendedAssigneeId());
+        }
+        if (selectedAction.getRecommendedAssigneeName() != null && !selectedAction.getRecommendedAssigneeName().isBlank()) {
+            payload.put("recommendedAssigneeName", selectedAction.getRecommendedAssigneeName().trim());
+        }
+        if (payload.isEmpty()) {
+            return "{}";
+        }
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize AI recovery action payload: {}", ex.getMessage());
+            return "{}";
+        }
+    }
+
+    private List<String> sanitizeChecklistItems(List<String> checklistItems) {
+        if (checklistItems == null || checklistItems.isEmpty()) {
+            return List.of();
+        }
+        return checklistItems.stream()
+                .filter(item -> item != null && !item.isBlank())
+                .map(String::trim)
+                .limit(6)
+                .collect(Collectors.toList());
     }
 
     private RecoveryPlan resolvePreviousPlan(Long projectId, Long taskId, Long previousPlanId) {
@@ -555,20 +730,8 @@ public class RecoveryPlanService {
         }
     }
 
-    private String resolveAiMessage(GeminiRecoveryResult aiContent, RecoveryActionType actionType, String fallback) {
-        if (aiContent == null || actionType == null) {
-            return fallback;
-        }
-
-        String candidate = switch (actionType) {
-            case NOTIFY_ASSIGNEE -> aiContent.getNotifyMessage();
-            case ESCALATE_LEADER -> aiContent.getEscalateMessage();
-            case REQUEST_EVIDENCE -> aiContent.getEvidenceMessage();
-            case ASK_BLOCKER_UPDATE -> aiContent.getBlockerMessage();
-            case CREATE_RECOVERY_CHECKLIST -> aiContent.getChecklistMessage();
-            default -> null;
-        };
-        return candidate == null || candidate.isBlank() ? fallback : candidate;
+    private String resolveAiMessage(AiRecoveryResult aiContent, RecoveryActionType actionType, String fallback) {
+        return fallback;
     }
 
     private void notifyLeadersAboutAutoPlan(Task task, RecoveryPlan plan) {
@@ -683,6 +846,13 @@ public class RecoveryPlanService {
         }
 
         plan = recoveryPlanRepository.save(plan);
+
+        // RLHF: send APPROVE signal - fire-and-forget
+        mlServiceClient.sendRecoverySignal(
+                plan.getId(), "APPROVE", null, null,
+                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                plan.getSummary(), null);
+
         return mapToResponse(plan);
     }
 
@@ -690,11 +860,10 @@ public class RecoveryPlanService {
     public RecoveryPlanResponse rejectPlan(Long projectId, Long planId, Long currentUserId, String reason) {
         ensureLeaderOrMentor(projectId, currentUserId);
 
-        if (reason == null || reason.trim().isEmpty()) {
-            throw new BusinessException("Reject reason is required");
-        }
-        
-        String trimmedReason = reason.trim();
+        String trimmedReason = reason == null || reason.isBlank() ? null : reason.trim();
+        String rejectionMessage = trimmedReason == null
+                ? "Recovery plan rejected without a reason"
+                : "Recovery plan rejected: " + trimmedReason;
 
         RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
@@ -714,21 +883,32 @@ public class RecoveryPlanService {
 
         recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_REJECTED,
                 RecoveryPlanStatus.PENDING_APPROVAL.name(), RecoveryPlanStatus.REJECTED.name(),
-                "Recovery plan rejected: " + trimmedReason, null);
+                rejectionMessage, null);
 
         List<RecoveryPlanAction> actions = recoveryPlanActionRepository.findByRecoveryPlanIdOrderByCreatedAtAsc(planId);
         if (actions != null) {
             for (RecoveryPlanAction action : actions) {
                 if (action.getStatus() == RecoveryPlanActionStatus.PENDING) {
                     action.setStatus(RecoveryPlanActionStatus.SKIPPED);
-                    action.setResultMessage("Plan rejected: " + trimmedReason);
+                    action.setResultMessage(trimmedReason == null
+                            ? "Plan rejected without a reason"
+                            : "Plan rejected: " + trimmedReason);
                 }
             }
             recoveryPlanActionRepository.saveAll(actions);
         }
 
         plan = recoveryPlanRepository.save(plan);
-        return mapToResponse(plan);
+
+        // RLHF: send REJECT signal - fire-and-forget
+        mlServiceClient.sendRecoverySignal(
+                plan.getId(), "REJECT", null, null,
+                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                plan.getSummary(), trimmedReason);
+
+        // Keep the rejected plan for audit history and immediately prepare an
+        // alternative plan for the next leader review.
+        return generateFollowUpPlan(projectId, plan.getTaskId(), plan.getId(), true);
     }
 
     @Transactional
@@ -876,6 +1056,13 @@ public class RecoveryPlanService {
                 GateVerdict verdict = evaluateGate(plan, currentState);
                 plan.setGateResult(verdict.result());
                 plan.setGateReason(verdict.reason());
+
+                // RLHF: send GATE_RESULT signal - fire-and-forget
+                mlServiceClient.sendRecoverySignal(
+                        plan.getId(), "GATE_RESULT",
+                        plan.getScoreBeforeExecution(), plan.getScoreAfterExecution(),
+                        plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
+                        null, null);
 
                 if ("FAILED".equals(verdict.result())) {
                     plan.setStatus(RecoveryPlanStatus.DECLINED);
@@ -1082,6 +1269,17 @@ public class RecoveryPlanService {
 
     private record GateVerdict(String result, String reason) {}
 
+    /** Parse riskCategoriesJson -> List<String>. Returns empty list on any error. */
+    private java.util.List<String> parseCategoryList(String json) {
+        try {
+            if (json == null || json.isBlank()) return java.util.List.of();
+            return objectMapper.readValue(json,
+                    new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {});
+        } catch (Exception e) {
+            return java.util.List.of();
+        }
+    }
+
     private GateVerdict evaluateGate(RecoveryPlan plan, TaskSlaState currentState) {
         if (plan.getScoreBeforeExecution() == null || plan.getScoreAfterExecution() == null) {
             return new GateVerdict("INSUFFICIENT_DATA",
@@ -1095,7 +1293,7 @@ public class RecoveryPlanService {
         int before = plan.getScoreBeforeExecution();
         int after = plan.getScoreAfterExecution();
         String riskLevel = currentState.getCurrentRiskLevel();
-        boolean stillHighRisk = "HIGH".equalsIgnoreCase(riskLevel) || "CRITICAL".equalsIgnoreCase(riskLevel);
+        boolean stillHighRisk = "WARNING".equalsIgnoreCase(riskLevel) || "BREACH".equalsIgnoreCase(riskLevel);
 
         if (after > before && !stillHighRisk) {
             return new GateVerdict("PASSED",

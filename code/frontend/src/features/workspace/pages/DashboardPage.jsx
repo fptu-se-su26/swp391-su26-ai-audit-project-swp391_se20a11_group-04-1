@@ -117,6 +117,8 @@ export function DashboardPage() {
     loading,
     error,
     fetchProjects,
+    fetchProjectById,
+    reopenProject,
     createProject,
     loadMore,
     visibleCount,
@@ -157,9 +159,8 @@ export function DashboardPage() {
     }
     setReopening(true)
     try {
-      await axiosInstance.post(`/v1/projects/${projectId}/reopen`, { reason: reason.trim() })
+      await reopenProject(projectId, reason.trim())
       toast.success('Project has been reopened!')
-      fetchProjects()
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to reopen project.')
     } finally {
@@ -524,49 +525,34 @@ export function DashboardPage() {
     }
   }
 
-  // --- SMART SORT: ưu tiên deadline gần hôm nay nhất ---
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   const filteredProjects = projects
-    // 1. Lọc theo Tab (bổ sung client-side nếu đã lọc server-side)
+    // Filter out ARCHIVED projects (they belong under /archived)
     .filter((project) => {
-      if (activeTab === 'active') return project.status === 'ACTIVE'
+      if (activeTab === 'active') return project.status === 'ACTIVE' || !project.status
       if (activeTab === 'completed') return project.status === 'COMPLETED'
-      return true
+      return project.status !== 'ARCHIVED'
     })
     // 2. Lọc theo tìm kiếm (client-side)
     .filter((project) => {
       const q = searchQuery.toLowerCase().trim()
       if (!q) return true
       return (
-        project.title.toLowerCase().includes(q) ||
-        project.major.toLowerCase().includes(q) ||
-        project.role.toLowerCase().includes(q)
+        (project.title && project.title.toLowerCase().includes(q)) ||
+        (project.major && project.major.toLowerCase().includes(q)) ||
+        (project.role && project.role.toLowerCase().includes(q))
       )
     })
-    // 3. Smart Sort theo deadline priority
+    // 3. Smart Sort
     .sort((a, b) => {
-      // Nếu user chọn sort khác (name, progress) thì dùng sort đó
-      if (sortBy === 'name') return a.title.localeCompare(b.title)
-      if (sortBy === 'progress') return b.progress - a.progress
+      if (sortBy === 'name') return (a.title || '').localeCompare(b.title || '')
+      if (sortBy === 'progress') return (b.progress || 0) - (a.progress || 0)
 
-      // sortBy === 'recent' → Smart deadline sort
-      const aDeadline = new Date(a.deadline)
-      const bDeadline = new Date(b.deadline)
-      const aCompleted = a.status === 'COMPLETED' || a.status === 'ARCHIVED'
-      const bCompleted = b.status === 'COMPLETED' || b.status === 'ARCHIVED'
-      const aOverdue = !aCompleted && aDeadline < today
-      const bOverdue = !bCompleted && bDeadline < today
-
-      // Completed/Archived → cuối danh sách
-      if (aCompleted !== bCompleted) return aCompleted ? 1 : -1
-      // Non-overdue → trước overdue
-      if (aOverdue !== bOverdue) return aOverdue ? 1 : -1
-      // Cả 2 đều overdue → gần hôm nay nhất lên trước (DESC deadline)
-      if (aOverdue && bOverdue) return bDeadline - aDeadline
-      // Cả 2 đều non-overdue → deadline gần nhất lên trước (ASC deadline)
-      return aDeadline - bDeadline
+      const dateA = new Date(a.updatedAt || a.createdAt || a.deadline || 0)
+      const dateB = new Date(b.updatedAt || b.createdAt || b.deadline || 0)
+      return dateB - dateA
     })
 
   // Danh sách visible (slice theo visibleCount)
@@ -888,7 +874,7 @@ export function DashboardPage() {
               {/* Counter */}
               <p className="text-xs text-on-surface-variant">
                 Showing <span className="font-bold text-on-surface">{Math.min(visibleCount, filteredProjects.length)}</span>
-                {' '}of <span className="font-bold text-on-surface">{totalCount}</span> projects
+                {' '}of <span className="font-bold text-on-surface">{filteredProjects.length}</span> active projects
               </p>
 
               {/* Load More Button */}
@@ -1375,11 +1361,11 @@ export function DashboardPage() {
         {(() => {
           const role = (activeProject.role || '').toUpperCase()
           const isLeaderOrMentor = role.includes('LEADER') || role === 'MENTOR'
-          const isArchived = activeProject.status === 'ARCHIVED'
+          const isClosed = activeProject.status === 'COMPLETED' || activeProject.status === 'ARCHIVED'
           
           return (
             <div 
-              className={`p-5 md:p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 relative overflow-hidden ${!activeProject.coverImageUrl ? (isArchived ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container') : ''}`}
+              className={`p-5 md:p-6 rounded-2xl text-white shadow-lg flex flex-col gap-4 relative overflow-hidden ${!activeProject.coverImageUrl ? (isClosed ? 'bg-gradient-to-r from-gray-600 to-gray-700' : 'bg-gradient-to-r from-primary to-primary-container') : ''}`}
             >
               {/* Background image & overlay if present */}
               {activeProject.coverImageUrl && (
@@ -1410,9 +1396,9 @@ export function DashboardPage() {
                       {activeProject.type || 'Web app'} • {activeProject.major || 'Personal'} • 2026
                     </span>
                     
-                    {isArchived && (
+                    {isClosed && (
                       <span className="bg-gray-500/40 text-white text-[10px] font-extrabold tracking-wider px-3 py-1.5 rounded-[8px] uppercase border border-white/20 shadow-sm">
-                        ARCHIVED
+                        {activeProject.status === 'ARCHIVED' ? 'ARCHIVED' : 'COMPLETED'}
                       </span>
                     )}
                   </div>
@@ -1506,7 +1492,7 @@ export function DashboardPage() {
                   <span className="relative z-10">{exportingTracking ? 'Exporting...' : 'Export Tracking'}</span>
                 </button>
 
-                {!isArchived && (
+                {!isClosed && (
                   <button
                     onClick={() => setIsClosureModalOpen(true)}
                     className="group relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-400/50 text-white text-xs font-bold shadow-[0_4px_12px_rgba(239,68,68,0.2)] hover:shadow-[0_4px_20px_rgba(239,68,68,0.5)] active:scale-95 transition-all duration-300 overflow-hidden"
@@ -1517,7 +1503,7 @@ export function DashboardPage() {
                   </button>
                 )}
 
-                {isArchived && (
+                {isClosed && (
                   <button
                     onClick={() => handleReopen(activeProject.id)}
                     disabled={reopening}
@@ -1807,7 +1793,7 @@ export function DashboardPage() {
               {dashboardData?.recentActivities?.length > visibleActivities && (
                 <div className="pt-2 pb-2 text-center">
                   <button 
-                    onClick={() => setVisibleActivities(prev => prev + 5)}
+                    onClick={() => setVisibleActivities(dashboardData.recentActivities.length)}
                     className="text-[11px] font-bold text-primary uppercase tracking-wider px-4 py-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors shadow-sm"
                   >
                     Xem thêm...
@@ -1867,7 +1853,16 @@ export function DashboardPage() {
           projectId={activeProject.id}
           projectTitle={activeProject.title}
           onClose={() => setIsClosureModalOpen(false)}
-          onClosed={() => fetchProjects()}
+          onClosed={() => {
+            useProjectStore.setState((state) => ({
+              projects: state.projects.map((p) => (p.id === activeProject.id ? { ...p, status: 'ARCHIVED' } : p)),
+              activeProject: state.activeProject?.id === activeProject.id ? { ...state.activeProject, status: 'ARCHIVED' } : state.activeProject
+            }))
+            fetchProjects()
+            if (activeProject?.id) {
+              fetchProjectById(activeProject.id)
+            }
+          }}
         />
       )}
 

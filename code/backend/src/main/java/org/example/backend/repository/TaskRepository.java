@@ -22,6 +22,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectIdOrderByUpdatedAtDesc(Long projectId);
 
     List<Task> findByProjectId(Long projectId);
+    List<Task> findByBusinessModuleId(Long businessModuleId);
 
     long countByProjectId(Long projectId);
 
@@ -199,6 +200,23 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(DISTINCT t) FROM Task t LEFT JOIN t.assignees a WHERE t.project.id = :projectId " +
            "AND (t.primaryAssignee.id = :userId OR a.id = :userId) AND t.status = 'DONE'")
     long countCompletedTasksByProjectAndUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(AVG(t.estimatedHours), 8.0) FROM Task t " +
+           "WHERE t.primaryAssignee.id = :userId AND t.status = 'DONE' AND t.estimatedHours IS NOT NULL")
+    double avgEstimatedHoursOfCompletedTasks(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT
+                COUNT(t),
+                SUM(CASE WHEN s.overdueDays > 0 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN s.currentRiskLevel IN ('WARNING','BREACH') THEN 1 ELSE 0 END),
+                SUM(CASE WHEN t.blockedReason IS NOT NULL THEN 1 ELSE 0 END),
+                COALESCE(AVG(s.spi), 0.85),
+                COUNT(DISTINCT t.primaryAssignee.id)
+            FROM Task t LEFT JOIN TaskSlaState s ON s.task = t
+            WHERE t.sprintId = :sprintId AND t.project.id = :projectId
+            """)
+    List<Object[]> sprintSlaStats(@Param("sprintId") Long sprintId, @Param("projectId") Long projectId);
 
     @Query("SELECT COALESCE(MAX(t.projectSubId), 0) FROM Task t WHERE t.project.id = :projectId")
     int findMaxProjectSubIdByProjectId(@Param("projectId") Long projectId);

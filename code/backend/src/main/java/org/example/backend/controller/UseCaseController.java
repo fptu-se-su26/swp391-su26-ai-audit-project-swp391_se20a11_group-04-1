@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import jakarta.servlet.http.HttpSession;
 
 import jakarta.validation.Valid;
@@ -40,12 +41,18 @@ public class UseCaseController {
             @RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false, defaultValue = "") String status,
             @RequestParam(required = false) Boolean isDraft,
+            @RequestParam(required = false) Boolean mine,
+            @RequestParam(required = false) Long moduleId,
+            @RequestParam(required = false) Long requirementId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            HttpSession session) {
         String searchKeyword = keyword.isEmpty() ? null : keyword;
         String searchStatus = status.isEmpty() ? null : status;
-        Pageable pageable = PageRequest.of(page, size);
-        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, pageable);
+        Long userId = requireUser(session);
+        Long ownerId = (mine != null && mine) ? userId : null;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Order.asc("ucOrder").nullsLast(), Sort.Order.desc("id")));
+        Page<UseCaseResponse> response = useCaseService.searchUseCases(projectId, searchKeyword, searchStatus, isDraft, ownerId, moduleId, requirementId, pageable);
         return ResponseEntity.ok(ApiResponse.success(response, "Use cases retrieved"));
     }
 
@@ -64,34 +71,57 @@ public class UseCaseController {
     }
 
     @PatchMapping("/{id}/approve")
-    @PreAuthorizeProjectMember
+    @PreAuthorizeProjectLeader
     public ResponseEntity<ApiResponse<UseCaseResponse>> approveUseCase(
             @PathVariable Long id, 
             @RequestParam Long projectId,
-            @RequestParam(required = false) Long requirementId) {
-        UseCaseResponse response = useCaseService.approveUseCase(id, projectId, requirementId);
+            @RequestParam(required = false) Long requirementId,
+            @RequestParam(required = false, defaultValue = "BOTH") String type) {
+        UseCaseResponse response = useCaseService.approveUseCase(id, projectId, requirementId, type);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case approved"));
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorizeProjectMember
-    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseStatusUpdateRequest request) {
-        UseCaseResponse response = useCaseService.updateUseCaseStatus(id, projectId, request.getStatus());
+    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCaseStatus(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseStatusUpdateRequest request, HttpSession session) {
+        Long userId = requireUser(session);
+        UseCaseResponse response = useCaseService.updateUseCaseStatus(id, projectId, request, userId);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case status updated"));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorizeProjectLeader
-    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCase(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseRequest request) {
-        UseCaseResponse response = useCaseService.updateUseCase(id, projectId, request);
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<UseCaseResponse>> updateUseCase(@PathVariable Long id, @RequestParam Long projectId, @Valid @RequestBody UseCaseRequest request, HttpSession session) {
+        Long userId = requireUser(session);
+        UseCaseResponse response = useCaseService.updateUseCase(id, projectId, request, userId);
         return ResponseEntity.ok(ApiResponse.success(response, "Use case updated"));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorizeProjectLeader
-    public ResponseEntity<ApiResponse<Void>> deleteUseCase(@PathVariable Long id, @RequestParam Long projectId) {
-        useCaseService.deleteUseCase(id, projectId);
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<Void>> deleteUseCase(@PathVariable Long id, @RequestParam Long projectId, HttpSession session) {
+        Long userId = requireUser(session);
+        useCaseService.deleteUseCase(id, projectId, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Use case deleted"));
+    }
+
+    @PutMapping("/requirement/{requirementId}/reorder")
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<Void>> reorderUseCases(
+            @RequestParam Long projectId,
+            @PathVariable Long requirementId,
+            @RequestBody org.example.backend.dto.ReorderRequestDTO request) {
+        useCaseService.reorderUseCases(projectId, requirementId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Use cases reordered"));
+    }
+
+    @PutMapping("/reorder")
+    @PreAuthorizeProjectMember
+    public ResponseEntity<ApiResponse<Void>> reorderUseCasesGlobal(
+            @RequestParam Long projectId,
+            @RequestBody org.example.backend.dto.ReorderRequestDTO request) {
+        useCaseService.reorderUseCasesGlobal(projectId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Use cases reordered globally"));
     }
 
     private Long requireUser(HttpSession session) {

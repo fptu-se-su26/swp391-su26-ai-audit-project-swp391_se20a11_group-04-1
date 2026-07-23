@@ -4,7 +4,7 @@ import taskService from '../services/taskService'
 const SCORE_BREAKDOWN_LABEL = {
   deadlinePenalty: {
     label: 'Trễ hạn (Deadline urgency)',
-    hint: 'Task sắp tới hạn hoặc đã quá hạn mà chưa hoàn thành.',
+    hint: 'Task is approaching deadline or overdue but not completed.',
   },
   burnRatePenalty: {
     label: 'Tiến độ chậm (Burn rate penalty)',
@@ -12,11 +12,11 @@ const SCORE_BREAKDOWN_LABEL = {
   },
   blockerPenalty: {
     label: 'Bị chặn (Blocker penalty)',
-    hint: 'Task bị kẹt (blocked) không thể làm tiếp được.',
+    hint: 'Task is blocked and cannot proceed.',
   },
   workloadPenalty: {
     label: 'Quá tải (Workload penalty)',
-    hint: 'Người được giao (assignee) đang phải ôm đồm quá nhiều task cùng một lúc.',
+    hint: 'Assignee is handling too many tasks at once.',
   },
 }
 
@@ -63,11 +63,11 @@ const RECOVERY_PLAN_MODE_LABEL = {
 }
 
 const RISK_SCORE_HINT = {
-  NORMAL: '100 points',
-  LOW: '76-99 points',
-  MEDIUM: '46-75 points',
-  HIGH: '21-45 points',
-  CRITICAL: '0-20 points',
+  HEALTHY: '100 points',
+  ON_TRACK: '76-99 points',
+  AT_RISK: '46-75 points',
+  WARNING: '21-45 points',
+  BREACH: '0-20 points',
 }
 
 const BURN_RATE_DESCRIPTION = {
@@ -79,11 +79,11 @@ const BURN_RATE_DESCRIPTION = {
 
 const getRiskBadgeClass = (riskLevel = '') => {
   const norm = riskLevel.toUpperCase()
-  if (norm === 'NORMAL') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (norm === 'LOW') return 'bg-teal-50 text-teal-700 border-teal-200'
-  if (norm === 'MEDIUM') return 'bg-yellow-50 text-yellow-800 border-yellow-200'
-  if (norm === 'HIGH') return 'bg-orange-50 text-orange-700 border-orange-200'
-  if (norm === 'CRITICAL') return 'bg-rose-50 text-rose-700 border-rose-200'
+  if (norm === 'HEALTHY') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  if (norm === 'ON_TRACK') return 'bg-teal-50 text-teal-700 border-teal-200'
+  if (norm === 'AT_RISK') return 'bg-yellow-50 text-yellow-800 border-yellow-200'
+  if (norm === 'WARNING') return 'bg-orange-50 text-orange-700 border-orange-200'
+  if (norm === 'BREACH') return 'bg-rose-50 text-rose-700 border-rose-200'
   return 'bg-slate-50 text-slate-700 border-slate-200'
 }
 
@@ -245,7 +245,7 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
   } = data
 
   const formattedDate = formatDateTime(evaluatedAt)
-  const normalizedRiskLevel = currentRiskLevel || 'NORMAL'
+  const normalizedRiskLevel = currentRiskLevel || 'HEALTHY'
   const showForecast = predictedRiskLevel && predictedRiskLevel !== currentRiskLevel
   const visibleActions = recentActions.filter(action =>
     action.status === 'EXECUTED'
@@ -384,12 +384,12 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
               
               <div>
                 <strong className="text-on-surface">2. Tiến độ chậm (Burn rate penalty):</strong>
-                <p className="mt-0.5">Đánh giá qua Độ trễ (Gap) = % Thời gian đã dùng - % Tiến độ hoàn thành.</p>
+                <p className="mt-0.5">Evaluated via Gap = % Time spent - % Progress completed.</p>
                 <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                   <li>Gap &gt; 45% (Mức CRITICAL): <span className="text-error font-medium">-39 điểm</span> (30 điểm gốc × 1.3)</li>
                   <li>Gap từ 26% - 45% (Mức HIGH): <span className="text-error font-medium">-22 điểm</span> (18 điểm gốc × 1.2)</li>
                   <li>Gap từ 11% - 25% (Mức MEDIUM): <span className="text-error font-medium">-9 điểm</span> (8 điểm gốc × 1.1)</li>
-                  <li>Gap &le; 10% (Mức LOW): Không bị trừ điểm.</li>
+                  <li>Gap &le; 10% (LOW level): No point deduction.</li>
                 </ul>
               </div>
 
@@ -404,9 +404,9 @@ const SlaDecisionPackPanel = ({ projectId, taskId }) => {
               <div>
                 <strong className="text-on-surface">4. Quá tải (Workload penalty):</strong>
                 <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
-                  <li>Assignee đang ôm 6 task cùng lúc trở lên: <span className="text-error font-medium">-10 điểm</span></li>
-                  <li>Assignee đang ôm 3-5 task cùng lúc: <span className="text-error font-medium">-5 điểm</span></li>
-                  <li>Assignee xử lý dưới 3 task: Không bị trừ điểm.</li>
+                  <li>Assignee handling 6+ tasks: <span className="text-error font-medium">-10 points</span></li>
+                  <li>Assignee handling 3-5 tasks: <span className="text-error font-medium">-5 points</span></li>
+                  <li>Assignee handling &lt; 3 tasks: No point deduction.</li>
                 </ul>
               </div>
             </div>
