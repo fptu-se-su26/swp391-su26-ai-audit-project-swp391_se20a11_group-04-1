@@ -289,7 +289,7 @@ class DevTrackControllerTest {
                     .containsExactlyInAnyOrder("A", "B", "C", "D", "E");
 
             ProjectResponse prjB = items.stream().filter(p -> p.getId().equals("B")).findFirst().orElseThrow();
-            assertThat(prjB.getDeadline()).isEqualTo(today.plusDays(2));
+            assertThat(prjB.getDeadline()).isEqualTo(today.plusDays(2).toString());
             assertThat(prjB.getStatus()).isEqualTo("ACTIVE");
 
             ProjectResponse prjE = items.stream().filter(p -> p.getId().equals("E")).findFirst().orElseThrow();

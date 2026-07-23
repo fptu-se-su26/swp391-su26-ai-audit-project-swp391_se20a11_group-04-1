@@ -33,6 +33,7 @@ import org.example.backend.exception.BusinessException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -788,6 +789,10 @@ public class AiGenerationService {
 
     @Transactional
     public List<org.example.backend.dto.testing.TestCaseResponse> approveTestCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId, Long projectId) {
+        if (selectedIndices != null && selectedIndices.isEmpty()) {
+            throw new BusinessException("Please select at least one test case to approve.");
+        }
+
         List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
         if (stagings.isEmpty()) {
             throw new RuntimeException("Không tìm thấy dữ liệu staging với ID: " + generationId);
@@ -799,18 +804,31 @@ public class AiGenerationService {
         }
 
         Project project = staging.getProject();
-        if (!project.getId().equals(projectId)) {
-            throw new RuntimeException("Generation data doesn't match the project.");
+        if (project == null || !projectId.equals(project.getId())) {
+            throw new BusinessException("Generation data doesn't match the project.");
         }
 
         UserAccount user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
         
         JsonNode payload = modifiedPayload != null ? modifiedPayload : staging.getPayload();
-        JsonNode testCasesArray = payload; 
-        
+        if (payload == null || payload.isNull()) {
+            throw new BusinessException("AI generation payload is empty.");
+        }
+
+        JsonNode testCasesArray = payload;
         if (payload.isObject() && payload.has("testCases")) {
             testCasesArray = payload.get("testCases");
+        }
+        if (testCasesArray == null || !testCasesArray.isArray()) {
+            throw new BusinessException("AI generation payload must contain a testCases array.");
+        }
+        if (selectedIndices != null) {
+            for (Integer selectedIndex : selectedIndices) {
+                if (selectedIndex == null || selectedIndex < 0 || selectedIndex >= testCasesArray.size()) {
+                    throw new BusinessException("Selected test case index is out of range.");
+                }
+            }
         }
         
         Integer maxSubId = testCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
@@ -821,24 +839,46 @@ public class AiGenerationService {
         for (int i = 0; i < testCasesArray.size(); i++) {
             if (selectedIndices == null || selectedIndices.contains(i)) {
                 JsonNode tcNode = testCasesArray.get(i);
+                String validationStatus = tcNode.path("validationStatus").asText("");
+                if ("INVALID".equalsIgnoreCase(validationStatus)) {
+                    String title = tcNode.has("title") ? tcNode.get("title").asText() : ("index " + i);
+                    throw new BusinessException("Cannot approve invalid AI test case: " + title + ". Please fix validation errors first.");
+                }
                 
                 TestCase tc = new TestCase();
                 tc.setProjectId(project.getId());
-                tc.setTitle(tcNode.has("title") ? tcNode.get("title").asText() : "Untitled Test Case");
+                String title = tcNode.has("title") ? tcNode.get("title").asText() : "";
+                if (title == null || title.trim().isEmpty()) {
+                    throw new BusinessException("Test case title is required.");
+                }
+                if (title.trim().length() > 200) {
+                    throw new BusinessException("Test case title must not exceed 200 characters.");
+                }
+                tc.setTitle(title.trim());
                 if (tcNode.has("requirementId") && !tcNode.get("requirementId").isNull()) {
-                    tc.setRequirementId(tcNode.get("requirementId").asLong());
+                    Long requirementId = tcNode.get("requirementId").asLong();
+                    Requirement requirement = requirementRepository.findById(requirementId)
+                            .orElseThrow(() -> new BusinessException("Requirement " + requirementId + " was not found."));
+                    if (requirement.getProject() == null || !project.getId().equals(requirement.getProject().getId())) {
+                        throw new BusinessException("Requirement " + requirementId + " does not belong to this project.");
+                    }
+                    tc.setRequirementId(requirementId);
                 } else {
                     throw new BusinessException("Requirement is required for all test cases.");
                 }
                 
                 tc.setPrecondition(tcNode.path("precondition").asText(""));
-                tc.setExpectedResult(tcNode.path("expectedResult").asText(""));
+                String expectedResult = tcNode.path("expectedResult").asText("");
+                if (expectedResult == null || expectedResult.trim().isEmpty()) {
+                    throw new BusinessException("Expected result is required for all test cases.");
+                }
+                tc.setExpectedResult(expectedResult.trim());
                 tc.setStatus(TestCaseStatus.NOT_RUN);
                 tc.setCreatedBy(userId);
                 tc.setProjectSubId(nextSubId);
                 tc.setTcCode("TC-" + nextSubId);
                 
-                String typeStr = tcNode.path("type").asText("MANUAL");
+                String typeStr = tcNode.path("type").asText("MANUAL").trim().toUpperCase(Locale.ROOT);
                 try {
                     tc.setType(TestType.valueOf(typeStr));
                 } catch (Exception e) {
@@ -847,22 +887,42 @@ public class AiGenerationService {
                 
                 // Map Configuration based on Type
                 JsonNode configNode = tcNode.has("configuration") ? tcNode.get("configuration") : tcNode;
+                JsonNode uiExecutableSteps = null;
                 
                 if (tc.getType() == TestType.UI) {
                     org.example.backend.entity.config.UiTestConfig uiConfig = new org.example.backend.entity.config.UiTestConfig();
                     if (configNode.has("baseUrl")) uiConfig.setBaseUrl(configNode.get("baseUrl").asText());
-                    if (configNode.has("steps")) uiConfig.setSteps(configNode.get("steps"));
-                    else if (configNode.has("stepsStructured")) uiConfig.setSteps(configNode.get("stepsStructured")); // backward compatibility
+                    uiExecutableSteps = normalizeUiExecutableSteps(configNode, tcNode.get("steps"), tc.getTitle());
+                    uiConfig.setSteps(uiExecutableSteps);
                     uiConfig.setTestCase(tc);
                     tc.setUiConfig(uiConfig);
                 } else if (tc.getType() == TestType.API) {
                     org.example.backend.entity.config.ApiTestConfig apiConfig = new org.example.backend.entity.config.ApiTestConfig();
-                    apiConfig.setApiMethod(configNode.has("apiMethod") ? configNode.get("apiMethod").asText() : "GET");
-                    apiConfig.setApiUrl(configNode.has("apiUrl") ? configNode.get("apiUrl").asText() : "");
-                    if (configNode.has("apiHeaders")) apiConfig.setApiHeaders(configNode.get("apiHeaders"));
-                    if (configNode.has("apiQueryParams")) apiConfig.setApiQueryParams(configNode.get("apiQueryParams"));
-                    if (configNode.has("apiBody")) apiConfig.setApiBody(configNode.get("apiBody"));
-                    if (configNode.has("apiAssertions")) apiConfig.setApiAssertions(configNode.get("apiAssertions"));
+                    String apiMethod = configNode.has("apiMethod")
+                            ? configNode.get("apiMethod").asText("GET").trim().toUpperCase(Locale.ROOT)
+                            : "GET";
+                    if (!java.util.Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(apiMethod)) {
+                        throw new BusinessException("API method is invalid for test case: " + tc.getTitle());
+                    }
+                    apiConfig.setApiMethod(apiMethod);
+                    String apiUrl = "";
+                    if (configNode.has("apiUrl") && !configNode.get("apiUrl").isNull()) {
+                        apiUrl = configNode.get("apiUrl").asText();
+                    } else if (configNode.has("apiEndpoint") && !configNode.get("apiEndpoint").isNull()) {
+                        apiUrl = configNode.get("apiEndpoint").asText();
+                    }
+                    if (apiUrl == null || apiUrl.trim().isEmpty()) {
+                        throw new BusinessException("API URL is required for test case: " + tc.getTitle());
+                    }
+                    apiConfig.setApiUrl(apiUrl.trim());
+                    if (configNode.has("apiHeaders") && configNode.get("apiHeaders").isObject()) apiConfig.setApiHeaders(configNode.get("apiHeaders"));
+                    if (configNode.has("apiQueryParams") && configNode.get("apiQueryParams").isObject()) apiConfig.setApiQueryParams(configNode.get("apiQueryParams"));
+                    if (configNode.has("apiBody") && configNode.get("apiBody").isObject()) apiConfig.setApiBody(configNode.get("apiBody"));
+                    JsonNode apiAssertions = configNode.has("apiAssertions") ? configNode.get("apiAssertions") : configNode.get("assertions");
+                    if (apiAssertions == null || !apiAssertions.isArray() || apiAssertions.isEmpty()) {
+                        throw new BusinessException("API assertions are required for test case: " + tc.getTitle());
+                    }
+                    apiConfig.setApiAssertions(apiAssertions);
                     apiConfig.setTestCase(tc);
                     tc.setApiConfig(apiConfig);
                 } else if (tc.getType() == TestType.UNIT) {
@@ -878,13 +938,20 @@ public class AiGenerationService {
                 // Save first to get ID for TestStep linkage (since TestStep cascade is tricky with new entities manually managed)
                 // Actually, cascade = CascadeType.ALL will handle it if we set the relationship on both sides.
                 List<TestStep> stepEntities = new ArrayList<>();
-                if (tcNode.has("steps") && tcNode.get("steps").isArray()) {
+                JsonNode humanStepsNode = tc.getType() == TestType.UI && uiExecutableSteps != null ? uiExecutableSteps : tcNode.get("steps");
+                if (humanStepsNode == null || !humanStepsNode.isArray() || humanStepsNode.isEmpty()) {
+                    throw new BusinessException("At least one test step is required for test case: " + tc.getTitle());
+                } else {
                     int stepNum = 1;
-                    for (JsonNode stepNode : tcNode.get("steps")) {
+                    for (JsonNode stepNode : humanStepsNode) {
+                        String stepDescription = stepNode.path("description").asText("");
+                        if (stepDescription == null || stepDescription.trim().isEmpty()) {
+                            throw new BusinessException("Step description is required for test case: " + tc.getTitle());
+                        }
                         TestStep step = new TestStep();
                         step.setTestCase(tc);
                         step.setStepNumber(stepNum++);
-                        step.setDescription(stepNode.path("description").asText(""));
+                        step.setDescription(stepDescription.trim());
                         stepEntities.add(step);
                     }
                 }
@@ -893,6 +960,10 @@ public class AiGenerationService {
                 nextSubId++;
                 testCasesToSave.add(tc);
             }
+        }
+
+        if (testCasesToSave.isEmpty()) {
+            throw new BusinessException("No valid selected test cases were found in the AI payload.");
         }
 
         List<TestCase> savedTestCases = testCaseRepository.saveAll(testCasesToSave);
@@ -904,6 +975,147 @@ public class AiGenerationService {
         stagingRepository.save(staging);
         
         return savedTestCases.stream().map(testCaseMapper::toResponse).toList();
+    }
+
+    private com.fasterxml.jackson.databind.node.ArrayNode normalizeUiExecutableSteps(JsonNode configNode, JsonNode rootStepsNode, String title) {
+        JsonNode rawSteps = null;
+        if (configNode != null && configNode.has("steps") && configNode.get("steps").isArray()) {
+            rawSteps = configNode.get("steps");
+        } else if (configNode != null && configNode.has("stepsStructured") && configNode.get("stepsStructured").isArray()) {
+            rawSteps = configNode.get("stepsStructured");
+        }
+
+        if (rawSteps == null || rawSteps.isEmpty()) {
+            throw new BusinessException("UI executable steps are required for test case: " + title);
+        }
+
+        com.fasterxml.jackson.databind.node.ArrayNode normalizedSteps = objectMapper.createArrayNode();
+        for (int i = 0; i < rawSteps.size(); i++) {
+            JsonNode stepNode = rawSteps.get(i);
+            if (stepNode == null || (!stepNode.isObject() && !stepNode.isTextual())) {
+                throw new BusinessException("UI executable step " + (i + 1) + " must be an object for test case: " + title);
+            }
+
+            String rootDescription = "";
+            if (rootStepsNode != null && rootStepsNode.isArray() && rootStepsNode.size() > i) {
+                JsonNode rootStep = rootStepsNode.get(i);
+                rootDescription = rootStep.isTextual() ? rootStep.asText() : readTextField(rootStep, "description", "title");
+            }
+            String description = stepNode.isTextual()
+                    ? stepNode.asText()
+                    : firstNonBlankText(readTextField(stepNode, "description", "title"), rootDescription);
+            String action = stepNode.isObject()
+                    ? normalizeUiAction(readTextField(stepNode, "action", "type", "command"), description)
+                    : normalizeUiAction("", description);
+
+            com.fasterxml.jackson.databind.node.ObjectNode normalized = objectMapper.createObjectNode();
+            normalized.put("order", readIntegerField(stepNode, "order", "stepNumber", i + 1));
+            normalized.put("action", action);
+            normalized.put("description", firstNonBlankText(description, "Step " + (i + 1)));
+
+            switch (action) {
+                case "goto" -> {
+                    String path = readTextField(stepNode, "path", "url", "href", "target");
+                    if (isBlank(path)) {
+                        throw new BusinessException("UI step " + (i + 1) + " requires path for test case: " + title);
+                    }
+                    normalized.put("path", path);
+                }
+                case "fill", "click", "select", "wait_for", "expect_text", "expect_visible", "expect_hidden" -> {
+                    String selector = readTextField(stepNode, "selector", "locator", "target", "field");
+                    if (isBlank(selector)) {
+                        throw new BusinessException("UI step " + (i + 1) + " requires selector for test case: " + title);
+                    }
+                    normalized.put("selector", selector);
+                    if ("fill".equals(action) || "select".equals(action)) {
+                        String value = readTextField(stepNode, "value", "input", "text", "option");
+                        if (isBlank(value)) {
+                            throw new BusinessException("UI step " + (i + 1) + " requires value for test case: " + title);
+                        }
+                        normalized.put("value", value);
+                    }
+                    if ("expect_text".equals(action)) {
+                        String expected = readTextField(stepNode, "expected", "expectedText", "text", "value");
+                        if (isBlank(expected)) {
+                            throw new BusinessException("UI step " + (i + 1) + " requires expected text for test case: " + title);
+                        }
+                        normalized.put("expected", expected);
+                    }
+                }
+                case "expect_url" -> {
+                    String expected = readTextField(stepNode, "expected", "expectedUrl", "url", "path");
+                    if (isBlank(expected)) {
+                        throw new BusinessException("UI step " + (i + 1) + " requires expected URL for test case: " + title);
+                    }
+                    normalized.put("expected", expected);
+                }
+                default -> throw new BusinessException("Unsupported UI action '" + action + "' for test case: " + title);
+            }
+
+            normalizedSteps.add(normalized);
+        }
+
+        return normalizedSteps;
+    }
+
+    private String normalizeUiAction(String action, String description) {
+        String value = action == null ? "" : action.trim().replace('-', '_').replace(' ', '_').toLowerCase(Locale.ROOT);
+        if (value.isBlank()) {
+            value = inferUiAction(description);
+        }
+        return switch (value) {
+            case "navigate", "navigation", "open", "visit" -> "goto";
+            case "type", "input", "enter" -> "fill";
+            case "choose" -> "select";
+            case "wait", "waitfor" -> "wait_for";
+            case "assert_url" -> "expect_url";
+            case "assert_text", "verify_text" -> "expect_text";
+            case "visible" -> "expect_visible";
+            case "hidden" -> "expect_hidden";
+            default -> value;
+        };
+    }
+
+    private String inferUiAction(String description) {
+        String text = description == null ? "" : description.toLowerCase(Locale.ROOT);
+        if (text.matches(".*(navigate|go to|open|visit|redirect).*")) return "goto";
+        if (text.matches(".*(enter|input|type|fill|provide).*")) return "fill";
+        if (text.matches(".*(click|tap|press).*")) return "click";
+        if (text.matches(".*(select|choose|pick).*")) return "select";
+        if (text.matches(".*(wait|loaded|appear).*")) return "wait_for";
+        if (text.matches(".*(verify|expect|assert|check|validate|confirm).*")) return "expect_text";
+        return "";
+    }
+
+    private String readTextField(JsonNode node, String... fieldNames) {
+        if (node == null || node.isNull()) return "";
+        if (node.isTextual()) return node.asText().trim();
+        if (!node.isObject()) return "";
+        for (String fieldName : fieldNames) {
+            JsonNode value = node.get(fieldName);
+            if (value == null || value.isNull()) continue;
+            String text = value.isTextual() ? value.asText() : value.toString();
+            if (!isBlank(text)) return text.trim();
+        }
+        return "";
+    }
+
+    private int readIntegerField(JsonNode node, String firstField, String secondField, int fallback) {
+        if (node != null && node.isObject()) {
+            JsonNode first = node.get(firstField);
+            if (first != null && first.canConvertToInt()) return first.asInt();
+            JsonNode second = node.get(secondField);
+            if (second != null && second.canConvertToInt()) return second.asInt();
+        }
+        return fallback;
+    }
+
+    private String firstNonBlankText(String first, String second) {
+        return !isBlank(first) ? first : second;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private String formatFlowForPrompt(String flowJson) {

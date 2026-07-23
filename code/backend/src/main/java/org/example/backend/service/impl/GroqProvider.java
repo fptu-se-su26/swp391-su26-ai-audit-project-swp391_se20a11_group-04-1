@@ -57,6 +57,8 @@ public class GroqProvider implements LlmProvider {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model != null ? model : "llama-3.3-70b-versatile");
+        requestBody.put("temperature", 0.1);
+        requestBody.put("max_tokens", boundedMaxTokens(groqProperties.getMaxTokens()));
         
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
@@ -118,5 +120,12 @@ public class GroqProvider implements LlmProvider {
             }
         }
         throw new BusinessException("Không thể generate text qua Groq sau nhiều lần thử.");
+    }
+
+    private int boundedMaxTokens(Integer configuredMaxTokens) {
+        if (configuredMaxTokens == null || configuredMaxTokens <= 0) {
+            return 16384;
+        }
+        return Math.max(1024, Math.min(configuredMaxTokens, 16384));
     }
 }

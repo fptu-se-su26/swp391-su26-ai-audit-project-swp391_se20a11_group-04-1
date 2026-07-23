@@ -3,6 +3,7 @@ package org.example.backend.controller.testing;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.backend.annotation.PreAuthorizeProjectMember;
 import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.apitest.ApiEnvironmentRequest;
 import org.example.backend.dto.apitest.ApiEnvironmentResponse;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/api-environments")
 @RequiredArgsConstructor
+@PreAuthorizeProjectMember
 public class ApiEnvironmentController {
 
     private final ApiEnvironmentRepository apiEnvironmentRepository;
@@ -64,12 +66,8 @@ public class ApiEnvironmentController {
             @PathVariable Long projectId,
             @PathVariable Long id,
             @RequestBody ApiEnvironmentRequest request) {
-        ApiEnvironment environment = apiEnvironmentRepository.findById(id)
+        ApiEnvironment environment = apiEnvironmentRepository.findByIdAndProjectId(id, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found"));
-
-        if (!environment.getProject().getId().equals(projectId)) {
-            throw new IllegalArgumentException("Environment does not belong to project");
-        }
 
         environment.setName(request.getName());
         try {
@@ -89,12 +87,8 @@ public class ApiEnvironmentController {
     public void deleteEnvironment(
             @PathVariable Long projectId,
             @PathVariable Long id) {
-        ApiEnvironment environment = apiEnvironmentRepository.findById(id)
+        ApiEnvironment environment = apiEnvironmentRepository.findByIdAndProjectId(id, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Environment not found"));
-
-        if (!environment.getProject().getId().equals(projectId)) {
-            throw new IllegalArgumentException("Environment does not belong to project");
-        }
 
         apiEnvironmentRepository.delete(environment);
     }

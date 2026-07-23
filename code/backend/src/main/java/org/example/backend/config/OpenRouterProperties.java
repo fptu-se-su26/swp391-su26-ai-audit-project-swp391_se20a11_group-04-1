@@ -13,4 +13,5 @@ public class OpenRouterProperties {
     private List<String> keys;
     private String url;
     private String model;
+    private Integer maxTokens = 8192;
 }

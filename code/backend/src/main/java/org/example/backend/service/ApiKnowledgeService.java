@@ -113,8 +113,15 @@ public class ApiKnowledgeService {
             List<Map<String, Object>> filtered =
                     filterRelevantEndpoints(endpoints, requirementTitle, requirementDesc);
             if (filtered.isEmpty()) {
-                log.info("[ApiKnowledge] No relevant endpoints after filtering — using all {} endpoints",
-                        endpoints.size());
+                boolean hasRequirementContext =
+                        (requirementTitle != null && !requirementTitle.isBlank())
+                                || (requirementDesc != null && !requirementDesc.isBlank());
+                if (hasRequirementContext) {
+                    log.info("[ApiKnowledge] No relevant endpoints after filtering for project {} — skipping API context to avoid unrelated API test cases",
+                            projectId);
+                    return null;
+                }
+                log.info("[ApiKnowledge] No requirement context supplied — using all {} endpoints", endpoints.size());
                 filtered = endpoints;
             }
 
@@ -282,8 +289,9 @@ public class ApiKnowledgeService {
     @SuppressWarnings("unchecked")
     private String formatEndpointsForPrompt(List<Map<String, Object>> endpoints) {
         StringBuilder sb = new StringBuilder();
-        sb.append("API KNOWLEDGE — extracted by static analysis of backend Spring Boot source code.\n");
-        sb.append("NO Swagger. NO guessing. Every value below comes directly from annotations.\n\n");
+        sb.append("API KNOWLEDGE — extracted by static analysis of backend source code.\n");
+        sb.append("Supports Spring mappings and Servlet @WebServlet endpoints. NO guessing.\n");
+        sb.append("Every value below comes directly from source annotations/methods.\n\n");
 
         for (int i = 0; i < endpoints.size(); i++) {
             Map<String, Object> ep = endpoints.get(i);

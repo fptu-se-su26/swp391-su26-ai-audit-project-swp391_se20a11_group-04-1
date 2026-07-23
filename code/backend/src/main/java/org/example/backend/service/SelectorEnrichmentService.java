@@ -36,7 +36,7 @@ public class SelectorEnrichmentService {
     private String architectureParserUrl;
 
     // Maximum character length of the context injected into the Gemini prompt.
-    private static final int MAX_CONTEXT_CHARS = 8000;
+    private static final int MAX_CONTEXT_CHARS = 4000;
 
     private final GitHubIntegrationService gitHubIntegrationService;
     private final RestTemplate restTemplate;
@@ -156,6 +156,12 @@ public class SelectorEnrichmentService {
                                                      String requirementDesc) {
         String combined = ((requirementTitle != null ? requirementTitle : "") + " "
                 + (requirementDesc != null ? requirementDesc : "")).toLowerCase();
+        boolean loginIntent = combined.matches(".*\\b(login|sign.?in|authenticate|auth)\\b.*");
+        boolean registerIntent = combined.matches(".*\\b(register|sign.?up|signup|registration)\\b.*");
+        boolean passwordIntent = combined.matches(".*\\b(reset|forgot|forget)\\b.*");
+        boolean otpIntent = combined.matches(".*\\b(otp|verif|confirm)\\b.*");
+
+        java.util.List<String> strictFormAliases = strictFormAliases(loginIntent, registerIntent, passwordIntent, otpIntent);
 
         // Extract keywords from requirement (words > 3 chars, strip common words)
         java.util.Set<String> stopWords = java.util.Set.of(
@@ -172,16 +178,16 @@ public class SelectorEnrichmentService {
 
         // Always include files matching common UI page patterns for known requirement types
         java.util.List<String> alwaysInclude = new java.util.ArrayList<>();
-        if (combined.matches(".*\\b(login|sign.?in|authenticate|auth)\\b.*")) {
+        if (loginIntent) {
             alwaysInclude.addAll(java.util.List.of("login", "signin", "sign_in"));
         }
-        if (combined.matches(".*\\b(register|sign.?up|signup|registration)\\b.*")) {
+        if (registerIntent) {
             alwaysInclude.addAll(java.util.List.of("register", "signup", "sign_up", "registration"));
         }
-        if (combined.matches(".*\\b(password|reset|forgot|forget)\\b.*")) {
+        if (passwordIntent) {
             alwaysInclude.addAll(java.util.List.of("password", "reset", "forgot", "forget"));
         }
-        if (combined.matches(".*\\b(otp|verif|confirm)\\b.*")) {
+        if (otpIntent) {
             alwaysInclude.addAll(java.util.List.of("otp", "verif", "confirm"));
         }
         if (combined.matches(".*\\b(profile|account|setting)\\b.*")) {
@@ -196,6 +202,11 @@ public class SelectorEnrichmentService {
         Map<String, Object> filtered = new java.util.LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : formMap.entrySet()) {
             String path = entry.getKey().toLowerCase();
+            Object narrowed = narrowFormsByIntent(entry.getValue(), path, strictFormAliases);
+            if (narrowed != null) {
+                filtered.put(entry.getKey(), narrowed);
+                continue;
+            }
             for (String kw : keywords) {
                 if (path.contains(kw)) {
                     filtered.put(entry.getKey(), entry.getValue());
@@ -204,6 +215,61 @@ public class SelectorEnrichmentService {
             }
         }
         return filtered;
+    }
+
+    private java.util.List<String> strictFormAliases(boolean loginIntent,
+                                                     boolean registerIntent,
+                                                     boolean passwordIntent,
+                                                     boolean otpIntent) {
+        int intentCount = 0;
+        if (loginIntent) intentCount++;
+        if (registerIntent) intentCount++;
+        if (passwordIntent) intentCount++;
+        if (otpIntent) intentCount++;
+        if (intentCount != 1) return java.util.List.of();
+
+        if (loginIntent) return java.util.List.of("login", "signin", "sign_in", "sign-in");
+        if (registerIntent) return java.util.List.of("register", "signup", "sign_up", "sign-up", "registration");
+        if (passwordIntent) return java.util.List.of("password", "reset", "forgot", "forget");
+        return java.util.List.of("otp", "verify", "verification", "confirm");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object narrowFormsByIntent(Object fileValue, String filePath, java.util.List<String> aliases) {
+        if (fileValue == null || aliases == null || aliases.isEmpty()) return null;
+        if (!(fileValue instanceof Map<?, ?> rawFileData)) return null;
+
+        Map<String, Object> fileData = (Map<String, Object>) rawFileData;
+        Object formsObject = fileData.get("forms");
+        if (!(formsObject instanceof List<?> rawForms)) return null;
+
+        List<Map<String, Object>> matchedForms = new java.util.ArrayList<>();
+        for (Object formObject : rawForms) {
+            if (!(formObject instanceof Map<?, ?> rawForm)) continue;
+            Map<String, Object> form = (Map<String, Object>) rawForm;
+            String action = String.valueOf(form.getOrDefault("action", "")).toLowerCase();
+            String matchTarget = !action.isBlank() ? action : filePath;
+            if (matchesAnyAlias(matchTarget, aliases)) {
+                matchedForms.add(form);
+            }
+        }
+
+        if (matchedForms.isEmpty()) return null;
+        Map<String, Object> narrowed = new java.util.LinkedHashMap<>(fileData);
+        narrowed.put("forms", matchedForms);
+        return narrowed;
+    }
+
+    private boolean matchesAnyAlias(String value, java.util.List<String> aliases) {
+        if (value == null || aliases == null || aliases.isEmpty()) return false;
+        String normalized = value.toLowerCase().replaceAll("[^a-z0-9]+", "");
+        for (String alias : aliases) {
+            String normalizedAlias = alias.toLowerCase().replaceAll("[^a-z0-9]+", "");
+            if (!normalizedAlias.isBlank() && normalized.contains(normalizedAlias)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // -----------------------------------------------------------------------

@@ -1,12 +1,13 @@
 package org.example.backend.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,7 +26,19 @@ public class VariableResolverService {
         }
 
         try {
-            Map<String, String> variables = objectMapper.readValue(variablesJson, new TypeReference<>() {});
+            JsonNode root = objectMapper.readTree(variablesJson);
+            if (!root.isObject()) {
+                return text;
+            }
+            Map<String, String> variables = new HashMap<>();
+            root.fields().forEachRemaining(entry -> {
+                JsonNode valueNode = entry.getValue();
+                String value = "";
+                if (valueNode != null && !valueNode.isNull()) {
+                    value = valueNode.isTextual() ? valueNode.asText() : valueNode.toString();
+                }
+                variables.put(entry.getKey(), value);
+            });
             return resolveVariables(text, variables);
         } catch (JsonProcessingException e) {
             log.error("Failed to parse variables JSON", e);

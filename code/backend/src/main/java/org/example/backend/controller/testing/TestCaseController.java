@@ -158,7 +158,7 @@ public class TestCaseController {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Long currentUserId = user.getId();
 
-        return apiTestExecutorService.execute(testCaseId, environmentId, currentUserId)
+        return apiTestExecutorService.execute(projectId, testCaseId, environmentId, currentUserId)
                 .thenApply(result -> ApiResponse.success(result, "API test executed successfully"))
                 .exceptionally(ex -> {
                     Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
@@ -183,11 +183,16 @@ public class TestCaseController {
         AiGenerationStaging staging = aiTestCaseGeneratorService.createProcessingStaging(request, projectId);
         
         try {
+            boolean shouldEnrichSelectors = request.isEnrichWithSelectors() || request.isSmartMode();
+            boolean shouldEnrichApiKnowledge = request.isEnrichWithApiKnowledge()
+                    || request.isSmartMode()
+                    || request.getTestType() == TestType.API;
+
             // 2. Load requirement once for both enrichment steps
             String enrichReqTitle = "";
             String enrichReqDesc  = "";
             if (request.getRequirementId() != null
-                    && (request.isEnrichWithSelectors() || request.isEnrichWithApiKnowledge())) {
+                    && (shouldEnrichSelectors || shouldEnrichApiKnowledge)) {
                 org.example.backend.entity.Requirement enrichReq = requirementRepository
                         .findById(request.getRequirementId()).orElse(null);
                 if (enrichReq != null) {
@@ -198,21 +203,29 @@ public class TestCaseController {
 
             // 3. Enrich with real selectors from GitHub source code if requested
             String selectorContext = null;
-            if (request.isEnrichWithSelectors()) {
+            if (shouldEnrichSelectors) {
                 selectorContext = selectorEnrichmentService.extractSelectorContext(
                         projectId, user.getId(), enrichReqTitle, enrichReqDesc);
+                if (request.getTestType() == TestType.UI && (selectorContext == null || selectorContext.isBlank())) {
+                    throw new org.example.backend.exception.BusinessException(
+                            "Không thể quét selector từ GitHub source code. Vui lòng kiểm tra GitHub integration, GitHub token và architecture-parser service ở http://localhost:4002. AI generation đã dừng để tránh tạo selector không tồn tại.");
+                }
             }
 
             // 4. Enrich with API Knowledge from backend Spring Boot source code if requested
             String apiKnowledgeContext = null;
-            if (request.isEnrichWithApiKnowledge()) {
+            if (shouldEnrichApiKnowledge) {
                 apiKnowledgeContext = apiKnowledgeService.extractApiKnowledgeContext(
                         projectId, user.getId(), enrichReqTitle, enrichReqDesc);
+                if (request.getTestType() == TestType.API && (apiKnowledgeContext == null || apiKnowledgeContext.isBlank())) {
+                    throw new org.example.backend.exception.BusinessException(
+                            "Không thể quét API endpoint phù hợp từ GitHub source code. Vui lòng kiểm tra GitHub integration, architecture-parser service ở http://localhost:4002 và đảm bảo requirement có API endpoint thật. AI generation đã dừng để tránh tạo API test case không tồn tại.");
+                }
             }
 
             // 5. Call Gemini (with optional selectorContext and apiKnowledgeContext)
             org.example.backend.dto.testing.AiTestCaseGenerateResponse generatedData =
-                    aiTestCaseGeneratorService.generateTestCases(request, selectorContext, apiKnowledgeContext);
+                    aiTestCaseGeneratorService.generateTestCases(request, selectorContext, apiKnowledgeContext, projectId);
             
             // 4. Update staging to PENDING with payload
             staging.setStatus(AiGenerationStatus.PENDING);
@@ -224,6 +237,12 @@ public class TestCaseController {
             response.put("reasoning", generatedData.getReasoning());
             response.put("coverageSummary", generatedData.getCoverageSummary());
             response.put("testCases", generatedData.getTestCases());
+            response.put("sourceContextStatus", Map.of(
+                    "selectorRequested", shouldEnrichSelectors,
+                    "selectorAvailable", selectorContext != null && !selectorContext.isBlank(),
+                    "apiKnowledgeRequested", shouldEnrichApiKnowledge,
+                    "apiKnowledgeAvailable", apiKnowledgeContext != null && !apiKnowledgeContext.isBlank()
+            ));
 
             return ApiResponse.success(response, "Test cases generated successfully by AI");
         } catch (org.example.backend.exception.BusinessException e) {
@@ -250,10 +269,20 @@ public class TestCaseController {
             throw new ResourceNotFoundException("Generation data not found");
         }
         AiGenerationStaging staging = stagings.get(0);
+        if (staging.getProject() == null || !projectId.equals(staging.getProject().getId())) {
+            throw new ResourceNotFoundException("Generation data not found");
+        }
+        com.fasterxml.jackson.databind.JsonNode payload = staging.getPayload();
                 
         Map<String, Object> response = new HashMap<>();
         response.put("generationId", staging.getGenerationId());
-        response.put("testCases", staging.getPayload());
+        if (payload != null && payload.isObject() && payload.has("testCases")) {
+            response.put("reasoning", payload.has("reasoning") ? payload.get("reasoning") : null);
+            response.put("coverageSummary", payload.has("coverageSummary") ? payload.get("coverageSummary") : null);
+            response.put("testCases", payload.get("testCases"));
+        } else {
+            response.put("testCases", payload);
+        }
         
         return ApiResponse.success(response, "Test case generation data retrieved successfully");
     }
@@ -290,6 +319,7 @@ public class TestCaseController {
     public ApiResponse<List<ApiTestResultResponse>> getApiTestResults(
             @PathVariable Long projectId,
             @PathVariable Long testCaseId) {
+        testCaseService.getById(projectId, testCaseId);
         
         List<ApiTestResultResponse> results = apiTestResultRepository.findByTestCaseIdAndIsSavedTrueOrderByExecutedAtDesc(testCaseId)
                 .stream()
@@ -305,6 +335,7 @@ public class TestCaseController {
             @PathVariable Long projectId,
             @PathVariable Long testCaseId,
             @PathVariable Long resultId) {
+        testCaseService.getById(projectId, testCaseId);
         
         ApiTestResultResponse result = apiTestResultRepository.findByIdAndTestCaseId(resultId, testCaseId)
                 .map(apiTestExecutorService::mapToResponse)
@@ -319,6 +350,7 @@ public class TestCaseController {
             @PathVariable Long projectId,
             @PathVariable Long testCaseId,
             @PathVariable Long resultId) {
+        testCaseService.getById(projectId, testCaseId);
         
         org.example.backend.entity.ApiTestResult result = apiTestResultRepository.findByIdAndTestCaseId(resultId, testCaseId)
                 .orElseThrow(() -> new ResourceNotFoundException("API test result not found"));

@@ -44,6 +44,21 @@ public class OpenRouterProvider implements LlmProvider {
         return "OPENROUTER";
     }
 
+    private String normalizeModel(String configuredModel) {
+        if (configuredModel == null || configuredModel.isBlank()) {
+            return "google/gemini-2.5-flash";
+        }
+
+        String model = configuredModel.trim();
+        if ("google/gemini-2.0-flash-exp:free".equalsIgnoreCase(model)
+                || "google/gemini-2.5-flash:free".equalsIgnoreCase(model)) {
+            log.warn("OpenRouter model {} is unavailable or deprecated. Falling back to google/gemini-2.5-flash.", model);
+            return "google/gemini-2.5-flash";
+        }
+
+        return model;
+    }
+
     @Override
     public String generateText(String prompt) {
         List<String> keys = openRouterProperties.getKeys();
@@ -57,10 +72,12 @@ public class OpenRouterProvider implements LlmProvider {
         int error503Count = 0;
 
         String targetUrl = openRouterProperties.getUrl();
-        String model = openRouterProperties.getModel();
+        String model = normalizeModel(openRouterProperties.getModel());
 
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", model != null ? model : "google/gemini-2.5-flash:free");
+        requestBody.put("model", model);
+        requestBody.put("temperature", 0.1);
+        requestBody.put("max_tokens", boundedMaxTokens(openRouterProperties.getMaxTokens()));
         
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
@@ -125,5 +142,12 @@ public class OpenRouterProvider implements LlmProvider {
             }
         }
         throw new BusinessException("Không thể generate text qua OpenRouter sau nhiều lần thử.");
+    }
+
+    private int boundedMaxTokens(Integer configuredMaxTokens) {
+        if (configuredMaxTokens == null || configuredMaxTokens <= 0) {
+            return 16384;
+        }
+        return Math.max(1024, Math.min(configuredMaxTokens, 16384));
     }
 }

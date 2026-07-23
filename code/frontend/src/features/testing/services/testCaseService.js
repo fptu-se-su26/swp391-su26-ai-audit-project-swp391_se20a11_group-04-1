@@ -88,8 +88,11 @@ export const testCaseService = {
   /**
    * Generate Test Case with AI (API/UI/MANUAL)
    */
-  generateTestCaseWithAi: async (projectId, payload) => {
-    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-ai`, payload, { timeout: 120000 })
+  generateTestCaseWithAi: async (projectId, payload, options = {}) => {
+    const response = await axiosInstance.post(`/v1/projects/${projectId}/test-cases/generate-ai`, payload, {
+      timeout: 120000,
+      signal: options.signal,
+    })
     return response.data.data
   },
 

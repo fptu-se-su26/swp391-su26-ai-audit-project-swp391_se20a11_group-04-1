@@ -30,6 +30,7 @@ export const useTestCaseStore = create((set, get) => ({
   isFormOpen: false,
   isDeleteDialogOpen: false,
   isAiGenModalOpen: false,
+  aiGenDefaults: null,
   isAiReviewOpen: false,
   currentGenerationId: null,
   aiGenerationResult: null,
@@ -48,8 +49,8 @@ export const useTestCaseStore = create((set, get) => ({
   openDeleteDialog: (testCase) => set({ isDeleteDialogOpen: true, deletingTestCase: testCase }),
   closeDeleteDialog: () => set({ isDeleteDialogOpen: false, deletingTestCase: null }),
 
-  openAiGenModal: () => set({ isAiGenModalOpen: true }),
-  closeAiGenModal: () => set({ isAiGenModalOpen: false }),
+  openAiGenModal: (defaults = null) => set({ isAiGenModalOpen: true, aiGenDefaults: defaults }),
+  closeAiGenModal: () => set({ isAiGenModalOpen: false, aiGenDefaults: null }),
 
   openAiReview: (generationId, data) => set({
     isAiReviewOpen: true,

@@ -43,8 +43,17 @@ jobs:
             echo ">> Rebuilding Backend (Spring Boot)..."
             cd "${REPO_DIR}/code/backend"
 
+            # Kill existing backend và chờ port thực sự được giải phóng
+            echo "   Killing existing backend on port 8080..."
             lsof -t -i:8080 | xargs -r kill -9 || true
-            sleep 2
+            # Chờ port 8080 được giải phóng hoàn toàn (tối đa 15 giây)
+            for i in $(seq 1 15); do
+              if ! lsof -i:8080 -sTCP:LISTEN -t > /dev/null 2>&1; then
+                echo "   Port 8080 is free after ${i}s"
+                break
+              fi
+              sleep 1
+            done
 
             chmod +x mvnw
             export MAVEN_OPTS="-Xmx512m -XX:MaxMetaspaceSize=256m"
