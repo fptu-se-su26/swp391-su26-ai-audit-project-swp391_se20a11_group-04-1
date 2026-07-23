@@ -398,7 +398,7 @@ export default function AiTestCaseReviewModal() {
         background: C.surface, borderRadius: 16, width: '100%', maxWidth: 1200, height: '90vh',
         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        fontFamily: 'Inter,-apple-system,sans-serif'
+        fontFamily: 'Inter,-apple-system,sans-serif', minWidth: 0
       }}>
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -542,7 +542,7 @@ export default function AiTestCaseReviewModal() {
           </div>
 
           {/* Right Panel: Detail Editor */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: C.surface, opacity: isRefining ? 0.5 : 1, pointerEvents: isRefining ? 'none' : 'auto' }}>
+          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', padding: 24, background: C.surface, opacity: isRefining ? 0.5 : 1, pointerEvents: isRefining ? 'none' : 'auto' }}>
             {error && (
               <div style={{ padding: 12, background: C.dangerBg, border: `1px solid ${C.danger}`, borderRadius: 8, color: C.danger, fontSize: 13, display: 'flex', gap: 8, marginBottom: 16 }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 18 }}>error</span>
