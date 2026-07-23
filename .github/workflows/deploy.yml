@@ -61,11 +61,14 @@ jobs:
 
             # Kill existing backend và chờ port thực sự được giải phóng
             echo "   Killing existing backend on port 8080..."
-            lsof -t -i:8080 | xargs -r kill -9 || true
-            # Kill any leftover java backend processes by checking cmdline
-            for pid in $(pgrep -f "spring.profiles.active=docker" 2>/dev/null); do
-              kill -9 "$pid" 2>/dev/null || true
-            done
+            BACKEND_PIDS=$(lsof -t -i:8080 2>/dev/null)
+            if [ -n "$BACKEND_PIDS" ]; then
+              kill -9 $BACKEND_PIDS 2>/dev/null || true
+            fi
+            JAVA_PIDS=$(pgrep -a java 2>/dev/null | grep "spring.profiles.active=docker" | awk '{print $1}' || true)
+            if [ -n "$JAVA_PIDS" ]; then
+              kill -9 $JAVA_PIDS 2>/dev/null || true
+            fi
             for i in $(seq 1 15); do
               if ! lsof -i:8080 -sTCP:LISTEN -t > /dev/null 2>&1; then
                 echo "   Port 8080 is free after ${i}s"
