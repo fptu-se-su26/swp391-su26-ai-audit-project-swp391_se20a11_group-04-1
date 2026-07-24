@@ -22,11 +22,6 @@ class CloneService:
 
     @staticmethod
     def clone(repo_url: str, token: str, branch: str, project_id: int, reporter) -> str:
-        # Use workspace or standard /tmp folder depending on OS
-        # We can use a temp folder inside the workspace or standard temp path
-        # In a Docker container (Linux), /tmp is perfectly fine and isolated.
-        # If running on Windows local environment without Docker, we can use a local temp dir.
-        # Let's write to a path inside workspace's temp if we want, or os.path.join(tempfile.gettempdir())
         import tempfile
         import uuid
         temp_dir = tempfile.gettempdir()
@@ -45,7 +40,20 @@ class CloneService:
             reporter.report(20, "SYNCING", "Clone repository thành công. Đang quét cấu trúc file...")
             return clone_dir
         except Exception as e:
-            reporter.report(0, "ERROR", f"Không thể clone repository: {str(e)}", error_message=str(e))
+            err_str = str(e)
+            if branch and ("Remote branch" in err_str or "not found" in err_str or "exit code(128)" in err_str):
+                print(f"Branch '{branch}' not found in remote. Retrying clone with default branch...")
+                reporter.report(10, "SYNCING", f"Không thấy nhánh '{branch}', đang tự động thử lại với nhánh mặc định...")
+                try:
+                    if os.path.exists(clone_dir):
+                        CloneService.cleanup(clone_dir)
+                    git.Repo.clone_from(clone_url, clone_dir, depth=1)
+                    reporter.report(20, "SYNCING", "Clone repository thành công. Đang quét cấu trúc file...")
+                    return clone_dir
+                except Exception as retry_e:
+                    reporter.report(0, "ERROR", f"Không thể clone repository: {str(retry_e)}", error_message=str(retry_e))
+                    raise retry_e
+            reporter.report(0, "ERROR", f"Không thể clone repository: {err_str}", error_message=err_str)
             raise e
 
     @staticmethod

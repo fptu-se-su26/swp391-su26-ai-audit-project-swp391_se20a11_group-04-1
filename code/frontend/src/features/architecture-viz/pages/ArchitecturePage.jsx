@@ -24,18 +24,21 @@ export default function ArchitecturePage() {
     graphData,
     setGraphData,
     isLoading,
-    setIsLoading
+    setIsLoading,
+    resetStore
   } = useArchitectureStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (targetProjectId = projectId) => {
     try {
-      const res = await getSyncStatus(projectId);
+      const res = await getSyncStatus(targetProjectId);
       if (res.success && res.data) {
-        setSyncStatus(res.data);
+        if (useArchitectureStore.getState().projectId === Number(targetProjectId)) {
+          setSyncStatus(res.data);
+        }
         return res.data;
       }
     } catch (err) {
@@ -44,44 +47,61 @@ export default function ArchitecturePage() {
     return null;
   };
 
-  const fetchGraph = async () => {
+  const fetchGraph = async (targetProjectId = projectId) => {
     setIsLoading(true);
     try {
-      const res = await getGraphData(projectId);
-      if (res.success && res.data) {
-        setGraphData(res.data);
-      } else {
-        setGraphData({ nodes: [], edges: [], stats: {} });
+      const res = await getGraphData(targetProjectId);
+      if (useArchitectureStore.getState().projectId === Number(targetProjectId)) {
+        if (res.success && res.data) {
+          setGraphData(res.data);
+        } else {
+          setGraphData({ nodes: [], edges: [], stats: {} });
+        }
       }
     } catch (err) {
       console.error('Failed to fetch graph data', err);
-      if (syncStatus.status === 'READY') {
-        toast.error(err.response?.data?.message || 'Không thể tải dữ liệu đồ thị');
+      if (useArchitectureStore.getState().projectId === Number(targetProjectId)) {
+        if (syncStatus.status === 'READY') {
+          toast.error(err.response?.data?.message || 'Không thể tải dữ liệu đồ thị');
+        }
+        setGraphData({ nodes: [], edges: [], stats: {} });
       }
-      setGraphData({ nodes: [], edges: [], stats: {} });
     } finally {
-      setIsLoading(false);
+      if (useArchitectureStore.getState().projectId === Number(targetProjectId)) {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleSyncSuccess = () => {
-    fetchStatus().then((status) => {
+    const currentId = Number(projectId);
+    fetchStatus(currentId).then((status) => {
       if (status && status.status === 'READY') {
-        fetchGraph();
+        fetchGraph(currentId);
       }
     });
   };
 
   useEffect(() => {
     if (projectId) {
-      setProjectId(Number(projectId));
+      const currentId = Number(projectId);
+      resetStore();
+      setProjectId(currentId);
       
-      fetchStatus().then((status) => {
-        if (status && status.status === 'READY') {
-          fetchGraph();
+      fetchStatus(currentId).then((status) => {
+        if (useArchitectureStore.getState().projectId === currentId) {
+          if (status && status.status === 'READY') {
+            fetchGraph(currentId);
+          } else {
+            setGraphData({ nodes: [], edges: [], stats: {} });
+          }
         }
       });
     }
+
+    return () => {
+      resetStore();
+    };
   }, [projectId]);
 
   const handleResetLayout = async () => {
@@ -169,7 +189,42 @@ export default function ArchitecturePage() {
               </div>
             )}
           </div>
-          
+
+          {/* Analysis Method Badge */}
+          {hasData && graphData.stats?.analysisMethod && (() => {
+            const isAI = graphData.stats.analysisMethod === 'AI';
+            const repoType = graphData.stats.repoType || '';
+            const confidence = graphData.stats.classifierConfidence || '';
+            const repoLabel = {
+              WEB_CONTAINERIZED:  'Containerized',
+              LOCAL_MONOLITH_WEB: 'Monolith',
+              AI_DATA_PIPELINE:   'AI / Data',
+              SECURITY_IA_TOOL:   'Security Tool',
+              DEVOPS_IAC:         'DevOps / IaC',
+              LOCAL_STANDALONE_APP: 'Standalone App',
+            }[repoType] || repoType;
+            return (
+              <div
+                title={`Phân tích bởi: ${isAI ? 'Gemini AI' : 'Rule Engine'} · Loại repo: ${repoLabel} · Confidence: ${confidence}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border select-none cursor-default ${
+                  isAI
+                    ? 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-700/50'
+                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/50'
+                }`}
+              >
+                <span className="text-sm leading-none">{isAI ? '✨' : '⚡'}</span>
+                <span>{isAI ? 'AI Generated' : 'Rule-based'}</span>
+                {repoLabel && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    isAI
+                      ? 'bg-violet-100 text-violet-600 dark:bg-violet-800/50 dark:text-violet-200'
+                      : 'bg-amber-100 text-amber-600 dark:bg-amber-800/50 dark:text-amber-200'
+                  }`}>{repoLabel}</span>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="flex items-center gap-2 relative">
             {hasData && (
               <>
