@@ -435,7 +435,7 @@ const UseCasePage = () => {
                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E707D]"></div>
                 </div>
               )}
-              {useCases.length === 0 && !loading ? (
+              {useCases.length === 0 && !loading && listMode !== 'grouped' ? (
                 <div className="flex items-center justify-center flex-1 p-10 flex-col">
                   <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
                   <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>

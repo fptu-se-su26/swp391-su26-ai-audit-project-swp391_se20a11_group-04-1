@@ -160,6 +160,19 @@ public class Task {
     @Column(name = "source_generation_id")
     private java.util.UUID sourceGenerationId;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "task_dependencies",
+            joinColumns = @JoinColumn(name = "blocked_task_id"),
+            inverseJoinColumns = @JoinColumn(name = "blocking_task_id")
+    )
+    @Builder.Default
+    private Set<Task> dependsOn = new HashSet<>();
+
+    @ManyToMany(mappedBy = "dependsOn", fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Task> dependentTasks = new HashSet<>();
+
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();

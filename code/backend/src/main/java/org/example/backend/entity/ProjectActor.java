@@ -31,6 +31,9 @@ public class ProjectActor {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "inherits_from", length = 100)
+    private String inheritsFrom;
+
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default
     private boolean isDeleted = false;

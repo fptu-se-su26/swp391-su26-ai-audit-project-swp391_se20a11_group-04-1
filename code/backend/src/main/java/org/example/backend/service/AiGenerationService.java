@@ -114,7 +114,7 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 0, "Checking cache for existing file...");
-        java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashOrderByCreatedAtDesc(fileHash);
+        java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(fileHash, projectId, AiStage.REQUIREMENT);
         
         String documentText = null;
         JsonNode payload;
@@ -641,11 +641,13 @@ public class AiGenerationService {
             List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
             for (JsonNode actorNode : actorsNode) {
                 String name = actorNode.has("name") ? actorNode.get("name").asText() : "";
+                String inheritsFrom = actorNode.has("inheritsFrom") ? actorNode.get("inheritsFrom").asText() : null;
                 String desc = ""; // As requested, removing description
                 if (!name.isEmpty() && !existingNames.contains(name.toLowerCase())) {
                     actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
                             .project(project)
                             .name(name)
+                            .inheritsFrom(inheritsFrom)
                             .description(desc)
                             .build());
                     existingNames.add(name.toLowerCase());
@@ -838,8 +840,8 @@ public class AiGenerationService {
                 String primaryActors = ucNode.has("primaryActors") ? ucNode.get("primaryActors").asText() : "";
                 String precondition = ucNode.has("precondition") ? ucNode.get("precondition").asText() : "";
                 String postcondition = ucNode.has("postcondition") ? ucNode.get("postcondition").asText() : "";
-                String mainSuccessScenario = ucNode.has("mainSuccessScenario") ? ucNode.get("mainSuccessScenario").asText() : "";
-                String alternativeFlows = ucNode.has("alternativeFlows") ? ucNode.get("alternativeFlows").asText() : "";
+                String mainSuccessScenario = ucNode.has("mainSuccessScenario") ? ucNode.get("mainSuccessScenario").asText() : (ucNode.has("mainFlow") ? ucNode.get("mainFlow").asText() : "");
+                String alternativeFlows = ucNode.has("alternativeFlows") ? ucNode.get("alternativeFlows").asText() : (ucNode.has("alternativeFlow") ? ucNode.get("alternativeFlow").asText() : "");
                 
                 List<Requirement> mappedRequirements = new ArrayList<>();
                 if (ucNode.has("requirementIds") && ucNode.get("requirementIds").isArray()) {
@@ -1368,8 +1370,8 @@ public class AiGenerationService {
                             }
                         }
                         
-                        if (updatedNode.has("alternativeFlows")) {
-                            String flows = updatedNode.get("alternativeFlows").asText();
+                        if (updatedNode.has("alternativeFlows") || updatedNode.has("alternativeFlow")) {
+                            String flows = updatedNode.has("alternativeFlows") ? updatedNode.get("alternativeFlows").asText() : updatedNode.get("alternativeFlow").asText();
                             try {
                                 JsonNode flowNode = objectMapper.readTree(flows);
                                 if (flowNode.isObject() || flowNode.isArray()) {
@@ -1483,8 +1485,8 @@ public class AiGenerationService {
                     }
                 }
                 
-                if (newNode.has("alternativeFlows")) {
-                    String flows = newNode.get("alternativeFlows").asText();
+                if (newNode.has("alternativeFlows") || newNode.has("alternativeFlow")) {
+                    String flows = newNode.has("alternativeFlows") ? newNode.get("alternativeFlows").asText() : newNode.get("alternativeFlow").asText();
                     try {
                         JsonNode flowNode = objectMapper.readTree(flows);
                         if (flowNode.isObject() || flowNode.isArray()) {

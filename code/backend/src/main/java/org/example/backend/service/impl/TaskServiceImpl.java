@@ -1851,6 +1851,7 @@ public class TaskServiceImpl implements TaskService {
                 .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
                 .githubIssueUrl(task.getGithubIssueUrl())
                 .githubIssueNumber(task.getGithubIssueNumber())
+                .dependsOnTaskIds(task.getDependsOn() != null ? task.getDependsOn().stream().map(Task::getId).collect(Collectors.toList()) : new java.util.ArrayList<>())
                 .build();
     }
 

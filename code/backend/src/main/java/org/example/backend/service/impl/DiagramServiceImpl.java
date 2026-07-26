@@ -80,6 +80,7 @@ public class DiagramServiceImpl implements DiagramService {
             DiagramSyncResponse.DiagramActorDTO actorDto = new DiagramSyncResponse.DiagramActorDTO();
             actorDto.setId("actor_" + pa.getId());
             actorDto.setName(pa.getName());
+            actorDto.setInheritsFrom(pa.getInheritsFrom());
             actorDtos.add(actorDto);
             actorNameToIdMap.put(pa.getName(), pa.getId().toString());
         }
@@ -148,18 +149,55 @@ public class DiagramServiceImpl implements DiagramService {
             }
             ucDtos.add(ucDto);
         }
+
+        // Identify actors directly connected to the Use Cases
+        java.util.Set<String> activeActorIds = new HashSet<>();
+        for (DiagramSyncResponse.DiagramRelationDTO rel : relations) {
+            if (rel.getType().equals("actor-uc")) {
+                if (rel.getSourceId().startsWith("actor_")) activeActorIds.add(rel.getSourceId());
+                if (rel.getTargetId().startsWith("actor_")) activeActorIds.add(rel.getTargetId());
+            }
+        }
         
-        java.util.Set<String> usedActorIds = relations.stream()
-            .map(r -> {
-                if (r.getSourceId().startsWith("actor_")) return r.getSourceId();
-                if (r.getTargetId().startsWith("actor_")) return r.getTargetId();
-                return null;
-            })
-            .filter(id -> id != null)
-            .collect(Collectors.toSet());
+        // Build generalization hierarchy and collect all required actors (including parents)
+        Map<String, String> childToParentMap = new HashMap<>();
+        for (ProjectActor pa : projectActors) {
+            if (pa.isDeleted() || pa.getInheritsFrom() == null || pa.getInheritsFrom().trim().isEmpty()) continue;
+            String parentId = actorNameToIdMap.get(pa.getInheritsFrom().trim());
+            if (parentId != null) {
+                childToParentMap.put("actor_" + pa.getId(), "actor_" + parentId);
+            }
+        }
+        
+        Set<String> finalRequiredActorIds = new HashSet<>(activeActorIds);
+        boolean changed;
+        do {
+            changed = false;
+            Set<String> newAdditions = new HashSet<>();
+            for (String actorId : finalRequiredActorIds) {
+                String parentId = childToParentMap.get(actorId);
+                if (parentId != null && !finalRequiredActorIds.contains(parentId)) {
+                    newAdditions.add(parentId);
+                    changed = true;
+                }
+            }
+            finalRequiredActorIds.addAll(newAdditions);
+        } while (changed);
+
+        // Map ONLY required Actor Generalization relations
+        for (Map.Entry<String, String> entry : childToParentMap.entrySet()) {
+            if (finalRequiredActorIds.contains(entry.getKey()) && finalRequiredActorIds.contains(entry.getValue())) {
+                DiagramSyncResponse.DiagramRelationDTO rel = new DiagramSyncResponse.DiagramRelationDTO();
+                rel.setId("rel_" + (relationIdCounter++));
+                rel.setType("actor-generalization");
+                rel.setSourceId(entry.getKey());
+                rel.setTargetId(entry.getValue());
+                relations.add(rel);
+            }
+        }
             
         List<DiagramSyncResponse.DiagramActorDTO> filteredActorDtos = actorDtos.stream()
-            .filter(a -> usedActorIds.contains(a.getId()))
+            .filter(a -> finalRequiredActorIds.contains(a.getId()))
             .collect(Collectors.toList());
         
         response.setActors(filteredActorDtos);
@@ -422,7 +460,41 @@ public class DiagramServiceImpl implements DiagramService {
             useCaseRepository.save(uc);
         }
         
-        deleteMissingActors(existingProjectActors, new java.util.ArrayList<>(linkedActorNames), request.getActors());
+        // 4. UPDATE ACTOR INHERITANCE
+        Map<String, String> childToParentMap = new HashMap<>();
+        for (DiagramSyncRequest.DiagramRelationDTO rel : request.getRelations()) {
+            if ("actor-generalization".equals(rel.getType())) {
+                String childName = actorIdToNameMap.get(rel.getSourceId());
+                if (childName == null && rel.getSourceId() != null) childName = actorIdToNameMap.get("actor_" + rel.getSourceId());
+                if (childName == null && rel.getSourceId() != null && rel.getSourceId().startsWith("actor_")) childName = actorIdToNameMap.get(rel.getSourceId().substring(6));
+
+                String parentName = actorIdToNameMap.get(rel.getTargetId());
+                if (parentName == null && rel.getTargetId() != null) parentName = actorIdToNameMap.get("actor_" + rel.getTargetId());
+                if (parentName == null && rel.getTargetId() != null && rel.getTargetId().startsWith("actor_")) parentName = actorIdToNameMap.get(rel.getTargetId().substring(6));
+
+                if (childName != null && parentName != null) {
+                    childToParentMap.put(childName, parentName);
+                }
+            }
+        }
+        for (ProjectActor pa : existingProjectActors) {
+            String newParent = childToParentMap.get(pa.getName());
+            if (newParent != null && !newParent.equals(pa.getInheritsFrom())) {
+                pa.setInheritsFrom(newParent);
+                projectActorRepository.save(pa);
+            } else if (newParent == null && pa.getInheritsFrom() != null) {
+                // If there's no relation in the diagram, but they had one before, clear it? 
+                // Only if it's currently on the diagram. Let's just clear it if it was linked in this sync.
+                if (request.getActors().stream().anyMatch(a -> a.getName().equals(pa.getName()))) {
+                    pa.setInheritsFrom(null);
+                    projectActorRepository.save(pa);
+                }
+            }
+        }
+
+        if (moduleId == null) {
+            deleteMissingActors(existingProjectActors, new java.util.ArrayList<>(linkedActorNames), request.getActors());
+        }
         
         return idMappings;
     }
@@ -491,7 +563,9 @@ public class DiagramServiceImpl implements DiagramService {
         }
         diagram.setProjectId(projectId);
         diagram.setLayoutData(request.getLayoutData());
-        diagram.setImageBase64(request.getImageBase64());
+        if (request.getImageBase64() != null) {
+            diagram.setImageBase64(request.getImageBase64());
+        }
         projectDiagramRepository.save(diagram);
     }
 

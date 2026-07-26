@@ -4,17 +4,22 @@ const useDiagramStore = create((set) => ({
   actors: [],
   useCases: [],
   relations: [],
+  drawingMode: 'auto', // 'auto', 'actor-uc', 'include', 'extends', 'actor-generalization'
+
+  setDrawingMode: (mode) => set({ drawingMode: mode }),
 
   loadData: (data) => set({
     actors: data.actors || [],
     useCases: data.useCases || [],
-    relations: data.relations || []
+    relations: data.relations || [],
+    drawingMode: 'auto'
   }),
 
   reset: () => set({
     actors: [],
     useCases: [],
-    relations: []
+    relations: [],
+    drawingMode: 'auto'
   }),
 
   addActor: (actor) => set((state) => ({
@@ -27,12 +32,16 @@ const useDiagramStore = create((set) => ({
     )
   })),
 
-  removeActor: (id) => set((state) => ({
-    actors: state.actors.filter((actor) => actor.id.toString() !== id.toString()),
-    relations: state.relations.filter(
-      (rel) => rel.sourceId.toString() !== id.toString() && rel.targetId.toString() !== id.toString()
-    )
-  })),
+  removeActor: (id) => {
+    const rawId = id.toString().replace('actor_', '');
+    const fullId = `actor_${rawId}`;
+    return set((state) => ({
+      actors: state.actors.filter((actor) => actor.id.toString() !== rawId && actor.id.toString() !== fullId),
+      relations: state.relations.filter(
+        (rel) => rel.sourceId.toString() !== rawId && rel.targetId.toString() !== rawId && rel.sourceId.toString() !== fullId && rel.targetId.toString() !== fullId
+      )
+    }));
+  },
 
   addUseCase: (useCase) => set((state) => ({
     useCases: [...state.useCases, useCase]
@@ -52,7 +61,11 @@ const useDiagramStore = create((set) => ({
   })),
 
   addRelation: (relation) => set((state) => ({
-    relations: [...state.relations, relation]
+    relations: [...state.relations, {
+      ...relation,
+      sourceHandle: relation.sourceHandle || null,
+      targetHandle: relation.targetHandle || null
+    }]
   })),
 
   removeRelation: (id) => set((state) => ({

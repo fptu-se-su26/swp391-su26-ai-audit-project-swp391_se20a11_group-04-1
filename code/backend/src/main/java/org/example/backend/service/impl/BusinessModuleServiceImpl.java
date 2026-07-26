@@ -35,6 +35,9 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
     @Autowired
     private org.example.backend.repository.TaskRepository taskRepository;
 
+    @Autowired
+    private org.example.backend.repository.ProjectDiagramRepository projectDiagramRepository;
+
     private void checkProjectPermission(Project project, Long userId) {
         boolean isLeader = project.getMembers().stream()
             .anyMatch(m -> m.getUser().getId().equals(userId) && m.getRole() != null && m.getRole().getName().toUpperCase().contains("LEADER"));
@@ -144,6 +147,9 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
         if (!tasks.isEmpty()) {
             taskRepository.deleteAll(tasks);
         }
+        
+        // 3. Delete ProjectDiagrams associated with this module
+        projectDiagramRepository.deleteByModuleId(id);
         
         businessModuleRepository.delete(module);
     }

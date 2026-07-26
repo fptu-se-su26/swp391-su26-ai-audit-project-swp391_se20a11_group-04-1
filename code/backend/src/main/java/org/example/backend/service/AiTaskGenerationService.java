@@ -136,7 +136,10 @@ public class AiTaskGenerationService {
         java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.TASK);
 
         List<Task> existingProjectTasks = taskRepository.findByProjectId(projectId);
-        if (existingProjectTasks.isEmpty() && existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+        // BUG-7 FIX: Use cache regardless of whether the project already has tasks.
+        // The cache is valid if: same hash (same UC/Req set) + status is a reusable state.
+        // We skip cache only when the project has NO matching confirmed staging for this exact hash.
+        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
             AiGenerationStaging oldStaging = existingCache.get();
             UUID generationId = UUID.randomUUID();
             AiGenerationStaging newStaging = AiGenerationStaging.builder()
@@ -424,10 +427,29 @@ public class AiTaskGenerationService {
         Set<String> visited = new HashSet<>();
         Set<String> recursionStack = new HashSet<>();
 
-        for (String taskId : taskMap.keySet()) {
-            if (hasCircularDependency(taskId, taskMap, visited, recursionStack)) {
-                // If circle found, just clear depends_on of this task to break it
-                ((ObjectNode) taskMap.get(taskId)).remove("depends_on");
+        // BUG-3 FIX: Instead of removing all depends_on of the offending task,
+        // only remove the specific edge(s) that form a cycle by doing a targeted break.
+        // We rebuild depends_on removing only the dep that causes the back-edge (cycle entry point).
+        for (String taskId : new java.util.ArrayList<>(taskMap.keySet())) {
+            Set<String> visitedCheck = new HashSet<>();
+            Set<String> stack = new HashSet<>();
+            if (hasCircularDependency(taskId, taskMap, visitedCheck, stack)) {
+                // Find and remove only the back-edge that creates the cycle
+                JsonNode taskNode = taskMap.get(taskId);
+                if (taskNode != null && taskNode.has("depends_on") && taskNode.get("depends_on").isArray()) {
+                    ArrayNode depsArray = (ArrayNode) taskNode.get("depends_on");
+                    for (int i = depsArray.size() - 1; i >= 0; i--) {
+                        String depId = depsArray.get(i).asText();
+                        // If removing this single edge breaks the cycle, remove only it
+                        Set<String> testVisited = new HashSet<>();
+                        Set<String> testStack = new HashSet<>();
+                        depsArray.remove(i);
+                        boolean stillHasCycle = hasCircularDependency(taskId, taskMap, testVisited, testStack);
+                        if (!stillHasCycle) break; // Found the single back-edge, done
+                        // Restore and try the next one
+                        depsArray.insert(i, depId);
+                    }
+                }
             }
         }
 
@@ -663,6 +685,17 @@ public class AiTaskGenerationService {
         }
         AiGenerationStaging staging = stagings.get(0);
 
+        // BUG-2 FIX: The approve flow sets staging to CONFIRMED when generation is ready.
+        // So we should only block if the staging is ALREADY fully approved (re-approve attempt),
+        // not on the first approval of a CONFIRMED-ready staging.
+        // We detect a re-approve attempt by checking if this generationId's tasks already exist.
+        // Simple approach: allow CONFIRMED (ready-to-approve) and throw only for already-processed states
+        // by checking if there are already tasks linked to this sourceGenerationId.
+        boolean alreadyApproved = taskRepository.existsBySourceGenerationId(generationId);
+        if (alreadyApproved) {
+            throw new RuntimeException("This generation has already been approved.");
+        }
+
         if (modifiedPayload == null || !modifiedPayload.isArray()) {
             throw new RuntimeException("Invalid payload");
         }
@@ -672,6 +705,9 @@ public class AiTaskGenerationService {
         kanbanColumnService.ensureDefaultColumns(projectId);
         KanbanColumn defaultColumn = kanbanColumnRepository.findByProjectIdAndStatusKey(projectId, "TODO")
             .orElseGet(() -> kanbanColumnRepository.findByProjectIdAndNameIgnoreCase(projectId, "TODO").orElse(null));
+
+        Map<String, Task> tempIdToSavedTaskMap = new java.util.HashMap<>();
+        List<java.util.Map.Entry<Task, JsonNode>> tasksToProcessDependencies = new java.util.ArrayList<>();
 
         for (Integer index : selectedIndices) {
             JsonNode taskNode = modifiedPayload.get(index);
@@ -836,6 +872,13 @@ public class AiTaskGenerationService {
                 }
 
                 taskRepository.save(task);
+                
+                if (taskNode.has("temp_id")) {
+                    tempIdToSavedTaskMap.put(taskNode.get("temp_id").asText(), task);
+                }
+                if (taskNode.has("depends_on") && taskNode.get("depends_on").isArray() && taskNode.get("depends_on").size() > 0) {
+                    tasksToProcessDependencies.add(new java.util.AbstractMap.SimpleEntry<>(task, taskNode));
+                }
 
                 auditService.publishSuccess(userId, creator.getUsername(), "CREATE_TASK", 
                         "Task", task.getId(), projectId, null, 
@@ -857,6 +900,30 @@ public class AiTaskGenerationService {
                         }
                     }
                 }
+            }
+        }
+        
+        // Pass 2: Wire up dependencies
+        for (java.util.Map.Entry<Task, JsonNode> entry : tasksToProcessDependencies) {
+            Task task = entry.getKey();
+            JsonNode taskNode = entry.getValue();
+            java.util.Set<Task> dependsOnSet = new java.util.HashSet<>();
+            for (JsonNode depNode : taskNode.get("depends_on")) {
+                String depStr = depNode.asText();
+                if (depStr.startsWith("TASK-")) {
+                    try {
+                        Long existingId = Long.parseLong(depStr.replace("TASK-", ""));
+                        Task existingDep = taskRepository.findById(existingId).orElse(null);
+                        if (existingDep != null) dependsOnSet.add(existingDep);
+                    } catch (Exception ignored) {}
+                } else {
+                    Task tempDep = tempIdToSavedTaskMap.get(depStr);
+                    if (tempDep != null) dependsOnSet.add(tempDep);
+                }
+            }
+            if (!dependsOnSet.isEmpty()) {
+                task.setDependsOn(dependsOnSet);
+                taskRepository.save(task);
             }
         }
 

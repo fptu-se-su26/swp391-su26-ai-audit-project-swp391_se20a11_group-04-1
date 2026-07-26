@@ -42,6 +42,8 @@ export const exportToDrawio = (nodes, edges, diagramName = "Use Case Diagram") =
         } else if (edgeLabel.includes('extend')) {
              edgeStyle = "html=1;dashed=1;endArrow=open;endFill=0;";
              label = escapeXml(escapeXml("<<extends>>"));
+        } else if (edge.data?.relType === 'actor-generalization' || (edge.source.toString().startsWith('actor_') && edge.target.toString().startsWith('actor_'))) {
+             edgeStyle = "html=1;endArrow=block;endFill=0;endSize=12;strokeWidth=1.5;";
         }
 
         xmlStr += `

@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -27,6 +28,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     long countByProjectId(Long projectId);
 
     List<Task> findByParentId(Long parentId);
+
+    boolean existsBySourceGenerationId(UUID sourceGenerationId);
 
     List<Task> findByRequirementId(Long requirementId);
 

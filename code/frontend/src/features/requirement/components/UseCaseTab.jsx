@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useDiagramStore from '../../../store/useDiagramStore';
 import Button from '../../../components/ui/Button';
 
-const UseCaseTab = () => {
+const UseCaseTab = ({ onUnsavedChanges }) => {
   const { useCases, actors, relations, addUseCase, updateUseCase, removeUseCase } = useDiagramStore();
   const [newUseCaseName, setNewUseCaseName] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -12,9 +12,11 @@ const UseCaseTab = () => {
     if (!newUseCaseName.trim()) return;
     addUseCase({
       id: "new_" + Date.now().toString(),
-      name: newUseCaseName.trim()
+      name: newUseCaseName.trim(),
+      showInDiagram: true
     });
     setNewUseCaseName('');
+    if (onUnsavedChanges) onUnsavedChanges();
   };
 
   const handleEdit = (uc) => {
@@ -26,6 +28,7 @@ const UseCaseTab = () => {
     if (!editName.trim()) return;
     updateUseCase(id, { name: editName.trim() });
     setEditingId(null);
+    if (onUnsavedChanges) onUnsavedChanges();
   };
 
   const handleFocus = (id) => {
@@ -36,6 +39,7 @@ const UseCaseTab = () => {
 
   const handleToggleVisibility = (uc) => {
     updateUseCase(uc.id, { showInDiagram: !(uc.showInDiagram !== false) });
+    if (onUnsavedChanges) onUnsavedChanges();
   };
 
   // Compute isolation from relations+actors (source of truth) using BFS to allow transitive connections
@@ -103,9 +107,12 @@ const UseCaseTab = () => {
             <div className="flex gap-1 ml-2">
               {isHidden && uc.addedFromDiagram && (
                 <button 
-                  onClick={() => removeUseCase(uc.id)}
-                  className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="Permanently Delete Draft"
+                  onClick={() => {
+                    removeUseCase(uc.id);
+                    if (onUnsavedChanges) onUnsavedChanges();
+                  }}
+                  className="p-1 text-gray-500 hover:text-red-600 rounded transition-colors"
+                  title="Remove Use Case"
                 >
                   <span className="material-symbols-outlined text-[18px]">delete</span>
                 </button>

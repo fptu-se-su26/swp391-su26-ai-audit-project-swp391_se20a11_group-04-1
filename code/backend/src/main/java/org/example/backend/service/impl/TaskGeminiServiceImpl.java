@@ -25,10 +25,12 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- Only generate tasks for the MISSING gaps in the Use Cases and Non-Functional Requirements.\n" +
                 "- If a Use Case or Requirement is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
                 "SENIOR ARCHITECT TASK BREAKDOWN RULES (CRITICAL):\n" +
-                "- You MUST break down every Use Case into logical, actionable technical tasks based on actual complexity.\n" +
-                "- DO NOT arbitrarily force every single Use Case to have separate Database, Backend, Frontend, and QA tasks if it's a simple feature. Full-stack tasks are acceptable for simple operations.\n" +
-                "- For complex features, split them logically (e.g., API & DB together, Frontend UI separate, QA testing separate).\n" +
-                "- Task Titles MUST follow a clear [Verb] + [Noun] + [Context] format (e.g., 'Implement User Login API', 'Design Checkout UI', 'Write Unit Tests for Payment Flow').\n" +
+                "- You MUST break down every Use Case and Requirement into a logical execution pipeline based on its actual technical nature.\n" +
+                "- If a feature spans full-stack, break it down sequentially (e.g., Database Schema Design -> Backend API Implementation -> Frontend UI Development -> Testing).\n" +
+                "  * Testing tasks MUST be explicit and descriptive. DO NOT write 'QA' alone. Write the exact scope, e.g.: 'Write Unit Tests for User Login API', 'Write Integration Tests for Payment Flow', 'Write E2E Test Cases for Registration Feature'.\n" +
+                "- If a feature is purely UI, purely Backend, or a DevOps task, adapt the tasks accordingly without forcing unnecessary layers.\n" +
+                "- You MUST establish strict sequential dependencies (`depends_on`) between tasks within the same feature to reflect real-world execution order (e.g., a Frontend task MUST depend on its corresponding Backend task, if both exist). Testing tasks MUST always depend on the task they are testing.\n" +
+                "- Task Titles MUST follow a clear [Verb] + [Noun] + [Context] format (e.g., 'Design Database Schema for Login', 'Implement User Login API', 'Write Unit Tests for Product Search API').\n" +
                 "- For Non-Functional Requirements, generate precise DevOps, Security, or Architectural configuration tasks.\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +
@@ -41,14 +43,19 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- 1.5 to 1.7: High/Core (Core architecture, complex flows, optimization).\n" +
                 "- 1.8 to 2.0: Critical/Extreme (Algorithms, security, integrations).\n\n" +
                 "TASK TYPE CLASSIFICATION RULES:\n" +
-                "- DEVELOPMENT: Building APIs, backend logic, DB setup, standard functional coding.\n" +
-                "- UI_UX: Frontend layouts, HTML/CSS, React components, wireframing.\n" +
-                "- TESTING: Writing unit/integration tests, QA, or defining test cases.\n" +
-                "- DOCUMENTATION: Writing API Swagger docs, architecture documents, user guides.\n" +
-                "- RESEARCH: Investigating libraries, Proof of Concept (POC), technical feasibility.\n" +
-                "- DEPLOYMENT: Docker, CI/CD pipelines, server configuration.\n" +
-                "- BUG_FIX: Resolving specific issues or refactoring bad code.\n" +
-                "- REVIEW: Code review, architecture evaluation, security audit.\n\n" +
+                "- DEVELOPMENT: Building APIs, backend logic, DB schema design/migration, standard functional coding.\n" +
+                "- UI_UX: Frontend layouts, HTML/CSS, React components, wireframing, UI state management.\n" +
+                "- TESTING: Writing specific, scoped tests. Task titles MUST clearly state the test type and scope. Examples:\n" +
+                "    * 'Write Unit Tests for [Service/Function Name]'\n" +
+                "    * 'Write Integration Tests for [Module/Flow Name]'\n" +
+                "    * 'Write E2E Test Cases for [Feature Name]'\n" +
+                "    * 'Define Test Cases for [Use Case Name]'\n" +
+                "  DO NOT use vague titles like 'QA', 'Testing', or 'Test the feature'.\n" +
+                "- DOCUMENTATION: Writing API Swagger/OpenAPI docs, architecture documents, user guides, README files.\n" +
+                "- RESEARCH: Investigating third-party libraries, Proof of Concept (POC), technical feasibility analysis.\n" +
+                "- DEPLOYMENT: Docker setup, CI/CD pipeline configuration, server setup, environment configuration.\n" +
+                "- BUG_FIX: Resolving specific defects or refactoring problematic/legacy code.\n" +
+                "- REVIEW: Code review, architecture evaluation, security audit, peer review.\n\n" +
                 "TIMELINE RULES (Strictly enforced):\n" +
                 "- NEVER generate past dates. start_date MUST BE >= today's date: " + LocalDate.now().toString() + ". DO NOT generate a date before today.\n" +
                 "- suggested_deadline MUST BE >= start_date.\n" +
@@ -69,9 +76,10 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "- The 'member_name' in 'suggested_assignee' MUST EXACTLY match the 'username' field of the chosen member.\n\n" +
                 "CHECKLIST RULES (DEFINITION OF DONE):\n" +
                 "- You MUST generate 3 to 5 'checklists' items for each task. These act as a rigorous Definition of Done (DoD).\n" +
-                "- Backend checklists MUST include validation, security checks, and error handling.\n" +
-                "- Frontend checklists MUST include responsive UI, API error handling, and state management.\n" +
-                "- DB checklists MUST include foreign keys, indexing, and correct data types.\n\n" +
+                "- Backend checklists MUST include: input validation, proper HTTP status codes, authentication/authorization check, error handling, and unit test coverage.\n" +
+                "- Frontend checklists MUST include: responsive layout, API error handling, loading/empty states, and form validation feedback.\n" +
+                "- DB checklists MUST include: correct data types, NOT NULL constraints, foreign keys, indexes on frequently queried columns, and migration file created.\n" +
+                "- TESTING checklists MUST include: test cases defined for happy path, edge cases, and error/failure scenarios. Must specify the exact method or endpoint being tested.\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +
                 "- DO NOT include comments inside the JSON.\n" +
@@ -114,7 +122,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "CRITICAL INSTRUCTION: All your outputs (missing_step, similarity_reason, recommendation, risk) MUST be in English. Be extremely concise and direct.\n\n" +
                 "Identify risks in these specific categories:\n" +
                 "1. Coverage Gaps: Are there any steps in the Use Case flows, or any core scopes in the Non-Functional Requirements that are not covered by any generated task?\n" +
-                "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks?\n" +
+                "2. Duplication Risks: Are any generated tasks potentially duplicating the scope of the Existing Tasks? CRITICAL: If the Existing Tasks list is empty, you MUST return an empty array for duplication_risks. NEVER flag duplicates against other newly generated tasks in the same batch.\n" +
                 "3. Technical & Workload Risks: Security vulnerabilities, architectural gaps, or severe workload imbalances.\n\n" +
                 "JSON FORMATTING RULES:\n" +
                 "- Return JSON only. No extra text, no markdown code fences.\n" +

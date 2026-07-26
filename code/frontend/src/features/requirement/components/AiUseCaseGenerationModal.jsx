@@ -399,7 +399,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           </div>
         </div>
         
-        <div className="p-3 space-y-3 flex-1 flex flex-col">
+        <div className="p-3 space-y-3 flex-1 flex flex-col overflow-y-auto custom-scrollbar">
           {/* Display Critic Errors & Warnings */}
           {(uc.errors?.length > 0 || uc.warnings?.length > 0) && (
             <div className="flex flex-col gap-1 shrink-0 mb-1 text-xs bg-orange-50 border border-orange-100 rounded p-2">
@@ -473,14 +473,26 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
               </div>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-none">
                <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">
                   Main Flow
                 </label>
                 <textarea 
                   value={uc.mainSuccessScenario || ''} 
                   onChange={(e) => handleFieldChange(index, 'mainSuccessScenario', e.target.value)}
-                  className="w-full h-full min-h-[60px] text-[11px] p-1.5 bg-surface border border-outline-variant rounded focus:border-[#1E707D] outline-none resize-y"
+                  className="w-full min-h-[80px] text-[11px] p-1.5 bg-surface border border-outline-variant rounded focus:border-[#1E707D] outline-none resize-y"
+                />
+            </div>
+            
+            <div className="flex-none">
+               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-0.5">
+                  Alternative / Exception Flows
+                </label>
+                <textarea 
+                  value={uc.alternativeFlows || ''} 
+                  onChange={(e) => handleFieldChange(index, 'alternativeFlows', e.target.value)}
+                  className="w-full min-h-[60px] text-[11px] p-1.5 bg-surface border border-outline-variant rounded focus:border-[#1E707D] outline-none resize-y placeholder-gray-400"
+                  placeholder="e.g. AF1: Invalid credentials..."
                 />
             </div>
           </div>

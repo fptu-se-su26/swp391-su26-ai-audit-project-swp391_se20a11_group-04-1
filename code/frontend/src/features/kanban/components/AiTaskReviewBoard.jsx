@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import taskService from '../services/taskService';
 import { useProjectStore } from '@/store/useProjectStore';
@@ -8,112 +8,149 @@ import MergeTaskReviewModal from './MergeTaskReviewModal';
 import DuplicationDiffModal from './DuplicationDiffModal';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 
-// Helper for auto-mapping sprints based on task deadline vs sprint dates
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
 const autoMapSprint = (t, sprintList) => {
   const targetDate = t.suggested_deadline || t.deadline || t.start_date;
-  if (targetDate && sprintList && sprintList.length > 0) {
-     const tDate = new Date(targetDate);
-     const matchedSprint = sprintList.find(s => {
-       const start = s.startDate ? new Date(s.startDate) : null;
-       const end = s.endDate ? new Date(s.endDate) : null;
-       if (start && end) return tDate >= start && tDate <= end;
-       if (start) return tDate >= start;
-       if (end) return tDate <= end;
-       return false;
-     });
-     if (matchedSprint) {
-       return matchedSprint.id;
-     }
+  if (targetDate && sprintList?.length > 0) {
+    const tDate = new Date(targetDate);
+    const matched = sprintList.find(s => {
+      const start = s.startDate ? new Date(s.startDate) : null;
+      const end   = s.endDate   ? new Date(s.endDate)   : null;
+      if (start && end) return tDate >= start && tDate <= end;
+      if (start) return tDate >= start;
+      if (end)   return tDate <= end;
+      return false;
+    });
+    if (matched) return matched.id;
   }
   return '';
 };
 
+/** Topological sort within a group, returns tasks in execution order */
+// BUG-6 FIX: Use a stable unique key instead of temp_id (which can be undefined)
+const topoSort = (groupTasks) => {
+  // Assign a stable fallback key for tasks without temp_id
+  const getKey = (t) => t.temp_id ?? `__no_id_${groupTasks.indexOf(t)}`;
+
+  const idMap = {};
+  groupTasks.forEach(t => { idMap[getKey(t)] = t; });
+  const visited = new Set();
+  const result = [];
+
+  const visit = (t) => {
+    const key = getKey(t);
+    if (!t || visited.has(key)) return;
+    visited.add(key);
+    (t.depends_on || []).forEach(depId => {
+      if (idMap[depId]) visit(idMap[depId]);
+    });
+    result.push(t);
+  };
+
+  groupTasks.forEach(t => visit(t));
+  return result;
+};
+
+/** Group tasks by use_case_code then requirement_code */
+const groupAndSortTasks = (tasks) => {
+  const groups = {};
+  tasks.forEach(t => {
+    const key = t.use_case_code || t.requirement_code || 'Ungrouped';
+    if (!groups[key]) groups[key] = { key, label: key, tasks: [] };
+    groups[key].tasks.push(t);
+  });
+
+  return Object.values(groups).map(g => ({
+    ...g,
+    tasks: topoSort(g.tasks),
+  }));
+};
+
+const PRIORITY_STYLE = {
+  CRITICAL: { dot: 'bg-red-500',    badge: 'bg-red-100 text-red-700 border-red-200',    label: 'CRITICAL' },
+  HIGH:     { dot: 'bg-orange-500', badge: 'bg-orange-100 text-orange-700 border-orange-200', label: 'HIGH' },
+  MEDIUM:   { dot: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border-amber-200', label: 'MEDIUM' },
+  LOW:      { dot: 'bg-blue-400',   badge: 'bg-blue-50 text-blue-700 border-blue-200',   label: 'LOW' },
+};
+
+const TYPE_STYLE = {
+  DEVELOPMENT:   { icon: '💻', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  TESTING:       { icon: '🧪', color: 'bg-green-50 text-green-700 border-green-200' },
+  DOCUMENTATION: { icon: '📄', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  UI_UX:         { icon: '🎨', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' },
+  RESEARCH:      { icon: '🔍', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  DEPLOYMENT:    { icon: '🚀', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  BUG_FIX:       { icon: '🐛', color: 'bg-red-50 text-red-700 border-red-200' },
+  REVIEW:        { icon: '👁️', color: 'bg-teal-50 text-teal-700 border-teal-200' },
+};
+
+const priorityColor = (p) => {
+  const s = PRIORITY_STYLE[p];
+  return s ? `${s.badge}` : 'bg-slate-100 text-slate-700 border-slate-200';
+};
+
+const getTypeConfig = (type) => {
+  const s = TYPE_STYLE[type];
+  return s ? { label: type, icon: s.icon, color: s.color } : { label: type || 'Unknown', icon: '📌', color: 'bg-gray-50 text-gray-700 border-gray-200' };
+};
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
+
 const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess, onFullyCovered }) => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
-  
   const [tasks, setTasks] = useState([]);
   const [assessment, setAssessment] = useState(null);
   const [sprints, setSprints] = useState([]);
   const members = useProjectStore(state => state.activeProject?.members || []);
-  
   const [selectedIndices, setSelectedIndices] = useState(new Set());
   const [globalSprintId, setGlobalSprintId] = useState('');
-    
-  // Inline Edit State (REMOVED: Now handled by EditableTaskCard)
 
-  // Diff Popup State
+  // Diff Popup
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [activeDiffRisk, setActiveDiffRisk] = useState(null);
   const [activeDiffTaskIndex, setActiveDiffTaskIndex] = useState(null);
 
-  // Split Popup State
-  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  // Split (per-card)
   const [splitSelectedIndex, setSplitSelectedIndex] = useState(null);
   const [isSplitting, setIsSplitting] = useState(false);
+  const [reviewingSplitData, setReviewingSplitData] = useState(null);
 
-  // Merge Popup State
+  // Merge (scoped popup)
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSelectedSet, setMergeSelectedSet] = useState(new Set());
-
-  // Review Modals State
-  const [reviewingSplitData, setReviewingSplitData] = useState(null); // { originalTask, subTasks }
-  const [reviewingMergeData, setReviewingMergeData] = useState(null); // { originalTasks, mergedTask }
-
-  // Error Popup State
-  const [actionError, setActionError] = useState(null); // { title: string, reason: string }
   const [isMerging, setIsMerging] = useState(false);
+  const [reviewingMergeData, setReviewingMergeData] = useState(null);
+
+  const [actionError, setActionError] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, action: null, message: '', title: '' });
-  
+
   const abortControllerRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && generationId) fetchData();
   }, [isOpen, generationId]);
 
+  // ─── DATA ──────────────────────────────────────────────────────────────────
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const data = await taskService.getAIGenerationStatus(generationId);
-      if (data.stage !== 'TASK') {
-        toast.error("This draft is not a Task.");
-        onClose();
-        return;
-      }
+      if (data.stage !== 'TASK') { toast.error("This draft is not a Task."); onClose(); return; }
       let payloadData = data.payload || {};
-      if (typeof payloadData === 'string') {
-        try { payloadData = JSON.parse(payloadData); } catch(e) {}
-      }
-      
-      // If somehow it's still PENDING, we shouldn't show it as completed
-      if (data.status === 'PENDING') {
-        return;
-      }
-      
-      if (data.status === 'DISCARDED') {
-        toast.error("An error occurred during AI analysis. Please try again!");
-        onClose();
-        return;
-      }
-      
-      const generatedTasks = payloadData.tasks || [];
-      
-      if (generatedTasks.length === 0) {
-        setLoading(false);
-        onClose();
-        onFullyCovered?.();
-        return;
-      }
-      
-      let fetchedSprints = [];
-      try {
-        fetchedSprints = await taskService.getProjectSprints(projectId);
-        setSprints(fetchedSprints);
-      } catch (err) {
-        console.error("Failed to load sprints", err);
-      }
+      if (typeof payloadData === 'string') { try { payloadData = JSON.parse(payloadData); } catch(e) {} }
+      if (data.status === 'PENDING') return;
+      if (data.status === 'DISCARDED') { toast.error("AI analysis failed. Please try again!"); onClose(); return; }
 
-      // Auto-map sprints based on task deadline vs sprint dates
+      const generatedTasks = payloadData.tasks || [];
+      if (generatedTasks.length === 0) { setLoading(false); onClose(); onFullyCovered?.(); return; }
+
+      let fetchedSprints = [];
+      try { fetchedSprints = await taskService.getProjectSprints(projectId); setSprints(fetchedSprints); }
+      catch (err) { console.error("Failed to load sprints", err); }
+
       const mappedTasks = generatedTasks.map(t => {
         const matched = autoMapSprint(t, fetchedSprints);
         return { ...t, sprint_id: matched !== '' ? matched : (t.sprint_id || '') };
@@ -121,8 +158,6 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
       setTasks(mappedTasks);
       setAssessment(payloadData.ai_critical_assessment || null);
-
-      // Do NOT auto select generated tasks initially
       setSelectedIndices(new Set());
       setLoading(false);
     } catch (err) {
@@ -132,96 +167,106 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     }
   };
 
-  // --- ACTIONS ---
+  // ─── DERIVED DATA ──────────────────────────────────────────────────────────
+
+  const duplicationRisks = assessment?.duplication_risks || [];
+  const coverageGaps     = assessment?.coverage_gaps     || [];
+
+  const groups = useMemo(() => groupAndSortTasks(tasks), [tasks]);
+
+  // flat index lookup: temp_id -> flat index in tasks[]
+  const tempIdToIndex = useMemo(() => {
+    const map = {};
+    tasks.forEach((t, i) => { if (t.temp_id) map[t.temp_id] = i; });
+    return map;
+  }, [tasks]);
+
+  const getTaskIndex = (task) => tempIdToIndex[task.temp_id] ?? tasks.indexOf(task);
+
+  // Scope check for merge: all selected tasks must be in same use_case_code/requirement_code
+  const mergeScope = useMemo(() => {
+    if (mergeSelectedSet.size === 0) return null;
+    const selected = Array.from(mergeSelectedSet).map(i => tasks[i]);
+    const scopes = new Set(selected.map(t => t.use_case_code || t.requirement_code || 'Ungrouped'));
+    return scopes.size === 1 ? [...scopes][0] : null; // null = cross-scope (invalid)
+  }, [mergeSelectedSet, tasks]);
+
+  // ─── SELECTION ─────────────────────────────────────────────────────────────
 
   const handleSelectAll = () => {
-    if (selectedIndices.size === tasks.length) {
-      setSelectedIndices(new Set());
-    } else {
-      setSelectedIndices(new Set(tasks.map((_, i) => i)));
-    }
+    if (selectedIndices.size === tasks.length) setSelectedIndices(new Set());
+    else setSelectedIndices(new Set(tasks.map((_, i) => i)));
   };
 
   const toggleTaskSelection = (index) => {
-    const newSet = new Set(selectedIndices);
-    if (newSet.has(index)) newSet.delete(index);
-    else newSet.add(index);
-    setSelectedIndices(newSet);
+    setSelectedIndices(prev => {
+      const s = new Set(prev);
+      if (s.has(index)) s.delete(index); else s.add(index);
+      return s;
+    });
   };
 
-  // Removed unused edit handlers
+  const toggleTaskGroupSelection = (indices, deselectAll) => {
+    setSelectedIndices(prev => {
+      const s = new Set(prev);
+      indices.forEach(idx => {
+        if (deselectAll) s.delete(idx);
+        else s.add(idx);
+      });
+      return s;
+    });
+  };
+
+  // ─── APPROVE ───────────────────────────────────────────────────────────────
 
   const handleApprove = async () => {
     if (selectedIndices.size === 0) return;
 
-    // Check for unresolved duplication risks
     const hasUnresolvedDuplications = Array.from(selectedIndices).some(idx => {
       const task = tasks[idx];
-      const isMergingToExisting = task._syncAction === 'MERGE_INTO_EXISTING';
-      const hasDuplication = duplicationRisks.some(r => r.generated_task_temp_id === task.temp_id);
-      return hasDuplication && !isMergingToExisting;
+      return duplicationRisks.some(r => r.generated_task_temp_id === task.temp_id)
+          && task._syncAction !== 'MERGE_INTO_EXISTING';
     });
-
     if (hasUnresolvedDuplications) {
-      setConfirmConfig({
-        isOpen: true,
-        action: 'BLOCK_APPROVE',
-        type: 'warning',
-        title: 'Unresolved Duplications',
-        message: 'Please resolve all highlighted duplication risks (orange border tasks) before approving.',
-        hideCancel: true,
-        confirmText: 'OK, I got it'
-      });
+      setConfirmConfig({ isOpen: true, action: 'BLOCK_APPROVE', type: 'warning', title: 'Unresolved Duplications',
+        message: 'Please resolve all highlighted duplication risks (orange border tasks) before approving.', hideCancel: true, confirmText: 'OK, I got it' });
       return;
     }
 
-
     const invalidTaskIdx = Array.from(selectedIndices).find(idx => {
       const task = tasks[idx];
-      
       if (task.estimated_hours !== undefined && task.estimated_hours !== null && task.estimated_hours !== '') {
-        const hours = Number(task.estimated_hours);
-        if (isNaN(hours) || hours <= 0 || hours > 999) return true;
+        const h = Number(task.estimated_hours);
+        if (isNaN(h) || h <= 0 || h > 999) return true;
       }
-
       const tStart = task.start_date || task.startDate;
       const tEnd = task.deadline || task.suggested_deadline || task.endDate;
-      const todayDateStr = new Date().toISOString().split('T')[0];
-      
-      // Removed tStart < todayDateStr to allow users to review tasks spanning across midnight without being blocked
       if (tStart && tEnd && tStart > tEnd) return true;
-
       const sprintId = task.sprint_id || task.sprintId;
       if (sprintId) {
         const sprint = sprints.find(s => String(s.id) === String(sprintId));
         if (sprint) {
           const sStart = sprint.startDate || sprint.start_date;
-          const sEnd = sprint.endDate || sprint.end_date;
+          const sEnd   = sprint.endDate   || sprint.end_date;
           if (sStart && tStart && tStart < sStart) return true;
-          if (sEnd && tEnd && tEnd > sEnd) return true;
+          if (sEnd   && tEnd   && tEnd   > sEnd)   return true;
         }
       }
       return false;
     });
-
     if (invalidTaskIdx !== undefined) {
-      toast.error(`Task "${tasks[invalidTaskIdx].title}" has an invalid date (outside Sprint, in the past, wrong Deadline) or invalid hours. Please fix it!`);
+      toast.error(`Task "${tasks[invalidTaskIdx].title}" has invalid dates or hours!`);
       return;
     }
 
     setApproving(true);
     try {
+      // Send depends_on as-is; backend handles mapping
       const finalTasks = tasks.map((t, idx) => {
-        let taskCopy = { ...t };
+        const taskCopy = { ...t };
         if (selectedIndices.has(idx)) {
-          if (taskCopy.depends_on && Array.isArray(taskCopy.depends_on) && taskCopy.depends_on.length > 0) {
-            taskCopy.description = (taskCopy.description || '') + `\n\n[Link]: Depends on tasks: ${taskCopy.depends_on.join(', ')}`;
-          }
-          if (!taskCopy.sprint_id || taskCopy.sprint_id === '') {
-            taskCopy.sprint_id = null;
-          }
-          delete taskCopy.temp_id;
-          delete taskCopy.depends_on;
+          if (!taskCopy.sprint_id || taskCopy.sprint_id === '') taskCopy.sprint_id = null;
+          // Keep depends_on – backend handles temp_id -> real ID mapping
         }
         return taskCopy;
       });
@@ -229,7 +274,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
         selectedIndices: Array.from(selectedIndices),
         modifiedPayload: finalTasks
       });
-      toast.success("Approved successfully! Tasks have been added to Kanban.");
+      toast.success("Approved! Tasks saved to Kanban.");
       onSuccess();
     } catch (err) {
       console.error(err);
@@ -239,249 +284,191 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     }
   };
 
-  const handleApproveSplit = (finalSubTasks) => {
-    const originalTask = tasks[splitSelectedIndex];
-    const oldId = originalTask.temp_id;
-    const newIds = finalSubTasks.map(t => t.temp_id).filter(id => id);
+  // ─── SPLIT ─────────────────────────────────────────────────────────────────
 
-    let newTasks = [...tasks];
-    newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
-    
-    if (oldId) {
-        newTasks = newTasks.map(t => {
-            if (!finalSubTasks.includes(t) && t.depends_on && Array.isArray(t.depends_on)) {
-                if (t.depends_on.includes(oldId)) {
-                   const deps = new Set(t.depends_on);
-                   deps.delete(oldId);
-                   newIds.forEach(id => deps.add(id));
-                   return { ...t, depends_on: Array.from(deps) };
-                }
-            }
-            return t;
-        });
-    }
-
-    setTasks(newTasks);
-    
-    setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
-    
-    setReviewingSplitData(null);
-    setSplitSelectedIndex(null);
-    toast.success("Split applied successfully!");
+  const handleSplitCard = (index) => {
+    setSplitSelectedIndex(index);
+    executeSplit(index);
   };
 
-  const handleApproveMerge = (finalMergedTask) => {
-    const originalMergedTasks = Array.from(mergeSelectedSet).map(idx => tasks[idx]);
-    const masterId = finalMergedTask.temp_id;
-    const allOldIds = originalMergedTasks.map(t => t.temp_id).filter(id => id);
-
-    let newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
-    
-    newTasks = newTasks.map(t => {
-       if (t.depends_on && Array.isArray(t.depends_on)) {
-           let changed = false;
-           let newDeps = t.depends_on.map(dep => {
-               if (allOldIds.includes(dep)) {
-                   changed = true;
-                   return masterId;
-               }
-               return dep;
-           });
-           if (changed) {
-               return { ...t, depends_on: [...new Set(newDeps)] };
-           }
-       }
-       return t;
-    });
-
-    newTasks.unshift(finalMergedTask);
-    setTasks(newTasks);
-    
-    setSelectedIndices(new Set(Array.from({length: newTasks.length}, (_, i) => i)));
-    
-    setReviewingMergeData(null);
-    setMergeSelectedSet(new Set());
-    toast.success("Merge applied successfully!");
-  };
-
-  const executeSplit = async () => {
-    if (splitSelectedIndex === null) return;
+  const executeSplit = async (indexOverride) => {
+    const idx = indexOverride ?? splitSelectedIndex;
+    if (idx === null) return;
     setIsSplitting(true);
     abortControllerRef.current = new AbortController();
     try {
-      const fullTask = tasks[splitSelectedIndex];
-      // Clean up payload to avoid confusing the AI with internal metadata
-      const taskToSplit = {
-        title: fullTask.title,
-        description: fullTask.description,
-        estimated_hours: fullTask.estimated_hours,
-        priority: fullTask.priority,
-        task_type: fullTask.task_type
-      };
+      const fullTask = tasks[idx];
+      const taskToSplit = { title: fullTask.title, description: fullTask.description, estimated_hours: fullTask.estimated_hours, priority: fullTask.priority, task_type: fullTask.task_type };
       const result = await taskService.splitAITask(projectId, { task: taskToSplit }, { signal: abortControllerRef.current.signal });
-      
+
       let subTasks = result.data?.sub_tasks || result.sub_tasks;
-      // Handle case where Gemini double-wraps the array or puts it in "items"
       if (subTasks && !Array.isArray(subTasks)) {
-         if (subTasks.items && Array.isArray(subTasks.items)) subTasks = subTasks.items;
-         else if (Object.keys(subTasks).length > 0) subTasks = Object.values(subTasks)[0];
+        if (subTasks.items && Array.isArray(subTasks.items)) subTasks = subTasks.items;
+        else if (Object.keys(subTasks).length > 0) subTasks = Object.values(subTasks)[0];
       }
 
       if (subTasks && Array.isArray(subTasks) && subTasks.length > 0) {
         const oldId = fullTask.temp_id;
         const baseId = oldId || `t${Date.now()}`;
-        
         const idMap = {};
         subTasks.forEach((st, i) => {
-            const aiId = st.temp_id || `ai_sub_${i}`;
-            const newId = `${baseId}_${i+1}`;
-            idMap[aiId] = newId;
+          const aiId = st.temp_id || `ai_sub_${i}`;
+          idMap[aiId] = `${baseId}_${i+1}`;
         });
 
-        // Preserve metadata from original task
         const enrichedSubTasks = subTasks.map((st, i) => {
-          const newSub = {
-            ...fullTask, // keep requirement, use_case, assignees by default
-            ...st, // overwrite with AI generated fields
-            title: st.title || st.task_title || st.task_name || `${fullTask.title} (Subtask)`,
-            description: st.description || st.task_description || `${fullTask.description}\n\n(Split from original task)`
+          const newSub = { ...fullTask, ...st,
+            title: st.title || `${fullTask.title} (Part ${i+1})`,
+            description: st.description || fullTask.description,
+            temp_id: idMap[st.temp_id || `ai_sub_${i}`],
+            use_case_code: fullTask.use_case_code,
+            requirement_code: fullTask.requirement_code,
           };
-          
-          newSub.temp_id = idMap[st.temp_id || `ai_sub_${i}`];
-          
           if (newSub.depends_on && Array.isArray(newSub.depends_on)) {
-              newSub.depends_on = newSub.depends_on.map(dep => idMap[dep] || dep);
+            newSub.depends_on = newSub.depends_on.map(dep => idMap[dep] || dep);
           }
-          
           const matched = autoMapSprint(newSub, sprints);
           newSub.sprint_id = matched !== '' ? matched : '';
           return newSub;
         });
 
-        // Instead of applying immediately, open the review modal
-        setReviewingSplitData({
-          originalTask: fullTask,
-          subTasks: enrichedSubTasks
-        });
-        toast.success("AI split complete, please review!");
+        setReviewingSplitData({ originalTask: fullTask, subTasks: enrichedSubTasks });
+        toast.success("AI split complete – please review!");
       } else {
-        const reason = result.data?.reason || result.reason || "This task has reached its minimum size or cannot be logically split further.";
-        setActionError({
-          title: "Cannot split Task",
-          reason: reason
-        });
+        const reason = result.data?.reason || result.reason || "Task is too small to split further.";
+        setActionError({ title: "Cannot split Task", reason });
       }
     } catch (err) {
-      if (err.name === 'CanceledError' || err.message === 'canceled') {
-        toast('Task split cancelled.', { icon: 'ℹ️' });
-      } else {
-        toast.error(err.response?.data?.error || "Error splitting task.");
-      }
+      if (err.name === 'CanceledError' || err.message === 'canceled') toast('Split cancelled.', { icon: 'ℹ️' });
+      else toast.error(err.response?.data?.error || "Error splitting task.");
     } finally {
       setIsSplitting(false);
-      setSplitModalOpen(false);
-      // DO NOT setSplitSelectedIndex(null) here, handled in onApprove or onClose
       abortControllerRef.current = null;
     }
   };
 
+  const handleApproveSplit = (finalSubTasks) => {
+    const originalTask = tasks[splitSelectedIndex];
+    const oldId = originalTask.temp_id;
+    const newIds = finalSubTasks.map(t => t.temp_id).filter(Boolean);
+
+    let newTasks = [...tasks];
+    newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
+    if (oldId) {
+      newTasks = newTasks.map(t => {
+        if (!finalSubTasks.includes(t) && t.depends_on?.includes(oldId)) {
+          const deps = new Set(t.depends_on);
+          deps.delete(oldId);
+          newIds.forEach(id => deps.add(id));
+          return { ...t, depends_on: Array.from(deps) };
+        }
+        return t;
+      });
+    }
+    setTasks(newTasks);
+    // BUG-4 FIX: Re-build selectedIndices preserving old selections.
+    // Map old indices → new indices after splice. Old tasks before splitSelectedIndex keep same index.
+    // The split tasks (finalSubTasks) are all selected. Tasks after are shifted by (finalSubTasks.length - 1).
+    const shift = finalSubTasks.length - 1;
+    const newSelected = new Set();
+    // Add all split sub-tasks (they occupy splitSelectedIndex .. splitSelectedIndex + shift)
+    finalSubTasks.forEach((_, i) => newSelected.add(splitSelectedIndex + i));
+    // Re-map previously selected indices that were after the split point
+    selectedIndices.forEach(idx => {
+      if (idx < splitSelectedIndex) newSelected.add(idx);          // before → unchanged
+      else if (idx > splitSelectedIndex) newSelected.add(idx + shift); // after → shifted
+      // idx === splitSelectedIndex (original task) is replaced by subtasks above
+    });
+    setSelectedIndices(newSelected);
+    setReviewingSplitData(null);
+    setSplitSelectedIndex(null);
+    toast.success("Split applied!");
+  };
+
+  // ─── MERGE ─────────────────────────────────────────────────────────────────
+
   const executeMerge = async () => {
     if (mergeSelectedSet.size < 2) return;
+    // Scope guard
+    if (!mergeScope) {
+      toast.error("Can only merge tasks within the same Feature Flow (Use Case / Requirement).");
+      return;
+    }
     setIsMerging(true);
     abortControllerRef.current = new AbortController();
     try {
       const fullTasksToMerge = Array.from(mergeSelectedSet).map(idx => tasks[idx]);
-      // Clean up payload to avoid confusing the AI
-      const tasksToMerge = fullTasksToMerge.map(t => ({
-        title: t.title,
-        description: t.description,
-        estimated_hours: t.estimated_hours,
-        priority: t.priority,
-        task_type: t.task_type
-      }));
+      const tasksToMerge = fullTasksToMerge.map(t => ({ title: t.title, description: t.description, estimated_hours: t.estimated_hours, priority: t.priority, task_type: t.task_type }));
       const result = await taskService.mergeAITasks(projectId, { tasks: tasksToMerge }, { signal: abortControllerRef.current.signal });
       let mergedTask = result.data?.merged_task || result.merged_task;
-      
-      // Handle if Gemini wraps it
-      if (mergedTask && mergedTask.merged_task) {
-         mergedTask = mergedTask.merged_task;
-      }
+      if (mergedTask?.merged_task) mergedTask = mergedTask.merged_task;
 
       if (mergedTask && typeof mergedTask === 'object') {
-        // Preserve metadata from original tasks
         const baseTask = fullTasksToMerge[0];
-        const aiMerged = mergedTask || {};
-        const masterId = baseTask.temp_id || `t${Date.now()}`;
-        const allOldIds = fullTasksToMerge.map(t => t.temp_id).filter(id => id);
+        // BUG-8 FIX: Generate a guaranteed unique masterId regardless of whether baseTask.temp_id exists.
+        // Using timestamp + random suffix ensures no collision even if multiple tasks lack temp_id.
+        const masterId = baseTask.temp_id || `t_merged_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const allOldIds = fullTasksToMerge.map(t => t.temp_id).filter(Boolean);
+
+        let mergedDeps = new Set();
+        fullTasksToMerge.forEach(t => (t.depends_on || []).forEach(dep => mergedDeps.add(dep)));
+        // Remove internal deps (between merged tasks themselves)
+        allOldIds.forEach(id => mergedDeps.delete(id));
 
         const enrichedMerge = {
-            ...baseTask, // keep requirement, use_case, assignees by default
-            ...aiMerged, // overwrite with AI generated fields
-            title: aiMerged.title || aiMerged.task_title || aiMerged.task_name || `${baseTask.title} (Merged)`,
-            description: aiMerged.description || aiMerged.task_description || `${baseTask.description}\n\n(Merged from other tasks)`
+          ...baseTask, ...mergedTask,
+          title: mergedTask.title || `${baseTask.title} (Merged)`,
+          description: mergedTask.description || baseTask.description,
+          temp_id: masterId,
+          use_case_code: baseTask.use_case_code,
+          requirement_code: baseTask.requirement_code,
+          depends_on: mergedDeps.size > 0 ? Array.from(mergedDeps) : [],
         };
-        
-        enrichedMerge.temp_id = masterId;
-        
-        let mergedDeps = new Set();
-        fullTasksToMerge.forEach(t => {
-            if (t.depends_on && Array.isArray(t.depends_on)) {
-                t.depends_on.forEach(dep => mergedDeps.add(dep));
-            }
-        });
-        allOldIds.forEach(id => mergedDeps.delete(id));
-        enrichedMerge.depends_on = mergedDeps.size > 0 ? Array.from(mergedDeps) : [];
-
         const matched = autoMapSprint(enrichedMerge, sprints);
         enrichedMerge.sprint_id = matched !== '' ? matched : '';
 
-        // Instead of applying immediately, open the review modal
-        setReviewingMergeData({
-          originalTasks: fullTasksToMerge,
-          mergedTask: enrichedMerge
-        });
-        toast.success("AI merge complete, please review!");
+        setReviewingMergeData({ originalTasks: fullTasksToMerge, mergedTask: enrichedMerge });
+        toast.success("AI merge complete – please review!");
       } else {
-        const reason = result.data?.reason || result.reason || "These tasks have no logical connection or their scopes conflict.";
-        setActionError({
-          title: "Cannot merge Task",
-          reason: reason
-        });
+        setActionError({ title: "Cannot merge Tasks", reason: result.data?.reason || result.reason || "These tasks conflict or have no logical connection." });
       }
     } catch (err) {
-      if (err.name === 'CanceledError' || err.message === 'canceled') {
-        toast('Task merge cancelled.', { icon: 'ℹ️' });
-      } else {
-        toast.error(err.response?.data?.error || "Error merging task.");
-      }
+      if (err.name === 'CanceledError' || err.message === 'canceled') toast('Merge cancelled.', { icon: 'ℹ️' });
+      else toast.error(err.response?.data?.error || "Error merging tasks.");
     } finally {
       setIsMerging(false);
       setMergeModalOpen(false);
-      // DO NOT setMergeSelectedSet(new Set()) here, handled in onApprove or onClose
       abortControllerRef.current = null;
     }
   };
 
+  const handleApproveMerge = (finalMergedTask) => {
+    const allOldIds = Array.from(mergeSelectedSet).map(idx => tasks[idx].temp_id).filter(Boolean);
+    const masterId = finalMergedTask.temp_id;
+    let newTasks = tasks.filter((_, idx) => !mergeSelectedSet.has(idx));
+    newTasks = newTasks.map(t => {
+      if (t.depends_on?.some(dep => allOldIds.includes(dep))) {
+        const newDeps = [...new Set(t.depends_on.map(dep => allOldIds.includes(dep) ? masterId : dep))];
+        return { ...t, depends_on: newDeps };
+      }
+      return t;
+    });
+    newTasks.unshift(finalMergedTask);
+    setTasks(newTasks);
+    setSelectedIndices(new Set(newTasks.map((_, i) => i)));
+    setReviewingMergeData(null);
+    setMergeSelectedSet(new Set());
+    toast.success("Merge applied!");
+  };
+
+  // ─── DIFF ──────────────────────────────────────────────────────────────────
+
   const handleResolveDiff = (action) => {
     if (activeDiffTaskIndex === null) return;
     if (action === 'DELETE_GENERATED') {
-      setConfirmConfig({
-        isOpen: true,
-        action: 'DELETE_GENERATED',
-        type: 'danger',
-        title: 'Delete AI Task',
-        message: 'Are you sure you want to delete this generated AI Task from the list?',
-        confirmText: 'Delete'
-      });
+      setConfirmConfig({ isOpen: true, action: 'DELETE_GENERATED', type: 'danger', title: 'Delete AI Task', message: 'Delete this AI-generated task from the list?', confirmText: 'Delete' });
     } else if (action === 'MERGE_INTO_EXISTING') {
-      setConfirmConfig({
-        isOpen: true,
-        action: 'MERGE_INTO_EXISTING',
-        type: 'merge',
-        title: 'Confirm Merge',
-        message: 'Are you sure you want to merge? The existing task data will be completely overwritten by this AI Task.',
-        confirmText: 'Confirm'
-      });
+      setConfirmConfig({ isOpen: true, action: 'MERGE_INTO_EXISTING', type: 'merge', title: 'Confirm Merge', message: 'Existing task will be overwritten by this AI task.', confirmText: 'Confirm' });
     } else if (action === 'KEEP_BOTH') {
       executeResolveDiff('KEEP_BOTH');
     }
@@ -489,11 +476,10 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
   const executeResolveDiff = (action) => {
     if (activeDiffTaskIndex === null) return;
+    const updatedTasks = [...tasks];
     if (action === 'DELETE_GENERATED') {
-      const updatedTasks = [...tasks];
       updatedTasks.splice(activeDiffTaskIndex, 1);
       setTasks(updatedTasks);
-      
       const newSet = new Set();
       selectedIndices.forEach(idx => {
         if (idx < activeDiffTaskIndex) newSet.add(idx);
@@ -501,529 +487,489 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       });
       setSelectedIndices(newSet);
     } else if (action === 'MERGE_INTO_EXISTING') {
-      const updatedTasks = [...tasks];
-      updatedTasks[activeDiffTaskIndex] = {
-        ...updatedTasks[activeDiffTaskIndex],
-        _syncAction: 'MERGE_INTO_EXISTING',
-        _existingTaskId: activeDiffRisk.existing_task_id
-      };
+      updatedTasks[activeDiffTaskIndex] = { ...updatedTasks[activeDiffTaskIndex], _syncAction: 'MERGE_INTO_EXISTING', _existingTaskId: activeDiffRisk.existing_task_id };
       setTasks(updatedTasks);
-      const newSet = new Set(selectedIndices);
-      newSet.add(activeDiffTaskIndex);
-      setSelectedIndices(newSet);
+      const newSet = new Set(selectedIndices); newSet.add(activeDiffTaskIndex); setSelectedIndices(newSet);
     } else if (action === 'KEEP_BOTH') {
-      const updatedTasks = [...tasks];
-      delete updatedTasks[activeDiffTaskIndex]._syncAction;
+      updatedTasks[activeDiffTaskIndex] = { ...updatedTasks[activeDiffTaskIndex], _syncAction: 'KEEP_BOTH' };
       delete updatedTasks[activeDiffTaskIndex]._existingTaskId;
       setTasks(updatedTasks);
-      const newSet = new Set(selectedIndices);
-      newSet.add(activeDiffTaskIndex);
-      setSelectedIndices(newSet);
+      const newSet = new Set(selectedIndices); newSet.add(activeDiffTaskIndex); setSelectedIndices(newSet);
     }
     setDiffModalOpen(false);
     setActiveDiffRisk(null);
     setActiveDiffTaskIndex(null);
   };
 
-  // --- HELPERS ---
-
-  const duplicationRisks = assessment?.duplication_risks || [];
-  const coverageGaps = assessment?.coverage_gaps || [];
-  const reqCount = new Set(tasks.map(t => t.requirement_code).filter(Boolean)).size;
-
-  const getTaskGaps = (task) => {
-    const gaps = [];
-    coverageGaps.forEach(gap => {
-      if (task.use_case_code && gap.use_case_code && gap.use_case_code === task.use_case_code) {
-        gaps.push({ severity: 'HIGH', message: `${gap.use_case_code}: ${gap.missing_step}` });
-      }
-    });
-    return gaps;
-  };
-
-  const priorityColor = (priority) => {
-    switch(priority) {
-      case 'CRITICAL': return 'bg-red-500 text-white';
-      case 'HIGH': return 'bg-orange-500 text-white';
-      case 'MEDIUM': return 'bg-amber-400 text-slate-900';
-      case 'LOW': return 'bg-blue-400 text-white';
-      default: return 'bg-slate-300 text-slate-800';
-    }
-  };
-
-  const getTypeConfig = (type) => {
-    switch(type) {
-      case 'DEVELOPMENT': return { label: 'Development', icon: 'ðŸ’»', color: 'bg-blue-50 text-blue-700 border-blue-200' };
-      case 'TESTING': return { label: 'Testing', icon: 'ðŸ§ª', color: 'bg-green-50 text-green-700 border-green-200' };
-      case 'DOCUMENTATION': return { label: 'Documentation', icon: 'ðŸ“„', color: 'bg-slate-100 text-slate-700 border-slate-300' };
-      case 'UI_UX': return { label: 'UI/UX', icon: 'ðŸŽ¨', color: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' };
-      case 'RESEARCH': return { label: 'Research', icon: 'ðŸ”', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' };
-      case 'DEPLOYMENT': return { label: 'Deployment', icon: 'ðŸš€', color: 'bg-orange-50 text-orange-700 border-orange-200' };
-      case 'BUG_FIX': return { label: 'Bug Fix', icon: 'ðŸ›', color: 'bg-red-50 text-red-700 border-red-200' };
-      case 'REVIEW': return { label: 'Review', icon: 'ðŸ‘ï¸', color: 'bg-teal-50 text-teal-700 border-teal-200' };
-      default: return { label: type || 'Unknown', icon: 'ðŸ“Œ', color: 'bg-gray-50 text-gray-700 border-gray-200' };
-    }
-  };
+  // ─── RENDER GUARDS ─────────────────────────────────────────────────────────
 
   if (!isOpen) return null;
 
+  const reqCount = new Set(tasks.map(t => t.requirement_code).filter(Boolean)).size;
+
+  const getTaskGaps = (task) =>
+    coverageGaps.filter(g => task.use_case_code && g.use_case_code === task.use_case_code).map(g => ({ message: `${g.use_case_code}: ${g.missing_step}` }));
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-[95vw] h-[95vh] flex flex-col overflow-hidden">
-        
-        {/* 1. MODAL HEADER */}
-        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span className="material-symbols-outlined text-indigo-600">psychology</span>
-              AI Task Review Board
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Reviewing {tasks.length} Tasks from {reqCount} Requirements · AI Audit: {coverageGaps.length} gaps, {duplicationRisks.length} risks
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden">
 
-        {/* 2. TOOLBAR */}
-        <div className="px-6 py-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-700 text-sm hover:text-indigo-600 transition-colors">
-              <input 
-                type="checkbox" 
-                className="w-5 h-5 rounded border-slate-300 text-indigo-600 cursor-pointer"
-                checked={tasks.length > 0 && selectedIndices.size === tasks.length}
-                onChange={handleSelectAll}
-              />
-              Select all
-            </label>
-            <span className="text-slate-300">|</span>
-            <span className="font-semibold text-slate-800">Generated Tasks ({tasks.length})</span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button 
-              className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
-              onClick={() => {
-                if (selectedIndices.size === 1) {
-                  setSplitSelectedIndex(Array.from(selectedIndices)[0]);
-                }
-                setSplitModalOpen(true);
-              }}
-            >
-              <span className="material-symbols-outlined text-[18px] text-yellow-600">bolt</span>
-              Split Task
-            </button>
-            <button 
-              className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors"
-              title="Merge tasks"
-              onClick={() => {
-                setMergeSelectedSet(new Set(selectedIndices));
-                setMergeModalOpen(true);
-              }}
-            >
-              <span className="material-symbols-outlined text-[18px] text-indigo-600">shuffle</span>
-              Merge Task
+          {/* ── HEADER ── */}
+          <div className="px-6 py-4 flex justify-between items-center shrink-0" style={{background:'#1e707d'}}>
+            <div>
+              <h2 className="text-[15px] font-bold text-white tracking-tight">AI Task Review Board</h2>
+              <p className="text-[13px] mt-0.5" style={{color:'rgba(255,255,255,0.5)'}}>
+                {tasks.length} tasks &middot; {reqCount} requirements &middot; {groups.length} feature flows
+                {coverageGaps.length > 0 && <span className="ml-2 bg-red-500/25 text-red-300 border border-red-400/40 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{coverageGaps.length} gaps</span>}
+                {duplicationRisks.length > 0 && <span className="ml-1 bg-orange-500/25 text-orange-300 border border-orange-400/40 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{duplicationRisks.length} dup</span>}
+              </p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded flex items-center justify-center transition-colors" style={{background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.15)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.08)'}>
+              <span className="material-symbols-outlined text-[18px] text-white/70">close</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600 cursor-help" title="Use only when you want to force all tasks into 1 Sprint">Override Sprint (All):</span>
-            {sprints.length > 0 ? (
-              <select 
-                className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white min-w-[150px] outline-none focus:border-indigo-500"
-                value={globalSprintId}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setGlobalSprintId(val);
-                  if (val) {
-                    setTasks(tasks.map(t => ({ ...t, sprint_id: val })));
-                    toast.success("Overrode Sprint for all Tasks.");
-                  }
-                }}
+          {/* ── TOOLBAR ── */}
+          <div className="px-5 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-slate-600 hover:text-slate-900">
+                <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer"
+                  style={{accentColor:'#1e707d'}}
+                  checked={tasks.length > 0 && selectedIndices.size === tasks.length}
+                  ref={el => { if (el) el.indeterminate = tasks.length > 0 && selectedIndices.size > 0 && selectedIndices.size < tasks.length; }}
+                  onChange={handleSelectAll} />
+                Select all
+              </label>
+              <span className="text-slate-200">|</span>
+              <span className="text-[13px] text-slate-500">{selectedIndices.size} / {tasks.length} selected</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* MERGE button */}
+              <button
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-[13px] font-medium transition-colors border ${
+                  selectedIndices.size >= 2
+                    ? 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'
+                    : 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed'
+                }`}
+                disabled={selectedIndices.size < 2}
+                onClick={() => { setMergeSelectedSet(new Set(selectedIndices)); setMergeModalOpen(true); }}
+                title="Merge selected tasks (must be in same Feature Flow)"
               >
-                <option value="">-- Select Sprint --</option>
-                {sprints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            ) : (
-              <span className="text-sm text-slate-400 italic">No sprints</span>
-            )}
-            <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-sm font-bold ml-2">
-              Selected: {selectedIndices.size}
-            </span>
+                <span className="material-symbols-outlined text-[15px]">merge</span>
+                Merge
+                {selectedIndices.size >= 2 && <span className="bg-slate-100 text-slate-600 text-[11px] font-bold px-1.5 py-0.5 rounded">{selectedIndices.size}</span>}
+              </button>
+
+              {/* Override sprint */}
+              {sprints.length > 0 ? (
+                <select
+                  className="border border-slate-300 rounded px-2 py-1.5 text-[13px] bg-white outline-none min-w-[130px]"
+                  style={{accentColor:'#1e707d'}}
+                  value={globalSprintId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setGlobalSprintId(val);
+                    if (val) { setTasks(tasks.map(t => ({ ...t, sprint_id: val }))); toast.success("Sprint overridden for all tasks."); }
+                  }}
+                >
+                  <option value="">Sprint</option>
+                  {sprints.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ) : (
+                <span className="text-[13px] text-slate-400 italic">No sprints</span>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* 3. TASK LIST */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <span className="material-symbols-outlined animate-spin text-4xl text-indigo-600">progress_activity</span>
-            </div>
-          ) : (
-            <div className="max-w-5xl mx-auto flex flex-col gap-4 pb-10">
-              {tasks.map((task, index) => {
-                const isSelected = selectedIndices.has(index);
-                const duplication = duplicationRisks.find(r => r.generated_task_temp_id === task.temp_id);
-                const isMergingToExisting = task._syncAction === 'MERGE_INTO_EXISTING';
-                const gaps = getTaskGaps(task);
-                
-                const hasWarning = gaps.length > 0;
-                const hasDuplication = !!duplication && !isMergingToExisting;
-
-                // Card styling
-                let cardClass = "bg-white rounded-xl border-2 p-5 transition-shadow shadow-sm hover:shadow-md ";
-                if (hasDuplication) cardClass += "border-orange-400 shadow-[0_0_8px_rgba(253,186,116,0.4)]";
-                else if (hasWarning) cardClass += "border-red-400 shadow-[0_0_8px_rgba(248,113,113,0.4)]";
-                else if (isSelected) cardClass += "border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)] bg-emerald-50/10";
-                else cardClass += "border-emerald-200 opacity-90";
-
-                return (
-                  <div key={task.temp_id || index} className={cardClass}>
-                    
-                    {/* ROW 1: Header */}
-                    <div className="flex items-start gap-4">
-                      <div className="pt-1">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleTaskSelection(index)}
-                          className="w-5 h-5 rounded border-slate-300 text-indigo-600 cursor-pointer"
-                        />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <EditableTaskCard 
-                          task={task}
-                          sprints={sprints}
-                          members={members}
-                          priorityColor={priorityColor}
-                          getTypeConfig={getTypeConfig}
-                          isMergingToExisting={isMergingToExisting}
-                          maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
-                          onUpdate={(updatedTask) => {
-                            const newTasks = [...tasks];
-                            newTasks[index] = updatedTask;
-                            setTasks(newTasks);
-                          }}
-                          onChangeSprint={(newSprintId) => {
-                            const newTasks = [...tasks];
-                            newTasks[index] = { ...task, sprint_id: newSprintId };
-                            setTasks(newTasks);
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* ROW 4: Warnings */}
-                    {(hasWarning || hasDuplication) && (
-                      <div className="mt-4 flex flex-col gap-3 pl-9">
-                        {hasWarning && (
-                          <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded-r-lg">
-                            <div className="flex items-center gap-2 text-red-700 font-bold text-sm mb-1">
-                              ⚠️ Warning (Coverage Gaps)
-                            </div>
-                            <ul className="list-disc pl-5 text-sm text-red-600 space-y-1">
-                              {gaps.map((g, i) => <li key={i}>{g.message}</li>)}
-                            </ul>
-                          </div>
-                        )}
-
-                        {hasDuplication && (
-                          <div className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded-r-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-start sm:items-center gap-2 text-orange-800 text-sm font-bold">
-                              🔴 Duplicated with {duplication.existing_task_id} "{duplication.existing_task_title || 'Old Task'}"
-                            </div>
-                            <button 
-                              className="shrink-0 px-3 py-1.5 bg-white border border-orange-300 text-orange-700 text-sm font-semibold rounded hover:bg-orange-100 transition-colors shadow-sm"
-                              onClick={() => {
-                                setActiveDiffRisk(duplication);
-                                setActiveDiffTaskIndex(index);
-                                setDiffModalOpen(true);
-                              }}
-                            >
-                              Compare & Resolve →
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 4. MODAL FOOTER */}
-        <div className="px-6 py-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
-          <button 
-            onClick={onClose} 
-            disabled={approving}
-            className="px-4 py-2 border border-slate-300 rounded font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          
-          <button 
-            onClick={handleApprove} 
-            disabled={loading || approving || selectedIndices.size === 0}
-            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded shadow-sm transition-colors flex items-center gap-2"
-          >
-            {approving ? (
-              <>
-                <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                Approving...
-              </>
+          {/* ── TASK LIST ── */}
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
+                <span className="material-symbols-outlined animate-spin text-5xl text-teal-700">progress_activity</span>
+                <p className="text-sm font-medium">Loading AI-generated tasks…</p>
+              </div>
             ) : (
-              <>
-                <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                Approve Task ({selectedIndices.size})
-              </>
+              <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-10">
+                {groups.map((group) => (
+                  <FeatureFlowGroup
+                    key={group.key}
+                    group={group}
+                    tasks={tasks}
+                    selectedIndices={selectedIndices}
+                    duplicationRisks={duplicationRisks}
+                    coverageGaps={coverageGaps}
+                    sprints={sprints}
+                    members={members}
+                    isSplitting={isSplitting}
+                    onToggleSelect={(task) => toggleTaskSelection(getTaskIndex(task))}
+                    onToggleGroup={toggleTaskGroupSelection}
+                    onSplitCard={(task) => handleSplitCard(getTaskIndex(task))}
+                    onUpdateTask={(task, updatedTask) => {
+                      const i = getTaskIndex(task);
+                      const n = [...tasks]; n[i] = updatedTask; setTasks(n);
+                    }}
+                    onOpenDiff={(task) => {
+                      const i = getTaskIndex(task);
+                      const dup = duplicationRisks.find(r => r.generated_task_temp_id === task.temp_id);
+                      setActiveDiffRisk(dup);
+                      setActiveDiffTaskIndex(i);
+                      setDiffModalOpen(true);
+                    }}
+                    getTaskIndex={getTaskIndex}
+                  />
+                ))}
+              </div>
             )}
-          </button>
+          </div>
+
+          {/* ── FOOTER ── */}
+          <div className="px-5 py-3 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
+            <button onClick={onClose} disabled={approving}
+              className="px-4 py-2 border border-slate-300 rounded text-[13px] font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+              Cancel
+            </button>
+            <button onClick={handleApprove} disabled={loading || approving || selectedIndices.size === 0}
+              className="px-5 py-2 text-white text-[13px] font-bold rounded flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{background: (loading || approving || selectedIndices.size === 0) ? '#94a3b8' : '#1e707d'}}>
+              {approving ? (
+                <><span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Approving…</>
+              ) : (
+                <><span className="material-symbols-outlined text-[18px]">check_circle</span> Approve {selectedIndices.size} Tasks</>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* --- POPUPS --- */}
-
-      {/* DIFF POPUP */}
-      <DuplicationDiffModal 
-        isOpen={diffModalOpen}
-        onClose={() => setDiffModalOpen(false)}
-        activeDiffTask={tasks[activeDiffTaskIndex]}
-        activeDiffRisk={activeDiffRisk}
-        onResolve={handleResolveDiff}
-        sprints={sprints}
-        members={members}
-        priorityColor={priorityColor}
-        getTypeConfig={getTypeConfig}
-        projectId={projectId}
-      />
-
-      {/* SPLIT POPUP */}
-      {splitModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="px-6 py-4 border-b bg-slate-50 rounded-t-xl flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">⚡ Select Task to Split</h3>
-                <p className="text-sm text-slate-500">Select a complex task for AI to split into smaller sub-tasks</p>
-              </div>
-              <button onClick={() => !isSplitting && setSplitModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-              {tasks.map((task, idx) => (
-                <label key={task.temp_id || idx} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${splitSelectedIndex === idx ? 'bg-yellow-50 border-yellow-400' : 'hover:bg-slate-50 border-slate-200'}`}>
-                  <input 
-                    type="radio" 
-                    name="splitRadio" 
-                    className="w-4 h-4 text-yellow-600"
-                    checked={splitSelectedIndex === idx}
-                    onChange={() => setSplitSelectedIndex(idx)}
-                    disabled={isSplitting}
-                  />
-                  <span className="flex-1 text-sm font-medium text-slate-800 line-clamp-1">{task.title}</span>
-                  <span className="text-xs font-bold text-slate-500 shrink-0">· {task.estimated_hours}h</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="px-6 py-4 border-t flex justify-between items-center bg-slate-50 rounded-b-xl">
-              <button onClick={() => setSplitModalOpen(false)} disabled={isSplitting} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
-              <button 
-                onClick={executeSplit} 
-                disabled={splitSelectedIndex === null || isSplitting}
-                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-slate-300 text-white font-bold rounded shadow-sm flex items-center gap-2"
-              >
-                {isSplitting ? 'Splitting...' : '⚡ Split this Task →'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MERGE POPUP */}
+      {/* ── MERGE POPUP (Scoped) ── */}
       {mergeModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-            <div className="px-6 py-4 border-b bg-slate-50 rounded-t-xl flex justify-between items-start">
-              <div className="flex-1 mr-4">
-                <h3 className="text-lg font-bold text-slate-800">🔀 Select Tasks to Merge</h3>
-                <p className="text-sm text-slate-500 mb-3">Select 2 or more tasks for AI to merge into 1 comprehensive task</p>
-                
-                <div className="flex items-center justify-between bg-white px-4 py-2 rounded border border-slate-200">
-                  <span className="text-sm font-medium text-slate-700">
-                    Selected: <strong className="text-indigo-600">{mergeSelectedSet.size}</strong> / {tasks.length} tasks
-                  </span>
-                  <button
-                    className="px-3 py-1.5 text-[13px] font-bold text-white bg-[#1D7A85] hover:bg-[#166069] rounded-md transition-colors shadow-sm disabled:opacity-50"
-                    disabled={isMerging}
-                    onClick={() => {
-                      if (mergeSelectedSet.size === tasks.length) {
-                        setMergeSelectedSet(new Set());
-                      } else {
-                        setMergeSelectedSet(new Set(tasks.map((_, i) => i)));
-                      }
-                    }}
-                  >
-                    Select all
-                  </button>
-                </div>
-              </div>
-              <button onClick={() => !isMerging && setMergeModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-              {tasks.map((task, idx) => (
-                <label key={task.temp_id || idx} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mergeSelectedSet.has(idx) ? 'bg-indigo-50 border-indigo-300' : 'hover:bg-slate-50 border-slate-200'}`}>
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 rounded text-indigo-600 border-slate-300"
-                    checked={mergeSelectedSet.has(idx)}
-                    onChange={() => {
-                      const newSet = new Set(mergeSelectedSet);
-                      if (newSet.has(idx)) newSet.delete(idx);
-                      else newSet.add(idx);
-                      setMergeSelectedSet(newSet);
-                    }}
-                    disabled={isMerging}
-                  />
-                  <span className="flex-1 text-sm font-medium text-slate-800 line-clamp-1">{task.title}</span>
-                  <span className="text-xs font-bold text-slate-500 shrink-0">· {task.estimated_hours}h</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="px-6 py-4 border-t flex justify-between items-center bg-slate-50 rounded-b-xl">
-              <span className="text-sm font-bold text-indigo-700">Selected: {mergeSelectedSet.size} tasks</span>
-              <div className="flex gap-3">
-                <button onClick={() => setMergeModalOpen(false)} disabled={isMerging} className="px-4 py-2 border rounded font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
-                <button 
-                  onClick={executeMerge} 
-                  disabled={mergeSelectedSet.size < 2 || isMerging}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold rounded shadow-sm flex items-center gap-2"
-                >
-                  {isMerging ? 'Merging...' : `🔀 Merge ${mergeSelectedSet.size} Tasks →`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ScopedMergePopup
+          tasks={tasks}
+          mergeSelectedSet={mergeSelectedSet}
+          setMergeSelectedSet={setMergeSelectedSet}
+          mergeScope={mergeScope}
+          isMerging={isMerging}
+          onClose={() => setMergeModalOpen(false)}
+          onExecuteMerge={executeMerge}
+        />
       )}
 
-      {/* AI LOADING POPUP OVERLAY */}
+      {/* ── AI LOADING OVERLAY ── */}
       {(isSplitting || isMerging) && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white px-8 py-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center relative">
-            <button 
-              onClick={() => {
-                if (abortControllerRef.current) {
-                  abortControllerRef.current.abort();
-                } else {
-                  setIsSplitting(false);
-                  setIsMerging(false);
-                }
-              }}
-              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-              title="Cancel process"
-            >
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white px-10 py-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center relative">
+            <button onClick={() => abortControllerRef.current?.abort()}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400">
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
             <span className="material-symbols-outlined text-5xl text-indigo-600 animate-spin mb-4 mt-2">progress_activity</span>
             <h3 className="text-lg font-bold text-slate-800 mb-1">
-              {isSplitting ? '⚡ AI is analyzing...' : '🔀 AI is merging...'}
+              {isSplitting ? '✂️ AI is splitting…' : '🔀 AI is merging…'}
             </h3>
             <p className="text-sm text-slate-500">
-              {isSplitting 
-                ? `Splitting "${tasks[splitSelectedIndex]?.title}"...` 
-                : `Summarizing and merging ${mergeSelectedSet.size} tasks...`}
+              {isSplitting ? `Breaking down "${tasks[splitSelectedIndex]?.title}"…` : `Synthesizing ${mergeSelectedSet.size} tasks…`}
             </p>
           </div>
         </div>
       )}
 
-      {/* ERROR POPUP */}
+      {/* ── MODALS ── */}
+      <DuplicationDiffModal isOpen={diffModalOpen} onClose={() => setDiffModalOpen(false)}
+        activeDiffTask={tasks[activeDiffTaskIndex]} activeDiffRisk={activeDiffRisk}
+        onResolve={handleResolveDiff} sprints={sprints} members={members}
+        priorityColor={priorityColor} getTypeConfig={getTypeConfig} projectId={projectId} />
+
+      <SplitTaskReviewModal isOpen={!!reviewingSplitData}
+        onClose={() => { setReviewingSplitData(null); setSplitSelectedIndex(null); }}
+        originalTask={reviewingSplitData?.originalTask} generatedSubTasks={reviewingSplitData?.subTasks}
+        onApprove={handleApproveSplit} sprints={sprints} members={members}
+        priorityColor={priorityColor} getTypeConfig={getTypeConfig} />
+
+      <MergeTaskReviewModal isOpen={!!reviewingMergeData}
+        onClose={() => { setReviewingMergeData(null); setMergeSelectedSet(new Set()); }}
+        originalTasks={reviewingMergeData?.originalTasks} generatedMergedTask={reviewingMergeData?.mergedTask}
+        onApprove={handleApproveMerge} sprints={sprints} members={members}
+        priorityColor={priorityColor} getTypeConfig={getTypeConfig} />
+
+      <ConfirmModal isOpen={confirmConfig.isOpen} title={confirmConfig.title} message={confirmConfig.message}
+        type={confirmConfig.type || 'danger'} confirmText={confirmConfig.confirmText || 'Confirm'} cancelText="Cancel"
+        hideCancel={confirmConfig.hideCancel}
+        onConfirm={() => { if (confirmConfig.action !== 'BLOCK_APPROVE') executeResolveDiff(confirmConfig.action); setConfirmConfig({ isOpen: false }); }}
+        onCancel={() => setConfirmConfig({ isOpen: false })} />
+
       {actionError && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl animate-fade-in-up">
-            <div className="flex items-center gap-3 text-red-600 mb-2">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 text-red-600 mb-3">
               <span className="material-symbols-outlined text-3xl">error</span>
               <h3 className="font-bold text-lg">{actionError.title}</h3>
             </div>
-            <p className="text-slate-600 text-sm mb-6">
-              {actionError.reason}
-            </p>
+            <p className="text-slate-600 text-sm mb-6">{actionError.reason}</p>
             <div className="flex justify-end">
-              <button 
-                onClick={() => setActionError(null)}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg shadow-sm transition-colors"
-              >
-                Got it
-              </button>
+              <button onClick={() => setActionError(null)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg">Got it</button>
             </div>
           </div>
         </div>
       )}
-
-      <SplitTaskReviewModal 
-        isOpen={!!reviewingSplitData}
-        onClose={() => {
-          setReviewingSplitData(null);
-          setSplitSelectedIndex(null);
-        }}
-        originalTask={reviewingSplitData?.originalTask}
-        generatedSubTasks={reviewingSplitData?.subTasks}
-        onApprove={handleApproveSplit}
-        sprints={sprints}
-        members={members}
-        priorityColor={priorityColor}
-        getTypeConfig={getTypeConfig}
-      />
-
-      <MergeTaskReviewModal 
-        isOpen={!!reviewingMergeData}
-        onClose={() => {
-          setReviewingMergeData(null);
-          setMergeSelectedSet(new Set());
-        }}
-        originalTasks={reviewingMergeData?.originalTasks}
-        generatedMergedTask={reviewingMergeData?.mergedTask}
-        onApprove={handleApproveMerge}
-        sprints={sprints}
-        members={members}
-        priorityColor={priorityColor}
-        getTypeConfig={getTypeConfig}
-      />
-      <ConfirmModal
-        isOpen={confirmConfig.isOpen}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-        type={confirmConfig.type || 'danger'}
-        confirmText={confirmConfig.confirmText || 'Confirm'}
-        cancelText="Cancel"
-        hideCancel={confirmConfig.hideCancel}
-        onConfirm={() => {
-          if (confirmConfig.action !== 'BLOCK_APPROVE') {
-            executeResolveDiff(confirmConfig.action);
-          }
-          setConfirmConfig({ isOpen: false, action: null, message: '', title: '' });
-        }}
-        onCancel={() => setConfirmConfig({ isOpen: false, action: null, message: '', title: '', payload: null })}
-      />
-
-    </div>
-
     </>
+  );
+};
+
+// ─── FEATURE FLOW GROUP ───────────────────────────────────────────────────────
+
+const STEP_COLORS = [
+  { ring: 'ring-indigo-500',  bg: 'bg-indigo-600',  line: 'bg-indigo-300' },
+  { ring: 'ring-violet-500',  bg: 'bg-violet-600',  line: 'bg-violet-300' },
+  { ring: 'ring-blue-500',    bg: 'bg-blue-600',    line: 'bg-blue-300' },
+  { ring: 'ring-cyan-500',    bg: 'bg-cyan-600',    line: 'bg-cyan-300' },
+  { ring: 'ring-teal-500',    bg: 'bg-teal-600',    line: 'bg-teal-300' },
+];
+
+const FeatureFlowGroup = ({ group, tasks, selectedIndices, duplicationRisks, coverageGaps, sprints, members, isSplitting, onToggleSelect, onToggleGroup, onSplitCard, onUpdateTask, onOpenDiff, getTaskIndex }) => {
+  const allSelected = group.tasks.every(t => selectedIndices.has(getTaskIndex(t)));
+  const someSelected = group.tasks.some(t => selectedIndices.has(getTaskIndex(t)));
+
+  const handleGroupCheck = () => {
+    // onToggleGroup is passed from parent to batch update selection state
+    if (onToggleGroup) {
+      onToggleGroup(group.tasks.map(t => getTaskIndex(t)), allSelected);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
+      {/* Group Header */}
+      <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500 cursor-pointer"
+          checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+          onChange={handleGroupCheck} />
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="text-sm font-bold text-slate-800 truncate uppercase tracking-wider">{group.key}</span>
+          <span className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded shrink-0">{group.tasks.length} tasks</span>
+        </div>
+      </div>
+
+      {/* Timeline body */}
+      <div className="px-5 py-5 flex flex-col gap-0">
+        {group.tasks.map((task, stepIdx) => {
+          const flatIdx = getTaskIndex(task);
+          const isSelected = selectedIndices.has(flatIdx);
+          const duplication = duplicationRisks.find(r => r.generated_task_temp_id === task.temp_id);
+          const hasDuplication = !!duplication && !['MERGE_INTO_EXISTING', 'KEEP_BOTH'].includes(task._syncAction);
+          const gaps = coverageGaps.filter(g => task.use_case_code && g.use_case_code === task.use_case_code);
+          const isLast = stepIdx === group.tasks.length - 1;
+
+          // Build dependency labels
+          const depTitles = (task.depends_on || []).map(depId => {
+            const dep = tasks.find(t => t.temp_id === depId);
+            return dep ? dep.title : depId;
+          });
+
+          return (
+            <div key={task.temp_id || stepIdx} className="flex gap-3">
+              {/* Timeline column */}
+              <div className="flex flex-col items-center shrink-0 w-5 pt-1.5">
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold z-10 shrink-0"
+                  style={{background:'#1e707d'}}
+                >
+                  {stepIdx + 1}
+                </div>
+                {!isLast && <div className="w-px flex-1 mt-1.5 mb-0" style={{background:'#d1fae5', minHeight:'28px'}} />}
+              </div>
+
+              {/* Card column */}
+              <div className={`flex-1 ${isLast ? 'mb-0' : 'mb-3'} min-w-0`}>
+                {/* Depends-on badge - compact */}
+                {depTitles.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {depTitles.map((title, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 1l3 3-3 3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        <span className="truncate max-w-[180px]">{title}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Task card */}
+                <div className={[
+                  'rounded-md border p-4 transition-colors',
+                  hasDuplication ? 'border-orange-400 bg-white shadow-[0_0_0_2px_rgba(251,146,60,0.15)]' :
+                  gaps.length > 0 ? 'border-red-400 bg-white shadow-[0_0_0_2px_rgba(248,113,113,0.15)]' :
+                  isSelected ? 'border-teal-500 bg-teal-50/20 shadow-sm' :
+                  'border-slate-200 bg-white hover:border-slate-300 shadow-sm'
+                ].join(' ')}>
+                  <div className="flex items-start gap-3">
+                    {/* Checkbox */}
+                    <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500 cursor-pointer mt-1 shrink-0"
+                      checked={isSelected} onChange={() => onToggleSelect(task)} />
+
+                    {/* Editable content */}
+                    <div className="flex-1 min-w-0">
+                      <EditableTaskCard
+                        task={task} sprints={sprints} members={members}
+                        priorityColor={priorityColor} getTypeConfig={getTypeConfig}
+                        isMergingToExisting={task._syncAction === 'MERGE_INTO_EXISTING'}
+                        maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
+                        onUpdate={(updatedTask) => onUpdateTask(task, updatedTask)}
+                        onChangeSprint={(newSprintId) => onUpdateTask(task, { ...task, sprint_id: newSprintId })}
+                      />
+                    </div>
+
+                    {/* Split button */}
+                    <button
+                      title="Split this task with AI"
+                      disabled={isSplitting}
+                      onClick={() => onSplitCard(task)}
+                      className="shrink-0 mt-0.5 w-8 h-8 flex items-center justify-center rounded border border-transparent hover:bg-slate-100 hover:border-slate-200 text-slate-400 hover:text-slate-700 transition-colors disabled:opacity-40"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">content_cut</span>
+                    </button>
+                  </div>
+
+                  {/* Warnings */}
+                  {(gaps.length > 0 || hasDuplication) && (
+                    <div className="mt-3 flex flex-col gap-2 pl-7">
+                      {gaps.length > 0 && (
+                        <div className="bg-red-50 border-l-4 border-red-400 p-2.5 rounded-r-lg">
+                          <div className="text-red-700 font-bold text-xs mb-1">⚠️ Coverage Gap</div>
+                          <ul className="list-disc pl-4 text-xs text-red-600 space-y-0.5">
+                            {gaps.map((g, i) => <li key={i}>{g.missing_step}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {hasDuplication && (
+                        <div className="bg-orange-50 border-l-4 border-orange-400 p-2.5 rounded-r-lg flex items-center justify-between gap-2">
+                          <span className="text-orange-800 text-xs font-bold">🔴 Duplicated with {duplication.existing_task_id}</span>
+                          <button onClick={() => onOpenDiff(task)}
+                            className="shrink-0 px-2.5 py-1 bg-white border border-orange-300 text-orange-700 text-xs font-semibold rounded hover:bg-orange-100 transition-colors">
+                            Compare & Resolve →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── SCOPED MERGE POPUP ───────────────────────────────────────────────────────
+
+const ScopedMergePopup = ({ tasks, mergeSelectedSet, setMergeSelectedSet, mergeScope, isMerging, onClose, onExecuteMerge }) => {
+  // Group tasks by scope for display
+  const grouped = useMemo(() => {
+    const g = {};
+    tasks.forEach((t, i) => {
+      const scope = t.use_case_code || t.requirement_code || 'Ungrouped';
+      if (!g[scope]) g[scope] = [];
+      g[scope].push({ task: t, idx: i });
+    });
+    return g;
+  }, [tasks]);
+
+  const selectedTasks = Array.from(mergeSelectedSet).map(i => tasks[i]);
+  const scopeValid = mergeScope !== null && mergeSelectedSet.size >= 2;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b bg-gradient-to-r from-indigo-50 to-violet-50 flex justify-between items-start">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-600 text-[22px]">shuffle</span>
+              Select Tasks to Merge
+            </h3>
+            <p className="text-sm text-slate-500 mt-0.5">Tasks must be in the <strong>same Feature Flow</strong> (Use Case / Requirement)</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {/* Status bar */}
+        <div className={[
+          'px-6 py-2.5 text-sm font-medium flex items-center gap-2 border-b',
+          scopeValid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+          mergeSelectedSet.size >= 2 ? 'bg-red-50 text-red-700 border-red-200' :
+          'bg-slate-50 text-slate-500 border-slate-200'
+        ].join(' ')}>
+          {scopeValid
+            ? <><span className="material-symbols-outlined text-[18px]">check_circle</span> {mergeSelectedSet.size} tasks selected · Scope: <strong>{mergeScope}</strong></>
+            : mergeSelectedSet.size >= 2
+            ? <><span className="material-symbols-outlined text-[18px]">cancel</span> Cross-scope selection detected. Tasks must be from the same Feature Flow.</>
+            : <><span className="material-symbols-outlined text-[18px]">info</span> Select at least 2 tasks from the same Feature Flow</>
+          }
+        </div>
+
+        {/* Grouped task list */}
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+          {Object.entries(grouped).map(([scope, items]) => {
+            const scopeSelected = items.filter(({ idx }) => mergeSelectedSet.has(idx)).length;
+            return (
+              <div key={scope} className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-4 py-2.5 bg-slate-50 border-b flex items-center gap-2">
+                  <span className="text-sm font-bold text-indigo-700 truncate">{scope}</span>
+                  <span className="text-xs text-slate-400">{items.length} tasks</span>
+                  {scopeSelected > 0 && <span className="ml-auto text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">{scopeSelected} selected</span>}
+                </div>
+                <div className="flex flex-col divide-y divide-slate-100">
+                  {items.map(({ task, idx }) => {
+                    const isChecked = mergeSelectedSet.has(idx);
+                    // BUG-5 FIX: Only lock to a specific scope once EXACTLY 1 scope exists in selection.
+                    // If the selection already spans multiple scopes (cross-scope invalid state),
+                    // we should not disable other scopes based on a corrupted state.
+                    const selectedScopes = new Set(Array.from(mergeSelectedSet).map(i => tasks[i].use_case_code || tasks[i].requirement_code || 'Ungrouped'));
+                    // Only disable if: not already checked, exactly 1 scope locked, and this item is outside that scope.
+                    const lockedScope = selectedScopes.size === 1 ? [...selectedScopes][0] : null;
+                    const wouldCrossScope = !isChecked && lockedScope !== null && lockedScope !== scope;
+                    return (
+                      <label key={idx} className={[
+                        'flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors',
+                        isChecked ? 'bg-indigo-50' : wouldCrossScope ? 'opacity-40 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50'
+                      ].join(' ')}>
+                        <input type="checkbox" className="w-4 h-4 rounded text-indigo-600 border-slate-300"
+                          checked={isChecked}
+                          disabled={wouldCrossScope || isMerging}
+                          onChange={() => {
+                            const s = new Set(mergeSelectedSet);
+                            if (s.has(idx)) s.delete(idx); else s.add(idx);
+                            setMergeSelectedSet(s);
+                          }} />
+                        <span className="flex-1 text-sm font-medium text-slate-800 line-clamp-1">{task.title}</span>
+                        <span className="text-xs text-slate-400 shrink-0">{task.task_type} · {task.estimated_hours}h</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-slate-50 flex justify-between items-center">
+          <button onClick={onClose} disabled={isMerging} className="px-4 py-2 border rounded-lg font-medium text-slate-700 hover:bg-slate-100">Cancel</button>
+          <button onClick={onExecuteMerge} disabled={!scopeValid || isMerging}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">shuffle</span>
+            Merge {mergeSelectedSet.size} Tasks →
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
