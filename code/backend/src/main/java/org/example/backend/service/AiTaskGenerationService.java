@@ -189,13 +189,7 @@ public class AiTaskGenerationService {
                     List<UseCase> batch = useCases.subList(i, Math.min(i + batchSize, useCases.size()));
                     JsonNode batchResult = generateTasksBatch(project, batch, java.util.Collections.emptyList(), existingTasks, members);
                     if (batchResult != null) {
-                        if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
-                            batchResult.get("tasks").forEach(generatedTasksList::add);
-                        } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
-                            batchResult.get("technical_tasks").forEach(generatedTasksList::add);
-                        } else {
-                            log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
-                        }
+                        extractAndPrefixBatchTasks(batchResult, generatedTasksList, "uc_" + i + "_");
                     }
                 }
                 
@@ -204,13 +198,7 @@ public class AiTaskGenerationService {
                     List<Requirement> batch = directReqs.subList(i, Math.min(i + batchSize, directReqs.size()));
                     JsonNode batchResult = generateTasksBatch(project, java.util.Collections.emptyList(), batch, existingTasks, members);
                     if (batchResult != null) {
-                        if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
-                            batchResult.get("tasks").forEach(generatedTasksList::add);
-                        } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
-                            batchResult.get("technical_tasks").forEach(generatedTasksList::add);
-                        } else {
-                            log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
-                        }
+                        extractAndPrefixBatchTasks(batchResult, generatedTasksList, "req_" + i + "_");
                     }
                 }
 
@@ -238,8 +226,38 @@ public class AiTaskGenerationService {
         });
 
         return generationId;
-    }
+    }    private void extractAndPrefixBatchTasks(JsonNode batchResult, List<JsonNode> generatedTasksList, String prefix) {
+        com.fasterxml.jackson.databind.node.ArrayNode tasksArray = null;
+        if (batchResult.has("tasks") && batchResult.get("tasks").isArray()) {
+            tasksArray = (com.fasterxml.jackson.databind.node.ArrayNode) batchResult.get("tasks");
+        } else if (batchResult.has("technical_tasks") && batchResult.get("technical_tasks").isArray()) {
+            tasksArray = (com.fasterxml.jackson.databind.node.ArrayNode) batchResult.get("technical_tasks");
+        }
 
+        if (tasksArray != null) {
+            for (JsonNode t : tasksArray) {
+                if (t.isObject()) {
+                    com.fasterxml.jackson.databind.node.ObjectNode taskObj = (com.fasterxml.jackson.databind.node.ObjectNode) t;
+                    if (taskObj.has("temp_id")) {
+                        taskObj.put("temp_id", prefix + taskObj.get("temp_id").asText());
+                    }
+                    if (taskObj.has("depends_on") && taskObj.get("depends_on").isArray()) {
+                        com.fasterxml.jackson.databind.node.ArrayNode deps = (com.fasterxml.jackson.databind.node.ArrayNode) taskObj.get("depends_on");
+                        for (int j = 0; j < deps.size(); j++) {
+                            String depStr = deps.get(j).asText();
+                            // If it's a numeric ID or TASK- prefixed, it's an existing task, don't prefix it
+                            if (!depStr.matches("\\d+") && !depStr.toUpperCase().startsWith("TASK-")) {
+                                deps.set(j, new com.fasterxml.jackson.databind.node.TextNode(prefix + depStr));
+                            }
+                        }
+                    }
+                    generatedTasksList.add(taskObj);
+                }
+            }
+        } else {
+            log.warn("Gemini returned JSON without a recognized tasks array: {}", batchResult.toString());
+        }
+    }
 
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -797,6 +815,14 @@ public class AiTaskGenerationService {
 
                 if (taskNode.has("estimated_hours")) {
                     task.setEstimatedHours(java.math.BigDecimal.valueOf(taskNode.get("estimated_hours").asDouble()));
+                }
+
+                if (taskNode.has("is_split_child") && taskNode.get("is_split_child").asBoolean()) {
+                    task.setSplitChild(true);
+                }
+
+                if (taskNode.has("is_merged_result") && taskNode.get("is_merged_result").asBoolean()) {
+                    task.setMergedResult(true);
                 }
                 
                 if (taskNode.has("requirement_code") && !taskNode.get("requirement_code").asText().isEmpty()) {

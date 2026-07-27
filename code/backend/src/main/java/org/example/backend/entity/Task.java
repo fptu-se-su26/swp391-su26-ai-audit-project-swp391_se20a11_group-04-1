@@ -160,6 +160,14 @@ public class Task {
     @Column(name = "source_generation_id")
     private java.util.UUID sourceGenerationId;
 
+    @Column(name = "is_split_child", nullable = false)
+    @Builder.Default
+    private boolean isSplitChild = false;
+
+    @Column(name = "is_merged_result", nullable = false)
+    @Builder.Default
+    private boolean isMergedResult = false;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "task_dependencies",

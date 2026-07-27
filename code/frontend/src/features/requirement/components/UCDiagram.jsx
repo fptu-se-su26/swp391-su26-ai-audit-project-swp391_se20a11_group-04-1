@@ -177,7 +177,8 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
                     const { toPng } = await import('html-to-image');
                     dataUrl = await toPng(flowEl, { 
                         filter: (node) => !node.classList?.contains('react-flow__minimap') && !node.classList?.contains('react-flow__controls'),
-                        backgroundColor: '#f9fafb' 
+                        backgroundColor: '#f9fafb',
+                        skipFonts: true
                     });
                 }
             } catch (e) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import EditableTaskCard from './EditableTaskCard';
 import { toast } from 'react-hot-toast';
+import { useProjectStore } from '@/store/useProjectStore';
 
 const SplitTaskReviewModal = ({
   isOpen,

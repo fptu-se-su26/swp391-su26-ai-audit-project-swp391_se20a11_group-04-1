@@ -12,7 +12,9 @@ const EditableTaskCard = ({
   isMergingToExisting = false,
   readOnlyMode = false, // When true, doesn't allow editing (for the top half of modals)
   onEditStateChange, // Callback to notify parent if card is currently being edited
-  maxAllowedDate // Add this to limit max deadline (from project or requirement)
+  maxAllowedDate, // Add this to limit max deadline (from project or requirement)
+  checkboxSlot,
+  splitButtonSlot
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -340,23 +342,32 @@ const EditableTaskCard = ({
     <>
       {/* Read-only Content */}
       <div className="flex justify-between items-start gap-4">
-        <h4 className="font-bold text-slate-800 text-lg leading-snug flex items-center gap-2">
-          {task.title}
-          {task.temp_id && (
-            <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-              #{task.temp_id}
-            </span>
+        <div className="flex items-start gap-3">
+          {checkboxSlot}
+          <h4 className="font-bold text-slate-800 text-[16px] leading-snug">
+            {task.title}
+            {task.temp_id && (
+              <span 
+                className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 ml-2 rounded-full bg-[#1D7A85] text-white text-[11px] font-bold shadow-sm align-middle mb-0.5"
+                title={`Task ID: ${task.temp_id}`}
+              >
+                {task.temp_id.replace('#t', '')}
+              </span>
+            )}
+          </h4>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {splitButtonSlot}
+          {!readOnlyMode && (
+            <button 
+              onClick={handleStartEdit}
+              className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors shrink-0"
+              title="Edit Task"
+            >
+              <span className="material-symbols-outlined text-[18px]">edit</span>
+            </button>
           )}
-        </h4>
-        {!readOnlyMode && (
-          <button 
-            onClick={handleStartEdit}
-            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors shrink-0"
-            title="Edit Task"
-          >
-            ✏️
-          </button>
-        )}
+        </div>
       </div>
 
       {/* ROW 2: Description */}
@@ -396,44 +407,47 @@ const EditableTaskCard = ({
       )}
 
       {/* ROW 3: Badges */}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold tracking-wider ${priorityColor(task.priority)}`}>
-          {task.priority}
-        </span>
-
-        {task.task_type && (
-          <span className={`text-[12px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border ${getTypeConfig(task.task_type).color}`}>
-            {getTypeConfig(task.task_type).label}
+      {!task.isDummy && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold tracking-wider ${priorityColor(task.priority)}`}>
+            {task.priority}
           </span>
-        )}
-        
-        <span className="text-[12px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-slate-200">
-          {task.estimated_hours}h
-        </span>
 
-        {task.weight && (
-          <span className="text-[12px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-amber-200" title="Cognitive Complexity Weight">
-            Weight: {task.weight}
+          {task.task_type && (
+            <span className={`text-[12px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border ${getTypeConfig(task.task_type).color}`}>
+              {getTypeConfig(task.task_type).label}
+            </span>
+          )}
+          
+          <span className="text-[12px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-slate-200">
+            {task.estimated_hours}h
           </span>
-        )}
 
-        {(task.start_date || task.deadline || task.suggested_deadline) && (
-          <span className="text-[12px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-indigo-200" title="Timeline">
-            {task.start_date || '?'} → {task.deadline || task.suggested_deadline || '?'}
-          </span>
-        )}
+          {task.weight && (
+            <span className="text-[12px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-amber-200" title="Cognitive Complexity Weight">
+              Weight: {task.weight}
+            </span>
+          )}
+
+          {(task.start_date || task.deadline || task.suggested_deadline) && (
+            <span className="text-[12px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1 border border-indigo-200" title="Timeline">
+              {task.start_date || '?'} → {task.deadline || task.suggested_deadline || '?'}
+            </span>
+          )}
 
 
 
-        {isMergingToExisting && (
-          <span className="text-[12px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-medium border border-teal-200">
-            Merge to {task._existingTaskId}
-          </span>
-        )}
-      </div>
+          {isMergingToExisting && (
+            <span className="text-[12px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-medium border border-teal-200">
+              Merge to {task._existingTaskId}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ROW 4: References & Assignee */}
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
+      {!task.isDummy && (
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-[13px] text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-100">
         <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-slate-500">Sprint:</span>
@@ -492,11 +506,23 @@ const EditableTaskCard = ({
           </div>
         
       </div>
-      
+      )}
       {task.depends_on && Array.isArray(task.depends_on) && task.depends_on.length > 0 && (
-        <div className="mt-2 text-[12px] text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200 flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[14px]">link</span>
-          <span className="font-semibold">Phụ thuộc vào:</span> {task.depends_on.join(', ')} (Cần làm xong trước khi bắt đầu)
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
+          <span className="font-medium text-slate-500 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[15px] text-slate-400">account_tree</span>
+            Depends on:
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {task.depends_on.map(dep => {
+              const num = dep.replace('#t', '');
+              return (
+                <span key={dep} className="flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold border border-slate-300 shadow-sm transition-transform hover:scale-110 cursor-default" title={`Must complete Task ${num} first`}>
+                  {num}
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
     </>

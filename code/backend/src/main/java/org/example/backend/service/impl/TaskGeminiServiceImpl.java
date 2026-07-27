@@ -19,18 +19,18 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
     @Override
     public String generateTasksBatch(String contextDataJson) {
         String prompt = "SYSTEM:\n" +
-                "You are an expert Technical Project Manager. Your job is to break down Use Cases AND Non-Functional Requirements into logical technical tasks.\n\n" +
+                "Act as a Principal Software Architect and Senior Technical Leader with 10+ years of experience in enterprise systems.\n" +
+                "Your objective is to comprehensively decompose Use Cases (UC) and Non-Functional Requirements (RE) into a strictly EXHAUSTIVE, production-ready pipeline of technical tasks.\n\n" +
                 "DUPLICATION PREVENTION RULES (CRITICAL):\n" +
-                "- You will be provided with 'existingTasks'. You MUST NOT generate any new tasks for scopes/features that are already covered by these 'existingTasks'.\n" +
-                "- Only generate tasks for the MISSING gaps in the Use Cases and Non-Functional Requirements.\n" +
-                "- If a Use Case or Requirement is already fully covered by 'existingTasks', do not generate any tasks for it at all.\n\n" +
-                "SENIOR ARCHITECT TASK BREAKDOWN RULES (CRITICAL):\n" +
-                "- You MUST break down every Use Case and Requirement into a logical execution pipeline based on its actual technical nature.\n" +
-                "- If a feature spans full-stack, break it down sequentially (e.g., Database Schema Design -> Backend API Implementation -> Frontend UI Development -> Testing).\n" +
-                "  * Testing tasks MUST be explicit and descriptive. DO NOT write 'QA' alone. Write the exact scope, e.g.: 'Write Unit Tests for User Login API', 'Write Integration Tests for Payment Flow', 'Write E2E Test Cases for Registration Feature'.\n" +
-                "- If a feature is purely UI, purely Backend, or a DevOps task, adapt the tasks accordingly without forcing unnecessary layers.\n" +
-                "- You MUST establish strict sequential dependencies (`depends_on`) between tasks within the same feature to reflect real-world execution order (e.g., a Frontend task MUST depend on its corresponding Backend task, if both exist). Testing tasks MUST always depend on the task they are testing.\n" +
-                "- Task Titles MUST follow a clear [Verb] + [Noun] + [Context] format (e.g., 'Design Database Schema for Login', 'Implement User Login API', 'Write Unit Tests for Product Search API').\n" +
+                "- Analyze the provided 'existingTasks' list meticulously. DO NOT generate tasks for scopes already covered.\n" +
+                "- If a UC or RE is fully implemented by existingTasks, skip it completely. Only generate tasks for MISSING functional and non-functional gaps.\n\n" +
+                "EXHAUSTIVE TASK DECOMPOSITION RULES (CRITICAL):\n" +
+                "- You MUST NOT provide a superficial or high-level list. You must break down every Use Case and Requirement comprehensively across ALL architectural layers (Database, Backend API, Frontend UI, Integration, Testing, DevOps).\n" +
+                "- If a Use Case is full-stack, you MUST generate at LEAST 3-4 specialized tasks (e.g., 1. DB Schema/Migration -> 2. Backend API & Logic -> 3. Frontend UI & Integration -> 4. Automated Testing).\n" +
+                "- You MUST link the generated task exactly to its parent 'use_case_code' (if it belongs to a UC) or 'requirement_code' (if it belongs to an RE).\n" +
+                "- Task Titles MUST use strict, professional phrasing: [Action Verb] [Target Component] for [Business Context] (e.g., 'Implement REST API for User Registration', 'Design Database Schema for Order Management').\n" +
+                "- Dependencies (`depends_on`) MUST be strictly logical. Frontend tasks MUST depend on Backend tasks. Testing tasks MUST depend on the implementation tasks they verify.\n" +
+                "- Testing tasks MUST NOT be vague. DO NOT write 'QA' alone. Use explicit titles like 'Write Unit Tests for Payment Service' or 'Execute E2E Testing for Checkout Flow'.\n" +
                 "- For Non-Functional Requirements, generate precise DevOps, Security, or Architectural configuration tasks.\n\n" +
                 "COMPLEXITY & DEADLINE RULES:\n" +
                 "- Simple (UI fix, small API): 1-2 days.\n" +

@@ -344,8 +344,41 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       return node ? { x: node.position.x, y: node.position.y } : { x: 0, y: 0 };
   };
 
+  // --- REDUNDANCY FILTERING FOR RENDERING ---
+  const ucToUcEdges = uniqueEdges.filter(e => !e.source.startsWith('actor_') && !e.target.startsWith('actor_'));
+  const ucAdj = {};
+  usecases.forEach(uc => ucAdj[uc.id] = []);
+  ucToUcEdges.forEach(e => { if (ucAdj[e.source]) ucAdj[e.source].push(e.target); });
+
+  const ucReachable = {};
+  usecases.forEach(uc => {
+      ucReachable[uc.id] = new Set();
+      const queue = [...ucAdj[uc.id]];
+      while (queue.length > 0) {
+          const curr = queue.shift();
+          if (!ucReachable[uc.id].has(curr)) {
+              ucReachable[uc.id].add(curr);
+              if (ucAdj[curr]) queue.push(...ucAdj[curr]);
+          }
+      }
+  });
+
   let resultEdges = uniqueEdges.filter(rel => {
-      if (!rel.source.startsWith('actor_') && !rel.target.startsWith('actor_')) {
+      const isActorEdge = rel.source.startsWith('actor_') || rel.target.startsWith('actor_');
+      if (isActorEdge && rel.type !== 'actor-generalization' && !(rel.source.startsWith('actor_') && rel.target.startsWith('actor_'))) {
+          const actorId = rel.source.startsWith('actor_') ? rel.source : rel.target;
+          const ucId = rel.source.startsWith('actor_') ? rel.target : rel.source;
+          const actorConnectedUcs = uniqueEdges
+              .filter(e => (e.source === actorId && !e.target.startsWith('actor_')) || (e.target === actorId && !e.source.startsWith('actor_')))
+              .map(e => e.source === actorId ? e.target : e.source);
+          for (const otherUc of actorConnectedUcs) {
+              if (otherUc !== ucId && ucReachable[otherUc] && ucReachable[otherUc].has(ucId)) {
+                  return false; // Redundant edge
+              }
+          }
+      }
+
+      if (!isActorEdge) {
           const sourceVisited = visited.has(rel.source);
           const targetVisited = visited.has(rel.target);
           // Keep include/extend edges even between isolated UCs

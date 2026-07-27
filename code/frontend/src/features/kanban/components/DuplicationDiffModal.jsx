@@ -29,7 +29,10 @@ const DuplicationDiffModal = ({
             const data = await taskService.getTask(parsedId);
             
             if (projectId && String(data.projectId) !== String(projectId)) {
-               setExistingTaskData({ title: "This task belongs to another Project or does not exist in the current Project." });
+               setExistingTaskData({ 
+                 title: "This task belongs to another Project or does not exist in the current Project.",
+                 isDummy: true 
+               });
                setIsLoading(false);
                return;
             }
@@ -52,11 +55,20 @@ const DuplicationDiffModal = ({
             setExistingTaskData(data);
           } else {
              // If we can't parse it, just create a dummy task
-             setExistingTaskData({ title: activeDiffRisk.existing_task_title || "N/A" });
+             setExistingTaskData({ 
+               title: activeDiffRisk.existing_task_title || "Invalid ID Format",
+               description: `Could not parse ID from: ${activeDiffRisk.existing_task_id}`,
+               isDummy: true
+             });
           }
         } catch (error) {
           console.error("Failed to fetch existing task", error);
-          setExistingTaskData({ title: "Data not found (N/A)" });
+          const errMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+          setExistingTaskData({ 
+            title: `Task Not Found (${activeDiffRisk.existing_task_id})`,
+            description: `Error loading data: ${errMsg}. The task might have been deleted or the AI hallucinated the ID.`,
+            isDummy: true
+          });
         } finally {
           setIsLoading(false);
         }
