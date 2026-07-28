@@ -31,6 +31,16 @@ export default function RequirementWorkspace({ requirementId, testCases, onEdit,
     return messages
   }, [testCases])
 
+  const missingExecutableTypes = React.useMemo(() => {
+    const types = { UI: 0, API: 0 }
+    testCases.forEach(tc => {
+      if (types[tc.type] !== undefined) types[tc.type]++
+    })
+    return Object.entries(types)
+      .filter(([, count]) => count === 0)
+      .map(([type]) => type)
+  }, [testCases])
+
   return (
     <div style={{
       background: C.surface,
@@ -105,20 +115,41 @@ export default function RequirementWorkspace({ requirementId, testCases, onEdit,
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => openAiGenModal()}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                padding: '8px 16px', borderRadius: '8px', border: 'none',
-                background: '#8B5CF6', color: '#fff', fontSize: '13px', fontWeight: 600,
-                cursor: 'pointer', boxShadow: '0 2px 6px rgba(139,92,246,0.3)',
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#7C3AED'}
-              onMouseLeave={e => e.currentTarget.style.background = '#8B5CF6'}
-            >
-              <span style={{ fontSize: 14 }}>✨</span> Generate Missing Cases
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {missingExecutableTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => openAiGenModal({
+                    testType: type,
+                    additionalContext: `Generate ${type} test cases for this requirement using only source-scanned ${type === 'API' ? 'backend endpoints and request fields' : 'frontend selectors'}.`
+                  })}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 16px', borderRadius: '8px', border: 'none',
+                    background: '#8B5CF6', color: '#fff', fontSize: '13px', fontWeight: 600,
+                    cursor: 'pointer', boxShadow: '0 2px 6px rgba(139,92,246,0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#7C3AED'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#8B5CF6'}
+                >
+                  <span style={{ fontSize: 14 }}>AI</span> Generate {type} Cases
+                </button>
+              ))}
+              <button
+                onClick={() => openAiGenModal()}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '8px 16px', borderRadius: '8px', border: '1px solid #C4B5FD',
+                  background: '#FFFFFF', color: '#6D28D9', fontSize: '13px', fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F5F3FF'}
+                onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}
+              >
+                <span style={{ fontSize: 14 }}>AI</span> Smart Generate
+              </button>
+            </div>
           </div>
         )}
 

@@ -102,7 +102,7 @@ public class SlaPingService {
                 .toList();
 
         List<TaskSlaState> memberRiskStates = allMemberStates.stream()
-                .filter(s -> !"NORMAL".equals(s.getCurrentRiskLevel()))
+                .filter(s -> !"HEALTHY".equals(s.getCurrentRiskLevel()))
                 .toList();
 
         java.time.LocalDate today = java.time.LocalDate.now();
@@ -112,8 +112,8 @@ public class SlaPingService {
                 .filter(s -> s.getTask().getDeadline() != null && today.isAfter(s.getTask().getDeadline()) && s.getTask().getStatus() != TaskStatus.DONE)
                 .count();
         int penaltyCount = (int) allMemberStates.stream().filter(s -> s.getTask().isOverduePenaltyApplied()).count();
-        int criticalCount = (int) memberRiskStates.stream().filter(s -> "CRITICAL".equals(s.getCurrentRiskLevel())).count();
-        int highCount = (int) memberRiskStates.stream().filter(s -> "HIGH".equals(s.getCurrentRiskLevel())).count();
+        int criticalCount = (int) memberRiskStates.stream().filter(s -> "BREACH".equals(s.getCurrentRiskLevel())).count();
+        int highCount = (int) memberRiskStates.stream().filter(s -> "WARNING".equals(s.getCurrentRiskLevel())).count();
 
         String riskTaskTitles = memberRiskStates.stream()
                 .map(s -> "- " + s.getTask().getTitle() + " [" + s.getCurrentRiskLevel() + "]")
@@ -143,7 +143,7 @@ public class SlaPingService {
                 - Thành viên: %s
                 - Tổng task được giao: %d | Đã hoàn thành: %d
                 - Task trễ hạn: %d | Task bị penalty: %d
-                - Task mức CRITICAL: %d | Task mức HIGH: %d
+                - Task mức BREACH: %d | Task mức WARNING: %d
                 - Danh sách task có vấn đề:
                 %s
                 """,
@@ -168,7 +168,7 @@ public class SlaPingService {
         List<TaskSlaState> states = taskSlaStateRepository.findByProjectIdAndSprintIdWithTask(projectId, sprintId);
         
         List<TaskSlaState> memberRiskStates = states.stream()
-                .filter(s -> !"NORMAL".equals(s.getCurrentRiskLevel()))
+                .filter(s -> !"HEALTHY".equals(s.getCurrentRiskLevel()))
                 .filter(s -> s.getTask().getPrimaryAssignee() != null)
                 .filter(s -> {
                     String name = s.getTask().getPrimaryAssignee().getUsername();
@@ -230,10 +230,10 @@ public class SlaPingService {
             String taskUrl = appBaseUrl + "/projects/" + projectId + "/tasks/" + task.getId();
             
             String riskBadge = "";
-            if ("CRITICAL".equals(state.getCurrentRiskLevel())) {
-                riskBadge = "<span style=\"background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;\">CRITICAL</span>";
-            } else if ("HIGH".equals(state.getCurrentRiskLevel())) {
-                riskBadge = "<span style=\"background-color: #ffedd5; color: #c2410c; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;\">HIGH</span>";
+            if ("BREACH".equals(state.getCurrentRiskLevel())) {
+                riskBadge = "<span style=\"background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;\">BREACH</span>";
+            } else if ("WARNING".equals(state.getCurrentRiskLevel())) {
+                riskBadge = "<span style=\"background-color: #ffedd5; color: #c2410c; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;\">WARNING</span>";
             } else {
                 riskBadge = "<span style=\"background-color: #fef3c7; color: #b45309; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px;\">" + state.getCurrentRiskLevel() + "</span>";
             }

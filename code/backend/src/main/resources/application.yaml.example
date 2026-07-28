@@ -84,7 +84,8 @@ openrouter:
       - "YOUR_OPENROUTER_API_KEY_1"
       - "YOUR_OPENROUTER_API_KEY_2"
     url: "https://openrouter.ai/api/v1/chat/completions"
-    model: "google/gemini-2.5-flash:free"
+    model: "google/gemini-2.5-flash"
+    max-tokens: 8192
 
 groq:
   api:
@@ -93,6 +94,7 @@ groq:
       - "YOUR_GROQ_API_KEY_2"
     url: "https://api.groq.com/openai/v1/chat/completions"
     model: "llama-3.3-70b-versatile"
+    max-tokens: 8192
 
 # GitHub OAuth & Integration Settings
 github:

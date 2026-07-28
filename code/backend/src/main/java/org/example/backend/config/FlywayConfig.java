@@ -1,19 +1,17 @@
 package org.example.backend.config;
 
-import org.flywaydb.core.Flyway;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-@Component
-public class FlywayConfig implements BeanPostProcessor {
+@Configuration
+public class FlywayConfig {
 
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        if (bean instanceof Flyway flyway) {
-            // Automatically repair the database schema history table to resolve checksum/version mismatches
+    @Bean
+    public FlywayMigrationStrategy flywayMigrationStrategy() {
+        return flyway -> {
             flyway.repair();
-        }
-        return bean;
+            flyway.migrate();
+        };
     }
 }

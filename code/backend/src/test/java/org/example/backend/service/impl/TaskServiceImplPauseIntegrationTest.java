@@ -5,6 +5,7 @@ import org.example.backend.entity.Project;
 import org.example.backend.entity.ProjectMember;
 import org.example.backend.entity.Task;
 import org.example.backend.entity.TaskStatus;
+import org.example.backend.entity.UserAccount;
 import org.example.backend.repository.ProjectMemberRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.service.sla.TaskSlaEvaluation;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,6 +52,8 @@ class TaskServiceImplPauseIntegrationTest {
     @Mock
     private org.example.backend.repository.RequirementRepository requirementRepository;
     @Mock
+    private org.example.backend.repository.UseCaseRepository useCaseRepository;
+    @Mock
     private org.example.backend.repository.SprintRepository sprintRepository;
     @Mock
     private org.example.backend.repository.BugReportRepository bugReportRepository;
@@ -67,27 +71,34 @@ class TaskServiceImplPauseIntegrationTest {
     private org.example.backend.repository.TaskReviewDecisionRepository taskReviewDecisionRepository;
     @Mock
     private org.example.backend.repository.ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
-//    @Mock
-//    private org.example.backend.repository.TaskCommentRepository taskCommentRepository;
-//    @Mock
-//    private org.example.backend.repository.TaskProposalRepository taskProposalRepository;
+    @Mock
+    private org.example.backend.repository.mongo.TaskCommentRepository taskCommentRepository;
+    @Mock
+    private org.example.backend.repository.mongo.TaskProposalRepository taskProposalRepository;
     @Mock
     private org.example.backend.service.NotificationService notificationService;
     @Mock
     private org.example.backend.service.event.OutboxEventService outboxEventService;
+    @Mock
+    private org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private TaskServiceImpl taskService;
 
     private Project project;
     private Task task;
+    private UserAccount assignee;
 
     @BeforeEach
     void setUp() {
         project = Project.builder().id(100L).build();
+        assignee = UserAccount.builder().id(5L).username("assignee").email("assignee@example.com").build();
         task = Task.builder()
                 .id(1L)
                 .project(project)
+                .primaryAssignee(assignee)
                 .status(TaskStatus.IN_PROGRESS)
                 .checklist(new ArrayList<>())
                 .subTasks(new ArrayList<>())

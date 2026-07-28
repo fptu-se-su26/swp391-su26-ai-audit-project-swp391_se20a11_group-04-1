@@ -3,8 +3,9 @@ import { useArchitectureStore } from '../store/architectureStore'
 import { triggerSync, getSyncStatus } from '../api/architectureApi'
 import toast from 'react-hot-toast'
 
-export default function SyncButton({ onSyncSuccess }) {
-  const { projectId, syncStatus, setSyncStatus } = useArchitectureStore()
+export default function SyncButton({ projectId: propProjectId, onSyncSuccess }) {
+  const { projectId: storeProjectId, syncStatus, setSyncStatus } = useArchitectureStore()
+  const activeProjectId = propProjectId || storeProjectId
   const userRole = localStorage.getItem('userRole') || 'MEMBER'
   const pollIntervalRef = useRef(null)
 
@@ -17,11 +18,12 @@ export default function SyncButton({ onSyncSuccess }) {
     }
   }
 
-  const startPolling = () => {
+  const startPolling = (targetProjectId = activeProjectId) => {
     stopPolling()
+    if (!targetProjectId) return
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await getSyncStatus(projectId)
+        const res = await getSyncStatus(targetProjectId)
         if (res.success && res.data) {
           setSyncStatus(res.data)
           
@@ -41,13 +43,19 @@ export default function SyncButton({ onSyncSuccess }) {
   }
 
   useEffect(() => {
-    if (syncStatus.status === 'SYNCING') {
-      startPolling()
+    if (syncStatus.status === 'SYNCING' && activeProjectId) {
+      startPolling(activeProjectId)
     }
     return () => stopPolling()
-  }, [syncStatus.status, projectId])
+  }, [syncStatus.status, activeProjectId])
 
   const handleSync = async () => {
+    const targetProjectId = propProjectId || storeProjectId
+    if (!targetProjectId) {
+      toast.error('Không tìm thấy mã dự án')
+      return
+    }
+
     try {
       setSyncStatus({
         status: 'SYNCING',
@@ -56,10 +64,10 @@ export default function SyncButton({ onSyncSuccess }) {
         errorMessage: null
       })
       
-      const res = await triggerSync(projectId)
+      const res = await triggerSync(targetProjectId)
       if (res.success && res.data) {
         setSyncStatus(res.data)
-        startPolling()
+        startPolling(targetProjectId)
         toast.success('Analysis process started...')
       } else {
         throw new Error(res.message || 'Failed to start sync')
@@ -93,7 +101,7 @@ export default function SyncButton({ onSyncSuccess }) {
         <button
           onClick={handleSync}
           disabled={isSyncing}
-          className={`flex items-center justify-center px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-sm ${
+          className={`flex items-center justify-center px-4 py-2 rounded-lg font-semibold text-sm transition-all shadow-sm cursor-pointer ${
             isSyncing
               ? 'bg-surface-container-highest text-on-surface-variant cursor-not-allowed border border-outline-variant'
               : 'bg-primary text-on-primary hover:bg-primary/95 hover:shadow-md'

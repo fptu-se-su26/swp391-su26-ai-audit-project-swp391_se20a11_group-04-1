@@ -18,6 +18,7 @@ import Card from '../../../components/ui/Card'
 import SectionTitle from '../../../components/ui/SectionTitle'
 import FieldLabel from '../../../components/ui/FieldLabel'
 import Button from '../../../components/ui/Button'
+import { SELECTOR_ACTIONS, normalizeUiSteps } from '../utils/uiStepUtils'
 
 // ── Design tokens ──────────────────────────────────────────────
 const C = {
@@ -342,7 +343,7 @@ export default function TestCaseDetailPage() {
   )
 
   const stepsToRender = testCase.type === 'UI'
-    ? (testCase.configuration?.steps || [])
+    ? normalizeUiSteps(testCase.configuration?.steps, testCase.steps)
     : (testCase.steps || [])
 
   return (
@@ -510,9 +511,13 @@ export default function TestCaseDetailPage() {
                                 alignSelf:'flex-start',
                               }}>{step.action}</span>
                               {step.path && <span>Path: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.path}</code></span>}
+                              {step.action === 'goto' && !step.path && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Path: missing</span>}
                               {step.selector && <span>Selector: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.selector}</code></span>}
+                              {SELECTOR_ACTIONS.has(step.action) && !step.selector && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Selector: missing</span>}
                               {step.value && <span>Value: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.value}</code></span>}
+                              {['fill', 'select'].includes(step.action) && !step.value && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Value: missing</span>}
                               {step.expected && <span>Expected: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.expected}</code></span>}
+                              {['expect_url', 'expect_text'].includes(step.action) && !step.expected && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Expected: missing</span>}
                               {step.description && <span style={{ fontSize:'12px', color: C.textSec, fontStyle:'italic' }}>{step.description}</span>}
                             </div>
                           ) : step.description}

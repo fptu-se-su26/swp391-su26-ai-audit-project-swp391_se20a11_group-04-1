@@ -14,8 +14,10 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.example.backend.exception.BusinessException;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.example.backend.config.GeminiProperties;
 import org.example.backend.service.LlmProvider;
@@ -62,6 +64,7 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
         int backoff503 = 2000; // Khởi tạo exponential backoff cho 503 (2s)
         int backoff429 = 1000; // Khởi tạo backoff ngắn cho 429 (1s)
         int error503Count = 0;
+        Set<Integer> exhaustedKeyIndexes = new HashSet<>();
 
         Map<String, Object> requestBody = new HashMap<>();
         Map<String, Object> parts = new HashMap<>();
@@ -82,7 +85,13 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         for (int i = 0; i < maxRetries; i++) {
+            if (exhaustedKeyIndexes.size() >= keys.size()) {
+                break;
+            }
             int index = currentKeyIndex.getAndUpdate(idx -> (idx + 1) % keys.size());
+            if (exhaustedKeyIndexes.contains(index)) {
+                continue;
+            }
             String apiKey = keys.get(index);
             String requestUrl = targetUrl + "?key=" + apiKey;
 
@@ -112,15 +121,20 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
                 if (statusCode == 401) {
                     // 401 có thể do key invalid HOẶC do RPM quota bị exceeded (một số Gemini region trả 401 thay vì 429)
                     // Check body để phân biệt
-                    if (errorBody.contains("quota") || errorBody.contains("rate") || errorBody.contains("limit") || errorBody.contains("exhausted")) {
+                    if (errorBody.contains("quota") || errorBody.contains("exhausted") || errorBody.contains("billing")) {
+                        exhaustedKeyIndexes.add(index);
+                        log.warn("Gemini API Key ending in {} exhausted quota. Skipping this key.", apiKey.substring(Math.max(0, apiKey.length() - 4)));
+                    } else if (errorBody.contains("rate") || errorBody.contains("limit")) {
                         log.warn("Gemini API Key kết thúc bằng {} bị 401 do Rate Limit/Quota. Nghỉ {}ms rồi thử tiếp...", apiKey.substring(Math.max(0, apiKey.length() - 4)), backoff429);
                         try { Thread.sleep(backoff429); } catch (InterruptedException ignored) {}
                         backoff429 = Math.min(backoff429 * 2, 8000);
                     } else {
+                        exhaustedKeyIndexes.add(index);
                         log.warn("Gemini API Key kết thúc bằng {} bị lỗi 401 (Key Invalid). Bỏ qua key này...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
                     }
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("exhausted") || errorBody.contains("billing")) {
+                        exhaustedKeyIndexes.add(index);
                         log.warn("Gemini API Key kết thúc bằng {} đã hết Quota ngày (RPD). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
                     } else {
                         log.warn("Gemini API bị Rate Limit (RPM). Nghỉ ngơi {}ms rồi thử tiếp...", backoff429);

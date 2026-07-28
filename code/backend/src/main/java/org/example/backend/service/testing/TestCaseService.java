@@ -9,6 +9,7 @@ import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
+import org.example.backend.exception.BadRequestException;
 import org.example.backend.exception.ResourceNotFoundException;
 import org.example.backend.mapper.testing.TestCaseMapper;
 import org.example.backend.repository.TestCaseRepository;
@@ -42,7 +43,7 @@ public class TestCaseService {
 
     public TestCaseResponse create(Long projectId, TestCaseRequest request, Long currentUserId) {
         // TODO: Validate member of project (skipped to avoid conflict with project module)
-        // TODO: Validate requirement exists in project (skipped to avoid conflict with requirement module)
+        validateRequirementBelongsToProject(projectId, request.getRequirementId());
 
         // Pessimistic Lock on Project FIRST to avoid building unsaved relationships before lock
         var project = projectRepository.findByIdWithPessimisticWrite(projectId)
@@ -175,6 +176,7 @@ public class TestCaseService {
     public TestCaseResponse update(Long projectId, Long testCaseId,
                                    TestCaseRequest request, Long currentUserId) {
         // TODO: Validate member of project
+        validateRequirementBelongsToProject(projectId, request.getRequirementId());
         
         TestCase tc = testCaseRepository.findByIdAndProjectId(testCaseId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test case not found"));
@@ -202,15 +204,29 @@ public class TestCaseService {
         testCaseRepository.delete(tc);
     }
 
+    private void validateRequirementBelongsToProject(Long projectId, Long requirementId) {
+        if (requirementId == null) {
+            throw new BadRequestException("Requirement is required");
+        }
+        Requirement requirement = requirementRepository.findById(requirementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Requirement not found"));
+        if (requirement.getProject() == null || !projectId.equals(requirement.getProject().getId())) {
+            throw new ResourceNotFoundException("Requirement not found");
+        }
+    }
+
     private List<TestStep> buildSteps(List<TestStepRequest> stepRequests, TestCase tc) {
         List<TestStep> steps = new ArrayList<>();
         if (stepRequests != null) {
             for (int i = 0; i < stepRequests.size(); i++) {
                 TestStepRequest req = stepRequests.get(i);
+                if (req == null || req.getDescription() == null || req.getDescription().trim().isEmpty()) {
+                    throw new BadRequestException("Step description is required");
+                }
                 TestStep step = new TestStep();
                 step.setTestCase(tc);
                 step.setStepNumber(i + 1); // Unconditionally use i + 1 to guarantee unique sequencing
-                step.setDescription(req.getDescription());
+                step.setDescription(req.getDescription().trim());
                 steps.add(step);
             }
         }

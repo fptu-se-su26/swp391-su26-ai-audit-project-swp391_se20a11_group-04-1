@@ -62,7 +62,9 @@ export default function AiTestCaseProgressModal({ isOpen, projectId, payload, on
 
     try {
       const currentPayload = { ...payload, discardExisting: forceDiscard || payload.discardExisting }
-      const data = await testCaseService.generateTestCaseWithAi(projectId, currentPayload)
+      const data = await testCaseService.generateTestCaseWithAi(projectId, currentPayload, {
+        signal: abortRef.current.signal,
+      })
 
       // Check if aborted during the request
       if (abortRef.current?.signal.aborted) return

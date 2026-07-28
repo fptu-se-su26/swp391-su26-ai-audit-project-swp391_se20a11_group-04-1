@@ -87,6 +87,39 @@ class FormMapService:
         re.IGNORECASE
     )
 
+    MATERIAL_ICON_TEXT = {
+        'arrow_forward', 'arrow_back', 'arrow_right_alt',
+        'visibility', 'visibility_off',
+        'close', 'cancel', 'menu', 'search',
+        'check', 'check_circle', 'done',
+        'add', 'remove', 'delete', 'edit',
+        'person', 'lock', 'mail', 'email',
+    }
+
+    @classmethod
+    def scan_files(cls, clone_dir: str, file_paths: list) -> Dict[str, dict]:
+        """
+        Extract form map ONLY for the given relative file paths.
+        Used in Layer 2 after AI has selected relevant files.
+        """
+        result: Dict[str, dict] = {}
+        for rel_path in file_paths:
+            full_path = os.path.join(clone_dir, rel_path.replace('/', os.sep))
+            if not os.path.isfile(full_path):
+                continue
+            _, ext = os.path.splitext(full_path)
+            if ext.lower() not in cls.FRONTEND_EXTS:
+                continue
+            try:
+                with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+            except Exception:
+                continue
+            forms = cls._extract_forms(content)
+            if forms:
+                result[rel_path] = {'forms': forms}
+        return result
+
     @classmethod
     def scan(cls, clone_dir: str) -> Dict[str, dict]:
         """
@@ -223,8 +256,7 @@ class FormMapService:
         )
         for m in button_pattern.finditer(html):
             tag_attrs = m.group(1)
-            # Strip tags from inner text to get button label
-            inner_text = re.sub(r'<[^>]+>', '', m.group(2)).strip()
+            inner_text = cls._clean_button_text(m.group(2))
             elem = cls._parse_element('button', tag_attrs, label_map, inner_text=inner_text)
             if elem:
                 elements.append(elem)
@@ -302,7 +334,7 @@ class FormMapService:
         if placeholder:
             return f"[placeholder='{placeholder}']"
         if inner_text and tag == 'button':
-            clean = inner_text[:50].strip()
+            clean = cls._escape_selector_literal(inner_text[:50].strip())
             if clean:
                 return f"button:has-text('{clean}')"
         if tag == 'button' and input_type == 'submit':
@@ -310,6 +342,32 @@ class FormMapService:
         if input_type == 'submit':
             return "input[type='submit']"
         return f"{tag}[type='{input_type}']"
+
+    @classmethod
+    def _clean_button_text(cls, html: str) -> str:
+        if not html:
+            return ''
+
+        text = re.sub(r'<script\b[^>]*>.*?</script>', ' ', html, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<style\b[^>]*>.*?</style>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<svg\b[^>]*>.*?</svg>', ' ', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        if not text:
+            return ''
+
+        tokens = []
+        for token in text.split(' '):
+            normalized = re.sub(r'[^a-z0-9_]', '', token.lower())
+            if normalized in cls.MATERIAL_ICON_TEXT:
+                continue
+            tokens.append(token)
+
+        return re.sub(r'\s+', ' ', ' '.join(tokens)).strip()
+
+    @staticmethod
+    def _escape_selector_literal(value: str) -> str:
+        return value.replace('\\', '\\\\').replace("'", "\\'")
 
     # ------------------------------------------------------------------
     # Infer a human-readable semantic role

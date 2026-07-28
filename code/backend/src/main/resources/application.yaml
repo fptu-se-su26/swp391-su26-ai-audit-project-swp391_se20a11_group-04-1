@@ -19,8 +19,8 @@ spring:
       max-request-size: 50MB
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:dev_track_ai}?options=-c%20timezone=Asia/Ho_Chi_Minh
-    username: ${POSTGRES_USER:postgres}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${POSTGRES_DB:dev_track_ai}?options=-c%20timezone=Asia/Ho_Chi_Minh
+    username: ${POSTGRES_USER:devtrack}
     password: ${POSTGRES_PASSWORD:changeme}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -121,13 +121,15 @@ openrouter:
   api:
     keys: ${OPENROUTER_API_KEYS:}
     url: ${OPENROUTER_API_URL:https://openrouter.ai/api/v1/chat/completions}
-    model: ${OPENROUTER_MODEL:google/gemini-1.5-flash}
+    model: ${OPENROUTER_MODEL:google/gemini-2.5-flash}
+    max-tokens: ${OPENROUTER_MAX_TOKENS:16384}
 
 groq:
   api:
     keys: ${GROQ_API_KEYS:}
     url: ${GROQ_API_URL:https://api.groq.com/openai/v1/chat/completions}
     model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    max-tokens: ${GROQ_MAX_TOKENS:8192}
 
 kubernetes:
   # Tắt khi backend chạy trong Docker container chưa mount kubeconfig

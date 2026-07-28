@@ -119,8 +119,8 @@ public class DataSyncScheduler {
             } else {
                 continue; // cannot determine — skip
             }
-            boolean predictedRisky = "HIGH".equals(state.getPredictedRiskLevel())
-                    || "CRITICAL".equals(state.getPredictedRiskLevel());
+            boolean predictedRisky = "WARNING".equals(state.getPredictedRiskLevel())
+                    || "BREACH".equals(state.getPredictedRiskLevel());
             state.setPredictionAccurate(predictedRisky == actuallyRisky);
             taskSlaStateRepository.save(state);
         }

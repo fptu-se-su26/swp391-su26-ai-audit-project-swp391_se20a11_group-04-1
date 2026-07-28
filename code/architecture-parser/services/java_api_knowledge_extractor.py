@@ -22,6 +22,8 @@ from typing import Optional
 # Compiled regex patterns
 # ---------------------------------------------------------------------------
 CONTROLLER_PATTERN = re.compile(r'@(?:Rest)?Controller\b', re.IGNORECASE)
+WEBSERVLET_PATTERN = re.compile(r'@WebServlet\s*\((.*?)\)', re.IGNORECASE | re.DOTALL)
+HTTP_SERVLET_PATTERN = re.compile(r'extends\s+HttpServlet\b', re.IGNORECASE)
 
 CLASS_MAPPING_PATTERN = re.compile(
     # Path may or may not start with '/'
@@ -115,6 +117,12 @@ HTTP_STATUS_CODES = {
     'NOT_FOUND': 404, 'METHOD_NOT_ALLOWED': 405, 'CONFLICT': 409,
     'UNPROCESSABLE_ENTITY': 422, 'INTERNAL_SERVER_ERROR': 500,
 }
+SERVLET_STATUS_CODES = {
+    'SC_OK': 200, 'SC_CREATED': 201, 'SC_ACCEPTED': 202, 'SC_NO_CONTENT': 204,
+    'SC_BAD_REQUEST': 400, 'SC_UNAUTHORIZED': 401, 'SC_FORBIDDEN': 403,
+    'SC_NOT_FOUND': 404, 'SC_METHOD_NOT_ALLOWED': 405, 'SC_CONFLICT': 409,
+    'SC_UNPROCESSABLE_ENTITY': 422, 'SC_INTERNAL_SERVER_ERROR': 500,
+}
 
 # ---------------------------------------------------------------------------
 # Main extractor class
@@ -142,6 +150,33 @@ class JavaApiKnowledgeExtractor:
     # Public entry point
     # -----------------------------------------------------------------------
     @classmethod
+    def list_controller_files(cls, clone_dir: str) -> list:
+        """
+        Returns a list of relative file paths that contain Spring Boot controllers
+        or Java Servlets — without extracting endpoint details.
+        Used as Layer 1 input for AI-assisted file selection.
+        """
+        result = []
+        for root, dirs, files in os.walk(clone_dir):
+            dirs[:] = [d for d in dirs if d not in {'node_modules', '.git', 'target', 'build', '__pycache__'}]
+            for filename in files:
+                if not filename.endswith('.java'):
+                    continue
+                full_path = os.path.join(root, filename)
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                except Exception:
+                    continue
+                if (CONTROLLER_PATTERN.search(content)
+                        or WEBSERVLET_PATTERN.search(content)
+                        or HTTP_SERVLET_PATTERN.search(content)):
+                    rel_path = os.path.relpath(full_path, clone_dir).replace('\\', '/')
+                    result.append(rel_path)
+        return result
+
+    # -----------------------------------------------------------------------
+    @classmethod
     def extract(cls, clone_dir: str) -> list:
         """
         Returns a list of endpoint dicts (ApiEndpointInfo).
@@ -153,12 +188,16 @@ class JavaApiKnowledgeExtractor:
         # Phase 2: Walk controller files and extract endpoints
         endpoints = []
         for java_file, content in cls._iter_java_files(clone_dir):
-            if not CONTROLLER_PATTERN.search(content):
+            is_spring_controller = bool(CONTROLLER_PATTERN.search(content))
+            is_servlet = bool(WEBSERVLET_PATTERN.search(content) and HTTP_SERVLET_PATTERN.search(content))
+            if not is_spring_controller and not is_servlet:
                 continue
-            base_path  = cls._extract_base_path(content)
-            rel_path   = java_file
-            file_eps   = cls._parse_methods(content, base_path, rel_path, dto_registry)
-            endpoints.extend(file_eps)
+            if is_spring_controller:
+                base_path  = cls._extract_base_path(content)
+                file_eps   = cls._parse_methods(content, base_path, java_file, dto_registry)
+                endpoints.extend(file_eps)
+            if is_servlet:
+                endpoints.extend(cls._parse_servlet_methods(content, java_file))
             if len(endpoints) >= cls.MAX_CONTROLLER_METHODS:
                 break
 
@@ -495,6 +534,128 @@ class JavaApiKnowledgeExtractor:
                     if depth == 0 and started:
                         return ' '.join(collected)
         return ' '.join(collected)
+
+    @classmethod
+    def _parse_servlet_methods(cls, content: str, source_file: str) -> list:
+        paths = cls._extract_webservlet_paths(content)
+        if not paths:
+            return []
+
+        controller_class = source_file.split('/')[-1].replace('.java', '')
+        api_paths = [
+            path for path in paths
+            if path.startswith('/api/') or '/api/' in path or 'api' in controller_class.lower()
+        ]
+        if not api_paths:
+            return []
+
+        endpoints = []
+        for method_name, http_method in (
+            ('doGet', 'GET'),
+            ('doPost', 'POST'),
+            ('doPut', 'PUT'),
+            ('doDelete', 'DELETE'),
+            ('doPatch', 'PATCH'),
+        ):
+            method_body = cls._extract_named_method_body(content, method_name)
+            if method_body is None:
+                continue
+
+            params = cls._extract_servlet_parameters(method_body)
+            query_params = params if http_method in ('GET', 'DELETE') else []
+            request_body = None
+            if http_method not in ('GET', 'DELETE') and params:
+                request_body = {
+                    'className': 'ServletRequestParameters',
+                    'fields': [
+                        {
+                            'jsonName': p['name'],
+                            'javaType': p['javaType'],
+                            'required': p['required'],
+                            'validations': [],
+                        }
+                        for p in params
+                    ],
+                }
+
+            for path in api_paths:
+                endpoints.append({
+                    'httpMethod':       http_method,
+                    'path':             path,
+                    'controllerClass':  controller_class,
+                    'methodName':       method_name,
+                    'description':      cls._humanize(controller_class.replace('Servlet', '') + ' ' + method_name),
+                    'requestBody':      request_body,
+                    'pathVariables':    [],
+                    'queryParams':      query_params,
+                    'requestHeaders':   [],
+                    'authentication':   cls._extract_servlet_auth(method_body),
+                    'expectedStatuses': cls._extract_servlet_statuses(method_body),
+                    'sourceFile':       source_file,
+                    'framework':        'Servlet',
+                })
+
+        return endpoints
+
+    @classmethod
+    def _extract_webservlet_paths(cls, content: str) -> list:
+        paths = []
+        for servlet_match in WEBSERVLET_PATTERN.finditer(content):
+            args = servlet_match.group(1)
+            for path in re.findall(r'["\'](/[^"\']*)["\']', args):
+                if path and path not in paths:
+                    paths.append(path)
+        return paths
+
+    @classmethod
+    def _extract_named_method_body(cls, content: str, method_name: str) -> Optional[str]:
+        signature = re.search(
+            rf'(?:public|protected)\s+void\s+{re.escape(method_name)}\s*\(',
+            content,
+            re.IGNORECASE,
+        )
+        if not signature:
+            return None
+        open_brace = content.find('{', signature.end())
+        if open_brace == -1:
+            return ''
+        return cls._extract_class_body(content, open_brace)
+
+    @classmethod
+    def _extract_servlet_parameters(cls, method_body: str) -> list:
+        params = []
+        seen = set()
+        for name in re.findall(r'\.getParameter\s*\(\s*["\']([^"\']+)["\']\s*\)', method_body):
+            if name in seen:
+                continue
+            seen.add(name)
+            params.append({
+                'name': name,
+                'javaType': 'String',
+                'required': False,
+                'defaultValue': None,
+            })
+        return params
+
+    @classmethod
+    def _extract_servlet_statuses(cls, method_body: str) -> list:
+        statuses = {200}
+        for status_name in re.findall(r'HttpServletResponse\.(SC_[A-Z_]+)', method_body):
+            code = SERVLET_STATUS_CODES.get(status_name)
+            if code:
+                statuses.add(code)
+        for code in re.findall(r'\.(?:setStatus|sendError)\s*\(\s*([1-5]\d{2})', method_body):
+            statuses.add(int(code))
+        return sorted(statuses)
+
+    @classmethod
+    def _extract_servlet_auth(cls, method_body: str) -> dict:
+        required = bool(re.search(r'getSession\s*\(\s*false\s*\)|getAttribute\s*\(\s*["\'](?:user|account|role|admin|student|teacher)', method_body, re.IGNORECASE))
+        return {
+            'required': required,
+            'public': not required,
+            'roles': [],
+        }
 
     # -----------------------------------------------------------------------
     # Parameter extractors

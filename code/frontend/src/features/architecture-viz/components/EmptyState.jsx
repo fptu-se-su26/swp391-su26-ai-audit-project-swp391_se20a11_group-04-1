@@ -7,25 +7,25 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
     <div className="w-full flex items-center justify-center p-8 min-h-[500px]">
       <div className="max-w-2xl w-full bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-2xl p-8 shadow-xl relative overflow-hidden flex flex-col items-center text-center">
         {/* Animated Background Gradients */}
-        <div className="absolute top-0 left-1/4 w-72 h-72 bg-blue-400/10 dark:bg-blue-500/5 rounded-full filter blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-indigo-400/10 dark:bg-indigo-500/5 rounded-full filter blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-72 h-72 bg-blue-400/10 dark:bg-blue-500/5 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-indigo-400/10 dark:bg-indigo-500/5 rounded-full filter blur-3xl pointer-events-none" />
 
         {/* Dynamic Icon Box */}
-        <div className="relative w-20 h-20 bg-blue-50 dark:bg-blue-950/40 rounded-2xl flex items-center justify-center mb-6 ring-8 ring-blue-50/30 dark:ring-blue-950/20">
+        <div className="relative z-10 w-20 h-20 bg-blue-50 dark:bg-blue-950/40 rounded-2xl flex items-center justify-center mb-6 ring-8 ring-blue-50/30 dark:ring-blue-950/20">
           <Network className="w-10 h-10 text-blue-600 dark:text-blue-400 animate-pulse" />
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
         </div>
 
         {/* Typography */}
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
+        <h2 className="relative z-10 text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3 tracking-tight">
           System Architecture Analysis
         </h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-lg mb-8 text-sm leading-relaxed">
+        <p className="relative z-10 text-slate-500 dark:text-slate-400 max-w-lg mb-8 text-sm leading-relaxed">
           Automatically scan your repository to generate an interactive map of system services and infrastructure dependencies.
         </p>
 
         {/* Feature List */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-10 text-left">
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-10 text-left">
           <div className="p-4 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-850 rounded-xl">
             <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3">
               <ShieldCheck className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
@@ -64,7 +64,7 @@ export const EmptyState = ({ projectId, syncStatus, onSyncSuccess }) => {
         </div>
 
         {/* Sync trigger action */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="relative z-10 flex flex-col items-center gap-3">
           <SyncButton 
             projectId={projectId} 
             size="lg"

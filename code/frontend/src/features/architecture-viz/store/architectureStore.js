@@ -23,6 +23,22 @@ export const useArchitectureStore = create((set, get) => ({
   setIsLoading: (isLoading) => set({ isLoading }),
   togglePhysics: () => set((state) => ({ physicsEnabled: !state.physicsEnabled })),
 
+  resetStore: () => set({
+    projectId: null,
+    selectedNode: null,
+    hoveredNode: null,
+    collapsedZones: new Set(),
+    physicsEnabled: false,
+    syncStatus: {
+      status: 'IDLE',
+      progress: 0,
+      currentStep: 'Chưa bắt đầu phân tích',
+      errorMessage: null
+    },
+    graphData: { nodes: [], edges: [], stats: {} },
+    isLoading: false
+  }),
+
   toggleZoneCollapse: (zoneId) => set((state) => {
     const next = new Set(state.collapsedZones)
     if (next.has(zoneId)) {

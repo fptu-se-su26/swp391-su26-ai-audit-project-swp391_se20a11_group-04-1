@@ -38,7 +38,9 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -81,14 +83,14 @@ public class ApiTestExecutorService {
     }
 
     @Async("apiTestExecutor")
-    public CompletableFuture<ApiTestResultResponse> execute(Long testCaseId, Long environmentId, Long userId) {
-        TestCase testCase = testCaseRepository.findById(testCaseId)
+    public CompletableFuture<ApiTestResultResponse> execute(Long projectId, Long testCaseId, Long environmentId, Long userId) {
+        TestCase testCase = testCaseRepository.findByIdAndProjectId(testCaseId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("TestCase not found"));
 
         ApiEnvironment environment = null;
         String variablesJson = "{}";
         if (environmentId != null) {
-            environment = apiEnvironmentRepository.findById(environmentId)
+            environment = apiEnvironmentRepository.findByIdAndProjectId(environmentId, projectId)
                     .orElseThrow(() -> new ResourceNotFoundException("ApiEnvironment not found"));
             variablesJson = environment.getVariables();
         }
@@ -101,20 +103,23 @@ public class ApiTestExecutorService {
         }
 
         String url = variableResolver.resolveVariables(apiConfig.getApiUrl() == null ? "" : apiConfig.getApiUrl(), variablesJson);
+        if (url == null || url.trim().isEmpty()) {
+            throw new BadRequestException("API URL is required");
+        }
+        url = url.trim();
         
         // Resolve and append query params
         try {
-            if (apiConfig.getApiQueryParams() != null && !apiConfig.getApiQueryParams().isNull()) {
-                Map<String, String> rawParams = objectMapper.convertValue(apiConfig.getApiQueryParams(), new TypeReference<>() {});
+            Map<String, String> rawParams = resolveJsonObject(apiConfig.getApiQueryParams(), variablesJson);
+            if (!rawParams.isEmpty()) {
                 StringBuilder urlBuilder = new StringBuilder(url);
                 boolean first = !url.contains("?");
                 for (Map.Entry<String, String> entry : rawParams.entrySet()) {
                     if (entry.getKey() != null && !entry.getKey().isBlank()) {
-                        String resolvedValue = variableResolver.resolveVariables(entry.getValue() == null ? "" : entry.getValue(), variablesJson);
                         urlBuilder.append(first ? "?" : "&")
                                   .append(java.net.URLEncoder.encode(entry.getKey(), java.nio.charset.StandardCharsets.UTF_8))
                                   .append("=")
-                                  .append(java.net.URLEncoder.encode(resolvedValue, java.nio.charset.StandardCharsets.UTF_8));
+                                  .append(java.net.URLEncoder.encode(entry.getValue() == null ? "" : entry.getValue(), java.nio.charset.StandardCharsets.UTF_8));
                         first = false;
                     }
                 }
@@ -124,7 +129,10 @@ public class ApiTestExecutorService {
             log.error("Failed to parse or append query params", e);
         }
 
-        String method = apiConfig.getApiMethod() == null ? "GET" : apiConfig.getApiMethod();
+        String method = apiConfig.getApiMethod() == null ? "GET" : apiConfig.getApiMethod().trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(method)) {
+            throw new BadRequestException("API method is invalid");
+        }
         
         String bodyJson = "";
         if (apiConfig.getApiBody() != null && !apiConfig.getApiBody().isNull()) {
@@ -135,23 +143,40 @@ public class ApiTestExecutorService {
         // Cố gắng parse headers
         Map<String, String> resolvedHeaders = new HashMap<>();
         try {
-            if (apiConfig.getApiHeaders() != null && !apiConfig.getApiHeaders().isNull()) {
-                Map<String, String> rawHeaders = objectMapper.convertValue(apiConfig.getApiHeaders(), new TypeReference<>() {});
-                for (Map.Entry<String, String> entry : rawHeaders.entrySet()) {
-                    resolvedHeaders.put(entry.getKey(), variableResolver.resolveVariables(entry.getValue(), variablesJson));
-                }
-            }
+            resolvedHeaders.putAll(resolveJsonObject(apiConfig.getApiHeaders(), variablesJson));
         } catch (IllegalArgumentException e) {
             log.error("Failed to parse headers", e);
         }
 
-        boolean isLocalHost = url.contains("localhost") || url.contains("127.0.0.1") || url.contains("host.docker.internal");
+        String lowerUrl = url.toLowerCase(Locale.ROOT);
+        boolean isLocalHost = lowerUrl.contains("localhost") || lowerUrl.contains("127.0.0.1") || lowerUrl.contains("host.docker.internal");
 
         if (isLocalHost) {
             return executeViaLocalAgent(testCase, environment, user, url, method, resolvedHeaders, body);
         } else {
             return executeDirectly(testCase, environment, user, url, method, resolvedHeaders, body);
         }
+    }
+
+    private Map<String, String> resolveJsonObject(com.fasterxml.jackson.databind.JsonNode node, String variablesJson) {
+        Map<String, String> resolved = new HashMap<>();
+        if (node == null || node.isNull() || !node.isObject()) {
+            return resolved;
+        }
+
+        node.fields().forEachRemaining(entry -> {
+            String key = entry.getKey();
+            if (key == null || key.isBlank()) {
+                return;
+            }
+            com.fasterxml.jackson.databind.JsonNode valueNode = entry.getValue();
+            String rawValue = "";
+            if (valueNode != null && !valueNode.isNull()) {
+                rawValue = valueNode.isTextual() ? valueNode.asText() : valueNode.toString();
+            }
+            resolved.put(key.trim(), variableResolver.resolveVariables(rawValue, variablesJson));
+        });
+        return resolved;
     }
 
     private CompletableFuture<ApiTestResultResponse> executeViaLocalAgent(
@@ -223,7 +248,7 @@ public class ApiTestExecutorService {
             HttpEntity<String> entity = new HttpEntity<>(body, httpHeaders);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    new URI(url), HttpMethod.valueOf(method.toUpperCase()), entity, String.class);
+                    new URI(url), HttpMethod.valueOf(method.toUpperCase(Locale.ROOT)), entity, String.class);
 
             long endTime = System.currentTimeMillis();
             

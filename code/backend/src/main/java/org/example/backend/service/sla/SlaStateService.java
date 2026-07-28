@@ -7,10 +7,10 @@ import org.example.backend.entity.*;
 import org.example.backend.repository.SlaDecisionLogRepository;
 import org.example.backend.repository.TaskRepository;
 import org.example.backend.repository.TaskSlaStateRepository;
+import org.example.backend.service.ml.MlFeatureBuilder;
 import org.example.backend.service.ml.MlServiceClient;
 import org.example.backend.service.ml.MlSlaRiskRequest;
 import org.example.backend.service.ml.MlSlaRiskResponse;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +34,8 @@ public class SlaStateService {
     private final TaskSlaRuleService taskSlaRuleService;
     private final SlaActionService slaActionService;
     private final SlaRiskAssessmentService slaRiskAssessmentService;
-    private final ObjectProvider<MlServiceClient> mlServiceClientProvider;
+    private final MlServiceClient mlServiceClient;
+    private final MlFeatureBuilder mlFeatureBuilder;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
@@ -71,25 +72,6 @@ public class SlaStateService {
         // Load existing state
         TaskSlaState oldState = taskSlaStateRepository.findById(taskId).orElse(null);
 
-        String predictedRiskLevel = assessment.getPredictedRiskLevel();
-        double predictionConfidence = assessment.getPredictionConfidence();
-        MlServiceClient mlServiceClient = mlServiceClientProvider.getIfAvailable();
-        if (mlServiceClient != null) {
-            try {
-                MlSlaRiskRequest mlRequest = buildMlSlaRiskRequest(task, evaluation, assessment, daysUntilDeadline);
-                java.util.Optional<MlSlaRiskResponse> mlResponse = mlServiceClient.predictSlaRisk(mlRequest);
-                if (mlResponse.isPresent()) {
-                    MlSlaRiskResponse response = mlResponse.get();
-                    if (response.getRiskLevel() != null && !response.getRiskLevel().isBlank()) {
-                        predictedRiskLevel = response.getRiskLevel();
-                    }
-                    predictionConfidence = response.getConfidence();
-                }
-            } catch (Exception ex) {
-                log.debug("ML SLA prediction skipped for task {}: {}", taskId, ex.getMessage());
-            }
-        }
-
         boolean changed = oldState == null
                 || oldState.getCurrentScore() != score
                 || !Objects.equals(oldState.getCurrentRiskLevel(), riskLevel)
@@ -99,13 +81,29 @@ public class SlaStateService {
                 || !Objects.equals(oldState.getBurnGap(), assessment.getBurnGap())
                 || !Objects.equals(oldState.getBurnRateLevel(), assessment.getBurnRateLevel())
                 || !Objects.equals(oldState.getSpi(), assessment.getSpi())
-                || !Objects.equals(oldState.getPredictedRiskLevel(), predictedRiskLevel)
+                || !Objects.equals(oldState.getPredictedRiskLevel(), assessment.getPredictedRiskLevel())
                 || !Objects.equals(oldState.getPredictionReasonsJson(), predictionReasonsJson)
                 || !Objects.equals(oldState.getScoreBreakdownJson(), scoreBreakdownJson)
-                || !Objects.equals(oldState.getPredictionConfidence(), predictionConfidence);
+                || !Objects.equals(oldState.getPredictionConfidence(), assessment.getPredictionConfidence());
 
         String previousRiskLevel = oldState != null ? oldState.getCurrentRiskLevel() : null;
         Integer previousScore = oldState != null ? oldState.getCurrentScore() : null;
+
+        // ML prediction — non-blocking, falls back to rule-based if unavailable
+        String mlPredictedRisk = assessment.getPredictedRiskLevel();
+        double mlConfidence    = assessment.getPredictionConfidence();
+        try {
+            MlSlaRiskRequest mlReq = mlFeatureBuilder.build(task, oldState);
+            java.util.Optional<MlSlaRiskResponse> mlOpt = mlServiceClient.predictSlaRisk(mlReq);
+            if (mlOpt.isPresent()) {
+                MlSlaRiskResponse ml = mlOpt.get();
+                mlPredictedRisk = ml.getRiskLevel();
+                mlConfidence    = ml.getConfidence();
+                log.debug("ML prediction for task {}: {} (conf={})", task.getId(), mlPredictedRisk, mlConfidence);
+            }
+        } catch (Exception ex) {
+            log.debug("ML prediction skipped for task {}: {}", task.getId(), ex.getMessage());
+        }
 
         // Upsert state
         if (changed) {
@@ -128,10 +126,10 @@ public class SlaStateService {
             newState.setBurnGap(assessment.getBurnGap());
             newState.setBurnRateLevel(assessment.getBurnRateLevel());
             newState.setSpi(assessment.getSpi());
-            newState.setPredictedRiskLevel(predictedRiskLevel);
+            newState.setPredictedRiskLevel(mlPredictedRisk);
             newState.setPredictionReasonsJson(predictionReasonsJson);
             newState.setScoreBreakdownJson(scoreBreakdownJson);
-            newState.setPredictionConfidence(predictionConfidence);
+            newState.setPredictionConfidence(mlConfidence);
             newState.setEvaluatedAt(LocalDateTime.now());
 
             taskSlaStateRepository.save(newState);
@@ -184,55 +182,6 @@ public class SlaStateService {
         return false;
     }
 
-    private MlSlaRiskRequest buildMlSlaRiskRequest(Task task, TaskSlaEvaluation evaluation,
-                                                   SlaRiskAssessmentService.AssessmentResult assessment,
-                                                   Long daysUntilDeadline) {
-        SlaRiskAssessmentService.ScoreBreakdown breakdown = assessment.getScoreBreakdown();
-        return MlSlaRiskRequest.builder()
-                .deadlinePenalty(breakdown != null ? breakdown.getDeadlinePenalty() : 0)
-                .burnRatePenalty(breakdown != null ? breakdown.getBurnRatePenalty() : 0)
-                .blockerPenalty(breakdown != null ? breakdown.getBlockerPenalty() : 0)
-                .workloadPenalty(breakdown != null ? breakdown.getWorkloadPenalty() : 0)
-                .burnGap(assessment.getBurnGap())
-                .spi(assessment.getSpi())
-                .daysUntilDeadline(daysUntilDeadline != null ? daysUntilDeadline : 999)
-                .overdueDays(evaluation.overdueDays())
-                .estimatedHours(task.getEstimatedHours() != null ? task.getEstimatedHours().doubleValue() : 0)
-                .weight(task.getWeight() != null ? task.getWeight().doubleValue() : 1)
-                .priorityEncoded(encodePriority(task.getPriority()))
-                .taskTypeEncoded(encodeTaskType(task.getType()))
-                .build();
-    }
-
-    private int encodePriority(Priority priority) {
-        if (priority == null) {
-            return 0;
-        }
-        return switch (priority) {
-            case CRITICAL -> 4;
-            case HIGH -> 3;
-            case MEDIUM -> 2;
-            case LOW -> 1;
-        };
-    }
-
-    private int encodeTaskType(TaskType type) {
-        if (type == null) {
-            return 0;
-        }
-        return switch (type) {
-            case DEVELOPMENT -> 1;
-            case TESTING -> 2;
-            case DOCUMENTATION -> 3;
-            case UI_UX -> 4;
-            case RESEARCH -> 5;
-            case DEPLOYMENT -> 6;
-            case BUG_FIX -> 7;
-            case REVIEW -> 8;
-            case MODULE_TASK -> 9;
-        };
-    }
-
     private String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -242,4 +191,3 @@ public class SlaStateService {
         }
     }
 }
-

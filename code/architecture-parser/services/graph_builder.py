@@ -3,6 +3,8 @@ import re
 import json
 import hashlib
 from services.diagram_vision_check import DiagramVisionChecker
+from services.repo_classifier import RepoClassifier
+from services.dependency_scanner import DependencyScanner
 
 class GraphBuilder:
     @staticmethod
@@ -92,7 +94,6 @@ class GraphBuilder:
                             if not stripped:
                                 continue
                             
-                            # Simple job detection
                             if line.startswith('  ') and line[2].isalnum() and stripped.endswith(':'):
                                 if current_job:
                                     jobs.append({"name": current_job, "steps": steps})
@@ -157,34 +158,6 @@ class GraphBuilder:
         return dockerfiles
 
     @staticmethod
-    def scan_env_references(clone_dir: str) -> list:
-        detected = []
-        env_files = [".env.example", ".env"]
-        for file_name in env_files:
-            path = os.path.join(clone_dir, file_name)
-            if os.path.exists(path):
-                try:
-                    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                    
-                    if "GRAFANA" in content:
-                        detected.append("Grafana Cloud")
-                    if "PLAID" in content:
-                        detected.append("Plaid API")
-                    if "TELEGRAM" in content:
-                        detected.append("Telegram Bot API")
-                    if "STRIPE" in content:
-                        detected.append("Stripe API")
-                    if "AWS" in content:
-                        detected.append("AWS Services")
-                    if "SENDGRID" in content:
-                        detected.append("SendGrid")
-                except Exception as e:
-                    print(f"Error reading env file: {e}")
-                break
-        return list(set(detected))
-
-    @staticmethod
     def get_service_id(rel_path: str) -> str:
         parts = rel_path.split('/')
         if not parts:
@@ -223,7 +196,7 @@ class GraphBuilder:
             "docker-compose.yml", "docker-compose.yaml", "docker-compose.dev.yml",
             "package.json", "go.mod", "pom.xml", "build.gradle",
             "requirements.txt", "setup.py", "pyproject.toml", "Cargo.toml",
-            "README.md"
+            "README.md", "dbt_project.yml", "Chart.yaml", "ansible.cfg"
         ]
         
         descriptors_content = []
@@ -295,107 +268,773 @@ class GraphBuilder:
         return response
 
     @staticmethod
+    def _validate_paths_flexible(clone_dir: str, paths: list) -> list:
+        if not clone_dir:
+            return paths
+        valid = []
+        for p in paths:
+            if not p:
+                valid.append("")
+                continue
+            normalized = p.strip("/").replace("\\", "/")
+            candidate = os.path.join(clone_dir, normalized)
+            if os.path.exists(candidate):
+                valid.append(p)
+            else:
+                first_seg = normalized.split("/")[0]
+                try:
+                    top_entries = os.listdir(clone_dir)
+                    matched = any(e.lower().startswith(first_seg.lower()) for e in top_entries)
+                    if matched:
+                        valid.append(p)
+                    else:
+                        print(f"Dropping unverifiable path: {p}")
+                except Exception:
+                    valid.append(p)
+        return valid
+
+    @staticmethod
+    def _build_minimal_fallback(repo_type: str, signals: dict, third_party: list, clone_dir: str = None) -> tuple[list, list, list]:
+        enclosures = []
+        workloads = []
+        connections = []
+        
+        compose_services = GraphBuilder.parse_docker_compose(clone_dir) if clone_dir else {}
+
+        if repo_type == "WEB_CONTAINERIZED" and compose_services:
+            enclosures.append({
+                "id": "docker_compose",
+                "name": "Docker Compose Runtime",
+                "type": "CONTAINER_CLUSTER",
+                "tech": "Docker Compose",
+                "icon": "docker",
+                "parentId": None
+            })
+            for s_name in compose_services.keys():
+                workloads.append({
+                    "id": s_name,
+                    "name": s_name.replace("_", " ").replace("-", " ").title(),
+                    "type": "service",
+                    "tech": "Container Service",
+                    "icon": s_name.split("-")[0].split("_")[0],
+                    "port": compose_services[s_name]["ports"][0] if compose_services[s_name]["ports"] else None,
+                    "enclosureId": "docker_compose",
+                    "description": f"{s_name} workload container",
+                    "paths": [s_name]
+                })
+                for dep in compose_services[s_name]["depends_on"]:
+                    connections.append({
+                        "from": s_name,
+                        "to": dep,
+                        "protocol": "depends_on",
+                        "label": "Depends On"
+                    })
+        elif repo_type == "LOCAL_MONOLITH_WEB":
+            lang = signals.get("primary_language", "code")
+            frameworks = signals.get("detected_frameworks", [])
+            fw_label = frameworks[0].title() if frameworks else lang.title()
+            enclosures.append({
+                "id": "local_runtime",
+                "name": f"Local Runtime ({fw_label})",
+                "type": "LOCAL_RUNTIME",
+                "tech": fw_label,
+                "icon": lang,
+                "parentId": None
+            })
+            # Folder-based layer decomposition for Monolith
+            layers = GraphBuilder._detect_monolith_layers(clone_dir, lang)
+            if layers:
+                prev_id = None
+                for layer in layers:
+                    workloads.append({
+                        "id": layer["id"],
+                        "name": layer["name"],
+                        "type": layer["type"],
+                        "tech": layer["tech"],
+                        "icon": lang,
+                        "port": None,
+                        "enclosureId": "local_runtime",
+                        "description": layer["desc"],
+                        "paths": layer["paths"]
+                    })
+                    if prev_id:
+                        connections.append({
+                            "from": prev_id, "to": layer["id"],
+                            "protocol": "Method Call", "label": "calls"
+                        })
+                    prev_id = layer["id"]
+            else:
+                workloads.append({
+                    "id": "app_core",
+                    "name": fw_label + " Application",
+                    "type": "service",
+                    "tech": fw_label,
+                    "icon": lang,
+                    "port": None,
+                    "enclosureId": "local_runtime",
+                    "description": "Core application module",
+                    "paths": ["src", "app"]
+                })
+
+        # ── 3. LOCAL_STANDALONE_APP ──────────────────────────────────────────
+        elif repo_type == "LOCAL_STANDALONE_APP":
+            lang = signals.get("primary_language", "code")
+            enclosures.append({
+                "id": "local_machine",
+                "name": "Local Machine",
+                "type": "LOCAL_RUNTIME",
+                "tech": lang.title(),
+                "icon": lang,
+                "parentId": None
+            })
+            modules = GraphBuilder._detect_top_level_modules(clone_dir, max_nodes=5)
+            if modules:
+                for i, mod in enumerate(modules):
+                    workloads.append({
+                        "id": mod["id"],
+                        "name": mod["name"],
+                        "type": "service",
+                        "tech": lang.title(),
+                        "icon": lang,
+                        "port": None,
+                        "enclosureId": "local_machine",
+                        "description": f"Module: {mod['name']}",
+                        "paths": [mod["path"]]
+                    })
+                    if i > 0:
+                        connections.append({
+                            "from": modules[0]["id"], "to": mod["id"],
+                            "protocol": "Import", "label": "imports"
+                        })
+            else:
+                workloads.append({
+                    "id": "app_engine",
+                    "name": lang.title() + " App",
+                    "type": "service",
+                    "tech": lang.title(),
+                    "icon": lang,
+                    "port": None,
+                    "enclosureId": "local_machine",
+                    "description": "Standalone application",
+                    "paths": ["src", "main"]
+                })
+
+        # ── 4. AI_DATA_PIPELINE ──────────────────────────────────────────────
+        elif repo_type == "AI_DATA_PIPELINE":
+            enclosures.append({
+                "id": "ai_pipeline_env",
+                "name": "Python AI / Data Environment",
+                "type": "PIPELINE_STAGE",
+                "tech": "Python AI Stack",
+                "icon": "python",
+                "parentId": None
+            })
+            ai_modules = GraphBuilder._detect_ai_pipeline_modules(clone_dir)
+            if ai_modules:
+                prev_id = None
+                for mod in ai_modules:
+                    workloads.append({
+                        "id": mod["id"],
+                        "name": mod["name"],
+                        "type": mod["type"],
+                        "tech": mod["tech"],
+                        "icon": "python",
+                        "port": None,
+                        "enclosureId": "ai_pipeline_env",
+                        "description": mod["desc"],
+                        "paths": mod["paths"]
+                    })
+                    if prev_id:
+                        connections.append({
+                            "from": prev_id, "to": mod["id"],
+                            "protocol": "pipeline", "label": "→"
+                        })
+                    prev_id = mod["id"]
+            else:
+                workloads.append({
+                    "id": "model_pipeline",
+                    "name": "Data & Model Pipeline",
+                    "type": "worker",
+                    "tech": "Python AI Stack",
+                    "icon": "python",
+                    "port": None,
+                    "enclosureId": "ai_pipeline_env",
+                    "description": "AI model training and inference pipeline",
+                    "paths": ["notebooks", "models", "src"]
+                })
+
+        # ── 5. SECURITY_IA_TOOL ──────────────────────────────────────────────
+        elif repo_type == "SECURITY_IA_TOOL":
+            lang = signals.get("primary_language", "python")
+            enclosures.append({
+                "id": "sec_tool_env",
+                "name": "Security Tool Runtime",
+                "type": "LOCAL_RUNTIME",
+                "tech": "CLI Security Tool",
+                "icon": lang,
+                "parentId": None
+            })
+            # External zone for the attack target
+            enclosures.append({
+                "id": "target_zone",
+                "name": "Attack Target",
+                "type": "EXTERNAL_ZONE",
+                "tech": "Remote System",
+                "icon": "cloud",
+                "parentId": None
+            })
+            # Target node (external)
+            workloads.append({
+                "id": "target_system",
+                "name": "Target Web / DB",
+                "type": "external",
+                "tech": "HTTP / SQL endpoint",
+                "icon": "cloud",
+                "port": "80/443",
+                "enclosureId": "target_zone",
+                "description": "Remote target system being audited or tested",
+                "paths": []
+            })
+
+            sec_modules = GraphBuilder._detect_security_modules(clone_dir, lang)
+
+            # ── Re-order: ensure Core Engine is always first (hub node)
+            HUB_NAMES = {"core engine", "core", "engine", "scanner / fuzzer"}
+            hub_mods = [m for m in sec_modules if m["name"].lower() in HUB_NAMES]
+            non_hub  = [m for m in sec_modules if m["name"].lower() not in HUB_NAMES]
+            ordered_mods = hub_mods + non_hub
+
+            if ordered_mods:
+                hub_id = ordered_mods[0]["id"]   # Core Engine (or first found)
+                for mod in ordered_mods:
+                    workloads.append({
+                        "id": mod["id"],
+                        "name": mod["name"],
+                        "type": mod["type"],
+                        "tech": mod["tech"],
+                        "icon": lang,
+                        "port": None,
+                        "enclosureId": "sec_tool_env",
+                        "description": mod["desc"],
+                        "paths": mod["paths"]
+                    })
+
+                # ── Star topology: all non-hub modules → Core Engine (hub)
+                for mod in ordered_mods[1:]:
+                    connections.append({
+                        "from": mod["id"],
+                        "to": hub_id,
+                        "protocol": "Method Call",
+                        "label": "feeds"
+                    })
+
+                # ── Core Engine → Target system (the attack)
+                connections.append({
+                    "from": hub_id,
+                    "to": "target_system",
+                    "protocol": "Network / Low-level",
+                    "label": "attacks / audits"
+                })
+            else:
+                # minimal fallback
+                workloads.append({
+                    "id": "sec_engine",
+                    "name": "Core Engine",
+                    "type": "scanner",
+                    "tech": lang.title(),
+                    "icon": lang,
+                    "port": None,
+                    "enclosureId": "sec_tool_env",
+                    "description": "Core security tool engine",
+                    "paths": ["lib", "core", "src"]
+                })
+                connections.append({
+                    "from": "sec_engine",
+                    "to": "target_system",
+                    "protocol": "Network / Low-level",
+                    "label": "attacks / audits"
+                })
+
+        # ── 6. DEVOPS_IAC ────────────────────────────────────────────────────
+        elif repo_type == "DEVOPS_IAC":
+            enclosures.append({
+                "id": "iac_env",
+                "name": "Infrastructure as Code",
+                "type": "CLOUD",
+                "tech": "Terraform / Kubernetes / Ansible",
+                "icon": "terraform",
+                "parentId": None
+            })
+            iac_modules = GraphBuilder._detect_iac_modules(clone_dir)
+            if iac_modules:
+                for mod in iac_modules:
+                    workloads.append({
+                        "id": mod["id"],
+                        "name": mod["name"],
+                        "type": mod["type"],
+                        "tech": mod["tech"],
+                        "icon": mod["icon"],
+                        "port": None,
+                        "enclosureId": "iac_env",
+                        "description": mod["desc"],
+                        "paths": mod["paths"]
+                    })
+            else:
+                workloads.append({
+                    "id": "iac_config",
+                    "name": "IaC Configuration",
+                    "type": "other",
+                    "tech": "Terraform / Kubernetes",
+                    "icon": "terraform",
+                    "port": None,
+                    "enclosureId": "iac_env",
+                    "description": "Infrastructure configuration definitions",
+                    "paths": ["."]
+                })
+
+        # ── External Third-Party APIs ─────────────────────────────────────────
+        if third_party and workloads:
+            enclosures.append({
+                "id": "external_zone",
+                "name": "External Third-Party APIs",
+                "type": "EXTERNAL_ZONE",
+                "tech": "Cloud SaaS",
+                "icon": "cloud",
+                "parentId": None
+            })
+            # Find the primary "service" workload to link from
+            main_wl = next(
+                (w["id"] for w in workloads if w.get("type") in ["service", "client", "worker"]),
+                workloads[0]["id"]
+            )
+            for tp in third_party:
+                tp_id = tp["id"]
+                workloads.append({
+                    "id": tp_id,
+                    "name": tp["name"],
+                    "type": "external",
+                    "tech": tp["category"].title(),
+                    "icon": tp["icon"],
+                    "port": None,
+                    "enclosureId": "external_zone",
+                    "description": f"External {tp['name']} API Integration",
+                    "paths": []
+                })
+                connections.append({
+                    "from": main_wl, "to": tp_id,
+                    "protocol": "HTTPS/REST", "label": tp["category"].title()
+                })
+
+        return enclosures, workloads, connections
+
+    # ── Folder-based Decomposition Helpers ────────────────────────────────────
+
+    @staticmethod
+    def _detect_monolith_layers(clone_dir: str, lang: str) -> list:
+        """Detect architectural layers from folder structure for Monolith Web apps."""
+        if not clone_dir:
+            return []
+        layers = []
+
+        # Java / Spring Boot: scan for DDD-style package names
+        if lang == "java":
+            java_layer_patterns = [
+                ("controller", "Web Controller Layer", "client", "Handles HTTP requests"),
+                ("service", "Business Service Layer", "service", "Core business logic"),
+                ("repository", "Data Repository Layer", "database", "Database access layer"),
+                ("model", "Domain Model", "other", "Entity and domain objects"),
+                ("entity", "Domain Entities", "other", "JPA entity definitions"),
+                ("config", "Configuration", "other", "Application configuration"),
+            ]
+            found_paths = {}
+            for root, dirs, files in os.walk(clone_dir):
+                dirs[:] = [d for d in dirs if d not in {'.git', 'target', 'build', 'test', 'tests'}]
+                folder_name = os.path.basename(root).lower()
+                rel = os.path.relpath(root, clone_dir).replace("\\", "/")
+                for pattern, name, w_type, desc in java_layer_patterns:
+                    if folder_name == pattern and pattern not in found_paths:
+                        found_paths[pattern] = rel
+            ordered = ["controller", "service", "repository", "model"]
+            for pat in ordered:
+                if pat in found_paths:
+                    layers.append({
+                        "id": f"layer_{pat}",
+                        "name": {"controller": "Web Controller", "service": "Service Layer",
+                                  "repository": "Repository Layer", "model": "Domain Model"}.get(pat, pat.title()),
+                        "type": {"controller": "client", "service": "service",
+                                  "repository": "database", "model": "other"}.get(pat, "service"),
+                        "tech": f"Spring Boot ({pat.title()})",
+                        "desc": f"Handles {pat} responsibilities",
+                        "paths": [found_paths[pat]]
+                    })
+
+        # Python: detect common module folders
+        elif lang == "python":
+            py_patterns = [
+                (["routes", "views", "api", "endpoints", "controllers"], "API / Routes", "client", "HTTP request handlers"),
+                (["services", "service", "usecases", "use_cases"], "Service Layer", "service", "Business logic"),
+                (["models", "model", "schemas", "entities"], "Data Models", "database", "Data schema definitions"),
+                (["db", "database", "repositories", "repo"], "Data Access", "database", "Database layer"),
+                (["utils", "helpers", "common"], "Utilities", "other", "Shared utilities"),
+            ]
+            try:
+                top_dirs = {d.lower(): d for d in os.listdir(clone_dir)
+                            if os.path.isdir(os.path.join(clone_dir, d))
+                            and d not in {'.git', 'venv', '.venv', '__pycache__', 'tests', 'test', 'docs', 'node_modules'}}
+                for candidates, name, w_type, desc in py_patterns:
+                    for cand in candidates:
+                        if cand in top_dirs:
+                            layers.append({
+                                "id": f"layer_{cand}",
+                                "name": name,
+                                "type": w_type,
+                                "tech": f"Python ({top_dirs[cand]})",
+                                "desc": desc,
+                                "paths": [top_dirs[cand]]
+                            })
+                            break
+            except Exception:
+                pass
+
+        # Node.js / TypeScript
+        elif lang in ["javascript", "typescript"]:
+            js_patterns = [
+                (["routes", "controllers", "api", "handlers"], "Route / Controller", "client", "HTTP request handlers"),
+                (["services", "usecases"], "Service Layer", "service", "Business logic"),
+                (["models", "schemas", "entities"], "Data Models", "database", "Data definitions"),
+                (["middleware"], "Middleware", "other", "Request interceptors"),
+                (["utils", "helpers", "lib"], "Utilities", "other", "Shared utilities"),
+            ]
+            try:
+                top_dirs = {d.lower(): d for d in os.listdir(clone_dir)
+                            if os.path.isdir(os.path.join(clone_dir, d))
+                            and d not in {'.git', 'node_modules', 'dist', 'build', 'test', 'tests', 'docs'}}
+                for candidates, name, w_type, desc in js_patterns:
+                    for cand in candidates:
+                        if cand in top_dirs:
+                            layers.append({
+                                "id": f"layer_{cand}",
+                                "name": name,
+                                "type": w_type,
+                                "tech": f"Node.js ({top_dirs[cand]})",
+                                "desc": desc,
+                                "paths": [top_dirs[cand]]
+                            })
+                            break
+            except Exception:
+                pass
+
+        return layers[:5]  # Cap at 5 layers max
+
+    @staticmethod
+    def _detect_top_level_modules(clone_dir: str, max_nodes: int = 5) -> list:
+        """Detect meaningful top-level module folders for LOCAL_STANDALONE_APP."""
+        if not clone_dir:
+            return []
+        IGNORE_DIRS = {'.git', 'node_modules', 'venv', '.venv', '__pycache__',
+                       'build', 'dist', 'out', 'target', 'test', 'tests', 'docs',
+                       '.idea', '.vscode', 'assets', 'resources', 'static'}
+        try:
+            entries = sorted(os.listdir(clone_dir))
+        except Exception:
+            return []
+        modules = []
+        for entry in entries:
+            if entry.lower() in IGNORE_DIRS or entry.startswith("."):
+                continue
+            full_path = os.path.join(clone_dir, entry)
+            if os.path.isdir(full_path):
+                modules.append({
+                    "id": entry.lower().replace("-", "_").replace(" ", "_"),
+                    "name": entry.replace("_", " ").replace("-", " ").title(),
+                    "path": entry
+                })
+            if len(modules) >= max_nodes:
+                break
+        return modules
+
+    @staticmethod
+    def _detect_ai_pipeline_modules(clone_dir: str) -> list:
+        """Detect AI pipeline stages from folder structure."""
+        if not clone_dir:
+            return []
+        AI_MODULE_MAP = [
+            (["data", "dataset", "datasets", "raw_data", "ingest", "ingestion"], "Data Ingestor", "worker", "Data ingestion and loading"),
+            (["preprocessing", "preprocess", "etl", "transform", "feature"], "Feature Engineering", "worker", "Data preprocessing and feature extraction"),
+            (["train", "training", "model", "models", "experiment"], "Model Training", "worker", "Model training and experimentation"),
+            (["eval", "evaluate", "evaluation", "metrics"], "Evaluation", "worker", "Model evaluation and metrics"),
+            (["inference", "predict", "serve", "serving", "api", "app"], "Inference / Serving", "service", "Model serving and inference API"),
+            (["notebooks", "notebook"], "Research Notebooks", "other", "Jupyter notebooks for exploration"),
+            (["pipelines", "pipeline", "workflow", "airflow", "dags"], "Pipeline Orchestrator", "scheduler", "DAG/workflow orchestration"),
+            (["vectorstore", "embeddings", "index"], "Vector Store / Embeddings", "database", "Vector database for embeddings"),
+        ]
+        try:
+            top_dirs = {d.lower(): d for d in os.listdir(clone_dir)
+                        if os.path.isdir(os.path.join(clone_dir, d))
+                        and d not in {'.git', 'venv', '.venv', '__pycache__', 'tests', 'test', 'docs', 'node_modules', '.github'}}
+        except Exception:
+            return []
+        modules = []
+        seen_names = set()
+        for candidates, name, w_type, desc in AI_MODULE_MAP:
+            for cand in candidates:
+                if cand in top_dirs and name not in seen_names:
+                    mod_id = name.lower().replace(" ", "_").replace("/", "_")
+                    modules.append({
+                        "id": mod_id,
+                        "name": name,
+                        "type": w_type,
+                        "tech": "Python",
+                        "desc": desc,
+                        "paths": [top_dirs[cand]]
+                    })
+                    seen_names.add(name)
+                    break
+        return modules[:6]
+
+    @staticmethod
+    def _detect_security_modules(clone_dir: str, lang: str) -> list:
+        """Detect security tool modules from folder structure."""
+        if not clone_dir:
+            return []
+        SEC_MODULE_MAP = [
+            (["lib/core", "core", "engine"], "Core Engine", "scanner", "Main scanning engine"),
+            (["lib/parse", "lib/parser", "parse", "parser"], "Target Parser", "scanner", "Parses target specs and responses"),
+            (["lib/request", "request", "network"], "Network Module", "service", "Handles network requests"),
+            (["tamper", "bypass", "evasion"], "WAF Bypass / Tamper Scripts", "scanner", "Payload obfuscation and WAF evasion"),
+            (["plugins", "plugin", "modules", "connectors"], "Plugin / Connector Layer", "other", "Database and service connectors"),
+            (["scanner", "scan", "fuzz", "fuzzer"], "Scanner / Fuzzer", "scanner", "Active scanning and fuzzing engine"),
+            (["report", "reports", "output"], "Report Generator", "reporter", "Generates audit reports"),
+            (["exploits", "exploit", "payloads", "payload"], "Exploit / Payload Module", "scanner", "Exploit payloads and delivery"),
+        ]
+        IGNORE_DIRS = {'.git', '__pycache__', 'venv', '.venv', 'test', 'tests', 'docs', 'build', 'dist'}
+        try:
+            all_paths = set()
+            for root, dirs, _ in os.walk(clone_dir):
+                dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                rel = os.path.relpath(root, clone_dir).replace("\\", "/")
+                if rel != ".":
+                    all_paths.add(rel.lower())
+        except Exception:
+            return []
+        modules = []
+        seen = set()
+        for candidates, name, w_type, desc in SEC_MODULE_MAP:
+            for cand in candidates:
+                if cand in all_paths and name not in seen:
+                    mod_id = name.lower().replace(" ", "_").replace("/", "_")
+                    modules.append({
+                        "id": mod_id,
+                        "name": name,
+                        "type": w_type,
+                        "tech": lang.title(),
+                        "desc": desc,
+                        "paths": [cand]
+                    })
+                    seen.add(name)
+                    break
+        return modules[:6]
+
+    @staticmethod
+    def _detect_iac_modules(clone_dir: str) -> list:
+        """Detect IaC modules from Terraform/K8s/Ansible structure."""
+        if not clone_dir:
+            return []
+        IAC_MAP = [
+            (["k8s", "kubernetes", "k8s-specifications", "manifests", "deploy"], "K8s Manifests", "other", "Kubernetes deployment manifests", "kubernetes"),
+            (["helm", "charts", "chart"], "Helm Charts", "other", "Helm chart templates", "helm"),
+            (["terraform", "tf", "infra", "infrastructure"], "Terraform Infrastructure", "other", "Cloud infrastructure definitions", "terraform"),
+            (["ansible", "playbooks", "roles"], "Ansible Playbooks", "other", "Configuration management playbooks", "ansible"),
+            (["ci", ".github", ".gitlab-ci.yml", "jenkins"], "CI/CD Pipeline", "other", "Continuous integration pipelines", "githubactions"),
+            (["monitoring", "prometheus", "grafana", "observability"], "Monitoring Stack", "service", "Metrics and observability setup", "prometheus"),
+        ]
+        IGNORE_DIRS = {'.git', 'node_modules', 'vendor', '.terraform', 'docs'}
+        try:
+            dirs_set = set()
+            files_set = set()
+            for root, dirs, files in os.walk(clone_dir):
+                dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+                for d in dirs:
+                    rel = os.path.relpath(os.path.join(root, d), clone_dir).replace("\\", "/")
+                    dirs_set.add(rel.lower())
+                for f in files:
+                    files_set.add(f.lower())
+        except Exception:
+            return []
+        modules = []
+        seen = set()
+        for candidates, name, w_type, desc, icon in IAC_MAP:
+            for cand in candidates:
+                if (cand in dirs_set or cand in files_set) and name not in seen:
+                    mod_id = name.lower().replace(" ", "_").replace("/", "_")
+                    modules.append({
+                        "id": mod_id,
+                        "name": name,
+                        "type": w_type,
+                        "tech": icon.title(),
+                        "icon": icon,
+                        "desc": desc,
+                        "paths": [cand]
+                    })
+                    seen.add(name)
+                    break
+        return modules[:6]
+
+    @staticmethod
     def build_graph(raw_nodes: list, raw_edges: list, stats: dict, clone_dir: str = None, gemini_api_key: str = None, gemini_api_url: str = None) -> tuple[list, list, dict]:
         nodes = []
         edges = []
 
-        infra_groups = []
-        services_list = []
-        relations_list = []
-        ai_success = False
+        # 1. Run Signal Matrix classification
+        classification = RepoClassifier.classify(clone_dir) if clone_dir else {
+            "repo_type": "WEB_CONTAINERIZED", "confidence": "LOW", "evidence_files": [], "signals": {}
+        }
+        repo_type = classification["repo_type"]
+        signals = classification["signals"]
+        evidence = classification["evidence_files"]
 
-        # Gather advanced environment context
+        # 2. Scan third party dependencies
+        third_party_services = DependencyScanner.scan_all(clone_dir) if clone_dir else []
+        tp_names = [tp["name"] for tp in third_party_services]
+
+        # 3. Gather advanced environment context
         workflows = GraphBuilder.parse_github_workflows(clone_dir) if clone_dir else {}
         dockerfiles = GraphBuilder.parse_dockerfiles(clone_dir) if clone_dir else []
-        env_refs = GraphBuilder.scan_env_references(clone_dir) if clone_dir else []
 
         infra_context_lines = []
         if workflows:
             infra_context_lines.append("GitHub Workflows Detected:")
             for wf_name, wf_info in workflows.items():
                 tools_str = ", ".join(wf_info["tools_detected"]) if wf_info["tools_detected"] else "None"
-                infra_context_lines.append(f"  - Workflow: {wf_name}")
-                infra_context_lines.append(f"    Tools/Integrations detected: {tools_str}")
-                for job in wf_info.get("jobs", []):
-                    steps_str = " -> ".join(job["steps"][:5])
-                    infra_context_lines.append(f"    Job '{job['name']}': {steps_str}")
+                infra_context_lines.append(f"  - Workflow: {wf_name}, Tools detected: {tools_str}")
         if dockerfiles:
             infra_context_lines.append("\nDockerfiles Detected:")
             for df in dockerfiles:
                 ports_str = ", ".join(df["exposed_ports"]) if df["exposed_ports"] else "None"
                 infra_context_lines.append(f"  - Path: {df['path']}, Base Image: {df['base_image']}, Exposed Ports: {ports_str}")
-        if env_refs:
-            infra_context_lines.append("\nExternal services referenced in environment variables:")
-            for ref in env_refs:
-                infra_context_lines.append(f"  - {ref}")
+        if third_party_services:
+            infra_context_lines.append("\nDetected Third-Party SaaS / API Dependencies:")
+            for tp in third_party_services:
+                infra_context_lines.append(f"  - {tp['name']} (Category: {tp['category']})")
                 
         infra_context = "\n".join(infra_context_lines)
 
-        if gemini_api_key and gemini_api_url:
-            print("Gemini API keys present, running V2 nested infrastructure architect analysis...")
+        ai_success = False
+        enclosures = []
+        workloads = []
+        connections = []
+
+        if gemini_api_key and gemini_api_url and clone_dir:
+            print(f"Running Signal-Matrix AI System Architecture analysis for repo_type={repo_type}...")
             project_file_tree, project_descriptors = GraphBuilder.get_project_summary(clone_dir)
             
-            prompt = f"""You are an expert System Architect. Your task is to analyze the repository structure, Dockerfiles, Docker Compose configuration, GitHub CI/CD workflows, and environment variables to construct a detailed runtime system architecture map with nested infrastructure grouping.
+            signals_summary = f"""
+- Repo Type: {repo_type} (Confidence: {classification['confidence']})
+- Evidence files found: {', '.join(evidence)}
+- Primary language: {signals.get('primary_language', 'unknown')}
+- Detected frameworks: {', '.join(signals.get('detected_frameworks', []))}
+- Detected third-party APIs: {', '.join(tp_names)}
+- Has Docker Compose: {signals.get('has_compose', False)}
+- Has K8s Manifests: {signals.get('has_k8s_manifests', False)}
+- Has Terraform / IaC: {signals.get('has_tf_files', False)}
+- Has CI/CD: {signals.get('has_ci_cd', False)} (tools: {', '.join(signals.get('ci_tools', []))})
+"""
 
-Here is the directory tree of the project (up to 3 levels deep):
+            prompt = f"""You are a Senior System Architect specialized in reading source code repositories
+and producing accurate Level-1 System Context diagrams (C4 Model Level 1/2 style).
+Your ONLY job is to analyze the provided repository signals and output a valid JSON
+architecture map. You must NEVER invent components, technologies, or infrastructure
+that have no evidence in the repository.
+
+REPOSITORY CLASSIFICATION:
+Repo Type: {repo_type}
+Confidence: {classification['confidence']}
+Evidence files found: {evidence}
+Detected signals summary:
+{signals_summary}
+
+RAW REPOSITORY DATA:
+Directory Tree (3 levels):
 {project_file_tree}
 
-Here are the key descriptor and configuration files:
+Key Descriptor Files Content:
 {project_descriptors}
 
-Here are the details from GitHub workflows, Dockerfiles, and environment variables:
+Infrastructure Signal Details:
 {infra_context}
 
-Analyze this information and output a clean JSON object representing the system architecture.
-Rules for Nesting and Groups:
-1. Detect or create logical infrastructure groups (`infrastructure_groups`) to represent the runtime and deployment environments:
-   - CI_CD: Build, test, scan, and deploy pipelines (e.g. GitHub Actions, Jenkins).
-   - CLOUD_INSTANCE: The host VM/server where containers run (e.g. AWS EC2, DigitalOcean Droplet, GCP VM).
-   - CONTAINER_CLUSTER: Container orchestrators running on the host (e.g. Docker Compose, Kubernetes cluster).
-   - MONITORING: Bounding box for observability/metrics collections (e.g. Prometheus, Node Exporter, cAdvisor, PostgreSQL Exporter). This should be nested inside CONTAINER_CLUSTER or CLOUD_INSTANCE.
-   - EXTERNAL: Third-party APIs, SaaS, or remote services called over the Internet (e.g. Plaid API, Telegram Bot API, Let's Encrypt, Grafana Cloud).
-2. Establish nesting relationships using `parentGroup`. For example, Docker Compose (`CONTAINER_CLUSTER`) runs inside AWS EC2 (`CLOUD_INSTANCE`), and the Monitoring Stack (`MONITORING`) runs inside Docker Compose.
-3. Assign each runtime service/component (excluding the groups themselves) to its corresponding infrastructure group via the `group` field (referencing the group's `id`).
-4. For each service, provide an `icon` field representing the technology brand logo. Choose a lowercase key from common technologies, e.g.: "react", "springboot", "postgresql", "redis", "nginx", "docker", "githubactions", "sonarcloud", "trivy", "prometheus", "grafana", "amazonec2", "telegram", "letsencrypt", "python", "fastapi", "nodejs", "mongodb", "kafka", "java", "golang".
-5. For each service, specify `paths` that contain the source code files. External services must have an empty paths array `[]`.
-6. Identify the connection protocol for relations (e.g., "HTTP/REST", "JDBC", "gRPC", "AMQP", "WebSocket", "SSH Deploy", "remote_write", "scrape", etc.) and place it in the "protocol" field.
+OUTPUT RULES BY REPO TYPE:
+IF repo_type == "WEB_CONTAINERIZED":
+  - Outermost enclosure SHOULD be host/cloud ONLY IF cloud deploy evidence exists in workflows/descriptors.
+  - Second level: Container cluster (Docker Compose)
+  - Include CI/CD pipeline enclosure if .github/workflows/ detected
 
-Your response MUST be a pure JSON object, without markdown block wrappers like ```json.
-JSON Schema to follow strictly:
+IF repo_type == "DEVOPS_IAC":
+  - Map K8s: Enclosures = Cluster > Namespace. Workloads = Deployments/Services.
+  - Map Terraform: Enclosures = Cloud Account > VPC. Workloads = Managed Resources.
+
+IF repo_type == "AI_DATA_PIPELINE":
+  - Enclosures: [Data Source Zone] -> [Processing / Training Zone] -> [Serving Zone]
+  - Workloads: data_ingestor, model_trainer, experiment_tracker, inference_api, orchestrator
+
+IF repo_type == "SECURITY_IA_TOOL":
+  - Enclosures: [Operator / Client] -> [Tool Engine] -> [Target Scope]
+  - Workloads: scanner, fuzzer, exploit_module, reporter
+
+IF repo_type == "LOCAL_MONOLITH_WEB":
+  ⚠️ CRITICAL CONSTRAINT: DO NOT draw Docker, Kubernetes, or Cloud enclosures unless explicit evidence exists.
+  - Outermost enclosure: "Local Machine / Runtime" (e.g. JVM, Node.js, Python Runtime)
+  - Draw: [Client / Browser] -> [Web Monolith Application] -> [Database] -> [External APIs]
+
+IF repo_type == "LOCAL_STANDALONE_APP":
+  ⚠️ CRITICAL CONSTRAINT: DO NOT draw Docker, Cloud, or Web concepts.
+  - Outermost enclosure: "Local Machine"
+  - Typical flow: [User / CLI Input] -> [App Core Engine] -> [Local Storage / Output]
+
+ANTI-HALLUCINATION RULES:
+1. Every enclosure and workload MUST have evidence from the repo.
+2. If no cloud deploy evidence -> NO cloud enclosure.
+3. If no docker-compose.yml -> NO Docker Compose enclosure.
+4. Paths: Use relative folder prefixes that actually exist in the file tree.
+5. External services: ONLY include if found in dependency manifests or explicit config.
+
+JSON OUTPUT SCHEMA (Return ONLY valid JSON):
 {{
-  "infrastructure_groups": [
+  "repo_type": "{repo_type}",
+  "enclosures": [
     {{
-      "id": "string (lowercase, alphanumeric and underscores only, e.g. aws_ec2, docker_compose, monitoring_stack)",
-      "name": "string (friendly name, e.g. AWS EC2 Instance, Monitoring Stack)",
-      "groupType": "string (one of: CI_CD, CLOUD_INSTANCE, CONTAINER_CLUSTER, MONITORING, EXTERNAL)",
-      "tech": "string or null (e.g. AWS EC2, Docker Compose, Prometheus Stack)",
-      "icon": "string or null (logo key)",
-      "parentGroup": "string or null (id of parent group if nested, e.g. aws_ec2)"
+      "id": "lowercase_id",
+      "name": "Human Readable Name",
+      "type": "CLOUD | CONTAINER_CLUSTER | NETWORK | K8S_CLUSTER | K8S_NAMESPACE | LOCAL_RUNTIME | CI_CD | EXTERNAL_ZONE | MONITORING | PIPELINE_STAGE | CUSTOM",
+      "tech": "Technology Name or null",
+      "icon": "icon_slug or null",
+      "parentId": "parent_id or null"
     }}
   ],
-  "services": [
+  "workloads": [
     {{
-      "id": "string (lowercase, alphanumeric and underscores only, e.g. frontend, backend, database)",
-      "name": "string (friendly name, e.g. Frontend App)",
-      "tech": "string (technologies used, e.g. React (Vite), Spring Boot, PostgreSQL)",
-      "icon": "string (logo key)",
-      "port": "string or null (default port used)",
-      "type": "string (one of: client, service, database, cache, broker, worker, parser, other)",
-      "group": "string or null (id of the group it belongs to)",
-      "description": "string",
-      "paths": ["array of strings (relative folder path prefixes)"]
+      "id": "lowercase_id",
+      "name": "Human Readable Name",
+      "type": "client | service | database | cache | broker | worker | agent | scanner | model | storage | gateway | scheduler | reporter | other",
+      "tech": "Technology Used",
+      "icon": "icon_slug",
+      "port": "port_string or null",
+      "enclosureId": "parent_enclosure_id or null",
+      "description": "Short description",
+      "paths": ["relative folder path prefixes"]
     }}
   ],
-  "relations": [
+  "connections": [
     {{
-      "source": "string (id of source service)",
-      "target": "string (id of target service)",
-      "protocol": "string (the connection protocol/label)"
+      "from": "workload_id",
+      "to": "workload_id",
+      "protocol": "HTTP/REST | JDBC | gRPC | AMQP | WebSocket | SSH | scrape | CLI pipe | stdio | TCP",
+      "label": "Short label or null"
     }}
   ]
 }}"""
-            import hashlib
-            state_str = project_file_tree + "\n" + project_descriptors + "\n" + infra_context
+
+            state_str = repo_type + "\n" + project_file_tree + "\n" + project_descriptors + "\n" + infra_context
             state_hash = hashlib.md5(state_str.encode('utf-8')).hexdigest()
             
             cache_dir = os.path.join(os.path.dirname(__file__), '..', '.cache', 'ai_responses')
@@ -417,214 +1056,36 @@ JSON Schema to follow strictly:
             if cleaned_text:
                 try:
                     ai_data = json.loads(cleaned_text)
-                    infra_groups = ai_data.get("infrastructure_groups", [])
-                    services_list = ai_data.get("services", [])
-                    relations_list = ai_data.get("relations", [])
+                    enclosures = ai_data.get("enclosures", [])
+                    workloads = ai_data.get("workloads", [])
+                    connections = ai_data.get("connections", [])
                     
-                    if services_list:
-                        valid_services = []
-                        for svc in services_list:
-                            valid_paths = []
-                            for p in svc.get("paths", []):
-                                if p == "":
-                                    valid_paths.append(p)
-                                    continue
-                                
-                                full_p = os.path.join(clone_dir, p) if clone_dir else p
-                                if clone_dir and os.path.exists(full_p):
-                                    valid_paths.append(p)
-                                elif not clone_dir:
-                                    valid_paths.append(p)
-                                else:
-                                    print(f"Dropping hallucinated path: {p} for service {svc['id']}")
-                                    
-                            svc["paths"] = valid_paths
-                            valid_services.append(svc)
-                            
-                        services_list = valid_services
+                    if workloads:
+                        for w in workloads:
+                            w["paths"] = GraphBuilder._validate_paths_flexible(clone_dir, w.get("paths", []))
                         ai_success = True
-                        print(f"Successfully loaded {len(infra_groups)} groups, {len(services_list)} services, and {len(relations_list)} relations.")
+                        print(f"Successfully loaded {len(enclosures)} enclosures, {len(workloads)} workloads, and {len(connections)} connections.")
                 except Exception as e:
                     print(f"Failed to parse JSON from Gemini response: {e}. Raw text:\n{cleaned_text}")
 
         if not ai_success:
-            print("AI analysis failed or not configured. Falling back to rule-based parser.")
-            services_map = {}
-            if clone_dir:
-                services_map = GraphBuilder.parse_docker_compose(clone_dir)
-                
-            if "frontend" not in services_map and (not clone_dir or os.path.exists(os.path.join(clone_dir, "code/frontend")) or os.path.exists(os.path.join(clone_dir, "frontend"))):
-                services_map["frontend"] = {"ports": ["5173:5173"], "depends_on": ["backend"]}
-            if "backend" not in services_map and (not clone_dir or os.path.exists(os.path.join(clone_dir, "code/backend")) or os.path.exists(os.path.join(clone_dir, "backend"))):
-                services_map["backend"] = {"ports": ["8080:8080"], "depends_on": ["postgres"]}
-            
-            # Setup default groups
-            infra_groups = [
-                {"id": "cicd_pipeline", "name": "CI/CD Pipeline", "groupType": "CI_CD", "tech": "GitHub Actions", "icon": "githubactions", "parentGroup": None},
-                {"id": "aws_ec2", "name": "AWS EC2 Instance", "groupType": "CLOUD_INSTANCE", "tech": "AWS EC2", "icon": "amazonec2", "parentGroup": None},
-                {"id": "docker_compose", "name": "Docker Compose", "groupType": "CONTAINER_CLUSTER", "tech": "Docker Compose", "icon": "docker", "parentGroup": "aws_ec2"},
-                {"id": "monitoring_stack", "name": "Monitoring Stack", "groupType": "MONITORING", "tech": "Prometheus Stack", "icon": "prometheus", "parentGroup": "docker_compose"},
-                {"id": "external_services", "name": "External Services", "groupType": "EXTERNAL", "tech": "Third-party APIs", "icon": "cloud", "parentGroup": None}
-            ]
+            print(f"AI analysis failed or not configured. Generating minimal evidence-based fallback for repo_type={repo_type}")
+            enclosures, workloads, connections = GraphBuilder._build_minimal_fallback(
+                repo_type, signals, third_party_services, clone_dir
+            )
 
-            SERVICE_METADATA = {
-                "frontend": {"name": "Frontend", "tech": "React (Vite)", "port": "5173", "type": "client", "group": "docker_compose", "icon": "react", "paths": ["code/frontend", "frontend"]},
-                "backend": {"name": "Backend", "tech": "Spring Boot (Java)", "port": "8080", "type": "service", "group": "docker_compose", "icon": "springboot", "paths": ["code/backend", "backend"]},
-                "database": {"name": "PostgreSQL", "tech": "PostgreSQL Database", "port": "5432", "type": "database", "group": "docker_compose", "icon": "postgresql", "paths": []},
-                "postgres": {"name": "PostgreSQL", "tech": "PostgreSQL Database", "port": "5432", "type": "database", "group": "docker_compose", "icon": "postgresql", "paths": []},
-                "mongodb": {"name": "MongoDB", "tech": "Database", "port": "27017", "type": "database", "group": "docker_compose", "icon": "mongodb", "paths": []},
-                "redis": {"name": "Redis", "tech": "Cache & Queue", "port": "6379", "type": "cache", "group": "docker_compose", "icon": "redis", "paths": []},
-                "kafka": {"name": "Kafka", "tech": "Message Broker", "port": "9092", "type": "broker", "group": "docker_compose", "icon": "kafka", "paths": []},
-                
-                # Monitoring Services
-                "prometheus": {"name": "Prometheus", "tech": "Metrics Server", "port": "9090", "type": "service", "group": "monitoring_stack", "icon": "prometheus", "paths": []},
-                "node-exporter": {"name": "Node Exporter", "tech": "Host Metrics", "port": "9100", "type": "worker", "group": "monitoring_stack", "icon": "prometheus", "paths": []},
-                "cadvisor": {"name": "cAdvisor", "tech": "Container Metrics", "port": "8080", "type": "worker", "group": "monitoring_stack", "icon": "docker", "paths": []},
-                "postgres-exporter": {"name": "Postgres Exporter", "tech": "DB Metrics", "port": "9187", "type": "worker", "group": "monitoring_stack", "icon": "postgresql", "paths": []},
-                "grafana": {"name": "Grafana", "tech": "SaaS Dashboard", "port": None, "type": "service", "group": "external_services", "icon": "grafana", "paths": []},
-                
-                # External APIs
-                "plaid": {"name": "Plaid API", "tech": "Bank Integration", "port": None, "type": "external", "group": "external_services", "icon": "plaid", "paths": []},
-                "telegram": {"name": "Telegram Bot API", "tech": "Alerts & Notifications", "port": None, "type": "external", "group": "external_services", "icon": "telegram", "paths": []},
-                "letsencrypt": {"name": "Let's Encrypt", "tech": "SSL Certificates", "port": None, "type": "external", "group": "external_services", "icon": "letsencrypt", "paths": []},
-                
-                # CI/CD services
-                "github-actions": {"name": "GitHub Actions", "tech": "CI/CD runner", "port": None, "type": "other", "group": "cicd_pipeline", "icon": "githubactions", "paths": []},
-                "sonarcloud": {"name": "SonarCloud", "tech": "Code Quality Scan", "port": None, "type": "other", "group": "cicd_pipeline", "icon": "sonarcloud", "paths": []},
-                "trivy": {"name": "Trivy Scan", "tech": "Vulnerability Scan", "port": None, "type": "other", "group": "cicd_pipeline", "icon": "trivy", "paths": []}
-            }
+        # Track how this diagram was generated
+        stats["analysisMethod"] = "AI" if ai_success else "RULE_BASED"
+        stats["repoType"] = repo_type
+        stats["classifierConfidence"] = classification.get("confidence", "LOW")
 
-            for svc_name, svc_info in services_map.items():
-                meta = SERVICE_METADATA.get(svc_name, {})
-                port = meta.get("port")
-                if not port and svc_info.get("ports"):
-                    p_str = svc_info["ports"][0]
-                    port = p_str.split(":")[0] if ":" in p_str else p_str
-                    
-                paths = meta.get("paths", [svc_name])
-                
-                grp = meta.get("group")
-                if not grp:
-                    name_lower = svc_name.lower()
-                    if "exporter" in name_lower or "prometheus" in name_lower or "grafana" in name_lower or "cadvisor" in name_lower or "monitoring" in name_lower:
-                        grp = "monitoring_stack"
-                    elif "plaid" in name_lower or "telegram" in name_lower or "stripe" in name_lower or "letsencrypt" in name_lower or "external" in name_lower or "certbot" in name_lower:
-                        grp = "external_services"
-                    elif "sonar" in name_lower or "trivy" in name_lower or "github" in name_lower or "action" in name_lower:
-                        grp = "cicd_pipeline"
-                    else:
-                        grp = "docker_compose"
-
-                services_list.append({
-                    "id": svc_name,
-                    "name": meta.get("name", svc_name.replace('_', ' ').title()),
-                    "tech": meta.get("tech", "Container Service"),
-                    "icon": meta.get("icon", svc_name.split("-")[0].split("_")[0]),
-                    "port": port,
-                    "type": meta.get("type", "service"),
-                    "group": grp,
-                    "description": f"Service {svc_name}",
-                    "paths": paths
-                })
-
-            has_workflows = os.path.exists(os.path.join(clone_dir, ".github", "workflows")) if clone_dir else False
-            if has_workflows:
-                services_list.append({
-                    "id": "github_actions",
-                    "name": "GitHub Actions",
-                    "tech": "CI/CD Platform",
-                    "icon": "githubactions",
-                    "port": None,
-                    "type": "other",
-                    "group": "cicd_pipeline",
-                    "description": "CI/CD workflow runners",
-                    "paths": []
-                })
-                services_list.append({
-                    "id": "sonarcloud",
-                    "name": "SonarCloud",
-                    "tech": "SAAS Code Analysis",
-                    "icon": "sonarcloud",
-                    "port": None,
-                    "type": "other",
-                    "group": "cicd_pipeline",
-                    "description": "Quality gate & security checks",
-                    "paths": []
-                })
-                services_list.append({
-                    "id": "trivy",
-                    "name": "Trivy",
-                    "tech": "Container Security",
-                    "icon": "trivy",
-                    "port": None,
-                    "type": "other",
-                    "group": "cicd_pipeline",
-                    "description": "Vulnerability scanning",
-                    "paths": []
-                })
-                relations_list.extend([
-                    {"source": "github_actions", "target": "sonarcloud", "protocol": "Code Quality Scan"},
-                    {"source": "github_actions", "target": "trivy", "protocol": "Vulnerability Scan"},
-                    {"source": "github_actions", "target": "backend", "protocol": "SSH Deploy"}
-                ])
-                
-            # If env references exist, add them
-            env_detected = GraphBuilder.scan_env_references(clone_dir) if clone_dir else []
-            for item in env_detected:
-                item_id = item.lower().replace(" ", "_").replace("api", "").strip("_")
-                if item_id == "plaid":
-                    if not any(s["id"] == "plaid" for s in services_list):
-                        services_list.append({
-                            "id": "plaid", "name": "Plaid API", "tech": "Finance SaaS", "icon": "plaid",
-                            "port": None, "type": "external", "group": "external_services", "description": "Bank API integration", "paths": []
-                        })
-                    relations_list.append({"source": "backend", "target": "plaid", "protocol": "Plaid API"})
-                elif item_id == "telegram_bot":
-                    if not any(s["id"] == "telegram" for s in services_list):
-                        services_list.append({
-                            "id": "telegram", "name": "Telegram Bot API", "tech": "Notification SaaS", "icon": "telegram",
-                            "port": None, "type": "external", "group": "external_services", "description": "Deploy & alert channels", "paths": []
-                        })
-                    relations_list.append({"source": "backend", "target": "telegram", "protocol": "Alert Notification"})
-                elif item_id == "grafana_cloud":
-                    if not any(s["id"] == "grafana" for s in services_list):
-                        services_list.append({
-                            "id": "grafana", "name": "Grafana Cloud", "tech": "SaaS Dashboard", "icon": "grafana",
-                            "port": None, "type": "external", "group": "external_services", "description": "Metrics visualization", "paths": []
-                        })
-                    relations_list.append({"source": "prometheus", "target": "grafana", "protocol": "remote_write"})
-
-            implicit_edges = [
-                ("frontend", "backend", "HTTP REST"),
-                ("backend", "postgres", "JDBC"),
-                ("backend", "database", "JDBC"),
-                ("backend", "mongodb", "Spring Data"),
-                ("backend", "redis", "Cache"),
-                ("backend", "kafka", "Spring Kafka"),
-                ("prometheus", "backend", "scrape"),
-                ("prometheus", "node-exporter", "scrape"),
-                ("prometheus", "cadvisor", "scrape"),
-                ("prometheus", "postgres-exporter", "scrape"),
-                ("postgres-exporter", "postgres", "JDBC"),
-                ("postgres-exporter", "database", "JDBC")
-            ]
-            for src, tgt, label in implicit_edges:
-                if any(s["id"] == src for s in services_list) and any(s["id"] == tgt for s in services_list):
-                    if not any(r["source"] == src and r["target"] == tgt for r in relations_list):
-                        relations_list.append({
-                            "source": src,
-                            "target": tgt,
-                            "protocol": label
-                        })
-
-        # 1. Output Group Nodes
-        for grp in infra_groups:
-            grp_id = grp["id"]
-            parent_id = f"group:{grp['parentGroup']}" if grp.get("parentGroup") else None
-            
-            grp_node = {
-                "nodeId": f"group:{grp_id}",
-                "name": grp.get("name", grp_id.capitalize()),
+        # 4. Map Enclosures to INFRA_GROUP Nodes
+        for enc in enclosures:
+            enc_id = enc["id"]
+            parent_id = f"group:{enc['parentId']}" if enc.get("parentId") else None
+            nodes.append({
+                "nodeId": f"group:{enc_id}",
+                "name": enc.get("name", enc_id.capitalize()),
                 "type": "INFRA_GROUP",
                 "layer": "SYSTEM",
                 "parentId": parent_id,
@@ -633,24 +1094,22 @@ JSON Schema to follow strictly:
                 "lineStart": None,
                 "lineEnd": None,
                 "metadata": {
-                    "groupType": grp.get("groupType"),
-                    "tech": grp.get("tech"),
-                    "icon": grp.get("icon")
+                    "groupType": enc.get("type"),
+                    "tech": enc.get("tech"),
+                    "icon": enc.get("icon")
                 },
                 "riskLevel": "LOW",
                 "connectionCount": 0,
                 "childrenIds": []
-            }
-            nodes.append(grp_node)
+            })
 
-        # 2. Output Service Nodes
-        for svc in services_list:
-            svc_id = svc["id"]
-            parent_id = f"group:{svc['group']}" if svc.get("group") else None
-            
-            svc_node = {
-                "nodeId": f"service:{svc_id}",
-                "name": svc.get("name", svc_id.capitalize()),
+        # 5. Map Workloads to CLASS Nodes
+        for w in workloads:
+            w_id = w["id"]
+            parent_id = f"group:{w['enclosureId']}" if w.get("enclosureId") else None
+            nodes.append({
+                "nodeId": f"service:{w_id}",
+                "name": w.get("name", w_id.capitalize()),
                 "type": "CLASS",
                 "layer": "SYSTEM",
                 "parentId": parent_id,
@@ -659,31 +1118,31 @@ JSON Schema to follow strictly:
                 "lineStart": None,
                 "lineEnd": None,
                 "metadata": {
-                    "tech": svc.get("tech", "Dynamic Component"),
-                    "port": svc.get("port"),
-                    "serviceId": svc_id,
-                    "type": svc.get("type", "service"),
-                    "icon": svc.get("icon"),
-                    "description": svc.get("description", "")
+                    "tech": w.get("tech", "Dynamic Component"),
+                    "port": w.get("port"),
+                    "serviceId": w_id,
+                    "type": w.get("type", "service"),
+                    "icon": w.get("icon"),
+                    "description": w.get("description", ""),
+                    "paths": w.get("paths", [])
                 },
                 "riskLevel": "LOW",
                 "connectionCount": 0,
                 "childrenIds": []
-            }
-            nodes.append(svc_node)
+            })
 
-        # Build connections and hierarchy references
+        # Build hierarchy references
         node_map = {n["nodeId"]: n for n in nodes}
         for n in nodes:
             p_id = n.get("parentId")
             if p_id and p_id in node_map:
                 node_map[p_id]["childrenIds"].append(n["nodeId"])
 
-        # 3. Create Layer 1 Edges in graph
-        for rel in relations_list:
-            src = rel["source"]
-            tgt = rel["target"]
-            protocol = rel.get("protocol", rel.get("label", "depends_on"))
+        # 6. Map Connections to Edges
+        for conn in connections:
+            src = conn.get("from") or conn.get("source")
+            tgt = conn.get("to") or conn.get("target")
+            protocol = conn.get("label") or conn.get("protocol", "depends_on")
             
             src_node_id = f"service:{src}"
             tgt_node_id = f"service:{tgt}"
@@ -700,7 +1159,6 @@ JSON Schema to follow strictly:
                     "metadata": {"label": protocol}
                 })
 
-        # Populate connection count
         for edge in edges:
             src = edge["source"]
             tgt = edge["target"]

@@ -48,7 +48,6 @@ import ArchitecturePage from '@features/architecture-viz/pages/ArchitecturePage'
 
 // Feature Pages - AI Engine
 import SprintReportPage from '@features/sprint-report/pages/SprintReportPage'
-import ReliabilityDashboardPage from '@features/analytics/pages/ReliabilityDashboardPage'
 import SchedulerJobsPage from '@features/analytics/pages/SchedulerJobsPage'
 import RecoveryPlanDashboardPage from '@features/sla/pages/RecoveryPlanDashboardPage'
 import ProfilePage from '@features/profile/pages/ProfilePage'
@@ -170,7 +169,6 @@ export function AppRoutes() {
             {/* Module 9: AI Engine */}
             <Route path="sprint-reports" element={<SprintReportPage />} />
             <Route path="weekly-reports" element={<Navigate to="sprint-reports" replace />} />
-            <Route path="reliability" element={<ReliabilityDashboardPage />} />
             <Route path="scheduler-logs" element={<SchedulerJobsPage />} />
             <Route path="recovery-plans" element={<RecoveryPlanDashboardPage />} />
 
