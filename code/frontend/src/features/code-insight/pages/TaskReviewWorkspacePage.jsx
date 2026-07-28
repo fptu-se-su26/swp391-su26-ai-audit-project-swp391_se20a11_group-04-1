@@ -8,6 +8,7 @@ import Card from '../../../components/ui/Card'
 import SectionTitle from '../../../components/ui/SectionTitle'
 import Button from '../../../components/ui/Button'
 import { useProjectRole } from '@/hooks/useProjectRole'
+import { getApiV1BaseUrl, getStompWebSocketUrl } from '@api/realtimeConfig'
 
 
 // Lightweight Native STOMP Client for WebSocket communication without external npm packages
@@ -498,10 +499,7 @@ export function TaskReviewWorkspacePage() {
   useEffect(() => {
     if (!projectId) return;
 
-    const isDev = window.location.host.includes('localhost:5173');
-    const wsHost = isDev ? 'localhost:8080' : window.location.host;
-    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProto}//${wsHost}/ws`;
+    const wsUrl = getStompWebSocketUrl();
     
     let stompClient;
     try {
@@ -568,9 +566,7 @@ export function TaskReviewWorkspacePage() {
     setStreamingMarkdown('')
     setAiError(false)
 
-    const isDev = window.location.host.includes('localhost:5173');
-    const baseUrl = isDev ? 'http://localhost:8080/api/v1' : '/api/v1';
-    const sseUrl = `${baseUrl}/projects/${projectId}/task-reviews/${taskId}/ai-stream`;
+    const sseUrl = `${getApiV1BaseUrl()}/projects/${projectId}/task-reviews/${taskId}/ai-stream`;
 
     console.log("Subscribing to AI review SSE stream:", sseUrl);
     const eventSource = new EventSource(sseUrl, {

@@ -8,6 +8,9 @@ import org.example.backend.entity.enums.BugStatus;
 import org.example.backend.entity.enums.Environment;
 import org.example.backend.exception.CustomException;
 import org.example.backend.repository.*;
+import org.example.backend.repository.mongo.TaskCommentRepository;
+import org.example.backend.repository.mongo.TaskProposalRepository;
+import org.example.backend.repository.mongo.TaskVoteRepository;
 import org.example.backend.service.github.GitHubApiService;
 import org.example.backend.service.TaskService;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +60,15 @@ class BugReportServiceImplTest {
 
     @Mock
     private GitHubApiService gitHubApiService;
+
+    @Mock
+    private TaskProposalRepository taskProposalRepository;
+
+    @Mock
+    private TaskCommentRepository taskCommentRepository;
+
+    @Mock
+    private TaskVoteRepository taskVoteRepository;
 
     @InjectMocks
     private BugReportServiceImpl bugReportService;
@@ -172,16 +184,6 @@ class BugReportServiceImplTest {
         when(projectRepository.findById(100L)).thenReturn(Optional.of(mockProject));
         when(userAccountRepository.findById(1L)).thenReturn(Optional.of(mockUser));
 
-        TaskResponse mockTaskResponse = TaskResponse.builder()
-                .id(200L)
-                .title("[BUG] NullPointerException in AuthController")
-                .build();
-        when(taskService.createTask(eq(100L), any(TaskRequest.class), eq(1L))).thenReturn(mockTaskResponse);
-
-        Task mockTask = new Task();
-        mockTask.setId(200L);
-        when(taskRepository.findById(200L)).thenReturn(Optional.of(mockTask));
-
         when(bugReportRepository.save(any(BugReport.class))).thenAnswer(invocation -> {
             BugReport saved = invocation.getArgument(0);
             saved.setId(501L);
@@ -197,7 +199,8 @@ class BugReportServiceImplTest {
         assertThat(result.getTitle()).isEqualTo("NullPointerException in AuthController");
         assertThat(result.getSeverity()).isEqualTo(BugSeverity.HIGH);
         assertThat(result.getEnvironment()).isEqualTo(Environment.STAGING);
-        verify(bugReportRepository, times(2)).save(any(BugReport.class));
+        assertThat(result.getStatus()).isEqualTo(BugStatus.OPEN);
+        verify(bugReportRepository, times(1)).save(any(BugReport.class));
     }
 
     @Test

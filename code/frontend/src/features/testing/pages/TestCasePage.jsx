@@ -88,6 +88,7 @@ export default function TestCasePage() {
   const {
     testCases = [], isLoading, error, pagination, filters,
     isFormOpen, isDeleteDialogOpen, isAiGenModalOpen,
+    aiGenDefaults,
     editingTestCase, deletingTestCase,
     fetchTestCases, setFilters, openCreateForm, openEditForm,
     closeForm, openDeleteDialog, closeDeleteDialog,
@@ -472,6 +473,7 @@ export default function TestCasePage() {
         onClose={closeAiGenModal}
         onSubmit={handleGenSubmit}
         defaultRequirementId={selectedRequirementId}
+        defaults={aiGenDefaults}
       />
 
       <AiCoverageAnalysisModal

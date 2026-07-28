@@ -17,6 +17,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 @Component
 @Slf4j
 @Transactional
@@ -122,13 +124,23 @@ public class TestCaseMapper {
             tc.getUiConfig().setScriptSource(uiDto.getScriptSource());
             tc.getUiConfig().setScriptGeneratedAt(uiDto.getScriptGeneratedAt());
         } else if (type == TestType.API && dtoConfig instanceof ApiTestConfigDto apiDto) {
-            tc.getApiConfig().setApiMethod(apiDto.getApiMethod());
-            tc.getApiConfig().setApiUrl(apiDto.getApiUrl());
+            tc.getApiConfig().setApiMethod(!isBlank(apiDto.getApiMethod()) ? apiDto.getApiMethod().trim().toUpperCase(Locale.ROOT) : "GET");
+            String apiUrl = firstNonBlank(apiDto.getApiUrl(), apiDto.getApiEndpoint());
+            tc.getApiConfig().setApiUrl(apiUrl != null ? apiUrl.trim() : "");
             if (apiDto.getApiHeaders() != null) tc.getApiConfig().setApiHeaders(objectMapper.valueToTree(apiDto.getApiHeaders()));
             if (apiDto.getApiQueryParams() != null) tc.getApiConfig().setApiQueryParams(objectMapper.valueToTree(apiDto.getApiQueryParams()));
             if (apiDto.getApiBody() != null) tc.getApiConfig().setApiBody(objectMapper.valueToTree(apiDto.getApiBody()));
             if (apiDto.getApiAssertions() != null) tc.getApiConfig().setApiAssertions(objectMapper.valueToTree(apiDto.getApiAssertions()));
+            else if (apiDto.getAssertions() != null) tc.getApiConfig().setApiAssertions(objectMapper.valueToTree(apiDto.getAssertions()));
         }
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return !isBlank(first) ? first : second;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     public TestCaseResponse toResponse(TestCase tc) {

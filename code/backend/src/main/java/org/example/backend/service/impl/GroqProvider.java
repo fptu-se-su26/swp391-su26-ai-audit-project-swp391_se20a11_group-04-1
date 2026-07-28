@@ -40,6 +40,9 @@ public class GroqProvider implements LlmProvider {
         return "GROQ";
     }
 
+    // Groq free tier: 6000 TPM limit for llama-3.3-70b. Reserve ~2000 tokens for output.
+    private static final int GROQ_MAX_INPUT_CHARS = 32000; // ~8000 tokens, safe margin under 12000 TPM
+
     @Override
     public String generateText(String prompt) {
         List<String> keys = groqProperties.getKeys();
@@ -55,12 +58,22 @@ public class GroqProvider implements LlmProvider {
         String targetUrl = groqProperties.getUrl();
         String model = groqProperties.getModel();
 
+        // Truncate prompt to avoid 413 (Groq ~12000 TPM limit, ~4 chars/token)
+        String effectivePrompt = prompt;
+        if (prompt != null && prompt.length() > GROQ_MAX_INPUT_CHARS) {
+            log.warn("Groq: prompt quá dài ({} chars), truncating to {} chars để tránh 413.", prompt.length(), GROQ_MAX_INPUT_CHARS);
+            effectivePrompt = prompt.substring(0, GROQ_MAX_INPUT_CHARS)
+                    + "\n\n[...prompt truncated for Groq token limit. Please generate test cases based on the above context only...]";
+        }
+
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model != null ? model : "llama-3.3-70b-versatile");
+        requestBody.put("temperature", 0.1);
+        requestBody.put("max_tokens", boundedMaxTokens(groqProperties.getMaxTokens()));
         
         Map<String, String> message = new HashMap<>();
         message.put("role", "user");
-        message.put("content", prompt);
+        message.put("content", effectivePrompt);
         requestBody.put("messages", List.of(message));
 
         for (int i = 0; i < maxRetries; i++) {
@@ -88,7 +101,10 @@ public class GroqProvider implements LlmProvider {
                 String errorBody = httpException.getResponseBodyAsString().toLowerCase();
                 log.error("Groq API HTTP Error {}: {}", statusCode, errorBody);
                 
-                if (statusCode == 401) {
+                if (statusCode == 413) {
+                    // Prompt still too large even after truncation — fail fast, no retry helps
+                    throw new BusinessException("Groq: Prompt quá dài ngay cả sau khi truncate (" + statusCode + "). Vui lòng giảm context.");
+                } else if (statusCode == 401) {
                     log.warn("Groq API {} for key ending in {}. Bỏ qua...", statusCode, apiKey.substring(Math.max(0, apiKey.length() - 4)));
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("insufficient") || errorBody.contains("billing")) {
@@ -118,5 +134,12 @@ public class GroqProvider implements LlmProvider {
             }
         }
         throw new BusinessException("Không thể generate text qua Groq sau nhiều lần thử.");
+    }
+
+    private int boundedMaxTokens(Integer configuredMaxTokens) {
+        if (configuredMaxTokens == null || configuredMaxTokens <= 0) {
+            return 16384;
+        }
+        return Math.max(1024, Math.min(configuredMaxTokens, 16384));
     }
 }

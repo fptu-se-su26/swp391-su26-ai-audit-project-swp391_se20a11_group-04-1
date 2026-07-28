@@ -7,5 +7,5 @@ import java.util.List;
 public class AiTestCaseGenerateResponse {
     private String reasoning;
     private String coverageSummary;
-    private List<TestCaseRequest> testCases;
+    private List<AiDraftTestCase> testCases;
 }

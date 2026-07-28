@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import TaskFormModal from '../components/TaskFormModal'
 import useProjectStore from '@store/useProjectStore'
@@ -14,6 +14,7 @@ const isLeaderRole = (role = '') => {
 
 const TaskDetailPage = () => {
   const { projectId, id } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [newChecklistItemText, setNewChecklistItemText] = useState('')
@@ -46,8 +47,13 @@ const TaskDetailPage = () => {
       fetchTaskById(id)
     } else if (task.parentId && !tasks.some(t => String(t.id) === String(task.parentId))) {
       fetchTaskById(task.parentId)
+    } else {
+      // Auto open edit modal if action=update-blocker
+      if (searchParams.get('action') === 'update-blocker') {
+        setIsEditOpen(true)
+      }
     }
-  }, [fetchTaskById, id, task, tasks])
+  }, [fetchTaskById, id, task, tasks, searchParams])
 
   if (!task) {
     return (

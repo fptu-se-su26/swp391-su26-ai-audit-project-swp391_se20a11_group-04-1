@@ -1,0 +1,73 @@
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/dev_track_ai}
+    username: ${SPRING_DATASOURCE_USERNAME:devtrack}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://mongodb:27017/devtrack_ai?serverSelectionTimeoutMS=500}
+
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:}
+    url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent}
+  api-key: ${GEMINI_API_KEY:}
+
+github:
+  client-id: ${GITHUB_CLIENT_ID}
+  client-secret: ${GITHUB_CLIENT_SECRET}
+  redirect-uri: ${GITHUB_REDIRECT_URI}
+  webhook-url: ${GITHUB_WEBHOOK_URL}
+  encryption:
+    key: ${GITHUB_ENCRYPTION_KEY}
+
+internal:
+  service:
+    key: ${INTERNAL_SERVICE_KEY}
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  monitoring:
+    admin-email: ${APP_MONITORING_ADMIN_EMAIL:}
+  base-url: ${APP_BASE_URL}
+  events:
+    publisher: ${APP_EVENTS_PUBLISHER:kafka}
+
+ml:
+  service:
+    url: ${ML_SERVICE_URL:http://ml-service:8001}
+    enabled: ${ML_SERVICE_ENABLED:true}
+    timeout-ms: ${ML_SERVICE_TIMEOUT_MS:5000}
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health

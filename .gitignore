@@ -90,6 +90,7 @@ congnge/
 /local-test-data/
 
 # --- AGENT CONFIGS ---
+.codex_tmp/
 .agent/
 .agents/
 GEMINI.md

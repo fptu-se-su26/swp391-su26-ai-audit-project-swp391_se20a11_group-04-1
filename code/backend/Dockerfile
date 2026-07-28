@@ -12,7 +12,11 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 # Tạo non-root user
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r appgroup \
+    && useradd -r -g appgroup appuser
 
 COPY --from=builder /app/target/*.jar app.jar
 RUN chown appuser:appgroup app.jar
@@ -27,5 +31,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 ENTRYPOINT ["java", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:docker}", \
   "-jar", "app.jar"]

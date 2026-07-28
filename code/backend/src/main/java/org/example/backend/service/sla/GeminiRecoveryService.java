@@ -10,10 +10,12 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Deprecated(forRemoval = false)
 public class GeminiRecoveryService {
 
     @Value("${gemini.api.key:}")
@@ -53,6 +55,68 @@ public class GeminiRecoveryService {
             log.warn("Gemini recovery content generation failed, using fallback text: {}", ex.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Legacy direct-Gemini path kept for compatibility.
+     * Current Recovery Plan generation flows through MlServiceClient -> FastAPI ML service,
+     * where RAG context and Ollama/Gemini provider selection are handled centrally.
+     */
+    public GeminiRecoveryResult generateWithRagContext(
+            GeminiRecoveryContext context,
+            List<Map<String, Object>> similarPlans) {
+
+        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
+            return null;
+        }
+        try {
+            String prompt = buildPrompt(context) + buildRagSection(similarPlans);
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of(
+                            "parts", List.of(Map.of("text", prompt))
+                    ))
+            );
+            String separator = endpoint.contains("?") ? "&" : "?";
+            Map<?, ?> response = restTemplate.postForObject(
+                    endpoint + separator + "key=" + apiKey,
+                    requestBody,
+                    Map.class
+            );
+            String rawText = extractText(response);
+            if (rawText == null || rawText.isBlank()) return null;
+            return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
+        } catch (Exception ex) {
+            log.warn("Gemini RAG generation failed, falling back to base Gemini: {}", ex.getMessage());
+            return generateContent(context);
+        }
+    }
+
+    private String buildRagSection(List<Map<String, Object>> plans) {
+        if (plans == null || plans.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder(
+                "\n\nKinh nghiệm từ các recovery plan đã thành công trước đây:\n");
+        int i = 1;
+        for (Map<String, Object> p : plans) {
+            String cats = formatList(p.get("categories"));
+            String acts = formatList(p.get("actions"));
+            sb.append(String.format(
+                    "[Plan %d] Risk: %s | Vấn đề: %s | Hành động: %s | Score: %s -> %s (+%s)\n",
+                    i++,
+                    p.getOrDefault("risk_level", "?"),
+                    cats, acts,
+                    p.getOrDefault("score_before", "?"),
+                    p.getOrDefault("score_after", "?"),
+                    p.getOrDefault("improvement", "?")));
+        }
+        sb.append("Dựa trên các kinh nghiệm trên, hãy sinh recovery plan phù hợp nhất.\n");
+        return sb.toString();
+    }
+
+    private String formatList(Object value) {
+        if (value instanceof List<?> list) {
+            return list.stream().map(String::valueOf).collect(Collectors.joining(", "));
+        }
+        return value != null ? value.toString() : "";
     }
 
     private String buildPrompt(GeminiRecoveryContext context) {

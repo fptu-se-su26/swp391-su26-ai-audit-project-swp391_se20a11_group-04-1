@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import TestCaseTableRow from './TestCaseTableRow'
+import useTestCaseStore from '../stores/useTestCaseStore'
 import { C, T } from '../utils/theme'
 
 export default function TestCaseTypeGroup({ type, testCases, onEdit, onDelete, projectId }) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const { openAiGenModal, openCreateForm } = useTestCaseStore()
 
   const typeColors = {
     UI: { color: C.typeUI || '#4F46E5', bg: C.typeUIBg || '#EEF2FF' },
@@ -139,7 +141,12 @@ export default function TestCaseTypeGroup({ type, testCases, onEdit, onDelete, p
                 </p>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button style={{
+                  <button
+                    onClick={() => openAiGenModal({
+                      testType: type,
+                      additionalContext: `Generate ${type} test cases for this requirement using only source-scanned ${type === 'API' ? 'backend endpoints and request fields' : 'frontend selectors when applicable'}.`
+                    })}
+                    style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px', border: 'none',
                     background: `linear-gradient(135deg, ${C.primaryHov || C.primary} 0%, ${C.primary} 100%)`,
@@ -148,7 +155,9 @@ export default function TestCaseTypeGroup({ type, testCases, onEdit, onDelete, p
                   }}>
                     Generate {type} Cases
                   </button>
-                  <button style={{
+                  <button
+                    onClick={openCreateForm}
+                    style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
                     padding: '8px 16px', borderRadius: '8px', border: `1px solid ${C.border}`,
                     background: C.surface, color: C.textPri, fontSize: '13px', fontWeight: 500, cursor: 'pointer'

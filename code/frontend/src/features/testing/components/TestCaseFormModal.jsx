@@ -3,6 +3,7 @@ import TestStepEditor from './TestStepEditor'
 import useProjectStore from '../../../store/useProjectStore'
 import { requirementApi } from '../../requirement/services/requirementApi'
 import toast from 'react-hot-toast'
+import { getUiStepValidationError, normalizeUiSteps, uiStepToDescription } from '../utils/uiStepUtils'
 
 /**
  * TestCaseFormModal — Modal tạo hoặc sửa Test Case
@@ -53,8 +54,10 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           baseUrl: cfg.baseUrl || '',
           apiMethod: cfg.apiMethod || 'GET',
           apiUrl: cfg.apiUrl || '',
-          steps: Array.isArray(testCase.type === 'UI' ? cfg.steps : testCase.steps) 
-            ? [...(testCase.type === 'UI' ? cfg.steps : testCase.steps)] 
+          steps: testCase.type === 'UI'
+            ? normalizeUiSteps(cfg.steps, testCase.steps)
+            : Array.isArray(testCase.steps)
+            ? [...testCase.steps]
             : (testCase.type === 'UI' ? [{ action: 'goto', path: '', selector: '', value: '', expected: '', description: '' }] : [{ description: '' }])
         })
       } else {
@@ -82,6 +85,14 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
       toast.error('Base URL is required for UI tests.')
       return
     }
+    const uiSteps = formData.type === 'UI' ? normalizeUiSteps(formData.steps) : []
+    if (formData.type === 'UI') {
+      const stepError = uiSteps.map(getUiStepValidationError).find(Boolean)
+      if (stepError) {
+        toast.error(stepError)
+        return
+      }
+    }
 
     if (formData.type === 'API' && (!formData.apiUrl || !formData.apiUrl.trim())) {
       toast.error('API URL is required')
@@ -100,7 +111,7 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
       payload.configuration = {
         type: 'UI',
         baseUrl: formData.baseUrl,
-        steps: formData.steps.map((s, i) => ({
+        steps: uiSteps.map((s, i) => ({
           order: i + 1,
           action: s.action || 'goto',
           path: s.action === 'goto' ? s.path : undefined,
@@ -110,6 +121,10 @@ export default function TestCaseFormModal({ isOpen, testCase, onClose, onSubmit,
           description: s.description || undefined
         }))
       }
+      payload.steps = uiSteps.map((s, i) => ({
+        stepNumber: i + 1,
+        description: uiStepToDescription(s, i)
+      }))
     } else if (formData.type !== 'API') {
       payload.steps = formData.steps.map((s, i) => ({
         stepNumber: i + 1,

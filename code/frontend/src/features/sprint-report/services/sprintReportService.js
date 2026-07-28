@@ -17,6 +17,18 @@ export const sprintReportService = {
   getSprintHealth: (projectId, sprintId) =>
     axiosInstance.get(`/v1/projects/${projectId}/sla/sprint-health`, { params: { sprintId } }).then(unwrap),
 
+  getMemberAiEvaluation: (projectId, sprintId, assigneeName) =>
+    axiosInstance
+      .get(`/v1/projects/${projectId}/sla/sprints/${sprintId}/members/${encodeURIComponent(assigneeName)}/ai-evaluation`)
+      .then(unwrap),
+
+  pingRiskMember: (projectId, sprintId, assigneeName, aiComment) =>
+    axiosInstance
+      .post(`/v1/projects/${projectId}/sla/sprints/${sprintId}/ping-risk-member`, null, {
+        params: { assigneeName, aiComment },
+      })
+      .then(unwrap),
+
   saveSprintReport: (projectId, sprintId, reportData) =>
     axiosInstance.post(`/v1/projects/${projectId}/weekly-reports/generate`, null, {
       params: sprintId ? { sprintId } : undefined,

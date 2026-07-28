@@ -28,6 +28,18 @@ class ExtractSelectorsRequest(BaseModel):
     token: Optional[str] = None
     branch: str = "main"
 
+class ListFormFilesRequest(BaseModel):
+    repoUrl: str
+    token: Optional[str] = None
+    branch: str = "main"
+    testType: Optional[str] = None  # "UI" or "API"
+
+class ExtractFormMapFilteredRequest(BaseModel):
+    repoUrl: str
+    token: Optional[str] = None
+    branch: str = "main"
+    filePaths: list = []  # List of file paths to extract (from AI selection)
+
 @app.post("/parse")
 async def parse_repository(request: ParseRequest):
     reporter = ProgressReporter(request.projectId)
@@ -178,6 +190,96 @@ async def extract_form_map(request: ExtractSelectorsRequest):
         )
 
         form_map = FormMapService.scan(clone_dir)
+        stats = FormMapService.compute_stats(form_map)
+
+        return {
+            "formMap": form_map,
+            **stats
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if clone_dir:
+            CloneService.cleanup(clone_dir)
+
+
+@app.post("/list-form-files")
+async def list_form_files(request: ListFormFilesRequest):
+    """
+    Clone a GitHub repository and return ONLY file paths that contain
+    interactive form elements — without extracting element content.
+
+    Used as Layer 1 of AI-assisted file selection:
+    - testType=UI  → returns frontend file paths (JSP, JSX, TSX, HTML...)
+    - testType=API → returns backend file paths (Java controllers...)
+    - testType=None → returns both
+
+    The backend then passes these paths to AI (with requirement context)
+    to select the most relevant files before doing full extraction.
+    """
+    clone_dir = None
+    try:
+        reporter = DummyReporter()
+        clone_dir = CloneService.clone(
+            repo_url=request.repoUrl,
+            token=request.token,
+            branch=request.branch,
+            project_id=0,
+            reporter=reporter
+        )
+
+        test_type = (request.testType or "").upper()
+
+        frontend_files = []
+        backend_files = []
+
+        if test_type != "API":
+            # Scan frontend files — return paths only
+            form_map = FormMapService.scan(clone_dir)
+            frontend_files = list(form_map.keys())
+
+        if test_type != "UI":
+            # Scan backend Java files — return controller paths only
+            from services.java_api_knowledge_extractor import JavaApiKnowledgeExtractor
+            backend_files = JavaApiKnowledgeExtractor.list_controller_files(clone_dir)
+
+        return {
+            "frontendFiles": frontend_files,
+            "backendFiles": backend_files,
+            "totalFrontend": len(frontend_files),
+            "totalBackend": len(backend_files),
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if clone_dir:
+            CloneService.cleanup(clone_dir)
+
+
+@app.post("/extract-form-map-filtered")
+async def extract_form_map_filtered(request: ExtractFormMapFilteredRequest):
+    """
+    Clone a GitHub repository and extract form map ONLY for specified file paths.
+    Used as Layer 2 after AI has selected relevant files from /list-form-files.
+    """
+    clone_dir = None
+    try:
+        reporter = DummyReporter()
+        clone_dir = CloneService.clone(
+            repo_url=request.repoUrl,
+            token=request.token,
+            branch=request.branch,
+            project_id=0,
+            reporter=reporter
+        )
+
+        form_map = FormMapService.scan_files(clone_dir, request.filePaths)
         stats = FormMapService.compute_stats(form_map)
 
         return {

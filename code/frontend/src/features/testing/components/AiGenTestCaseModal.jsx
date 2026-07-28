@@ -15,7 +15,7 @@ const C = {
   textMuted:   '#9CA3AF',
 }
 
-export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultRequirementId }) {
+export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultRequirementId, defaults }) {
   const { projectId } = useParams()
 
   const [testType, setTestType] = useState('AI Decides')
@@ -25,7 +25,7 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [enrichWithSelectors, setEnrichWithSelectors] = useState(false)
+  const [enrichWithSelectors, setEnrichWithSelectors] = useState(true)
 
   const getPresetText = (p) => {
     switch(p) {
@@ -39,19 +39,20 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
 
   useEffect(() => {
     if (isOpen && projectId) {
-      setTestType('AI Decides')
-      setRequirementId(defaultRequirementId || '')
-      setAdditionalContext('')
+      const defaultType = defaults?.testType || 'AI Decides'
+      setTestType(defaultType)
+      setRequirementId(defaults?.requirementId || defaultRequirementId || '')
+      setAdditionalContext(defaults?.additionalContext || '')
       setError(null)
       setIsSubmitting(false)
-      setShowAdvanced(false)
-      setEnrichWithSelectors(false)
+      setShowAdvanced(Boolean(defaults?.testType))
+      setEnrichWithSelectors(defaultType === 'UI' || Boolean(defaults?.enrichWithSelectors))
       // Fetch requirements
       requirementService.getRequirements(projectId)
         .then(res => setRequirements(res))
         .catch(err => console.error("Failed to fetch requirements", err))
     }
-  }, [isOpen, projectId, defaultRequirementId])
+  }, [isOpen, projectId, defaultRequirementId, defaults])
 
   if (!isOpen) return null
 
@@ -63,18 +64,18 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
     
     setIsSubmitting(true)
 
-    // When testType is API: always enrich with API Knowledge (auto-pull source code)
-    // When testType is UI: use the enrichWithSelectors toggle
+    // API and Smart mode ask backend for API knowledge; Smart also asks for UI selectors.
     const isApiType = testType === 'API'
+    const isSmartType = testType === 'AI Decides'
 
     const payload = {
       testType: testType === 'AI Decides' ? null : testType,
-      smartMode: testType === 'AI Decides',
+      smartMode: isSmartType,
       requirementId: parseInt(requirementId),
       additionalContext,
       discardExisting: false,
-      enrichWithSelectors: !isApiType && enrichWithSelectors,
-      enrichWithApiKnowledge: isApiType,
+      enrichWithSelectors: isSmartType || (!isApiType && enrichWithSelectors),
+      enrichWithApiKnowledge: isApiType || isSmartType,
     }
     onSubmit(payload)
   }
@@ -207,7 +208,11 @@ export default function AiGenTestCaseModal({ isOpen, onClose, onSubmit, defaultR
                     {['UI', 'API', 'MANUAL', 'AI Decides'].map(type => (
                       <button
                         key={type}
-                        onClick={() => setTestType(type)}
+                        onClick={() => {
+                          setTestType(type)
+                          if (type === 'UI') setEnrichWithSelectors(true)
+                          if (type === 'API') setEnrichWithSelectors(false)
+                        }}
                         style={{
                           flex: 1, padding: '10px 0', borderRadius: 10,
                           border: `1.5px solid ${testType === type ? C.primary : C.border}`,

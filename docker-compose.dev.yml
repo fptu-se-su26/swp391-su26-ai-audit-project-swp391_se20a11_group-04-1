@@ -8,6 +8,7 @@ volumes:
   redis-data:
   mongodb-data:
   playwright-temp:
+  ml-service-saved-models:
   ollama-data:
 
 services:
@@ -25,7 +26,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - devtrack-net
 
@@ -98,7 +99,27 @@ services:
   # Worker đã chuyển sang K8s. Xem playwright-worker-local.yaml
   # playwright-worker đã bị xóa khỏi docker-compose
 
-  # ─── 6. ARCHITECTURE PARSER ──────────────────────────────
+  # ─── 6. ML SERVICE ───────────────────────────────────────
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: devtrack-ml-service-dev
+    restart: unless-stopped
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      ENABLE_RECOVERY_RAG: "true"
+      # The ML service runs in Docker while Ollama runs on the Windows host.
+      # `localhost` inside this container cannot reach the host's Ollama server.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    volumes:
+      - ml-service-saved-models:/app/saved_models
+    ports:
+      - "8001:8001"
+    networks:
+      - devtrack-net
+
+  # ─── 7. ARCHITECTURE PARSER ──────────────────────────────
   architecture-parser:
     build:
       context: ./code/architecture-parser
@@ -117,24 +138,6 @@ services:
       - devtrack-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  # 7. ML SERVICE - disabled by default.
-  # Start manually with: docker compose --profile ml up -d ml-service
-  ml-service:
-    profiles:
-      - ml
-    build:
-      context: ./ml-service
-      dockerfile: Dockerfile
-    container_name: devtrack-ml-service-dev
-    restart: unless-stopped
-    environment:
-      PORT: 8000
-      MODEL_PATH: ${ML_MODEL_PATH:-}
-    ports:
-      - "${ML_SERVICE_PORT:-8000}:8000"
-    networks:
-      - devtrack-net
 
   # 8. OLLAMA - disabled by default.
   # Start manually with: docker compose --profile ollama up -d ollama

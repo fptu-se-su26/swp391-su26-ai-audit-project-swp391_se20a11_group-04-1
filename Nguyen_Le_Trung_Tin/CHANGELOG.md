@@ -454,9 +454,10 @@ Frontend build: pass
 - `ml-service/app/rag/faiss_store.py`: FAISS IndexFlatL2, serialize_index bytes + joblib bundle (fix Unicode path Windows).
 - `ml-service/app/rag/build_index.py`: build index tu 500 recovery plans.
 - Endpoint `/recovery/similar` tim top-k plan tuong tu bang FAISS.
+- Endpoint `/recovery/generate-plan` la flow AI Recovery Plan chinh: Spring Boot `MlServiceClient` goi FastAPI ML Service, FastAPI inject RAG context roi goi Ollama/Gemini.
 - Endpoint `/feedback/signal` nhan RLHF signal tu Spring Boot.
 - Endpoint `/train/trigger`, `/train/status` quan ly rebuild FAISS async.
-- `generateWithRagContext()` trong `GeminiRecoveryService`: inject top-3 plan tuong tu vao Gemini prompt.
+- `GeminiRecoveryService.generateWithRagContext()` chi la legacy/deprecated direct-Gemini path, khong con la flow chinh cua Recovery Plan.
 - Hook RLHF signal vao `RecoveryPlanService` tai approve/reject/gate_result.
 - Auto-rebuild FAISS khi buffer >= 50 STRONG_POSITIVE signals co improvement >= 15.
 
