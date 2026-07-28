@@ -216,7 +216,11 @@ const stepBuffer = new Map();  // runId -> latest step_started message (for late
 
 wss.on('connection', (ws, req) => {
     try {
-        const url = new URL(req.url, `http://${req.headers.host}`);
+        // Normalize req.url: remove double leading slash that browsers send
+        // when wsBase ends without trailing slash and path starts with /?
+        // e.g. ws://host:4001 + /?runId=x → req.url = //?runId=x → fix to /?runId=x
+        const normalizedUrl = req.url.replace(/^\/\//, '/');
+        const url = new URL(normalizedUrl, `http://localhost`);
         const runId = url.searchParams.get('runId');
         const role = url.searchParams.get('role'); // 'client' or 'provider'
 
