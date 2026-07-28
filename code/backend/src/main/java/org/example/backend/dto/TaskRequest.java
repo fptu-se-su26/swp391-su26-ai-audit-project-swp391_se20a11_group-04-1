@@ -8,8 +8,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Getter
 @Setter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TaskRequest {
     private Long requirementId;
     private Long useCaseId;

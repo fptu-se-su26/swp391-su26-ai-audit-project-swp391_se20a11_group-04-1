@@ -100,6 +100,14 @@ const RequirementsPage = () => {
     fetchRequirements(currentPage);
   }, [currentPage, filters, activeProjectId, viewMode]);
 
+  useEffect(() => {
+    const handleRevert = () => {
+      fetchRequirements(currentPage, false);
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [currentPage, activeProjectId]);
+
   const silentFetchRequirements = () => {
     fetchRequirements(currentPage, false);
   };

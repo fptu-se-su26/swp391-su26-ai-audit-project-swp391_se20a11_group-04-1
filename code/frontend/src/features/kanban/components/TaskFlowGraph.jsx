@@ -52,8 +52,8 @@ const CustomTaskNode = ({ data }) => {
       <Handle type="target" position={Position.Top} className={`!w-2 !h-2 !${dotColor} !border-white !border-2 !-mt-1`} />
       
       <div className="flex items-center justify-start w-full gap-2 px-1">
-         <span className="text-[10px] font-bold text-slate-500 bg-white/60 px-1.5 py-0.5 rounded border border-slate-200/50 shrink-0">
-           {task.temp_id.replace('#', '')}
+         <span className="w-5 h-5 rounded-full bg-[#1E707D] text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm">
+           {task.temp_id.replace(/[^0-9.]/g, '')}
          </span>
          <span className={`text-[11px] font-bold text-slate-700 leading-snug line-clamp-3 text-left w-full ${textStyle}`} title={task.title}>
            {task.title}
@@ -129,8 +129,8 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   components.forEach(compNodes => {
       const dg = new dagre.graphlib.Graph();
       dg.setDefaultEdgeLabel(() => ({}));
-      // Make lines shorter and more compact! ranksep: 40, nodesep: 30
-      dg.setGraph({ rankdir: direction, ranksep: 40, nodesep: 30 });
+      // Make lines shorter and more compact! ranksep: 20, nodesep: 20
+      dg.setGraph({ rankdir: direction, ranksep: 20, nodesep: 20 });
 
       const compNodeIds = new Set(compNodes.map(n => n.id));
       

@@ -4,5 +4,6 @@ public enum NotificationType {
     INVITATION,
     SYSTEM,
     MENTION,
-    MENTOR_ANNOUNCEMENT
+    MENTOR_ANNOUNCEMENT,
+    ENTITY_UPDATE
 }

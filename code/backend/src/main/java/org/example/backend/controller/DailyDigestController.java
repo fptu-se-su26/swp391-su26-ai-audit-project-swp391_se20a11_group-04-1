@@ -20,16 +20,20 @@ public class DailyDigestController {
     @PostMapping("/api/v1/digests/test-trigger")
     @PreAuthorize("hasAnyRole('SYSTEM_ADMIN', 'LEADER', 'MENTOR')")
     public ResponseEntity<Void> testTriggerDigests() {
-        taskSlaScheduler.buildDailyDigests();
-        taskSlaScheduler.sendDailyDigests();
+        synchronized (this) {
+            taskSlaScheduler.buildDailyDigests();
+            taskSlaScheduler.sendDailyDigests();
+        }
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/api/v1/projects/{projectId}/digests/test-trigger")
     @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     public ResponseEntity<Void> testTriggerProjectDigests(@PathVariable Long projectId) {
-        dailyDigestService.buildDailyDigestsForProject(projectId);
-        dailyDigestService.sendPendingDailyDigestsForProject(projectId);
+        synchronized (this) {
+            dailyDigestService.buildDailyDigestsForProject(projectId);
+            dailyDigestService.sendPendingDailyDigestsForProject(projectId);
+        }
         return ResponseEntity.ok().build();
     }
 }

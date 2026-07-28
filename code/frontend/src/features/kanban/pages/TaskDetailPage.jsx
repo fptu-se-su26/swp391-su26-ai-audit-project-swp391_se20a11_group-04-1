@@ -49,6 +49,14 @@ const TaskDetailPage = () => {
     }
   }, [fetchTaskById, id, task, tasks])
 
+  useEffect(() => {
+    const handleRevert = () => {
+      if (id) fetchTaskById(id);
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [id, fetchTaskById]);
+
   if (!task) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface-bright p-6">

@@ -17,8 +17,8 @@ public interface RequirementService {
             String tag,
             String search,
             Long ownerId);
-    RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO);
-    RequirementResponseDTO updateRequirementStatus(Long id, String status);
+    RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO, Long userId);
+    RequirementResponseDTO updateRequirementStatus(Long id, String status, Long userId);
     RequirementResponseDTO deleteRequirement(Long id);
     void reorderRequirements(Long projectId, org.example.backend.dto.ReorderRequestDTO request);
     List<String> getTagsByProject(Long projectId);

@@ -4,7 +4,10 @@ import lombok.Data;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UseCaseRequest {
     private Long requirementId;
     private Long moduleId;

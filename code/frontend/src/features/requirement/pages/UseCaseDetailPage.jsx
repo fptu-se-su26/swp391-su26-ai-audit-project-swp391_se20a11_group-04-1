@@ -50,6 +50,14 @@ const UseCaseDetailPage = () => {
     fetchUseCase();
   }, [fetchUseCase]);
 
+  useEffect(() => {
+    const handleRevert = () => {
+      fetchUseCase();
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [fetchUseCase]);
+
   // Auto-trigger edit mode if navigated with state.edit = true
   useEffect(() => {
     if (useCase && location.state?.edit && !autoEditTriggered.current) {

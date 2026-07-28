@@ -55,24 +55,32 @@ const topoSort = (groupTasks) => {
   return result;
 };
 
-/** Group tasks by use_case_code then requirement_code */
-const groupAndSortTasks = (tasks, reqMap = {}, ucMap = {}) => {
+/** Group tasks by chosen strategy */
+const groupAndSortTasks = (tasks, reqMap = {}, ucMap = {}, strategy = 'FEATURE') => {
   const groups = {};
   tasks.forEach(t => {
-    const key = t.requirement_code || t.use_case_code || 'Ungrouped';
-    let label = key;
+    let key = 'Ungrouped';
+    let label = 'Ungrouped';
     let title = '';
-    
-    if (key !== 'Ungrouped') {
-      if (t.requirement_code && reqMap[t.requirement_code]) {
-        title = reqMap[t.requirement_code];
-      } else if (t.use_case_code && ucMap[t.use_case_code]) {
-        title = ucMap[t.use_case_code];
+
+    if (strategy === 'LAYER') {
+      key = t.task_type || 'Ungrouped';
+      label = key;
+    } else {
+      key = t.module_name || t.requirement_code || t.use_case_code || 'Ungrouped';
+      label = key;
+      if (t.module_name) {
+        title = t.module_name;
+      } else if (key !== 'Ungrouped') {
+        if (t.requirement_code && reqMap[t.requirement_code]) {
+          title = reqMap[t.requirement_code];
+        } else if (t.use_case_code && ucMap[t.use_case_code]) {
+          title = ucMap[t.use_case_code];
+        }
       }
-    }
-    
-    if (title) {
-        label = title;
+      if (title) {
+          label = title;
+      }
     }
 
     if (!groups[key]) groups[key] = { key, title, label, tasks: [] };
@@ -130,6 +138,32 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [activeDiffRisk, setActiveDiffRisk] = useState(null);
   const [activeDiffTaskIndex, setActiveDiffTaskIndex] = useState(null);
+
+  const taskIdMap = useMemo(() => {
+    const map = {};
+    tasks.forEach(t => {
+      if (t.temp_id && t.display_number) {
+        map[t.temp_id] = t.display_number;
+      }
+    });
+    return map;
+  }, [tasks]);
+
+  const [groupBy, setGroupBy] = useState('FEATURE'); // 'FEATURE' | 'LAYER'
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const groupDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target)) {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    if (isGroupDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isGroupDropdownOpen]);
 
   // Split (per-card)
   const [splitSelectedIndex, setSplitSelectedIndex] = useState(null);
@@ -191,9 +225,14 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
       setReqMap(rMap);
       setUcMap(uMap);
 
+      let currentDisplayNumber = 1;
       const mappedTasks = generatedTasks.map(t => {
         const matched = autoMapSprint(t, fetchedSprints);
-        return { ...t, sprint_id: matched !== '' ? matched : (t.sprint_id || '') };
+        return { 
+          ...t, 
+          sprint_id: matched !== '' ? matched : (t.sprint_id || ''),
+          display_number: String(currentDisplayNumber++) 
+        };
       });
 
       let parsedAssessment = payloadData.ai_critical_assessment || null;
@@ -225,7 +264,13 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
   const duplicationRisks = assessment?.duplication_risks || [];
   const coverageGaps     = assessment?.coverage_gaps     || [];
 
-  const groups = useMemo(() => groupAndSortTasks(tasks, reqMap, ucMap), [tasks, reqMap, ucMap]);
+  const availableLayers = useMemo(() => {
+    return [...new Set(tasks.map(t => t.task_type).filter(Boolean))].sort();
+  }, [tasks]);
+
+  const groups = useMemo(() => {
+    return groupAndSortTasks(tasks, reqMap, ucMap, groupBy);
+  }, [tasks, reqMap, ucMap, groupBy]);
 
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [initializedExpansions, setInitializedExpansions] = useState(false);
@@ -412,11 +457,11 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
       if (subTasks && Array.isArray(subTasks) && subTasks.length > 0) {
         const oldId = fullTask.temp_id;
-        const baseId = oldId || `t${Date.now()}`;
+        const baseId = oldId || `T${idx + 1}`;
         const idMap = {};
         subTasks.forEach((st, i) => {
           const aiId = st.temp_id || `ai_sub_${i}`;
-          idMap[aiId] = `${baseId}_${i+1}`;
+          idMap[aiId] = `${baseId}.${i+1}`;
         });
 
         const enrichedSubTasks = subTasks.map((st, i) => {
@@ -467,6 +512,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     const handleApproveSplit = (finalSubTasks) => {
     const originalTask = tasks[splitSelectedIndex];
     const oldId = originalTask.temp_id;
+    const baseDisplayNumber = originalTask.display_number || String(splitSelectedIndex + 1);
     
     // Find leaf split tasks (tasks that no other split task depends on)
     const splitTaskIds = new Set(finalSubTasks.map(t => t.temp_id).filter(Boolean));
@@ -487,6 +533,10 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
     if (leafIds.length === 0) {
       leafIds = finalSubTasks.map(t => t.temp_id).filter(Boolean);
     }
+    
+    finalSubTasks.forEach((st, i) => {
+      st.display_number = `${baseDisplayNumber}.${i + 1}`;
+    });
 
     let newTasks = [...tasks];
     newTasks.splice(splitSelectedIndex, 1, ...finalSubTasks);
@@ -560,6 +610,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
           requirement_code: baseTask.requirement_code,
           depends_on: mergedDeps.size > 0 ? Array.from(mergedDeps) : [],
           is_merged_result: true,
+          display_number: baseTask.display_number
         };
         const matched = autoMapSprint(enrichedMerge, sprints);
         enrichedMerge.sprint_id = matched !== '' ? matched : '';
@@ -673,8 +724,8 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                     
                     {(coverageGaps.length > 0 || duplicationRisks.length > 0) && <div className="w-px h-4 bg-white/20 mx-1"></div>}
                     
-                    {coverageGaps.length > 0 && <span className="flex items-center gap-1 bg-red-500/20 text-red-100 border border-red-400/30 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider shadow-inner"><span className="material-symbols-outlined text-[14px] text-red-300">warning</span> {coverageGaps.length} Coverage Gaps</span>}
-                    {duplicationRisks.length > 0 && <span className="flex items-center gap-1 bg-orange-500/20 text-orange-100 border border-orange-400/30 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider shadow-inner"><span className="material-symbols-outlined text-[14px] text-orange-300">content_copy</span> {duplicationRisks.length} Duplications</span>}
+                    {coverageGaps.length > 0 && <span className="flex items-center gap-1.5 bg-red-500 text-white px-2.5 py-1 rounded-md text-[11px] font-bold shadow-sm"><span className="material-symbols-outlined text-[14px]">warning</span> {coverageGaps.length} Coverage Gaps</span>}
+                    {duplicationRisks.length > 0 && <span className="flex items-center gap-1.5 bg-orange-500 text-white px-2.5 py-1 rounded-md text-[11px] font-bold shadow-sm"><span className="material-symbols-outlined text-[14px]">content_copy</span> {duplicationRisks.length} Duplications</span>}
                   </div>
                </div>
             </div>
@@ -688,7 +739,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer text-[13px] font-medium text-slate-600 hover:text-slate-900">
                 <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer"
-                  style={{accentColor:'#1e707d'}}
+                  style={{accentColor:'#1D7A85', color:'#1D7A85'}}
                   checked={tasks.length > 0 && selectedIndices.size === tasks.length}
                   ref={el => { if (el) el.indeterminate = tasks.length > 0 && selectedIndices.size > 0 && selectedIndices.size < tasks.length; }}
                   onChange={handleSelectAll} />
@@ -698,28 +749,62 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
               <span className="text-[13px] text-slate-500">{selectedIndices.size} / {tasks.length} selected</span>
               <span className="text-slate-200">|</span>
               <button 
-                className="text-[13px] font-medium text-slate-600 hover:text-slate-900 underline decoration-slate-300 underline-offset-2"
+                className="flex items-center gap-1 text-[12px] font-bold text-slate-600 hover:text-[#1D7A85] bg-white hover:bg-teal-50 hover:border-teal-200 border border-slate-200 px-2.5 py-1 rounded-md shadow-sm transition-all active:scale-95"
                 onClick={() => expandedGroups.size > 0 ? setExpandedGroups(new Set()) : setExpandedGroups(new Set(groups.map(g => g.key)))}
               >
+                <span className="material-symbols-outlined text-[16px]">
+                  {expandedGroups.size > 0 ? 'unfold_less' : 'unfold_more'}
+                </span>
                 {expandedGroups.size > 0 ? "Collapse All" : "Expand All"}
               </button>
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Group By Dropdown */}
+              <div 
+                className="relative flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm mr-2 transition-colors cursor-pointer select-none" 
+                ref={groupDropdownRef} 
+                onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
+              >
+                <span className="material-symbols-outlined text-[16px] text-slate-400">format_list_bulleted</span>
+                <span className="text-[12px] font-semibold text-slate-600">Group by:</span>
+                <span className="text-[13px] font-bold text-slate-800 ml-0.5">{groupBy === 'FEATURE' ? 'Module / Feature' : 'Layer / Tech'}</span>
+                <span className="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+                
+                {isGroupDropdownOpen && (
+                  <div className="absolute top-[calc(100%+4px)] left-0 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1.5 z-[100] overflow-hidden">
+                    <div 
+                      className={`px-3 py-2 text-[13px] font-bold cursor-pointer transition-colors flex items-center justify-between ${groupBy === 'FEATURE' ? 'bg-[#1D7A85]/10 text-[#1D7A85]' : 'text-slate-700 hover:bg-slate-50'}`}
+                      onClick={() => setGroupBy('FEATURE')}
+                    >
+                      Module / Feature
+                      {groupBy === 'FEATURE' && <span className="material-symbols-outlined text-[16px]">check</span>}
+                    </div>
+                    <div 
+                      className={`px-3 py-2 text-[13px] font-bold cursor-pointer transition-colors flex items-center justify-between ${groupBy === 'LAYER' ? 'bg-[#1D7A85]/10 text-[#1D7A85]' : 'text-slate-700 hover:bg-slate-50'}`}
+                      onClick={() => setGroupBy('LAYER')}
+                    >
+                      Layer / Tech
+                      {groupBy === 'LAYER' && <span className="material-symbols-outlined text-[16px]">check</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* View Toggle */}
-              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 mr-2">
+              <div className="flex bg-slate-100 p-1 rounded-full border border-slate-200 mr-2 shadow-inner">
                 <button
                   onClick={() => setViewMode('group')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-bold transition-colors ${viewMode === 'group' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold transition-all ${viewMode === 'group' ? 'bg-[#1D7A85] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">view_list</span>
+                  <span className="material-symbols-outlined text-[15px]">view_list</span>
                   Detail View
                 </button>
                 <button
                   onClick={() => setViewMode('flow')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-bold transition-colors ${viewMode === 'flow' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold transition-all ${viewMode === 'flow' ? 'bg-[#1D7A85] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">account_tree</span>
+                  <span className="material-symbols-outlined text-[15px]">account_tree</span>
                   Flow View
                 </button>
               </div>
@@ -747,7 +832,15 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                   onChange={(e) => {
                     const val = e.target.value;
                     setGlobalSprintId(val);
-                    if (val) { setTasks(tasks.map(t => ({ ...t, sprint_id: val }))); toast.success("Sprint overridden for all tasks."); }
+                    setTasks(prev => prev.map(t => ({
+                      ...t,
+                      sprint_id: e.target.value === '' ? null : e.target.value
+                    })));
+                    if (val === '') {
+                      toast.success("Sprint cleared for all tasks.");
+                    } else {
+                      toast.success("Sprint overridden for all tasks.");
+                    }
                   }}
                 >
                   <option value="">Sprint</option>
@@ -777,6 +870,7 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
                       group={group}
                       isLast={index === groups.length - 1}
                       tasks={tasks}
+                      taskIdMap={taskIdMap}
                       selectedIndices={selectedIndices}
                       duplicationRisks={duplicationRisks}
                       coverageGaps={coverageGaps}
@@ -843,18 +937,32 @@ const AiTaskReviewBoard = ({ isOpen, onClose, generationId, projectId, onSuccess
 
       {/* ── AI LOADING OVERLAY ── */}
       {(isSplitting || isMerging) && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white px-10 py-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center relative">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white px-8 py-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm text-center relative border border-slate-100">
             <button onClick={() => abortControllerRef.current?.abort()}
-              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400">
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
-            <span className="material-symbols-outlined text-5xl text-indigo-600 animate-spin mb-4 mt-2">progress_activity</span>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">
-              {isSplitting ? '✂️ AI is splitting…' : '🔀 AI is merging…'}
+            
+            <div className="relative mb-5 mt-2">
+              <div className="absolute inset-0 bg-teal-100 rounded-full animate-ping opacity-75"></div>
+              <div className="relative bg-teal-50 w-16 h-16 rounded-full flex items-center justify-center border border-teal-200 shadow-sm">
+                <span className="material-symbols-outlined text-[32px] text-[#1D7A85] rotate-180">
+                  {isSplitting ? 'call_split' : 'call_merge'}
+                </span>
+              </div>
+            </div>
+            
+            <h3 className="text-[17px] font-extrabold text-slate-800 mb-2 flex items-center gap-1.5">
+              {isSplitting ? 'AI is splitting' : 'AI is merging'}
+              <span className="flex gap-1 ml-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1D7A85] animate-bounce"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1D7A85] animate-bounce" style={{animationDelay: '150ms'}}></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1D7A85] animate-bounce" style={{animationDelay: '300ms'}}></span>
+              </span>
             </h3>
-            <p className="text-sm text-slate-500">
-              {isSplitting ? `Breaking down "${tasks[splitSelectedIndex]?.title}"…` : `Synthesizing ${mergeSelectedSet.size} tasks…`}
+            <p className="text-[13px] text-slate-500 font-medium">
+              {isSplitting ? `Breaking down "${tasks[splitSelectedIndex]?.title}" into manageable sub-tasks...` : `Synthesizing ${mergeSelectedSet.size} tasks into a single comprehensive task...`}
             </p>
           </div>
         </div>
@@ -914,6 +1022,7 @@ const STEP_COLORS = [
 const FeatureFlowGroup = ({ 
   group, tasks, isExpanded, onToggleExpand, selectedIndices, 
   onToggleSelect, onToggleGroup, sprints, members,
+  taskIdMap,
   duplicationRisks, coverageGaps, onSplitCard, isSplitting, onUpdateTask, onOpenDiff,
   getTaskIndex, isLast
 }) => {
@@ -950,7 +1059,8 @@ const FeatureFlowGroup = ({
         <div className="flex items-center gap-4">
           <input 
             type="checkbox" 
-            className="w-4.5 h-4.5 rounded border-slate-300 text-[#1D7A85] focus:ring-[#1D7A85] cursor-pointer"
+            className="w-4.5 h-4.5 rounded border-slate-300 focus:ring-[#1D7A85] cursor-pointer"
+            style={{accentColor:'#1D7A85', color:'#1D7A85'}}
             checked={allSelected} 
             ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
             onChange={handleGroupCheck} 
@@ -1013,13 +1123,15 @@ const FeatureFlowGroup = ({
                     <div className="flex-1 min-w-0">
                       <EditableTaskCard
                         task={task} sprints={sprints} members={members}
+                        taskIdMap={taskIdMap}
                         priorityColor={priorityColor} getTypeConfig={getTypeConfig}
                         isMergingToExisting={task._syncAction === 'MERGE_INTO_EXISTING'}
                         maxAllowedDate={useProjectStore.getState().activeProject?.deadline}
                         onUpdate={(updatedTask) => onUpdateTask(task, updatedTask)}
                         onChangeSprint={(newSprintId) => onUpdateTask(task, { ...task, sprint_id: newSprintId })}
                         checkboxSlot={
-                          <input type="checkbox" className="w-5 h-5 mt-0.5 rounded border-slate-300 text-[#1D7A85] focus:ring-[#1D7A85] cursor-pointer shrink-0"
+                          <input type="checkbox" className="w-5 h-5 mt-0.5 rounded border-slate-300 focus:ring-[#1D7A85] cursor-pointer shrink-0"
+                            style={{accentColor:'#1D7A85', color:'#1D7A85'}}
                             checked={isSelected} onChange={() => onToggleSelect(task)} />
                         }
                         splitButtonSlot={

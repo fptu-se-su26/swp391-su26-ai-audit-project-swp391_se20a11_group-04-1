@@ -23,6 +23,8 @@ public interface EmailService {
                                        java.util.Map<String, String> unlockTokensMap, 
                                        java.util.Map<String, String> blockTokensMap);
                                        
+    void sendAuditDigestEmail(String toEmail, String leaderName, String projectName, java.util.List<org.example.backend.entity.AuditLog> recentLogs);
+                                       
     /**
      * Gửi một email cơ bản
      */

@@ -23,6 +23,15 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findTop5ByProjectIdOrderByCreatedAtDesc(Long projectId);
 
+    List<AuditLog> findTop10ByProjectIdOrderByCreatedAtDesc(Long projectId);
+
+    @Query("SELECT DISTINCT a.projectId FROM AuditLog a WHERE a.emailSent = false AND a.projectId IS NOT NULL")
+    List<Long> findDistinctProjectIdByEmailSentFalse();
+
+    List<AuditLog> findByProjectIdAndEmailSentFalseOrderByCreatedAtAsc(Long projectId);
+    
+    List<AuditLog> findByProjectIdAndEmailSentFalseOrderByCreatedAtDesc(Long projectId);
+
     @Query("SELECT a FROM AuditLog a WHERE a.projectId = :projectId AND a.action NOT LIKE 'GET %' AND a.action NOT LIKE 'POST %' AND a.action NOT LIKE 'PUT %' AND a.action NOT LIKE 'DELETE %' AND a.action NOT LIKE 'PATCH %' ORDER BY a.createdAt DESC")
     List<AuditLog> findBusinessLogsByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 

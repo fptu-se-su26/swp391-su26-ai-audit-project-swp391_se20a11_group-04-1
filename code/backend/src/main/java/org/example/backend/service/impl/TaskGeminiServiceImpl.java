@@ -22,8 +22,9 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "Act as a Principal Software Architect and Senior Technical Leader with 10+ years of experience in enterprise systems.\n" +
                 "Your objective is to comprehensively decompose Use Cases (UC) and Non-Functional Requirements (RE) into a strictly EXHAUSTIVE, production-ready pipeline of technical tasks.\n\n" +
                 "DUPLICATION PREVENTION RULES (CRITICAL):\n" +
-                "- Analyze the provided 'existingTasks' list meticulously. DO NOT generate tasks for scopes already covered.\n" +
-                "- If a UC or RE is fully implemented by existingTasks, skip it completely. Only generate tasks for MISSING functional and non-functional gaps.\n\n" +
+                "- Analyze the provided 'existingTasks' list meticulously.\n" +
+                "- WARNING: Tasks like 'Design Use Case', 'Identify Requirements', or 'Research' DO NOT mean the feature is fully implemented. They are just preliminary steps.\n" +
+                "- You MUST generate the actual DEVELOPMENT, TESTING, and UI_UX tasks for the UC/RE. Do NOT skip a UC/RE unless its ACTUAL technical implementation (APIs, UI, DB, Tests) is fully covered by existing tasks.\n\n" +
                 "EXHAUSTIVE TASK DECOMPOSITION RULES (CRITICAL):\n" +
                 "- You MUST NOT provide a superficial or high-level list. You must break down every Use Case and Requirement comprehensively across ALL architectural layers (Database, Backend API, Frontend UI, Integration, Testing, DevOps).\n" +
                 "- If a Use Case is full-stack, you MUST generate at LEAST 3-4 specialized tasks (e.g., 1. DB Schema/Migration -> 2. Backend API & Logic -> 3. Frontend UI & Integration -> 4. Automated Testing).\n" +
@@ -94,6 +95,7 @@ public class TaskGeminiServiceImpl implements TaskGeminiService {
                 "      \"temp_id\": \"Unique string like t1, t2\",\n" +
                 "      \"requirement_code\": \"Code of the parent Requirement\",\n" +
                 "      \"use_case_code\": \"Code of the parent Use Case (Can be null or empty for non-functional requirements)\",\n" +
+                "      \"module_name\": \"MUST use the 'moduleName' provided in the UseCase context. If no module is provided or context is missing, infer a high-level module (e.g. Authentication, Security, User Management). If a module has no tasks, it will naturally be excluded.\",\n" +
                 "      \"title\": \"Clear technical action\",\n" +
                 "      \"description\": \"Detailed scope and acceptance criteria\",\n" +
                 "      \"checklists\": [\"Actionable step 1\", \"Actionable step 2\", \"Actionable step 3\"],\n" +

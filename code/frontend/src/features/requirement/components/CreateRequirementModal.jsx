@@ -90,7 +90,7 @@ const CreateRequirementModal = ({ isOpen, onClose, onSuccess, editingData, proje
         ...formData,
         projectId: resolvedProjectId,
         acceptanceCriteria: JSON.stringify(formData.acceptanceCriteria || []),
-        status: targetStatus || 'IN_PROGRESS'
+        status: targetStatus || formData.status || 'IN_PROGRESS'
       };
 
       let result;

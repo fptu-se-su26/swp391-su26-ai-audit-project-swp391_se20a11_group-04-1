@@ -162,6 +162,16 @@ const UseCasePage = () => {
   }, [currentPage, pageSize, searchTerm, statusFilter, reqFilter, activeProject?.id, viewMode, isDraftView, listMode]);
 
   useEffect(() => {
+    const handleRevert = () => {
+      fetchUseCases();
+      fetchAllUseCases();
+      fetchDiagramData();
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, []);
+
+  useEffect(() => {
     setCurrentPage(0);
     setSearchTerm('');
     setStatusFilter('');

@@ -12,6 +12,14 @@ const MyTasksPage = () => {
     fetchMyTasks()
   }, [fetchMyTasks])
 
+  useEffect(() => {
+    const handleRevert = () => {
+      fetchMyTasks();
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [fetchMyTasks]);
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto bg-surface-bright">
       <div className="p-6 md:p-8 w-full space-y-6">

@@ -5,6 +5,7 @@ const EditableTaskCard = ({
   task,
   sprints = [],
   members = [],
+  taskIdMap = {},
   priorityColor,
   getTypeConfig,
   onUpdate,
@@ -142,12 +143,19 @@ const EditableTaskCard = ({
   if (isEditing) {
     return (
       <div className="flex flex-col gap-3">
-        <input 
-          className="w-full border border-slate-300 rounded p-2 text-base font-bold outline-none focus:border-indigo-500"
-          value={editForm.title || ''}
-          onChange={(e) => setEditForm({...editForm, title: e.target.value})}
-          placeholder="Task Title"
-        />
+        <div className="flex items-center gap-2">
+          {task.display_number && (
+            <span className="shrink-0 flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-md bg-[#1D7A85] text-white text-[12px] font-extrabold shadow-sm">
+              {task.display_number}
+            </span>
+          )}
+          <input 
+            className="flex-1 border border-slate-300 rounded p-2 text-base font-bold outline-none focus:border-indigo-500"
+            value={editForm.title || ''}
+            onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+            placeholder="Task Title"
+          />
+        </div>
         <textarea 
           className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-indigo-500"
           rows={3}
@@ -344,16 +352,13 @@ const EditableTaskCard = ({
       <div className="flex justify-between items-start gap-4">
         <div className="flex items-start gap-3">
           {checkboxSlot}
+          {task.display_number && (
+            <span className="mt-0.5 shrink-0 flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded-md bg-[#1D7A85] text-white text-[12px] font-extrabold shadow-sm">
+              {task.display_number}
+            </span>
+          )}
           <h4 className="font-bold text-slate-800 text-[16px] leading-snug">
             {task.title}
-            {task.temp_id && (
-              <span 
-                className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 ml-2 rounded-full bg-[#1D7A85] text-white text-[11px] font-bold shadow-sm align-middle mb-0.5"
-                title={`Task ID: ${task.temp_id}`}
-              >
-                {task.temp_id.replace('#t', '')}
-              </span>
-            )}
           </h4>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -515,7 +520,17 @@ const EditableTaskCard = ({
           </span>
           <div className="flex flex-wrap gap-1.5">
             {task.depends_on.map(dep => {
-              const num = dep.replace('#t', '');
+              // Try to find the display number from the map first, otherwise fallback to parsed
+              let num = taskIdMap?.[dep];
+              if (!num) {
+                const match = dep.match(/_t(\d+)(?:_sub(\d+))?/);
+                if (match) {
+                   num = match[2] ? `${match[1]}.${match[2]}` : match[1];
+                } else {
+                   num = dep.replace(/^#?(?:uc|req)_\d+_t/, '').replace(/^#?t/, '');
+                }
+              }
+              
               return (
                 <span key={dep} className="flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold border border-slate-300 shadow-sm transition-transform hover:scale-110 cursor-default" title={`Must complete Task ${num} first`}>
                   {num}

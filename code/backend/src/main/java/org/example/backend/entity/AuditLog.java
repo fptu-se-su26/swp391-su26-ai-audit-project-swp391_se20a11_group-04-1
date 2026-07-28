@@ -80,4 +80,8 @@ public class AuditLog {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "email_sent", nullable = false)
+    @Builder.Default
+    private boolean emailSent = false;
 }

@@ -136,10 +136,43 @@ public class AiTaskGenerationService {
         java.util.Optional<AiGenerationStaging> existingCache = stagingRepository.findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(stagingHash, projectId, AiStage.TASK);
 
         List<Task> existingProjectTasks = taskRepository.findByProjectId(projectId);
-        // BUG-7 FIX: Use cache regardless of whether the project already has tasks.
-        // The cache is valid if: same hash (same UC/Req set) + status is a reusable state.
-        // We skip cache only when the project has NO matching confirmed staging for this exact hash.
-        if (existingCache.isPresent() && (existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED || existingCache.get().getStatus() == AiGenerationStatus.PENDING || existingCache.get().getStatus() == AiGenerationStatus.DISCARDED)) {
+        boolean shouldUseCache = false;
+        
+        if (existingCache.isPresent() && existingCache.get().getStatus() == AiGenerationStatus.CONFIRMED) {
+            AiGenerationStaging oldStaging = existingCache.get();
+            if (oldStaging.getPayload() != null && oldStaging.getPayload().has("tasks")) {
+                com.fasterxml.jackson.databind.JsonNode tasksNode = oldStaging.getPayload().get("tasks");
+                if (tasksNode.isArray() && tasksNode.size() > 0) {
+                    if (existingProjectTasks.isEmpty()) {
+                        shouldUseCache = true;
+                    } else {
+                        // Check if all cached tasks are already in existingProjectTasks (by title)
+                        java.util.Set<String> existingTitles = existingProjectTasks.stream()
+                                .map(Task::getTitle)
+                                .map(String::trim)
+                                .map(String::toLowerCase)
+                                .collect(Collectors.toSet());
+                        
+                        boolean allCachedTasksAlreadyExist = true;
+                        for (com.fasterxml.jackson.databind.JsonNode t : tasksNode) {
+                            if (t.has("title")) {
+                                String cachedTitle = t.get("title").asText().trim().toLowerCase();
+                                if (!existingTitles.contains(cachedTitle)) {
+                                    allCachedTasksAlreadyExist = false;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!allCachedTasksAlreadyExist) {
+                            shouldUseCache = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (shouldUseCache) {
             AiGenerationStaging oldStaging = existingCache.get();
             UUID generationId = UUID.randomUUID();
             AiGenerationStaging newStaging = AiGenerationStaging.builder()
@@ -276,6 +309,9 @@ public class AiTaskGenerationService {
             if (uc.getRequirement() != null) {
                 org.hibernate.Hibernate.initialize(uc.getRequirement());
             }
+            if (uc.getBusinessModule() != null) {
+                org.hibernate.Hibernate.initialize(uc.getBusinessModule());
+            }
         }
         
         return useCases;
@@ -347,6 +383,9 @@ public class AiTaskGenerationService {
                 map.put("name", uc.getName());
                 map.put("mainFlow", uc.getMainFlow());
                 map.put("alternativeFlows", uc.getAlternativeFlow());
+                if (uc.getBusinessModule() != null) {
+                    map.put("moduleName", uc.getBusinessModule().getName());
+                }
                 return map;
             }).collect(Collectors.toList());
             

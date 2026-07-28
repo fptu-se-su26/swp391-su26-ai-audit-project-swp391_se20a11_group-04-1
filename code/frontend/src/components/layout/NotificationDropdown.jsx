@@ -3,8 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useNotificationStore from '@store/useNotificationStore'
 import useProjectStore from '@store/useProjectStore'
+import AuditDiffModal from './AuditDiffModal'
+import api from '@/api/axiosConfig'
 
 const notificationMeta = (notification) => {
+  if (notification.type === 'ENTITY_UPDATE') {
+    return { icon: 'difference', className: 'bg-[#1E707D]/10 text-[#1E707D]' }
+  }
   if (notification.type === 'INVITATION') {
     return { icon: 'mail', className: 'bg-[#1E707D]/10 text-[#1E707D]' }
   }
@@ -75,6 +80,7 @@ export function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const [isProjectFilterOpen, setIsProjectFilterOpen] = useState(false)
   const [selectedFilterProjectId, setSelectedFilterProjectId] = useState('all')
+  const [selectedAuditId, setSelectedAuditId] = useState(null)
   const dropdownRef = useRef(null)
   const filterDropdownRef = useRef(null)
 
@@ -121,6 +127,13 @@ export function NotificationDropdown() {
     if (!notification.isRead) {
       await markAsRead(notification.id)
     }
+
+    if (notification.type === 'ENTITY_UPDATE') {
+      setSelectedAuditId(notification.relatedId)
+      setIsOpen(false)
+      return
+    }
+
     const path = notificationPath(notification, activeProject?.id)
     if (path) {
       setIsOpen(false)
@@ -354,6 +367,22 @@ export function NotificationDropdown() {
                       )
                     )}
 
+                    {n.type === 'ENTITY_UPDATE' && (
+                      <div className="pt-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedAuditId(n.relatedId)
+                            setIsOpen(false)
+                          }}
+                          className="px-3 py-1.5 bg-[#1E707D]/10 text-[#1E707D] text-[11px] font-bold rounded-lg hover:bg-[#1E707D] hover:text-white transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">visibility</span>
+                          View Details
+                        </button>
+                      </div>
+                    )}
+
                     <p className="text-[10px] text-outline font-medium">
                       {new Date(n.createdAt).toLocaleDateString('vi-VN', {
                         hour: '2-digit',
@@ -366,6 +395,13 @@ export function NotificationDropdown() {
             )}
           </div>
         </div>
+      )}
+
+      {selectedAuditId && (
+        <AuditDiffModal 
+          auditId={selectedAuditId} 
+          onClose={() => setSelectedAuditId(null)} 
+        />
       )}
     </div>
   )

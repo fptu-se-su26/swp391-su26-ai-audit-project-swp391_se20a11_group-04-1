@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '@store/useAuthStore'
 import { getInitials } from '@utils/avatarHelper'
 import toast from 'react-hot-toast'
 import { NotificationDropdown } from './NotificationDropdown'
+import axiosClient from '@/api/axiosConfig'
 
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
@@ -12,6 +13,13 @@ const FloatingTopBar = () => {
   const logout   = useAuthStore((s) => s.logout)
   const initials = getInitials(fullName)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Lấy projectId từ URL (vd: /projects/5/... → 5)
+  const getProjectIdFromUrl = () => {
+    const match = location.pathname.match(/\/projects?\/([0-9]+)/)
+    return match ? match[1] : null
+  }
 
   const [menuOpen, setMenuOpen]   = useState(false)
   const [avatarHov, setAvatarHov] = useState(false)

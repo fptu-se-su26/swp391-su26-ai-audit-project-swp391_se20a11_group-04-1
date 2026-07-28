@@ -44,6 +44,24 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
+    public void sendAuditDigestEmail(String toEmail, String leaderName, String projectName, java.util.List<org.example.backend.entity.AuditLog> recentLogs) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject("📊 Báo cáo Hoạt động Dự án - " + projectName);
+            helper.setText(getAuditDigestHtmlContent(leaderName, projectName, recentLogs), true);
+
+            mailSender.send(message);
+            log.info("Successfully sent Audit Digest HTML email to: {} for project {}", toEmail, projectName);
+        } catch (Exception e) {
+            log.error("Failed to send Audit Digest email to: {}", toEmail, e);
+        }
+    }
+
+    @Override
+    @Async
     public void sendForgotPasswordOtpEmail(String toEmail, String otp) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -369,5 +387,210 @@ public class EmailServiceImpl implements EmailService {
             log.error("Failed to send basic email to: {}", toEmail, e);
             throw new BadRequestException("Failed to send email");
         }
+    }
+    private String extractEntityName(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(json);
+            // Try direct fields first (title, name for UC/Requirement)
+            for (String key : new String[]{"title", "name", "taskName", "requirementName", "ucName", "summary"}) {
+                if (node.has(key) && !node.get(key).isNull()) {
+                    String val = node.get(key).asText("").trim();
+                    if (!val.isEmpty() && !val.equals("null")) return val;
+                }
+            }
+        } catch (Exception ignored) {}
+        // Regex fallback for complex serialized entities
+        if (json.contains("\"title\":")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"title\":\\s*\"([^\"]+)\"")
+                    .matcher(json);
+            if (m.find()) return m.group(1);
+        }
+        if (json.contains("\"name\":")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"name\":\\s*\"([^\"]+)\"")
+                    .matcher(json);
+            if (m.find()) { String v = m.group(1); if (!v.isBlank()) return v; }
+        }
+        return null;
+    }
+
+    private String buildDetailUrl(String entityType, Long entityId, Long projectId) {
+        if (entityId == null || projectId == null) return null;
+        String appFe = appBaseUrl.replace(":8080", ":5173"); // FE dev port, production sẽ cùng domain
+        // Nếu appBaseUrl là production domain thì FE cùng domain → chỉ thay path
+        String base = appBaseUrl.contains("localhost") ? "http://localhost:5173" : appBaseUrl;
+        switch (entityType.toUpperCase()) {
+            case "TASK":        return base + "/projects/" + projectId + "/tasks/"        + entityId;
+            case "REQUIREMENT": return base + "/projects/" + projectId + "/requirements/" + entityId;
+            case "USE_CASE":    return base + "/projects/" + projectId + "/use-cases/"    + entityId;
+            default: return null;
+        }
+    }
+
+    private String getAuditDigestHtmlContent(String leaderName, String projectName, java.util.List<org.example.backend.entity.AuditLog> logs) {
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm · dd/MM/yyyy");
+
+        // Filter only TASK / REQUIREMENT / USE_CASE and exclude generic UPDATE logs from AuditAspect (which lack a proper JSON oldValue)
+        java.util.List<org.example.backend.entity.AuditLog> filtered = logs.stream()
+                .filter(l -> l.getEntityType() != null &&
+                        (l.getEntityType().equalsIgnoreCase("TASK") ||
+                         l.getEntityType().equalsIgnoreCase("REQUIREMENT") ||
+                         l.getEntityType().equalsIgnoreCase("USE_CASE")))
+                .filter(l -> {
+                    if (l.getAction() != null && l.getAction().startsWith("REVERT_")) {
+                        return false;
+                    }
+                    if (l.getAction() != null && l.getAction().startsWith("UPDATE_")) {
+                        return l.getOldValue() != null && l.getOldValue().trim().startsWith("{");
+                    }
+                    return false; // Exclude CREATE, DELETE, GET, and any other actions
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        if (filtered.isEmpty()) {
+            return "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:32px;color:#475569;'>" +
+                   "<p>No Task / Requirement / Use Case changes recorded today.</p>" +
+                   "</body></html>";
+        }
+
+        StringBuilder rows = new StringBuilder();
+        int idx = 1;
+        for (org.example.backend.entity.AuditLog log : filtered) {
+            String time   = log.getCreatedAt() != null ? log.getCreatedAt().format(fmt) : "—";
+            String actor  = log.getUsername()  != null ? log.getUsername() : "System";
+            String action = log.getAction()    != null ? log.getAction()   : "—";
+            String type   = log.getEntityType();
+
+            // Entity name: try newValue first, then oldValue
+            String entityName = extractEntityName(log.getNewValue());
+            if (entityName == null) entityName = extractEntityName(log.getOldValue());
+            if (entityName == null || entityName.isBlank()) {
+                entityName = "<em style='color:#94A3B8;font-weight:400;'>Untitled " + type.replace("_", " ") + "</em>";
+            }
+
+            // Type badge
+            String typeBadge, typeBg, typeLabel;
+            switch (type.toUpperCase()) {
+                case "TASK":        typeBadge = "#6D28D9"; typeBg = "#EDE9FE"; typeLabel = "Task"; break;
+                case "REQUIREMENT": typeBadge = "#0369A1"; typeBg = "#E0F2FE"; typeLabel = "Requirement"; break;
+                case "USE_CASE":    typeBadge = "#0F766E"; typeBg = "#CCFBF1"; typeLabel = "Use Case"; break;
+                default:            typeBadge = "#6B7280"; typeBg = "#F3F4F6"; typeLabel = type;
+            }
+
+            // Action badge
+            String actionColor, actionBg;
+            String au = action.toUpperCase();
+            if (au.contains("DELETE") || au.contains("REMOVE")) {
+                actionColor = "#B91C1C"; actionBg = "#FEF2F2";
+            } else if (au.contains("CREATE") || au.contains("ADD")) {
+                actionColor = "#047857"; actionBg = "#ECFDF5";
+            } else if (au.contains("UPDATE") || au.contains("EDIT") || au.contains("REVERT")) {
+                actionColor = "#1D4ED8"; actionBg = "#EFF6FF";
+            } else {
+                actionColor = "#6B7280"; actionBg = "#F9FAFB";
+            }
+
+            // View detail link (Always show)
+            String detailUrl = buildDetailUrl(type, log.getEntityId(), log.getProjectId());
+            String linkHtml = (detailUrl != null)
+                ? "<a href='" + detailUrl + "' style='display:inline-block;margin-top:6px;font-size:11px;font-weight:600;" +
+                  "color:#FFFFFF;background:#1E707D;text-decoration:none;border-radius:5px;padding:4px 14px;" +
+                  "letter-spacing:0.3px;'>View Detail &rarr;</a>"
+                : "";
+
+            // Status badge
+            String statusBadgeHtml;
+            if ("REVERTED".equalsIgnoreCase(log.getStatus()) || au.contains("REVERT")) {
+                statusBadgeHtml = "<span style='font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:#FEF2F2;color:#B91C1C;'>Reverted</span>";
+            } else {
+                statusBadgeHtml = "<span style='font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:#F0FDF4;color:#15803D;'>Done</span>";
+            }
+
+            String rowBg = (idx % 2 == 0) ? "#F8FAFC" : "#FFFFFF";
+            rows.append("<tr style='background:" + rowBg + ";'>")
+                .append("<td style='padding:14px 12px;font-size:12px;color:#64748B;white-space:nowrap;vertical-align:top;border-bottom:1px solid #F1F5F9;'>") 
+                .append(time).append("</td>")
+                .append("<td style='padding:14px 12px;font-size:13px;font-weight:600;color:#1E293B;white-space:nowrap;vertical-align:top;border-bottom:1px solid #F1F5F9;'>")
+                .append(actor).append("</td>")
+                .append("<td style='padding:14px 12px;vertical-align:top;border-bottom:1px solid #F1F5F9;width:100%;'>")
+                .append("<div style='margin-bottom:6px;'>")
+                .append("<span style='font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;background:" + typeBg + ";color:" + typeBadge + ";'>" + typeLabel + "</span>")
+                .append("</div>")
+                .append("<p style='margin:0 0 0 0;font-size:14px;font-weight:700;color:#0F172A;line-height:1.4;'>" + entityName + "</p>")
+                .append("</td>")
+                .append("<td style='padding:14px 12px;vertical-align:top;white-space:nowrap;border-bottom:1px solid #F1F5F9;'>")
+                .append(statusBadgeHtml)
+                .append("</td>")
+                .append("<td style='padding:14px 12px;vertical-align:top;white-space:nowrap;border-bottom:1px solid #F1F5F9;text-align:right;'>")
+                .append(linkHtml)
+                .append("</td>")
+                .append("</tr>");
+            idx++;
+        }
+
+        String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MMMM dd, yyyy", java.util.Locale.ENGLISH));
+
+        return "<!DOCTYPE html>" +
+            "<html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>" +
+            "<title>Project Activity Report - DevTrack AI</title></head>" +
+            "<body style='margin:0;padding:0;background:#EEF2F7;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='background:#EEF2F7;padding:36px 24px;'>" +
+            "<tr><td align='center'>" +
+
+            // Outer container — 700px wide
+            "<table width='700' cellpadding='0' cellspacing='0' style='max-width:700px;width:100%;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.09);'>" +
+
+            // HEADER
+            "<tr><td style='background:linear-gradient(135deg,#1A6472 0%,#257D8A 50%,#1A8A7A 100%);padding:28px 36px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td><p style='margin:0;font-size:10px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,0.6);text-transform:uppercase;'>DevTrack AI</p>" +
+            "<h1 style='margin:5px 0 0;font-size:22px;font-weight:700;color:#FFFFFF;letter-spacing:-0.3px;'>Project Activity Report</h1></td>" +
+            "<td align='right' valign='middle'>" +
+            "<div style='background:rgba(255,255,255,0.13);border-radius:8px;padding:8px 16px;display:inline-block;text-align:center;'>" +
+            "<p style='margin:0;font-size:11px;color:rgba(255,255,255,0.7);'>Date</p>" +
+            "<p style='margin:2px 0 0;font-size:13px;font-weight:600;color:#FFFFFF;'>" + today + "</p>" +
+            "</div></td></tr></table></td></tr>" +
+
+            // GREETING
+            "<tr><td style='padding:28px 36px 16px;border-bottom:1px solid #F1F5F9;'>" +
+            "<p style='margin:0 0 6px;font-size:16px;font-weight:700;color:#0F172A;'>Hi, <span style='color:#1A6472;'>" + leaderName + "</span> 👋</p>" +
+            "<p style='margin:0;font-size:13px;color:#64748B;line-height:1.65;'>Here is a summary of all changes to <strong>Tasks</strong>, <strong>Requirements</strong>, and <strong>Use Cases</strong> " +
+            "in project <strong style='color:#0F172A;'>" + projectName + "</strong> recorded today.</p>" +
+            "</td></tr>" +
+
+            // TABLE
+            "<tr><td style='padding:20px 36px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;border-collapse:collapse;'>" +
+            "<thead><tr style='background:#F8FAFC;'>" +
+            "<th style='padding:11px 12px;text-align:left;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;white-space:nowrap;'>Time</th>" +
+            "<th style='padding:11px 12px;text-align:left;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;white-space:nowrap;'>Modified By</th>" +
+            "<th style='padding:11px 12px;text-align:left;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;width:100%;'>Change Detail</th>" +
+            "<th style='padding:11px 12px;text-align:left;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;white-space:nowrap;'>Status</th>" +
+            "<th style='padding:11px 12px;text-align:right;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;white-space:nowrap;'>Action</th>" +
+            "</tr></thead>" +
+            "<tbody>" + rows + "</tbody></table>" +
+            "</td></tr>" +
+
+            // TIP
+            "<tr><td style='padding:0 36px 24px;'>" +
+            "<div style='background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 18px;'>" +
+            "<p style='margin:0;font-size:12px;color:#15803D;line-height:1.5;'>💡 <strong>Tip:</strong> Click <strong>\"View Detail &rarr;\"</strong> to log in and navigate directly to the specific item on the system.</p>" +
+            "</div></td></tr>" +
+
+            // SIGN-OFF
+            "<tr><td style='padding:4px 36px 28px;'>" +
+            "<p style='margin:0;font-size:13px;color:#64748B;'>Best regards,</p>" +
+            "<p style='margin:4px 0 0;font-size:13px;font-weight:700;color:#1A6472;'>DevTrack AI Team</p>" +
+            "</td></tr>" +
+
+            // FOOTER
+            "<tr><td style='background:#F8FAFC;padding:14px 36px;border-top:1px solid #E2E8F0;text-align:center;'>" +
+            "<p style='margin:0;font-size:11px;color:#94A3B8;'>This report is auto-generated daily at 8:00 PM &middot; Please do not reply to this email</p>" +
+            "<p style='margin:4px 0 0;font-size:11px;color:#CBD5E1;'>&copy; 2026 DevTrack AI Team &middot; All rights reserved</p>" +
+            "</td></tr>" +
+
+            "</table></td></tr></table></body></html>";
     }
 }
