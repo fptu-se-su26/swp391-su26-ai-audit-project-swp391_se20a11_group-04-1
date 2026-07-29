@@ -19,5 +19,7 @@ spec:
       bootstrapServers: kafka:9092
       consumerGroup: playwright-service-group
       topic: test-run-jobs
+      # lagThreshold=1: mỗi 1 job pending → scale thêm 1 pod (vì MAX_CONCURRENT_RUNS=1 per pod).
+      # Ví dụ: 3 jobs đồng thời → lag=2 (1 đang chạy, 2 chờ) → scale lên 3 pods.
       lagThreshold: "1"
       offsetResetPolicy: latest

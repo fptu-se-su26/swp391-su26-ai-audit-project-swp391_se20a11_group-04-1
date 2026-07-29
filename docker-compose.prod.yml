@@ -108,6 +108,8 @@ services:
     environment:
       PORT: 4001
       MAX_CONCURRENT_RUNS: ${MAX_CONCURRENT_RUNS:-3}
+    ports:
+      - "4001:4001"
     networks:
       - devtrack-net
 

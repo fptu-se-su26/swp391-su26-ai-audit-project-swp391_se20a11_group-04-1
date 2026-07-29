@@ -31,6 +31,12 @@ spec:
           value: "ws://playwright-service:4001"
         - name: BACKEND_URL
           value: "http://backend:8080"
+        # MAX_CONCURRENT_RUNS=1: mỗi pod chỉ chạy 1 Chromium tại 1 thời điểm.
+        # Khi có 2 jobs đồng thời → KEDA thấy lag=1 → scale lên pod thứ 2.
+        # Mỗi pod xử lý 1 job độc lập → WebSocket stream hoạt động đúng cho cả 2.
+        # Tăng lên 2-3 chỉ khi VPS có đủ RAM (>4GB free per pod).
+        - name: MAX_CONCURRENT_RUNS
+          value: "1"
         resources:
           requests:
             memory: "512Mi"
