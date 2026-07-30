@@ -44,11 +44,11 @@ jobs:
             # 2. Đảm bảo infra containers up TRƯỚC khi build/start backend
             echo ">> Ensuring Infra Containers (postgres, redis, mongodb, kafka) are UP..."
             cd "${REPO_DIR}"
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d postgres redis mongodb kafka
+            docker compose -f docker-compose.dev.yml up -d postgres redis mongodb kafka
             # Chờ postgres thực sự accept connections (tối đa 30 giây)
             echo "   Waiting for PostgreSQL to be ready..."
             for i in $(seq 1 30); do
-              if docker compose -f docker-compose.dev.yml -f docker-compose.override.yml exec -T postgres pg_isready -U "${POSTGRES_USER:-devtrack}" > /dev/null 2>&1; then
+              if docker compose -f docker-compose.dev.yml exec -T postgres pg_isready -U "${POSTGRES_USER:-devtrack}" > /dev/null 2>&1; then
                 echo "   PostgreSQL ready after ${i}s"
                 break
               fi
@@ -137,13 +137,13 @@ jobs:
             # 5. Rebuild playwright-server với code mới (templateEngine.js)
             echo ">> Rebuilding playwright-server..."
             cd "${REPO_DIR}"
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build playwright-server
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate playwright-server
+            docker compose -f docker-compose.dev.yml build playwright-server
+            docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate playwright-server
 
             # 6. Rebuild architecture-parser với code mới (selector_scan_service.py)
             echo ">> Rebuilding architecture-parser..."
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml build architecture-parser
-            docker compose -f docker-compose.dev.yml -f docker-compose.override.yml up -d --no-deps --force-recreate architecture-parser
+            docker compose -f docker-compose.dev.yml build architecture-parser
+            docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate architecture-parser
 
             echo "=========================================="
             echo "        TRIỂN KHAI HOÀN TẤT THÀNH CÔNG!   "
