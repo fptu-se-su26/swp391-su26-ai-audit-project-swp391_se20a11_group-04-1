@@ -95,6 +95,14 @@ const KanbanBoardPage = () => {
   }, [activeProject?.id, fetchProjectTasks, fetchTaskFormOptions])
 
   useEffect(() => {
+    const handleRevert = () => {
+      fetchProjectTasks(activeProject?.id);
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [activeProject?.id, fetchProjectTasks]);
+
+  useEffect(() => {
     const taskId = initialOpenTaskIdRef.current
     if (taskId) {
       openTask(taskId)

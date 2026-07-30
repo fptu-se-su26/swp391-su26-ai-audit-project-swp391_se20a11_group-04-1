@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getStraightPath, getSmoothStepPath, useReactFlow } from '@xyflow/react';
 
 export default function CustomEdge({
   id,
@@ -16,19 +16,65 @@ export default function CustomEdge({
   data
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [dragPos, setDragPos] = React.useState(null);
+  const { screenToFlowPosition } = useReactFlow();
+
+  const handlePointerDown = (e) => {
+      e.stopPropagation();
+      const target = e.target;
+      target.setPointerCapture(e.pointerId);
+      
+      const handlePointerMove = (eMove) => {
+          const flowPos = screenToFlowPosition({ x: eMove.clientX, y: eMove.clientY });
+          setDragPos(flowPos);
+      };
+      
+      const handlePointerUp = (eUp) => {
+          target.releasePointerCapture(eUp.pointerId);
+          window.removeEventListener('pointermove', handlePointerMove);
+          window.removeEventListener('pointerup', handlePointerUp);
+          
+          const finalPos = screenToFlowPosition({ x: eUp.clientX, y: eUp.clientY });
+          setDragPos(null);
+          if (data?.onEdgeAction) {
+              data.onEdgeAction(id, 'updateControlPoint', finalPos);
+          }
+      };
+      
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+  };
+
   let edgePath = '', labelX = 0, labelY = 0;
   try {
-    const bezierRes = getBezierPath({
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-    });
-    edgePath = bezierRes[0];
-    labelX = bezierRes[1];
-    labelY = bezierRes[2];
+    const cp = dragPos || data?.controlPoint;
+    if (cp) {
+        edgePath = `M ${sourceX} ${sourceY} L ${cp.x} ${cp.y} L ${targetX} ${targetY}`;
+        labelX = cp.x;
+        labelY = cp.y;
+    } else {
+        const pathParams = {
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+        };
+        if (data?.relType === 'actor-generalization') {
+            // "dây nối tôi chỉ dc vẽ hình vuông vậy thôi" -> Simple L-Shape (1 corner)
+            // Source is bottom, Target is left/right side.
+            // Go straight down to targetY, then horizontal to targetX.
+            edgePath = `M ${sourceX} ${sourceY} L ${sourceX} ${targetY} L ${targetX} ${targetY}`;
+            labelX = sourceX + (targetX - sourceX) / 2;
+            labelY = targetY;
+        } else {
+            const pathRes = getBezierPath(pathParams);
+            edgePath = pathRes[0];
+            labelX = pathRes[1];
+            labelY = pathRes[2];
+        }
+    }
   } catch (err) {
     console.error('CustomEdge path calculation failed:', err);
     return null;
@@ -65,6 +111,18 @@ export default function CustomEdge({
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'auto',
+              cursor: 'grab',
+            }}
+            className={`nodrag nopan z-40 ${dragPos ? 'cursor-grabbing' : ''}`}
+            onPointerDown={handlePointerDown}
+          >
+             <div className="w-2.5 h-2.5 bg-[#1E707D] rounded-sm shadow-md ring-2 ring-white hover:scale-125 transition-transform"></div>
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(10px, -110%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
             }}
             className="nodrag nopan z-50 animate-fade-in"

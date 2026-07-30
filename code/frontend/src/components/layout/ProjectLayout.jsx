@@ -12,6 +12,16 @@ const ProjectLayout = () => {
   const clearActiveProject = useProjectStore((state) => state.clearActiveProject);
   const error = useProjectStore((state) => state.error);
   const isForbidden = useProjectStore((state) => state.isForbidden);
+  
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  useEffect(() => {
+    const handleRevert = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, []);
 
   // ── Inject project theme color as CSS variable ────────────────
   // This allows inline `style={{ color: 'var(--project-theme)' }}` across the app
@@ -121,7 +131,7 @@ const ProjectLayout = () => {
   }
 
   return (
-    <Outlet />
+    <Outlet key={refreshKey} />
   );
 };
 

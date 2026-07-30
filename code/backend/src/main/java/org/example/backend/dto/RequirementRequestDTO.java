@@ -9,7 +9,10 @@ import org.example.backend.entity.RequirementStatus;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RequirementRequestDTO {
 
     @NotNull(message = "Project ID is required")

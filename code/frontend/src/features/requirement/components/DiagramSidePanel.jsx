@@ -3,7 +3,7 @@ import ActorTab from './ActorTab';
 import UseCaseTab from './UseCaseTab';
 import RelationTab from './RelationTab';
 
-const DiagramSidePanel = ({ projectId, systemName, setSystemName }) => {
+const DiagramSidePanel = ({ projectId, systemName, setSystemName, onUnsavedChanges }) => {
   const [activeTab, setActiveTab] = useState('actors');
 
   return (
@@ -45,9 +45,9 @@ const DiagramSidePanel = ({ projectId, systemName, setSystemName }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {activeTab === 'actors' && <ActorTab />}
-        {activeTab === 'usecases' && <UseCaseTab />}
-        {activeTab === 'relations' && <RelationTab />}
+        {activeTab === 'actors' && <ActorTab onUnsavedChanges={onUnsavedChanges} />}
+        {activeTab === 'usecases' && <UseCaseTab onUnsavedChanges={onUnsavedChanges} />}
+        {activeTab === 'relations' && <RelationTab onUnsavedChanges={onUnsavedChanges} />}
       </div>
     </div>
   );

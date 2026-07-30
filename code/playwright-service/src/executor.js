@@ -5,8 +5,11 @@ const { promisify } = require('util');
 
 const execAsync = promisify(exec);
 
-async function executeScript(script, baseRunId, baseUrl) {
+async function executeScript(script, baseRunId, baseUrl, wsRunId) {
     const uniqueRunId = `${baseRunId}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // wsRunId: the runId frontend is subscribed to (for live WS streaming)
+    // Falls back to uniqueRunId if not provided (e.g. direct /run API calls)
+    const liveRunId = wsRunId || uniqueRunId;
     const tempDir = path.join(process.cwd(), 'temp', uniqueRunId);
     const scriptPath = path.join(tempDir, 'test.spec.js');
     const screenshotDir = path.join(tempDir, 'screenshots');
@@ -41,7 +44,7 @@ async function executeScript(script, baseRunId, baseUrl) {
                 timeout: 180000,
                 encoding: 'utf8',
                 maxBuffer: 50 * 1024 * 1024, // 50MB — Playwright JSON with screenshots can be large
-                env: { ...process.env, BASE_URL: baseUrl, LIVE_STATUS_FILE: liveStatusFile },
+                env: { ...process.env, BASE_URL: baseUrl, LIVE_STATUS_FILE: liveStatusFile, PLAYWRIGHT_RUN_ID: liveRunId },
             }
         );
         result = parseOutput(stdout, screenshotDir);

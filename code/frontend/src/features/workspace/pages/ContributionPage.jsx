@@ -8,13 +8,16 @@ import { getInitials } from '@utils/avatarHelper'
  * Cho phép xem danh sách thành viên, mời thành viên bằng email và phong cấp Mentor.
  */
 export function ContributionPage() {
-  const { activeProject, inviteProjectMember, changeProjectMemberRole, removeProjectMember, loading, error } = useProjectStore()
+  const { activeProject, inviteProjectMember, changeProjectMemberRole, removeProjectMember, changeProjectLeader, loading, error } = useProjectStore()
   
   // Trạng thái Form & Modal
   const [inviteEmail, setInviteEmail] = useState('')
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
+  
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null)
 
   // Kiểm tra xem dự án có đang active hay không
   if (!activeProject) {
@@ -76,6 +79,23 @@ export function ContributionPage() {
       setSelectedMember(null)
     } else {
       toast.error(useProjectStore.getState().error || 'Xóa thành viên thất bại!')
+    }
+  }
+
+  const handleTransferClick = (member) => {
+    setTransferTarget(member)
+    setIsTransferModalOpen(true)
+  }
+
+  const handleConfirmTransfer = async () => {
+    if (!transferTarget) return
+    const success = await changeProjectLeader(transferTarget.id)
+    if (success) {
+      toast.success(`Đã chuyển quyền Leader cho ${transferTarget.name}`)
+      setIsTransferModalOpen(false)
+      setTransferTarget(null)
+    } else {
+      toast.error(useProjectStore.getState().error || 'Chuyển quyền thất bại!')
     }
   }
 
@@ -194,14 +214,24 @@ export function ContributionPage() {
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {member.role?.toUpperCase() !== 'PROJECT_LEADER' && member.role?.toUpperCase() !== 'LEADER' && member.role?.toUpperCase() !== 'MENTOR' ? (
-                            <button
-                              onClick={() => handleRemoveClick(member)}
-                              className="inline-flex items-center gap-1 bg-error/15 text-error text-xs font-bold px-3.5 py-1.5 rounded-lg border border-error/25 hover:bg-error/25 hover:scale-105 transition-all shadow-sm"
-                              title="Xóa thành viên khỏi dự án"
-                            >
-                              <span className="material-symbols-outlined text-[16px] font-bold">person_remove</span>
-                              Xóa thành viên
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleTransferClick(member)}
+                                className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-600 text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-500/25 hover:bg-amber-500/25 hover:scale-105 transition-all shadow-sm"
+                                title="Chuyển quyền Leader"
+                              >
+                                <span className="material-symbols-outlined text-[14px] font-bold">swap_horiz</span>
+                                Chuyển Leader
+                              </button>
+                              <button
+                                onClick={() => handleRemoveClick(member)}
+                                className="inline-flex items-center gap-1 bg-error/15 text-error text-[11px] font-bold px-2 py-1 rounded-lg border border-error/25 hover:bg-error/25 hover:scale-105 transition-all shadow-sm"
+                                title="Xóa thành viên khỏi dự án"
+                              >
+                                <span className="material-symbols-outlined text-[14px] font-bold">person_remove</span>
+                                Xóa
+                              </button>
+                            </>
                           ) : (
                             <span className="text-xs text-outline font-medium italic select-none">Không có thao tác</span>
                           )}
@@ -275,56 +305,72 @@ export function ContributionPage() {
         </div>
       )}
 
-
-
-      {/* 3. MODAL: XÁC NHẬN XÓA THÀNH VIÊN */}
+      {/* 2. MODAL: REMOVE MEMBER */}
       {isRemoveModalOpen && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 relative animate-scale-up">
-            <button
-              onClick={() => {
-                setIsRemoveModalOpen(false)
-                setSelectedMember(null)
-              }}
-              className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-
-            <div className="flex gap-4 items-start">
-              <div className="w-12 h-12 bg-error/10 text-error rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                <span className="material-symbols-outlined text-2xl font-bold">person_remove</span>
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="font-extrabold text-lg text-on-surface text-error">Xác nhận xóa thành viên</h3>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Bạn có chắc chắn muốn xóa thành viên <strong>{selectedMember.name}</strong> khỏi dự án?
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl max-w-[320px] w-full p-5 shadow-2xl relative animate-scale-up text-center">
+            <div className="w-12 h-12 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="material-symbols-outlined text-2xl font-bold">person_remove</span>
             </div>
+            
+            <h3 className="font-extrabold text-base text-on-surface mb-1">Remove Member</h3>
+            
+            <p className="text-[13px] text-on-surface-variant mb-5 leading-relaxed">
+              Are you sure you want to remove <span className="font-bold text-on-surface">{selectedMember.name}</span> from this project?
+            </p>
 
-            <div className="p-3.5 rounded-xl bg-error/5 border border-error/10 text-xs text-error/90 leading-relaxed font-medium">
-              <strong>Cảnh báo:</strong> Thành viên này sẽ ngay lập tức mất quyền truy cập vào Workspace của dự án, mọi đóng góp, tasks đang thực hiện sẽ tạm dừng.
-            </div>
-
-            <div className="flex gap-3 justify-end pt-2 border-t border-outline-variant/50">
+            <div className="flex gap-2 w-full">
               <button
-                type="button"
-                onClick={() => {
-                  setIsRemoveModalOpen(false)
-                  setSelectedMember(null)
-                }}
-                className="px-4.5 py-2.5 rounded-xl border border-outline-variant/60 hover:bg-surface-container text-xs font-bold transition-colors text-on-surface-variant"
+                onClick={() => setIsRemoveModalOpen(false)}
+                className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold py-2 rounded-lg transition-colors border border-outline-variant text-[13px]"
+                disabled={loading}
               >
-                Hủy bỏ
+                Cancel
               </button>
               <button
                 onClick={handleConfirmRemove}
                 disabled={loading}
-                className="flex items-center gap-2 bg-error text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-error/90 disabled:opacity-50 transition-colors shadow-md"
+                className="flex-1 bg-error hover:bg-error/90 text-white font-bold py-2 rounded-lg transition-all shadow text-[13px] flex items-center justify-center gap-1 disabled:opacity-50"
               >
-                {loading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
-                Đồng ý xóa
+                {loading ? <span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. MODAL: TRANSFER LEADER */}
+      {isTransferModalOpen && transferTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl max-w-[320px] w-full p-5 shadow-2xl relative animate-scale-up text-center">
+            <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="material-symbols-outlined text-2xl font-bold">swap_horiz</span>
+            </div>
+            
+            <h3 className="font-extrabold text-base text-on-surface mb-1">Transfer Leadership</h3>
+            
+            <p className="text-[13px] text-on-surface-variant mb-4 leading-relaxed">
+              Transfer project ownership to <span className="font-bold text-on-surface">{transferTarget.name}</span>?
+            </p>
+
+            <div className="text-[11px] text-error font-bold bg-error/5 p-2 rounded-lg border border-error/20 mb-5">
+              Warning: You will become a Member and lose all management permissions.
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setIsTransferModalOpen(false)}
+                className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold py-2 rounded-lg transition-colors border border-outline-variant text-[13px]"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmTransfer}
+                disabled={loading}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition-all shadow text-[13px] flex items-center justify-center gap-1 disabled:opacity-50"
+              >
+                {loading ? <span className="material-symbols-outlined animate-spin text-[16px]">refresh</span> : 'Transfer'}
               </button>
             </div>
           </div>

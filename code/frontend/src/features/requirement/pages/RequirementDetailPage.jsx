@@ -100,6 +100,14 @@ const RequirementDetailPage = () => {
     }
   }, [id, fetchRequirement]);
 
+  useEffect(() => {
+    const handleRevert = () => {
+      if (id) fetchRequirement();
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, [id, fetchRequirement]);
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen text-secondary">Đang tải dữ liệu...</div>;
   }

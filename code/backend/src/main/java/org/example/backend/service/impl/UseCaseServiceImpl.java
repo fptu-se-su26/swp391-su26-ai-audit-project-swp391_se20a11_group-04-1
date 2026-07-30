@@ -58,6 +58,9 @@ public class UseCaseServiceImpl implements UseCaseService {
     private org.example.backend.repository.BusinessModuleRepository businessModuleRepository;
     
     @Autowired
+    private org.example.backend.service.AuditDiffService auditDiffService;
+    
+    @Autowired
     private org.example.backend.service.NotificationService notificationService;
 
     @Override
@@ -115,6 +118,7 @@ public class UseCaseServiceImpl implements UseCaseService {
             }
         }
         
+        UseCaseResponse oldDto = mapEntityToResponse(useCase);
         useCase.setStatus(request.getStatus());
         if (request.getRejectReason() != null) {
             useCase.setRejectReason(request.getRejectReason());
@@ -136,7 +140,14 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
         
         UseCase saved = useCaseRepository.save(useCase);
-        return mapEntityToResponse(saved);
+        UseCaseResponse newDto = mapEntityToResponse(saved);
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            org.example.backend.entity.Project proj = projectRepository.findById(saved.getProjectId()).orElse(null);
+            if (proj != null) {
+                auditDiffService.trackAndNotifyChanges(proj, actor, "USE_CASE", saved.getId(), saved.getName(), oldDto, newDto);
+            }
+        });
+        return newDto;
     }
 
     @Override
@@ -148,6 +159,8 @@ public class UseCaseServiceImpl implements UseCaseService {
         if (!useCase.getProjectId().equals(projectId)) {
             throw new BadRequestException("Use case does not belong to the specified project");
         }
+        
+        UseCaseResponse oldDto = mapEntityToResponse(useCase);
         
         checkUseCasePermission(useCase, projectId, userId);
         
@@ -162,7 +175,16 @@ public class UseCaseServiceImpl implements UseCaseService {
         }
 
         UseCase saved = useCaseRepository.save(useCase);
-        return mapEntityToResponse(saved);
+        
+        UseCaseResponse newDto = mapEntityToResponse(saved);
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            org.example.backend.entity.Project proj = projectRepository.findById(saved.getProjectId()).orElse(null);
+            if (proj != null) {
+                auditDiffService.trackAndNotifyChanges(proj, actor, "USE_CASE", saved.getId(), saved.getName(), oldDto, newDto);
+            }
+        });
+        
+        return newDto;
     }
 
     @Override
@@ -434,11 +456,8 @@ public class UseCaseServiceImpl implements UseCaseService {
                 if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
                     throw new BadRequestException("Start date cannot be in the past.");
                 }
-            } else if (!request.getStartDate().equals(useCase.getStartDate())) {
-                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
-                    throw new BadRequestException("Start date cannot be changed to a date in the past.");
-                }
             }
+            // Removed strict past date validation for updates to allow reverts or retrospective planning
         }
         
         if (request.getModuleId() != null) {

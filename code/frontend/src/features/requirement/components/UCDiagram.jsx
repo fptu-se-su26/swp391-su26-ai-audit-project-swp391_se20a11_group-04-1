@@ -34,6 +34,7 @@ const edgeTypes = {
 
 const calculateDynamicHandles = (edges, nodes) => {
     return edges.map(edge => {
+        if (edge.data?.isCustomHandle) return edge;
         const sourceNode = nodes.find(n => n.id === edge.source);
         const targetNode = nodes.find(n => n.id === edge.target);
         if (!sourceNode || !targetNode) return edge;
@@ -48,22 +49,69 @@ const calculateDynamicHandles = (edges, nodes) => {
         
         let newSourceHandle, newTargetHandle;
         
-        if (isSourceActor || isTargetActor) {
+        if (isSourceActor && isTargetActor) {
+            // Actor to Actor (Generalization)
+            // "nối từ ở dưới đít actor trỏ mũi tên đến bên cạnh actor cha"
+            newSourceHandle = 'bottom';
             if (sx < tx) {
-                newSourceHandle = 'right';
                 newTargetHandle = 'left';
             } else {
-                newSourceHandle = 'left';
                 newTargetHandle = 'right';
             }
-        } else {
-            if (sx + 50 < tx) {
-                newSourceHandle = 'right';
-                newTargetHandle = 'left';
-            } else if (sx > tx + 50) {
-                newSourceHandle = 'left';
-                newTargetHandle = 'right';
+        } else if (isSourceActor && !isTargetActor) {
+            // Actor to UseCase
+            if (Math.abs(sx - tx) > Math.abs(sy - ty)) {
+                // Actor is horizontally left/right
+                if (sx < tx) {
+                    newSourceHandle = 'right';
+                    newTargetHandle = 'left';
+                } else {
+                    newSourceHandle = 'left';
+                    newTargetHandle = 'right';
+                }
             } else {
+                // Actor is vertically above/below (like parent actor)
+                if (sy < ty) {
+                    newSourceHandle = 'bottom';
+                    newTargetHandle = 'top';
+                } else {
+                    // "actor ở dưới như actor cha thì dây nối sẽ nối từ đỉnh đầu actor đến ở giữa ô uc"
+                    newSourceHandle = 'top';
+                    newTargetHandle = 'bottom';
+                }
+            }
+        } else if (!isSourceActor && isTargetActor) {
+            // UseCase to Actor
+            if (Math.abs(sx - tx) > Math.abs(sy - ty)) {
+                if (sx < tx) {
+                    newSourceHandle = 'right';
+                    newTargetHandle = 'left';
+                } else {
+                    newSourceHandle = 'left';
+                    newTargetHandle = 'right';
+                }
+            } else {
+                if (sy < ty) {
+                    newSourceHandle = 'bottom';
+                    newTargetHandle = 'top'; // "từ đỉnh đầu actor"
+                } else {
+                    newSourceHandle = 'top';
+                    newTargetHandle = 'bottom'; // "dưới đít actor"
+                }
+            }
+        } else {
+            // UseCase to UseCase
+            if (Math.abs(sx - tx) > Math.abs(sy - ty) * 1.5) {
+                // Horizontally distant
+                if (sx < tx) {
+                    newSourceHandle = 'right';
+                    newTargetHandle = 'left';
+                } else {
+                    newSourceHandle = 'left';
+                    newTargetHandle = 'right';
+                }
+            } else {
+                // Vertically distant
                 if (sy < ty) {
                     newSourceHandle = 'bottom';
                     newTargetHandle = 'top';
@@ -90,12 +138,57 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
   const reactFlowWrapper = useRef(null);
   
   const { fitView, setCenter, project, getNodes, getEdges } = useReactFlow();
+  const hasManualEditsRef = useRef(false);
   
   useImperativeHandle(ref, () => ({
     exportDrawio: (diagramName) => {
       exportToDrawio(getNodes(), getEdges(), diagramName);
+    },
+    forceSave: async (includeImage = false) => {
+        if (!onSave) return;
+        const layoutDataObj = {
+            positions: {},
+            edges: {},
+            hasManualEdits: hasManualEditsRef.current
+        };
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+        currentNodes.forEach(n => {
+            layoutDataObj.positions[n.id] = {
+                x: n.position.x,
+                y: n.position.y,
+                width: n.width || n.style?.width,
+                height: n.height || n.style?.height
+            };
+        });
+        currentEdges.forEach(e => {
+            layoutDataObj.edges[e.id] = {
+                sourceHandle: e.sourceHandle,
+                targetHandle: e.targetHandle,
+                isCustomHandle: true
+            };
+        });
+
+        let dataUrl = null;
+        if (includeImage) {
+            try {
+                const flowEl = document.querySelector('.react-flow');
+                if (flowEl) {
+                    const { toPng } = await import('html-to-image');
+                    dataUrl = await toPng(flowEl, { 
+                        filter: (node) => !node.classList?.contains('react-flow__minimap') && !node.classList?.contains('react-flow__controls'),
+                        backgroundColor: '#f9fafb',
+                        skipFonts: true
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to generate thumbnail PNG:", e);
+            }
+        }
+
+        await onSave(dataUrl, layoutDataObj);
     }
-  }), [getNodes, getEdges]);
+  }), [getNodes, getEdges, onSave]);
 
   const [history, setHistory] = useState([]);
 
@@ -184,13 +277,12 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
         
         setNodes((nds) => {
             const updatedNodes = applyNodeChanges(changes, nds);
-            const isPositionChange = changes.some(c => c.type === 'position');
-            if (isPositionChange) {
-                setEdges(eds => calculateDynamicHandles(eds, updatedNodes));
+            if (changes.some(c => c.type === 'position' && c.dragging)) {
+                hasManualEditsRef.current = true;
             }
             return updatedNodes;
         });
-        const isSignificant = changes.some(c => c.type !== 'dimensions' && c.type !== 'select');
+        const isSignificant = changes.some(c => (c.type === 'position' && c.dragging) || c.type === 'remove');
         if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
     [onUnsavedChanges, setEdges, saveHistory, updateUseCase, removeActor]
@@ -199,7 +291,7 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
   const onEdgesChange = useCallback(
     (changes) => {
         setEdges((eds) => applyEdgeChanges(changes, eds));
-        const isSignificant = changes.some(c => c.type !== 'select');
+        const isSignificant = changes.some(c => c.type === 'remove' || c.type === 'add');
         if (isSignificant && onUnsavedChanges) onUnsavedChanges();
     },
     [onUnsavedChanges]
@@ -278,8 +370,15 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
                       data: { ...edge.data, relType: newType }, 
                       label: `<<${newType}>>`,
                       style: isDep ? { strokeDasharray: '5,5' } : {},
-                      markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
                   };
+              }
+              return edge;
+          }));
+          if (onUnsavedChanges) onUnsavedChanges();
+      } else if (action === 'updateControlPoint') {
+          setEdges(eds => eds.map(edge => {
+              if (edge.id === edgeId) {
+                  return { ...edge, data: { ...edge.data, controlPoint: payload } };
               }
               return edge;
           }));
@@ -351,12 +450,13 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
       if (!sourceExists || !targetExists) return;
 
       const isDep = rel.type === 'include' || rel.type === 'extends';
+      const isActorGen = rel.type === 'actor-generalization';
       buildEdges.push({
         id: `edge_${rel.id}`, source, target, type: 'custom',
         data: { relType: rel.type, onEdgeAction: handleEdgeAction },
         label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
-        style: isDep ? { strokeDasharray: '5,5' } : {},
-        markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : undefined,
+        style: isDep ? { strokeDasharray: '5,5' } : (isActorGen ? { strokeWidth: 1.5 } : {}),
+        markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : (isActorGen ? 'actor-generalization-marker' : undefined),
       });
     });
     const { nodes: layoutedNodes, edges: layoutedEdges } = ucLayoutEngine(buildNodes, buildEdges, currentSystemName);
@@ -374,11 +474,17 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
       let initialEdges = [];
 
       let savedPositions = null;
+      let savedEdges = {};
+      let hasManualEdits = false;
       if (projectId && !forceReset) {
           const data = await diagramService.getDiagramLayout(projectId, currentModuleId);
           if (data && data.layoutData) {
              const parsed = JSON.parse(data.layoutData);
              savedPositions = parsed.positions || parsed; // Support both new { positions, systemName } format and old backward compatible format
+             savedEdges = parsed.edges || {};
+             hasManualEdits = parsed.hasManualEdits === true;
+             hasManualEditsRef.current = hasManualEdits;
+             
              if (parsed.systemName && onSystemNameLoad) {
                  onSystemNameLoad(parsed.systemName);
              }
@@ -447,18 +553,23 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
 
         const isDependency = rel.type === 'include' || rel.type === 'extends';
 
+        const isActorGen = rel.type === 'actor-generalization';
+
         initialEdges.push({
           id: `edge_${rel.id}`,
           source,
           target,
+          sourceHandle: savedEdges[`edge_${rel.id}`]?.sourceHandle,
+          targetHandle: savedEdges[`edge_${rel.id}`]?.targetHandle,
           type: 'custom',
           data: { 
               relType: rel.type,
-              onEdgeAction: handleEdgeAction
+              onEdgeAction: handleEdgeAction,
+              isCustomHandle: savedEdges[`edge_${rel.id}`]?.isCustomHandle
           },
           label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
-          style: isDependency ? { strokeDasharray: '5,5' } : {},
-          markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
+          style: isDependency ? { strokeDasharray: '5,5' } : (isActorGen ? { strokeWidth: 1.5 } : {}),
+          markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : (isActorGen ? 'actor-generalization-marker' : undefined)
         });
       });
 
@@ -500,28 +611,53 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
             let minY = Infinity;
             let maxY = -Infinity;
 
-            const newNodes = nodes.map((node) => {
-                if (node.id === 'system_boundary') return node;
+            // Sort nodes vertically so we can stagger actors top-to-bottom
+            const sortedNodes = [...nodes].sort((a, b) => {
+                if (a.id === 'system_boundary' || b.id === 'system_boundary') return 0;
+                return dagreGraph.node(a.id).y - dagreGraph.node(b.id).y;
+            });
+
+            let leftActorStagger = 0;
+            let rightActorStagger = 0;
+
+            const newNodesMap = new Map();
+
+            sortedNodes.forEach((node) => {
+                if (node.id === 'system_boundary') {
+                    newNodesMap.set(node.id, node);
+                    return;
+                }
                 
                 const nodeWithPosition = dagreGraph.node(node.id);
-                const x = nodeWithPosition.x - (node.type === 'actor' ? 30 : 90);
+                let x = nodeWithPosition.x - (node.type === 'actor' ? 30 : 90);
                 const y = nodeWithPosition.y - (node.type === 'actor' ? 50 : 30);
                 
+                const side = node.data?.side || (nodeWithPosition.x < (dagreGraph.graph().width / 2) ? 'left' : 'right');
+
+                if (node.type === 'actor') { 
+                    if (side === 'left') {
+                        x -= leftActorStagger * 60; // Push further outside (left)
+                        leftActorStagger = (leftActorStagger + 1) % 4; 
+                    } else if (side === 'right') {
+                        x += rightActorStagger * 60; // Push further outside (right)
+                        rightActorStagger = (rightActorStagger + 1) % 4; 
+                    }
+                }
+
                 minX = Math.min(minX, x);
                 maxX = Math.max(maxX, x + (node.type === 'actor' ? 60 : 180));
                 minY = Math.min(minY, y);
                 maxY = Math.max(maxY, y + (node.type === 'actor' ? 100 : 60));
-                
-                // Ensure actor ends up with a side property if they didn't have one
-                const side = node.data?.side || (dagreGraph.node(node.id).x < (dagreGraph.graph().width / 2) ? 'left' : 'right');
 
-                return {
+                newNodesMap.set(node.id, {
                     ...node,
                     position: { x, y },
                     data: { ...node.data, side },
                     zIndex: 2,
-                };
+                });
             });
+
+            const newNodes = nodes.map(n => newNodesMap.get(n.id));
             
             // Adjust system boundary to fit around Use Cases (not actors if possible, but for simplicity, we wrap all UCs)
             const ucNodes = newNodes.filter(n => n.type === 'useCase');
@@ -561,55 +697,80 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
 
         let layoutedNodes, layoutedEdges;
 
-      if (savedPositions && !forceReset) {
+        const hasNewNodes = savedPositions && initialNodes.some(n => n.id !== 'system_boundary' && !savedPositions[n.id]);
+
+      if (savedPositions && !forceReset && hasManualEdits) {
         // Try restoring positions
-        let hasUnsavedActors = false;
-        
-        const restoredNodes = initialNodes.map(node => {
-             if (node.id === 'system_boundary') return node;
-             
-             if (savedPositions[node.id]) {
-                 const posData = savedPositions[node.id];
-                 const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: 2 };
-                 if (posData.width !== undefined && posData.height !== undefined) {
-                     newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
-                 }
-                 return newNode;
-             }
-             
-             if (node.type === 'actor') hasUnsavedActors = true;
-             return { ...node, position: { x: 0, y: 0 }, zIndex: 2 };
-        });
-        
-        if (hasUnsavedActors) {
-            // Unsaved actors found! Auto layout everything with ucLayoutEngine
-            const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
-            layoutedNodes = layoutResult.nodes.map(n => ({ ...n, zIndex: n.id === 'system_boundary' ? 0 : 2 }));
-            layoutedEdges = layoutResult.edges;
-        } else {
-            // Restore system boundary if missing from initialNodes (which is always true for backend data)
-            let sysBoundary = restoredNodes.find(n => n.id === 'system_boundary');
-            if (!sysBoundary && savedPositions['system_boundary']) {
-                sysBoundary = {
-                    id: 'system_boundary',
-                    type: 'systemBoundary',
-                    position: { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y },
-                    data: { label: systemName },
-                    draggable: false,
-                    selectable: true,
-                    className: '!pointer-events-none',
-                    style: { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height },
-                    zIndex: 0
-                };
-                restoredNodes.push(sysBoundary);
-            } else if (sysBoundary && savedPositions['system_boundary']) {
-                sysBoundary.position = { x: savedPositions['system_boundary'].x, y: savedPositions['system_boundary'].y };
-                sysBoundary.style = { width: savedPositions['system_boundary'].width, height: savedPositions['system_boundary'].height };
-                sysBoundary.data = { ...sysBoundary.data, label: systemName };
+        let maxOldY = 0;
+        const newOnlyNodes = [];
+        const oldRestored = [];
+
+        initialNodes.forEach(node => {
+            if (node.id === 'system_boundary') return;
+            if (savedPositions[node.id]) {
+                const posData = savedPositions[node.id];
+                const newNode = { ...node, position: { x: posData.x, y: posData.y }, zIndex: 2 };
+                if (posData.width !== undefined && posData.height !== undefined) {
+                    newNode.style = { ...newNode.style, width: posData.width, height: posData.height };
+                }
+                oldRestored.push(newNode);
+                maxOldY = Math.max(maxOldY, posData.y + (node.type === 'actor' ? 100 : 60));
+            } else {
+                newOnlyNodes.push(node);
             }
-            layoutedNodes = restoredNodes;
-            layoutedEdges = initialEdges;
+        });
+
+        let restoredNodes = [...oldRestored];
+
+        if (newOnlyNodes.length > 0) {
+            // Run full layout to get ideal relative positions for ALL nodes
+            const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
+            
+            // Place new nodes at their ideal positions
+            layoutResult.nodes.forEach(dagreNode => {
+                if (dagreNode.id !== 'system_boundary' && !savedPositions[dagreNode.id]) {
+                    restoredNodes.push({
+                        ...dagreNode,
+                        position: { x: dagreNode.position.x, y: dagreNode.position.y },
+                        zIndex: 2
+                    });
+                }
+            });
         }
+        
+        let sysMinX = Infinity, sysMaxX = -Infinity, sysMinY = Infinity, sysMaxY = -Infinity;
+        const ucNodes = restoredNodes.filter(n => n.type === 'useCase');
+        if (ucNodes.length > 0) {
+            ucNodes.forEach(uc => {
+                sysMinX = Math.min(sysMinX, uc.position.x);
+                sysMaxX = Math.max(sysMaxX, uc.position.x + 180);
+                sysMinY = Math.min(sysMinY, uc.position.y);
+                sysMaxY = Math.max(sysMaxY, uc.position.y + 60);
+            });
+        } else {
+            sysMinX = 200; sysMaxX = 600; sysMinY = 0; sysMaxY = 400;
+        }
+
+        const paddingX = 40;
+        const paddingY = 60;
+        const sysBoundary = {
+            id: 'system_boundary',
+            type: 'systemBoundary',
+            position: { x: sysMinX - paddingX, y: sysMinY - paddingY },
+            data: { label: systemName },
+            draggable: true,
+            selectable: true,
+            className: '!pointer-events-none',
+            style: { 
+                width: sysMaxX - sysMinX + (paddingX * 2), 
+                height: sysMaxY - sysMinY + (paddingY * 2) 
+            },
+            zIndex: 0
+        };
+        restoredNodes.push(sysBoundary);
+
+        layoutedNodes = restoredNodes;
+        layoutedEdges = initialEdges;
       } else {
         // Force reset or no saved positions — use ucLayoutEngine for proper 2-side actor split + system boundary
         const layoutResult = ucLayoutEngine(initialNodes, initialEdges, systemName);
@@ -796,6 +957,7 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
                   const target = isTargetActor ? (targetStr.startsWith('actor_') ? targetStr : `actor_${targetStr}`) : `uc_${targetStr}`;
           
                   const isDependency = rel.type === 'include' || rel.type === 'extends';
+                  const isActorGen = rel.type === 'actor-generalization';
                   newEdges.push({
                       id: edgeId,
                       source,
@@ -806,8 +968,8 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
                           onEdgeAction: handleEdgeAction
                       },
                       label: rel.type === 'include' ? '<<include>>' : rel.type === 'extends' ? '<<extends>>' : '',
-                      style: isDependency ? { strokeDasharray: '5,5' } : {},
-                      markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : undefined
+                      style: isDependency ? { strokeDasharray: '5,5' } : (isActorGen ? { strokeWidth: 1.5 } : {}),
+                      markerEnd: isDependency ? { type: 'arrowclosed', width: 14, height: 14 } : (isActorGen ? 'actor-generalization-marker' : undefined)
                   });
                   updated = true;
               }
@@ -841,32 +1003,36 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
         if (autoSaveTimeout.current) clearTimeout(autoSaveTimeout.current);
         
         autoSaveTimeout.current = setTimeout(async () => {
-            if (isSavingRef.current) return;
-            isSavingRef.current = true;
             try {
-                const positions = {};
+                const layoutDataObj = {
+                    positions: {},
+                    edges: {},
+                    hasManualEdits: hasManualEditsRef.current
+                };
                 nodes.forEach(n => { 
-                    positions[n.id] = {
+                    layoutDataObj.positions[n.id] = {
                         x: n.position.x,
                         y: n.position.y,
                         width: n.width || n.style?.width,
                         height: n.height || n.style?.height
                     }; 
                 });
+                edges.forEach(e => {
+                    layoutDataObj.edges[e.id] = {
+                        sourceHandle: e.sourceHandle,
+                        targetHandle: e.targetHandle,
+                        isCustomHandle: true
+                    };
+                });
                 
                 let dataUrl = null;
-                if (reactFlowWrapper.current) {
-                    try {
-                        dataUrl = await toPng(reactFlowWrapper.current, { backgroundColor: '#ffffff', pixelRatio: 2 });
-                    } catch(err) {
-                        console.error("Failed to generate PNG", err);
-                    }
-                }
-                await onSave(dataUrl, positions);
-            } finally {
-                isSavingRef.current = false;
+                // Temporarily disabled toPng during auto-save to prevent UI freezing and saving failures.
+                // It takes too much CPU to generate a PNG on every mouse drag.
+                await onSave(dataUrl, layoutDataObj);
+            } catch (outerErr) {
+                console.error("Auto-save outer error:", outerErr);
             }
-        }, 2500); // 2.5s debounce
+        }, 1000); // 1s debounce
         
         return () => clearTimeout(autoSaveTimeout.current);
     }, [nodes, edges, isInitialized, onSave]);
@@ -943,110 +1109,85 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
 
   const onConnect = useCallback((connection) => {
       const { source, target, sourceHandle, targetHandle } = connection;
+      const { drawingMode, addRelation } = useDiagramStore.getState();
+
+      if (source === target) {
+          toast.error("Không được phép tự nối với chính mình!");
+          return;
+      }
+
+      const existingEdge = edges.find(e => 
+          (e.source === source && e.target === target) || 
+          (e.source === target && e.target === source)
+      );
+      if (existingEdge) {
+          toast.error("Đã tồn tại liên kết giữa 2 phần tử này");
+          return;
+      }
+
       const isSourceActor = source.startsWith('actor_');
       const isTargetActor = target.startsWith('actor_');
       const isSourceUc = source.startsWith('uc_');
       const isTargetUc = target.startsWith('uc_');
 
-      if (isSourceActor && isTargetActor) {
-          toast.error("Không thể nối Actor với Actor");
-          return;
+      let relType = drawingMode;
+      if (drawingMode === 'auto') {
+          if (isSourceActor && isTargetActor) relType = 'actor-generalization';
+          else if (isSourceUc && isTargetUc) relType = 'include';
+          else relType = 'actor-uc';
       }
-      
 
-      if (isSourceUc && isTargetUc) {
+      if (drawingMode === 'auto' && isSourceUc && isTargetUc) {
           const sourceNode = nodes.find(n => n.id === source);
           const targetNode = nodes.find(n => n.id === target);
           if (sourceNode?.data?.isIsolated && targetNode?.data?.isIsolated) {
               toast.error("Tuyệt đối không được nối Include/Extend giữa hai Use Case cô đơn!");
               return;
           }
-
-          // Kiểm tra xem đã có đường nối giữa 2 UC này chưa (chặn trùng lặp)
-          const existingEdge = edges.find(e => 
-              (e.source === source && e.target === target) || 
-              (e.source === target && e.target === source)
-          );
-          if (existingEdge) {
-              toast.error("Đã tồn tại liên kết giữa 2 Use Case này");
-              return;
-          }
-
-          saveHistory();
-          const relId = Date.now().toString();
-          const newRel = {
-              id: relId,
-              type: 'include',
-              sourceId: source.replace('uc_', ''),
-              targetId: target.replace('uc_', '')
-          };
-          addRelation(newRel);
-          
-          const newEdge = {
-              id: `edge_${relId}`,
-              source,
-              target,
-              sourceHandle,
-              targetHandle,
-              type: 'custom',
-              data: {
-                  relType: 'include',
-                  onEdgeAction: handleEdgeAction
-              },
-              label: '<<include>>',
-              markerEnd: { type: 'arrowclosed', width: 14, height: 14 },
-              zIndex: 1,
-          };
-          setEdges(eds => addEdge(newEdge, eds));
-          if (onUnsavedChanges) onUnsavedChanges();
-      } else if ((isSourceActor && isTargetUc) || (isSourceUc && isTargetActor)) {
-          const existingEdge = edges.find(e => 
-              (e.source === source && e.target === target) || 
-              (e.source === target && e.target === source)
-          );
-          if (existingEdge) {
-              toast.error("Đã tồn tại liên kết giữa Actor và Use Case này");
-              return;
-          }
-          saveHistory();
-          const relId = Date.now().toString();
-          const newRel = {
-              id: relId,
-              type: 'actor-uc',
-              sourceId: isSourceActor ? source.replace('actor_', '') : target.replace('actor_', ''),
-              targetId: isTargetUc ? target.replace('uc_', '') : source.replace('uc_', '')
-          };
-          addRelation(newRel);
-          
-          let edgeSource = source;
-          let edgeTarget = target;
-          let edgeSourceHandle = sourceHandle;
-          let edgeTargetHandle = targetHandle;
-
-          if (isSourceUc && isTargetActor) {
-              edgeSource = target;
-              edgeTarget = source;
-              edgeSourceHandle = targetHandle;
-              edgeTargetHandle = sourceHandle;
-          }
-
-          const newEdge = {
-              id: `edge_${relId}`,
-              source: edgeSource,
-              target: edgeTarget,
-              sourceHandle: edgeSourceHandle,
-              targetHandle: edgeTargetHandle,
-              type: 'custom',
-              data: {
-                  relType: 'actor-uc',
-                  onEdgeAction: handleEdgeAction
-              },
-              zIndex: 1,
-          };
-          setEdges(eds => addEdge(newEdge, eds));
-          if (onUnsavedChanges) onUnsavedChanges();
       }
-  }, [edges, nodes, addRelation, saveHistory, handleEdgeAction]);
+
+      saveHistory();
+      const relId = Date.now().toString();
+      
+      const newRel = {
+          id: relId,
+          type: relType,
+          sourceId: source.replace('actor_', '').replace('uc_', ''),
+          targetId: target.replace('actor_', '').replace('uc_', '')
+      };
+      
+      // Auto mode: correctly assign actor/uc relation direction
+      if (drawingMode === 'auto' && relType === 'actor-uc') {
+          newRel.sourceId = isSourceActor ? source.replace('actor_', '') : target.replace('actor_', '');
+          newRel.targetId = isTargetUc ? target.replace('uc_', '') : source.replace('uc_', '');
+      }
+
+      addRelation(newRel);
+
+      const isDep = relType === 'include' || relType === 'extends';
+      const isActorGen = relType === 'actor-generalization';
+
+      const newEdge = {
+          id: `edge_${relId}`,
+          source: (drawingMode === 'auto' && relType === 'actor-uc' && !isSourceActor) ? target : source, // Fix visual direction for auto
+          target: (drawingMode === 'auto' && relType === 'actor-uc' && !isSourceActor) ? source : target,
+          sourceHandle: (drawingMode === 'auto' && relType === 'actor-uc' && !isSourceActor) ? targetHandle : sourceHandle,
+          targetHandle: (drawingMode === 'auto' && relType === 'actor-uc' && !isSourceActor) ? sourceHandle : targetHandle,
+          type: 'custom',
+          data: {
+              relType: relType,
+              onEdgeAction: handleEdgeAction,
+              isCustomHandle: true
+          },
+          label: relType === 'include' ? '<<include>>' : relType === 'extends' ? '<<extends>>' : '',
+          style: isDep ? { strokeDasharray: '5,5' } : (isActorGen ? { strokeWidth: 1.5 } : {}),
+          markerEnd: isDep ? { type: 'arrowclosed', width: 14, height: 14 } : (isActorGen ? 'actor-generalization-marker' : undefined),
+          zIndex: 1,
+      };
+      
+      setEdges(eds => addEdge(newEdge, eds));
+      if (onUnsavedChanges) onUnsavedChanges();
+  }, [edges, nodes, handleEdgeAction, saveHistory, onUnsavedChanges]);
 
     const onEdgesDelete = useCallback((edgesToDelete) => {
         saveHistory();
@@ -1076,6 +1217,15 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
           setEdges(eds => eds.map(e => e.selected ? { ...e, selected: false } : e));
       }
   }, [mode, setNodes, setEdges]);
+  
+  useEffect(() => {
+      if (nodes.length > 0 && edges.length > 0) {
+          const needsHandles = edges.some(e => !e.sourceHandle && !e.targetHandle && !e.data?.isCustomHandle);
+          if (needsHandles) {
+              setEdges(eds => calculateDynamicHandles(eds, nodes));
+          }
+      }
+  }, [edges, nodes, setEdges]);
 
 
 
@@ -1131,6 +1281,21 @@ const FlowContent = forwardRef(({ projectId, currentModuleId, actors = [], useCa
 
       {/* Floating edge popup was removed and moved to CustomEdge component */}
 
+      <svg style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0 }}>
+        <defs>
+          <marker
+            id="actor-generalization-marker"
+            viewBox="0 0 12 12"
+            refX="10"
+            refY="6"
+            markerWidth="12"
+            markerHeight="12"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0,1 L 11,6 L 0,11 Z" fill="white" stroke="#374151" strokeWidth="1.2" strokeLinejoin="round" />
+          </marker>
+        </defs>
+      </svg>
       <ReactFlow
         nodes={nodes}
         edges={edges}

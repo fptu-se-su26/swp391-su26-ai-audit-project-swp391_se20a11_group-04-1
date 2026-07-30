@@ -76,6 +76,8 @@ const UseCaseItem = ({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortableParams;
 
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
   const actionMenuRef = useRef(null);
 
   useEffect(() => {
@@ -101,6 +103,19 @@ const UseCaseItem = ({
     } else if (actionType === 'Edit') {
       if (onEdit) onEdit(uc);
     }
+  };
+
+  const submitReject = (e) => {
+    e.stopPropagation();
+    if (!rejectReason.trim()) return;
+    setIsRejecting(false);
+    if (onReject) onReject(id, rejectReason.trim());
+  };
+
+  const cancelReject = (e) => {
+    e.stopPropagation();
+    setIsRejecting(false);
+    setRejectReason('');
   };
 
   const style = {
@@ -155,7 +170,7 @@ const UseCaseItem = ({
         ref={enableReorder ? setNodeRef : null}
         style={enableReorder ? style : {}}
         onClick={() => navigate(`/projects/${activeProject?.id}/use-cases/${id}`)}
-        className={`flex items-center justify-between gap-4 p-3 transition-all border rounded-xl relative overflow-hidden group cursor-pointer ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'} ${showActionMenu ? 'z-50' : ''}`}
+        className={`flex items-center justify-between gap-4 p-3 transition-all border rounded-xl relative group cursor-pointer ${getRowStatus()} ${isDimmed ? 'bg-gray-100' : 'bg-white'} ${showActionMenu ? 'z-50' : ''}`}
       >
         {isDimmed && (
           <div className="absolute inset-0 bg-white/40 backdrop-grayscale backdrop-blur-[0.5px] rounded-xl z-0 pointer-events-none"></div>
@@ -220,9 +235,41 @@ const UseCaseItem = ({
                </button>
              )}
              {!isDimmed && onReject && status === 'DRAFT' && (
-               <button onClick={() => onReject(id)} className="text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded-full transition-colors mx-0.5">
-                 <span className="material-symbols-outlined text-[14px]">close</span>
-               </button>
+               <div className="relative flex flex-col items-end">
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); setIsRejecting(true); }} 
+                   className="text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1 rounded-full transition-colors mx-0.5"
+                 >
+                   <span className="material-symbols-outlined text-[14px]">close</span>
+                 </button>
+                 
+                 {isRejecting && (
+                   <div 
+                     className="absolute top-full mt-1 right-0 bg-white border border-red-200 shadow-lg rounded-lg p-2 z-50 flex items-center gap-2"
+                     onClick={(e) => e.stopPropagation()}
+                     style={{ minWidth: '200px' }}
+                   >
+                     <input
+                       type="text"
+                       autoFocus
+                       placeholder="Reject reason..."
+                       value={rejectReason}
+                       onChange={(e) => setRejectReason(e.target.value)}
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter') submitReject(e);
+                         if (e.key === 'Escape') cancelReject(e);
+                       }}
+                       className="flex-1 border border-gray-200 rounded px-2 py-1 text-[11px] outline-none focus:border-red-400"
+                     />
+                     <button onClick={submitReject} disabled={!rejectReason.trim()} className="text-red-600 hover:bg-red-50 p-1 rounded disabled:opacity-50">
+                       <span className="material-symbols-outlined text-[14px]">send</span>
+                     </button>
+                     <button onClick={cancelReject} className="text-gray-400 hover:bg-gray-50 p-1 rounded">
+                       <span className="material-symbols-outlined text-[14px]">close</span>
+                     </button>
+                   </div>
+                 )}
+               </div>
              )}
              {(!isDimmed && (onEdit || onDelete)) && (
                <div className="relative" ref={actionMenuRef}>

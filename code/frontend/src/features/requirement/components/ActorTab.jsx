@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useDiagramStore from '../../../store/useDiagramStore';
 import Button from '../../../components/ui/Button';
 
-const ActorTab = () => {
+const ActorTab = ({ onUnsavedChanges }) => {
   const { actors, addActor, updateActor, removeActor } = useDiagramStore();
   const [newActorName, setNewActorName] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -15,6 +15,7 @@ const ActorTab = () => {
       name: newActorName.trim()
     });
     setNewActorName('');
+    if (onUnsavedChanges) onUnsavedChanges();
   };
 
   const handleEdit = (actor) => {
@@ -26,6 +27,12 @@ const ActorTab = () => {
     if (!editName.trim()) return;
     updateActor(id, { name: editName.trim() });
     setEditingId(null);
+    if (onUnsavedChanges) onUnsavedChanges();
+  };
+
+  const handleRemove = (id) => {
+    removeActor(id);
+    if (onUnsavedChanges) onUnsavedChanges();
   };
 
   return (
@@ -73,7 +80,7 @@ const ActorTab = () => {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     </button>
                     <button 
-                      onClick={() => removeActor(actor.id)}
+                      onClick={() => handleRemove(actor.id)}
                       className="p-1 text-gray-500 hover:text-red-600 rounded transition-colors"
                       title="Remove Actor"
                     >

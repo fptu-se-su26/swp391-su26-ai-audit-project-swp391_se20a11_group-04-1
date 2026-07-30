@@ -11,6 +11,7 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
   
   const uniqueEdges = [];
   const edgeSet = new Set();
+  const baseActorIds = new Set();
   initialEdges.forEach(edge => {
       const isActorEdge = edge.source.startsWith('actor_') || edge.target.startsWith('actor_');
       const key = isActorEdge 
@@ -19,6 +20,11 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       if (!edgeSet.has(key)) {
           edgeSet.add(key);
           uniqueEdges.push(edge);
+          // Only track base actors from unique generalization edges to be safe
+          if (edge.type === 'actor-generalization' || (edge.source.startsWith('actor_') && edge.target.startsWith('actor_'))) {
+              // Usually target is the parent/base
+              baseActorIds.add(edge.target);
+          }
       }
   });
   const relations = uniqueEdges;
@@ -26,14 +32,14 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
   const actorToUcs = {};
   actors.forEach(a => actorToUcs[a.id] = []);
   relations.forEach(r => {
+      if (r.type === 'actor-generalization' || (r.source.startsWith('actor_') && r.target.startsWith('actor_'))) return;
+
       const isSourceActor = r.source.startsWith('actor_');
       const isTargetActor = r.target.startsWith('actor_');
-      if (isSourceActor || isTargetActor) {
-          const actorId = isSourceActor ? r.source : r.target;
-          const ucId = isSourceActor ? r.target : r.source;
-          if (actorToUcs[actorId]) {
-              actorToUcs[actorId].push(ucId);
-          }
+      if (isSourceActor && !isTargetActor) {
+          if (actorToUcs[r.source]) actorToUcs[r.source].push(r.target);
+      } else if (isTargetActor && !isSourceActor) {
+          if (actorToUcs[r.target]) actorToUcs[r.target].push(r.source);
       }
   });
 
@@ -72,8 +78,12 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       return 1 + Math.max(...tree.children.map(getTreeDepth));
   };
 
+  // Separate base actors from side actors
+  const nonBaseActors = actors.filter(a => !baseActorIds.has(a.id));
+  const baseActors = actors.filter(a => baseActorIds.has(a.id));
+
   // Sort actors by UC count descending, then alternate left/right to ensure even split
-  const actorWeights = actors.map(a => ({
+  const actorWeights = nonBaseActors.map(a => ({
       id: a.id,
       weight: actorToUcs[a.id].length
   }));
@@ -98,7 +108,7 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
   let maxLeftDepth = 0;
   let maxRightDepth = 0;
 
-  actors.forEach(actor => {
+  nonBaseActors.forEach(actor => {
       const primaryUcs = actorToUcs[actor.id];
       const side = actorSides[actor.id];
       const targetForest = side === 'left' ? leftForest : rightForest;
@@ -118,6 +128,20 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           }
       });
       targetForest.push({ actorId: actor.id, trees: actorTrees });
+  });
+
+  const bottomForest = [];
+  baseActors.forEach(actor => {
+      const primaryUcs = actorToUcs[actor.id];
+      const actorTrees = [];
+      primaryUcs.forEach(ucId => {
+          if (!visited.has(ucId)) {
+              const tree = buildTree(ucId, 0);
+              calculateSubtreeHeight(tree);
+              actorTrees.push(tree);
+          }
+      });
+      bottomForest.push({ actorId: actor.id, trees: actorTrees });
   });
 
   const isolatedTrees = [];
@@ -237,7 +261,7 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
 
   const totalHeight = Math.max(leftY, rightY, currentBottomY + maxIsolatedHeight);
 
-  // Enforce minimum spacing between actors on same side
+  // Enforce minimum spacing between actors on same side and stagger X coordinates
   const enforceActorSpacing = (actNodes, side) => {
       const sorted = actNodes.filter(n => n.data.side === side).sort((a, b) => a.position.y - b.position.y);
       for (let i = 1; i < sorted.length; i++) {
@@ -245,9 +269,53 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
               sorted[i].position.y = sorted[i - 1].position.y + ACTOR_Y_SPACING;
           }
       }
+
+      // Staggering X: Higher Y (lower on screen) = closer to system boundary
+      // Lower Y (higher on screen) = further from system boundary
+      const STAGGER_STEP = 50;
+      sorted.forEach((node, idx) => {
+          const distanceFromBoundary = (sorted.length - 1 - idx) * STAGGER_STEP;
+          if (side === 'left') {
+              node.position.x = ACTOR_LEFT_X - distanceFromBoundary;
+          } else {
+              node.position.x = ACTOR_RIGHT_X + distanceFromBoundary;
+          }
+      });
   };
   enforceActorSpacing(actorNodes, 'left');
   enforceActorSpacing(actorNodes, 'right');
+
+  // Place Base Actors and their UCs at the Bottom
+  const maxBottomForestHeight = Math.max(0, ...bottomForest.map(c => c.trees.reduce((sum, t) => sum + t.height, 0)));
+  
+  const bottomForestStartY = totalHeight + 40;
+  const systemHeight = bottomForestStartY + maxBottomForestHeight + 40;
+  
+  const baseActorY = systemHeight + 60;
+  const baseActorSpacing = 300;
+  const baseActorsStartX = (UC_LEFT_X + UC_RIGHT_X) / 2 - ((baseActors.length - 1) * baseActorSpacing) / 2;
+  
+  baseActors.forEach((actor, idx) => {
+      const actorX = baseActorsStartX + idx * baseActorSpacing;
+      
+      const cluster = bottomForest.find(c => c.actorId === actor.id);
+      if (cluster && cluster.trees.length > 0) {
+          let currentY = bottomForestStartY;
+          cluster.trees.forEach(tree => {
+              positionTree(tree, currentY, actorX, 0, 'bottom', false);
+              currentY += tree.height;
+          });
+      }
+
+      actorNodes.push({
+          ...actor,
+          position: {
+              x: actorX,
+              y: baseActorY
+          },
+          data: { ...actor.data, side: 'bottom' }
+      });
+  });
 
   const systemBoundaryNode = {
       id: 'system_boundary',
@@ -259,7 +327,7 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       className: '!pointer-events-none',
       style: {
           width: Math.max(UC_RIGHT_X + UC_NODE_WIDTH + 30 - (UC_LEFT_X - 30), CANVAS_WIDTH / 2 + UC_NODE_WIDTH / 2 + 50 - (UC_LEFT_X - 30)),
-          height: totalHeight + 60
+          height: systemHeight
       }
   };
 
@@ -276,8 +344,41 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       return node ? { x: node.position.x, y: node.position.y } : { x: 0, y: 0 };
   };
 
+  // --- REDUNDANCY FILTERING FOR RENDERING ---
+  const ucToUcEdges = uniqueEdges.filter(e => !e.source.startsWith('actor_') && !e.target.startsWith('actor_'));
+  const ucAdj = {};
+  usecases.forEach(uc => ucAdj[uc.id] = []);
+  ucToUcEdges.forEach(e => { if (ucAdj[e.source]) ucAdj[e.source].push(e.target); });
+
+  const ucReachable = {};
+  usecases.forEach(uc => {
+      ucReachable[uc.id] = new Set();
+      const queue = [...ucAdj[uc.id]];
+      while (queue.length > 0) {
+          const curr = queue.shift();
+          if (!ucReachable[uc.id].has(curr)) {
+              ucReachable[uc.id].add(curr);
+              if (ucAdj[curr]) queue.push(...ucAdj[curr]);
+          }
+      }
+  });
+
   let resultEdges = uniqueEdges.filter(rel => {
-      if (!rel.source.startsWith('actor_') && !rel.target.startsWith('actor_')) {
+      const isActorEdge = rel.source.startsWith('actor_') || rel.target.startsWith('actor_');
+      if (isActorEdge && rel.type !== 'actor-generalization' && !(rel.source.startsWith('actor_') && rel.target.startsWith('actor_'))) {
+          const actorId = rel.source.startsWith('actor_') ? rel.source : rel.target;
+          const ucId = rel.source.startsWith('actor_') ? rel.target : rel.source;
+          const actorConnectedUcs = uniqueEdges
+              .filter(e => (e.source === actorId && !e.target.startsWith('actor_')) || (e.target === actorId && !e.source.startsWith('actor_')))
+              .map(e => e.source === actorId ? e.target : e.source);
+          for (const otherUc of actorConnectedUcs) {
+              if (otherUc !== ucId && ucReachable[otherUc] && ucReachable[otherUc].has(ucId)) {
+                  return false; // Redundant edge
+              }
+          }
+      }
+
+      if (!isActorEdge) {
           const sourceVisited = visited.has(rel.source);
           const targetVisited = visited.has(rel.target);
           // Keep include/extend edges even between isolated UCs
@@ -300,6 +401,10 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           // include/extend: dashed line with arrow
           edge.markerEnd = { type: 'arrowclosed', width: 14, height: 14 };
           edge.style = { strokeDasharray: '5,5', ...edge.style };
+      } else if (rel.type === 'actor-generalization') {
+          // generalization: solid line, hollow triangle
+          edge.markerEnd = 'actor-generalization-marker';
+          edge.style = { ...edge.style, strokeWidth: 1.5 };
       }
 
       const sx = isSourceActor ? getActorPos(rel.source).x : getUcX(rel.source);
@@ -307,10 +412,28 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
       const tx = isTargetActor ? getActorPos(rel.target).x : getUcX(rel.target);
       const ty = isTargetActor ? getActorPos(rel.target).y : getUcY(rel.target);
 
-      if (isSourceActor) {
+      const sourceNode = actorNodes.find(n => n.id === rel.source) || ucNodes.find(n => n.id === rel.source);
+      const targetNode = actorNodes.find(n => n.id === rel.target) || ucNodes.find(n => n.id === rel.target);
+      const sourceSide = sourceNode?.data?.side;
+      const targetSide = targetNode?.data?.side;
+
+      if (isSourceActor && isTargetActor) {
+          if (targetSide === 'bottom') {
+              edge.sourceHandle = 'bottom';
+              edge.targetHandle = sourceSide === 'left' ? 'left' : 'right';
+          } else if (sy < ty) {
+              edge.sourceHandle = 'bottom';
+              edge.targetHandle = 'top';
+          } else {
+              edge.sourceHandle = 'top';
+              edge.targetHandle = 'bottom';
+          }
+      } else if (isSourceActor) {
           // Actor is source — use actor's side to pick handle
-          const side = actorSides[rel.source] || (sx < tx ? 'left' : 'right');
-          if (side === 'left') {
+          if (sourceSide === 'bottom') {
+              edge.sourceHandle = 'top';
+              edge.targetHandle = 'bottom';
+          } else if (sourceSide === 'left') {
               edge.sourceHandle = 'right';
               edge.targetHandle = 'left';
           } else {
@@ -319,8 +442,10 @@ export const ucLayoutEngine = (initialNodes, initialEdges, systemName = "System"
           }
       } else if (isTargetActor) {
           // Actor is target
-          const side = actorSides[rel.target] || (tx < sx ? 'left' : 'right');
-          if (side === 'left') {
+          if (targetSide === 'bottom') {
+              edge.targetHandle = 'top';
+              edge.sourceHandle = 'bottom';
+          } else if (targetSide === 'left') {
               edge.targetHandle = 'right';
               edge.sourceHandle = 'left';
           } else {

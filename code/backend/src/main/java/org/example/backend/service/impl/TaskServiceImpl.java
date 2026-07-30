@@ -89,6 +89,7 @@ public class TaskServiceImpl implements TaskService {
     private final OutboxEventService outboxEventService;
     private final org.example.backend.config.NotificationWebSocketHandler notificationWebSocketHandler;
     private final ApplicationEventPublisher eventPublisher;
+    private final org.example.backend.service.AuditDiffService auditDiffService;
 
     @Override
     @Transactional
@@ -235,9 +236,15 @@ public class TaskServiceImpl implements TaskService {
         TaskStatus oldStatus = task.getStatus();
         Long oldReqId = task.getRequirementId();
         Long oldUcId = task.getUseCaseId();
+        
+        TaskResponse oldTaskDto = toResponses(List.of(task)).get(0);
 
         applyRequest(task, request, task.getProject().getId(), userId);
         Task savedTask = taskRepository.save(task);
+        
+        TaskResponse newTaskDto = toResponses(List.of(savedTask)).get(0);
+        UserAccount actor = userAccountRepository.findById(userId).orElseThrow();
+        auditDiffService.trackAndNotifyChanges(savedTask.getProject(), actor, "TASK", savedTask.getId(), savedTask.getTitle(), oldTaskDto, newTaskDto);
 
         if (oldReqId != null && !oldReqId.equals(savedTask.getRequirementId())) {
             syncRequirementStatus(oldReqId);
@@ -318,6 +325,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskResponse updateTaskStatus(Long taskId, TaskStatusUpdateRequest request, Long userId) {
         Task task = findTask(taskId);
+        TaskResponse oldTaskDto = toResponses(List.of(task)).get(0);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
         if (task.getProject().getStatus() == org.example.backend.entity.ProjectStatus.COMPLETED
@@ -403,12 +411,18 @@ public class TaskServiceImpl implements TaskService {
                 log.warn("Non-blocking GitHub status sync failed for Task ID: {}: {}", savedTask.getId(), e.getMessage());
             }
         }
-        return toResponse(savedTask);
+        TaskResponse newTaskDto = toResponse(savedTask);
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            auditDiffService.trackAndNotifyChanges(savedTask.getProject(), actor, "TASK", savedTask.getId(), savedTask.getTitle(), oldTaskDto, newTaskDto);
+        });
+        return newTaskDto;
     }
 
     @Override
+    @org.example.backend.annotation.Auditable(action="UPDATE_TASK", entityType="Task", entityIdArgIndex=0)
     public TaskResponse updateTaskAssignee(Long taskId, TaskAssigneeUpdateRequest request, Long userId) {
         Task task = findTask(taskId);
+        TaskResponse oldTaskDto = toResponses(List.of(task)).get(0);
         Long projectId = task.getProject().getId();
         ensureProjectMember(projectId, userId);
         Long oldAssigneeId = task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null;
@@ -450,7 +464,11 @@ public class TaskServiceImpl implements TaskService {
         if (savedTask.getParent() != null) {
             syncParentAssignee(savedTask, userId);
         }
-        return toResponse(savedTask);
+        TaskResponse newTaskDto = toResponse(savedTask);
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            auditDiffService.trackAndNotifyChanges(savedTask.getProject(), actor, "TASK", savedTask.getId(), savedTask.getTitle(), oldTaskDto, newTaskDto);
+        });
+        return newTaskDto;
     }
 
 
@@ -1228,11 +1246,8 @@ public class TaskServiceImpl implements TaskService {
                 if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
                     throw new BadRequestException("Start date cannot be in the past.");
                 }
-            } else if (!request.getStartDate().equals(task.getStartDate())) {
-                if (request.getStartDate().isBefore(java.time.LocalDate.now())) {
-                    throw new BadRequestException("Start date cannot be changed to a date in the past.");
-                }
             }
+            // Removed strict past date validation for updates to allow reverts or retrospective planning
         }
 
         if (request.getStartDate() != null) task.setStartDate(request.getStartDate());
@@ -1855,6 +1870,9 @@ public class TaskServiceImpl implements TaskService {
                 .parentTitle(task.getParent() != null ? task.getParent().getTitle() : null)
                 .githubIssueUrl(task.getGithubIssueUrl())
                 .githubIssueNumber(task.getGithubIssueNumber())
+                .dependsOnTaskIds(task.getDependsOn() != null ? task.getDependsOn().stream().map(Task::getId).collect(Collectors.toList()) : new java.util.ArrayList<>())
+                .isSplitChild(task.isSplitChild())
+                .isMergedResult(task.isMergedResult())
                 .build();
     }
 

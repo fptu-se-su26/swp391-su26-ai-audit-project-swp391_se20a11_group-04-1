@@ -60,26 +60,33 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "=== GRANULARITY RULE ===\n" +
                 "You MUST break down the system into GRANULAR, ATOMIC, and ACTIONABLE requirements. " +
                 "DO NOT generate high-level, generic Epics or Modules like 'Order Management', 'User Management', or 'Authentication System'.\n" +
+                "CRITICAL: NEVER generate requirements with generic titles like 'Manage [Entity]' or 'CRUD [Entity]'. You MUST split them into atomic actions: 'Create [Entity]', 'Update [Entity]', 'Delete [Entity]', 'View [Entity] List'.\n" +
+                "COMPREHENSIVENESS IS MANDATORY: You MUST extract ALL functional units and features mentioned in the document. Do not summarize, group, or skip any features. If the document describes 20 functions, you must generate 20 or more requirements. Do not leave anything out.\n" +
                 "Instead, break them down into specific functional units. For example:\n" +
-                " - BAD: 'User Management'. GOOD: 'User Registration via Email', 'User Password Reset', 'Admin suspends user account'.\n" +
-                " - BAD: 'Order Management'. GOOD: 'Customer places an order', 'System calculates order tax', 'Admin updates order status'.\n" +
+                " - BAD: 'User Management', 'Manage Users'. GOOD: 'User Registration via Email', 'User Password Reset', 'Admin suspends user account'.\n" +
+                " - BAD: 'Order Management', 'Manage Orders'. GOOD: 'Customer places an order', 'System calculates order tax', 'Admin updates order status'.\n" +
                 "You MUST proactively add implicit, missing, but necessary ATOMIC requirements to make the system production-ready (e.g., specific security rules, specific CRUD workflows for entities).\n" +
                 "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
                 "- Business Domain: " + domain + "\n" +
                 "- Strict Domain Priorities/Constraints: " + priorities + "\n" +
                 "When generating Acceptance Criteria (especially for Non-Functional requirements), you MUST strictly enforce and integrate the domain constraints mentioned above.\n\n" +
                 "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
-                "1. 'project_actors': (Array of Objects) List of roles detected in the text. Each object must have only 'name' (String). CRITICAL RULE: You MUST identify SPECIFIC actors, roles, or external systems (e.g., 'Admin', 'Student', 'Tutor', 'Payment Gateway'). DO NOT generate a generic 'User' actor if you already have specific roles, as it creates redundancy. DO NOT include the 'System' actor unless it specifically refers to an automated background job or an external third-party system. Be precise and professional with actor naming.\n" +
+                "1. 'project_actors': (Array of Objects) List of actors interacting with the system. Each object must have 'name' (String) and an optional 'inheritsFrom' (String). \n" +
+                "   - [UML 2.5 & BABOK STANDARD]: An Actor represents a role played by a human user, an external system, or a time-based trigger interacting with the subject. CRITICAL: Internal architectural components (e.g., 'Database', 'Server', 'UI', 'Backend', 'Frontend') are strictly FORBIDDEN from being classified as Actors. They are parts of the system, not external interactors.\n" +
+                "   - [REDUNDANCY & SYNONYM RESOLUTION]: Deduplicate and merge synonymous roles. Do NOT generate redundant actors (e.g., 'Admin', 'Administrator', and 'System Admin'). Consolidate semantic duplicates (e.g., 'User', 'Registered User', 'Logged-in User') into a singular definitive actor or a properly structured UML inheritance tree.\n" +
+                "   - [THE 'SYSTEM' BOUNDARY PRINCIPLE]: The system being designed is the boundary, NOT an actor. Do NOT extract 'System' as an actor for reactive validations or standard data processing (e.g., 'User saves data, System validates it' -> The only actor here is 'User'). ONLY instantiate a 'System' actor if it represents an autonomous, self-initiated background process (e.g., Cron Jobs, Scheduled Tasks) or a distinct external 3rd-party integration (e.g., 'Payment Gateway').\n" +
+                "   - [UML GENERALIZATION (INHERITANCE)]: If multiple specialized actors (e.g., 'Student', 'Instructor', 'Librarian') share overlapping functional access, you MUST proactively deduce and generate a generalized parent actor (e.g., 'User' or 'Member') and apply 'inheritsFrom': 'User' to the specialized children. CRITICAL: Circular inheritance is strictly prohibited. An actor cannot inherit from itself. Inheritance must flow strictly from Specialized (Child) -> Generalized (Parent).\n" +
                 "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
                 "   a. 'title': (String) A concise, specific, and actionable title of the requirement (e.g., 'Customer cancels pending order'). DO NOT use generic module names.\n" +
                 "   b. 'description': (String) Detailed description of the requirement, explaining the 'Who', 'What', and 'Why'.\n" +
                 "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High', 'Critical'. Determine priority based on:\n" +
                 "      - 'Critical': Core system functionality (auth, payments, security, primary business logic) without which the system cannot function.\n" +
                 "      - 'High': Important features that significantly impact user experience or business value but are not absolute blockers for basic operation.\n" +
-                "      - 'Medium': Standard features, common enhancements, or secondary functionality.\n" +
-                "      - 'Low': 'Nice to have' features, minor UI tweaks, or rarely used edge cases.\n" +
-                "   d. 'tags': (Array of Strings) A list of classification tags (e.g., ['Frontend', 'UI']).\n" +
-                "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. Analyze the description to classify it correctly.\n" +
+                "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. You MUST strictly follow these definitions:\n" +
+                "      - 'FUNCTIONAL': Describes specific user interactions, direct system actions, or core application workflows (e.g., 'User registers account', 'System calculates order total').\n" +
+                "      - 'NON_FUNCTIONAL': Describes system qualities like performance, scalability, usability, or reliability (e.g., 'System handles 1000 concurrent users', 'API responds under 200ms').\n" +
+                "      - 'BUSINESS_RULE': Strict domain policies, legal regulations, or formulas that govern how the system operates (e.g., 'Customers under 18 cannot buy alcohol', 'Discount cannot exceed 50%').\n" +
+                "      - 'SECURITY': Focuses purely on data privacy, encryption, access control, auditing, and threat prevention (e.g., 'Passwords must be hashed', 'Only Admins can delete users', 'System ensures data security').\n" +
                 "   f. 'acceptanceCriteria': (Array of Strings) You MUST act as a Senior Business Analyst. Generate comprehensive, professional Acceptance Criteria for each requirement. Each string in the array must be a single criterion. DO NOT start the strings with bullet characters (like '*' or '-'). DO NOT use Gherkin (Given/When/Then). You must deduce and write detailed criteria covering:\n" +
                 "      - Positive flows (Luồng thành công).\n" +
                 "      - Negative/Error flows (Luồng lỗi/Ngoại lệ).\n" +
@@ -111,7 +118,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 "2. 'warnings': (Array of Strings) List any ambiguities or lack of details in ENGLISH (if any; empty array if none).\n" +
                 "3. 'errors': (Array of Strings) List any factual errors or contradictions in ENGLISH (if any; empty array if none).\n" +
                 "4. 'source_excerpt': (String) Extract an EXACT text snippet (COPY WORD-FOR-WORD) from the original document as evidence for this Requirement. Do not rewrite or use the requirement's description.\n" +
-                "5. 'isDuplicate': (Boolean) Set to true if this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. Otherwise, set to false.\n\n" +
+                "5. 'isDuplicate': (Boolean) Set to true IF AND ONLY IF this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. CRITICAL: If the EXISTING REQUIREMENTS LIST says '(No existing requirements in the project)', you MUST ALWAYS set 'isDuplicate' to false for ALL requirements. NEVER flag duplicates against other requirements within the raw JSON itself.\n\n" +
                 "CRITICAL RULE: YOU MUST PRESERVE ALL ORIGINAL FIELDS from the input JSON (especially 'startDate', 'deadline', 'acceptanceCriteria', 'type', 'priority', 'tags'). DO NOT REMOVE ANY EXISTING FIELD.\n\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
                 "--- EXISTING REQUIREMENTS LIST ---\n- " + existingReqsText + "\n\n" +

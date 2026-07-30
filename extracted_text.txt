@@ -1,0 +1,552 @@
+HƯỚNG DẪN TRIỂN KHAI KHÓA HỌC
+GitHub Classroom, AI Audit Log, Prompt Log, Reflection, Testing 
+và
+ CI/CD
+Mục
+ 
+tiêu
+ tài liệu
+Tài liệu này được thiết kế để giảng viên có thể dùng trực tiếp trong lớp. Sinh viên có thể làm theo từng bước: cài đặt Git, tham gia GitHub Classroom, clone repository, pull code, tạo branch, commit, push code, tạo Pull Request, ghi AI Audit Log, viết test và cấu hình CI/CD.
+1. Tổng quan khóa học
+Khóa học giúp sinh viên làm quen với quy trình phát triển phần mềm hiện đại thông qua GitHub Classroom. Trọng tâm không chỉ là nộp code, mà còn là minh bạch hóa quá trình học tập và sử dụng AI thông qua AI Audit Log, Prompt Log, Reflection, Testing và CI/CD.
+Thành phần
+Sinh viên cần làm được
+GitHub Classroom
+Nhận bài, vào nhóm, truy cập repository, nộp bài đúng quy trình.
+Git/GitHub
+Clone, pull, branch, commit, push, tạo Pull Request và xử lý conflict cơ bản.
+AI Audit Log
+Ghi lại khi dùng ChatGPT, Copilot, Gemini, Claude hoặc công cụ AI khác.
+Prompt Log
+Lưu prompt quan trọng và cách nhóm kiểm chứng kết quả AI.
+Reflection
+Tự đánh giá vai trò, đóng góp, lỗi gặp phải, bài học kinh nghiệm.
+Testing
+Viết test case, chạy test local và giải thích kết quả.
+CI/CD
+Cấu hình GitHub Actions để tự động build/test khi push hoặc Pull Request.
+2. Chuẩn đầu ra của khóa học
+CLO1: Cài đặt và cấu hình Git trên máy cá nhân.
+CLO2: Tham gia lớp học/assignment trên GitHub Classroom.
+CLO3: Clone repository về máy, pull code mới nhất, tạo branch để làm task.
+CLO4: Commit và push code bằng câu lệnh Git.
+CLO5: Tạo Pull Request và mô tả thay đổi rõ ràng.
+CLO6: Cập nhật AI_AUDIT_LOG.md, PROMPTS.md, REFLECTION.md và CHANGELOG.md.
+CLO7: Viết test và chạy test trước khi nộp.
+CLO8: Đọc trạng thái CI/CD trên GitHub Actions và sửa lỗi khi workflow fail.
+3. Lộ trình học đề xuất
+Buổi
+Chủ đề
+Kết quả sau buổi học
+1
+Cài đặt Git, GitHub account, vào GitHub Classroom
+Sinh viên tham gia được assignment và clone repo về máy.
+2
+Git workflow: pull, branch, commit, push, Pull Request
+Sinh viên hoàn thành được một vòng làm việc với code.
+3
+AI Audit Log, Prompt Log, Reflection
+Sinh viên biết ghi minh chứng dùng AI và tự đánh giá quá trình học.
+4
+Testing và GitHub Actions CI
+Sinh viên viết test, chạy test, cấu hình workflow build/test.
+5
+Bài tập lớn và đánh giá cuối khóa
+Sinh viên nộp sản phẩm hoàn chỉnh theo rubric.
+4. Hướng dẫn từng bước từ cài đặt đến push code
+4.1. Bước 1 - Tạo tài khoản GitHub
+Sinh viên truy cập GitHub, tạo tài khoản bằng email cá nhân hoặc email trường. Nên dùng tên thật hoặc mã số sinh viên trong profile để giảng viên dễ đối chiếu.
+Lưu ý cho lớp đông
+Giảng viên nên yêu cầu sinh viên điền GitHub username vào Google Sheet trước khi bắt đầu để dễ đối chiếu commit/PR.
+4.2. Bước 2 - Cài đặt Git
+Sinh viên cài Git theo hệ điều hành đang sử dụng. Sau khi cài xong, mở Terminal, Command Prompt, PowerShell hoặc Git Bash để kiểm tra.
+git --version
+Nếu màn hình hiển thị phiên bản Git, ví dụ git version 2.x.x, nghĩa là đã cài thành công.
+4.3. Bước 3 - Cài đặt VS Code
+Khuyến nghị sinh viên dùng Visual Studio Code để thao tác code và terminal. Sau khi cài, mở terminal kiểm tra:
+code --version
+Extension khuyến nghị
+GitLens, GitHub Pull Requests, GitHub Actions, Markdown All in One, ESLint/Prettier tùy ngôn ngữ dự án.
+4.4. Bước 4 - Cấu hình Git lần đầu
+Mỗi sinh viên cần cấu hình tên và email để commit hiển thị đúng người thực hiện.
+git config --global user.name "Nguyen Van A"
+git config --global user.email "student123@fpt.edu.vn"
+Kiểm tra lại cấu hình:
+git config --global --list
+4.5. Bước 5 - Xác thực GitHub trên máy cá nhân
+Khi push code lần đầu, GitHub có thể yêu cầu đăng nhập. Có hai cách phổ biến: HTTPS hoặc SSH. Với sinh viên mới, nên dùng HTTPS kết hợp Git Credential Manager để dễ thao tác.
+Cách
+Phù hợp
+Ghi chú
+HTTPS
+Sinh viên mới
+Dễ dùng, khi push sẽ đăng nhập qua trình duyệt hoặc token.
+SSH
+Sinh viên đã quen Git
+Cần tạo SSH key và thêm public key vào GitHub.
+5. Hướng dẫn tham gia GitHub Classroom
+5.1. Bước 1 - Nhận link assignment từ giảng viên
+Giảng viên gửi link GitHub Classroom qua email, Zalo. Sinh viên click vào link đó để 
+tạo nhóm lần đầu
+.
+5.2. Bước 2 - Đăng nhập GitHub
+Nếu chưa đăng nhập, GitHub sẽ yêu cầu sinh viên đăng nhập. Sinh viên cần dùng đúng tài khoản đã đăng ký với giảng viên.
+5.3. Bước 3 - Chọn danh tính trong roster
+Nếu lớp có danh sách roster, sinh viên chọn đúng tên hoặc mã số sinh viên của mình. Đây là bước quan trọng để giảng viên biết GitHub username nào thuộc sinh viên nào.
+5.4. Bước 4 - Vào nhóm hoặc tạo nhóm
+Nếu assignment làm theo nhóm, sinh viên có thể thấy danh sách nhóm. Quy tắc đề xuất: nhóm trưởng tạo team, các thành viên còn lại chọn đúng team để tham gia.
+Tình huống
+Sinh viên cần làm
+Nhóm trưởng
+Chọn Create new team, đặt tên nhóm theo chuẩn.
+Thành viên
+Chọn Join existing team, kiểm tra đúng tên nhóm trước khi xác nhận.
+Nhầm nhóm
+Báo giảng viên ngay, không tự tạo repository mới ngoài Classroom.
+5.5. Bước 5 - Chờ GitHub tạo repository
+Sau khi accept assignment, GitHub Classroom sẽ tạo repository cho cá nhân hoặc nhóm. Sinh viên mở repository và copy đường dẫn HTTPS.
+https://github.com/<organization>/<assignment-team-repository>.git
+6. Clone repository về máy
+6.1. Bước 1 - Tạo thư mục lưu project
+mkdir github-classroom
+cd github-classroom
+6.2. Bước 2 - Clone repository
+git clone https://github.com/<organization>/<repo-name>.git
+cd <repo-name>
+6.3. Bước 3 - Kiểm tra trạng thái repository
+git status
+Nếu hiển thị “working tree clean”, nghĩa là code local đang sạch, chưa có thay đổi nào chưa commit.
+6.4. Bước 4 - Mở project bằng VS Code
+code .
+7. Quy trình làm việc Git hằng ngày
+Nguyên tắc quan trọng
+Trước khi code, luôn pull code mới nhất. Khi làm chức năng mới, luôn tạo branch riêng. Không code trực tiếp trên main nếu làm nhóm.
+7.1. Pull code mới nhất
+Trước khi bắt đầu làm việc, sinh viên cần kéo code mới nhất từ remote về máy.
+git checkout main
+git pull origin main
+Nếu nhóm dùng branch develop:
+git checkout develop
+git pull origin develop
+7.2. Tạo branch mới cho task
+Mỗi task nên làm trên một branch riêng để dễ review và tránh ảnh hưởng code chính.
+git checkout -b feature/login-page
+Loại branch
+Ví dụ
+Khi nào dùng
+feature/*
+feature/student-dashboard
+Làm chức năng mới.
+fix/*
+fix/login-validation
+Sửa lỗi.
+test/*
+test/user-service
+Bổ sung test.
+docs/*
+docs/update-reflection
+Cập nhật tài liệu.
+ci/*
+ci/add-github-actions
+Cập nhật workflow CI/CD.
+7.3. Code và kiểm tra file thay đổi
+git status
+Lệnh này cho biết file nào đã thay đổi, file nào chưa được Git theo dõi.
+7.4. Xem nội dung thay đổi trước khi commit
+git diff
+Sinh viên nên xem lại diff để tránh commit nhầm file tạm, file cấu hình cá nhân hoặc thông tin nhạy cảm.
+7.5. Add file vào vùng stage
+git add .
+Nếu chỉ muốn add một file cụ thể:
+git add src/LoginService.cs
+git add README.md
+7.6. Commit code
+git commit -m "feat: implement login page"
+Chuẩn commit message
+Dùng dạng: loại thay đổi + mô tả ngắn. Ví dụ: feat: add login API, fix: validate empty email, test: add user service unit tests, docs: update AI audit log.
+7.7. Push branch lên GitHub
+git push origin feature/login-page
+Nếu lần đầu push branch mới, có thể dùng:
+git push -u origin feature/login-page
+7.8. Tạo Pull Request trên GitHub
+Sau khi push, GitHub thường hiển thị nút Compare & pull request. Sinh viên tạo PR từ branch của mình vào develop hoặc main theo quy định của nhóm.
+Nội dung PR
+Yêu cầu
+Title
+Ngắn gọn, nêu rõ chức năng/lỗi.
+Description
+Mô tả thay đổi chính, cách test, ảnh minh chứng nếu có UI.
+AI Usage
+Nêu có/không dùng AI, đã cập nhật AI_AUDIT_LOG.md chưa.
+Testing
+Ghi lệnh test đã chạy và kết quả.
+Reviewer
+Gắn thành viên khác hoặc giảng viên nếu được yêu cầu.
+7.9. Sau khi PR được merge, cập nhật local
+git checkout main
+git pull origin main
+Nếu nhóm dùng develop:
+git checkout develop
+git pull origin develop
+8. Quy trình Git mẫu cho một buổi học
+# 1. Vào thư mục project
+cd my-classroom-project
+# 2. Lấy code mới nhất
+git checkout develop
+git pull origin develop
+# 3. Tạo branch cho task
+git checkout -b feature/add-product-api
+# 4. Code chức năng, cập nhật tài liệu, viết test
+# ...
+# 5. Kiểm tra thay đổi
+git status
+git diff
+# 6. Chạy test local
+npm test
+# hoặc: dotnet test
+# hoặc: mvn test
+# 7. Commit
+git add .
+git commit -m "feat: add product API"
+# 8. Push
+git push -u origin feature/add-product-api
+# 9. Lên GitHub tạo Pull Request
+9. Xử lý lỗi thường gặp khi dùng Git
+Lỗi/Tình huống
+Nguyên nhân thường gặp
+Cách xử lý
+fatal: not a git repository
+Đang đứng sai thư mục, không phải thư mục repo.
+Dùng cd vào đúng thư mục project rồi chạy lại git status.
+Authentication failed
+Chưa đăng nhập GitHub hoặc token hết hạn.
+Đăng nhập lại GitHub/Git Credential Manager hoặc kiểm tra quyền truy cập repo.
+Permission denied
+Không có quyền push repo hoặc SSH key chưa đúng.
+Kiểm tra đã vào đúng GitHub Classroom team/repo, dùng đúng account.
+Your branch is behind
+Local branch cũ hơn remote.
+Chạy git pull origin <branch>.
+Merge conflict
+Hai người sửa cùng một đoạn code.
+Mở file conflict, chọn nội dung đúng, git add, commit lại.
+nothing to commit
+Chưa có file thay đổi hoặc đã commit rồi.
+Kiểm tra git status.
+10. Hướng dẫn xử lý conflict cơ bản
+Khi nhiều thành viên sửa cùng một file, Git có thể báo conflict. Sinh viên cần mở file bị conflict và chỉnh lại nội dung.
+git pull origin develop
+Ví dụ nội dung conflict trong file:
+<<<<<<< HEAD
+Code của bạn
+=======
+Code từ remote
+>>>>>>> develop
+Sau khi sửa xong, xóa các dấu <<<<<<<, =======, >>>>>>>, lưu file rồi chạy:
+git add .
+git commit -m "fix: resolve merge conflict"
+git push
+11. Cấu trúc repository chuẩn
+/project-root
+│
+├── README.md
+├── AI_AUDIT_LOG.md
+├── PROMPTS.md
+├── REFLECTION.md
+├── CHANGELOG.md
+│
+├── src/
+├── tests/
+│
+└── .github/
+    └── workflows/
+        └── ci.yml
+12. Lý thuyết: AI Audit Log, Prompt Log và Reflection
+12.1. AI Audit Log là gì?
+AI Audit Log là nhật ký ghi lại việc sinh viên sử dụng công cụ AI trong quá trình làm bài. Mục tiêu không phải cấm AI, mà là giúp sinh viên minh bạch, có trách nhiệm và chứng minh rằng mình hiểu phần đã nộp.
+Câu hỏi cần trả lời trong AI Audit Log
+Ý nghĩa
+Dùng AI để làm gì?
+Phân biệt dùng để học, gợi ý, sinh code, sửa lỗi hay viết test.
+Dùng prompt nào?
+Giúp kiểm tra chất lượng yêu cầu đầu vào và khả năng đặt vấn đề.
+Kết quả AI có đúng không?
+Buộc sinh viên kiểm chứng thay vì sao chép.
+Sinh viên đã chỉnh sửa gì?
+Thể hiện vai trò con người trong sản phẩm cuối.
+Đã test thế nào?
+Liên kết AI usage với kiểm thử và chất lượng phần mềm.
+12.2. Template AI_AUDIT_LOG.md
+# AI Audit Log
+| Ngày | Thành viên | Công cụ AI | Mục đích | File/Module | Mức độ AI hỗ trợ | Đã chỉnh sửa gì? | Đã kiểm chứng như thế nào? |
+|---|---|---|---|---|---|---|---|
+| 2026-05-17 | Nguyen Van A | ChatGPT | Gợi ý unit test | tests/UserServiceTest.cs | Medium | Sửa lại expected result | Chạy dotnet test và review logic |
+12.3. Template PROMPTS.md
+# Prompt Log
+## Prompt 1
+**Ngày:** 2026-05-17
+**Thành viên:** Nguyen Van A
+**Công cụ AI:** ChatGPT
+**Mục đích:** Sinh test case cho UserService
+### Prompt đã dùng
+```text
+Hãy viết unit test cho hàm RegisterUser trong C#, kiểm tra email rỗng, email trùng, password yếu và đăng ký thành công.
+```
+### Cách nhóm sử dụng kết quả
+- Chỉ tham khảo cấu trúc test.
+- Đã chỉnh lại dữ liệu theo project.
+- Đã chạy dotnet test để kiểm chứng.
+12.4. Template REFLECTION.md
+# Reflection Report
+## 1. Nhóm đã học được gì?
+## 2. AI đã hỗ trợ nhóm như thế nào?
+## 3. AI đã gợi ý sai hoặc thiếu gì?
+## 4. Nhóm đã kiểm chứng kết quả bằng cách nào?
+## 5. Đóng góp của từng thành viên
+| Thành viên | Vai trò | Minh chứng commit/PR |
+|---|---|---|
+| Nguyen Van A | Backend | PR #3, #5 |
+## 6. Nếu làm lại, nhóm sẽ cải thiện điều gì?
+13. Testing trong bài nộp
+Sinh viên cần có tối thiểu một nhóm test phù hợp với công nghệ sử dụng. Với project nhỏ, yêu cầu tối thiểu là unit test cho logic chính. Với project lớn hơn, bổ sung integration test hoặc API test.
+Loại test
+Ví dụ
+Khi nào dùng
+Unit test
+Test hàm tính điểm, validate form, service logic.
+Mọi assignment có logic xử lý.
+Integration test
+Test API kết nối database test.
+Project backend/API.
+API test
+Test endpoint bằng Postman/Newman hoặc REST client.
+Project REST API.
+UI test
+Test thao tác người dùng cơ bản.
+Project frontend/web.
+13.1. Lệnh test tham khảo
+# Node.js
+npm test
+# .NET
+dotnet test
+# Java Maven
+mvn test
+# Python
+pytest
+14. CI/CD với GitHub Actions
+CI giúp tự động kiểm tra bài nộp khi sinh viên push code hoặc tạo Pull Request. Giảng viên có thể xem workflow pass/fail để đánh giá mức độ hoàn thiện kỹ thuật.
+14.1. CI mẫu cho Node.js
+name: Node.js CI
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm test
+      - name: Build project
+        run: npm run build
+14.2. CI mẫu cho .NET
+name: .NET CI
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build solution
+        run: dotnet build --no-restore
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
+15. Bài tập thực hành theo buổi
+Buổi
+Bài tập
+Sản phẩm nộp
+1
+Cài Git, cấu hình user.name/user.email, accept GitHub Classroom assignment, clone repo.
+Ảnh chụp git --version, link repo, git status.
+2
+Tạo branch feature/about-page, sửa README hoặc tạo trang About, commit và push.
+Pull Request đầu tiên, commit đúng chuẩn.
+3
+Dùng AI để gợi ý một chức năng nhỏ, cập nhật AI_AUDIT_LOG.md và PROMPTS.md.
+PR có cập nhật log và mô tả AI Usage.
+4
+Viết tối thiểu 3 test case cho logic chính.
+Thư mục tests, ảnh/lệnh test pass.
+5
+Thêm GitHub Actions workflow, sửa đến khi CI pass.
+File ci.yml và workflow pass trên GitHub.
+16. Bài tập lớn cuối khóa
+Mỗi nhóm xây dựng một ứng dụng nhỏ theo chủ đề môn học. Nhóm phải quản lý toàn bộ quá trình bằng GitHub Classroom và minh chứng bằng repository.
+Yêu cầu
+Mô tả chi tiết
+Repository
+Có README, cấu trúc src/tests, template log, workflow CI.
+Git workflow
+Mỗi thành viên có branch, commit, Pull Request riêng.
+AI transparency
+Có AI_AUDIT_LOG.md và PROMPTS.md đầy đủ nếu dùng AI.
+Reflection
+Mỗi thành viên có phần reflection riêng hoặc bảng đóng góp rõ ràng.
+Testing
+Tối thiểu 5 test case có ý nghĩa.
+CI/CD
+GitHub Actions chạy tự động khi push/PR.
+Demo
+Nhóm trình bày chức năng, quy trình Git, log AI, test và CI.
+17. Checklist nộp bài cho sinh viên
+- [ ] Đã pull code mới nhất trước khi làm.
+- [ ] Đã tạo branch riêng cho task.
+- [ ] Commit message đúng chuẩn.
+- [ ] Đã push branch lên GitHub.
+- [ ] Đã tạo Pull Request.
+- [ ] Đã cập nhật AI_AUDIT_LOG.md nếu có dùng AI.
+- [ ] Đã cập nhật PROMPTS.md với prompt quan trọng.
+- [ ] Đã cập nhật REFLECTION.md cuối tuần/cuối bài.
+- [ ] Đã viết/chạy test.
+- [ ] GitHub Actions pass.
+- [ ] Không đưa password, token, API key lên repository.
+18. Rubric chấm điểm chi tiết
+Tiêu chí
+Trọng số
+Mức xuất sắc
+Mức đạt
+Mức chưa đạt
+GitHub Classroom & Repo
+10%
+Repo đúng chuẩn, đầy đủ cấu trúc, lịch sử commit rõ ràng.
+Repo có đủ file chính nhưng tổ chức chưa thật tốt.
+Repo thiếu file, commit lộn xộn hoặc nộp ngoài Classroom.
+Git workflow
+15%
+Có branch, PR, review, merge rõ ràng; mỗi thành viên có đóng góp.
+Có commit/push nhưng ít PR hoặc branch chưa chuẩn.
+Code trực tiếp main, không có PR, khó xác định đóng góp.
+AI Audit Log
+15%
+Ghi rõ mục đích, công cụ, mức độ hỗ trợ, file liên quan, cách kiểm chứng.
+Có ghi nhưng còn chung chung, thiếu kiểm chứng.
+Không ghi hoặc ghi đối phó.
+Prompt Log
+10%
+Prompt rõ, có bối cảnh, có phân tích cách sử dụng kết quả.
+Có lưu prompt nhưng thiếu phân tích.
+Không có prompt hoặc prompt không liên quan.
+Reflection
+10%
+Phản ánh sâu về bài học, lỗi AI, đóng góp, cải tiến.
+Có reflection nhưng mô tả đơn giản.
+Reflection sơ sài hoặc copy chung chung.
+Testing
+15%
+Test có ý nghĩa, bao phủ logic chính, chạy pass.
+Có test nhưng còn ít hoặc chưa bao phủ tốt.
+Không có test hoặc test không chạy được.
+CI/CD
+10%
+Workflow tự động build/test, pass ổn định, biết sửa lỗi CI.
+Có workflow nhưng còn đơn giản hoặc đôi lúc fail.
+Không có CI hoặc workflow không chạy được.
+Chất lượng sản phẩm
+15%
+Code sạch, đúng yêu cầu, demo tốt, không lộ secret.
+Sản phẩm chạy được nhưng còn lỗi nhỏ.
+Sản phẩm không chạy hoặc thiếu chức năng chính.
+19. Rubric đánh giá cá nhân trong nhóm
+Tiêu chí cá nhân
+Trọng số
+Minh chứng cần xem
+Commit/PR cá nhân
+30%
+Số lượng và chất lượng commit, PR được merge.
+Task ownership
+20%
+Issue được giao, mô tả task, kết quả hoàn thành.
+Code understanding
+20%
+Sinh viên giải thích được phần mình làm và phần AI hỗ trợ.
+Testing/Review
+15%
+Có test, review PR, phát hiện lỗi hoặc cải tiến.
+Reflection cá nhân
+15%
+Tự đánh giá rõ đóng góp, khó khăn, bài học.
+20. Mẫu mô tả Pull Request
+## Mô tả
+Mô tả ngắn chức năng/lỗi được xử lý.
+## Issue liên quan
+Closes #...
+## Thay đổi chính
+- ...
+- ...
+## AI Usage
+- [ ] Không sử dụng AI
+- [ ] Có sử dụng AI và đã cập nhật AI_AUDIT_LOG.md
+- [ ] Đã cập nhật PROMPTS.md
+## Testing
+- [ ] Đã chạy unit test
+- [ ] Đã chạy integration test/API test
+- [ ] CI đã pass
+## Screenshot/Demo
+Dán ảnh hoặc link demo nếu có.
+21. Gợi ý cho giảng viên khi triển khai đại trà
+Tạo template repository có sẵn README.md, AI_AUDIT_LOG.md, PROMPTS.md, REFLECTION.md, CHANGELOG.md và ci.yml.
+Tạo GitHub Classroom assignment dạng group nếu là project nhóm.
+Yêu cầu sinh viên đặt tên nhóm theo chuẩn: ClassCode_GroupNumber_ProjectName.
+Không chấm chỉ dựa trên sản phẩm cuối; cần xem commit, PR, AI log, test và CI.
+Dành 15 phút đầu mỗi buổi để sinh viên pull code, tạo branch và cập nhật issue.
+Dành 15 phút cuối mỗi buổi để sinh viên cập nhật AI Audit Log, Prompt Log và Reflection.
+22. Phụ lục: Bộ lệnh Git sinh viên cần nhớ
+# Kiểm tra phiên bản Git
+git --version
+# Cấu hình Git
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+# Clone repo
+git clone <repo-url>
+# Kiểm tra trạng thái
+git status
+# Lấy code mới nhất
+git pull origin main
+# Tạo branch
+git checkout -b feature/task-name
+# Xem thay đổi
+git diff
+# Add file
+git add .
+# Commit
+git commit -m "feat: describe your change"
+# Push
+git push -u origin feature/task-name
+# Chuyển branch
+git checkout main
+# Xem danh sách branch
+git branch
+# Xem lịch sử commit
+git log --oneline
+23. Phụ lục: Quy trình một dòng để sinh viên ghi nhớ
+Accept assignment → Join team → Clone repo → Pull latest code → Create branch → Code → Test → Update AI logs → Commit → Push → Pull Request → CI pass → Review → Merge

@@ -55,6 +55,9 @@ public class TaskResponse {
     private String parentTitle;
     private String githubIssueUrl;
     private Integer githubIssueNumber;
+    private List<Long> dependsOnTaskIds;
+    private boolean isSplitChild;
+    private boolean isMergedResult;
 
 
     @Getter

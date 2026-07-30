@@ -1,0 +1,1 @@
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS reject_reason TEXT;

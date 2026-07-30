@@ -50,8 +50,14 @@ public class AuditAspect {
             long duration = System.currentTimeMillis() - start;
             Long entityId = extractEntityId(auditable, argsSnapshot, result);
             Long projectId = extractProjectIdReflectively(argsSnapshot, result, request);
+            
+            String finalAction = auditable.action();
+            if (request != null && Boolean.TRUE.equals(request.getAttribute("isRevertAction"))) {
+                finalAction = "REVERT_" + auditable.entityType().toUpperCase();
+            }
+
             auditService.publishSuccess(userId, username,
-                    auditable.action(), auditable.entityType(), entityId, projectId,
+                    finalAction, auditable.entityType(), entityId, projectId,
                     argsSnapshot,
                     ip,
                     request != null ? request.getMethod() : "INTERNAL",

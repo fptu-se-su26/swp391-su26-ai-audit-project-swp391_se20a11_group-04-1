@@ -103,13 +103,15 @@ async function handleTestRunJobCommand(message) {
                 
                 // Dùng executionId làm runId để tránh conflict temp dir khi nhiều workers chạy cùng testRunId
                 const execRunId = `${testRunId}-${execution.executionId}`;
+                // wsRunId phải khớp với runId mà frontend đang subscribe (testRunId)
+                const wsRunId = String(testRunId);
                 
                 let execResult;
                 if (isLocalUrl(testCaseResponse.base_url)) {
                     if (!projectId) throw new Error("projectId is missing in Kafka message for local execution");
                     execResult = await delegateToLocalAgent(testRunId, execution.executionId, projectId, script, testCaseResponse.base_url);
                 } else {
-                    execResult = await executeScript(script, execRunId, testCaseResponse.base_url);
+                    execResult = await executeScript(script, execRunId, testCaseResponse.base_url, wsRunId);
                 }
                 
                 outcome = execResult.status === 'PASS' ? 'PASSED' : 'FAILED';

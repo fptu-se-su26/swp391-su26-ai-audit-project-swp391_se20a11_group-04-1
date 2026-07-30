@@ -57,6 +57,7 @@ public class RequirementServiceImpl implements RequirementService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final org.example.backend.repository.ProjectActorRepository projectActorRepository;
+    private final org.example.backend.service.AuditDiffService auditDiffService;
 
     private void checkLeaderAccess(Long projectId) {
         org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -220,12 +221,14 @@ public class RequirementServiceImpl implements RequirementService {
     @Override
     @Transactional
     @org.example.backend.annotation.Auditable(action="UPDATE_REQUIREMENT", entityType="Requirement", entityIdArgIndex=0)
-    public RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO) {
+    public RequirementResponseDTO updateRequirement(Long id, RequirementRequestDTO requestDTO, Long userId) {
         log.info("Updating requirement id: {}", id);
         Requirement requirement = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
         checkLeaderAccess(requirement.getProject().getId());
+
+        RequirementResponseDTO oldDto = mapToDTO(requirement);
 
         requirement.setTitle(requestDTO.getTitle());
         requirement.setDescription(requestDTO.getDescription());
@@ -259,11 +262,7 @@ public class RequirementServiceImpl implements RequirementService {
                 throw new BadRequestException("Requirement deadline cannot be after Project deadline.");
             }
         }
-        if (requestDTO.getStartDate() != null && !requestDTO.getStartDate().equals(requirement.getStartDate())) {
-            if (requestDTO.getStartDate().isBefore(java.time.LocalDate.now())) {
-                throw new BadRequestException("Start date cannot be changed to a date in the past.");
-            }
-        }
+        // Removed strict past date validation to allow reverts or retrospective planning
 
         requirement.setStartDate(requestDTO.getStartDate());
         requirement.setDeadline(requestDTO.getDeadline());
@@ -334,13 +333,18 @@ public class RequirementServiceImpl implements RequirementService {
             );
         }
 
-        return mapToDTO(updatedReq);
+        RequirementResponseDTO newDto = mapToDTO(updatedReq);
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            auditDiffService.trackAndNotifyChanges(updatedReq.getProject(), actor, "REQUIREMENT", updatedReq.getId(), updatedReq.getTitle(), oldDto, newDto);
+        });
+
+        return newDto;
     }
 
     @Override
     @Transactional
     @org.example.backend.annotation.Auditable(action="UPDATE_REQUIREMENT_STATUS", entityType="Requirement", entityIdArgIndex=0)
-    public RequirementResponseDTO updateRequirementStatus(Long id, String status) {
+    public RequirementResponseDTO updateRequirementStatus(Long id, String status, Long userId) {
         log.info("Updating status for requirement id: {} to {}", id, status);
         Requirement requirement = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
@@ -382,9 +386,16 @@ public class RequirementServiceImpl implements RequirementService {
             useCaseRepository.saveAll(useCases);
         }
 
+        RequirementResponseDTO oldDto = mapToDTO(requirement);
         requirement.setStatus(parsedStatus);
         Requirement updatedReq = requirementRepository.save(requirement);
-        return mapToDTO(updatedReq);
+        RequirementResponseDTO newDto = mapToDTO(updatedReq);
+
+        userAccountRepository.findById(userId).ifPresent(actor -> {
+            auditDiffService.trackAndNotifyChanges(updatedReq.getProject(), actor, "REQUIREMENT", updatedReq.getId(), updatedReq.getTitle(), oldDto, newDto);
+        });
+
+        return newDto;
     }
     @Override
     @Transactional

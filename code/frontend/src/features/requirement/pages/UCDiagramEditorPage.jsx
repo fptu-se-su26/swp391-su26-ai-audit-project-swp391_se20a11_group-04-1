@@ -24,6 +24,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
   const isMounted = useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
     if (!projectId) return;
     
     const fetchDiagram = async () => {
@@ -70,7 +71,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
     }
   }, [currentModuleName]);
 
-  const handleDiagramSave = useCallback(async (base64Png, positions) => {
+  const handleDiagramSave = useCallback(async (base64Png, layoutDataObj) => {
     if (!projectId) return;
     setSaveStatus('saving');
     try {
@@ -89,14 +90,15 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       }, currentModuleId);
       
       const idMappings = response?.data;
-      let newPositions = { ...positions };
+      
+      let newPositions = { ...(layoutDataObj?.positions || {}) };
       
       if (idMappings && Object.keys(idMappings).length > 0) {
         useDiagramStore.getState().updateIds(idMappings);
         
         // Update keys in positions to match new IDs
         newPositions = {};
-        for (const [key, value] of Object.entries(positions)) {
+        for (const [key, value] of Object.entries(layoutDataObj?.positions || {})) {
             let mappedKey = key;
             if (key.startsWith('uc_')) {
                 const oldId = key.substring(3);
@@ -115,7 +117,9 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       // 2. Save layout data
       const layoutObj = {
           positions: newPositions,
-          systemName: systemName
+          edges: layoutDataObj?.edges || {},
+          systemName: systemName,
+          hasManualEdits: layoutDataObj?.hasManualEdits
       };
       const payload = { layoutData: JSON.stringify(layoutObj) };
       if (base64Png) {
@@ -123,9 +127,11 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
       }
       await diagramService.saveDiagramLayout(projectId, payload, currentModuleId);
       setSaveStatus('saved');
+      toast.success('Diagram saved successfully!', { id: 'diagram-save-success', duration: 2000 });
     } catch (error) {
       console.error("Failed to auto-save diagram", error);
       setSaveStatus('error');
+      toast.error('Failed to save diagram: ' + (error.message || 'Unknown error'));
     }
   }, [projectId, systemName, currentModuleId]);
 
@@ -203,6 +209,7 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
                 projectId={projectId} 
                 systemName={systemName} 
                 setSystemName={setSystemName}
+                onUnsavedChanges={handleUnsavedChanges}
               />
             </div>
           </div>
@@ -234,7 +241,19 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
         <div className="flex items-center justify-between px-6 py-4 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] z-10 relative">
           <div className="flex items-center gap-4">
             <button 
-              onClick={!isViewMode && onView ? onView : onClose}
+              onClick={async () => {
+                if (!isViewMode && saveStatus !== 'saved') {
+                  setSaveStatus('saving');
+                  if (diagramRef.current && diagramRef.current.forceSave) {
+                    await diagramRef.current.forceSave(true);
+                  }
+                }
+                if (!isViewMode && onView) {
+                  onView();
+                } else {
+                  onClose();
+                }
+              }}
               className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-50 hover:bg-primary/10 text-gray-500 hover:text-primary transition-all duration-300 shadow-sm border border-gray-100"
               title={!isViewMode ? "View Diagram" : "Back to List"}
               disabled={saveStatus === 'saving'}
@@ -272,7 +291,15 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
                 </Button>
               )
             ) : (
-              <div className={`flex items-center justify-center min-w-[140px] gap-2 px-4 h-[38px] rounded-lg font-bold text-[13px] shadow-sm transition-all
+              <button 
+                onClick={async () => {
+                  if (diagramRef.current && diagramRef.current.forceSave) {
+                    setSaveStatus('saving');
+                    await diagramRef.current.forceSave(true);
+                  }
+                }}
+                disabled={saveStatus === 'saving' || saveStatus === 'saved'}
+                className={`flex items-center justify-center min-w-[140px] gap-2 px-4 h-[38px] rounded-lg font-bold text-[13px] shadow-sm transition-all ${saveStatus === 'unsaved' || saveStatus === 'error' ? 'cursor-pointer hover:opacity-80 hover:shadow-md active:scale-95' : 'cursor-default'}
                   ${saveStatus === 'saved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : ''}
                   ${saveStatus === 'unsaved' ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : ''}
                   ${saveStatus === 'saving' ? 'bg-primary/10 text-primary border border-primary/20' : ''}
@@ -299,10 +326,10 @@ const UCDiagramEditorPage = ({ projectId, mode = 'edit', onClose, onEdit, onView
                 {saveStatus === 'error' && (
                   <>
                     <span className="material-symbols-outlined text-[18px]">error</span>
-                    Save Error
+                    Retry Save
                   </>
                 )}
-              </div>
+              </button>
             )}
           </div>
         </div>

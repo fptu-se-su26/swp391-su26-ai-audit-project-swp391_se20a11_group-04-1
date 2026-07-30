@@ -47,7 +47,6 @@ const UseCasePage = () => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [generationId, setGenerationId] = useState(null);
   const [approveModalData, setApproveModalData] = useState(null);
-  const [rejectModalData, setRejectModalData] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [generatingCount, setGeneratingCount] = useState(0);
   const [showUcCoverageWarning, setShowUcCoverageWarning] = useState(false);
@@ -161,6 +160,16 @@ const UseCasePage = () => {
       return () => clearTimeout(delayDebounceFn);
     }
   }, [currentPage, pageSize, searchTerm, statusFilter, reqFilter, activeProject?.id, viewMode, isDraftView, listMode]);
+
+  useEffect(() => {
+    const handleRevert = () => {
+      fetchUseCases();
+      fetchAllUseCases();
+      fetchDiagramData();
+    };
+    window.addEventListener('entityReverted', handleRevert);
+    return () => window.removeEventListener('entityReverted', handleRevert);
+  }, []);
 
   useEffect(() => {
     setCurrentPage(0);
@@ -308,29 +317,16 @@ const UseCasePage = () => {
   const handleRejectUseCase = async (id, reason) => {
     if (reason) {
       try {
-        await useCaseService.updateUseCaseStatus(id, 'DRAFT', activeProject.id, reason);
+        await useCaseService.updateUseCaseStatus(id, 'REJECTED', activeProject.id, reason);
         toast.success("Use Case Rejected.");
         handleRefresh();
       } catch (error) {
         toast.error("Error rejecting Use Case");
       }
-    } else {
-      setRejectModalData(id);
     }
   };
 
-  const handleConfirmReject = async (reason) => {
-    if (!rejectModalData) return;
-    try {
-      await useCaseService.updateUseCaseStatus(rejectModalData, 'DRAFT', activeProject.id, reason);
-      toast.success("Use Case đã bị từ chối.");
-      setRejectModalData(null);
-      handleRefresh();
-    } catch (error) {
-      toast.error("Có lỗi xảy ra khi từ chối Use Case");
-      throw error;
-    }
-  };
+
 
   return (
     <div className="p-4 md:p-6 pt-2 md:pt-4 h-full relative">
@@ -449,7 +445,7 @@ const UseCasePage = () => {
                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E707D]"></div>
                 </div>
               )}
-              {useCases.length === 0 && !loading ? (
+              {useCases.length === 0 && !loading && listMode !== 'grouped' ? (
                 <div className="flex items-center justify-center flex-1 p-10 flex-col">
                   <span className="material-symbols-outlined text-outline text-[48px] mb-2">inbox</span>
                   <span className="text-on-surface-variant">Chưa có Use Case nào. Hãy tạo mới!</span>
@@ -473,7 +469,7 @@ const UseCasePage = () => {
                 />
               ) : (
                 <UseCaseList 
-                  useCases={useCases} 
+                  useCases={isDraftView ? useCases.filter(uc => uc.status !== 'REJECTED') : useCases} 
                   allUseCases={allUseCases}
                   diagramData={diagramData}
                   onEdit={handleEditUseCase} 
@@ -538,11 +534,6 @@ const UseCasePage = () => {
           setApproveModalData(null);
           handleRefresh();
         }}
-      />
-      <RejectUseCaseModal
-        isOpen={!!rejectModalData}
-        onClose={() => setRejectModalData(null)}
-        onConfirm={handleConfirmReject}
       />
       <ConfirmModal
         isOpen={showUcCoverageWarning}
