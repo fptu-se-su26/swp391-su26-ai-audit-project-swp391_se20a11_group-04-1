@@ -35,4 +35,15 @@ public interface EvidenceLinkRepository extends JpaRepository<EvidenceLink, Long
                                                  @Param("status") EvidenceStatus status);
 
     List<EvidenceLink> findByEntityTypeAndEntityId(EvidenceEntityType entityType, Long entityId);
+
+    @Query("""
+            select count(el) > 0
+            from EvidenceLink el
+            where el.entityType = :entityType
+              and el.entityId = :entityId
+              and el.evidence.status <> :excludedStatus
+            """)
+    boolean existsNonRejectedForEntity(@Param("entityType") EvidenceEntityType entityType,
+                                       @Param("entityId") Long entityId,
+                                       @Param("excludedStatus") EvidenceStatus excludedStatus);
 }

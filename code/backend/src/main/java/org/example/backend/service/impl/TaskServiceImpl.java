@@ -1,4 +1,3 @@
-// touched to trigger recompile
 package org.example.backend.service.impl;
 
 import lombok.RequiredArgsConstructor;
@@ -76,6 +75,7 @@ public class TaskServiceImpl implements TaskService {
     private final KanbanColumnServiceImpl kanbanColumnService;
     private final EvidenceRepository evidenceRepository;
     private final EvidenceLinkRepository evidenceLinkRepository;
+    private final org.example.backend.repository.CodeInsightEvidenceLinkRepository codeInsightEvidenceLinkRepository;
     private final TaskReviewDecisionRepository taskReviewDecisionRepository;
     private final ProjectCodeInsightSettingsRepository codeInsightSettingsRepository;
     private final TaskReviewSnapshotService TaskReviewSnapshotService;
@@ -1372,11 +1372,15 @@ public class TaskServiceImpl implements TaskService {
         if (task == null || task.getId() == null) {
             throw new BadRequestException("Task must have evidence before review");
         }
-        java.util.List<org.example.backend.entity.EvidenceLink> links = evidenceLinkRepository.findByEntityTypeAndEntityId(
-                EvidenceEntityType.TASK,
-                task.getId()
-        );
-        if (links == null || links.isEmpty()) {
+
+        // 1. Kiểm tra General Evidence (Evidence Vault): có bất kỳ evidence nào không bị REJECTED
+        boolean hasGeneralEvidence = evidenceLinkRepository.existsNonRejectedForEntity(
+                EvidenceEntityType.TASK, task.getId(), EvidenceStatus.REJECTED);
+
+        // 2. Kiểm tra Git Evidence (Commits / PRs tự động link qua webhook)
+        boolean hasGitEvidence = !codeInsightEvidenceLinkRepository.findByTaskId(task.getId()).isEmpty();
+
+        if (!hasGeneralEvidence && !hasGitEvidence) {
             throw new BadRequestException("Task must have evidence before review");
         }
     }
