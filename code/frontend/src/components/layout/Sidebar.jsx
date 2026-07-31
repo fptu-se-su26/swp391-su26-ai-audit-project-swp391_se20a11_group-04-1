@@ -141,10 +141,10 @@ function NavGroup({ items, activeKey, collapsed }) {
   return (
     <div ref={groupRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 2 }}>
       <div ref={pillRef} aria-hidden style={{
-        position: 'absolute', left: 0, right: 0, top: 0, height: 40,
-        borderRadius: 12,
-        background: 'linear-gradient(135deg, var(--project-theme, #278A99) 0%, color-mix(in srgb, var(--project-theme, #1E707D) 85%, #000) 55%, color-mix(in srgb, var(--project-theme, #165964) 70%, #000) 100%)',
-        boxShadow: '0 6px 20px rgba(30,112,125,0.28), 0 0 0 1px rgba(78,198,216,0.20)',
+        position: 'absolute', left: 0, right: 0, top: 0, height: 38,
+        borderRadius: 10,
+        background: 'var(--project-theme, #278A99)',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
         opacity: 0, pointerEvents: 'none', zIndex: 0, willChange: 'transform, height',
       }} />
       {items.map(({ key, icon, label, onClick, badge }) => (
@@ -169,35 +169,40 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
       title={collapsed ? label : undefined}
       aria-current={isActive ? 'page' : undefined}
       aria-label={collapsed ? label : undefined}
-      onFocus={e => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--project-theme, #278A99)' }}
-      onBlur={e => { e.currentTarget.style.boxShadow = 'none' }}
+      onFocus={e => { e.currentTarget.style.outline = '2px solid var(--project-theme, #278A99)'; e.currentTarget.style.outlineOffset = '-2px' }}
+      onBlur={e => { e.currentTarget.style.outline = 'none' }}
       style={{
         position: 'relative', zIndex: 1,
         display: 'flex', alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'flex-start',
-        gap: collapsed ? 0 : 10,
-        height: 40, borderRadius: 12,
+        gap: 10,
+        height: 38, borderRadius: 10,
         padding: collapsed ? '0' : '0 12px',
         cursor: 'pointer', userSelect: 'none',
         background: 'transparent', border: 'none',
         color: isActive ? '#fff' : (hov ? 'var(--project-theme, #1E707D)' : '#374151'),
-        transform: !isActive && hov && !collapsed ? 'translateX(3px)' : 'none',
-        transition: `transform 180ms ${EASE_S}, color 180ms ${EASE_S}`,
+        transform: !isActive && hov && !collapsed ? 'translateX(2px)' : 'none',
+        transition: `transform 150ms ${EASE_S}, color 150ms ${EASE_S}`,
         outline: 'none', width: '100%', boxSizing: 'border-box',
+        textAlign: 'left',
       }}
     >
-      {/* Icon wrapper (relative for badge dot) */}
-      <span style={{ position: 'relative', flexShrink: 0, lineHeight: 1 }}>
+      {/* Icon wrapper — fixed width, relative for badge dot */}
+      <span style={{
+        position: 'relative', flexShrink: 0,
+        width: 20, height: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
         <span className="material-symbols-outlined" style={{
-          fontSize: 18, display: 'block',
+          fontSize: 18, display: 'block', lineHeight: 1,
           color: isActive ? '#fff' : (hov ? 'var(--project-theme)' : '#6B7280'),
           fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
-          transition: `color 180ms ${EASE_S}`,
+          transition: `color 150ms ${EASE_S}`,
         }}>{icon}</span>
         {/* Badge dot in collapsed mode */}
         {collapsed && badge > 0 && (
           <div style={{
-            position: 'absolute', top: -4, right: -6,
+            position: 'absolute', top: -3, right: -5,
             minWidth: 14, height: 14,
             borderRadius: 7, background: '#EF4444',
             color: '#fff', fontSize: 9, fontWeight: 700,
@@ -213,13 +218,15 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
       <AnimatePresence initial={false}>
         {!collapsed && (
           <motion.span key="lbl"
-            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.14, ease: EASE }}
+            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.12, ease: EASE }}
             style={{
-              fontSize: 13, fontWeight: isActive ? 700 : (hov ? 600 : 500),
+              fontSize: 13, fontWeight: isActive ? 600 : (hov ? 500 : 450),
               letterSpacing: '-0.01em', flex: 1, whiteSpace: 'nowrap',
-              overflow: 'hidden', pointerEvents: 'none',
+              overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none',
               fontFamily: 'Inter,-apple-system,sans-serif',
+              lineHeight: 1.3,
+              textAlign: 'left',
             }}
           >{label}</motion.span>
         )}
@@ -229,16 +236,16 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
       {!collapsed && badge > 0 && (
         <div style={{
           background: '#EF4444', color: '#FFF', fontSize: 10, fontWeight: 700,
-          padding: '2px 6px', borderRadius: 10, flexShrink: 0,
-          boxShadow: '0 0 6px rgba(239,68,68,0.4)',
+          padding: '1px 5px', borderRadius: 8, flexShrink: 0,
+          boxShadow: '0 0 4px rgba(239,68,68,0.35)',
         }}>{badge > 99 ? '99+' : badge}</div>
       )}
       {/* Glow dot active+expanded+no badge */}
       {isActive && !collapsed && !(badge > 0) && (
         <div style={{
-          width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+          width: 4, height: 4, borderRadius: '50%', flexShrink: 0,
           background: '#4EC6D8',
-          boxShadow: '0 0 6px #4EC6D8, 0 0 14px rgba(78,198,216,0.40)',
+          boxShadow: '0 0 5px #4EC6D8',
         }} />
       )}
     </button>
@@ -249,13 +256,12 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
 function SectionLabel({ children, order, collapsed, collapsible, expanded, onToggle }) {
   const labelText = order ? `${order} · ${children}` : children
   return (
-    <div style={{ padding: collapsed ? '10px 0 4px' : '12px 12px 4px', overflow: 'hidden' }}>
-      <div style={{ height: 1, background: '#EBF5F7', marginBottom: collapsed ? 0 : 6 }} />
+    <div style={{ marginTop: collapsed ? 8 : 10, marginBottom: 4, padding: collapsed ? '0' : '0 12px', overflow: 'hidden' }}>
       <AnimatePresence initial={false}>
         {!collapsed && (
           <motion.div key="sl"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.12 }}
+            transition={{ duration: 0.1 }}
           >
             {collapsible ? (
               <button
@@ -264,32 +270,38 @@ function SectionLabel({ children, order, collapsed, collapsible, expanded, onTog
                 aria-controls="more-section"
                 onClick={onToggle}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  background: 'transparent', border: 'none', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  width: '100%',
+                  background: 'transparent', border: 'none', padding: '0',
                   cursor: 'pointer', outline: 'none',
                 }}
               >
                 <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                   textTransform: 'uppercase', color: '#9CA3AF',
                   fontFamily: 'Inter,-apple-system,sans-serif',
                 }}>{labelText}</span>
                 <span className="material-symbols-outlined" style={{
                   fontSize: 14, color: '#9CA3AF', display: 'block', lineHeight: 1,
                   transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: '200ms',
+                  transition: '180ms',
                 }}>expand_more</span>
               </button>
             ) : (
               <span style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
                 textTransform: 'uppercase', color: '#9CA3AF',
                 fontFamily: 'Inter,-apple-system,sans-serif',
+                display: 'block',
               }}>{labelText}</span>
             )}
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Thin separator — only show when collapsed */}
+      {collapsed && (
+        <div style={{ height: 1, background: '#EBF5F7', margin: '2px 8px' }} />
+      )}
     </div>
   )
 }
@@ -326,8 +338,11 @@ export default function Sidebar() {
     return next
   })
 
-  /* ── Role normalization ── */
-  const normalizedProjectRole = normalizeRole(activeProject?.role || userRole)
+  /* ── Role normalization — memoized để tránh re-derive mỗi render ── */
+  const normalizedProjectRole = useMemo(
+    () => normalizeRole(activeProject?.role || userRole),
+    [activeProject?.role, userRole]
+  )
   const isLeader = normalizedProjectRole === 'LEADER' || normalizedProjectRole === 'PROJECT_LEADER'
   const isMentor = normalizedProjectRole === 'MENTOR'
 
@@ -426,18 +441,19 @@ export default function Sidebar() {
       style={{
         position: 'fixed', top: 12, left: 12, bottom: 12, zIndex: 40,
         display: 'flex', flexDirection: 'column',
+        height: 'calc(100vh - 24px)',
+        overflow: 'hidden',
         background: '#FFFFFF', border: '1px solid #E5EEEC',
         borderRadius: 20,
         boxShadow: '0 4px 20px rgba(30,112,125,0.07), 0 1px 4px rgba(0,0,0,0.04)',
-        overflow: 'hidden',
-        padding: `14px ${collapsed ? 10 : 12}px 14px`,
+        padding: `12px ${collapsed ? 8 : 12}px 12px`,
       }}
     >
       {/* ── HEADER ROW ── */}
       <div style={{
         display: 'flex', alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between',
-        marginBottom: 12, flexShrink: 0,
+        marginBottom: 8, flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, overflow: 'hidden' }}>
           {!activeProject ? (
@@ -524,14 +540,14 @@ export default function Sidebar() {
         {activeProject && !collapsed && (
           <motion.button key="back"
             initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-            animate={{ opacity: 1, height: 30, marginBottom: 8 }}
+            animate={{ opacity: 1, height: 32, marginBottom: 8 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.16, ease: EASE }}
             onClick={() => { clearActiveProject(); navigate('/dashboard') }}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
               padding: '0 10px', borderRadius: 8,
-              background: 'var(--project-theme-light)', border: '1px solid rgba(0,0,0,0.10)',
+              background: 'var(--project-theme-light)', border: '1px solid rgba(0,0,0,0.08)',
               color: 'var(--project-theme)', fontSize: 11, fontWeight: 600, cursor: 'pointer',
               alignSelf: 'flex-start', whiteSpace: 'nowrap', overflow: 'hidden',
             }}
@@ -544,10 +560,22 @@ export default function Sidebar() {
 
       {/* ── NAV ── */}
       <nav style={{
-        flex: 1, overflowY: 'auto', overflowX: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 1,
-        scrollbarWidth: 'none',
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0,
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(100, 116, 139, 0.22) transparent',
       }}>
+        <style>{`
+          aside nav::-webkit-scrollbar { width: 4px; }
+          aside nav::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.22); border-radius: 999px; }
+          aside nav::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.38); }
+          aside nav::-webkit-scrollbar-track { background: transparent; }
+        `}</style>
         {!activeProject ? (
           <NavGroup items={portfolioItems} activeKey={portfolioActiveKey} collapsed={collapsed} />
         ) : (
