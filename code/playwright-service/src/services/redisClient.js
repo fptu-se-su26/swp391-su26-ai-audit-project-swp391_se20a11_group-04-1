@@ -6,8 +6,9 @@ const redis = new Redis({
     lazyConnect: false,          // connect ngay khi khởi tạo
     enableOfflineQueue: true,    // queue commands khi đang reconnect
     retryStrategy: (times) => {
-        if (times > 5) return null; // stop retrying sau 5 lần
-        return Math.min(times * 500, 3000);
+        // Retry mãi với backoff tối đa 30s — Redis errors đã là non-fatal (warn only)
+        // Không return null vì sẽ làm client chết vĩnh viễn sau 1 blip ngắn
+        return Math.min(times * 500, 30000);
     },
     connectTimeout: 5000,
     maxRetriesPerRequest: 3

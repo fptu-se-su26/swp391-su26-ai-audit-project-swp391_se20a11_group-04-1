@@ -35,6 +35,8 @@ spec:
           value: "160.191.51.68"
         - name: REDIS_PORT
           value: "6379"
+        - name: MAX_CONCURRENT_RUNS
+          value: "1"
         resources:
           requests:
             memory: "512Mi"

@@ -54,6 +54,16 @@ jobs:
               fi
               sleep 1
             done
+            # Chờ Kafka sẵn sàng (tối đa 30 giây) — tránh backend start trước Kafka
+            echo "   Waiting for Kafka to be ready..."
+            for i in $(seq 1 30); do
+              if docker compose -f docker-compose.dev.yml exec -T kafka \
+                  /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+                echo "   Kafka ready after ${i}s"
+                break
+              fi
+              sleep 1
+            done
 
             # 3. Deploy Backend (Spring Boot)
             echo ">> Rebuilding Backend (Spring Boot)..."
@@ -148,9 +158,28 @@ jobs:
             # 7. Apply Kubernetes manifests (playwright-worker + KEDA ScaledObject)
             # Luôn apply từ file local.yaml (đã config đúng IP VPS) để tránh config drift
             echo ">> Applying Kubernetes manifests..."
+
+            # 7a. Rebuild playwright-worker image với code mới nhất
+            cd "${REPO_DIR}"
+            docker build -f code/playwright-service/Dockerfile.worker \
+              -t swp391-su26-ai-audit-project-swp391_se20a11_group-04-1-playwright-worker:v2 \
+              code/playwright-service/
+            # Load image mới vào kind cluster (imagePullPolicy: Never cần image có sẵn trong containerd)
+            kind load docker-image \
+              swp391-su26-ai-audit-project-swp391_se20a11_group-04-1-playwright-worker:v2 \
+              --name devtrack-local
+            echo "   playwright-worker image rebuilt and loaded into kind"
+
+            # 7b. Sync devtrack-secrets từ .env hiện tại — đảm bảo pod luôn có env vars mới nhất
+            kubectl create secret generic devtrack-secrets \
+              --from-env-file="${REPO_DIR}/.env" \
+              -n devtrack --dry-run=client -o yaml | kubectl apply -f -
+            echo "   devtrack-secrets synced from .env"
+
+            # 7c. Apply deployment + scaler manifests
             kubectl apply -f "${REPO_DIR}/playwright-worker-local.yaml"
             kubectl apply -f "${REPO_DIR}/keda-scaledobject-local.yaml"
-            # Rollout restart để pod lấy config mới nhất (image + env vars)
+            # Rollout restart để pod lấy image mới + env vars mới nhất
             kubectl rollout restart deployment/playwright-worker -n devtrack
             kubectl rollout status deployment/playwright-worker -n devtrack --timeout=120s
             echo "   Kubernetes manifests applied OK"

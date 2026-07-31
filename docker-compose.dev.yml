@@ -128,7 +128,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 4002
-      REDIS_URL: redis://host.docker.internal:6379
+      REDIS_URL: redis://redis:6379
       PARSE_TIMEOUT_SECONDS: 300
     volumes:
       - ./code/architecture-parser:/app
