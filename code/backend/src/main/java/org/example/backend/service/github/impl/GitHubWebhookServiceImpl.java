@@ -47,7 +47,7 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
             String repoName = (String) repository.get("name");
             if (repoOwner == null || repoName == null) return;
 
-            GitHubIntegration matchedIntegration = findIntegration(repoOwner, repoName);
+            GitHubIntegration matchedIntegration = findIntegration(repoOwner, repoName, payloadBytes, signatureHeader);
             if (matchedIntegration == null) {
                 log.warn("Ignoring webhook. No matching integration found for repo: {}/{}", repoOwner, repoName);
                 return;
@@ -87,13 +87,36 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
         }
     }
 
-    private GitHubIntegration findIntegration(String repoOwner, String repoName) {
-        List<GitHubIntegration> integrations = gitHubIntegrationRepository.findAll();
-        return integrations.stream()
-                .filter(integration -> integration.getRepoOwner().equalsIgnoreCase(repoOwner)
-                        && integration.getRepoName().equalsIgnoreCase(repoName))
-                .findFirst()
-                .orElse(null);
+    /**
+     * Finds the GitHubIntegration whose webhook secret produces a valid HMAC-SHA256
+     * signature for the incoming payload. This allows multiple DevTrack projects to
+     * share the same GitHub repository: each project has its own secret, and we pick
+     * the one that actually matches the request signature.
+     *
+     * Falls back to the first repo-name match when no signature header is present
+     * (e.g. internal test pings that skip verification).
+     */
+    private GitHubIntegration findIntegration(String repoOwner, String repoName,
+                                               byte[] payloadBytes, String signatureHeader) {
+        List<GitHubIntegration> candidates = gitHubIntegrationRepository.findAll().stream()
+                .filter(i -> i.getRepoOwner().equalsIgnoreCase(repoOwner)
+                        && i.getRepoName().equalsIgnoreCase(repoName))
+                .toList();
+
+        if (candidates.isEmpty()) return null;
+
+        // Try to find the exact project whose secret matches the incoming signature.
+        if (hasText(signatureHeader)) {
+            for (GitHubIntegration candidate : candidates) {
+                String secret = integrationService.decryptToken(candidate.getWebhookSecretEncrypted());
+                if (isValidSignature(payloadBytes, signatureHeader, secret)) {
+                    return candidate;
+                }
+            }
+        }
+
+        // No signature match — return first candidate (will still fail the strict check below).
+        return candidates.get(0);
     }
 
     private String generateSignature(byte[] payload, String secret) {
