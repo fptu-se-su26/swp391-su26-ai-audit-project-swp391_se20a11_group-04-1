@@ -46,14 +46,14 @@ public class OpenRouterProvider implements LlmProvider {
 
     private String normalizeModel(String configuredModel) {
         if (configuredModel == null || configuredModel.isBlank()) {
-            return "google/gemini-2.5-flash";
+            return "google/gemini-2.5-flash:free";
         }
 
         String model = configuredModel.trim();
-        if ("google/gemini-2.0-flash-exp:free".equalsIgnoreCase(model)
-                || "google/gemini-2.5-flash:free".equalsIgnoreCase(model)) {
-            log.warn("OpenRouter model {} is unavailable or deprecated. Falling back to google/gemini-2.5-flash.", model);
-            return "google/gemini-2.5-flash";
+        // Only strip deprecated/unavailable models, keep :free suffix intact
+        if ("google/gemini-2.0-flash-exp:free".equalsIgnoreCase(model)) {
+            log.warn("OpenRouter model {} is deprecated. Falling back to google/gemini-2.5-flash:free.", model);
+            return "google/gemini-2.5-flash:free";
         }
 
         return model;
