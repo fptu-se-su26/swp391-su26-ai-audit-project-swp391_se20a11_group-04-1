@@ -19,8 +19,9 @@ spec:
   triggers:
   - type: kafka
     metadata:
-      # Local: dùng host.docker.internal vì KEDA pod chạy trong kind cluster
-      bootstrapServers: host.docker.internal:9094
+      # VPS Dev: dùng IP VPS vì KEDA pod chạy trong kind cluster trên Linux
+      # host.docker.internal KHÔNG resolve được trên Linux — phải dùng IP thật
+      bootstrapServers: 160.191.51.68:9094
       consumerGroup: playwright-service-group
       topic: test-run-jobs
       # Scale up khi lag > 1 message per pod — mỗi job cần 1 pod riêng

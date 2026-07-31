@@ -23,16 +23,16 @@ spec:
         - secretRef:
             name: devtrack-secrets
         env:
-        # ⚠️  LOCAL DEV ONLY — dùng host.docker.internal để K8s pod gọi ra ngoài máy Windows (kind cluster)
-        # KHÔNG dùng file này cho cloud/production. Dùng playwright-worker-prod.yaml với Service DNS thay thế.
+        # ⚠️  VPS DEV — dùng IP VPS thật để K8s pod (kind trên Linux) gọi ra Docker host
+        # File này deploy lên VPS 160.191.51.68. Nếu đổi VPS thì cập nhật IP bên dưới.
         - name: KAFKA_BROKERS
-          value: "host.docker.internal:9094"
+          value: "160.191.51.68:9094"
         - name: WS_URL
-          value: "ws://host.docker.internal:4001"
+          value: "ws://160.191.51.68:4001"
         - name: BACKEND_URL
-          value: "http://host.docker.internal:8080"
+          value: "http://160.191.51.68:8080"
         - name: REDIS_HOST
-          value: "host.docker.internal"
+          value: "160.191.51.68"
         - name: REDIS_PORT
           value: "6379"
         resources:
