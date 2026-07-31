@@ -41,8 +41,8 @@ public class GroqProvider implements LlmProvider {
     }
 
     // Groq free tier: 6000 TPM limit for llama-3.3-70b. Reserve ~2000 tokens for output.
-    // Requirement extraction prompt has ~3000 chars of instructions, so document can only be ~17000 chars
-    private static final int GROQ_MAX_INPUT_CHARS = 16000; // ~4000 tokens for document text, safe margin
+    // Requirement extraction prompt has ~3000 chars of instructions, so document can only be ~8000 chars
+    private static final int GROQ_MAX_INPUT_CHARS = 10000; // ~2500 tokens for document, safe under 12000 TPM
 
     @Override
     public String generateText(String prompt) {
