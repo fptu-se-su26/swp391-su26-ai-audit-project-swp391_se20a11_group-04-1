@@ -32,6 +32,7 @@ const UseCasePage = () => {
   const [myRequirements, setMyRequirements] = useState([]);
   const [diagramData, setDiagramData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialModuleId, setInitialModuleId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   
@@ -57,6 +58,7 @@ const UseCasePage = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [reqFilter, setReqFilter] = useState('');
   const [isDraftView, setIsDraftView] = useState(false);
@@ -75,7 +77,7 @@ const UseCasePage = () => {
         size: listMode === 'grouped' ? 1000 : pageSize,
         sort: 'createdAt,desc'
       };
-      if (searchTerm) params.keyword = searchTerm;
+      if (debouncedSearchTerm) params.keyword = debouncedSearchTerm;
       if (statusFilter && !isDraftView) params.status = statusFilter;
       if (reqFilter) params.requirementId = reqFilter;
       if (isDraftView) params.isDraft = true;
@@ -151,15 +153,19 @@ const UseCasePage = () => {
   }, [activeProject?.id, isLeader]);
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
     if (viewMode === 'list') {
-      const delayDebounceFn = setTimeout(() => {
-        fetchUseCases();
-        fetchAllUseCases();
-        fetchDiagramData();
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
+      fetchUseCases();
+      fetchAllUseCases();
+      fetchDiagramData();
     }
-  }, [currentPage, pageSize, searchTerm, statusFilter, reqFilter, activeProject?.id, viewMode, isDraftView, listMode]);
+  }, [currentPage, pageSize, debouncedSearchTerm, statusFilter, reqFilter, activeProject?.id, viewMode, isDraftView, listMode]);
 
   useEffect(() => {
     const handleRevert = () => {
@@ -380,7 +386,10 @@ const UseCasePage = () => {
 
             {/* Group 4: Add Use Case */}
             <Button
-              onClick={() => isLeader && setIsModalOpen(true)}
+              onClick={() => {
+                setInitialModuleId(null);
+                isLeader && setIsModalOpen(true);
+              }}
               disabled={!isLeader}
               className={!isLeader ? 'opacity-50 cursor-not-allowed' : ''}
               title={!isLeader ? "Only Project Leader can add use cases" : ""}
@@ -457,6 +466,12 @@ const UseCasePage = () => {
                   diagramData={diagramData}
                   listMode={listMode}
                   isLeader={isLeader}
+                  currentUserId={userId}
+                  projectMembers={activeProject?.members || []}
+                  onAddUseCase={(moduleId) => {
+                    setInitialModuleId(moduleId);
+                    setIsModalOpen(true);
+                  }}
                   onEdit={handleEditUseCase}
                   onDelete={handleDeleteUseCase}
                   onRefresh={handleRefresh}
@@ -507,7 +522,11 @@ const UseCasePage = () => {
       />
       <UseCaseFormModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setInitialModuleId(null);
+        }}
+        initialModuleId={initialModuleId}
         projectId={activeProject?.id}
         onSuccess={() => {
           setIsModalOpen(false);

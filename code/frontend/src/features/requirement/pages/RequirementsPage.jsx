@@ -257,8 +257,8 @@ const RequirementsPage = () => {
         <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           <RequirementList
           requirements={requirements}
-          onDelete={isLeader ? initiateDelete : undefined}
-          onEdit={isLeader ? handleEdit : undefined}
+          onDelete={initiateDelete}
+          onEdit={handleEdit}
           onRefresh={silentFetchRequirements}
           pagination={pagination}
           onPageChange={handlePageChange}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { useCaseService } from '../services/useCaseService';
 import UseCaseDetailHeader from '../components/UseCaseDetailHeader';
@@ -21,6 +21,14 @@ const UseCaseDetailPage = () => {
   
   const [useCase, setUseCase] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const canEdit = useMemo(() => {
+    if (isLeader) return true;
+    if (useCase && useCase.businessModule && useCase.businessModule.assignee) {
+      return String(useCase.businessModule.assignee.id) === String(userId);
+    }
+    return false;
+  }, [isLeader, useCase, userId]);
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -232,7 +240,7 @@ const UseCaseDetailPage = () => {
           isEditing={isEditing}
           saving={saving}
           updatingStatus={updatingStatus}
-          isLeader={isLeader}
+          isLeader={canEdit}
           onEdit={handleEdit}
           onSave={handleSave}
           onCancel={handleCancel}

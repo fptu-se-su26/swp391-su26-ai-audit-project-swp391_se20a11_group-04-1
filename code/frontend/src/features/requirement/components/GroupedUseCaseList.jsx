@@ -9,6 +9,36 @@ import Button from '../../../components/ui/Button';
 import ConfirmModal from '../../../components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
 
+const AssigneeAvatar = ({ user, size = 24 }) => {
+  if (!user) return null;
+  const name = user.name || user.fullName || user.username || '?';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const avatarUrl = user.avatarUrl || user.avatar || null;
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        title={name}
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
+        onError={e => { e.target.style.display = 'none'; e.target.nextSibling?.style?.removeProperty('display'); }}
+      />
+    );
+  }
+  return (
+    <div
+      title={name}
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
+      className="rounded-full bg-primary text-white flex items-center justify-center font-bold border-2 border-white shadow-sm flex-shrink-0"
+    >
+      {initials}
+    </div>
+  );
+};
+
+
 const ListHeader = () => (
   <div className="grid grid-cols-12 gap-3 bg-surface-container-low px-stack_md py-2.5 border-b border-outline-variant font-label-md text-label-md text-secondary uppercase tracking-wider rounded-t-xl">
     <div className="col-span-8 sm:col-span-4 md:col-span-4 lg:col-span-4">ID & Title</div>
@@ -32,13 +62,17 @@ const GroupedUseCaseList = ({
   onApprove,
   onReject,
   isDraftView,
-  hasFilters
+  hasFilters,
+  currentUserId,
+  projectMembers = [],
+  onAddUseCase
 }) => {
   const { activeProject } = useProjectStore();
   const [modules, setModules] = useState([]); // BusinessModules from backend
   const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
   const [editingModule, setEditingModule] = useState(null);
   const [deletingModule, setDeletingModule] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   useEffect(() => {
     if (!activeProject?.id) return;
@@ -95,21 +129,58 @@ const GroupedUseCaseList = ({
     });
   }, [useCases, modules, isDraftView]);
 
+  // Get assignee for each module
+  const getModuleAssignee = (moduleId) => {
+    const mod = modules.find(m => String(m.id) === String(moduleId));
+    if (mod && mod.assigneeId) {
+      return { id: mod.assigneeId, name: mod.assigneeName, username: mod.assigneeUsername, avatarUrl: mod.assigneeAvatar };
+    }
+    return null;
+  };
+
+  // Check if current user is the assignee for a module
+  const isModuleAssignee = (moduleId) => {
+    const assignee = getModuleAssignee(moduleId);
+    return assignee && String(assignee.id) === String(currentUserId);
+  };
+
+  // Can edit a module: Leader always can, assignee of that module can, others cannot
+  const canEditModule = (moduleId) => {
+    return isLeader || isModuleAssignee(moduleId);
+  };
+
+  const handleAssignMember = async (moduleId, memberId, e) => {
+    e.stopPropagation();
+    setActiveDropdown(null);
+    try {
+      if (moduleId === 'unknown') {
+         toast.error("Cannot assign member to General Module");
+         return;
+      }
+      await businessModuleService.assignMember(activeProject?.id, moduleId, memberId);
+      if (onRefresh) onRefresh(); // Refresh the list
+      toast.success("Assigned member successfully");
+    } catch (err) {
+      console.error("Failed to assign member", err);
+      toast.error("Failed to assign member");
+    }
+  };
+
   const handleDragStart = (e, ucId, sourceModuleId, sourceModuleName) => {
-    if (!isLeader) {
+    if (!canEditModule(sourceModuleId)) {
        e.preventDefault();
        return;
     }
     e.dataTransfer.setData("text/plain", JSON.stringify({ ucId, sourceModuleId, sourceModuleName }));
   };
 
-  const handleDragOver = (e) => {
-    if (!isLeader) return;
+  const handleDragOver = (e, targetModuleId) => {
+    if (!canEditModule(targetModuleId)) return;
     e.preventDefault();
   };
 
   const handleDrop = async (e, targetModuleId, targetModuleName) => {
-    if (!isLeader) return;
+    if (!canEditModule(targetModuleId)) return;
     e.preventDefault();
     try {
       const dataStr = e.dataTransfer.getData("text/plain");
@@ -137,6 +208,7 @@ const GroupedUseCaseList = ({
       console.error(err);
     }
   };
+
 
   if (!useCases || useCases.length === 0) {
     return (
@@ -170,7 +242,7 @@ const GroupedUseCaseList = ({
             onDrop={(e) => handleDrop(e, group.moduleId, group.moduleName)}
           >
             {/* Module Header */}
-            <div className="group bg-gradient-to-r from-surface-50 to-white px-5 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+            <div className="group bg-gradient-to-r from-surface-50 to-white px-5 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#1E707D] to-[#165964] text-white shadow-sm border border-white">
                   <span className="material-symbols-outlined text-[16px]">view_module</span>
@@ -196,6 +268,73 @@ const GroupedUseCaseList = ({
                   <span className="text-[12px] font-bold leading-none">{group.useCases.length}</span>
                   <span className="text-[10px] font-semibold leading-none uppercase tracking-wider">Use Cases</span>
                 </div>
+                {/* Module Assignee Dropdown */}
+                {group.moduleId !== 'unknown' && (
+                  <div className="z-10 flex-shrink-0 ml-2 relative assignee-dropdown-container">
+                    <div 
+                      className={`flex items-center gap-1.5 ${isLeader ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-full transition-all' : ''}`}
+                      title={getModuleAssignee(group.moduleId) ? `Assigned to: ${getModuleAssignee(group.moduleId).name || getModuleAssignee(group.moduleId).username}` : "No assignee"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isLeader) {
+                          setActiveDropdown(activeDropdown === group.moduleId ? null : group.moduleId);
+                        }
+                      }}
+                    >
+                      {getModuleAssignee(group.moduleId) ? (
+                        <AssigneeAvatar user={getModuleAssignee(group.moduleId)} size={28} />
+                      ) : (
+                        <div className="w-[28px] h-[28px] rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[14px] text-gray-400">person</span>
+                        </div>
+                      )}
+                      {isLeader && (
+                        <span className="material-symbols-outlined text-[12px] text-gray-400 bg-white rounded-full absolute -bottom-1 -right-1 shadow-sm">arrow_drop_down</span>
+                      )}
+                    </div>
+
+                    {activeDropdown === group.moduleId && isLeader && (
+                      <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-50 overflow-hidden py-1" onClick={e => e.stopPropagation()}>
+                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b border-gray-100">Assign to...</div>
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                          <button
+                            onClick={(e) => handleAssignMember(group.moduleId, null, e)}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                          >
+                            <div className="w-[24px] h-[24px] rounded-full border border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                              <span className="material-symbols-outlined text-[12px] text-gray-400">close</span>
+                            </div>
+                            <span className="text-gray-500 italic">Unassigned</span>
+                          </button>
+                          {projectMembers.map(member => (
+                            <button
+                              key={member.id}
+                              onClick={(e) => handleAssignMember(group.moduleId, member.id, e)}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                            >
+                              <AssigneeAvatar user={member} size={24} />
+                              <span className="truncate flex-1">{member.name || member.username}</span>
+                              {getModuleAssignee(group.moduleId)?.id === member.id && (
+                                <span className="material-symbols-outlined text-[16px] text-primary">check</span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {canEditModule(group.moduleId) && group.moduleId !== 'unknown' && (
+                  <button 
+                    title="Add Use Case" 
+                    onClick={() => onAddUseCase && onAddUseCase(group.moduleId)} 
+                    className="flex items-center gap-1 bg-[#1E707D] text-white px-2 py-1 rounded-md text-[11px] font-semibold shadow-sm hover:bg-[#165964] transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">add</span> Add UC
+                  </button>
+                )}
+
                 {isLeader && group.moduleId !== 'unknown' && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                      <button title="Edit Module" onClick={() => setEditingModule(modules.find(m => m.id === group.moduleId))} className="p-1 flex items-center text-gray-400 hover:text-[#1E707D] rounded hover:bg-gray-100 transition-colors">
@@ -214,7 +353,7 @@ const GroupedUseCaseList = ({
               <div className="flex flex-col gap-3">
               {group.useCases.length === 0 ? (
                 <div className="flex items-center justify-center p-4 text-sm text-gray-400 italic bg-white rounded-lg border border-dashed border-gray-200">
-                  {isLeader ? "Drag and drop Use Cases here" : "No Use Cases in this module"}
+                  {canEditModule(group.moduleId) ? "Drag and drop Use Cases here" : "No Use Cases in this module"}
                 </div>
               ) : (
                 [...group.useCases].sort((a, b) => {
@@ -226,16 +365,16 @@ const GroupedUseCaseList = ({
                 }).map((uc) => (
                   <div 
                     key={uc.id} 
-                    className={`transition-colors ${isLeader ? "cursor-grab active:cursor-grabbing" : ""}`}
-                    draggable={isLeader}
+                    className={`transition-colors ${canEditModule(group.moduleId) ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    draggable={canEditModule(group.moduleId)}
                     onDragStart={(e) => handleDragStart(e, uc.id, group.moduleId, group.moduleName)}
                   >
                     <UseCaseItem
                       uc={uc}
                       allUseCases={allUseCases}
                       diagramData={diagramData}
-                      onDelete={() => isLeader && onDelete && onDelete(uc.id)}
-                      onEdit={() => isLeader && onEdit && onEdit(uc)}
+                      onDelete={() => canEditModule(group.moduleId) && onDelete && onDelete(uc.id)}
+                      onEdit={() => canEditModule(group.moduleId) && onEdit && onEdit(uc)}
                       onRefresh={onRefresh}
                       onApprove={isDraftView ? onApprove : undefined}
                       onReject={isDraftView ? onReject : undefined}

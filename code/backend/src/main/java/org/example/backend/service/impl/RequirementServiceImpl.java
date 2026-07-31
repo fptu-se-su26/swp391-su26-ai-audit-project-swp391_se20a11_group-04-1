@@ -74,6 +74,24 @@ public class RequirementServiceImpl implements RequirementService {
         }
     }
 
+    private void checkLeaderOrOwnerAccess(Long projectId, UserAccount owner) {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) throw new org.example.backend.exception.ForbiddenException("Authentication required");
+        
+        UserAccount user = userAccountRepository.findByUsername(auth.getName())
+            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("User not found"));
+            
+        org.example.backend.entity.ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
+            .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Access Denied: You are not an active member of this project"));
+            
+        boolean isLeader = member.getRole() != null && member.getRole().getName().toUpperCase().contains("LEADER");
+        boolean isOwner = owner != null && owner.getId().equals(user.getId());
+        
+        if (!isLeader && !isOwner) {
+            throw new org.example.backend.exception.ForbiddenException("Access Denied: You must be a LEADER or the OWNER of this requirement to perform this action");
+        }
+    }
+
     @Override
     @Transactional
     @org.example.backend.annotation.Auditable(action="CREATE_REQUIREMENT", entityType="Requirement")
@@ -226,7 +244,7 @@ public class RequirementServiceImpl implements RequirementService {
         Requirement requirement = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
-        checkLeaderAccess(requirement.getProject().getId());
+        checkLeaderOrOwnerAccess(requirement.getProject().getId(), requirement.getOwner());
 
         RequirementResponseDTO oldDto = mapToDTO(requirement);
 
@@ -350,7 +368,7 @@ public class RequirementServiceImpl implements RequirementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
 
         var project = requirement.getProject();
-        checkLeaderAccess(project.getId());
+        checkLeaderOrOwnerAccess(project.getId(), requirement.getOwner());
         
         if (project.getStatus() != ProjectStatus.ACTIVE && project.getStatus() != ProjectStatus.PLANNING) {
             throw new BadRequestException("Cannot update requirements in a project that is " + project.getStatus());
@@ -427,7 +445,7 @@ public class RequirementServiceImpl implements RequirementService {
         Requirement req = requirementRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Requirement not found with id: " + id));
                 
-        checkLeaderAccess(req.getProject().getId());
+        checkLeaderOrOwnerAccess(req.getProject().getId(), req.getOwner());
         
         Long projectId = req.getProject().getId();
         RequirementResponseDTO response = mapToDTO(req);

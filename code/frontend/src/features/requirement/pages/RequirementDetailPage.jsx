@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import RequirementDetailHeader from '../components/RequirementDetailHeader';
 import RequirementDetailDescription from '../components/RequirementDetailDescription';
@@ -10,15 +10,28 @@ import UseCaseFormModal from '../components/UseCaseFormModal';
 import TestCaseFormModal from '../../testing/components/TestCaseFormModal';
 import CreateRequirementModal from '../components/CreateRequirementModal';
 import { requirementApi } from '../services/requirementApi';
+import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 
 const RequirementDetailPage = () => {
   const { projectId, id } = useParams();
+  const { activeProject } = useProjectStore();
+  const { userId } = useAuthStore();
+  const isLeader = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject?.role);
 
   const [requirement, setRequirement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUseCaseModalOpen, setIsUseCaseModalOpen] = useState(false);
   const [isTestCaseModalOpen, setIsTestCaseModalOpen] = useState(false);
+
+  const canEdit = useMemo(() => {
+    if (isLeader) return true;
+    if (requirement && requirement.owner) {
+      return String(requirement.owner.id) === String(userId);
+    }
+    return false;
+  }, [isLeader, requirement, userId]);
 
   const fetchRequirement = useCallback(async () => {
     try {
@@ -119,7 +132,7 @@ const RequirementDetailPage = () => {
   return (
     <div className="max-w-[1600px] mx-auto pb-32">
 
-      <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} onEdit={() => setIsEditModalOpen(true)} />
+      <RequirementDetailHeader requirement={requirement} onRefresh={fetchRequirement} onEdit={() => setIsEditModalOpen(true)} isLeader={canEdit} />
 
       <div className="grid grid-cols-1 gap-gutter mt-stack_md">
         {/* Main Content */}

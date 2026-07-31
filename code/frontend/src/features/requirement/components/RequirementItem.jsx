@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { requirementApi } from '../services/requirementApi';
 import useProjectStore from '../../../store/useProjectStore';
+import useAuthStore from '../../../store/useAuthStore';
 import { getInitials, getAvatarColor } from '../../../utils/avatarHelper';
 import toast from 'react-hot-toast';
 import RequirementReviewModal from './RequirementReviewModal';
@@ -11,6 +12,8 @@ import { CSS } from '@dnd-kit/utilities';
 const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
   const { id, title, type, priority, status, tags, tasksCount = 0, completedTasksCount = 0, evidenceCount = 0, reqCode, aiGenerated, startDate, deadline } = req;
   const navigate = useNavigate();
+  const { userId } = useAuthStore();
+  const canEdit = isLeader || (req.ownerId && String(req.ownerId) === String(userId));
   
   const [showOwnerMenu, setShowOwnerMenu] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -481,7 +484,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
 
         {/* Action Menu Section or Re-open Button */}
         {status === 'CLOSED' ? (
-          isLeader ? (
+          canEdit ? (
             <div className="flex justify-end flex-shrink-0 z-10 relative">
               <button
                 onClick={handleReopen}
@@ -493,7 +496,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
               </button>
             </div>
           ) : null
-        ) : (
+        ) : canEdit ? (
           <div className="relative w-8 flex justify-end flex-shrink-0" ref={actionMenuRef}>
             <button 
               onClick={toggleActionMenu}
@@ -535,7 +538,7 @@ const RequirementItem = ({ req, onDelete, onEdit, onRefresh, isLeader }) => {
               </div>
             )}
           </div>
-        )}
+        ) : <div className="w-8 flex-shrink-0" />}
       </div>
 
       {showReviewModal && (

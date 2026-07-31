@@ -7,7 +7,7 @@ import Button from '../../../components/ui/Button';
 
 import useAuthStore from '../../../store/useAuthStore';
 
-const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
+const UseCaseFormModal = ({ isOpen, onClose, onSuccess, initialModuleId }) => {
   const { userId } = useAuthStore();
   const [formData, setFormData] = useState({
     name: '',
@@ -40,10 +40,11 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
       setLoadingReqs(true);
       const isLeaderRole = ['PROJECT_LEADER', 'LEADER', 'Project Leader'].includes(activeProject.role);
       setIsLeader(isLeaderRole);
-      const params = { projectId: activeProject.id };
-      if (!isLeaderRole) {
-          params.mine = true;
-      }
+      const params = { 
+          projectId: activeProject.id,
+          page: 0,
+          size: 1000 // Fetch all for dropdown 
+      };
       requirementApi.getAllRequirements(params)
         .then(res => {
           // Backend returns PaginatedResponse which has an 'items' array
@@ -104,7 +105,8 @@ const UseCaseFormModal = ({ isOpen, onClose, onSuccess }) => {
         alternativeFlow: altFlowJson,
         completenessScore: 0,
         startDate: formData.startDate || null,
-        deadline: formData.deadline || null
+        deadline: formData.deadline || null,
+        moduleId: initialModuleId || null
       };
       
       // Update useCaseService to pass projectId if needed by backend, though it's typically sent in URL

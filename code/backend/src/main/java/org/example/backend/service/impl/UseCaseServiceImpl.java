@@ -71,6 +71,18 @@ public class UseCaseServiceImpl implements UseCaseService {
 
         UseCase useCase = new UseCase();
         mapRequestToEntity(request, useCase);
+
+        if (useCase.getBusinessModule() != null) {
+            Long assigneeId = useCase.getBusinessModule().getAssignee() != null ? useCase.getBusinessModule().getAssignee().getId() : null;
+            if (assigneeId != null && !assigneeId.equals(userId)) {
+                org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(useCase.getProjectId(), userId).orElse(null);
+                boolean isLeader = pm != null && pm.getRole() != null && pm.getRole().getName().toUpperCase().contains("LEADER");
+                if (!isLeader) {
+                    throw new org.example.backend.exception.ForbiddenException("Only the module assignee or project leader can add Use Cases to this module");
+                }
+            }
+        }
+
         useCase.setCreatedBy(user);
 
         // Pessimistic Lock on Project
@@ -590,11 +602,17 @@ public class UseCaseServiceImpl implements UseCaseService {
         boolean isOwner = useCase.getCreatedBy() != null && useCase.getCreatedBy().getId().equals(userId);
         if (isOwner) return;
 
+        if (useCase.getBusinessModule() != null && useCase.getBusinessModule().getAssignee() != null) {
+            if (useCase.getBusinessModule().getAssignee().getId().equals(userId)) {
+                return;
+            }
+        }
+
         org.example.backend.entity.ProjectMember pm = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new org.example.backend.exception.ForbiddenException("Project member not found"));
         String roleName = pm.getRole() != null ? pm.getRole().getName().toUpperCase() : "";
         if (!roleName.contains("LEADER")) {
-            throw new org.example.backend.exception.ForbiddenException("Only the owner or project leader can modify this Use Case");
+            throw new org.example.backend.exception.ForbiddenException("Only the owner, module assignee, or project leader can modify this Use Case");
         }
     }
 }

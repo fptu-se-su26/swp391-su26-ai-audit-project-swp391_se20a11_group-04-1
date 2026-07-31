@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import AiSmartSyncAllModal from './AiSmartSyncAllModal';
 import Button from '../../../components/ui/Button';
 
-const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
+const RequirementDetailHeader = ({ requirement, onEdit, onRefresh, isLeader }) => {
   const { projectId } = useParams();
   const [isSmartSyncModalOpen, setIsSmartSyncModalOpen] = useState(false);
 
@@ -119,7 +119,7 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
       </div>
       
       <div className="flex gap-3 items-center mt-2 md:mt-8">
-        {requirement.status === 'IN_REVIEW' && (
+        {isLeader && requirement.status === 'IN_REVIEW' && (
           <Button 
             variant="outline"
             onClick={handleApprove}
@@ -129,7 +129,7 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
           </Button>
         )}
         
-        {requirement.status !== 'CLOSED' && (
+        {isLeader && requirement.status !== 'CLOSED' && (
           <Button 
             variant="outline"
             onClick={onEdit}
@@ -139,14 +139,16 @@ const RequirementDetailHeader = ({ requirement, onEdit, onRefresh }) => {
           </Button>
         )}
         
-        <Button 
-          variant={btnVariant}
-          onClick={() => setIsSmartSyncModalOpen(true)}
-          {...extraProps}
-        >
-          <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
-          {btnText}
-        </Button>
+        {isLeader && (
+          <Button 
+            variant={btnVariant}
+            onClick={() => setIsSmartSyncModalOpen(true)}
+            {...extraProps}
+          >
+            <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+            {btnText}
+          </Button>
+        )}
       </div>
 
       <AiSmartSyncAllModal 
