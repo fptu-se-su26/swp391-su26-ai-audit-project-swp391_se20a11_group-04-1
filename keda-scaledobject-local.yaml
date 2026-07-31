@@ -33,11 +33,11 @@ spec:
   triggers:
   - type: kafka
     metadata:
-      # VPS Dev: dùng IP VPS vì KEDA pod chạy trong kind cluster trên Linux
-      # host.docker.internal KHÔNG resolve được trên Linux — phải dùng IP thật
       bootstrapServers: 160.191.51.68:9094
       consumerGroup: playwright-service-group
       topic: test-run-jobs
-      # Scale up khi lag > 1 message per pod — mỗi job cần 1 pod riêng
       lagThreshold: "1"
+      # Chỉ bắt đầu scale khi lag >= 1 message thực sự
+      # Tránh scale up khi offset = '-' (group mới, chưa có committed offset)
+      activationLagThreshold: "1"
       offsetResetPolicy: latest
