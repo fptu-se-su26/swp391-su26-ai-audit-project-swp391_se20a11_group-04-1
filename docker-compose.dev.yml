@@ -10,6 +10,7 @@ volumes:
   playwright-temp:
   ml-service-saved-models:
   ollama-data:
+  kafka-data:
 
 services:
 
@@ -74,6 +75,9 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_NUM_PARTITIONS: 10
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     ports:
       - "9092:9092"
       - "9094:9094"
