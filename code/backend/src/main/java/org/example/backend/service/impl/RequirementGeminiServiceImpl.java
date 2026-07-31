@@ -1,5 +1,6 @@
 package org.example.backend.service.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.service.AiRoutingService;
 import org.example.backend.service.RequirementGeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +9,7 @@ import java.time.LocalDate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Service
 public class RequirementGeminiServiceImpl implements RequirementGeminiService {
 
@@ -20,27 +22,51 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
         this.objectMapper = objectMapper;
     }
 
+    // Max chars per chunk — sized to fit within Groq 12000 TPM with prompt overhead (~3000 chars instructions)
+    private static final int CHUNK_SIZE = 7000;
+
+    /** Split document into overlapping chunks to avoid missing content at boundaries */
+    private java.util.List<String> chunkDocument(String text) {
+        java.util.List<String> chunks = new java.util.ArrayList<>();
+        if (text == null || text.isEmpty()) return chunks;
+        if (text.length() <= CHUNK_SIZE) { chunks.add(text); return chunks; }
+
+        int start = 0;
+        int overlap = 200; // overlap to avoid cutting sentences
+        while (start < text.length()) {
+            int end = Math.min(start + CHUNK_SIZE, text.length());
+            // Try to break at a newline to avoid cutting mid-sentence
+            if (end < text.length()) {
+                int nlPos = text.lastIndexOf('\n', end);
+                if (nlPos > start + CHUNK_SIZE / 2) end = nlPos + 1;
+            }
+            chunks.add(text.substring(start, end));
+            start = end - overlap;
+            if (start >= text.length()) break;
+        }
+        return chunks;
+    }
+
     @Override
     public String extractRequirementsFromText(String documentText, org.example.backend.entity.Project project) {
-        // Phase 1: Determine Domain and Priorities
+        // Phase 1: Determine Domain and Priorities (use first chunk only — sufficient for domain detection)
+        String phase1Text = documentText.length() > CHUNK_SIZE ? documentText.substring(0, CHUNK_SIZE) : documentText;
         String phase1Prompt = "You are an expert System Architect. Analyze the following project document text. " +
                 "Your task is to identify the primary business domain of the project and list the top 3-5 most critical Non-Functional Requirements (NFRs) / Constraints for this specific domain. " +
                 "Your response MUST be a pure JSON object (without ```json wrappers) with exactly two fields:\n" +
                 "1. 'domain': (String) The specific business domain (e.g., Banking, E-commerce, Healthcare, Logistics).\n" +
                 "2. 'priorities': (Array of Strings) The top 3-5 critical NFRs or business priorities (e.g., ['Data Encryption', 'High Availability', 'Audit Logging']).\n" +
                 "Do not add any explanation, return ONLY the JSON object.\n\n" +
-                "--- DOCUMENT TEXT ---\n" + documentText;
+                "--- DOCUMENT TEXT ---\n" + phase1Text;
 
         String phase1Response = cleanJsonOutput(geminiService.generateText(phase1Prompt));
 
         String domain = "General Software";
         String priorities = "Standard performance, security, and usability best practices";
         try {
-            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode p1Node = objectMapper.readTree(phase1Response);
-            if (p1Node.has("domain")) {
-                domain = p1Node.get("domain").asText();
-            }
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode p1Node = om.readTree(phase1Response);
+            if (p1Node.has("domain")) domain = p1Node.get("domain").asText();
             if (p1Node.has("priorities")) {
                 StringBuilder sb = new StringBuilder();
                 for (com.fasterxml.jackson.databind.JsonNode node : p1Node.get("priorities")) {
@@ -49,57 +75,86 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 }
                 priorities = sb.toString();
             }
-        } catch (Exception e) {
-            // fallback
+        } catch (Exception e) { /* fallback to defaults */ }
+
+        // Phase 2: Chunk document and extract requirements from each chunk
+        java.util.List<String> chunks = chunkDocument(documentText);
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ArrayNode allRequirements = om.createArrayNode();
+        com.fasterxml.jackson.databind.node.ArrayNode allActors = om.createArrayNode();
+
+        String projectDeadline = (project != null && project.getDeadline() != null) ? project.getDeadline().toString() : "N/A";
+        String today = LocalDate.now().toString();
+        final String finalDomain = domain;
+        final String finalPriorities = priorities;
+
+        for (int ci = 0; ci < chunks.size(); ci++) {
+            String chunk = chunks.get(ci);
+            String chunkNote = chunks.size() > 1
+                ? "NOTE: This is chunk " + (ci + 1) + " of " + chunks.size() + " of the full document. Extract ALL requirements visible in this chunk. Do NOT skip any.\n\n"
+                : "";
+
+            String prompt = chunkNote +
+                    "Below is the text extracted from a project requirement document. " +
+                    "CRITICAL INSTRUCTION: You are an expert Senior Business Analyst. Your task is to analyze the text and extract Actors and Requirements. " +
+                    "DO NOT just literally copy what is in the document. Deeply analyze it and deduce the core business model.\n" +
+                    "=== GRANULARITY RULE ===\n" +
+                    "You MUST break down the system into GRANULAR, ATOMIC, and ACTIONABLE requirements. " +
+                    "DO NOT generate high-level, generic Epics or Modules like 'Order Management', 'User Management', or 'Authentication System'.\n" +
+                    "CRITICAL: NEVER generate requirements with generic titles like 'Manage [Entity]' or 'CRUD [Entity]'. You MUST split them into atomic actions: 'Create [Entity]', 'Update [Entity]', 'Delete [Entity]', 'View [Entity] List'.\n" +
+                    "COMPREHENSIVENESS IS MANDATORY: Extract ALL functional units in this chunk. Do not summarize, group, or skip any feature.\n" +
+                    "\n[CRITICAL PROJECT CONTEXT]:\n" +
+                    "- Business Domain: " + finalDomain + "\n" +
+                    "- Strict Domain Priorities/Constraints: " + finalPriorities + "\n\n" +
+                    "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
+                    "1. 'project_actors': (Array of Objects) Each must have 'name' (String) and optional 'inheritsFrom' (String). Only include actors relevant to THIS chunk.\n" +
+                    "2. 'requirements': (Array of Objects) Each with fields:\n" +
+                    "   a. 'title': Concise, specific, actionable requirement title.\n" +
+                    "   b. 'description': Detailed description explaining Who, What, Why.\n" +
+                    "   c. 'priority': One of 'Low', 'Medium', 'High', 'Critical'.\n" +
+                    "   d. 'type': One of 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'.\n" +
+                    "   e. 'acceptanceCriteria': (Array of Strings) Minimum 3 criteria covering success, error, and business rule flows.\n" +
+                    "   f. 'startDate': YYYY-MM-DD, not before " + today + ".\n" +
+                    "   g. 'deadline': YYYY-MM-DD, not after " + projectDeadline + ".\n" +
+                    "CRITICAL: Write ONLY in ENGLISH. Return ONLY the JSON object.\n\n" +
+                    "--- DOCUMENT TEXT ---\n" + chunk;
+
+            try {
+                String chunkResponse = cleanJsonOutput(geminiService.generateText(prompt));
+                com.fasterxml.jackson.databind.JsonNode chunkNode = om.readTree(chunkResponse);
+
+                // Merge requirements
+                com.fasterxml.jackson.databind.JsonNode reqs = chunkNode.has("requirements") ? chunkNode.get("requirements") : chunkNode;
+                if (reqs != null && reqs.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode r : reqs) allRequirements.add(r);
+                }
+                // Merge actors (deduplicate by name)
+                if (chunkNode.has("project_actors") && chunkNode.get("project_actors").isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode a : chunkNode.get("project_actors")) {
+                        String name = a.has("name") ? a.get("name").asText().toLowerCase() : "";
+                        boolean exists = false;
+                        for (com.fasterxml.jackson.databind.JsonNode existing : allActors) {
+                            if (existing.has("name") && existing.get("name").asText().equalsIgnoreCase(name)) { exists = true; break; }
+                        }
+                        if (!exists && !name.isEmpty()) allActors.add(a);
+                    }
+                }
+            } catch (Exception e) {
+                // If one chunk fails, continue with others
+                log.warn("Chunk {} of {} failed: {}", ci + 1, chunks.size(), e.getMessage());
+            }
         }
 
-        // Phase 2: Generate Requirements with Domain Context
-        String prompt = "Below is the text extracted from a project requirement document. " +
-                "CRITICAL INSTRUCTION: You are an expert Senior Business Analyst. Your task is to analyze the text and extract Actors and Requirements. " +
-                "DO NOT just literally copy what is in the document. Deeply analyze it and deduce the core business model.\n" +
-                "=== GRANULARITY RULE ===\n" +
-                "You MUST break down the system into GRANULAR, ATOMIC, and ACTIONABLE requirements. " +
-                "DO NOT generate high-level, generic Epics or Modules like 'Order Management', 'User Management', or 'Authentication System'.\n" +
-                "CRITICAL: NEVER generate requirements with generic titles like 'Manage [Entity]' or 'CRUD [Entity]'. You MUST split them into atomic actions: 'Create [Entity]', 'Update [Entity]', 'Delete [Entity]', 'View [Entity] List'.\n" +
-                "COMPREHENSIVENESS IS MANDATORY: You MUST extract ALL functional units and features mentioned in the document. Do not summarize, group, or skip any features. If the document describes 20 functions, you must generate 20 or more requirements. Do not leave anything out.\n" +
-                "Instead, break them down into specific functional units. For example:\n" +
-                " - BAD: 'User Management', 'Manage Users'. GOOD: 'User Registration via Email', 'User Password Reset', 'Admin suspends user account'.\n" +
-                " - BAD: 'Order Management', 'Manage Orders'. GOOD: 'Customer places an order', 'System calculates order tax', 'Admin updates order status'.\n" +
-                "You MUST proactively add implicit, missing, but necessary ATOMIC requirements to make the system production-ready (e.g., specific security rules, specific CRUD workflows for entities).\n" +
-                "\n\n[CRITICAL PROJECT CONTEXT]:\n" +
-                "- Business Domain: " + domain + "\n" +
-                "- Strict Domain Priorities/Constraints: " + priorities + "\n" +
-                "When generating Acceptance Criteria (especially for Non-Functional requirements), you MUST strictly enforce and integrate the domain constraints mentioned above.\n\n" +
-                "Your response MUST be a pure JSON object (without ```json wrappers), with EXACTLY two fields: 'project_actors' and 'requirements'.\n" +
-                "1. 'project_actors': (Array of Objects) List of actors interacting with the system. Each object must have 'name' (String) and an optional 'inheritsFrom' (String). \n" +
-                "   - [UML 2.5 & BABOK STANDARD]: An Actor represents a role played by a human user, an external system, or a time-based trigger interacting with the subject. CRITICAL: Internal architectural components (e.g., 'Database', 'Server', 'UI', 'Backend', 'Frontend') are strictly FORBIDDEN from being classified as Actors. They are parts of the system, not external interactors.\n" +
-                "   - [REDUNDANCY & SYNONYM RESOLUTION]: Deduplicate and merge synonymous roles. Do NOT generate redundant actors (e.g., 'Admin', 'Administrator', and 'System Admin'). Consolidate semantic duplicates (e.g., 'User', 'Registered User', 'Logged-in User') into a singular definitive actor or a properly structured UML inheritance tree.\n" +
-                "   - [THE 'SYSTEM' BOUNDARY PRINCIPLE]: The system being designed is the boundary, NOT an actor. Do NOT extract 'System' as an actor for reactive validations or standard data processing (e.g., 'User saves data, System validates it' -> The only actor here is 'User'). ONLY instantiate a 'System' actor if it represents an autonomous, self-initiated background process (e.g., Cron Jobs, Scheduled Tasks) or a distinct external 3rd-party integration (e.g., 'Payment Gateway').\n" +
-                "   - [UML GENERALIZATION (INHERITANCE)]: If multiple specialized actors (e.g., 'Student', 'Instructor', 'Librarian') share overlapping functional access, you MUST proactively deduce and generate a generalized parent actor (e.g., 'User' or 'Member') and apply 'inheritsFrom': 'User' to the specialized children. CRITICAL: Circular inheritance is strictly prohibited. An actor cannot inherit from itself. Inheritance must flow strictly from Specialized (Child) -> Generalized (Parent).\n" +
-                "2. 'requirements': (Array of Objects) List of requirements. Each object represents a Requirement with the following fields:\n" +
-                "   a. 'title': (String) A concise, specific, and actionable title of the requirement (e.g., 'Customer cancels pending order'). DO NOT use generic module names.\n" +
-                "   b. 'description': (String) Detailed description of the requirement, explaining the 'Who', 'What', and 'Why'.\n" +
-                "   c. 'priority': (String) One of the values: 'Low', 'Medium', 'High', 'Critical'. Determine priority based on:\n" +
-                "      - 'Critical': Core system functionality (auth, payments, security, primary business logic) without which the system cannot function.\n" +
-                "      - 'High': Important features that significantly impact user experience or business value but are not absolute blockers for basic operation.\n" +
-                "   e. 'type': (String) MUST be exactly one of: 'FUNCTIONAL', 'NON_FUNCTIONAL', 'BUSINESS_RULE', 'SECURITY'. You MUST strictly follow these definitions:\n" +
-                "      - 'FUNCTIONAL': Describes specific user interactions, direct system actions, or core application workflows (e.g., 'User registers account', 'System calculates order total').\n" +
-                "      - 'NON_FUNCTIONAL': Describes system qualities like performance, scalability, usability, or reliability (e.g., 'System handles 1000 concurrent users', 'API responds under 200ms').\n" +
-                "      - 'BUSINESS_RULE': Strict domain policies, legal regulations, or formulas that govern how the system operates (e.g., 'Customers under 18 cannot buy alcohol', 'Discount cannot exceed 50%').\n" +
-                "      - 'SECURITY': Focuses purely on data privacy, encryption, access control, auditing, and threat prevention (e.g., 'Passwords must be hashed', 'Only Admins can delete users', 'System ensures data security').\n" +
-                "   f. 'acceptanceCriteria': (Array of Strings) You MUST act as a Senior Business Analyst. Generate comprehensive, professional Acceptance Criteria for each requirement. Each string in the array must be a single criterion. DO NOT start the strings with bullet characters (like '*' or '-'). DO NOT use Gherkin (Given/When/Then). You must deduce and write detailed criteria covering:\n" +
-                "      - Positive flows (Luồng thành công).\n" +
-                "      - Negative/Error flows (Luồng lỗi/Ngoại lệ).\n" +
-                "      - Business Rules & Constraints (Luật kinh doanh).\n" +
-                "      - UI/UX constraints (Ràng buộc giao diện).\n" +
-                "      The criteria MUST deeply integrate the Domain Priorities (" + priorities + ") listed above.\n" +
-                "   g. 'startDate': (String) Generate a logical start date for this requirement in YYYY-MM-DD format. The date MUST NOT be before TODAY's date: " + LocalDate.now().toString() + ". DO NOT generate a date in the past.\n" +
-                "   h. 'deadline': (String) Generate a logical deadline for this requirement in YYYY-MM-DD format. The date MUST NOT be after the project deadline: " + (project != null && project.getDeadline() != null ? project.getDeadline().toString() : "N/A") + ". It must also be after the startDate.\n" +
-                "CRITICAL: The entire generated content MUST BE WRITTEN IN ENGLISH, regardless of the original document's language.\n" +
-                "Do not add any explanation, return ONLY the JSON object.\n\n" +
-                "--- DOCUMENT TEXT ---\n" + documentText;
-
-        return cleanJsonOutput(geminiService.generateText(prompt));
+        // Build final merged JSON
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode result = om.createObjectNode();
+            result.set("project_actors", allActors);
+            result.set("requirements", allRequirements);
+            return om.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("Failed to serialize merged requirements: {}", e.getMessage());
+            return "{\"project_actors\":[], \"requirements\":[]}";
+        }
     }
 
     @Override
