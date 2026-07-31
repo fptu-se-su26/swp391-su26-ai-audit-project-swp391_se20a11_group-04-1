@@ -162,6 +162,7 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
   return (
     <button
       type="button"
+      className="sidebar-nav-btn"
       ref={el => { itemRefs.current[navKey] = el }}
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
@@ -169,22 +170,23 @@ function NavRow({ navKey, icon, label, isActive, onClick, itemRefs, collapsed, b
       title={collapsed ? label : undefined}
       aria-current={isActive ? 'page' : undefined}
       aria-label={collapsed ? label : undefined}
-      onFocus={e => { e.currentTarget.style.outline = '2px solid var(--project-theme, #278A99)'; e.currentTarget.style.outlineOffset = '-2px' }}
-      onBlur={e => { e.currentTarget.style.outline = 'none' }}
       style={{
         position: 'relative', zIndex: 1,
         display: 'flex', alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'flex-start',
-        gap: 10,
+        gap: collapsed ? 0 : 10,
+        width: '100%', boxSizing: 'border-box',
         height: 38, borderRadius: 10,
         padding: collapsed ? '0' : '0 12px',
+        border: '1px solid transparent',
+        background: 'transparent',
+        boxShadow: 'none',
+        outline: 'none',
         cursor: 'pointer', userSelect: 'none',
-        background: 'transparent', border: 'none',
+        textAlign: 'left',
         color: isActive ? '#fff' : (hov ? 'var(--project-theme, #1E707D)' : '#374151'),
         transform: !isActive && hov && !collapsed ? 'translateX(2px)' : 'none',
         transition: `transform 150ms ${EASE_S}, color 150ms ${EASE_S}`,
-        outline: 'none', width: '100%', boxSizing: 'border-box',
-        textAlign: 'left',
       }}
     >
       {/* Icon wrapper — fixed width, relative for badge dot */}
@@ -559,7 +561,7 @@ export default function Sidebar() {
       </AnimatePresence>
 
       {/* ── NAV ── */}
-      <nav style={{
+      <nav className="sidebar-navigation" style={{
         flex: 1,
         minHeight: 0,
         overflowY: 'auto',
@@ -567,14 +569,25 @@ export default function Sidebar() {
         display: 'flex',
         flexDirection: 'column',
         gap: 0,
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'rgba(100, 116, 139, 0.22) transparent',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
       }}>
         <style>{`
-          aside nav::-webkit-scrollbar { width: 4px; }
-          aside nav::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.22); border-radius: 999px; }
-          aside nav::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.38); }
-          aside nav::-webkit-scrollbar-track { background: transparent; }
+          .sidebar-navigation::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+            display: none;
+          }
+          
+          .sidebar-nav-btn:focus:not(:focus-visible) {
+            outline: none;
+            box-shadow: none;
+          }
+          
+          .sidebar-nav-btn:focus-visible {
+            outline: 2px solid color-mix(in srgb, var(--project-theme, #278A99) 45%, transparent);
+            outline-offset: 2px;
+          }
         `}</style>
         {!activeProject ? (
           <NavGroup items={portfolioItems} activeKey={portfolioActiveKey} collapsed={collapsed} />
