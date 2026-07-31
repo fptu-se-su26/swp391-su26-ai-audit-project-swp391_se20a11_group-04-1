@@ -342,11 +342,14 @@ export default function Sidebar() {
       recoveryPlanService.getProjectRecoveryPlans(activeProject.id, { status: 'PENDING_APPROVAL' })
         .then(plans => { if (Array.isArray(plans)) setPendingRecoveryCount(plans.length) })
         .catch(() => setPendingRecoveryCount(0))
+    } else {
+      setPendingRecoveryCount(0)
+    }
+    if (isLeader) {
       TaskReviewService.getReviewQueue(activeProject.id)
         .then(queue => { if (Array.isArray(queue)) setPendingReviewCount(queue.length) })
         .catch(() => setPendingReviewCount(0))
     } else {
-      setPendingRecoveryCount(0)
       setPendingReviewCount(0)
     }
   }, [activeProject?.id, isLeader, isMentor])
@@ -355,9 +358,6 @@ export default function Sidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty('--sidebar-offset', `${12 + (collapsed ? W_RAIL : W_FULL) + 12}px`)
   }, [collapsed])
-  useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-offset', `${12 + W_FULL + 12}px`)
-  }, [])
 
   /* ── Build project sections ── */
   const sections = useMemo(
@@ -381,29 +381,34 @@ export default function Sidebar() {
     }
   }, [isInMore])
 
-  /* ── Enrich items with navigate handler ── */
-  const enrich = (items) => items.map(i => ({ ...i, onClick: () => navigate(i.path) }))
+  /* ── Enrich items with navigate handler — memoized ── */
+  const enrich = useMemo(
+    () => (items) => items.map(i => ({ ...i, onClick: () => navigate(i.path) })),
+    [navigate]
+  )
 
   /* ── Portfolio items ── */
-  const portfolioRaw = [
-    { key: 'projects',   icon: 'grid_view',    label: 'My Projects',     path: '/dashboard' },
-    { key: 'classrooms', icon: 'school',        label: 'Classrooms',      path: '/classrooms' },
-    { key: 'archived',   icon: 'inbox',         label: 'Archived',        path: '/archived' },
-    { key: 'settings',   icon: 'settings',      label: 'Global Settings', path: '#' },
-  ]
-  if (userRole !== 'ADMIN') portfolioRaw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
-  if (userRole === 'ADMIN') {
-    portfolioRaw.push({ key: 'admin',      icon: 'admin_panel_settings', label: 'Admin Dashboard', path: '/admin' })
-    portfolioRaw.push({ key: 'admin-jobs', icon: 'monitor_heart',        label: 'Job Dashboard',   path: '/admin/jobs' })
-  }
-  const portfolioItems = portfolioRaw.map(item => ({
-    ...item,
-    onClick: () => {
-      if (item.path === '#') { toast.success(`"${item.label}" đang được phát triển!`); return }
-      clearActiveProject(); navigate(item.path)
-    },
-  }))
-  const portfolioActiveKey = (() => {
+  const portfolioItems = useMemo(() => {
+    const raw = [
+      { key: 'projects',   icon: 'grid_view',    label: 'My Projects',     path: '/dashboard' },
+      { key: 'classrooms', icon: 'school',        label: 'Classrooms',      path: '/classrooms' },
+      { key: 'archived',   icon: 'inbox',         label: 'Archived',        path: '/archived' },
+      { key: 'settings',   icon: 'settings',      label: 'Global Settings', path: '#' },
+    ]
+    if (userRole !== 'ADMIN') raw.push({ key: 'verify', icon: 'verified_user', label: 'Verify Account', path: '/verify' })
+    if (userRole === 'ADMIN') {
+      raw.push({ key: 'admin',      icon: 'admin_panel_settings', label: 'Admin Dashboard', path: '/admin' })
+      raw.push({ key: 'admin-jobs', icon: 'monitor_heart',        label: 'Job Dashboard',   path: '/admin/jobs' })
+    }
+    return raw.map(item => ({
+      ...item,
+      onClick: () => {
+        if (item.path === '#') { toast.success(`"${item.label}" đang được phát triển!`); return }
+        clearActiveProject(); navigate(item.path)
+      },
+    }))
+  }, [userRole, clearActiveProject, navigate])
+  const portfolioActiveKey = useMemo(() => {
     const p = location.pathname
     if (p === '/dashboard') return 'projects'
     if (p.startsWith('/classrooms')) return 'classrooms'
@@ -412,7 +417,7 @@ export default function Sidebar() {
     if (p === '/admin') return 'admin'
     if (p.startsWith('/admin/jobs')) return 'admin-jobs'
     return null
-  })()
+  }, [location.pathname])
 
   return (
     <motion.aside
