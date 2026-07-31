@@ -529,54 +529,6 @@ const TaskDetailPage = () => {
               </p>
             </div>
 
-            {/* Review Checklist Summary — shown to members so they know what's needed before requesting review */}
-            {task.status !== 'DONE' && (() => {
-              const isCodeTask = taskType === 'DEVELOPMENT' || taskType === 'BUG_FIX';
-              const codeItems = [
-                { key: 'branch', label: 'Created a branch with Task ID in the name', done: false },
-                { key: 'commit', label: 'Committed with the required tag in the message', done: false },
-                { key: 'push', label: 'Pushed branch to GitHub', done: false },
-                { key: 'pr', label: 'Opened a Pull Request to main branch', done: false },
-                { key: 'ci', label: 'CI/CD checks passed (if applicable)', done: false },
-                { key: 'checklist', label: `All checklist items completed (${completedChecklist}/${task.checklist.length})`, done: task.checklist.length === 0 || task.checklist.every(i => i.done) },
-              ];
-              const nonCodeItems = [
-                { key: 'deliverable', label: 'Deliverable file/link is ready (Figma, Drive, PDF, etc.)', done: false },
-                { key: 'evidence', label: 'Evidence uploaded in the General Evidence section', done: false },
-                { key: 'checklist', label: `All checklist items completed (${completedChecklist}/${task.checklist.length})`, done: task.checklist.length === 0 || task.checklist.every(i => i.done) },
-              ];
-              const items = isCodeTask ? codeItems : nonCodeItems;
-              return (
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-outline-variant">
-                    <h3 className="font-headline-sm text-body-lg text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-[#1E707D]">checklist</span>
-                      Review Checklist
-                    </h3>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      isCodeTask ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-amber-50 text-amber-600 border border-amber-200'
-                    }`}>
-                      {isCodeTask ? 'Code task' : 'Non-code task'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-on-surface-variant mb-3">Make sure all of the following are done before clicking <b>Request Review</b>:</p>
-                  <div className="space-y-2">
-                    {items.map(item => (
-                      <div key={item.key} className={`flex items-start gap-2.5 p-2 rounded-lg text-sm ${
-                        item.done ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container-low text-on-surface-variant'
-                      }`}>
-                        <span className={`material-symbols-outlined text-[16px] mt-0.5 shrink-0 ${
-                          item.done ? 'text-emerald-500' : 'text-on-surface-variant/50'
-                        }`}>
-                          {item.done ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                        <span>{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
 
             <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6">
               <h3 className="font-headline-sm text-body-lg text-on-surface mb-3 pb-2 border-b border-outline-variant flex justify-between">
