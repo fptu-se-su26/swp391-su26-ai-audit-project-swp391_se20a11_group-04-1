@@ -100,8 +100,17 @@ public class DiagramServiceImpl implements DiagramService {
             
             // Map Actors & Actor-UC relations
             for (UseCaseActor uca : uc.getActors()) {
-                String actorName = uca.getActorName();
-                String paId = actorNameToIdMap.get(actorName);
+                String paId = null;
+                String actorName = null;
+                
+                if (uca.getProjectActor() != null) {
+                    paId = uca.getProjectActor().getId().toString();
+                    actorName = uca.getProjectActor().getName();
+                } else {
+                    actorName = uca.getActorName();
+                    paId = actorNameToIdMap.get(actorName);
+                }
+                
                 if (paId == null) {
                     paId = actorName;
                     DiagramSyncResponse.DiagramActorDTO tempActorDto = new DiagramSyncResponse.DiagramActorDTO();
@@ -440,6 +449,19 @@ public class DiagramServiceImpl implements DiagramService {
                         if (actorName != null) {
                             UseCaseActor uca = new UseCaseActor();
                             uca.setActorName(actorName);
+                            
+                            // Map back the ProjectActor relation
+                            String finalPaIdStr = rel.getSourceId();
+                            if (finalPaIdStr != null && finalPaIdStr.startsWith("actor_")) {
+                                finalPaIdStr = finalPaIdStr.substring(6);
+                            }
+                            try {
+                                if (finalPaIdStr != null) {
+                                    Long paId = Long.parseLong(finalPaIdStr);
+                                    projectActorRepository.findById(paId).ifPresent(uca::setProjectActor);
+                                }
+                            } catch (NumberFormatException ignored) {}
+
                             uc.addActor(uca);
                         }
                     }

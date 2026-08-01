@@ -19,4 +19,11 @@ public class UseCaseActor {
 
     @Column(name = "actor_name", nullable = false, length = 100)
     private String actorName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_actor_id")
+    private ProjectActor projectActor;
+
+    @Column(name = "actor_role", length = 50)
+    private String actorRole = "PRIMARY";
 }

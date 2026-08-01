@@ -23,11 +23,15 @@ public class AiGenerationController {
 
     private final AiGenerationService aiGenerationService;
     private final org.example.backend.repository.RequirementRepository requirementRepository;
+    private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
 
     @Autowired
-    public AiGenerationController(AiGenerationService aiGenerationService, org.example.backend.repository.RequirementRepository requirementRepository) {
+    public AiGenerationController(AiGenerationService aiGenerationService, 
+                                  org.example.backend.repository.RequirementRepository requirementRepository,
+                                  org.example.backend.repository.ProjectMemberRepository projectMemberRepository) {
         this.aiGenerationService = aiGenerationService;
         this.requirementRepository = requirementRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
 
     @PostMapping(value = "/generate-requirements/{projectId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -146,8 +150,15 @@ public class AiGenerationController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
+        
+        // Authorization check: User must be a member of the project
+        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(projectId, userId).isPresent();
+        if (!isMember) {
+            return ResponseEntity.status(403).body(Map.of("error", "Forbidden: You are not a member of this project"));
+        }
+        
         try {
-            UUID generationId = aiGenerationService.generateUseCases(projectId, request.getRequirementIds(), userId);
+            UUID generationId = aiGenerationService.generateUseCasesV2(projectId, request, userId);
             return ResponseEntity.ok(Map.of(
                     "message", "Successfully started generating Use Cases.",
                     "generationId", generationId.toString()

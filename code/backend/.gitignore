@@ -37,4 +37,7 @@ build/
 
 # Ignore local profile config with credentials
 src/main/resources/application-local.yaml
+src/main/resources/application.yaml
+src/main/resources/application-prod.yaml
+src/main/resources/application.yaml.backup-before-old-config-restore
 

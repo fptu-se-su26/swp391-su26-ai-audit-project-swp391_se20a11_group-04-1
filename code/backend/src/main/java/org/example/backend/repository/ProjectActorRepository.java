@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface ProjectActorRepository extends JpaRepository<ProjectActor, Long> {
     List<ProjectActor> findByProjectId(Long projectId);
+    List<ProjectActor> findByProjectIdAndIsDeletedFalse(Long projectId);
 }

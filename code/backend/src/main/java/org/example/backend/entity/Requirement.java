@@ -33,6 +33,10 @@ public class Requirement {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "module_id")
+    private BusinessModule businessModule;
+
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
