@@ -58,6 +58,7 @@ public class TaskResponse {
     private List<Long> dependsOnTaskIds;
     private boolean isSplitChild;
     private boolean isMergedResult;
+    private String taskCode;
 
 
     @Getter

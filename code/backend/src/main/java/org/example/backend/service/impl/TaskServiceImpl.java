@@ -1873,6 +1873,7 @@ public class TaskServiceImpl implements TaskService {
                 .dependsOnTaskIds(task.getDependsOn() != null ? task.getDependsOn().stream().map(Task::getId).collect(Collectors.toList()) : new java.util.ArrayList<>())
                 .isSplitChild(task.isSplitChild())
                 .isMergedResult(task.isMergedResult())
+                .taskCode(task.getTaskCode())
                 .build();
     }
 
