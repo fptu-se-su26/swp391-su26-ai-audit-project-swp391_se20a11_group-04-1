@@ -123,10 +123,17 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
     }
     const daysOffset = 365
     const today = new Date()
+    const toLocalDateKey = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
     for (let i = 0; i < daysOffset; i++) {
       const curDate = new Date(today)
       curDate.setDate(today.getDate() - i)
-      const dateString = curDate.toISOString().split('T')[0]
+      const dateString = toLocalDateKey(curDate)
       const r = random()
       if (r > 0.45) {
         heatmap[dateString] = Math.floor(r * 8) + 1
@@ -170,10 +177,17 @@ export default function ClassroomDashboardTab({ data, setActiveTab }) {
     const startDate = new Date(today)
     startDate.setDate(today.getDate() - 370 + dayOfWeek)
 
+    const toLocalDateKey = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
     for (let i = 0; i < 53 * 7; i++) {
       const curDate = new Date(startDate)
       curDate.setDate(startDate.getDate() + i)
-      const dateString = curDate.toISOString().split('T')[0]
+      const dateString = toLocalDateKey(curDate)
       const count = activeStats.activityHeatmap?.[dateString] || 0
       
       let colorClass = 'bg-[#ebedf0]'
