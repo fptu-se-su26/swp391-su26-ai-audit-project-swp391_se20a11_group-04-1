@@ -401,8 +401,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         org.example.backend.entity.ProjectRole memberRole = projectRoleRepository.findByName("MEMBER")
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role MEMBER trong hệ thống."));
         org.example.backend.entity.ProjectRole leaderRole = projectRoleRepository.findByName("LEADER")
-                .orElse(projectRoleRepository.findByName("PROJECT_LEADER")
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role LEADER trong hệ thống.")));
+                .or(() -> projectRoleRepository.findByName("PROJECT_LEADER"))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy role LEADER trong hệ thống."));
         org.example.backend.entity.ProjectRole mentorRole = projectRoleRepository.findByName("MENTOR")
                 .orElse(null);
 
