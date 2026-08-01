@@ -224,11 +224,28 @@ const UseCasePage = () => {
   const [isAiSetupModalOpen, setIsAiSetupModalOpen] = useState(false);
   const [selectedReqIdsForAi, setSelectedReqIdsForAi] = useState([]);
 
-  const handleGenerateAISetup = (selectedIds) => {
+  const handleGenerateAISetup = async (selectedIds) => {
     if (!selectedIds || selectedIds.length === 0) {
       toast.error("Không tìm thấy Requirement nào! Vui lòng tạo Requirement trước khi tự động sinh Use Case.");
       return;
     }
+
+    // Check for existing PENDING result first — no need to regenerate
+    try {
+      const pendingList = await useCaseService.getPendingUseCaseGenerations(activeProject.id);
+      if (pendingList && pendingList.length > 0) {
+        const latest = pendingList[0];
+        if (latest.generationId) {
+          toast.success("Tìm thấy kết quả AI sẵn có, đang hiển thị...");
+          setGenerationId(latest.generationId);
+          setIsAiModalOpen(true);
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore — proceed to setup modal
+    }
+
     setSelectedReqIdsForAi(selectedIds);
     setIsAiSetupModalOpen(true);
   };
@@ -261,23 +278,6 @@ const UseCasePage = () => {
     pendingGenerationIdRef.current = null;
     
     try {
-      // Check if there's already a PENDING staging - use it directly instead of regenerating
-      try {
-        const pendingList = await useCaseService.getPendingUseCaseGenerations(activeProject.id);
-        if (pendingList && pendingList.length > 0) {
-          const latest = pendingList[0];
-          if (latest.generationId && latest.status === 'PENDING') {
-            toast.success("Tìm thấy kết quả AI cũ, đang hiển thị...");
-            setGenerationId(latest.generationId);
-            setGenerating(false);
-            setIsAiModalOpen(true);
-            return;
-          }
-        }
-      } catch (e) {
-        // ignore - proceed with new generation
-      }
-
       const startTime = Date.now();
       const response = await useCaseService.generateUseCases(
         activeProject.id, 
