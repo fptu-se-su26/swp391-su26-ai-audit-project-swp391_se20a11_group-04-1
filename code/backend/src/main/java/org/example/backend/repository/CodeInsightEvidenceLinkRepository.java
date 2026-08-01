@@ -3,6 +3,8 @@ package org.example.backend.repository;
 import org.example.backend.entity.CodeInsightEvidenceLink;
 import org.example.backend.entity.CodeInsightEvidenceType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,6 +23,15 @@ public interface CodeInsightEvidenceLinkRepository extends JpaRepository<CodeIns
             Long evidenceId);
 
     List<CodeInsightEvidenceLink> findByTaskId(Long taskId);
+
+    long countByTaskId(Long taskId);
+
+    @Query("""
+            select distinct c.taskId
+            from CodeInsightEvidenceLink c
+            where c.taskId in :taskIds
+            """)
+    List<Long> findTaskIdsWithEvidence(@Param("taskIds") List<Long> taskIds);
 
     List<CodeInsightEvidenceLink> findByProjectId(Long projectId);
 

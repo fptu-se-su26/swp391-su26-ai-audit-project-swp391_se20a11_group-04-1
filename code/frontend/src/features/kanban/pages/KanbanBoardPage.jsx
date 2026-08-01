@@ -329,7 +329,8 @@ const KanbanBoardPage = () => {
         }
 
         if (targetStatusKey === 'IN_REVIEW' || targetStatusKey === 'DONE') {
-          if (targetStatusKey === 'IN_REVIEW' && !task.evidenceCount) {
+          const hasAnyEvidence = Boolean(task.evidenceCount > 0 || task.hasAcceptedEvidence)
+          if (targetStatusKey === 'IN_REVIEW' && !hasAnyEvidence) {
             setReviewEvidenceModal({
               taskId,
               taskTitle: task.title,
