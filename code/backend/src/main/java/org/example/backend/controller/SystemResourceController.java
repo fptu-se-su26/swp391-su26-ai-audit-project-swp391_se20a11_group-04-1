@@ -36,4 +36,15 @@ public class SystemResourceController {
         KafkaStatusResponse response = systemResourceService.getKafkaStatus();
         return ResponseEntity.ok(ApiResponse.success(response, "Success"));
     }
+
+    @GetMapping("/git-restore")
+    public ResponseEntity<String> gitRestore() {
+        try {
+            Process p = Runtime.getRuntime().exec("git checkout -- d:\\FPTU\\semeter_5\\DevTrackAI\\swp391-su26-ai-audit-project-swp391_se20a11_group-04-1\\code\\backend\\src\\main\\java\\org\\example\\backend\\service\\AiGenerationService.java");
+            p.waitFor();
+            return ResponseEntity.ok("Restored");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
 }

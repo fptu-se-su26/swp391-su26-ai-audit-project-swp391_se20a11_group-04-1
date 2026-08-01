@@ -219,6 +219,7 @@ const UseCasePage = () => {
   };
 
   const abortControllerRef = useRef(null);
+  const pendingGenerationIdRef = useRef(null);
 
   const [isAiSetupModalOpen, setIsAiSetupModalOpen] = useState(false);
   const [selectedReqIdsForAi, setSelectedReqIdsForAi] = useState([]);
