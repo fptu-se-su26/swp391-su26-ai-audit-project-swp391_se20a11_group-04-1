@@ -9,6 +9,7 @@ import Button from '../../../components/ui/Button';
 import UseCaseFormModal from '../components/UseCaseFormModal';
 import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
+import AiUseCaseSetupModal from '../components/AiUseCaseSetupModal';
 import ApproveUseCaseModal from '../components/ApproveUseCaseModal';
 import RejectUseCaseModal from '../components/RejectUseCaseModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
@@ -204,15 +205,22 @@ const UseCasePage = () => {
 
   const abortControllerRef = useRef(null);
 
-  const handleGenerateAI = async (selectedIds) => {
-    setIsSelectionModalOpen(false);
-    
+  const [isAiSetupModalOpen, setIsAiSetupModalOpen] = useState(false);
+  const [selectedReqIdsForAi, setSelectedReqIdsForAi] = useState([]);
+
+  const handleGenerateAISetup = (selectedIds) => {
     if (!selectedIds || selectedIds.length === 0) {
       toast.error("Không tìm thấy Requirement nào! Vui lòng tạo Requirement trước khi tự động sinh Use Case.");
       return;
     }
+    setSelectedReqIdsForAi(selectedIds);
+    setIsAiSetupModalOpen(true);
+  };
 
-    setGeneratingCount(selectedIds.length);
+  const handleGenerateAI = async (setupParams) => {
+    setIsAiSetupModalOpen(false);
+    
+    setGeneratingCount(selectedReqIdsForAi.length);
     setGenerating(true);
     
     abortControllerRef.current = new AbortController();
@@ -221,7 +229,10 @@ const UseCasePage = () => {
       const startTime = Date.now();
       const response = await useCaseService.generateUseCases(
         activeProject.id, 
-        { requirementIds: selectedIds },
+        { 
+          requirementIds: selectedReqIdsForAi,
+          ...setupParams
+        },
         { signal: abortControllerRef.current.signal }
       );
       
@@ -377,7 +388,7 @@ const UseCasePage = () => {
             <button
               type="button"
               className={`h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center transition-colors text-[14px] shadow-sm ${!isLeader ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary-fixed'}`}
-              onClick={() => isLeader && handleGenerateAI(allRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id))}
+              onClick={() => isLeader && handleGenerateAISetup(allRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id))}
               disabled={!isLeader}
               title={!isLeader ? "Only Project Leader can generate use cases" : ""}
             >
@@ -534,6 +545,12 @@ const UseCasePage = () => {
         }}
       />
 
+      <AiUseCaseSetupModal
+        isOpen={isAiSetupModalOpen}
+        onClose={() => setIsAiSetupModalOpen(false)}
+        projectId={activeProject?.id}
+        onGenerate={handleGenerateAI}
+      />
       <AiUseCaseGenerationModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}

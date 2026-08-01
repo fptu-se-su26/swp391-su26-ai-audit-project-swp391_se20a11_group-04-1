@@ -38,10 +38,15 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
     }
   };
 
+  const [activeTab, setActiveTab] = useState('useCases'); // 'useCases' or 'coverage'
+  const [coverageData, setCoverageData] = useState(null);
+  const [proposedActors, setProposedActors] = useState([]);
+  const [actorGoalMatrix, setActorGoalMatrix] = useState([]);
+
   useEffect(() => {
     if (isOpen && generationId) {
       setLoading(true);
-        useCaseService.getGenerationById(generationId)
+      useCaseService.getGenerationById(generationId)
         .then(async data => {
           if (data.stage !== 'USE_CASE') {
             toast.error("Không thể hiển thị do bản nháp này không phải là Use Case.");
@@ -80,38 +85,75 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
             } catch (err) {
               console.error("Failed to fetch existing use cases", err);
             }
-
           }
 
-          let payloadData = data.payload || [];
+          let payloadData = data.payload || {};
           if (typeof payloadData === 'string') {
             try { payloadData = JSON.parse(payloadData); } catch(e) {}
           }
 
-          if (!Array.isArray(payloadData) && typeof payloadData === 'object' && payloadData !== null) {
-            for (const key in payloadData) {
-              if (Array.isArray(payloadData[key])) {
-                payloadData = payloadData[key];
-                break;
-              }
-            }
+          let ucList = [];
+          
+          if (payloadData && payloadData.schemaVersion === "2.0") {
+             // V2.0 Payload Structure
+             ucList = payloadData.useCases || [];
+             setCoverageData(payloadData.coverage || null);
+             setProposedActors(payloadData.proposedActors || []);
+             setActorGoalMatrix(payloadData.actorGoalMatrix || []);
+          } else {
+             // Legacy Array Structure
+             if (!Array.isArray(payloadData) && typeof payloadData === 'object' && payloadData !== null) {
+               // Fallback: finding the first array that looks like use cases
+               for (const key in payloadData) {
+                 if (Array.isArray(payloadData[key]) && payloadData[key].length > 0 && payloadData[key][0].name) {
+                   ucList = payloadData[key];
+                   break;
+                 }
+               }
+             } else if (Array.isArray(payloadData)) {
+               ucList = payloadData;
+             }
+             setCoverageData(null);
+             setProposedActors([]);
+             setActorGoalMatrix([]);
           }
 
-          if (Array.isArray(payloadData)) {
+          if (Array.isArray(ucList)) {
             // Check duplicates and format flows
             const existingNames = new Set((existingUcs || []).map(u => u.name.trim().toLowerCase()));
-            payloadData = payloadData.map(uc => ({
-              ...(uc || {}),
-              isDuplicate: uc?.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
-              mainSuccessScenario: normalizeFlowToText(uc?.mainSuccessScenario || uc?.mainFlow || uc?.mainFlows),
-              alternativeFlows: normalizeFlowToText(uc?.alternativeFlows || uc?.alternativeFlow)
-            }));
+            
+            const allActorsInfo = [...(payloadData?.proposedActors || []), ...(payloadData?.existingActorsUsed || [])];
+            
+            ucList = ucList.map(uc => {
+              let primaryActorsStr = uc?.primaryActors || '';
+              if (!primaryActorsStr && uc?.actors && uc.actors.length > 0) {
+                 primaryActorsStr = uc.actors.map(a => {
+                    const found = allActorsInfo.find(p => p.temporaryId === a.actorRef);
+                    let name = found ? found.name : a.actorRef;
+                    if (name && name.startsWith("LEGACY-ACTOR-")) {
+                       name = name.replace("LEGACY-ACTOR-", "").replace(/_/g, " ");
+                    }
+                    return name;
+                 }).join(', ');
+              }
+
+              return {
+                ...(uc || {}),
+                isDuplicate: uc?.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
+                mainSuccessScenario: normalizeFlowToText(uc?.mainSuccessScenario || uc?.mainFlow || uc?.mainFlows),
+                alternativeFlows: normalizeFlowToText(uc?.alternativeFlows || uc?.alternativeFlow),
+                primaryActors: primaryActorsStr
+              };
+            });
+          } else {
+             ucList = [];
           }
-          setUseCases(Array.isArray(payloadData) ? payloadData : []);
+          
+          setUseCases(ucList);
           
           const initialModules = [];
           const moduleSet = new Set();
-          (Array.isArray(payloadData) ? payloadData : []).forEach(uc => {
+          ucList.forEach(uc => {
             const mName = uc.moduleName || 'General Module';
             if (!moduleSet.has(mName)) {
               moduleSet.add(mName);
@@ -124,7 +166,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           });
           setModuleDefs(initialModules);
 
-          const validIndices = (Array.isArray(payloadData) ? payloadData : [])
+          const validIndices = ucList
             .map((uc, i) => ({uc, i}))
             .filter(({uc}) => uc && !uc.isDuplicate && !uc.isDeleted)
             .map(({i}) => i);
@@ -132,7 +174,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           setSelectedIndices(new Set(validIndices));
 
           // If AI produced nothing new → close and notify parent
-          if (validIndices.length === 0) {
+          if (validIndices.length === 0 && ucList.length === 0) {
             onClose();
             onFullyCovered?.();
           }
@@ -219,7 +261,11 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
 
   const handleFieldChange = (index, field, value) => {
     const updated = [...useCases];
-    updated[index] = { ...updated[index], [field]: value };
+    if (field === 'primaryActors') {
+      updated[index] = { ...updated[index], [field]: value, actors: null };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
     setUseCases(updated);
   };
 
@@ -507,62 +553,95 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
       <div className="bg-surface rounded-2xl w-full max-w-[95vw] h-[95vh] flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant bg-surface-container-lowest shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#1E707D]/10 flex items-center justify-center text-[#1E707D]">
-              <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-on-surface">Generate Use Cases (AI)</h2>
-              <div className="flex gap-4 mt-0.5">
-                <span className="text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                  Total Modules: {totalModules}
-                </span>
-                <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                  Total Use Cases: {totalUseCases}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleAddModule}
-                  className="text-xs font-bold text-white bg-[#1E707D] hover:bg-[#165964] px-2 py-0.5 rounded flex items-center gap-1 transition-colors ml-2 shadow-sm"
-                >
-                  <span className="material-symbols-outlined text-[14px]">add</span>
-                  Add Module
-                </button>
+        <div className="flex flex-col border-b border-outline-variant bg-surface-container-lowest shrink-0">
+          <div className="flex justify-between items-center px-6 py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#1E707D]/10 flex items-center justify-center text-[#1E707D]">
+                <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-on-surface">Generate Use Cases (AI)</h2>
+                <div className="flex gap-4 mt-0.5">
+                  <span className="text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    Total Modules: {totalModules}
+                  </span>
+                  <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                    Total Use Cases: {totalUseCases}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddModule}
+                    className="text-xs font-bold text-white bg-[#1E707D] hover:bg-[#165964] px-2 py-0.5 rounded flex items-center gap-1 transition-colors ml-2 shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">add</span>
+                    Add Module
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* View Mode Toggle */}
-            <div className="flex bg-surface-variant/50 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  viewMode === 'list' 
-                    ? 'bg-surface text-[#1E707D] shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span>
-                List View
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('grouped')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  viewMode === 'grouped' 
-                    ? 'bg-surface text-[#1E707D] shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">view_module</span>
-                Module View
+            
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle (only for useCases tab) */}
+              {activeTab === 'useCases' && (
+                <div className="flex bg-surface-variant/50 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === 'list' 
+                        ? 'bg-surface text-[#1E707D] shadow-sm' 
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">format_list_bulleted</span>
+                    List View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grouped')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === 'grouped' 
+                        ? 'bg-surface text-[#1E707D] shadow-sm' 
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">view_module</span>
+                    Module View
+                  </button>
+                </div>
+              )}
+              <button type="button" onClick={onClose} className="w-10 h-10 rounded-full hover:bg-surface-variant flex items-center justify-center text-on-surface-variant transition-colors">
+                <span className="material-symbols-outlined text-[24px]">close</span>
               </button>
             </div>
-            <button type="button" onClick={onClose} className="w-10 h-10 rounded-full hover:bg-surface-variant flex items-center justify-center text-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined text-[24px]">close</span>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-6 px-6 mt-1">
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('useCases')}
+              className={`pb-3 font-semibold text-sm transition-all border-b-2 ${
+                activeTab === 'useCases' 
+                  ? 'border-[#1E707D] text-[#1E707D]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Generated Use Cases
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setActiveTab('coverage')}
+              className={`pb-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2 ${
+                activeTab === 'coverage' 
+                  ? 'border-[#1E707D] text-[#1E707D]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Actors & Coverage
+              {coverageData && coverageData.uncoveredRequirementIds?.length > 0 && (
+                <span className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0.5 rounded-full">!</span>
+              )}
             </button>
           </div>
         </div>
@@ -577,6 +656,167 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
             <div className="flex flex-col justify-center items-center h-full gap-4">
               <span className="material-symbols-outlined animate-spin text-[#1E707D] text-4xl">progress_activity</span>
               <p className="text-secondary font-medium">Loading generation results...</p>
+            </div>
+          ) : activeTab === 'coverage' ? (
+            <div className="max-w-[1200px] mx-auto space-y-6">
+              {/* Coverage Metrics */}
+              {coverageData && (
+                <div className="bg-white rounded-xl shadow-sm border border-outline-variant p-5">
+                  <h3 className="font-bold text-lg mb-4 text-[#111827] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#1E707D]">monitoring</span>
+                    AI Coverage Report
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-surface-50 p-4 rounded-lg border border-gray-100">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Requirement Coverage</div>
+                      <div className="flex items-end gap-2">
+                        <span className={`text-3xl font-black ${coverageData.requirementCoveragePercent === 100 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                          {coverageData.requirementCoveragePercent?.toFixed(1) || 0}%
+                        </span>
+                      </div>
+                      {coverageData.uncoveredRequirementIds?.length > 0 && (
+                        <div className="mt-3 text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-100">
+                          <strong>Uncovered Requirements:</strong> {coverageData.uncoveredRequirementIds.map(id => reqMap.get(id) || `REQ-${id}`).join(', ')}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-surface-50 p-4 rounded-lg border border-gray-100">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Acceptance Criteria</div>
+                      <div className="flex items-end gap-2">
+                        <span className={`text-3xl font-black ${coverageData.acceptanceCriteriaCoveragePercent === 100 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                          {coverageData.acceptanceCriteriaCoveragePercent?.toFixed(1) || 0}%
+                        </span>
+                      </div>
+                      {coverageData.uncoveredAcceptanceCriteria?.length > 0 && (
+                        <div className="mt-3 text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-100">
+                          <strong>Uncovered ACs:</strong> {coverageData.uncoveredAcceptanceCriteria.slice(0, 5).join(', ')}
+                          {coverageData.uncoveredAcceptanceCriteria.length > 5 && ` + ${coverageData.uncoveredAcceptanceCriteria.length - 5} more`}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-surface-50 p-4 rounded-lg border border-gray-100">
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Actor Goals</div>
+                      <div className="flex items-end gap-2">
+                        <span className={`text-3xl font-black ${coverageData.actorGoalCoveragePercent === 100 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                          {coverageData.actorGoalCoveragePercent?.toFixed(1) || 0}%
+                        </span>
+                      </div>
+                      {coverageData.uncoveredGoalIds?.length > 0 && (
+                        <div className="mt-3 text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-100">
+                          <strong>Uncovered Goals:</strong> {coverageData.uncoveredGoalIds.length} goals missed
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Proposed Actors */}
+              <div className="bg-white rounded-xl shadow-sm border border-outline-variant overflow-hidden">
+                <div className="bg-surface-container-lowest px-5 py-4 border-b border-outline-variant flex items-center justify-between">
+                  <h3 className="font-bold text-[#111827] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#1E707D]">group_add</span>
+                    New Actors Proposed by AI
+                  </h3>
+                  <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
+                    {proposedActors?.length || 0} Actors
+                  </span>
+                </div>
+                <div className="p-0">
+                  {proposedActors?.length > 0 ? (
+                    <div className="divide-y divide-outline-variant">
+                      {proposedActors.map((actor, idx) => (
+                        <div key={idx} className="p-4 hover:bg-surface-50 transition-colors flex flex-col md:flex-row gap-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                            <span className="material-symbols-outlined">person</span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-base text-gray-900">{actor.name}</h4>
+                              <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono border border-gray-200">
+                                {actor.temporaryId}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{actor.description}</p>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="font-semibold text-gray-500">Evidence:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {actor.evidenceRequirementIds?.map(reqId => (
+                                  <span key={reqId} className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100" title={reqMap.get(reqId) || `REQ-${reqId}`}>
+                                    {reqMap.get(reqId) || `REQ-${reqId}`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-2 text-xs font-semibold">
+                             <span className="text-gray-500">Confidence:</span>
+                             <span className={`px-2 py-1 rounded ${actor.confidence >= 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {Math.round(actor.confidence * 100)}%
+                             </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-400">
+                      <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
+                      <p>No new actors proposed.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Goal Matrix */}
+              <div className="bg-white rounded-xl shadow-sm border border-outline-variant overflow-hidden">
+                <div className="bg-surface-container-lowest px-5 py-4 border-b border-outline-variant flex items-center justify-between">
+                  <h3 className="font-bold text-[#111827] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#1E707D]">track_changes</span>
+                    Actor Goal Matrix (Discovered)
+                  </h3>
+                  <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
+                    {actorGoalMatrix?.length || 0} Goals
+                  </span>
+                </div>
+                <div className="p-0 overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="p-3 font-semibold text-gray-600">Goal ID</th>
+                        <th className="p-3 font-semibold text-gray-600">Actor Ref</th>
+                        <th className="p-3 font-semibold text-gray-600">User Goal</th>
+                        <th className="p-3 font-semibold text-gray-600">Source Reqs</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {actorGoalMatrix?.map((goal, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50/50">
+                          <td className="p-3 text-xs font-mono text-gray-500 whitespace-nowrap">{goal.goalId}</td>
+                          <td className="p-3 text-xs font-mono text-[#1E707D] whitespace-nowrap">{goal.actorRef}</td>
+                          <td className="p-3 font-medium text-gray-800">{goal.goal}</td>
+                          <td className="p-3">
+                             <div className="flex flex-wrap gap-1">
+                                {goal.requirementIds?.map(reqId => (
+                                  <span key={reqId} className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] border border-gray-200" title={reqMap.get(reqId) || `REQ-${reqId}`}>
+                                    {reqMap.get(reqId) || `REQ-${reqId}`}
+                                  </span>
+                                ))}
+                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {(!actorGoalMatrix || actorGoalMatrix.length === 0) && (
+                        <tr>
+                           <td colSpan="4" className="p-8 text-center text-gray-400">No goals identified.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
             </div>
           ) : useCases.length === 0 ? (
               <div className="flex flex-col justify-center items-center h-full gap-2 text-on-surface-variant max-w-sm mx-auto text-center py-12">

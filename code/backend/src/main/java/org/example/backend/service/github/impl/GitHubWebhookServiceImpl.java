@@ -36,6 +36,7 @@ public class GitHubWebhookServiceImpl implements GitHubWebhookService {
     private final GitHubWebhookDispatcher dispatcher;
 
     @Override
+    @SuppressWarnings("unchecked")
     public void handleWebhook(String signatureHeader, String deliveryId, String eventType, byte[] payloadBytes) {
         try {
             Map<String, Object> payload = objectMapper.readValue(new String(payloadBytes, StandardCharsets.UTF_8), Map.class);
