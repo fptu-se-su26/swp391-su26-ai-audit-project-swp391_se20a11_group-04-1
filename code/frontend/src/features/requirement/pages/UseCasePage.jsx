@@ -24,7 +24,7 @@ import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 const GENERATION_POLL_INTERVAL_MS = 2500;
-const GENERATION_POLL_TIMEOUT_MS = 300000;
+const GENERATION_POLL_TIMEOUT_MS = 900000; // 15 minutes for large projects
 
 const wait = (ms, signal) => new Promise((resolve, reject) => {
   if (signal?.aborted) {
