@@ -117,6 +117,7 @@ export const mapTaskFromApi = (task) => {
     latestReviewDecision: task.latestReviewDecision || null,
     latestReviewReason: task.latestReviewReason || '',
     latestReviewDecisionAt: task.latestReviewDecisionAt || null,
+    taskCode: task.taskCode || null,
   }
 }
 
