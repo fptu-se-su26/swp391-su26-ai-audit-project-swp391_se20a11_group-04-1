@@ -157,30 +157,120 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
         }
     }
 
+    // Max chars for document context passed to critic — prevents OOM when building large prompts
+    private static final int CRITIC_DOC_MAX_CHARS = 3000;
+    // Max chars for raw requirements JSON per critic batch
+    private static final int CRITIC_BATCH_CHARS = 8000;
+
     @Override
     public String evaluateRequirementsWithCritic(String rawRequirementsJson, String documentText, java.util.List<String> existingRequirements) {
-        String existingReqsText = existingRequirements != null && !existingRequirements.isEmpty() 
-                ? String.join("\n- ", existingRequirements) 
+        String existingReqsText = existingRequirements != null && !existingRequirements.isEmpty()
+                ? String.join("\n- ", existingRequirements)
                 : "(No existing requirements in the project)";
 
+        // Truncate documentText to avoid OOM when building the prompt string
+        String truncatedDoc = documentText != null && documentText.length() > CRITIC_DOC_MAX_CHARS
+                ? documentText.substring(0, CRITIC_DOC_MAX_CHARS) + "\n...[truncated for critic review]"
+                : (documentText != null ? documentText : "");
+
+        // If rawRequirementsJson is too large, batch it to avoid OOM
+        if (rawRequirementsJson != null && rawRequirementsJson.length() > CRITIC_BATCH_CHARS) {
+            return evaluateRequirementsWithCriticBatched(rawRequirementsJson, truncatedDoc, existingReqsText);
+        }
+
+        return callCriticApi(rawRequirementsJson, truncatedDoc, existingReqsText);
+    }
+
+    private String callCriticApi(String reqsJson, String truncatedDoc, String existingReqsText) {
         String prompt = "You are an extremely strict Senior QA / Business Analyst (AI Critic). " +
                 "I will provide you with a list of recently extracted Requirements (in JSON format), " +
-                "the original document text, and the EXISTING REQUIREMENTS LIST.\n\n" +
-                "Your task: Read each Requirement and compare it against the original document to EVALUATE ITS QUALITY. " +
+                "a summary of the original document, and the EXISTING REQUIREMENTS LIST.\n\n" +
+                "Your task: Read each Requirement and evaluate its quality. " +
                 "Also, check if it is a semantic duplicate of any existing requirements. " +
                 "Return the exact same JSON array, but append 5 evaluation fields to EACH object:\n" +
                 "1. 'quality_status': (String) Quality status, must be strictly one of: 'OK', 'Warning', 'Error'.\n" +
                 "2. 'warnings': (Array of Strings) List any ambiguities or lack of details in ENGLISH (if any; empty array if none).\n" +
                 "3. 'errors': (Array of Strings) List any factual errors or contradictions in ENGLISH (if any; empty array if none).\n" +
-                "4. 'source_excerpt': (String) Extract an EXACT text snippet (COPY WORD-FOR-WORD) from the original document as evidence for this Requirement. Do not rewrite or use the requirement's description.\n" +
-                "5. 'isDuplicate': (Boolean) Set to true IF AND ONLY IF this Requirement is a SEMANTIC DUPLICATE or functionally equivalent to any Requirement in the EXISTING REQUIREMENTS LIST. CRITICAL: If the EXISTING REQUIREMENTS LIST says '(No existing requirements in the project)', you MUST ALWAYS set 'isDuplicate' to false for ALL requirements. NEVER flag duplicates against other requirements within the raw JSON itself.\n\n" +
-                "CRITICAL RULE: YOU MUST PRESERVE ALL ORIGINAL FIELDS from the input JSON (especially 'startDate', 'deadline', 'acceptanceCriteria', 'type', 'priority', 'tags'). DO NOT REMOVE ANY EXISTING FIELD.\n\n" +
+                "4. 'source_excerpt': (String) A short relevant excerpt from the document context. If not found, write 'N/A'.\n" +
+                "5. 'isDuplicate': (Boolean) Set to true IF AND ONLY IF this Requirement is a SEMANTIC DUPLICATE of any Requirement in the EXISTING REQUIREMENTS LIST. CRITICAL: If the list says '(No existing requirements in the project)', ALWAYS set 'isDuplicate' to false. NEVER flag duplicates within the raw JSON itself.\n\n" +
+                "CRITICAL RULE: PRESERVE ALL ORIGINAL FIELDS. DO NOT REMOVE ANY EXISTING FIELD.\n" +
                 "ABSOLUTELY RETURN ONLY THE JSON ARRAY. NO ADDITIONAL COMMENTS.\n\n" +
                 "--- EXISTING REQUIREMENTS LIST ---\n- " + existingReqsText + "\n\n" +
-                "--- RAW REQUIREMENTS JSON ---\n" + rawRequirementsJson + "\n\n" +
-                "--- ORIGINAL DOCUMENT TEXT ---\n" + documentText;
+                "--- RAW REQUIREMENTS JSON ---\n" + reqsJson + "\n\n" +
+                "--- DOCUMENT CONTEXT (summary) ---\n" + truncatedDoc;
 
         return cleanJsonOutput(geminiService.generateText(prompt));
+    }
+
+    private String evaluateRequirementsWithCriticBatched(String rawRequirementsJson, String truncatedDoc, String existingReqsText) {
+        // Parse into array, batch by approximate char count, then merge results
+        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.node.ArrayNode evaluated = om.createArrayNode();
+        try {
+            com.fasterxml.jackson.databind.JsonNode arr = om.readTree(rawRequirementsJson);
+            if (!arr.isArray()) {
+                return callCriticApi(rawRequirementsJson, truncatedDoc, existingReqsText);
+            }
+
+            java.util.List<com.fasterxml.jackson.databind.JsonNode> batch = new java.util.ArrayList<>();
+            int batchChars = 0;
+
+            for (com.fasterxml.jackson.databind.JsonNode node : arr) {
+                String nodeStr = node.toString();
+                if (batchChars + nodeStr.length() > CRITIC_BATCH_CHARS && !batch.isEmpty()) {
+                    // Flush batch
+                    String batchJson = buildArrayString(batch, om);
+                    String result = callCriticApi(batchJson, truncatedDoc, existingReqsText);
+                    appendParsedArray(evaluated, result, om, batch);
+                    batch.clear();
+                    batchChars = 0;
+                }
+                batch.add(node);
+                batchChars += nodeStr.length();
+            }
+            // Flush remaining
+            if (!batch.isEmpty()) {
+                String batchJson = buildArrayString(batch, om);
+                String result = callCriticApi(batchJson, truncatedDoc, existingReqsText);
+                appendParsedArray(evaluated, result, om, batch);
+            }
+
+            return om.writeValueAsString(evaluated);
+        } catch (Exception e) {
+            log.warn("Batched critic failed, falling back to single call: {}", e.getMessage());
+            return callCriticApi(rawRequirementsJson, truncatedDoc, existingReqsText);
+        }
+    }
+
+    private String buildArrayString(java.util.List<com.fasterxml.jackson.databind.JsonNode> nodes,
+                                    com.fasterxml.jackson.databind.ObjectMapper om) throws Exception {
+        com.fasterxml.jackson.databind.node.ArrayNode arr = om.createArrayNode();
+        nodes.forEach(arr::add);
+        return om.writeValueAsString(arr);
+    }
+
+    private void appendParsedArray(com.fasterxml.jackson.databind.node.ArrayNode target,
+                                   String json,
+                                   com.fasterxml.jackson.databind.ObjectMapper om,
+                                   java.util.List<com.fasterxml.jackson.databind.JsonNode> fallbackNodes) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode parsed = om.readTree(cleanJsonOutput(json));
+            if (parsed.isArray()) {
+                parsed.forEach(target::add);
+                return;
+            }
+        } catch (Exception ignored) {}
+        // Fallback: add original nodes without critic fields
+        fallbackNodes.forEach(n -> {
+            if (n instanceof com.fasterxml.jackson.databind.node.ObjectNode obj) {
+                obj.put("quality_status", "OK");
+                obj.putArray("warnings");
+                obj.putArray("errors");
+                obj.put("source_excerpt", "N/A");
+                obj.put("isDuplicate", false);
+            }
+            target.add(n);
+        });
     }
 
     @Override
