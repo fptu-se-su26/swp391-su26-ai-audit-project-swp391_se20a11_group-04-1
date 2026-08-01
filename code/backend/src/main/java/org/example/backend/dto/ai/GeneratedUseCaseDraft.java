@@ -6,6 +6,7 @@ import java.util.List;
 @Data
 public class GeneratedUseCaseDraft {
     private String temporaryId; // e.g. AI-UC-001
+    private String moduleRef;
     private List<String> goalIds;
     private Long moduleId;
     private String name;

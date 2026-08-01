@@ -257,6 +257,7 @@ const UseCasePage = () => {
     setGenerating(true);
     
     abortControllerRef.current = new AbortController();
+    pendingGenerationIdRef.current = null;
     
     try {
       const startTime = Date.now();
@@ -268,6 +269,7 @@ const UseCasePage = () => {
         },
         { signal: abortControllerRef.current.signal }
       );
+      pendingGenerationIdRef.current = response.generationId;
       await waitForUseCaseGeneration(response.generationId, abortControllerRef.current.signal);
       
       const elapsed = Date.now() - startTime;
@@ -285,6 +287,7 @@ const UseCasePage = () => {
       toast.error(error.response?.data?.message || error.message || 'Có lỗi khi sinh Use Case bằng AI');
     } finally {
       setGenerating(false);
+      pendingGenerationIdRef.current = null;
     }
   };
 
@@ -292,9 +295,10 @@ const UseCasePage = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    if (activeProject?.id && generating) {
+    if (pendingGenerationIdRef.current) {
       try {
-        await requirementApi.deletePendingGenerations(activeProject.id, 'USE_CASE');
+        await useCaseService.cancelGeneration(pendingGenerationIdRef.current);
+        toast.success("Đã huỷ tiến trình sinh AI.");
       } catch (err) {
         console.error('Failed to clear pending use case generation:', err);
       }
@@ -307,7 +311,6 @@ const UseCasePage = () => {
     fetchAllUseCases();
     fetchDiagramData();
   };
-
 
   const handleDeleteUseCase = (id) => {
     setDeleteConfirmId(id);

@@ -72,7 +72,7 @@ const AiUseCaseSetupModal = ({ isOpen, onClose, onGenerate, projectId }) => {
               className="w-full border rounded-lg p-2 outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="MODULE">Module Level (Recommended)</option>
-              <option value="PROJECT">Project Level (Whole system)</option>
+              <option value="AUTO_PROJECT">Project Level (Auto-cluster Modules)</option>
             </select>
           </div>
 

@@ -1,7 +1,6 @@
 package org.example.backend.service;
 
 import org.example.backend.config.NotificationWebSocketHandler;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -27,6 +26,8 @@ import org.example.backend.repository.TestCaseRepository;
 import org.example.backend.repository.TestStepRepository;
 import org.example.backend.entity.TestCase;
 import org.example.backend.entity.TestStep;
+import org.example.backend.entity.UseCase;
+import org.example.backend.entity.UseCaseActor;
 import org.example.backend.entity.enums.TestCaseStatus;
 import org.example.backend.entity.enums.TestType;
 import org.example.backend.service.AuditService;
@@ -84,6 +85,14 @@ public class AiGenerationService {
     private org.example.backend.service.ai.usecase.UseCaseGenerationValidator useCaseGenerationValidator;
     @Autowired
     private org.example.backend.service.ai.usecase.UseCaseGenerationPayloadNormalizer useCaseGenerationPayloadNormalizer;
+    @Autowired
+    private org.example.backend.service.ai.usecase.ModuleDiscoveryService moduleDiscoveryService;
+    @Autowired
+    private org.example.backend.service.ai.usecase.UseCaseGenerationGapAnalysisService gapAnalysisService;
+    @Autowired
+    private org.example.backend.service.ai.usecase.ActorReferenceMergeService actorReferenceMergeService;
+    @Autowired
+    private org.example.backend.service.AiGenerationStagingService aiGenerationStagingService;
 
     @Autowired
     public AiGenerationService(DocumentParserService documentParserService,
@@ -168,8 +177,7 @@ public class AiGenerationService {
             documentText = rawDocumentText;
 
             sendProgress(userId, 1, "AI is evaluating document relevance...");
-            
-            // Lấy 10 Requirement gần nhất làm context
+
             List<Requirement> contextReqs = requirementRepository.findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(projectId);
             List<String> contextStrings = new ArrayList<>();
             for (Requirement r : contextReqs) {
@@ -289,15 +297,13 @@ public class AiGenerationService {
         return generationId;
     }
 
-    @Transactional
     public void completeUseCaseGenerationV2(UUID generationId, Long projectId, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
-        List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
-        if (stagings.isEmpty()) {
+        AiGenerationStaging staging = stagingRepository.findByGenerationId(generationId).stream().findFirst().orElse(null);
+        if (staging == null) {
             log.warn("Use Case generation staging {} was not found.", generationId);
             return;
         }
 
-        AiGenerationStaging staging = stagings.get(0);
         if (staging.getStatus() != AiGenerationStatus.PROCESSING) {
             log.info("Use Case generation {} is no longer PROCESSING; current status is {}.", generationId, staging.getStatus());
             return;
@@ -308,20 +314,33 @@ public class AiGenerationService {
                     .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
             UseCaseGenerationBuildResult result = buildUseCaseGenerationPayload(project, request, userId);
 
-            staging.setPayload(result.payload());
-            staging.setFileHash(result.cacheFingerprint());
-            staging.setStatus(AiGenerationStatus.PENDING);
-            stagingRepository.save(staging);
-            sendProgress(userId, 7, "Done!");
+            boolean success = aiGenerationStagingService.updateStatusAndPayloadIf(
+                    generationId, 
+                    AiGenerationStatus.PROCESSING, 
+                    AiGenerationStatus.PENDING, 
+                    result.payload(), 
+                    result.cacheFingerprint()
+            );
+            
+            if (success) {
+                sendProgress(userId, 7, "Done!");
+            } else {
+                log.warn("Failed to atomic update status to PENDING for generation {}", generationId);
+            }
         } catch (Exception e) {
             log.error("Use Case generation {} failed.", generationId, e);
             ObjectNode errorPayload = objectMapper.createObjectNode();
             errorPayload.put("status", "FAILED");
             errorPayload.put("message", "Use case generation failed. Please try again.");
             errorPayload.put("error", e.getMessage());
-            staging.setPayload(errorPayload);
-            staging.setStatus(AiGenerationStatus.DISCARDED);
-            stagingRepository.save(staging);
+            
+            aiGenerationStagingService.updateStatusAndPayloadIf(
+                    generationId, 
+                    AiGenerationStatus.PROCESSING, 
+                    AiGenerationStatus.DISCARDED, 
+                    errorPayload, 
+                    null
+            );
             sendProgress(userId, 7, "Use Case generation failed.");
         }
     }
@@ -330,36 +349,82 @@ public class AiGenerationService {
         sendProgress(userId, 1, "Building Generation Context...");
         org.example.backend.dto.ai.UseCaseGenerationContext context = useCaseGenerationContextBuilder.buildContext(project, request.getModuleId(), request.getRequirementIds());
 
+        // GAP ANALYSIS FILTERING
+        if (Boolean.TRUE.equals(request.getRegenerateMissingOnly())) {
+            List<Requirement> filtered = gapAnalysisService.filterRequirementsForGeneration(context.getModuleRequirements(), context.getExistingUseCases(), true);
+            if (filtered.isEmpty()) {
+                throw new RuntimeException("All selected requirements already have use cases, and regenerateMissingOnly is true.");
+            }
+            context.setModuleRequirements(filtered);
+        }
+
         sendProgress(userId, 2, "Checking Cache...");
         String cacheFingerprint = useCaseGenerationFingerprintService.generateFingerprint(context, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
-        // TODO: check stagingRepository for existing cache
 
-        sendProgress(userId, 3, "AI Phase 1: Discovering Actors and Goals...");
+        org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult = null;
+        if (org.example.backend.dto.AiUseCaseGenerateRequest.GenerationMode.AUTO_PROJECT.equals(request.getGenerationMode())) {
+            sendProgress(userId, 3, "AI Phase 1a: Discovering Business Modules...");
+            moduleDiscoveryResult = moduleDiscoveryService.discoverModules(context);
+        }
+
+        sendProgress(userId, 4, "AI Phase 1b: Discovering Actors and Goals...");
         org.example.backend.dto.ai.ActorDiscoveryResult discoveryResult = actorDiscoveryService.discoverActorsAndGoals(context, request.getAllowProposedActors());
 
-        sendProgress(userId, 4, "Planning Generation Batches...");
+        sendProgress(userId, 5, "Planning Generation Batches...");
         List<List<org.example.backend.dto.ai.ActorGoal>> chunks = useCasePlanningService.chunkGoalsForGeneration(discoveryResult);
 
-        sendProgress(userId, 5, "AI Phase 2: Generating Detailed Use Cases...");
+        sendProgress(userId, 6, "AI Phase 2: Generating Detailed Use Cases...");
         List<List<org.example.backend.dto.ai.GeneratedUseCaseDraft>> generatedChunks = new ArrayList<>();
         for (int i = 0; i < chunks.size(); i++) {
-            sendProgress(userId, 5, "Generating batch " + (i + 1) + " of " + chunks.size() + "...");
+            sendProgress(userId, 6, "Generating batch " + (i + 1) + " of " + chunks.size() + "...");
             generatedChunks.add(detailedUseCaseGenerationService.generateForChunk(context, chunks.get(i)));
         }
 
-        sendProgress(userId, 6, "Reconciling and Validating Results...");
+        sendProgress(userId, 7, "Reconciling and Validating Results...");
         List<org.example.backend.dto.ai.GeneratedUseCaseDraft> finalUseCases = useCaseReconciliationService.reconcile(generatedChunks);
-        org.example.backend.dto.ai.UseCaseCoverageReport coverage = useCaseCoverageService.calculateCoverage(context, discoveryResult, finalUseCases);
+
+        if (moduleDiscoveryResult != null && moduleDiscoveryResult.getModules() != null) {
+            Map<Long, String> reqIdToModuleRef = new HashMap<>();
+            for (org.example.backend.dto.ai.GeneratedModuleDraft mod : moduleDiscoveryResult.getModules()) {
+                if (mod.getRequirementIds() != null) {
+                    for (Long rid : mod.getRequirementIds()) {
+                        reqIdToModuleRef.put(rid, mod.getTemporaryId());
+                    }
+                }
+            }
+            for (org.example.backend.dto.ai.GeneratedUseCaseDraft uc : finalUseCases) {
+                if (uc.getRequirementIds() != null && !uc.getRequirementIds().isEmpty()) {
+                    String modRef = reqIdToModuleRef.get(uc.getRequirementIds().get(0));
+                    uc.setModuleRef(modRef);
+                }
+            }
+        }
 
         org.example.backend.dto.ai.UseCaseGenerationPayload payload = new org.example.backend.dto.ai.UseCaseGenerationPayload();
-        payload.setSchemaVersion("2.0");
+        payload.setSchemaVersion("3.0");
         payload.setGenerationMode(request.getGenerationMode().name());
         payload.setPromptVersion(org.example.backend.service.ai.usecase.UseCaseGenerationFingerprintService.PROMPT_VERSION);
         payload.setExistingActorsUsed(discoveryResult.getExistingActorsUsed());
         payload.setProposedActors(discoveryResult.getProposedActors());
         payload.setActorGoalMatrix(discoveryResult.getActorGoalMatrix());
         payload.setUseCases(finalUseCases);
+
+        if (moduleDiscoveryResult != null) {
+            payload.setModules(moduleDiscoveryResult.getModules());
+        }
+
+        actorReferenceMergeService.mergeAndRemap(payload);
+
+        // Use new coverage service
+        org.example.backend.dto.ai.UseCaseCoverageReport coverage = gapAnalysisService.generateGlobalCoverageReport(payload, context.getModuleRequirements());
         payload.setCoverage(coverage);
+
+        if (moduleDiscoveryResult != null) {
+            payload.setModuleCoverage(gapAnalysisService.generateModuleCoverageReports(payload, context.getModuleRequirements()));
+        } else {
+            // If Single module, let's keep old behavior by calling useCaseCoverageService or it doesn't matter
+            payload.setCoverage(useCaseCoverageService.calculateCoverage(context, discoveryResult, finalUseCases));
+        }
 
         org.example.backend.dto.ai.UseCaseValidationResult validation = useCaseGenerationValidator.validate(payload);
         payload.setValidationSummary(validation);
@@ -749,6 +814,31 @@ public class AiGenerationService {
         stagingRepository.saveAll(pending);
     }
 
+    @Transactional
+    public void cancelGeneration(UUID generationId, Long userId) {
+        List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
+        if (stagings.isEmpty()) {
+            throw new BusinessException("Generation not found");
+        }
+        AiGenerationStaging staging = stagings.get(0);
+        if (staging.getStatus() == AiGenerationStatus.CONFIRMED || staging.getStatus() == AiGenerationStatus.DISCARDED) {
+            throw new BusinessException("Cannot cancel generation that is already " + staging.getStatus());
+        }
+        
+        ObjectNode cancelPayload = objectMapper.createObjectNode();
+        cancelPayload.put("status", "CANCELLED");
+        cancelPayload.put("message", "Generation was cancelled by user.");
+        
+        aiGenerationStagingService.updateStatusAndPayloadIf(
+                generationId, 
+                staging.getStatus(), 
+                AiGenerationStatus.DISCARDED, 
+                cancelPayload, 
+                staging.getFileHash()
+        );
+        sendProgress(userId, 7, "Generation cancelled.");
+    }
+
     public List<AiGenerationStaging> getPendingGenerations(Long projectId, org.example.backend.entity.AiStage stage) {
         return stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
     }
@@ -933,257 +1023,419 @@ public class AiGenerationService {
     }
 
     @Transactional
-    public void approveUseCaseGeneration(UUID generationId, List<Integer> selectedIndices, JsonNode modifiedPayload, Long userId) {
-        List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
-        if (stagings.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy dữ liệu staging với ID: " + generationId);
-        }
+    public void approveUseCaseGeneration(UUID generationId, org.example.backend.dto.ai.ApproveUseCaseGenerationRequest request, Long userId) {
+        // 1. Pessimistic lock to prevent concurrent approvals
+        AiGenerationStaging staging = stagingRepository.findByGenerationIdForUpdate(generationId)
+                .orElseThrow(() -> new BusinessException("Generation not found: " + generationId));
 
-        AiGenerationStaging staging = stagings.get(0);
+        // 2. Verify status
         if (staging.getStatus() != AiGenerationStatus.PENDING) {
-            throw new RuntimeException("Dữ liệu này đã được duyệt hoặc bị từ chối.");
+            throw new BusinessException("Generation is not PENDING. Current status: " + staging.getStatus());
         }
 
+        // 3. Authorization: derive projectId from staging, not from request
         Project project = staging.getProject();
+        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(project.getId(), userId).isPresent();
+        if (!isMember) {
+            throw new BusinessException("Forbidden: You are not a member of this project.");
+        }
+
         UserAccount user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
-        
-        JsonNode rawPayload = modifiedPayload != null ? modifiedPayload : staging.getPayload();
-        
-        org.example.backend.service.ai.usecase.UseCaseGenerationPayloadNormalizer normalizer = new org.example.backend.service.ai.usecase.UseCaseGenerationPayloadNormalizer(objectMapper);
-        org.example.backend.dto.ai.UseCaseGenerationPayload payload = normalizer.normalize(rawPayload);
-        
+                .orElseThrow(() -> new BusinessException("User not found: " + userId));
+
+        // 4. Validate request (schema version, limits)
+        JsonNode modifiedPayload = request.getModifiedPayload();
+        String schemaVersion = modifiedPayload.has("schemaVersion") ? modifiedPayload.get("schemaVersion").asText() : "2.0";
+        useCaseGenerationValidator.validateApproveRequest(request, null);
+
+        if ("3.0".equals(schemaVersion)) {
+            approveUseCaseGenerationV3(staging, request, project, user, userId);
+        } else {
+            // Legacy / schema 2.0 path
+            List<Integer> selectedIndices = request.getSelectedIndices();
+            approveUseCaseGenerationLegacy(staging, selectedIndices, modifiedPayload, project, user);
+        }
+
+        // 5. Mark confirmed and commit
+        staging.setStatus(AiGenerationStatus.CONFIRMED);
+        staging.setPayload(modifiedPayload);
+        stagingRepository.save(staging);
+    }
+
+    private void approveUseCaseGenerationV3(AiGenerationStaging staging, org.example.backend.dto.ai.ApproveUseCaseGenerationRequest request, Project project, UserAccount user, Long userId) {
+        JsonNode modifiedPayload = request.getModifiedPayload();
+        List<String> selectedModuleRefs = request.getSelectedModuleRefs();
+        List<String> selectedUseCaseIds = request.getSelectedUseCaseIds();
+
+        // Validate: no selected module may have zero selected use cases
+        java.util.Set<String> selectedUcIdSet = new java.util.HashSet<>(selectedUseCaseIds);
+
+        // Parse modules from payload
+        JsonNode modulesNode = modifiedPayload.has("modules") ? modifiedPayload.get("modules") : objectMapper.createArrayNode();
+        JsonNode useCasesNode = modifiedPayload.has("useCases") ? modifiedPayload.get("useCases") : objectMapper.createArrayNode();
+
+        // Build module ref -> module draft map
+        java.util.Map<String, JsonNode> moduleByRef = new java.util.LinkedHashMap<>();
+        for (JsonNode m : modulesNode) {
+            String ref = m.has("temporaryId") ? m.get("temporaryId").asText() : null;
+            if (ref != null) moduleByRef.put(ref, m);
+        }
+
+        // Validate: each selected module must have at least one selected UC
+        for (String moduleRef : selectedModuleRefs) {
+            boolean hasUc = false;
+            for (JsonNode uc : useCasesNode) {
+                String ucRef = uc.has("temporaryId") ? uc.get("temporaryId").asText() : null;
+                String ucModule = uc.has("moduleRef") ? uc.get("moduleRef").asText() : null;
+                if (selectedUcIdSet.contains(ucRef) && moduleRef.equals(ucModule)) {
+                    hasUc = true;
+                    break;
+                }
+            }
+            if (!hasUc) {
+                throw new BusinessException("Module '" + moduleRef + "' is selected but has no selected Use Cases. Please deselect it or select at least one of its Use Cases.");
+            }
+        }
+
+        // Phase 1: Resolve or create Business Modules
+        java.util.Map<String, org.example.backend.entity.BusinessModule> moduleRefToEntity = new java.util.HashMap<>();
+        for (String moduleRef : selectedModuleRefs) {
+            JsonNode moduleDraft = moduleByRef.get(moduleRef);
+            if (moduleDraft == null) continue;
+
+            String moduleName = moduleDraft.has("name") ? moduleDraft.get("name").asText() : moduleRef;
+            Long existingModuleId = moduleDraft.has("existingModuleId") && !moduleDraft.get("existingModuleId").isNull()
+                    ? moduleDraft.get("existingModuleId").asLong() : null;
+
+            // Forbidden name check for new modules
+            if (existingModuleId == null) {
+                java.util.Set<String> forbiddenNames = java.util.Set.of("general", "core", "main", "system", "system management", "fallback module");
+                if (forbiddenNames.contains(moduleName.trim().toLowerCase(java.util.Locale.ROOT))) {
+                    throw new BusinessException("Module name '" + moduleName + "' is not allowed. Please use a specific functional area name.");
+                }
+            }
+
+            org.example.backend.entity.BusinessModule moduleEntity;
+            if (existingModuleId != null) {
+                moduleEntity = businessModuleRepository.findById(existingModuleId)
+                        .orElseThrow(() -> new BusinessException("Existing module not found: " + existingModuleId));
+                // Security: verify it belongs to this project
+                if (!moduleEntity.getProject().getId().equals(project.getId())) {
+                    throw new BusinessException("Module " + existingModuleId + " does not belong to this project.");
+                }
+            } else {
+                // Find by name or create
+                java.util.List<org.example.backend.entity.BusinessModule> existing = businessModuleRepository.findByProjectId(project.getId());
+                String normalizedNew = moduleName.trim().toLowerCase(java.util.Locale.ROOT);
+                moduleEntity = existing.stream()
+                        .filter(m -> m.getName().trim().toLowerCase(java.util.Locale.ROOT).equals(normalizedNew))
+                        .findFirst()
+                        .orElse(null);
+                if (moduleEntity == null) {
+                    String priority = moduleDraft.has("priority") ? moduleDraft.get("priority").asText() : "MEDIUM";
+                    moduleEntity = org.example.backend.entity.BusinessModule.builder()
+                            .project(project)
+                            .name(moduleName)
+                            .description(moduleDraft.has("description") ? moduleDraft.get("description").asText() : null)
+                            .priority(priority)
+                            .build();
+                    moduleEntity = businessModuleRepository.save(moduleEntity);
+                }
+            }
+            moduleRefToEntity.put(moduleRef, moduleEntity);
+        }
+
+        // Resolve actors from payload
+        java.util.Map<String, org.example.backend.entity.ProjectActor> actorRefToEntity = resolveActors(modifiedPayload, project);
+
+        // Phase 2: Create Use Cases
         Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
         int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
-        
-        List<org.example.backend.entity.UseCase> useCasesToSave = new ArrayList<>();
-        Map<String, org.example.backend.entity.BusinessModule> moduleCache = new HashMap<>();
 
-        // Resolve actors lookup
-        Map<String, String> actorRefToName = new HashMap<>();
-        if (payload.getExistingActorsUsed() != null) {
-            payload.getExistingActorsUsed().forEach(a -> {
-                if (a.getTemporaryId() != null) actorRefToName.put(a.getTemporaryId(), a.getName());
-            });
-        }
-        if (payload.getProposedActors() != null) {
-            payload.getProposedActors().forEach(a -> {
-                if (a.getTemporaryId() != null) actorRefToName.put(a.getTemporaryId(), a.getName());
-            });
-        }
+        // Build tempId -> DB code map for includes/extends resolution
+        java.util.Map<String, String> tempIdToCode = new java.util.HashMap<>();
+        java.util.List<UseCase> useCasesToSave = new java.util.ArrayList<>();
 
-        // 1. Process and save any PROPOSED actors that are actually used in selected Use Cases
-        Set<String> usedProposedActorRefs = new HashSet<>();
-        List<org.example.backend.dto.ai.GeneratedUseCaseDraft> allUseCases = payload.getUseCases() != null ? payload.getUseCases() : new ArrayList<>();
-        
-        for (int i = 0; i < allUseCases.size(); i++) {
-            if (selectedIndices == null || selectedIndices.contains(i)) {
-                org.example.backend.dto.ai.GeneratedUseCaseDraft ucDraft = allUseCases.get(i);
-                if (ucDraft.getActors() != null) {
-                    ucDraft.getActors().forEach(a -> usedProposedActorRefs.add(a.getActorRef()));
+        for (JsonNode ucNode : useCasesNode) {
+            String tempId = ucNode.has("temporaryId") ? ucNode.get("temporaryId").asText() : null;
+            if (tempId == null || !selectedUcIdSet.contains(tempId)) continue;
+
+            String moduleRef = ucNode.has("moduleRef") ? ucNode.get("moduleRef").asText() : null;
+            org.example.backend.entity.BusinessModule moduleEntity = moduleRef != null ? moduleRefToEntity.get(moduleRef) : null;
+
+            UseCase uc = new UseCase();
+            uc.setProjectId(project.getId());
+            uc.setName(ucNode.has("name") ? ucNode.get("name").asText() : "AI Use Case");
+            uc.setPrecondition(ucNode.has("precondition") ? ucNode.get("precondition").asText() : "");
+            uc.setPostcondition(ucNode.has("postcondition") ? ucNode.get("postcondition").asText() : "");
+            uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
+            uc.setProjectSubId(nextSubId);
+            uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
+            uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);
+            uc.setCreatedBy(user);
+            uc.setAiGenerated(true);
+            uc.setSourceGenerationId(staging.getGenerationId());
+            uc.setBusinessModule(moduleEntity);
+
+            // Main flow: store as JSON string
+            if (ucNode.has("mainFlow") && ucNode.get("mainFlow").isObject()) {
+                try { uc.setMainFlow(objectMapper.writeValueAsString(ucNode.get("mainFlow"))); } catch (Exception e) { uc.setMainFlow("{}"); }
+            } else if (ucNode.has("mainSuccessScenario")) {
+                java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
+                flowMap.put("steps", java.util.List.of(ucNode.get("mainSuccessScenario").asText()));
+                try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
+            } else {
+                uc.setMainFlow("{}");
+            }
+
+            // Alternative flows
+            if (ucNode.has("alternativeFlows") && ucNode.get("alternativeFlows").isObject()) {
+                try { uc.setAlternativeFlow(objectMapper.writeValueAsString(ucNode.get("alternativeFlows"))); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+            } else {
+                uc.setAlternativeFlow("{}");
+            }
+
+            // Actors
+            if (ucNode.has("actors") && ucNode.get("actors").isArray()) {
+                java.util.List<org.example.backend.entity.UseCaseActor> actorList = new java.util.ArrayList<>();
+                for (JsonNode actorRef : ucNode.get("actors")) {
+                    String ref = actorRef.has("actorRef") ? actorRef.get("actorRef").asText() : null;
+                    String role = actorRef.has("role") ? actorRef.get("role").asText() : "PRIMARY";
+                    if (ref == null) continue;
+                    org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
+                    org.example.backend.entity.ProjectActor projectActor = actorRefToEntity.get(ref);
+                    actor.setActorName(projectActor != null ? projectActor.getName() : ref);
+                    actor.setUseCase(uc);
+                    actorList.add(actor);
+                }
+                uc.setActors(actorList);
+            } else if (ucNode.has("primaryActors") && !ucNode.get("primaryActors").asText().isBlank()) {
+                java.util.List<org.example.backend.entity.UseCaseActor> actorList = new java.util.ArrayList<>();
+                for (String actorName : ucNode.get("primaryActors").asText().split(",")) {
+                    org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
+                    actor.setActorName(actorName.trim());
+                    actor.setUseCase(uc);
+                    actorList.add(actor);
+                }
+                uc.setActors(actorList);
+            }
+
+            // Requirement associations
+            if (ucNode.has("requirementIds") && ucNode.get("requirementIds").isArray()) {
+                java.util.List<Requirement> reqs = new java.util.ArrayList<>();
+                for (JsonNode reqIdNode : ucNode.get("requirementIds")) {
+                    requirementRepository.findById(reqIdNode.asLong()).ifPresent(r -> {
+                        if (r.getProject().getId().equals(project.getId())) reqs.add(r);
+                    });
+                }
+                uc.setRequirements(reqs);
+                if (!reqs.isEmpty() && uc.getRequirement() == null) {
+                    uc.setRequirement(reqs.get(0));
                 }
             }
-        }
-        
-        if (payload.getProposedActors() != null) {
-            List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
-            java.util.Set<String> existingNames = existingActors.stream()
-                    .map(a -> a.getName().toLowerCase())
-                    .collect(java.util.stream.Collectors.toSet());
-            
-            List<org.example.backend.entity.ProjectActor> actorsToSave = new ArrayList<>();
-            for (org.example.backend.dto.ai.DiscoveredActor proposed : payload.getProposedActors()) {
-                if (proposed.getTemporaryId() != null && usedProposedActorRefs.contains(proposed.getTemporaryId())) {
-                    String name = proposed.getName();
-                    if (name != null && !name.trim().isEmpty() && !existingNames.contains(name.trim().toLowerCase())) {
-                        actorsToSave.add(org.example.backend.entity.ProjectActor.builder()
-                                .project(project)
-                                .name(name.trim())
-                                .description(proposed.getDescription() != null ? proposed.getDescription() : "")
-                                .build());
-                        existingNames.add(name.trim().toLowerCase());
-                    }
-                }
-            }
-            if (!actorsToSave.isEmpty()) {
-                projectActorRepository.saveAll(actorsToSave);
-            }
-        }
 
-        // Refetch all actors to have full mapping for assignment
-        List<org.example.backend.entity.ProjectActor> allProjectActors = projectActorRepository.findByProjectId(project.getId());
-        Map<String, org.example.backend.entity.ProjectActor> nameToActorMap = new HashMap<>();
-        for (org.example.backend.entity.ProjectActor pa : allProjectActors) {
-            nameToActorMap.put(pa.getName().trim().toLowerCase(), pa);
-        }
-
-        // 2. Process Use Cases
-        for (int i = 0; i < allUseCases.size(); i++) {
-            if (selectedIndices == null || selectedIndices.contains(i)) {
-                org.example.backend.dto.ai.GeneratedUseCaseDraft ucDraft = allUseCases.get(i);
-                
-                String moduleName = ucDraft.getModuleName() != null ? ucDraft.getModuleName() : "General";
-                String moduleDescription = ""; // No longer in draft directly, but fallback
-                
-                // Get or create BusinessModule
-                org.example.backend.entity.BusinessModule businessModule = moduleCache.computeIfAbsent(moduleName, mName -> {
-                    List<org.example.backend.entity.BusinessModule> existing = businessModuleRepository.findByProjectId(project.getId());
-                    return existing.stream()
-                            .filter(m -> m.getName().equalsIgnoreCase(mName))
-                            .findFirst()
-                            .orElseGet(() -> {
-                                org.example.backend.entity.BusinessModule newModule = org.example.backend.entity.BusinessModule.builder()
-                                        .project(project)
-                                        .name(mName)
-                                        .description(moduleDescription)
-                                        .build();
-                                return businessModuleRepository.save(newModule);
-                            });
-                });
-
-                String name = ucDraft.getName() != null ? ucDraft.getName() : "Untitled Use Case";
-                String precondition = ucDraft.getPrecondition() != null ? ucDraft.getPrecondition() : "";
-                String postcondition = ucDraft.getPostcondition() != null ? ucDraft.getPostcondition() : "";
-                
-                List<Requirement> mappedRequirements = new ArrayList<>();
-                if (ucDraft.getRequirementIds() != null) {
-                    for (Long reqId : ucDraft.getRequirementIds()) {
-                        requirementRepository.findById(reqId).ifPresent(mappedRequirements::add);
-                    }
-                }
-
-                // Convert text/structured flows to JSON string as expected by DB & Frontend
-                String mainFlowJson = "{\"steps\": []}";
-                String altFlowJson = "{\"flows\": []}";
-                try {
-                    if (ucDraft.getMainFlow() != null) {
-                        mainFlowJson = objectMapper.writeValueAsString(ucDraft.getMainFlow());
-                    } else if (ucDraft.getMainSuccessScenario() != null) {
-                        List<String> mainSteps = new ArrayList<>();
-                        for (String step : ucDraft.getMainSuccessScenario().split("\n")) {
-                            if (!step.trim().isEmpty()) mainSteps.add(step.trim());
-                        }
-                        Map<String, Object> mainMap = new HashMap<>();
-                        mainMap.put("steps", mainSteps);
-                        mainFlowJson = objectMapper.writeValueAsString(mainMap);
-                    }
-
-                    if (ucDraft.getAlternativeFlows() != null) {
-                        altFlowJson = objectMapper.writeValueAsString(ucDraft.getAlternativeFlows());
-                    } else if (ucDraft.getAlternativeFlowsText() != null) {
-                        List<String> altSteps = new ArrayList<>();
-                        for (String step : ucDraft.getAlternativeFlowsText().split("\n")) {
-                            if (!step.trim().isEmpty()) altSteps.add(step.trim());
-                        }
-                        Map<String, Object> singleAltFlow = new HashMap<>();
-                        singleAltFlow.put("name", "Generated Alternative Flow");
-                        singleAltFlow.put("steps", altSteps);
-                        Map<String, Object> altMap = new HashMap<>();
-                        altMap.put("flows", List.of(singleAltFlow));
-                        altFlowJson = objectMapper.writeValueAsString(altMap);
-                    }
-                } catch (Exception e) {
-                    log.error("Error serializing flow: ", e);
-                }
-
-                org.example.backend.entity.UseCase uc = new org.example.backend.entity.UseCase();
-                uc.setProjectId(project.getId());
-                
-                // Fallback to primary requirement for backward compatibility
-                if (!mappedRequirements.isEmpty()) {
-                    uc.setRequirement(mappedRequirements.get(0));
-                }
-                
-                uc.setBusinessModule(businessModule);
-                uc.setName(name);
-                uc.setPrecondition(precondition);
-                uc.setPostcondition(postcondition);
-                uc.setMainFlow(mainFlowJson);
-                uc.setAlternativeFlow(altFlowJson);
-                uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
-                uc.setProjectSubId(nextSubId);
-                uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
-                uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);
-                uc.setCreatedBy(user);
-                uc.setAiGenerated(true);
-                uc.setSourceGenerationId(generationId);
-                uc.setStartDate(project.getStartDate());
-                uc.setDeadline(project.getDeadline());
-                
-                if (!mappedRequirements.isEmpty()) {
-                    String reqContentToHash = mappedRequirements.stream()
-                            .map(r -> (r.getTitle() != null ? r.getTitle() : "") + "|" + (r.getDescription() != null ? r.getDescription() : ""))
-                            .collect(java.util.stream.Collectors.joining("||"));
-                    String reqHash = org.springframework.util.DigestUtils.md5DigestAsHex(reqContentToHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    uc.setReqVersionHash(reqHash);
-                }
-                
-                uc.setRequirements(mappedRequirements);
-                
-                // Add actors
-                if (ucDraft.getActors() != null) {
-                    List<org.example.backend.entity.UseCaseActor> actorList = new ArrayList<>();
-                    for (org.example.backend.dto.ai.GeneratedUseCaseActorRef actorRef : ucDraft.getActors()) {
-                        String actorName = actorRefToName.get(actorRef.getActorRef());
-                        if (actorName == null && actorRef.getActorRef() != null) {
-                            // Fallback if actorRef is somehow just the name (legacy)
-                            actorName = actorRef.getActorRef().replace("LEGACY-ACTOR-", "").replace("_", " ");
-                        }
-                        if (actorName != null) {
-                            org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
-                            actor.setActorName(actorName.trim());
-                            actor.setActorRole(actorRef.getRole() != null ? actorRef.getRole() : "PRIMARY");
-                            
-                            org.example.backend.entity.ProjectActor dbActor = nameToActorMap.get(actorName.trim().toLowerCase());
-                            if (dbActor != null) {
-                                actor.setProjectActor(dbActor);
-                            }
-                            
-                            actor.setUseCase(uc);
-                            actorList.add(actor);
-                        }
-                    }
-                    uc.setActors(actorList);
-                } else if (ucDraft.getPrimaryActors() != null && !ucDraft.getPrimaryActors().trim().isEmpty()) {
-                    String[] actorsArr = ucDraft.getPrimaryActors().split(",");
-                    List<org.example.backend.entity.UseCaseActor> actorList = new ArrayList<>();
-                    for (String actorName : actorsArr) {
-                        org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
-                        actor.setActorName(actorName.trim());
-                        actor.setActorRole("PRIMARY");
-                        
-                        org.example.backend.entity.ProjectActor dbActor = nameToActorMap.get(actorName.trim().toLowerCase());
-                        if (dbActor != null) {
-                            actor.setProjectActor(dbActor);
-                        }
-                        
-                        actor.setUseCase(uc);
-                        actorList.add(actor);
-                    }
-                    uc.setActors(actorList);
-                }
-                
-                uc.setIncludesList(ucDraft.getIncludes() != null ? ucDraft.getIncludes() : new ArrayList<>());
-                uc.setExtendsList(ucDraft.getExtendsList() != null ? ucDraft.getExtendsList() : new ArrayList<>());
-                
-                nextSubId++;
-                useCasesToSave.add(uc);
-            }
+            tempIdToCode.put(tempId, uc.getCode());
+            useCasesToSave.add(uc);
+            nextSubId++;
         }
 
         useCaseRepository.saveAll(useCasesToSave);
-        
-        for (org.example.backend.entity.UseCase uc : useCasesToSave) {
-            auditService.publishSuccess(userId, user.getUsername(), "CREATE_USE_CASE", 
-                    "UseCase", uc.getId(), project.getId(), null, 
-                    "INTERNAL", "POST", "/api/generate/approve-use-cases/" + generationId, 0L);
+
+        // Phase 3: Update includes/extends (map tempIds -> codes; remove self-refs, remove missing)
+        for (UseCase uc : useCasesToSave) {
+            String tempId = null;
+            // find tempId for this uc
+            for (java.util.Map.Entry<String, String> e : tempIdToCode.entrySet()) {
+                if (e.getValue().equals(uc.getCode())) { tempId = e.getKey(); break; }
+            }
+            if (tempId == null) continue;
+
+            // Find the original ucNode
+            for (JsonNode ucNode : useCasesNode) {
+                if (!tempId.equals(ucNode.has("temporaryId") ? ucNode.get("temporaryId").asText() : null)) continue;
+                
+                java.util.List<String> includes = new java.util.ArrayList<>();
+                if (ucNode.has("includes") && ucNode.get("includes").isArray()) {
+                    for (JsonNode inc : ucNode.get("includes")) {
+                        String targetCode = tempIdToCode.get(inc.asText());
+                        if (targetCode != null && !targetCode.equals(uc.getCode())) includes.add(targetCode);
+                    }
+                }
+                uc.setIncludesList(includes);
+
+                java.util.List<String> extendsList = new java.util.ArrayList<>();
+                if (ucNode.has("extendsList") && ucNode.get("extendsList").isArray()) {
+                    for (JsonNode ext : ucNode.get("extendsList")) {
+                        String targetCode = tempIdToCode.get(ext.asText());
+                        if (targetCode != null && !targetCode.equals(uc.getCode())) extendsList.add(targetCode);
+                    }
+                }
+                uc.setExtendsList(extendsList);
+                break;
+            }
         }
-        
-        staging.setStatus(AiGenerationStatus.CONFIRMED);
-        if (modifiedPayload != null) {
-            staging.setPayload(modifiedPayload);
+        useCaseRepository.saveAll(useCasesToSave);
+
+        // Move requirements to their new Business Module
+        for (java.util.Map.Entry<String, org.example.backend.entity.BusinessModule> entry : moduleRefToEntity.entrySet()) {
+            org.example.backend.entity.BusinessModule moduleEntity = entry.getValue();
+            for (UseCase uc : useCasesToSave) {
+                if (moduleEntity.equals(uc.getBusinessModule()) && uc.getRequirements() != null) {
+                    for (Requirement req : uc.getRequirements()) {
+                        if (req.getBusinessModule() == null) {
+                            req.setBusinessModule(moduleEntity);
+                            requirementRepository.save(req);
+                        }
+                    }
+                }
+            }
         }
-        stagingRepository.save(staging);
+
+        // Audit
+        for (UseCase uc : useCasesToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_USE_CASE",
+                    "UseCase", uc.getId(), project.getId(), null,
+                    "INTERNAL", "POST", "/api/ai/approve-use-cases/" + staging.getGenerationId(), 0L);
+        }
+    }
+
+    private java.util.Map<String, org.example.backend.entity.ProjectActor> resolveActors(JsonNode payload, Project project) {
+        java.util.Map<String, org.example.backend.entity.ProjectActor> actorRefToEntity = new java.util.HashMap<>();
+        java.util.List<org.example.backend.entity.ProjectActor> existingActors = projectActorRepository.findByProjectId(project.getId());
+        java.util.Map<String, org.example.backend.entity.ProjectActor> existingByName = new java.util.HashMap<>();
+        for (org.example.backend.entity.ProjectActor a : existingActors) {
+            existingByName.put(a.getName().trim().toLowerCase(java.util.Locale.ROOT), a);
+        }
+
+        // Map existing actor refs
+        if (payload.has("existingActorsUsed") && payload.get("existingActorsUsed").isArray()) {
+            for (JsonNode actorNode : payload.get("existingActorsUsed")) {
+                Long existingId = actorNode.has("existingActorId") && !actorNode.get("existingActorId").isNull()
+                        ? actorNode.get("existingActorId").asLong() : null;
+                String ref = actorNode.has("temporaryId") ? actorNode.get("temporaryId").asText() : null;
+                if (existingId != null && ref != null) {
+                    projectActorRepository.findById(existingId).ifPresent(a -> actorRefToEntity.put(ref, a));
+                }
+            }
+        }
+
+        // Create proposed actors
+        if (payload.has("proposedActors") && payload.get("proposedActors").isArray()) {
+            java.util.List<org.example.backend.entity.ProjectActor> toCreate = new java.util.ArrayList<>();
+            for (JsonNode actorNode : payload.get("proposedActors")) {
+                String name = actorNode.has("name") ? actorNode.get("name").asText().trim() : null;
+                String ref = actorNode.has("temporaryId") ? actorNode.get("temporaryId").asText() : null;
+                if (name == null || name.isBlank() || ref == null) continue;
+                String normalizedName = name.toLowerCase(java.util.Locale.ROOT);
+                org.example.backend.entity.ProjectActor actor = existingByName.get(normalizedName);
+                if (actor == null) {
+                    actor = org.example.backend.entity.ProjectActor.builder()
+                            .project(project)
+                            .name(name)
+                            .description(actorNode.has("description") ? actorNode.get("description").asText() : "")
+                            .build();
+                    toCreate.add(actor);
+                    existingByName.put(normalizedName, actor);
+                }
+                actorRefToEntity.put(ref, actor);
+            }
+            if (!toCreate.isEmpty()) {
+                projectActorRepository.saveAll(toCreate);
+            }
+        }
+        return actorRefToEntity;
+    }
+
+    private void approveUseCaseGenerationLegacy(AiGenerationStaging staging, List<Integer> selectedIndices, JsonNode modifiedPayload, Project project, UserAccount user) {
+        UUID generationId = staging.getGenerationId();
+        Long userId = user.getId();
+        org.example.backend.dto.ai.UseCaseGenerationPayload normalizedPayload = useCaseGenerationPayloadNormalizer.normalize(modifiedPayload);
+        java.util.List<org.example.backend.dto.ai.GeneratedUseCaseDraft> useCases = normalizedPayload.getUseCases();
+
+        if (useCases == null || useCases.isEmpty()) {
+            throw new BusinessException("No use cases found in the payload.");
+        }
+
+        // Ensure index bounds
+        if (selectedIndices != null) {
+            for (Integer idx : selectedIndices) {
+                if (idx < 0 || idx >= useCases.size()) throw new BusinessException("Selected index out of range: " + idx);
+            }
+        }
+
+        Integer maxSubId = useCaseRepository.findMaxProjectSubIdByProjectId(project.getId());
+        int nextSubId = (maxSubId == null ? 0 : maxSubId) + 1;
+        java.util.List<UseCase> useCasesToSave = new java.util.ArrayList<>();
+
+        for (int i = 0; i < useCases.size(); i++) {
+            if (selectedIndices != null && !selectedIndices.contains(i)) continue;
+            org.example.backend.dto.ai.GeneratedUseCaseDraft draft = useCases.get(i);
+
+            UseCase uc = new UseCase();
+            uc.setProjectId(project.getId());
+            uc.setName(draft.getName() != null ? draft.getName() : "AI Use Case");
+            uc.setPrecondition(draft.getPrecondition() != null ? draft.getPrecondition() : "");
+            uc.setPostcondition(draft.getPostcondition() != null ? draft.getPostcondition() : "");
+            uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
+            uc.setProjectSubId(nextSubId);
+            uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
+            uc.setVersion(org.example.backend.constant.UseCaseConstants.DEFAULT_VERSION);
+            uc.setCreatedBy(user);
+            uc.setAiGenerated(true);
+            uc.setSourceGenerationId(generationId);
+
+            // Main flow
+            if (draft.getMainFlow() != null) {
+                try { uc.setMainFlow(objectMapper.writeValueAsString(draft.getMainFlow())); } catch (Exception e) { uc.setMainFlow("{}"); }
+            } else if (draft.getMainSuccessScenario() != null) {
+                java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
+                flowMap.put("steps", java.util.List.of(draft.getMainSuccessScenario()));
+                try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
+            } else {
+                uc.setMainFlow("{}");
+            }
+
+            if (draft.getAlternativeFlows() != null) {
+                try { uc.setAlternativeFlow(objectMapper.writeValueAsString(draft.getAlternativeFlows())); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+            } else {
+                uc.setAlternativeFlow("{}");
+            }
+
+            // Actors from primaryActors string
+            if (draft.getPrimaryActors() != null && !draft.getPrimaryActors().isBlank()) {
+                java.util.List<org.example.backend.entity.UseCaseActor> actorList = new java.util.ArrayList<>();
+                for (String actorName : draft.getPrimaryActors().split(",")) {
+                    org.example.backend.entity.UseCaseActor actor = new org.example.backend.entity.UseCaseActor();
+                    actor.setActorName(actorName.trim());
+                    actor.setUseCase(uc);
+                    actorList.add(actor);
+                }
+                uc.setActors(actorList);
+            }
+
+            // Requirement associations
+            if (draft.getRequirementIds() != null && !draft.getRequirementIds().isEmpty()) {
+                java.util.List<Requirement> reqs = new java.util.ArrayList<>();
+                for (Long reqId : draft.getRequirementIds()) {
+                    requirementRepository.findById(reqId).ifPresent(r -> {
+                        if (r.getProject().getId().equals(project.getId())) reqs.add(r);
+                    });
+                }
+                uc.setRequirements(reqs);
+                if (!reqs.isEmpty()) uc.setRequirement(reqs.get(0));
+            }
+
+            useCasesToSave.add(uc);
+            nextSubId++;
+        }
+
+        useCaseRepository.saveAll(useCasesToSave);
+
+        for (UseCase uc : useCasesToSave) {
+            auditService.publishSuccess(userId, user.getUsername(), "CREATE_USE_CASE",
+                    "UseCase", uc.getId(), project.getId(), null,
+                    "INTERNAL", "POST", "/api/ai/approve-use-cases/" + generationId, 0L);
+        }
     }
 
     @Transactional

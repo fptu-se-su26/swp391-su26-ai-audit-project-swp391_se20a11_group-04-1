@@ -19,4 +19,6 @@ public class UseCaseGenerationContext {
     private List<ProjectActor> existingActors;
     private List<UseCase> existingUseCases;
     private List<String> contextPriorities;
+    private GeneratedModuleDraft generatedModule;
+    private List<BusinessModule> projectModules;
 }

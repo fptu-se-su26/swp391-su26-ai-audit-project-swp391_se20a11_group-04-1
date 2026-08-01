@@ -163,4 +163,33 @@ public class UseCaseGenerationValidator {
         warning.setTargetRef(targetRef);
         return warning;
     }
+
+    public void validateApproveRequest(ApproveUseCaseGenerationRequest request, UseCaseGenerationPayload originalPayload) {
+        if (request.getModifiedPayload() == null) {
+            throw new IllegalArgumentException("Modified payload cannot be null");
+        }
+        
+        String schemaVersion = request.getModifiedPayload().has("schemaVersion") ? 
+                request.getModifiedPayload().get("schemaVersion").asText() : "2.0";
+                
+        if ("3.0".equals(schemaVersion)) {
+            if (request.getSelectedModuleRefs() == null || request.getSelectedUseCaseIds() == null) {
+                throw new IllegalArgumentException("selectedModuleRefs and selectedUseCaseIds are required for schema 3.0");
+            }
+        } else {
+            if (request.getSelectedIndices() == null) {
+                throw new IllegalArgumentException("selectedIndices is required for legacy schema");
+            }
+        }
+        
+        // Basic security check: max sizes
+        if ("3.0".equals(schemaVersion)) {
+            if (request.getSelectedUseCaseIds().size() > 50) {
+                throw new IllegalArgumentException("Payload too large: maximum 50 use cases allowed");
+            }
+            if (request.getSelectedModuleRefs().size() > 20) {
+                throw new IllegalArgumentException("Payload too large: maximum 20 modules allowed");
+            }
+        }
+    }
 }

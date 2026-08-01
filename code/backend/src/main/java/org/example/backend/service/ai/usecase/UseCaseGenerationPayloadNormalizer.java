@@ -37,6 +37,16 @@ public class UseCaseGenerationPayloadNormalizer {
         }
 
         try {
+            // Check if it's already schema 3.0
+            if (rawPayload.isObject() && rawPayload.has("schemaVersion") &&
+                    "3.0".equals(rawPayload.get("schemaVersion").asText())) {
+                try {
+                    return objectMapper.treeToValue(rawPayload, UseCaseGenerationPayload.class);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Malformed Schema 3.0 payload", e);
+                }
+            }
+
             // Check if it's already v2.0
             if (rawPayload.isObject() && rawPayload.has("schemaVersion") &&
                     "2.0".equals(rawPayload.get("schemaVersion").asText())) {

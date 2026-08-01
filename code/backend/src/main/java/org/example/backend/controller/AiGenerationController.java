@@ -103,6 +103,22 @@ public class AiGenerationController {
         return ResponseEntity.ok(Map.of("message", "Deleted pending generations"));
     }
 
+    @PostMapping("/staging/cancel/{generationId}")
+    public ResponseEntity<?> cancelGeneration(
+            @PathVariable UUID generationId,
+            jakarta.servlet.http.HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        try {
+            aiGenerationService.cancelGeneration(generationId, userId);
+            return ResponseEntity.ok(Map.of("message", "Đã huỷ generation thành công."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/approve/{generationId}")
     public ResponseEntity<?> approveGeneration(
             @PathVariable UUID generationId,
@@ -146,6 +162,7 @@ public class AiGenerationController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
     @PostMapping("/generate-use-cases/{projectId}")
     public ResponseEntity<?> generateUseCases(
             @PathVariable Long projectId,
@@ -183,25 +200,15 @@ public class AiGenerationController {
     @PostMapping("/approve-use-cases/{generationId}")
     public ResponseEntity<?> approveUseCaseGeneration(
             @PathVariable UUID generationId,
-            @RequestBody Map<String, Object> requestBody,
+            @RequestBody org.example.backend.dto.ai.ApproveUseCaseGenerationRequest request,
             jakarta.servlet.http.HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
 
-        @SuppressWarnings("unchecked")
-        List<Integer> selectedIndices = (List<Integer>) requestBody.get("selectedIndices");
-        
-        Object payloadObj = requestBody.get("modifiedPayload");
-        com.fasterxml.jackson.databind.JsonNode modifiedPayload = null;
-        if (payloadObj != null) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            modifiedPayload = mapper.convertValue(payloadObj, com.fasterxml.jackson.databind.JsonNode.class);
-        }
-
         try {
-            aiGenerationService.approveUseCaseGeneration(generationId, selectedIndices, modifiedPayload, userId);
+            aiGenerationService.approveUseCaseGeneration(generationId, request, userId);
             return ResponseEntity.ok(Map.of("message", "Đã duyệt và lưu Use Case thành công."));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

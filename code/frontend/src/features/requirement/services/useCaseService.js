@@ -82,6 +82,11 @@ export const useCaseService = {
     return response.data;
   },
 
+  cancelGeneration: async (generationId) => {
+    const response = await axiosInstance.post(`/ai/staging/cancel/${generationId}`);
+    return response.data;
+  },
+
   // AI: Approve Use Cases
   approveUseCases: async (generationId, payload) => {
     const response = await axiosInstance.post(`/ai/approve-use-cases/${generationId}`, payload);

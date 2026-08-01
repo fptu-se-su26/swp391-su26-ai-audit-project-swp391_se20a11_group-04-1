@@ -13,6 +13,7 @@ public class AiUseCaseGenerateRequest {
 
     public enum GenerationMode {
         MODULE,
-        PROJECT
+        PROJECT,
+        AUTO_PROJECT
     }
 }

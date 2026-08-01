@@ -22,4 +22,16 @@ public interface AiGenerationStagingRepository extends JpaRepository<AiGeneratio
     java.util.Optional<AiGenerationStaging> findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(String fileHash, Long projectId, AiStage stage);
     
     boolean existsByRequirementIdAndStatus(Long requirementId, AiGenerationStatus status);
+    
+    @Query("SELECT s FROM AiGenerationStaging s WHERE s.generationId = :generationId")
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    java.util.Optional<AiGenerationStaging> findByGenerationIdForUpdate(@org.springframework.data.repository.query.Param("generationId") UUID generationId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE AiGenerationStaging s SET s.status = :newStatus WHERE s.generationId = :generationId AND s.status = :expectedStatus")
+    int updateStatusIf(@org.springframework.data.repository.query.Param("generationId") UUID generationId, @org.springframework.data.repository.query.Param("expectedStatus") AiGenerationStatus expectedStatus, @org.springframework.data.repository.query.Param("newStatus") AiGenerationStatus newStatus);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE AiGenerationStaging s SET s.status = :newStatus, s.payload = :payload, s.fileHash = :fileHash WHERE s.generationId = :generationId AND s.status = :expectedStatus")
+    int updateStatusAndPayloadIf(@org.springframework.data.repository.query.Param("generationId") UUID generationId, @org.springframework.data.repository.query.Param("expectedStatus") AiGenerationStatus expectedStatus, @org.springframework.data.repository.query.Param("newStatus") AiGenerationStatus newStatus, @org.springframework.data.repository.query.Param("payload") com.fasterxml.jackson.databind.JsonNode payload, @org.springframework.data.repository.query.Param("fileHash") String fileHash);
 }

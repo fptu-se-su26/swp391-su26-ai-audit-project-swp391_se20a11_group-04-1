@@ -14,6 +14,8 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
   const [approving, setApproving] = useState(false);
   const [useCases, setUseCases] = useState([]);
   const [selectedIndices, setSelectedIndices] = useState(new Set());
+  const [fullPayload, setFullPayload] = useState(null);
+  const [selectedModuleRefs, setSelectedModuleRefs] = useState(new Set());
 
   const [projectId, setProjectId] = useState(null);
   const [viewMode, setViewMode] = useState('grouped'); // 'list' or 'grouped'
@@ -91,6 +93,7 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           if (typeof payloadData === 'string') {
             try { payloadData = JSON.parse(payloadData); } catch(e) {}
           }
+          setFullPayload(payloadData);
 
           let ucList = [];
           
@@ -153,17 +156,33 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           
           const initialModules = [];
           const moduleSet = new Set();
-          ucList.forEach(uc => {
-            const mName = uc.moduleName || 'General Module';
-            if (!moduleSet.has(mName)) {
-              moduleSet.add(mName);
+          
+          if (payloadData?.schemaVersion === "3.0" && Array.isArray(payloadData.modules)) {
+            payloadData.modules.forEach(m => {
               initialModules.push({
-                moduleName: mName,
-                priority: uc.modulePriority || 'MEDIUM',
-                assignee: uc.moduleAssignee || 'System'
+                moduleRef: m.temporaryId,
+                moduleName: m.name,
+                description: m.description,
+                priority: m.priority || 'MEDIUM',
+                assignee: m.assignee || 'System'
               });
-            }
-          });
+            });
+            setSelectedModuleRefs(new Set(payloadData.modules.map(m => m.temporaryId)));
+          } else {
+            ucList.forEach(uc => {
+              const mName = uc.moduleName || 'General Module';
+              if (!moduleSet.has(mName)) {
+                moduleSet.add(mName);
+                initialModules.push({
+                  moduleRef: mName,
+                  moduleName: mName,
+                  priority: uc.modulePriority || 'MEDIUM',
+                  assignee: uc.moduleAssignee || 'System'
+                });
+              }
+            });
+            setSelectedModuleRefs(new Set(initialModules.map(m => m.moduleRef)));
+          }
           setModuleDefs(initialModules);
 
           const validIndices = ucList
@@ -240,6 +259,36 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
   const totalUseCases = groupedUseCases.reduce((acc, g) => acc + g.items.length, 0);
 
   if (!isOpen) return null;
+
+  const toggleSelectModule = (moduleRef) => {
+    const newSelectedModules = new Set(selectedModuleRefs);
+    const md = moduleDefs.find(m => m.moduleRef === moduleRef);
+    const newSelectedIndices = new Set(selectedIndices);
+    
+    if (newSelectedModules.has(moduleRef)) {
+      newSelectedModules.delete(moduleRef);
+      if (md) {
+        useCases.forEach((uc, idx) => {
+          if ((uc.moduleName === md.moduleName) || (uc.moduleRef === moduleRef)) {
+            newSelectedIndices.delete(idx);
+          }
+        });
+      }
+    } else {
+      newSelectedModules.add(moduleRef);
+      if (md) {
+        useCases.forEach((uc, idx) => {
+          if ((uc.moduleName === md.moduleName) || (uc.moduleRef === moduleRef)) {
+            if (!uc.isDeleted && !uc.isDuplicate) {
+              newSelectedIndices.add(idx);
+            }
+          }
+        });
+      }
+    }
+    setSelectedModuleRefs(newSelectedModules);
+    setSelectedIndices(newSelectedIndices);
+  };
 
   const toggleSelectAll = () => {
     const validIndices = useCases.map((uc, i) => ({uc, i})).filter(({uc}) => uc && !uc.isDuplicate && !uc.isDeleted).map(({i}) => i);
@@ -374,10 +423,49 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
     }
     setApproving(true);
     try {
-      await useCaseService.approveUseCases(generationId, {
-        selectedIndices: validSelectedIndices,
-        modifiedPayload: useCases
-      });
+      let requestPayload = {};
+      if (fullPayload && fullPayload.schemaVersion === "3.0") {
+         const updatedPayload = { ...fullPayload, useCases };
+         updatedPayload.modules = moduleDefs.map(md => ({
+            temporaryId: md.moduleRef || md.moduleName,
+            name: md.moduleName,
+            description: md.description,
+            priority: md.priority,
+            assignee: md.assignee
+         }));
+         const selectedUCTempIds = validSelectedIndices.map(i => useCases[i].temporaryId);
+         const selectedUCTempIdSet = new Set(selectedUCTempIds);
+
+         // Auto-filter: only include modules that have at least 1 selected UC (plan §6)
+         const activeModuleRefs = Array.from(selectedModuleRefs).filter(moduleRef => {
+           const md = moduleDefs.find(m => (m.moduleRef || m.moduleName) === moduleRef);
+           if (!md) return false;
+           return validSelectedIndices.some(i => {
+             const uc = useCases[i];
+             return (uc.moduleRef === moduleRef) || (uc.moduleName === md.moduleName);
+           });
+         });
+
+         if (activeModuleRefs.length === 0) {
+           toast.error("No modules have selected Use Cases. Please select at least one Use Case.");
+           setApproving(false);
+           return;
+         }
+
+         requestPayload = {
+            selectedIndices: validSelectedIndices,
+            selectedUseCaseIds: selectedUCTempIds,
+            selectedModuleRefs: activeModuleRefs,
+            modifiedPayload: updatedPayload
+         };
+      } else {
+         requestPayload = {
+            selectedIndices: validSelectedIndices,
+            modifiedPayload: useCases
+         };
+      }
+
+      await useCaseService.approveUseCases(generationId, requestPayload);
       toast.success("Use Cases approved successfully!");
       if (onSuccess) onSuccess();
       onClose();
@@ -859,6 +947,12 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
                       {/* Module Header */}
                       <div className="bg-gradient-to-r from-surface-container-lowest to-surface-50 px-4 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-outline-variant">
                         <div className="flex items-center gap-3 flex-1 min-w-0 mr-4">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedModuleRefs.has(group.moduleRef || group.moduleName)}
+                            onChange={() => toggleSelectModule(group.moduleRef || group.moduleName)}
+                            className="w-4 h-4 rounded border-outline-variant text-[#1E707D] focus:ring-[#1E707D] cursor-pointer"
+                          />
                           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1E707D] to-[#165964] flex items-center justify-center text-white shadow-sm shrink-0">
                             <span className="material-symbols-outlined text-[16px]">view_module</span>
                           </div>
