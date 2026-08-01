@@ -12,7 +12,7 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
 
       const handleProgress = (event) => {
         const { step } = event.detail || {};
-        if (typeof step === 'number' && step >= 1 && step <= 4) {
+        if (typeof step === 'number' && step >= 1 && step <= 7) {
           setCurrentStep(step);
         }
       };
@@ -35,12 +35,14 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
   }, [isOpen]);
 
   useEffect(() => {
-    if (currentStep === 4) {
+    if (currentStep >= 7) {
       setProgressWidth(100);
     }
   }, [currentStep]);
 
   if (!isOpen) return null;
+
+  const displayStep = currentStep >= 7 ? 4 : currentStep >= 6 ? 3 : currentStep >= 4 ? 2 : 1;
 
   const steps = [
     { id: 1, title: 'Analyze Requirements' },
@@ -49,16 +51,19 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
   ];
 
   const getStepStatus = (stepId) => {
-    if (currentStep > stepId || currentStep === 4) return 'completed';
-    if (currentStep === stepId) return 'active';
+    if (displayStep > stepId || displayStep === 4) return 'completed';
+    if (displayStep === stepId) return 'active';
     return 'waiting';
   };
 
   const activeStepDetails = {
-    1: { title: `Analyzing ${requirementCount} requirement(s)...`, detail: 'Reading acceptance criteria and extracting key behaviors' },
-    2: { title: 'Generating use cases with actors and flows...', detail: 'Creating main flow, alternative flows, and relationships' },
-    3: { title: 'AI Critic reviewing quality...', detail: 'Checking completeness, actor coverage, and flow consistency' },
-    4: { title: 'Finalizing...', detail: 'Saving generated use cases to staging' }
+    1: { title: `Preparing ${requirementCount} requirement(s)...`, detail: 'Building the generation context' },
+    2: { title: 'Checking previous drafts...', detail: 'Preparing a fresh use case generation run' },
+    3: { title: 'Discovering actors and goals...', detail: 'Reading requirements and identifying user objectives' },
+    4: { title: 'Planning generation batches...', detail: 'Splitting actor goals into AI batches' },
+    5: { title: 'Generating use cases with actors and flows...', detail: 'Creating main flow, alternative flows, and relationships' },
+    6: { title: 'Reviewing coverage...', detail: 'Checking completeness, actor coverage, and flow consistency' },
+    7: { title: 'Finalizing...', detail: 'Saving generated use cases to staging' }
   };
 
   const currentDetails = activeStepDetails[currentStep] || activeStepDetails[3];
@@ -67,14 +72,14 @@ const AIGenerationProgressModal = ({ isOpen, requirementCount = 1, onClose }) =>
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-[#0f1423]/50 p-4 font-sans animate-in fade-in duration-200">
       <div className="bg-white border border-[#E5E7EB] rounded-[16px] shadow-2xl w-full max-w-[440px] flex flex-col overflow-hidden relative">
         
-        {currentStep === 4 ? (
+        {currentStep >= 7 ? (
           // SUCCESS STATE
           <div className="px-[24px] py-[40px] flex flex-col items-center justify-center animate-in zoom-in-95 duration-500">
             <div className="w-[48px] h-[48px] bg-[#E1F5EE] rounded-full flex items-center justify-center mb-4">
               <span className="material-symbols-outlined text-[#1D9E75]" style={{ fontSize: '24px' }}>check</span>
             </div>
             <h2 className="text-[16px] font-medium text-[#111827] mb-1 text-center">Use Cases Generated!</h2>
-            <p className="text-[13px] text-[#6B7280] text-center">{requirementCount} use case(s) created. Redirecting to review...</p>
+            <p className="text-[13px] text-[#6B7280] text-center">Draft is ready. Redirecting to review...</p>
           </div>
         ) : (
           // LOADING STATE
