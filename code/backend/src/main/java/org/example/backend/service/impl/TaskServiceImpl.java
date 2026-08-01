@@ -48,6 +48,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1798,13 +1799,17 @@ public class TaskServiceImpl implements TaskService {
                 ));
 
         List<Long> taskIdList = new ArrayList<>(taskIds);
-        Set<Long> acceptedEvidenceTaskIds = taskIdList.isEmpty()
-                ? Collections.emptySet()
-                : evidenceLinkRepository.findEntityIdsWithAcceptedEvidence(
-                                EvidenceEntityType.TASK,
-                                taskIdList,
-                                EvidenceStatus.ACCEPTED
-                        ).stream().collect(Collectors.toSet());
+        Set<Long> acceptedEvidenceTaskIds = new HashSet<>();
+        if (!taskIdList.isEmpty()) {
+            acceptedEvidenceTaskIds.addAll(evidenceLinkRepository.findEntityIdsWithAcceptedEvidence(
+                    EvidenceEntityType.TASK,
+                    taskIdList,
+                    EvidenceStatus.ACCEPTED
+            ));
+            if (codeInsightEvidenceLinkRepository != null) {
+                acceptedEvidenceTaskIds.addAll(codeInsightEvidenceLinkRepository.findTaskIdsWithEvidence(taskIdList));
+            }
+        }
 
         return new TaskResponseContext(requirementCodes, sprintNames, acceptedEvidenceTaskIds);
     }
@@ -1820,6 +1825,10 @@ public class TaskServiceImpl implements TaskService {
     private TaskResponse toResponse(Task task, TaskResponseContext context) {
         var sla = taskSlaRuleService.evaluate(task);
         Optional<TaskReviewDecision> latestDecision = taskReviewDecisionRepository.findTopByTaskIdOrderByCreatedAtDesc(task.getId());
+        int generalEvidenceCount = evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.TASK, task.getId());
+        int gitEvidenceCount = codeInsightEvidenceLinkRepository != null ? (int) codeInsightEvidenceLinkRepository.countByTaskId(task.getId()) : 0;
+        int totalEvidenceCount = generalEvidenceCount + gitEvidenceCount;
+        boolean hasEvidence = (context != null && context.hasAcceptedEvidence(task.getId())) || totalEvidenceCount > 0;
         return TaskResponse.builder()
                 .id(task.getId())
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
@@ -1852,8 +1861,8 @@ public class TaskServiceImpl implements TaskService {
                 .overduePenaltyAppliedAt(task.getOverduePenaltyAppliedAt())
                 .slaCategories(sla.categories().stream().map(Enum::name).collect(Collectors.toList()))
                 .overdueDays(sla.overdueDays())
-                .hasAcceptedEvidence(context != null && context.hasAcceptedEvidence(task.getId()))
-                .evidenceCount(evidenceRepository.countByEntityTypeAndEntityId(org.example.backend.entity.EvidenceEntityType.TASK, task.getId()))
+                .hasAcceptedEvidence(hasEvidence)
+                .evidenceCount(totalEvidenceCount)
                 .createdById(task.getCreatedBy() != null ? task.getCreatedBy().getId() : null)
                 .createdByName(task.getCreatedBy() != null ?
                         (task.getCreatedBy().getProfile() != null && task.getCreatedBy().getProfile().getFullName() != null
@@ -1873,6 +1882,7 @@ public class TaskServiceImpl implements TaskService {
                 .dependsOnTaskIds(task.getDependsOn() != null ? task.getDependsOn().stream().map(Task::getId).collect(Collectors.toList()) : new java.util.ArrayList<>())
                 .isSplitChild(task.isSplitChild())
                 .isMergedResult(task.isMergedResult())
+                .taskCode(task.getTaskCode())
                 .build();
     }
 

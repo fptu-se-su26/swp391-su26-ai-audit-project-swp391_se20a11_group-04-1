@@ -23,7 +23,7 @@ const TaskDetailDrawer = ({ task, columns = TASK_STATUSES, onClose, onStatusChan
 
   // Checklist completion
   const isChecklistPassed = task ? (!task.checklist || task.checklist.length === 0 || task.checklist.every((item) => item.done)) : false
-  const hasReviewEvidence = task ? Boolean(task.hasAcceptedEvidence) : false
+  const hasReviewEvidence = task ? Boolean(task.hasAcceptedEvidence || (task.evidenceCount && task.evidenceCount > 0)) : false
 
   // Subtasks completion
   const areAllSubtasksDone = hasSubtasks && subtasks.every(t => t.status === 'DONE' || t.status === 'FIXED' || t.status === 'CLOSED')
