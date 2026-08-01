@@ -93,7 +93,7 @@ jobs:
             set -a && source "${REPO_DIR}/.env" && set +a
 
             # Explicit truyền các biến DB vào JVM để tránh Spring dùng default sai
-            nohup java -Xmx700m \
+            nohup java -Xmx1200m \
               -Dspring.profiles.active=docker \
               -Dspring.kafka.bootstrap-servers=localhost:9092 \
               -DDB_HOST="${DB_HOST:-localhost}" \
