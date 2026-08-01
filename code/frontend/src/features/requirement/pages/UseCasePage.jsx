@@ -261,6 +261,23 @@ const UseCasePage = () => {
     pendingGenerationIdRef.current = null;
     
     try {
+      // Check if there's already a PENDING staging - use it directly instead of regenerating
+      try {
+        const pendingList = await useCaseService.getPendingUseCaseGenerations(activeProject.id);
+        if (pendingList && pendingList.length > 0) {
+          const latest = pendingList[0];
+          if (latest.generationId && latest.status === 'PENDING') {
+            toast.success("Tìm thấy kết quả AI cũ, đang hiển thị...");
+            setGenerationId(latest.generationId);
+            setGenerating(false);
+            setIsAiModalOpen(true);
+            return;
+          }
+        }
+      } catch (e) {
+        // ignore - proceed with new generation
+      }
+
       const startTime = Date.now();
       const response = await useCaseService.generateUseCases(
         activeProject.id, 

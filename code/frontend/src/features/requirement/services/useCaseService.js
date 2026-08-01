@@ -82,6 +82,12 @@ export const useCaseService = {
     return response.data;
   },
 
+  // AI: Lấy danh sách staging PENDING của project (USE_CASE stage)
+  getPendingUseCaseGenerations: async (projectId) => {
+    const response = await axiosInstance.get(`/ai/staging/${projectId}`, { params: { stage: 'USE_CASE' } });
+    return response.data;
+  },
+
   cancelGeneration: async (generationId) => {
     const response = await axiosInstance.post(`/ai/staging/cancel/${generationId}`);
     return response.data;
