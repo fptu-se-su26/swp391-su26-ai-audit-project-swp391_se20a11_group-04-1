@@ -55,8 +55,10 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
                 if (nlPos > start + CHUNK_SIZE / 2) end = nlPos + 1;
             }
             chunks.add(safeText.substring(start, end));
-            start = end - overlap;
-            if (start >= safeText.length()) break;
+            if (end >= safeText.length()) break;
+
+            int nextStart = end - overlap;
+            start = nextStart > start ? nextStart : end;
         }
         return chunks;
     }
