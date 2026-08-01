@@ -33,12 +33,17 @@ public class ActorDiscoveryService {
 
     public ActorDiscoveryResult discoverActorsAndGoals(UseCaseGenerationContext context, boolean allowProposedActors) {
         String prompt = buildDiscoveryPrompt(context, allowProposedActors);
-        String rawResponse = aiRoutingService.generateText(prompt);
-        String cleaned = cleanJsonOutput(rawResponse);
         
         try {
+            String rawResponse = aiRoutingService.generateText(prompt);
+            String cleaned = cleanJsonOutput(rawResponse);
             JsonNode root = objectMapper.readTree(cleaned);
-            return parseDiscoveryResult(root, context);
+            ActorDiscoveryResult result = parseDiscoveryResult(root, context);
+            if (result.getActorGoalMatrix() == null || result.getActorGoalMatrix().isEmpty()) {
+                log.warn("Actor discovery returned no goals. Building fallback goals from requirements.");
+                return buildFallbackResult(context);
+            }
+            return result;
         } catch (Exception e) {
             log.error("Failed to parse actor discovery result: {}", e.getMessage(), e);
             // Return a minimal result with existing actors only
@@ -199,6 +204,18 @@ public class ActorDiscoveryService {
             }
         }
 
+        if (result.getExistingActorsUsed().isEmpty()) {
+            DiscoveredActor proposedActor = new DiscoveredActor();
+            proposedActor.setTemporaryId("ACTOR-AI-001");
+            proposedActor.setName("User");
+            proposedActor.setDescription("Fallback actor inferred from requirements.");
+            proposedActor.setConfidence(0.5);
+            proposedActor.setEvidenceRequirementIds(context.getModuleRequirements().stream()
+                    .map(Requirement::getId)
+                    .collect(Collectors.toList()));
+            result.getProposedActors().add(proposedActor);
+        }
+
         // Create a generic goal per requirement
         int goalCounter = 1;
         String defaultActorRef = result.getExistingActorsUsed().isEmpty()
@@ -238,11 +255,69 @@ public class ActorDiscoveryService {
         }
 
         response = response.trim();
-        int firstCurly = response.indexOf("{");
-        int lastCurly = response.lastIndexOf("}");
-        if (firstCurly != -1 && lastCurly > firstCurly) {
-            return response.substring(firstCurly, lastCurly + 1);
+        String json = extractFirstJsonValue(response);
+        return json != null ? json : response;
+    }
+
+    private String extractFirstJsonValue(String text) {
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = inString;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString && (c == '{' || c == '[')) {
+                String candidate = extractBalancedJson(text, i, c, c == '{' ? '}' : ']');
+                if (candidate != null) {
+                    return candidate;
+                }
+            }
         }
-        return response;
+        return null;
+    }
+
+    private String extractBalancedJson(String text, int start, char open, char close) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = inString;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (inString) {
+                continue;
+            }
+            if (c == open) {
+                depth++;
+            } else if (c == close) {
+                depth--;
+                if (depth == 0) {
+                    return text.substring(start, i + 1);
+                }
+            }
+        }
+        return null;
     }
 }

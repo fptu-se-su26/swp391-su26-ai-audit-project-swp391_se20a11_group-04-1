@@ -42,7 +42,7 @@ class CodePatchAnalyzerServiceImplTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(analyzerService, "apiKey", "mock-api-key");
-        ReflectionTestUtils.setField(analyzerService, "model", "gemini-2.5-flash");
+        ReflectionTestUtils.setField(analyzerService, "model", "gemini-3.6-flash");
         ReflectionTestUtils.setField(analyzerService, "timeoutSeconds", 30);
     }
 
@@ -72,7 +72,7 @@ class CodePatchAnalyzerServiceImplTest {
 
         ResponseEntity<String> responseEntity = new ResponseEntity<>(mockResponseJson, HttpStatus.OK);
         when(restTemplate.exchange(
-                eq("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"),
+                eq("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 eq(String.class)

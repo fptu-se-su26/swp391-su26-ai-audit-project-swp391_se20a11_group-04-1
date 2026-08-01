@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../../../components/ui/Button';
-import axiosInstance from '../../../api/axiosConfig';
+import { businessModuleService } from '../services/businessModuleService';
 
 const AiUseCaseSetupModal = ({ isOpen, onClose, onGenerate, projectId }) => {
   const [generationMode, setGenerationMode] = useState('MODULE');
@@ -13,9 +13,9 @@ const AiUseCaseSetupModal = ({ isOpen, onClose, onGenerate, projectId }) => {
   useEffect(() => {
     if (isOpen && projectId) {
       setLoading(true);
-      axiosInstance.get(`/v1/projects/${projectId}/modules`)
-        .then(res => {
-          setModules(res.data?.data || res.data || []);
+      businessModuleService.getModulesByProject(projectId)
+        .then(data => {
+          setModules(data || []);
         })
         .catch(err => console.error(err))
         .finally(() => setLoading(false));

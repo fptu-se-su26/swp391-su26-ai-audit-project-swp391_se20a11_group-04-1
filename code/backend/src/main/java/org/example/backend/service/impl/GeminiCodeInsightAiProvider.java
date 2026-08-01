@@ -34,7 +34,7 @@ public class GeminiCodeInsightAiProvider implements CodeInsightAiProvider {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${code-insight.ai.model:${CODE_INSIGHT_AI_MODEL:gemini-2.5-flash}}")
+    @Value("${code-insight.ai.model:${CODE_INSIGHT_AI_MODEL:gemini-3.6-flash}}")
     private String model;
 
     @Value("${code-insight.ai.api-key:${CODE_INSIGHT_AI_API_KEY:}}")

@@ -27,6 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class GeminiServiceImpl implements GeminiService, LlmProvider {
 
+    private static final String DEFAULT_GENERATE_CONTENT_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final GeminiProperties geminiProperties;
@@ -50,12 +53,17 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
     }
 
     private String callGeminiApi(String prompt) {
-        String targetUrl = geminiProperties.getUrl();
+        String targetUrl = normalizeTargetUrl(geminiProperties.getUrl());
         if (targetUrl == null || targetUrl.isEmpty()) {
             throw new BusinessException("Chưa cấu hình URL (gemini.api.url) trong application.yaml");
         }
 
-        List<String> keys = geminiProperties.getKeys();
+        List<String> keys = geminiProperties.getKeys().stream()
+                .filter(key -> key != null && !key.isBlank())
+                .filter(key -> !"disabled".equalsIgnoreCase(key.trim()))
+                .filter(key -> !"replace_me".equalsIgnoreCase(key.trim()))
+                .filter(key -> !key.contains("YOUR_GEMINI"))
+                .toList();
         if (keys == null || keys.isEmpty()) {
             throw new BusinessException("API Keys của Gemini chưa được cấu hình. Vui lòng thêm vào application.yaml.");
         }
@@ -169,5 +177,17 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
         }
         
         throw new BusinessException("Không thể gọi Gemini API với các keys hiện có.");
+    }
+    private String normalizeTargetUrl(String configuredUrl) {
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            return DEFAULT_GENERATE_CONTENT_URL;
+        }
+
+        String targetUrl = configuredUrl.trim();
+        if (targetUrl.contains("/models/gemini-2.5-flash:")) {
+            log.warn("Configured Gemini model gemini-2.5-flash is unavailable for this API key. Using gemini-3.6-flash instead.");
+            return targetUrl.replace("/models/gemini-2.5-flash:", "/models/gemini-3.6-flash:");
+        }
+        return targetUrl;
     }
 }

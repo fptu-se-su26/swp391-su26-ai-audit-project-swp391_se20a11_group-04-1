@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,10 +30,10 @@ public class DetailedUseCaseGenerationService {
 
     public List<GeneratedUseCaseDraft> generateForChunk(UseCaseGenerationContext context, List<ActorGoal> chunk) {
         String prompt = buildGenerationPrompt(context, chunk);
-        String rawResponse = aiRoutingService.generateText(prompt);
-        String cleaned = cleanJsonOutput(rawResponse);
 
         try {
+            String rawResponse = aiRoutingService.generateText(prompt);
+            String cleaned = cleanJsonOutput(rawResponse);
             JsonNode root = objectMapper.readTree(cleaned);
             JsonNode useCasesNode = root.isArray() ? root :
                     (root.has("useCases") ? root.get("useCases") : root);
@@ -44,10 +46,14 @@ public class DetailedUseCaseGenerationService {
                     if (draft != null) drafts.add(draft);
                 }
             }
+            if (drafts.isEmpty()) {
+                log.warn("AI returned no parseable use cases. Building fallback drafts for {} goals.", chunk.size());
+                return buildFallbackDrafts(context, chunk);
+            }
             return drafts;
         } catch (Exception e) {
-            log.error("Failed to parse generated use cases: {}", e.getMessage(), e);
-            return new ArrayList<>();
+            log.warn("Failed to parse generated use cases. Building fallback drafts. Error: {}", e.getMessage());
+            return buildFallbackDrafts(context, chunk);
         }
     }
 
@@ -213,6 +219,108 @@ public class DetailedUseCaseGenerationService {
         return draft;
     }
 
+    private List<GeneratedUseCaseDraft> buildFallbackDrafts(UseCaseGenerationContext context, List<ActorGoal> chunk) {
+        Map<Long, Requirement> requirementById = new HashMap<>();
+        if (context.getModuleRequirements() != null) {
+            for (Requirement requirement : context.getModuleRequirements()) {
+                requirementById.put(requirement.getId(), requirement);
+            }
+        }
+
+        List<GeneratedUseCaseDraft> drafts = new ArrayList<>();
+        int counter = 1;
+        for (ActorGoal goal : chunk) {
+            GeneratedUseCaseDraft draft = new GeneratedUseCaseDraft();
+            draft.setTemporaryId("AI-UC-FALLBACK-" + String.format("%03d", counter++));
+            draft.setGoalIds(goal.getGoalId() != null ? List.of(goal.getGoalId()) : List.of());
+            draft.setName(toUseCaseName(goal.getGoal()));
+            draft.setDescription("Generated from requirement goal: " + safeText(goal.getGoal(), "Review requirement workflow"));
+
+            GeneratedUseCaseActorRef actor = new GeneratedUseCaseActorRef();
+            actor.setActorRef(goal.getActorRef());
+            actor.setRole("PRIMARY");
+            draft.setActors(List.of(actor));
+            draft.setPrimaryActors(goal.getActorRef());
+
+            List<Long> requirementIds = goal.getRequirementIds() != null && !goal.getRequirementIds().isEmpty()
+                    ? goal.getRequirementIds()
+                    : requirementById.keySet().stream().toList();
+            draft.setRequirementIds(requirementIds);
+            draft.setAcceptanceCriteriaCoverage(buildFallbackCoverage(requirementIds, requirementById));
+
+            StructuredMainFlow mainFlow = new StructuredMainFlow();
+            StructuredMainFlow.MainStep firstStep = new StructuredMainFlow.MainStep();
+            firstStep.setStep(1);
+            firstStep.setActorRef(goal.getActorRef());
+            firstStep.setActorAction(safeText(goal.getGoal(), "Performs the requested action"));
+            firstStep.setSystemResponse("The system validates the request and completes the workflow.");
+            mainFlow.setSteps(List.of(firstStep));
+            draft.setMainFlow(mainFlow);
+            draft.setMainSuccessScenario("1. Actor performs the requested action.\n2. System validates and completes the workflow.");
+
+            StructuredAlternativeFlow alternativeFlow = new StructuredAlternativeFlow();
+            alternativeFlow.setFlows(new ArrayList<>());
+            draft.setAlternativeFlows(alternativeFlow);
+            draft.setAlternativeFlowsText("");
+
+            draft.setPrecondition("Actor is authenticated and has permission to access this module.");
+            draft.setPostcondition("The requested workflow result is saved or shown to the actor.");
+            draft.setIncludes(new ArrayList<>());
+            draft.setExtendsList(new ArrayList<>());
+            if (context.getTargetModule() != null) {
+                draft.setModuleId(context.getTargetModule().getId());
+                draft.setModuleName(context.getTargetModule().getName());
+            } else {
+                draft.setModuleName("General");
+            }
+            draft.setModulePriority("MEDIUM");
+            draft.setModuleAssignee("System");
+            drafts.add(draft);
+        }
+        return drafts;
+    }
+
+    private List<GeneratedUseCaseDraft.AcceptanceCriteriaRef> buildFallbackCoverage(List<Long> requirementIds,
+                                                                                    Map<Long, Requirement> requirementById) {
+        List<GeneratedUseCaseDraft.AcceptanceCriteriaRef> coverage = new ArrayList<>();
+        for (Long requirementId : requirementIds) {
+            Requirement requirement = requirementById.get(requirementId);
+            int acceptanceCriteriaCount = countAcceptanceCriteria(requirement != null ? requirement.getAcceptanceCriteria() : null);
+            int safeCount = Math.max(acceptanceCriteriaCount, 1);
+            for (int i = 0; i < safeCount; i++) {
+                GeneratedUseCaseDraft.AcceptanceCriteriaRef ref = new GeneratedUseCaseDraft.AcceptanceCriteriaRef();
+                ref.setRequirementId(requirementId);
+                ref.setCriterionIndex(i);
+                coverage.add(ref);
+            }
+        }
+        return coverage;
+    }
+
+    private int countAcceptanceCriteria(String acceptanceCriteriaJson) {
+        if (acceptanceCriteriaJson == null || acceptanceCriteriaJson.isBlank() || "[]".equals(acceptanceCriteriaJson.trim())) {
+            return 0;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(acceptanceCriteriaJson);
+            return node.isArray() ? node.size() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private String toUseCaseName(String goalText) {
+        String normalized = safeText(goalText, "Review requirement workflow").trim();
+        if (normalized.isEmpty()) {
+            return "Review Requirement Workflow";
+        }
+        return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
+    }
+
+    private String safeText(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
     private String cleanJsonOutput(String response) {
         if (response == null) return "[]";
         response = response.replace("\\0", "");
@@ -233,18 +341,69 @@ public class DetailedUseCaseGenerationService {
             }
         }
         response = response.trim();
-        int firstBracket = response.indexOf("[");
-        int lastBracket = response.lastIndexOf("]");
-        int firstCurly = response.indexOf("{");
-        int lastCurly = response.lastIndexOf("}");
+        String json = extractFirstJsonValue(response);
+        return json != null ? json : response;
+    }
 
-        if (firstBracket != -1 && lastBracket > firstBracket &&
-                (firstCurly == -1 || firstBracket < firstCurly)) {
-            return response.substring(firstBracket, lastBracket + 1);
+    private String extractFirstJsonValue(String text) {
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = inString;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString && (c == '[' || c == '{')) {
+                String candidate = extractBalancedJson(text, i, c, c == '[' ? ']' : '}');
+                if (candidate != null) {
+                    return candidate;
+                }
+            }
         }
-        if (firstCurly != -1 && lastCurly > firstCurly) {
-            return response.substring(firstCurly, lastCurly + 1);
+        return null;
+    }
+
+    private String extractBalancedJson(String text, int start, char open, char close) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = inString;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+                continue;
+            }
+            if (inString) {
+                continue;
+            }
+            if (c == open) {
+                depth++;
+            } else if (c == close) {
+                depth--;
+                if (depth == 0) {
+                    return text.substring(start, i + 1);
+                }
+            }
         }
-        return response;
+        return null;
     }
 }

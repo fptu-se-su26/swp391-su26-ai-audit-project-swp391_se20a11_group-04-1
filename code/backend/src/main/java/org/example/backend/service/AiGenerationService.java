@@ -4,6 +4,7 @@ import org.example.backend.config.NotificationWebSocketHandler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.example.backend.entity.AiGenerationStaging;
 import org.example.backend.entity.AiGenerationStatus;
 import org.example.backend.service.AiRoutingService;
@@ -260,6 +261,113 @@ public class AiGenerationService {
         sendProgress(userId, 5, "Done!");
         return generationId;
     }
+
+    @Transactional
+    public UUID startUseCaseGenerationV2(Long projectId, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
+
+        if (request.getRequirementIds() == null || request.getRequirementIds().isEmpty()) {
+            throw new RuntimeException("Requirement list must not be empty.");
+        }
+
+        UUID generationId = UUID.randomUUID();
+        ObjectNode processingPayload = objectMapper.createObjectNode();
+        processingPayload.put("status", "PROCESSING");
+        processingPayload.put("message", "Use case generation is running.");
+
+        AiGenerationStaging staging = AiGenerationStaging.builder()
+                .project(project)
+                .generationId(generationId)
+                .stage(AiStage.USE_CASE)
+                .payload(processingPayload)
+                .status(AiGenerationStatus.PROCESSING)
+                .build();
+
+        stagingRepository.save(staging);
+        sendProgress(userId, 1, "Starting Use Case generation...");
+        return generationId;
+    }
+
+    @Transactional
+    public void completeUseCaseGenerationV2(UUID generationId, Long projectId, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
+        List<AiGenerationStaging> stagings = stagingRepository.findByGenerationId(generationId);
+        if (stagings.isEmpty()) {
+            log.warn("Use Case generation staging {} was not found.", generationId);
+            return;
+        }
+
+        AiGenerationStaging staging = stagings.get(0);
+        if (staging.getStatus() != AiGenerationStatus.PROCESSING) {
+            log.info("Use Case generation {} is no longer PROCESSING; current status is {}.", generationId, staging.getStatus());
+            return;
+        }
+
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
+            UseCaseGenerationBuildResult result = buildUseCaseGenerationPayload(project, request, userId);
+
+            staging.setPayload(result.payload());
+            staging.setFileHash(result.cacheFingerprint());
+            staging.setStatus(AiGenerationStatus.PENDING);
+            stagingRepository.save(staging);
+            sendProgress(userId, 7, "Done!");
+        } catch (Exception e) {
+            log.error("Use Case generation {} failed.", generationId, e);
+            ObjectNode errorPayload = objectMapper.createObjectNode();
+            errorPayload.put("status", "FAILED");
+            errorPayload.put("message", "Use case generation failed. Please try again.");
+            errorPayload.put("error", e.getMessage());
+            staging.setPayload(errorPayload);
+            staging.setStatus(AiGenerationStatus.DISCARDED);
+            stagingRepository.save(staging);
+            sendProgress(userId, 7, "Use Case generation failed.");
+        }
+    }
+
+    private UseCaseGenerationBuildResult buildUseCaseGenerationPayload(Project project, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
+        sendProgress(userId, 1, "Building Generation Context...");
+        org.example.backend.dto.ai.UseCaseGenerationContext context = useCaseGenerationContextBuilder.buildContext(project, request.getModuleId(), request.getRequirementIds());
+
+        sendProgress(userId, 2, "Checking Cache...");
+        String cacheFingerprint = useCaseGenerationFingerprintService.generateFingerprint(context, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
+        // TODO: check stagingRepository for existing cache
+
+        sendProgress(userId, 3, "AI Phase 1: Discovering Actors and Goals...");
+        org.example.backend.dto.ai.ActorDiscoveryResult discoveryResult = actorDiscoveryService.discoverActorsAndGoals(context, request.getAllowProposedActors());
+
+        sendProgress(userId, 4, "Planning Generation Batches...");
+        List<List<org.example.backend.dto.ai.ActorGoal>> chunks = useCasePlanningService.chunkGoalsForGeneration(discoveryResult);
+
+        sendProgress(userId, 5, "AI Phase 2: Generating Detailed Use Cases...");
+        List<List<org.example.backend.dto.ai.GeneratedUseCaseDraft>> generatedChunks = new ArrayList<>();
+        for (int i = 0; i < chunks.size(); i++) {
+            sendProgress(userId, 5, "Generating batch " + (i + 1) + " of " + chunks.size() + "...");
+            generatedChunks.add(detailedUseCaseGenerationService.generateForChunk(context, chunks.get(i)));
+        }
+
+        sendProgress(userId, 6, "Reconciling and Validating Results...");
+        List<org.example.backend.dto.ai.GeneratedUseCaseDraft> finalUseCases = useCaseReconciliationService.reconcile(generatedChunks);
+        org.example.backend.dto.ai.UseCaseCoverageReport coverage = useCaseCoverageService.calculateCoverage(context, discoveryResult, finalUseCases);
+
+        org.example.backend.dto.ai.UseCaseGenerationPayload payload = new org.example.backend.dto.ai.UseCaseGenerationPayload();
+        payload.setSchemaVersion("2.0");
+        payload.setGenerationMode(request.getGenerationMode().name());
+        payload.setPromptVersion(org.example.backend.service.ai.usecase.UseCaseGenerationFingerprintService.PROMPT_VERSION);
+        payload.setExistingActorsUsed(discoveryResult.getExistingActorsUsed());
+        payload.setProposedActors(discoveryResult.getProposedActors());
+        payload.setActorGoalMatrix(discoveryResult.getActorGoalMatrix());
+        payload.setUseCases(finalUseCases);
+        payload.setCoverage(coverage);
+
+        org.example.backend.dto.ai.UseCaseValidationResult validation = useCaseGenerationValidator.validate(payload);
+        payload.setValidationSummary(validation);
+
+        return new UseCaseGenerationBuildResult(objectMapper.valueToTree(payload), cacheFingerprint);
+    }
+
+    private record UseCaseGenerationBuildResult(JsonNode payload, String cacheFingerprint) {}
 
     @Transactional
     public UUID generateUseCasesV2(Long projectId, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
@@ -633,6 +741,8 @@ public class AiGenerationService {
     @Transactional
     public void deletePendingGenerations(Long projectId, AiStage stage) {
         List<AiGenerationStaging> pending = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PENDING);
+        List<AiGenerationStaging> processing = stagingRepository.findByProjectIdAndStageAndStatusOrderByCreatedAtDesc(projectId, stage, AiGenerationStatus.PROCESSING);
+        pending.addAll(processing);
         for (AiGenerationStaging s : pending) {
             s.setStatus(AiGenerationStatus.DISCARDED);
         }

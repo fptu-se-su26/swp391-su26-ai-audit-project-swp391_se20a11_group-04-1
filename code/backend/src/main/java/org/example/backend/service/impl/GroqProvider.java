@@ -15,8 +15,10 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -46,8 +48,16 @@ public class GroqProvider implements LlmProvider {
 
     @Override
     public String generateText(String prompt) {
-        List<String> keys = groqProperties.getKeys();
-        if (keys == null || keys.isEmpty() || keys.get(0).contains("YOUR_GROQ_KEY")) {
+        List<String> configuredKeys = groqProperties.getKeys();
+        final List<String> keys = configuredKeys == null
+                ? List.of()
+                : configuredKeys.stream()
+                    .filter(key -> key != null && !key.isBlank())
+                    .filter(key -> !"disabled".equalsIgnoreCase(key.trim()))
+                    .filter(key -> !"replace_me".equalsIgnoreCase(key.trim()))
+                    .filter(key -> !key.contains("YOUR_GROQ"))
+                    .toList();
+        if (keys.isEmpty()) {
             throw new BusinessException("Groq API Key chưa được cấu hình.");
         }
 
@@ -55,6 +65,7 @@ public class GroqProvider implements LlmProvider {
         int backoff503 = 2000;
         int backoff429 = 1000;
         int error503Count = 0;
+        Set<Integer> exhaustedKeyIndexes = new HashSet<>();
 
         String targetUrl = groqProperties.getUrl();
         String model = groqProperties.getModel();
@@ -64,7 +75,7 @@ public class GroqProvider implements LlmProvider {
         if (prompt != null && prompt.length() > GROQ_MAX_INPUT_CHARS) {
             log.warn("Groq: prompt quá dài ({} chars), truncating to {} chars để tránh 413.", prompt.length(), GROQ_MAX_INPUT_CHARS);
             effectivePrompt = prompt.substring(0, GROQ_MAX_INPUT_CHARS)
-                    + "\n\n[...prompt truncated for Groq token limit. Please generate test cases based on the above context only...]";
+                    + "\n\n[...prompt truncated for Groq token limit. Return only strict JSON based on the available context above...]";
         }
 
         Map<String, Object> requestBody = new HashMap<>();
@@ -78,7 +89,13 @@ public class GroqProvider implements LlmProvider {
         requestBody.put("messages", List.of(message));
 
         for (int i = 0; i < maxRetries; i++) {
+            if (exhaustedKeyIndexes.size() >= keys.size()) {
+                break;
+            }
             int index = currentKeyIndex.getAndUpdate(idx -> (idx + 1) % keys.size());
+            if (exhaustedKeyIndexes.contains(index)) {
+                continue;
+            }
             String apiKey = keys.get(index);
 
             HttpHeaders headers = new HttpHeaders();
@@ -106,9 +123,11 @@ public class GroqProvider implements LlmProvider {
                     // Prompt still too large even after truncation — fail fast, no retry helps
                     throw new BusinessException("Groq: Prompt quá dài ngay cả sau khi truncate (" + statusCode + "). Vui lòng giảm context.");
                 } else if (statusCode == 401) {
+                    exhaustedKeyIndexes.add(index);
                     log.warn("Groq API {} for key ending in {}. Bỏ qua...", statusCode, apiKey.substring(Math.max(0, apiKey.length() - 4)));
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("insufficient") || errorBody.contains("billing")) {
+                        exhaustedKeyIndexes.add(index);
                         log.warn("Groq API Key kết thúc bằng {} đã hết Quota (RPD). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
                     } else {
                         log.warn("Groq API bị Rate Limit (RPM). Nghỉ ngơi {}ms...", backoff429);

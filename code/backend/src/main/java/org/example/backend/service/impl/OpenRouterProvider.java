@@ -16,8 +16,10 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -46,14 +48,16 @@ public class OpenRouterProvider implements LlmProvider {
 
     private String normalizeModel(String configuredModel) {
         if (configuredModel == null || configuredModel.isBlank()) {
-            return "google/gemini-2.5-flash:free";
+            return "google/gemini-3.6-flash";
         }
 
         String model = configuredModel.trim();
         // Only strip deprecated/unavailable models, keep :free suffix intact
-        if ("google/gemini-2.0-flash-exp:free".equalsIgnoreCase(model)) {
-            log.warn("OpenRouter model {} is deprecated. Falling back to google/gemini-2.5-flash:free.", model);
-            return "google/gemini-2.5-flash:free";
+        if ("google/gemini-2.0-flash-exp:free".equalsIgnoreCase(model)
+                || "google/gemini-2.5-flash:free".equalsIgnoreCase(model)
+                || "google/gemini-2.5-flash".equalsIgnoreCase(model)) {
+            log.warn("OpenRouter model {} is deprecated. Falling back to google/gemini-3.6-flash.", model);
+            return "google/gemini-3.6-flash";
         }
 
         return model;
@@ -61,8 +65,16 @@ public class OpenRouterProvider implements LlmProvider {
 
     @Override
     public String generateText(String prompt) {
-        List<String> keys = openRouterProperties.getKeys();
-        if (keys == null || keys.isEmpty() || keys.get(0).contains("YOUR_OPENROUTER_KEY")) {
+        List<String> configuredKeys = openRouterProperties.getKeys();
+        final List<String> keys = configuredKeys == null
+                ? List.of()
+                : configuredKeys.stream()
+                    .filter(key -> key != null && !key.isBlank())
+                    .filter(key -> !"disabled".equalsIgnoreCase(key.trim()))
+                    .filter(key -> !"replace_me".equalsIgnoreCase(key.trim()))
+                    .filter(key -> !key.contains("YOUR_OPENROUTER"))
+                    .toList();
+        if (keys.isEmpty()) {
             throw new BusinessException("OpenRouter API Key chưa được cấu hình.");
         }
 
@@ -70,6 +82,7 @@ public class OpenRouterProvider implements LlmProvider {
         int backoff503 = 2000;
         int backoff429 = 1000;
         int error503Count = 0;
+        Set<Integer> exhaustedKeyIndexes = new HashSet<>();
 
         String targetUrl = openRouterProperties.getUrl();
         String model = normalizeModel(openRouterProperties.getModel());
@@ -85,7 +98,13 @@ public class OpenRouterProvider implements LlmProvider {
         requestBody.put("messages", List.of(message));
 
         for (int i = 0; i < maxRetries; i++) {
+            if (exhaustedKeyIndexes.size() >= keys.size()) {
+                break;
+            }
             int index = currentKeyIndex.getAndUpdate(idx -> (idx + 1) % keys.size());
+            if (exhaustedKeyIndexes.contains(index)) {
+                continue;
+            }
             String apiKey = keys.get(index);
 
             HttpHeaders headers = new HttpHeaders();
@@ -113,9 +132,11 @@ public class OpenRouterProvider implements LlmProvider {
                 log.error("OpenRouter API HTTP Error {}: {}", statusCode, errorBody);
                 
                 if (statusCode == 401) {
+                    exhaustedKeyIndexes.add(index);
                     log.warn("OpenRouter API {} for key ending in {}. Bỏ qua...", statusCode, apiKey.substring(Math.max(0, apiKey.length() - 4)));
                 } else if (statusCode == 429) {
                     if (errorBody.contains("quota") || errorBody.contains("insufficient") || errorBody.contains("balance")) {
+                        exhaustedKeyIndexes.add(index);
                         log.warn("OpenRouter API Key kết thúc bằng {} đã hết Quota (RPD). Bỏ qua...", apiKey.substring(Math.max(0, apiKey.length() - 4)));
                     } else {
                         log.warn("OpenRouter API bị Rate Limit (RPM). Nghỉ ngơi {}ms...", backoff429);

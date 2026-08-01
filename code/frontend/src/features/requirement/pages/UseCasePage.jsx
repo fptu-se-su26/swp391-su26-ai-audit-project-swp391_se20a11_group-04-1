@@ -23,6 +23,21 @@ import useProjectStore from '../../../store/useProjectStore';
 import useAuthStore from '../../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
+const GENERATION_POLL_INTERVAL_MS = 2500;
+const GENERATION_POLL_TIMEOUT_MS = 300000;
+
+const wait = (ms, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) {
+    reject(new Error('canceled'));
+    return;
+  }
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener('abort', () => {
+    clearTimeout(timer);
+    reject(new Error('canceled'));
+  }, { once: true });
+});
+
 const UseCasePage = () => {
   const navigate = useNavigate();
   const activeProject = useProjectStore((state) => state.activeProject);
@@ -217,6 +232,24 @@ const UseCasePage = () => {
     setIsAiSetupModalOpen(true);
   };
 
+  const waitForUseCaseGeneration = async (id, signal) => {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < GENERATION_POLL_TIMEOUT_MS) {
+      const data = await useCaseService.getGenerationById(id);
+      if (data.status === 'PENDING') {
+        return data;
+      }
+      if (data.status === 'DISCARDED') {
+        const payload = data.payload || {};
+        throw new Error(payload.error || payload.message || 'Use Case generation failed.');
+      }
+      await wait(GENERATION_POLL_INTERVAL_MS, signal);
+    }
+
+    throw new Error('Use Case generation timed out.');
+  };
+
   const handleGenerateAI = async (setupParams) => {
     setIsAiSetupModalOpen(false);
     
@@ -235,16 +268,11 @@ const UseCasePage = () => {
         },
         { signal: abortControllerRef.current.signal }
       );
+      await waitForUseCaseGeneration(response.generationId, abortControllerRef.current.signal);
       
       const elapsed = Date.now() - startTime;
       if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
-         await new Promise((resolve, reject) => {
-             const timer = setTimeout(resolve, 12000 - elapsed);
-             abortControllerRef.current.signal.addEventListener('abort', () => {
-                 clearTimeout(timer);
-                 reject(new Error('canceled'));
-             });
-         });
+         await wait(12000 - elapsed, abortControllerRef.current.signal);
       }
       setGenerationId(response.generationId);
       setIsAiModalOpen(true);
@@ -254,7 +282,7 @@ const UseCasePage = () => {
         return;
       }
       console.error(error);
-      toast.error(error.response?.data?.message || 'Có lỗi khi sinh Use Case bằng AI');
+      toast.error(error.response?.data?.message || error.message || 'Có lỗi khi sinh Use Case bằng AI');
     } finally {
       setGenerating(false);
     }

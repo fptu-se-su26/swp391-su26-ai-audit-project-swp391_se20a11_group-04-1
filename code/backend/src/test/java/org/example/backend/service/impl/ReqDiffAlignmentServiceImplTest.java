@@ -43,7 +43,7 @@ class ReqDiffAlignmentServiceImplTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(alignmentService, "apiKey", "mock-api-key");
-        ReflectionTestUtils.setField(alignmentService, "model", "gemini-2.5-flash");
+        ReflectionTestUtils.setField(alignmentService, "model", "gemini-3.6-flash");
         ReflectionTestUtils.setField(alignmentService, "timeoutSeconds", 30);
     }
 
@@ -75,7 +75,7 @@ class ReqDiffAlignmentServiceImplTest {
 
         ResponseEntity<String> responseEntity = new ResponseEntity<>(mockResponseJson, HttpStatus.OK);
         when(restTemplate.exchange(
-                eq("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"),
+                eq("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 eq(String.class)

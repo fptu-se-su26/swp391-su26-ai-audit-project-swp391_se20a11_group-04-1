@@ -39,7 +39,7 @@ public class ArchitectureSyncExecutor {
     @Value("${code-insight.ai.api-key:}")
     private String codeInsightAiApiKey;
 
-    @Value("${code-insight.ai.model:gemini-1.5-flash}")
+    @Value("${code-insight.ai.model:gemini-3.6-flash}")
     private String codeInsightAiModel;
 
     @Value("${gemini.api-key:}")
@@ -66,7 +66,7 @@ public class ArchitectureSyncExecutor {
 
             String geminiApiUrl = geminiProperties.getUrl();
             if (geminiApiUrl == null || geminiApiUrl.trim().isEmpty() || geminiApiUrl.contains("YOUR_GEMINI_API_KEY")) {
-                String modelName = codeInsightAiModel != null && !codeInsightAiModel.trim().isEmpty() ? codeInsightAiModel : "gemini-1.5-flash";
+                String modelName = codeInsightAiModel != null && !codeInsightAiModel.trim().isEmpty() ? codeInsightAiModel : "gemini-3.6-flash";
                 geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent";
             }
 

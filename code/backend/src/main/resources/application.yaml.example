@@ -76,7 +76,7 @@ cloudinary:
 gemini:
   api:
     key: "${GEMINI_API_KEY:}" # Set GEMINI_API_KEY in your local environment
-    url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
 
 openrouter:
   api:
@@ -84,7 +84,7 @@ openrouter:
       - "YOUR_OPENROUTER_API_KEY_1"
       - "YOUR_OPENROUTER_API_KEY_2"
     url: "https://openrouter.ai/api/v1/chat/completions"
-    model: "google/gemini-2.5-flash"
+    model: "google/gemini-3.6-flash"
     max-tokens: 8192
 
 groq:
@@ -121,5 +121,5 @@ code-insight:
     # gemini = real Gemini provider. AI Review returns provider errors when the API cannot produce a review.
     provider: ${CODE_INSIGHT_AI_PROVIDER:gemini}
     api-key: ${CODE_INSIGHT_AI_API_KEY:}
-    model: ${CODE_INSIGHT_AI_MODEL:gemini-2.5-flash}
+    model: ${CODE_INSIGHT_AI_MODEL:gemini-3.6-flash}
     timeout-seconds: ${CODE_INSIGHT_AI_TIMEOUT_SECONDS:30}

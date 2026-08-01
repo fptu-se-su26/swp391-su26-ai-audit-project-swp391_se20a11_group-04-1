@@ -66,7 +66,7 @@ class StreamingAiReviewServiceImplTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(streamingService, "apiKey", "mock-key");
-        ReflectionTestUtils.setField(streamingService, "model", "gemini-2.5-flash");
+        ReflectionTestUtils.setField(streamingService, "model", "gemini-3.6-flash");
     }
 
     @Test

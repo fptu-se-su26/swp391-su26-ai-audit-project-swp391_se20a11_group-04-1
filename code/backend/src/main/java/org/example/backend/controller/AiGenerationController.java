@@ -12,9 +12,11 @@ import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.Executor;
 import org.example.backend.entity.AiGenerationStaging;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @RestController
@@ -24,14 +26,17 @@ public class AiGenerationController {
     private final AiGenerationService aiGenerationService;
     private final org.example.backend.repository.RequirementRepository requirementRepository;
     private final org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+    private final Executor useCaseGenerationExecutor;
 
     @Autowired
     public AiGenerationController(AiGenerationService aiGenerationService, 
-                                  org.example.backend.repository.RequirementRepository requirementRepository,
-                                  org.example.backend.repository.ProjectMemberRepository projectMemberRepository) {
+                                   org.example.backend.repository.RequirementRepository requirementRepository,
+                                   org.example.backend.repository.ProjectMemberRepository projectMemberRepository,
+                                   @Qualifier("defaultAsyncExecutor") Executor useCaseGenerationExecutor) {
         this.aiGenerationService = aiGenerationService;
         this.requirementRepository = requirementRepository;
         this.projectMemberRepository = projectMemberRepository;
+        this.useCaseGenerationExecutor = useCaseGenerationExecutor;
     }
 
     @PostMapping(value = "/generate-requirements/{projectId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -158,7 +163,14 @@ public class AiGenerationController {
         }
         
         try {
-            UUID generationId = aiGenerationService.generateUseCasesV2(projectId, request, userId);
+            UUID generationId = aiGenerationService.startUseCaseGenerationV2(projectId, request, userId);
+            useCaseGenerationExecutor.execute(() -> {
+                try {
+                    aiGenerationService.completeUseCaseGenerationV2(generationId, projectId, request, userId);
+                } catch (Exception e) {
+                    log.error("Unexpected async use case generation failure for {}", generationId, e);
+                }
+            });
             return ResponseEntity.ok(Map.of(
                     "message", "Successfully started generating Use Cases.",
                     "generationId", generationId.toString()
