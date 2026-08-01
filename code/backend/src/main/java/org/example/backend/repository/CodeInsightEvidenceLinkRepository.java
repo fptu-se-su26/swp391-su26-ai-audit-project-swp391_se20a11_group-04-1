@@ -27,9 +27,9 @@ public interface CodeInsightEvidenceLinkRepository extends JpaRepository<CodeIns
     long countByTaskId(Long taskId);
 
     @Query("""
-            select distinct c.taskId
+            select distinct c.task.id
             from CodeInsightEvidenceLink c
-            where c.taskId in :taskIds
+            where c.task.id in :taskIds
             """)
     List<Long> findTaskIdsWithEvidence(@Param("taskIds") List<Long> taskIds);
 
