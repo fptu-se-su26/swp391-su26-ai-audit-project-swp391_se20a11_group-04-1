@@ -25,32 +25,51 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
     // Max chars per chunk — sized to fit within Groq 12000 TPM with prompt overhead (~3000 chars instructions)
     private static final int CHUNK_SIZE = 7000;
 
-    /** Split document into overlapping chunks to avoid missing content at boundaries */
+    // Hard limit on total document chars fed to AI — prevents OOM on very large files
+    private static final int MAX_DOC_CHARS = 40_000;
+
+    /** Split document into overlapping chunks to avoid missing content at boundaries.
+     *  Uses CharSequence.subSequence to avoid unnecessary String copies where possible,
+     *  and hard-caps total input to MAX_DOC_CHARS. */
     private java.util.List<String> chunkDocument(String text) {
         java.util.List<String> chunks = new java.util.ArrayList<>();
         if (text == null || text.isEmpty()) return chunks;
-        if (text.length() <= CHUNK_SIZE) { chunks.add(text); return chunks; }
+
+        // Hard cap: truncate document if too large to prevent OOM
+        final String safeText = text.length() > MAX_DOC_CHARS
+                ? text.substring(0, MAX_DOC_CHARS)
+                : text;
+
+        if (safeText.length() <= CHUNK_SIZE) {
+            chunks.add(safeText);
+            return chunks;
+        }
 
         int start = 0;
-        int overlap = 200; // overlap to avoid cutting sentences
-        while (start < text.length()) {
-            int end = Math.min(start + CHUNK_SIZE, text.length());
+        int overlap = 200;
+        while (start < safeText.length()) {
+            int end = Math.min(start + CHUNK_SIZE, safeText.length());
             // Try to break at a newline to avoid cutting mid-sentence
-            if (end < text.length()) {
-                int nlPos = text.lastIndexOf('\n', end);
+            if (end < safeText.length()) {
+                int nlPos = safeText.lastIndexOf('\n', end);
                 if (nlPos > start + CHUNK_SIZE / 2) end = nlPos + 1;
             }
-            chunks.add(text.substring(start, end));
+            chunks.add(safeText.substring(start, end));
             start = end - overlap;
-            if (start >= text.length()) break;
+            if (start >= safeText.length()) break;
         }
         return chunks;
     }
 
     @Override
     public String extractRequirementsFromText(String documentText, org.example.backend.entity.Project project) {
+        // Hard cap document size early to prevent OOM on large files
+        final String safeDocumentText = (documentText != null && documentText.length() > MAX_DOC_CHARS)
+                ? documentText.substring(0, MAX_DOC_CHARS)
+                : (documentText != null ? documentText : "");
+
         // Phase 1: Determine Domain and Priorities (use first chunk only — sufficient for domain detection)
-        String phase1Text = documentText.length() > CHUNK_SIZE ? documentText.substring(0, CHUNK_SIZE) : documentText;
+        String phase1Text = safeDocumentText.length() > CHUNK_SIZE ? safeDocumentText.substring(0, CHUNK_SIZE) : safeDocumentText;
         String phase1Prompt = "You are an expert System Architect. Analyze the following project document text. " +
                 "Your task is to identify the primary business domain of the project and list the top 3-5 most critical Non-Functional Requirements (NFRs) / Constraints for this specific domain. " +
                 "Your response MUST be a pure JSON object (without ```json wrappers) with exactly two fields:\n" +
@@ -78,7 +97,7 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
         } catch (Exception e) { /* fallback to defaults */ }
 
         // Phase 2: Chunk document and extract requirements from each chunk
-        java.util.List<String> chunks = chunkDocument(documentText);
+        java.util.List<String> chunks = chunkDocument(safeDocumentText);
         com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
         com.fasterxml.jackson.databind.node.ArrayNode allRequirements = om.createArrayNode();
         com.fasterxml.jackson.databind.node.ArrayNode allActors = om.createArrayNode();
