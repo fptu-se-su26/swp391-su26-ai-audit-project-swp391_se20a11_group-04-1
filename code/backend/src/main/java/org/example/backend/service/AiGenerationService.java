@@ -949,17 +949,33 @@ public class AiGenerationService {
             map.put("contextWarning", staging.getContextWarning());
             
             JsonNode stagingPayload = staging.getPayload();
-            JsonNode reqsPayload = stagingPayload != null && stagingPayload.has("requirements") ? stagingPayload.get("requirements") : stagingPayload;
-            List<Map<String, Object>> payloadList = objectMapper.convertValue(reqsPayload, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
-            if (payloadList != null) {
-                for (Map<String, Object> item : payloadList) {
-                    String title = (String) item.get("title");
-                    if (title != null && lowerCaseTitles.contains(title.toLowerCase())) {
-                        item.put("isDuplicate", true);
+            // Schema 3.0 (AUTO_PROJECT) uses "useCases" + "modules" instead of "requirements"
+            // Schema 2.0 uses "requirements" array
+            // Pass the raw payload to frontend for schema 3.0; only do duplicate-check for schema 2.0
+            if (stagingPayload != null && stagingPayload.has("useCases")) {
+                // Schema 3.0: pass entire payload as-is, frontend handles it
+                map.put("payload", stagingPayload);
+                map.put("schemaVersion", "3.0");
+            } else {
+                JsonNode reqsPayload = stagingPayload != null && stagingPayload.has("requirements") 
+                    ? stagingPayload.get("requirements") 
+                    : stagingPayload;
+                List<Map<String, Object>> payloadList = null;
+                if (reqsPayload != null && reqsPayload.isArray()) {
+                    try {
+                        payloadList = objectMapper.convertValue(reqsPayload, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                    } catch (Exception ignored) { /* non-list payload, skip */ }
+                }
+                if (payloadList != null) {
+                    for (Map<String, Object> item : payloadList) {
+                        String title = (String) item.get("title");
+                        if (title != null && lowerCaseTitles.contains(title.toLowerCase())) {
+                            item.put("isDuplicate", true);
+                        }
                     }
                 }
+                map.put("payload", payloadList);
             }
-            map.put("payload", payloadList);
             if (stagingPayload != null && stagingPayload.has("project_actors")) {
                 List<Map<String, Object>> actorsList = objectMapper.convertValue(stagingPayload.get("project_actors"), new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
                 map.put("project_actors", actorsList);
