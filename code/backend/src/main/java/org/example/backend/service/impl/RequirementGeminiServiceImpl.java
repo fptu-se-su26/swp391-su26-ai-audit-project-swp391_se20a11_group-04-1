@@ -23,10 +23,10 @@ public class RequirementGeminiServiceImpl implements RequirementGeminiService {
     }
 
     // Max chars per chunk — sized to fit within Groq 12000 TPM with prompt overhead (~3000 chars instructions)
-    private static final int CHUNK_SIZE = 7000;
+    private static final int CHUNK_SIZE = 6_000;
 
     // Hard limit on total document chars fed to AI — prevents OOM on very large files
-    private static final int MAX_DOC_CHARS = 40_000;
+    private static final int MAX_DOC_CHARS = 12_000;
 
     /** Split document into overlapping chunks to avoid missing content at boundaries.
      *  Uses CharSequence.subSequence to avoid unnecessary String copies where possible,

@@ -14,7 +14,7 @@ import java.io.InputStream;
 public class DocumentParserService {
 
     // Hard limit on extracted text to prevent OOM downstream
-    private static final int MAX_TEXT_CHARS = 40_000;
+    private static final int MAX_TEXT_CHARS = 12_000;
 
     public String parseDocument(MultipartFile file) {
         String filename = file.getOriginalFilename();
