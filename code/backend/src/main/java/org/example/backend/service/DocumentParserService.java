@@ -43,9 +43,10 @@ public class DocumentParserService {
     }
 
     private String parsePdf(MultipartFile file) throws Exception {
-        // Use InputStream directly instead of readAllBytes() to avoid double memory usage
+        // Use RandomAccessReadBuffer to avoid readAllBytes() double memory usage
         try (InputStream is = file.getInputStream();
-             PDDocument document = Loader.loadPDF(is)) {
+             org.apache.pdfbox.io.RandomAccessReadBuffer buffer = new org.apache.pdfbox.io.RandomAccessReadBuffer(is);
+             PDDocument document = Loader.loadPDF(buffer)) {
             PDFTextStripper stripper = new PDFTextStripper();
             return stripper.getText(document);
         }
