@@ -361,12 +361,11 @@ public class AiGenerationService {
         sendProgress(userId, 2, "Checking Cache...");
         String cacheFingerprint = useCaseGenerationFingerprintService.generateFingerprint(context, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
 
-        org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult = null;
         if (org.example.backend.dto.AiUseCaseGenerateRequest.GenerationMode.AUTO_PROJECT.equals(request.getGenerationMode())) {
-            sendProgress(userId, 3, "AI Phase 1a: Discovering Business Modules...");
-            moduleDiscoveryResult = moduleDiscoveryService.discoverModules(context);
+            return buildAutoProjectPayload(context, request, userId, cacheFingerprint);
         }
 
+        // ---- Standard MODULE mode ----
         sendProgress(userId, 4, "AI Phase 1b: Discovering Actors and Goals...");
         org.example.backend.dto.ai.ActorDiscoveryResult discoveryResult = actorDiscoveryService.discoverActorsAndGoals(context, request.getAllowProposedActors());
 
@@ -383,25 +382,8 @@ public class AiGenerationService {
         sendProgress(userId, 7, "Reconciling and Validating Results...");
         List<org.example.backend.dto.ai.GeneratedUseCaseDraft> finalUseCases = useCaseReconciliationService.reconcile(generatedChunks);
 
-        if (moduleDiscoveryResult != null && moduleDiscoveryResult.getModules() != null) {
-            Map<Long, String> reqIdToModuleRef = new HashMap<>();
-            for (org.example.backend.dto.ai.GeneratedModuleDraft mod : moduleDiscoveryResult.getModules()) {
-                if (mod.getRequirementIds() != null) {
-                    for (Long rid : mod.getRequirementIds()) {
-                        reqIdToModuleRef.put(rid, mod.getTemporaryId());
-                    }
-                }
-            }
-            for (org.example.backend.dto.ai.GeneratedUseCaseDraft uc : finalUseCases) {
-                if (uc.getRequirementIds() != null && !uc.getRequirementIds().isEmpty()) {
-                    String modRef = reqIdToModuleRef.get(uc.getRequirementIds().get(0));
-                    uc.setModuleRef(modRef);
-                }
-            }
-        }
-
         org.example.backend.dto.ai.UseCaseGenerationPayload payload = new org.example.backend.dto.ai.UseCaseGenerationPayload();
-        payload.setSchemaVersion("3.0");
+        payload.setSchemaVersion("2.0");
         payload.setGenerationMode(request.getGenerationMode().name());
         payload.setPromptVersion(org.example.backend.service.ai.usecase.UseCaseGenerationFingerprintService.PROMPT_VERSION);
         payload.setExistingActorsUsed(discoveryResult.getExistingActorsUsed());
@@ -409,22 +391,118 @@ public class AiGenerationService {
         payload.setActorGoalMatrix(discoveryResult.getActorGoalMatrix());
         payload.setUseCases(finalUseCases);
 
-        if (moduleDiscoveryResult != null) {
-            payload.setModules(moduleDiscoveryResult.getModules());
+        actorReferenceMergeService.mergeAndRemap(payload);
+        payload.setCoverage(useCaseCoverageService.calculateCoverage(context, discoveryResult, finalUseCases));
+
+        org.example.backend.dto.ai.UseCaseValidationResult validation = useCaseGenerationValidator.validate(payload);
+        payload.setValidationSummary(validation);
+
+        return new UseCaseGenerationBuildResult(objectMapper.valueToTree(payload), cacheFingerprint);
+    }
+
+    /**
+     * AUTO_PROJECT mode: discover modules first, then run actor discovery + UC generation
+     * PER MODULE so AI gets focused context (5-8 reqs max) instead of 50 reqs at once.
+     */
+    private UseCaseGenerationBuildResult buildAutoProjectPayload(
+            org.example.backend.dto.ai.UseCaseGenerationContext baseContext,
+            org.example.backend.dto.AiUseCaseGenerateRequest request,
+            Long userId,
+            String cacheFingerprint) {
+
+        sendProgress(userId, 3, "AI Phase 1a: Discovering Business Modules...");
+        org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult = moduleDiscoveryService.discoverModules(baseContext);
+
+        List<org.example.backend.dto.ai.GeneratedUseCaseDraft> allUseCases = new ArrayList<>();
+        List<org.example.backend.dto.ai.DiscoveredActor> allExistingActors = new ArrayList<>();
+        List<org.example.backend.dto.ai.DiscoveredActor> allProposedActors = new ArrayList<>();
+        List<org.example.backend.dto.ai.ActorGoal> allGoals = new ArrayList<>();
+
+        // Build req ID -> Requirement map for fast lookup
+        Map<Long, Requirement> reqById = new HashMap<>();
+        for (Requirement r : baseContext.getModuleRequirements()) {
+            reqById.put(r.getId(), r);
         }
+
+        List<org.example.backend.dto.ai.GeneratedModuleDraft> modules = moduleDiscoveryResult.getModules();
+        int totalModules = modules.size();
+
+        for (int modIdx = 0; modIdx < totalModules; modIdx++) {
+            org.example.backend.dto.ai.GeneratedModuleDraft moduleDraft = modules.get(modIdx);
+            sendProgress(userId, 4, "Processing module " + (modIdx + 1) + "/" + totalModules + ": " + moduleDraft.getName());
+
+            // Build requirements list for this module
+            List<Requirement> moduleReqs = new ArrayList<>();
+            if (moduleDraft.getRequirementIds() != null) {
+                for (Long rid : moduleDraft.getRequirementIds()) {
+                    Requirement r = reqById.get(rid);
+                    if (r != null) moduleReqs.add(r);
+                }
+            }
+            if (moduleReqs.isEmpty()) continue;
+
+            // Build per-module context (focused: only this module's requirements)
+            org.example.backend.dto.ai.UseCaseGenerationContext moduleContext = org.example.backend.dto.ai.UseCaseGenerationContext.builder()
+                    .project(baseContext.getProject())
+                    .targetModule(null) // no DB module yet, using draft
+                    .moduleRequirements(moduleReqs)
+                    .existingActors(baseContext.getExistingActors())
+                    .existingUseCases(baseContext.getExistingUseCases())
+                    .contextPriorities(java.util.List.of())
+                    .projectModules(baseContext.getProjectModules())
+                    .generatedModule(moduleDraft)
+                    .build();
+
+            // Actor discovery per module (focused context → better goals)
+            org.example.backend.dto.ai.ActorDiscoveryResult moduleDiscovery =
+                    actorDiscoveryService.discoverActorsAndGoals(moduleContext, request.getAllowProposedActors());
+
+            // Collect actors
+            if (moduleDiscovery.getExistingActorsUsed() != null) allExistingActors.addAll(moduleDiscovery.getExistingActorsUsed());
+            if (moduleDiscovery.getProposedActors() != null) allProposedActors.addAll(moduleDiscovery.getProposedActors());
+
+            // Collect goals (with module ref injected)
+            if (moduleDiscovery.getActorGoalMatrix() != null) {
+                for (org.example.backend.dto.ai.ActorGoal goal : moduleDiscovery.getActorGoalMatrix()) {
+                    allGoals.add(goal);
+                }
+            }
+
+            // UC generation per module in chunks
+            List<List<org.example.backend.dto.ai.ActorGoal>> chunks = useCasePlanningService.chunkGoalsForGeneration(moduleDiscovery);
+            for (int i = 0; i < chunks.size(); i++) {
+                sendProgress(userId, 5, "Generating UCs for " + moduleDraft.getName() + " batch " + (i + 1) + "/" + chunks.size());
+                List<org.example.backend.dto.ai.GeneratedUseCaseDraft> batchUcs =
+                        detailedUseCaseGenerationService.generateForChunk(moduleContext, chunks.get(i));
+
+                // Stamp every UC with moduleRef and moduleName
+                for (org.example.backend.dto.ai.GeneratedUseCaseDraft uc : batchUcs) {
+                    uc.setModuleRef(moduleDraft.getTemporaryId());
+                    uc.setModuleName(moduleDraft.getName());
+                }
+                allUseCases.addAll(batchUcs);
+            }
+        }
+
+        sendProgress(userId, 6, "Reconciling and Validating Results...");
+        List<org.example.backend.dto.ai.GeneratedUseCaseDraft> finalUseCases = useCaseReconciliationService.reconcile(
+                java.util.List.of(allUseCases));
+
+        org.example.backend.dto.ai.UseCaseGenerationPayload payload = new org.example.backend.dto.ai.UseCaseGenerationPayload();
+        payload.setSchemaVersion("3.0");
+        payload.setGenerationMode(request.getGenerationMode().name());
+        payload.setPromptVersion(org.example.backend.service.ai.usecase.UseCaseGenerationFingerprintService.PROMPT_VERSION);
+        payload.setExistingActorsUsed(allExistingActors);
+        payload.setProposedActors(allProposedActors);
+        payload.setActorGoalMatrix(allGoals);
+        payload.setUseCases(finalUseCases);
+        payload.setModules(modules);
 
         actorReferenceMergeService.mergeAndRemap(payload);
 
-        // Use new coverage service
-        org.example.backend.dto.ai.UseCaseCoverageReport coverage = gapAnalysisService.generateGlobalCoverageReport(payload, context.getModuleRequirements());
+        org.example.backend.dto.ai.UseCaseCoverageReport coverage = gapAnalysisService.generateGlobalCoverageReport(payload, baseContext.getModuleRequirements());
         payload.setCoverage(coverage);
-
-        if (moduleDiscoveryResult != null) {
-            payload.setModuleCoverage(gapAnalysisService.generateModuleCoverageReports(payload, context.getModuleRequirements()));
-        } else {
-            // If Single module, let's keep old behavior by calling useCaseCoverageService or it doesn't matter
-            payload.setCoverage(useCaseCoverageService.calculateCoverage(context, discoveryResult, finalUseCases));
-        }
+        payload.setModuleCoverage(gapAnalysisService.generateModuleCoverageReports(payload, baseContext.getModuleRequirements()));
 
         org.example.backend.dto.ai.UseCaseValidationResult validation = useCaseGenerationValidator.validate(payload);
         payload.setValidationSummary(validation);

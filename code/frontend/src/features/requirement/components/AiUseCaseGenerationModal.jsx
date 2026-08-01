@@ -227,13 +227,21 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
 
   const groupedUseCases = useMemo(() => {
     const groups = {};
+    // Build ref->name lookup for schema 3.0
+    const moduleRefToName = {};
     moduleDefs.forEach(md => {
       groups[md.moduleName] = { ...md, items: [] };
+      if (md.moduleRef) moduleRefToName[md.moduleRef] = md.moduleName;
     });
 
     useCases.forEach((uc, originalIndex) => {
       if (uc.isDeleted) return;
-      const moduleName = uc.moduleName || 'General Module';
+      // For schema 3.0: resolve moduleName from moduleRef if moduleName not set
+      let moduleName = uc.moduleName;
+      if (!moduleName && uc.moduleRef) {
+        moduleName = moduleRefToName[uc.moduleRef];
+      }
+      moduleName = moduleName || 'General Module';
       if (!groups[moduleName]) {
         groups[moduleName] = { 
           moduleName, 
