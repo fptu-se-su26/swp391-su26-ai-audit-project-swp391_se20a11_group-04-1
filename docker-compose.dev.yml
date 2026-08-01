@@ -112,9 +112,8 @@ services:
     command: [ "python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001" ]
     environment:
       ENABLE_RECOVERY_RAG: "true"
-      # The ML service runs in Docker while Ollama runs on the Windows host.
-      # `localhost` inside this container cannot reach the host's Ollama server.
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # Use the compose Ollama service for recovery-plan generation.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
     volumes:
       - ml-service-saved-models:/app/saved_models
     ports:
