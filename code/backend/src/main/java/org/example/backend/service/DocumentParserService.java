@@ -13,6 +13,9 @@ import java.io.InputStream;
 @Service
 public class DocumentParserService {
 
+    // Hard limit on extracted text to prevent OOM downstream
+    private static final int MAX_TEXT_CHARS = 40_000;
+
     public String parseDocument(MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null) {
@@ -21,21 +24,28 @@ public class DocumentParserService {
         
         String extension = getExtension(filename).toLowerCase();
         try {
+            String text;
             if (extension.equals("pdf")) {
-                return parsePdf(file);
+                text = parsePdf(file);
             } else if (extension.equals("docx")) {
-                return parseDocx(file);
+                text = parseDocx(file);
             } else {
                 throw new RuntimeException("Định dạng file không được hỗ trợ. Vui lòng upload .pdf hoặc .docx");
             }
+            // Truncate early to prevent OOM in downstream AI processing
+            if (text != null && text.length() > MAX_TEXT_CHARS) {
+                return text.substring(0, MAX_TEXT_CHARS);
+            }
+            return text;
         } catch (Exception e) {
             throw new RuntimeException("Lỗi khi đọc file " + filename + ": " + e.getMessage(), e);
         }
     }
 
     private String parsePdf(MultipartFile file) throws Exception {
+        // Use InputStream directly instead of readAllBytes() to avoid double memory usage
         try (InputStream is = file.getInputStream();
-             PDDocument document = Loader.loadPDF(is.readAllBytes())) {
+             PDDocument document = Loader.loadPDF(is)) {
             PDFTextStripper stripper = new PDFTextStripper();
             return stripper.getText(document);
         }
