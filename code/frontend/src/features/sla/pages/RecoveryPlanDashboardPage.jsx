@@ -855,7 +855,7 @@ export default function RecoveryPlanDashboardPage() {
                     {generatingTaskId === selectedTask.taskId ? 'Generating...' : 'Generate Plan'}
                   </Button>
                 )}
-                {isLeader && selectedPlan?.status === 'PENDING_APPROVAL' && isFallbackPlan(selectedPlan) && (
+                {isLeader && selectedPlan?.status === 'PENDING_APPROVAL' && (
                   <Button variant="primary" onClick={() => handleGenerateTaskPlan(selectedTask)} disabled={generatingTaskId === selectedTask.taskId}>
                     <span className={`material-symbols-outlined text-lg ${generatingTaskId === selectedTask.taskId ? 'animate-spin' : ''}`}>
                       {generatingTaskId === selectedTask.taskId ? 'progress_activity' : 'auto_awesome'}

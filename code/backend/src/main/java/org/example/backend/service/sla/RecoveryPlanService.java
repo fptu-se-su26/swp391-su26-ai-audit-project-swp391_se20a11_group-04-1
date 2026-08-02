@@ -121,13 +121,7 @@ public class RecoveryPlanService {
     }
 
     private boolean canRegenerateWithAi(RecoveryPlan plan) {
-        if (plan == null || plan.getStatus() != RecoveryPlanStatus.PENDING_APPROVAL) {
-            return false;
-        }
-        return plan.getGenerationMode() == null
-                || plan.getGenerationMode() == RecoveryPlanGenerationMode.RULE_FALLBACK
-                || plan.getGenerationMode() == RecoveryPlanGenerationMode.AI_FAILED_FALLBACK
-                || plan.getGeneratedSource() == RecoveryPlanSource.RULE;
+        return plan != null && plan.getStatus() == RecoveryPlanStatus.PENDING_APPROVAL;
     }
 
     private RecoveryPlanResponse regeneratePendingPlanWithAi(RecoveryPlan plan, Task task, Long currentUserId) {
