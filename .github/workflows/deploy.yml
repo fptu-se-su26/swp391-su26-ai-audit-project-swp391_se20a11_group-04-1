@@ -194,31 +194,10 @@ jobs:
             echo "   Kafka topic OK"
 
             # 7e. Init consumer group offset về latest nếu group chưa có committed offset
-            # Điều này tránh KEDA tính lag = 10 khi group mới tạo (offset = '-')
-            echo ">> Initializing consumer group offset if needed..."
-            LAG_UNKNOWN=$(docker compose -f docker-compose.dev.yml exec -T kafka \
-              /opt/kafka/bin/kafka-consumer-groups.sh \
-              --bootstrap-server localhost:9092 \
-              --describe --group playwright-service-group 2>/dev/null \
-              | grep "test-run-jobs" | awk '{print $6}' | grep -c "^-$" 2>/dev/null || echo "0")
-            # Ensure LAG_UNKNOWN is a clean integer (strip whitespace/newlines)
-            LAG_UNKNOWN=$(echo "${LAG_UNKNOWN}" | tr -d '[:space:]' | head -1)
-            LAG_UNKNOWN=${LAG_UNKNOWN:-0}
-            if echo "${LAG_UNKNOWN}" | grep -qE '^[0-9]+$' && [ "${LAG_UNKNOWN}" -gt 0 ]; then
-              echo "   Detected ${LAG_UNKNOWN} partitions with uninitialized offset, resetting to latest..."
-              # Scale down để group inactive, reset offset, scale lại
-              kubectl scale deployment playwright-worker -n devtrack --replicas=0
-              sleep 10
-              docker compose -f docker-compose.dev.yml exec -T kafka \
-                /opt/kafka/bin/kafka-consumer-groups.sh \
-                --bootstrap-server localhost:9092 \
-                --group playwright-service-group \
-                --topic test-run-jobs \
-                --reset-offsets --to-latest --execute 2>/dev/null || true
-              echo "   Consumer group offset initialized"
-            else
-              echo "   Consumer group offset already initialized, skipping"
-            fi
+            # Dùng offsetResetPolicy: latest trong KEDA scaledobject thay vì reset thủ công
+            # để tránh race condition với session.timeout.ms=45s của Kafka broker
+            echo ">> Skipping consumer group offset reset — handled by offsetResetPolicy in KEDA config"
+            echo "   Consumer group offset OK"
 
             # Rollout restart để pod lấy image mới + env vars mới nhất
             kubectl rollout restart deployment/playwright-worker -n devtrack
