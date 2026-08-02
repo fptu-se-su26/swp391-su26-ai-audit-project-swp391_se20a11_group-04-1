@@ -73,13 +73,28 @@ export default function RequirementExplorer() {
   }, [requirementsTree, searchTerm, riskFilter, covFilter])
 
   return (
+    /*
+     * FLEX CONTAINMENT
+     * The root must have minHeight:0 so it can shrink inside the bounded parent
+     * flex container.  overflow:hidden clips any overflow from children.
+     */
     <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-      background: C.surface, borderRight: `1px solid ${C.border}`,
+      width: '100%',
+      height: '100%',
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      background: C.surface,
+      borderRight: `1px solid ${C.border}`,
       fontFamily: T.font,
     }}>
-      {/* ── Header ── */}
-      <div style={{ padding: '18px 14px 10px', borderBottom: `1px solid ${C.border}` }}>
+      {/* ── Header — flexShrink:0 keeps it visible while list scrolls ── */}
+      <div style={{
+        flexShrink: 0,
+        padding: '18px 14px 10px',
+        borderBottom: `1px solid ${C.border}`,
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: C.textPri, margin: 0 }}>Requirements</h2>
           <span style={{
@@ -158,9 +173,21 @@ export default function RequirementExplorer() {
         </div>
       </div>
 
-      {/* ── List ── */}
+      {/* ── List — sole scrollable region ── */}
+      {/*
+       * flex:'1 1 0%' + minHeight:0 gives this div a definite height equal to the
+       * remaining space inside the parent, enabling overflowY:auto to actually scroll
+       * instead of just growing to fit content.
+       * overscrollBehavior:contain stops scroll from propagating to the page.
+       * scrollbarGutter:stable prevents layout shift when scrollbar appears/disappears.
+       */}
       <div style={{
-        flex: 1, overflowY: 'auto',
+        flex: '1 1 0%',
+        minHeight: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        overscrollBehavior: 'contain',
+        scrollbarGutter: 'stable',
         padding: '8px 10px 16px',
         display: 'flex', flexDirection: 'column', gap: 6,
       }}>

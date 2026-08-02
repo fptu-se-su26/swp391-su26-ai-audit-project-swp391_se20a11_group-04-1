@@ -18,7 +18,8 @@ import Card from '../../../components/ui/Card'
 import SectionTitle from '../../../components/ui/SectionTitle'
 import FieldLabel from '../../../components/ui/FieldLabel'
 import Button from '../../../components/ui/Button'
-import { SELECTOR_ACTIONS, normalizeUiSteps } from '../utils/uiStepUtils'
+import { normalizeUiSteps } from '../utils/uiStepUtils'
+import TestExecutionStepsCard from '../components/TestExecutionStepsCard'
 
 // ── Design tokens ──────────────────────────────────────────────
 const C = {
@@ -410,8 +411,28 @@ export default function TestCaseDetailPage() {
         </div>
       </div>
 
-      {/* Main grid — 1fr 380px */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 380px', gap:'20px', alignItems:'start' }}>
+      {/* Responsive grid styles */}
+      <style>{`
+        .tc-detail-grid {
+          display: grid;
+          grid-template-columns: 1fr 380px;
+          gap: 20px;
+          align-items: start;
+        }
+        @media (max-width: 1024px) {
+          .tc-detail-grid {
+            grid-template-columns: 1fr 320px;
+          }
+        }
+        @media (max-width: 768px) {
+          .tc-detail-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      {/* Main grid — 1fr 380px (responsive, see style above) */}
+      <div className="tc-detail-grid">
 
         {/* ── Left column ── */}
         <div style={{ display:'flex', flexDirection:'column', gap:'20px' }}>
@@ -475,63 +496,7 @@ export default function TestCaseDetailPage() {
               <ApiTestCaseBuilder testCase={testCase} onSave={handleFormSubmit} isSaving={isSubmitting} />
             </SectionCard>
           ) : (
-            <SectionCard>
-              <SectionTitle icon="format_list_numbered">Test Execution Steps</SectionTitle>
-              <div style={{ overflowX:'auto', borderRadius:'12px', border:`1px solid ${C.border}` }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'13px' }}>
-                  <thead>
-                    <tr style={{ background: C.bg, borderBottom:`1px solid ${C.border}` }}>
-                      <th style={{ padding:'10px 16px', textAlign:'left', fontSize:'10px', fontWeight:700, color: C.textMuted, textTransform:'uppercase', letterSpacing:'0.08em', width:'60px' }}>Step</th>
-                      <th style={{ padding:'10px 16px', textAlign:'left', fontSize:'10px', fontWeight:700, color: C.textMuted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Action / Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stepsToRender.length > 0 ? stepsToRender.map((step, idx) => (
-                      <tr key={step.id || idx} style={{ borderBottom:`1px solid ${C.borderLight}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = C.primaryLight}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <td style={{ padding:'12px 16px' }}>
-                          <span style={{
-                            display:'inline-flex', alignItems:'center', justifyContent:'center',
-                            width:'26px', height:'26px', borderRadius:'8px',
-                            background: C.primaryLight, color: C.primary,
-                            fontSize:'12px', fontWeight:700,
-                          }}>
-                            {step.order || step.stepNumber || idx + 1}
-                          </span>
-                        </td>
-                        <td style={{ padding:'12px 16px', color: C.textPri }}>
-                          {testCase.type === 'UI' ? (
-                            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                              <span style={{
-                                fontSize:'10px', fontWeight:700, color: C.primary,
-                                textTransform:'uppercase', letterSpacing:'0.06em',
-                                background: C.primaryLight, padding:'2px 8px', borderRadius:'6px',
-                                alignSelf:'flex-start',
-                              }}>{step.action}</span>
-                              {step.path && <span>Path: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.path}</code></span>}
-                              {step.action === 'goto' && !step.path && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Path: missing</span>}
-                              {step.selector && <span>Selector: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.selector}</code></span>}
-                              {SELECTOR_ACTIONS.has(step.action) && !step.selector && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Selector: missing</span>}
-                              {step.value && <span>Value: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.value}</code></span>}
-                              {['fill', 'select'].includes(step.action) && !step.value && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Value: missing</span>}
-                              {step.expected && <span>Expected: <code style={{ background: C.bg, padding:'1px 6px', borderRadius:'4px', fontSize:'11px' }}>{step.expected}</code></span>}
-                              {['expect_url', 'expect_text'].includes(step.action) && !step.expected && <span style={{ color: C.danger, fontSize:'12px', fontWeight:600 }}>Expected: missing</span>}
-                              {step.description && <span style={{ fontSize:'12px', color: C.textSec, fontStyle:'italic' }}>{step.description}</span>}
-                            </div>
-                          ) : step.description}
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr><td colSpan={2} style={{ padding:'24px', textAlign:'center', color: C.textMuted, fontSize:'13px' }}>
-                        {testCase.type === 'UI' ? 'This test case has no automation steps configured.' : 'No steps defined.'}
-                      </td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
+            <TestExecutionStepsCard testCase={testCase} steps={stepsToRender} />
           )}
         </div>
 
