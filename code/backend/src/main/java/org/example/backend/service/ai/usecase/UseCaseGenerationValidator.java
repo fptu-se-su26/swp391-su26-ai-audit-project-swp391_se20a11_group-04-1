@@ -169,10 +169,9 @@ public class UseCaseGenerationValidator {
             throw new IllegalArgumentException("Modified payload cannot be null");
         }
         
-        // getModifiedPayload() returns Map<String, Object> — use Map API
-        java.util.Map<String, Object> payloadMap = request.getModifiedPayload();
-        Object svObj = payloadMap.get("schemaVersion");
-        String schemaVersion = (svObj != null) ? svObj.toString() : "2.0";
+        // getModifiedPayload() returns JsonNode
+        com.fasterxml.jackson.databind.JsonNode payloadNode = request.getModifiedPayload();
+        String schemaVersion = payloadNode.has("schemaVersion") ? payloadNode.get("schemaVersion").asText() : "2.0";
                 
         if ("3.0".equals(schemaVersion)) {
             if (request.getSelectedModuleRefs() == null || request.getSelectedUseCaseIds() == null) {
@@ -186,11 +185,11 @@ public class UseCaseGenerationValidator {
         
         // Basic security check: max sizes
         if ("3.0".equals(schemaVersion)) {
-            if (request.getSelectedUseCaseIds().size() > 50) {
-                throw new IllegalArgumentException("Payload too large: maximum 50 use cases allowed");
+            if (request.getSelectedUseCaseIds().size() > 200) {
+                throw new IllegalArgumentException("Payload too large: maximum 200 use cases allowed");
             }
-            if (request.getSelectedModuleRefs().size() > 20) {
-                throw new IllegalArgumentException("Payload too large: maximum 20 modules allowed");
+            if (request.getSelectedModuleRefs().size() > 50) {
+                throw new IllegalArgumentException("Payload too large: maximum 50 modules allowed");
             }
         }
     }

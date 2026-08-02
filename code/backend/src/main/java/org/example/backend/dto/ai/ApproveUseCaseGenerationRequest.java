@@ -14,5 +14,5 @@ public class ApproveUseCaseGenerationRequest {
     private List<Integer> selectedIndices; // Legacy compatibility
     
     @NotNull
-    private java.util.Map<String, Object> modifiedPayload;
+    private JsonNode modifiedPayload;
 }

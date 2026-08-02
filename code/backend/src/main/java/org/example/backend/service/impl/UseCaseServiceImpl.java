@@ -99,6 +99,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UseCaseResponse getUseCaseById(Long id) {
         UseCase useCase = useCaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Use case not found with id: " + id));
@@ -106,6 +107,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UseCaseResponse> getAllUseCases(Long projectId) {
         return useCaseRepository.findByProjectId(projectId).stream()
                 .map(this::mapEntityToResponse)
@@ -291,6 +293,7 @@ public class UseCaseServiceImpl implements UseCaseService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<UseCaseResponse> searchUseCases(Long projectId, String keyword, String status, Boolean isDraft, Long ownerId, Long moduleId, Long requirementId, Pageable pageable) {
         Specification<UseCase> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
