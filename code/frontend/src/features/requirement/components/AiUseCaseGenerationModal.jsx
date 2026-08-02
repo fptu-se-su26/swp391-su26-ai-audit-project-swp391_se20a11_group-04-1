@@ -97,7 +97,13 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
 
           let ucList = [];
           
-          if (payloadData && payloadData.schemaVersion === "2.0") {
+          if (payloadData && (payloadData.schemaVersion === "3.0" || (payloadData.useCases && payloadData.modules))) {
+             // Schema 3.0 (AUTO_PROJECT) — has useCases + modules arrays
+             ucList = payloadData.useCases || [];
+             setCoverageData(payloadData.coverage || null);
+             setProposedActors(payloadData.proposedActors || []);
+             setActorGoalMatrix(payloadData.actorGoalMatrix || []);
+          } else if (payloadData && payloadData.schemaVersion === "2.0") {
              // V2.0 Payload Structure
              ucList = payloadData.useCases || [];
              setCoverageData(payloadData.coverage || null);
@@ -106,11 +112,16 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           } else {
              // Legacy Array Structure
              if (!Array.isArray(payloadData) && typeof payloadData === 'object' && payloadData !== null) {
-               // Fallback: finding the first array that looks like use cases
-               for (const key in payloadData) {
-                 if (Array.isArray(payloadData[key]) && payloadData[key].length > 0 && payloadData[key][0].name) {
-                   ucList = payloadData[key];
-                   break;
+               // Fallback: explicitly try useCases first, then find first array that looks like use cases
+               if (Array.isArray(payloadData.useCases) && payloadData.useCases.length > 0) {
+                 ucList = payloadData.useCases;
+               } else {
+                 for (const key in payloadData) {
+                   if (key === 'modules') continue; // never pick modules array as UC list
+                   if (Array.isArray(payloadData[key]) && payloadData[key].length > 0 && payloadData[key][0].name) {
+                     ucList = payloadData[key];
+                     break;
+                   }
                  }
                }
              } else if (Array.isArray(payloadData)) {
