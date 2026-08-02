@@ -128,7 +128,7 @@ const GroupedUCDiagramList = ({
     businessModuleService.getModulesByProject(projectId)
       .then(mods => setModules(mods || []))
       .catch(() => {});
-  }, [projectId, refreshKey]);
+  }, [projectId, refreshKey, allUseCases]); // refresh when allUseCases changes (e.g. after module delete)
 
   // Group use cases by module
   const groupedModules = useMemo(() => {

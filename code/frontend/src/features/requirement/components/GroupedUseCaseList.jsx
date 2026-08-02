@@ -419,7 +419,7 @@ const GroupedUseCaseList = ({
       <ConfirmModal
         isOpen={!!deletingModule}
         title="Delete Module"
-        message={`Are you sure you want to delete module "${deletingModule?.name}"? Use cases within this module will be moved to the General Module.`}
+        message={`Are you sure you want to delete module "${deletingModule?.name}"? All use cases within this module will also be permanently deleted.`}
         confirmText="Delete"
         cancelText="Cancel"
         type="danger"
