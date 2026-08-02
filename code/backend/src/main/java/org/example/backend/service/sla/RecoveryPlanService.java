@@ -150,7 +150,7 @@ public class RecoveryPlanService {
         RecoveryPlanStatus previousStatus = plan.getStatus();
         plan.setStatus(RecoveryPlanStatus.DECLINED);
         plan.setGateReason("Superseded by regenerated AI plan");
-        recoveryPlanRepository.save(plan);
+        recoveryPlanRepository.saveAndFlush(plan);
 
         recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_UPDATED,
                 previousStatus.name(), RecoveryPlanStatus.DECLINED.name(),
@@ -212,7 +212,12 @@ public class RecoveryPlanService {
             log.warn("Failed to serialize AI content to JSON", e);
         }
 
-        plan = recoveryPlanRepository.save(plan);
+        try {
+            plan = recoveryPlanRepository.save(plan);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Race condition detected: active recovery plan already exists for task {}", task.getId());
+            return getLatestActivePlan(projectId, task.getId(), ACTIVE_STATUSES);
+        }
         List<String> categories = parseStringList(slaState.getCategoriesJson());
         categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
         List<RecoveryPlanAction> actions = buildActions(plan, task, slaState, categories, aiContent);
