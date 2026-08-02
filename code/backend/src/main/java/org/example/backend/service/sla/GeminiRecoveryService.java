@@ -167,46 +167,46 @@ public class GeminiRecoveryService {
 
     private String buildPrompt(GeminiRecoveryContext context) {
         return String.format("""
-                You are an Agile Coach inside a student software project management system.
-                Write very short Vietnamese recovery-plan content for a task with SLA risk.
-                Tone: clear, practical, easy to execute. Do not compute SLA score.
-                Use only the provided backend context. Avoid technical labels unless needed.
+                You are a Senior Technical Lead and Agile Coach in a student software project management system.
+                Write a specific, highly contextual, and practical Vietnamese recovery plan for a task facing SLA risk.
+                Tone: constructive, precise, professional, and actionable.
 
                 Task context:
                 - Task title: %s
+                - Task description: %s
+                - Blocked reason: %s
+                - Open checklist items: %s
+                - Subtasks: %s
                 - Risk level: %s
                 - Current SLA score: %s
                 - SLA categories: %s
                 - Overdue days: %d
                 - Assignee active task count: %d
-                - Reasons: %s
+                - SLA Risk reasons: %s
                 - Is follow-up after failed plan: %s
                 - Previous plan count for this task: %d
                 - Previous actions: %s
                 - Previous effectiveness: %s
                 - Last score before/after execution: %s -> %s
-                - Member candidates: %s
+                - Member candidates for reassignment: %s
 
-                Choose 1 to 4 actions from this exact whitelist only:
+                Choose 1 to 3 actions from this exact whitelist only:
                 [NOTIFY_ASSIGNEE, ESCALATE_LEADER, ASK_BLOCKER_UPDATE,
                  CREATE_RECOVERY_CHECKLIST, SCHEDULE_FOLLOW_UP, SUGGEST_SPLIT_TASK, SUGGEST_REASSIGN]
 
                 Decision guidance:
-                - If a previous notify-only plan failed, prefer escalation/checklist/reassign instead of repeating notify only.
-                - If assignee active task count is high, consider SUGGEST_REASSIGN or SUGGEST_SPLIT_TASK.
-                - For SUGGEST_REASSIGN, pick only from Member candidates.
-                - If blocked, include ASK_BLOCKER_UPDATE.
-                - Keep important project changes under human approval; only propose actions.
+                - Tailor recommendations directly to the task's title, description, and blocked reason.
+                - If task is BLOCKED, include ASK_BLOCKER_UPDATE or ESCALATE_LEADER with specific questions about the blocker.
+                - If task scope is large or overdue, consider SUGGEST_SPLIT_TASK with concrete sub-task breakdown ideas.
+                - If assignee active task count is high, consider SUGGEST_REASSIGN from the Member candidates list.
+                - For CREATE_RECOVERY_CHECKLIST, create 2 to 4 concrete, actionable checklist steps tailored to this specific task.
 
                 Writing rules:
-                - summary: one sentence, max 18 Vietnamese words.
-                - selectedActions: 1 to 3 actions only.
-                - action message: one sentence, max 16 Vietnamese words.
-                - checklistItems: only for CREATE_RECOVERY_CHECKLIST, max 3 items, max 10 Vietnamese words each.
-                - For SUGGEST_REASSIGN only: fill recommendedAssigneeId, recommendedAssigneeName, recommendedReason, notRecommendedAssignees.
-                - recommendedReason: max 10 Vietnamese words.
-                - notRecommendedAssignees: max 3 short Vietnamese strings like "Tên: lý do".
-                - No verification, confidence, success/fallback, rationale, long explanation.
+                - summary: 1-2 clear sentences in Vietnamese (max 45 words) summarizing the core problem and specific resolution strategy.
+                - selectedActions: 1 to 3 actions.
+                - action message: 1-2 actionable sentences in Vietnamese (max 40 words) explaining specifically what to do for this task.
+                - checklistItems: only for CREATE_RECOVERY_CHECKLIST, 2-4 items, max 15 Vietnamese words each.
+                - For SUGGEST_REASSIGN: set recommendedAssigneeId, recommendedAssigneeName, recommendedReason (max 20 words), notRecommendedAssignees.
 
                 Return plain JSON only, no markdown:
                 {
@@ -226,6 +226,10 @@ public class GeminiRecoveryService {
                 }
                 """,
                 safe(context.getTaskTitle()),
+                safe(context.getTaskDescription()),
+                safe(context.getBlockedReason()),
+                String.join("; ", nullToEmpty(context.getOpenChecklistItems())),
+                String.join("; ", nullToEmpty(context.getSubTaskTitles())),
                 safe(context.getRiskLevel()),
                 context.getSlaScore() == null ? "unknown" : context.getSlaScore().toString(),
                 String.join(", ", nullToEmpty(context.getCategories())),

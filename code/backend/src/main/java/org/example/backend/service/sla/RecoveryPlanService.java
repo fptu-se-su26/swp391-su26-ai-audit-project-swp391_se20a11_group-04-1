@@ -747,6 +747,10 @@ public class RecoveryPlanService {
     private AiRecoveryResult generateGeminiRecoveryPlan(AiRecoveryContext context) {
         GeminiRecoveryResult geminiResult = geminiRecoveryService.generateContent(GeminiRecoveryContext.builder()
                 .taskTitle(context.getTaskTitle())
+                .taskDescription(context.getTaskDescription())
+                .blockedReason(context.getBlockedReason())
+                .openChecklistItems(context.getOpenChecklistItems())
+                .subTaskTitles(context.getSubTaskTitles())
                 .riskLevel(context.getRiskLevel())
                 .categories(context.getCategories())
                 .reasons(context.getReasons())
@@ -768,7 +772,7 @@ public class RecoveryPlanService {
 
         AiRecoveryResult result = new AiRecoveryResult();
         AiRecoveryResult.CandidatePlan selectedPlan = new AiRecoveryResult.CandidatePlan();
-        selectedPlan.setSummary(limitWords(geminiResult.getSummary(), 22));
+        selectedPlan.setSummary(limitWords(geminiResult.getSummary(), 60));
         selectedPlan.setActions(mapGeminiActions(geminiResult.getSelectedActions()));
         result.setSelectedPlan(selectedPlan);
         return result;
@@ -785,15 +789,15 @@ public class RecoveryPlanService {
                     AiRecoveryAction mapped = new AiRecoveryAction();
                     mapped.setActionType(action.getActionType());
                     mapped.setPriority(action.getPriority());
-                    mapped.setActionDetails(limitWords(action.getMessage(), 18));
+                    mapped.setActionDetails(limitWords(action.getMessage(), 60));
                     mapped.setChecklistItems(sanitizeChecklistItems(action.getChecklistItems()).stream()
-                            .map(item -> limitWords(item, 12))
+                            .map(item -> limitWords(item, 20))
                             .collect(Collectors.toList()));
                     mapped.setRecommendedAssigneeId(action.getRecommendedAssigneeId());
-                    mapped.setRecommendedAssigneeName(limitWords(action.getRecommendedAssigneeName(), 6));
-                    mapped.setRecommendedReason(limitWords(action.getRecommendedReason(), 12));
+                    mapped.setRecommendedAssigneeName(limitWords(action.getRecommendedAssigneeName(), 10));
+                    mapped.setRecommendedReason(limitWords(action.getRecommendedReason(), 35));
                     mapped.setNotRecommendedAssignees(sanitizeChecklistItems(action.getNotRecommendedAssignees()).stream()
-                            .map(item -> limitWords(item, 14))
+                            .map(item -> limitWords(item, 25))
                             .collect(Collectors.toList()));
                     return mapped;
                 })
