@@ -2,6 +2,7 @@ package org.example.backend.controller.testing;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.testing.TestCaseListItemResponse;
 import org.example.backend.dto.testing.TestCaseRequest;
@@ -45,6 +46,7 @@ import java.security.Principal;
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/test-cases")
 @RequiredArgsConstructor
+@Slf4j
 public class TestCaseController {
 
     private final TestCaseService testCaseService;
@@ -221,11 +223,26 @@ public class TestCaseController {
             // 4. Enrich with API Knowledge from backend Spring Boot source code if requested
             String apiKnowledgeContext = null;
             if (shouldEnrichApiKnowledge) {
+                // First try with requirement-specific keyword filtering
                 apiKnowledgeContext = apiKnowledgeService.extractApiKnowledgeContext(
                         projectId, user.getId(), enrichReqTitle, enrichReqDesc);
-                if (request.getTestType() == TestType.API && (apiKnowledgeContext == null || apiKnowledgeContext.isBlank())) {
-                    throw new org.example.backend.exception.BusinessException(
-                            "Không thể quét API endpoint phù hợp từ GitHub source code. Vui lòng kiểm tra GitHub integration, architecture-parser service ở http://localhost:4002 và đảm bảo requirement có API endpoint thật. AI generation đã dừng để tránh tạo API test case không tồn tại.");
+
+                // If keyword filtering returned nothing for an API test case, fall back to
+                // unfiltered endpoint list so generation can still proceed.
+                // A null/blank result here is not a hard error — the AI will generate
+                // test cases based on the requirement description alone.
+                if (request.getTestType() == TestType.API
+                        && (apiKnowledgeContext == null || apiKnowledgeContext.isBlank())) {
+                    log.warn("[TestCaseGen] No relevant API endpoints matched requirement keywords for project {}. " +
+                             "Falling back to unfiltered endpoint scan.", projectId);
+                    apiKnowledgeContext = apiKnowledgeService.extractApiKnowledgeContext(
+                            projectId, user.getId());   // overload: no keyword filter
+                    // If still null (no GitHub integration, parser down, empty repo) just
+                    // continue — the AI will generate without source-code context.
+                    if (apiKnowledgeContext == null || apiKnowledgeContext.isBlank()) {
+                        log.warn("[TestCaseGen] Unfiltered endpoint scan also returned nothing for project {}. " +
+                                 "Proceeding without API knowledge context.", projectId);
+                    }
                 }
             }
 
