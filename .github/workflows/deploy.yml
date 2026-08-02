@@ -1,3 +1,4 @@
+
 name: DevTrack CI/CD Pipeline
 
 on:
@@ -20,7 +21,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script_stop: true
-          timeout: 10m
+          timeout: 30m
           command_timeout: 60m
           script: |
             echo "=========================================="
