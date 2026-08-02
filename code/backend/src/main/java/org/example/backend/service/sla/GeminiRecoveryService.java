@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Deprecated(forRemoval = false)
 public class GeminiRecoveryService {
 
     @Value("${gemini.api.key:}")
@@ -122,9 +121,9 @@ public class GeminiRecoveryService {
     private String buildPrompt(GeminiRecoveryContext context) {
         return String.format("""
                 You are an Agile Coach inside a student software project management system.
-                Write concise Vietnamese recovery-plan content for a task with SLA risk.
-                Tone: supportive, practical, non-judgmental. Do not compute SLA score.
-                Use only the provided backend context.
+                Write very short Vietnamese recovery-plan content for a task with SLA risk.
+                Tone: clear, practical, easy to execute. Do not compute SLA score.
+                Use only the provided backend context. Avoid technical labels unless needed.
 
                 Task context:
                 - Task title: %s
@@ -139,6 +138,7 @@ public class GeminiRecoveryService {
                 - Previous actions: %s
                 - Previous effectiveness: %s
                 - Last score before/after execution: %s -> %s
+                - Member candidates: %s
 
                 Choose 1 to 4 actions from this exact whitelist only:
                 [NOTIFY_ASSIGNEE, ESCALATE_LEADER, ASK_BLOCKER_UPDATE,
@@ -147,22 +147,33 @@ public class GeminiRecoveryService {
                 Decision guidance:
                 - If a previous notify-only plan failed, prefer escalation/checklist/reassign instead of repeating notify only.
                 - If assignee active task count is high, consider SUGGEST_REASSIGN or SUGGEST_SPLIT_TASK.
+                - For SUGGEST_REASSIGN, pick only from Member candidates.
                 - If blocked, include ASK_BLOCKER_UPDATE.
                 - Keep important project changes under human approval; only propose actions.
+
+                Writing rules:
+                - summary: one sentence, max 18 Vietnamese words.
+                - selectedActions: 1 to 3 actions only.
+                - action message: one sentence, max 16 Vietnamese words.
+                - checklistItems: only for CREATE_RECOVERY_CHECKLIST, max 3 items, max 10 Vietnamese words each.
+                - For SUGGEST_REASSIGN only: fill recommendedAssigneeId, recommendedAssigneeName, recommendedReason, notRecommendedAssignees.
+                - recommendedReason: max 10 Vietnamese words.
+                - notRecommendedAssignees: max 3 short Vietnamese strings like "Tên: lý do".
+                - No verification, confidence, success/fallback, rationale, long explanation.
 
                 Return plain JSON only, no markdown:
                 {
                   "summary": "...",
-                  "notifyMessage": "...",
-                  "escalateMessage": "...",
-                  "evidenceMessage": "...",
-                  "blockerMessage": "...",
-                  "checklistMessage": "...",
                   "selectedActions": [
                     {
                       "actionType": "ESCALATE_LEADER",
                       "priority": "HIGH",
-                      "message": "..."
+                      "message": "...",
+                      "checklistItems": ["..."],
+                      "recommendedAssigneeId": 1,
+                      "recommendedAssigneeName": "...",
+                      "recommendedReason": "...",
+                      "notRecommendedAssignees": ["..."]
                     }
                   ]
                 }
@@ -179,8 +190,26 @@ public class GeminiRecoveryService {
                 String.join(", ", nullToEmpty(context.getPreviousActions())),
                 safe(context.getPreviousEffectiveness()),
                 context.getLastScoreBefore() == null ? "unknown" : context.getLastScoreBefore().toString(),
-                context.getLastScoreAfter() == null ? "unknown" : context.getLastScoreAfter().toString()
+                context.getLastScoreAfter() == null ? "unknown" : context.getLastScoreAfter().toString(),
+                formatMemberCandidates(context.getMemberCandidates())
         );
+    }
+
+    private String formatMemberCandidates(List<AiRecoveryMemberCandidate> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return "none";
+        }
+        return candidates.stream()
+                .limit(6)
+                .map(candidate -> String.format(
+                        "id=%s, name=%s, role=%s, activeTasks=%d, overdueTasks=%d, currentOwner=%s",
+                        candidate.getUserId(),
+                        safe(candidate.getDisplayName()),
+                        safe(candidate.getRoleName()),
+                        candidate.getActiveTaskCount(),
+                        candidate.getOverdueTaskCount(),
+                        candidate.isCurrentAssignee()))
+                .collect(Collectors.joining(" | "));
     }
 
     private String extractText(Map<?, ?> response) {

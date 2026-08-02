@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.backend.dto.RecoveryPlanActionResponse;
 import org.example.backend.dto.RecoveryPlanAuditLogResponse;
 import org.example.backend.dto.RecoveryPlanResponse;
+import org.example.backend.dto.RecoveryTaskReviewResponse;
+import org.example.backend.dto.UpdateRecoveryPlanRequest;
 import org.example.backend.entity.*;
 import org.example.backend.exception.BusinessException;
 import org.example.backend.exception.ResourceNotFoundException;
@@ -69,7 +71,7 @@ public class RecoveryPlanService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final List<RecoveryActionExecutor> executorList;
-    private final org.example.backend.service.ml.MlServiceClient mlServiceClient;
+    private final GeminiRecoveryService geminiRecoveryService;
 
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -103,8 +105,159 @@ public class RecoveryPlanService {
             throw new BusinessException("Cannot generate recovery plan for a completed task");
         }
 
-        return createRecoveryPlan(projectId, task, currentUserId, RecoveryPlanSource.RULE,
-                "RECOVERY_PLAN_GENERATE", false, false, null);
+        RecoveryPlan activePlan = recoveryPlanRepository
+                .findTopByProjectIdAndTaskIdAndStatusInOrderByCreatedAtDesc(projectId, taskId, ACTIVE_STATUSES)
+                .orElse(null);
+        if (activePlan != null) {
+            if (canRegenerateWithAi(activePlan)) {
+                return regeneratePendingPlanWithAi(activePlan, task, currentUserId);
+            }
+            return mapToResponse(activePlan);
+        }
+
+        return createManualAiRecoveryPlan(projectId, task, currentUserId, null);
+    }
+
+    private boolean canRegenerateWithAi(RecoveryPlan plan) {
+        if (plan == null || plan.getStatus() != RecoveryPlanStatus.PENDING_APPROVAL) {
+            return false;
+        }
+        return plan.getGenerationMode() == null
+                || plan.getGenerationMode() == RecoveryPlanGenerationMode.RULE_FALLBACK
+                || plan.getGenerationMode() == RecoveryPlanGenerationMode.AI_FAILED_FALLBACK
+                || plan.getGeneratedSource() == RecoveryPlanSource.RULE;
+    }
+
+    private RecoveryPlanResponse regeneratePendingPlanWithAi(RecoveryPlan plan, Task task, Long currentUserId) {
+        TaskSlaState slaState = taskSlaStateRepository.findById(task.getId()).orElse(null);
+        if (slaState == null) {
+            try {
+                slaStateService.evaluateAndPersist(task.getId(), "RECOVERY_PLAN_REGENERATE");
+            } catch (Exception e) {
+                log.warn("SLA evaluation failed before regenerating plan for task {}: {}", task.getId(), e.getMessage());
+            }
+            slaState = taskSlaStateRepository.findById(task.getId()).orElse(null);
+        }
+        if (slaState == null) {
+            throw new BusinessException("Failed to generate SLA state for task. Please try again.");
+        }
+
+        List<String> categories = parseStringList(slaState.getCategoriesJson());
+        categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
+        AiRecoveryResult aiContent = generateGeminiRecoveryPlan(buildAiContext(task, slaState, categories, false, plan.getId()));
+        ensureUsableAiContent(aiContent);
+
+        RecoveryPlanStatus previousStatus = plan.getStatus();
+        plan.setStatus(RecoveryPlanStatus.DECLINED);
+        plan.setGateReason("Superseded by regenerated AI plan");
+        recoveryPlanRepository.save(plan);
+
+        recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_UPDATED,
+                previousStatus.name(), RecoveryPlanStatus.DECLINED.name(),
+                "Old fallback plan moved to history before AI regeneration", null);
+
+        return createAiPlanFromContent(task.getProject().getId(), task, currentUserId, slaState, aiContent, plan.getId());
+    }
+
+    private RecoveryPlanResponse createManualAiRecoveryPlan(Long projectId, Task task, Long currentUserId, Long previousPlanId) {
+        Long taskId = task.getId();
+
+        TaskSlaState slaState = taskSlaStateRepository.findById(taskId).orElse(null);
+        if (slaState == null) {
+            try {
+                slaStateService.evaluateAndPersist(taskId, "RECOVERY_PLAN_GENERATE");
+            } catch (Exception e) {
+                log.warn("SLA evaluation failed for task {}, will try to proceed if state was partially saved: {}", taskId, e.getMessage());
+            }
+            slaState = taskSlaStateRepository.findById(taskId).orElse(null);
+            if (slaState == null) {
+                throw new BusinessException("Failed to generate SLA state for task. Please try again.");
+            }
+        }
+
+        List<String> categories = parseStringList(slaState.getCategoriesJson());
+        categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
+        String riskLevel = slaState.getCurrentRiskLevel();
+        boolean isHighRisk = "WARNING".equalsIgnoreCase(riskLevel) || "BREACH".equalsIgnoreCase(riskLevel);
+        if (!isHighRisk && categories.isEmpty()) {
+            throw new BusinessException("Task has no SLA risk. Only warning or breach tasks can have recovery plans.");
+        }
+
+        AiRecoveryResult aiContent = generateGeminiRecoveryPlan(buildAiContext(task, slaState, categories, false, previousPlanId));
+        ensureUsableAiContent(aiContent);
+
+        return createAiPlanFromContent(projectId, task, currentUserId, slaState, aiContent, previousPlanId);
+    }
+
+    private RecoveryPlanResponse createAiPlanFromContent(Long projectId, Task task, Long currentUserId,
+                                                         TaskSlaState slaState, AiRecoveryResult aiContent,
+                                                         Long previousPlanId) {
+        RecoveryPlan plan = RecoveryPlan.builder()
+                .projectId(projectId)
+                .sprintId(task.getSprintId())
+                .taskId(task.getId())
+                .generatedByUserId(currentUserId)
+                .generatedSource(RecoveryPlanSource.AI)
+                .generationMode(RecoveryPlanGenerationMode.AI_GENERATED)
+                .status(RecoveryPlanStatus.PENDING_APPROVAL)
+                .riskLevel(slaState.getCurrentRiskLevel())
+                .riskCategoriesJson(slaState.getCategoriesJson())
+                .summary(aiContent.getSelectedPlan().getSummary())
+                .followUp(false)
+                .build();
+
+        try {
+            plan.setPlanDetailsJson(objectMapper.writeValueAsString(aiContent));
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize AI content to JSON", e);
+        }
+
+        plan = recoveryPlanRepository.save(plan);
+        List<String> categories = parseStringList(slaState.getCategoriesJson());
+        categories.removeIf(c -> "HEALTHY".equalsIgnoreCase(c));
+        List<RecoveryPlanAction> actions = buildActions(plan, task, slaState, categories, aiContent);
+        recoveryPlanActionRepository.saveAll(actions);
+
+        recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_GENERATED,
+                null, RecoveryPlanStatus.PENDING_APPROVAL.name(),
+                previousPlanId == null ? "AI recovery plan generated" : "AI recovery plan regenerated",
+                null);
+
+        return mapToResponse(plan);
+    }
+
+    private void ensureUsableAiContent(AiRecoveryResult aiContent) {
+        if (!hasUsableAiSelectedActions(aiContent)) {
+            throw new BusinessException("Gemini chưa sẵn sàng hoặc chưa cấu hình key, nên chưa tạo được AI plan.");
+        }
+    }
+
+    @Transactional
+    public List<RecoveryPlanResponse> generateForProject(Long projectId, Long sprintId, Long currentUserId) {
+        ensureLeaderOrMentor(projectId, currentUserId);
+
+        List<TaskSlaState> candidates = taskSlaStateRepository.findProjectRecoveryPlanCandidates(
+                projectId,
+                sprintId,
+                List.of("WARNING", "BREACH"),
+                TaskStatus.DONE,
+                ACTIVE_STATUSES);
+
+        List<RecoveryPlanResponse> generatedPlans = new ArrayList<>();
+        for (TaskSlaState state : candidates) {
+            Task task = state.getTask();
+            if (task == null) {
+                continue;
+            }
+            try {
+                generatedPlans.add(createRecoveryPlan(projectId, task, currentUserId, RecoveryPlanSource.RULE,
+                        "RECOVERY_PLAN_BULK_GENERATE", false, false, null, true));
+            } catch (BusinessException ex) {
+                log.debug("Skipping bulk recovery plan for task {}: {}", state.getTaskId(), ex.getMessage());
+            }
+        }
+
+        return generatedPlans;
     }
 
     @Transactional
@@ -128,7 +281,7 @@ public class RecoveryPlanService {
         }
 
         return createRecoveryPlan(projectId, task, null, RecoveryPlanSource.AI,
-                "AI_BACKGROUND_RECOVERY_PLAN", true, false, null);
+                "AI_BACKGROUND_RECOVERY_PLAN", true, false, null, true);
     }
 
     @Transactional
@@ -174,13 +327,13 @@ public class RecoveryPlanService {
         }
 
         return createRecoveryPlan(projectId, task, null, RecoveryPlanSource.AI,
-                "AI_FOLLOW_UP_RECOVERY_PLAN", true, true, previousPlanId);
+                "AI_FOLLOW_UP_RECOVERY_PLAN", true, true, previousPlanId, true);
     }
 
     private RecoveryPlanResponse createRecoveryPlan(Long projectId, Task task, Long currentUserId,
                                                     RecoveryPlanSource source, String evaluationEvent,
                                                     boolean notifyLeaders, boolean isFollowUp,
-                                                    Long previousPlanId) {
+                                                    Long previousPlanId, boolean allowAi) {
         Long taskId = task.getId();
 
         if (recoveryPlanRepository.existsByProjectIdAndTaskIdAndStatusIn(projectId, taskId, ACTIVE_STATUSES)) {
@@ -226,8 +379,11 @@ public class RecoveryPlanService {
             throw new BusinessException("Task has no SLA risk (risk level: " + riskLevel + "). Only WARNING or BREACH tasks can have recovery plans.");
         }
 
-        AiRecoveryContext aiCtx = buildAiContext(task, slaState, categories, isFollowUp, previousPlanId);
-        AiRecoveryResult aiContent = mlServiceClient.generateRecoveryPlan(aiCtx);
+        AiRecoveryResult aiContent = null;
+        if (allowAi) {
+            AiRecoveryContext aiCtx = buildAiContext(task, slaState, categories, isFollowUp, previousPlanId);
+            aiContent = generateGeminiRecoveryPlan(aiCtx);
+        }
         
         String summary = aiContent != null && aiContent.getSelectedPlan() != null && aiContent.getSelectedPlan().getSummary() != null && !aiContent.getSelectedPlan().getSummary().isBlank()
                 ? aiContent.getSelectedPlan().getSummary()
@@ -255,7 +411,7 @@ public class RecoveryPlanService {
         }
 
         List<RecoveryPlanAction> actions = buildActions(plan, task, slaState, categories, aiContent);
-        plan.setGenerationMode(resolveGenerationMode(aiContent));
+        plan.setGenerationMode(allowAi ? resolveGenerationMode(aiContent) : RecoveryPlanGenerationMode.RULE_FALLBACK);
 
         recoveryPlanActionRepository.saveAll(actions);
         
@@ -571,8 +727,8 @@ public class RecoveryPlanService {
                 .lastScoreAfter(previousPlan != null ? previousPlan.getScoreAfterExecution() : null)
                 .followUp(isFollowUp)
                 .memberCandidates(buildMemberCandidates(task))
-                .aiProvider("ollama")
-                .aiModel("my-agile-coach")
+                .aiProvider("gemini")
+                .aiModel("gemini-flash")
                 .remainingHours(remainingHours)
                 .checklistCompletion(checklistCompletion)
                 // The ML API accepts arrays, not JSON null, for these optional facts.
@@ -581,6 +737,73 @@ public class RecoveryPlanService {
                 .evidenceGaps(dataGaps)
                 .taskFacts(List.of())
                 .build();
+    }
+
+    private AiRecoveryResult generateGeminiRecoveryPlan(AiRecoveryContext context) {
+        GeminiRecoveryResult geminiResult = geminiRecoveryService.generateContent(GeminiRecoveryContext.builder()
+                .taskTitle(context.getTaskTitle())
+                .riskLevel(context.getRiskLevel())
+                .categories(context.getCategories())
+                .reasons(context.getReasons())
+                .slaScore(context.getSlaScore())
+                .overdueDays(context.getOverdueDays())
+                .assigneeActiveTaskCount(context.getAssigneeActiveTaskCount())
+                .previousPlanCount(context.getPreviousPlanCount())
+                .previousActions(context.getPreviousActions())
+                .previousEffectiveness(context.getPreviousEffectiveness())
+                .lastScoreBefore(context.getLastScoreBefore())
+                .lastScoreAfter(context.getLastScoreAfter())
+                .followUp(context.isFollowUp())
+                .memberCandidates(context.getMemberCandidates())
+                .build());
+
+        if (geminiResult == null) {
+            return null;
+        }
+
+        AiRecoveryResult result = new AiRecoveryResult();
+        AiRecoveryResult.CandidatePlan selectedPlan = new AiRecoveryResult.CandidatePlan();
+        selectedPlan.setSummary(limitWords(geminiResult.getSummary(), 22));
+        selectedPlan.setActions(mapGeminiActions(geminiResult.getSelectedActions()));
+        result.setSelectedPlan(selectedPlan);
+        return result;
+    }
+
+    private List<AiRecoveryAction> mapGeminiActions(List<GeminiRecoveryAction> geminiActions) {
+        if (geminiActions == null || geminiActions.isEmpty()) {
+            return List.of();
+        }
+        return geminiActions.stream()
+                .filter(action -> action != null)
+                .limit(3)
+                .map(action -> {
+                    AiRecoveryAction mapped = new AiRecoveryAction();
+                    mapped.setActionType(action.getActionType());
+                    mapped.setPriority(action.getPriority());
+                    mapped.setActionDetails(limitWords(action.getMessage(), 18));
+                    mapped.setChecklistItems(sanitizeChecklistItems(action.getChecklistItems()).stream()
+                            .map(item -> limitWords(item, 12))
+                            .collect(Collectors.toList()));
+                    mapped.setRecommendedAssigneeId(action.getRecommendedAssigneeId());
+                    mapped.setRecommendedAssigneeName(limitWords(action.getRecommendedAssigneeName(), 6));
+                    mapped.setRecommendedReason(limitWords(action.getRecommendedReason(), 12));
+                    mapped.setNotRecommendedAssignees(sanitizeChecklistItems(action.getNotRecommendedAssignees()).stream()
+                            .map(item -> limitWords(item, 14))
+                            .collect(Collectors.toList()));
+                    return mapped;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private String limitWords(String text, int maxWords) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String[] words = text.trim().split("\\s+");
+        if (words.length <= maxWords) {
+            return text.trim();
+        }
+        return String.join(" ", Arrays.copyOf(words, maxWords));
     }
 
     private List<String> resolveChecklistItems(Task task, boolean openOnly) {
@@ -674,6 +897,13 @@ public class RecoveryPlanService {
         if (selectedAction.getRecommendedAssigneeName() != null && !selectedAction.getRecommendedAssigneeName().isBlank()) {
             payload.put("recommendedAssigneeName", selectedAction.getRecommendedAssigneeName().trim());
         }
+        if (selectedAction.getRecommendedReason() != null && !selectedAction.getRecommendedReason().isBlank()) {
+            payload.put("recommendedReason", selectedAction.getRecommendedReason().trim());
+        }
+        List<String> notRecommendedAssignees = sanitizeChecklistItems(selectedAction.getNotRecommendedAssignees());
+        if (!notRecommendedAssignees.isEmpty()) {
+            payload.put("notRecommendedAssignees", notRecommendedAssignees);
+        }
         if (payload.isEmpty()) {
             return "{}";
         }
@@ -694,6 +924,44 @@ public class RecoveryPlanService {
                 .map(String::trim)
                 .limit(6)
                 .collect(Collectors.toList());
+    }
+
+    private String mergeEditableActionPayload(RecoveryPlanAction action, UpdateRecoveryPlanRequest.ActionUpdate update, String message) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (action.getPayloadJson() != null && !action.getPayloadJson().isBlank()) {
+            try {
+                payload.putAll(objectMapper.readValue(action.getPayloadJson(), new TypeReference<Map<String, Object>>() {}));
+            } catch (JsonProcessingException ex) {
+                log.debug("Ignoring malformed recovery action payload while editing action {}", action.getId());
+            }
+        }
+
+        payload.put("actionDetails", message);
+        if (action.getActionType() == RecoveryActionType.CREATE_RECOVERY_CHECKLIST) {
+            payload.put("checklistItems", sanitizeChecklistItems(update.getChecklistItems()));
+        }
+        if (action.getActionType() == RecoveryActionType.SUGGEST_REASSIGN) {
+            if (update.getRecommendedAssigneeId() != null) {
+                payload.put("recommendedAssigneeId", update.getRecommendedAssigneeId());
+            }
+            putTrimmed(payload, "recommendedAssigneeName", update.getRecommendedAssigneeName());
+            putTrimmed(payload, "recommendedReason", update.getRecommendedReason());
+            payload.put("notRecommendedAssignees", sanitizeChecklistItems(update.getNotRecommendedAssignees()));
+        }
+
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            return "{}";
+        }
+    }
+
+    private void putTrimmed(Map<String, Object> payload, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            payload.put(key, value.trim());
+        } else {
+            payload.remove(key);
+        }
     }
 
     private RecoveryPlan resolvePreviousPlan(Long projectId, Long taskId, Long previousPlanId) {
@@ -782,6 +1050,58 @@ public class RecoveryPlanService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<RecoveryTaskReviewResponse> getProjectRecoveryTasks(Long projectId, Long sprintId, Long currentUserId) {
+        projectMemberRepository.findByProjectIdAndUserId(projectId, currentUserId)
+                .orElseThrow(() -> new BusinessException("User is not a member of this project"));
+
+        List<TaskSlaState> states = taskSlaStateRepository.findProjectRecoveryReviewTasks(
+                projectId,
+                sprintId,
+                List.of("WARNING", "BREACH"),
+                TaskStatus.DONE);
+
+        return states.stream()
+                .map(this::mapToTaskReviewResponse)
+                .collect(Collectors.toList());
+    }
+
+    private RecoveryTaskReviewResponse mapToTaskReviewResponse(TaskSlaState state) {
+        Task task = state.getTask();
+        List<RecoveryPlanResponse> history = recoveryPlanRepository
+                .findByProjectIdAndTaskIdOrderByCreatedAtDesc(state.getProjectId(), state.getTaskId())
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        RecoveryPlanResponse activePlan = history.stream()
+                .filter(plan -> plan.getStatus() != null)
+                .filter(plan -> ACTIVE_STATUSES.stream().anyMatch(status -> status.name().equals(plan.getStatus())))
+                .findFirst()
+                .orElse(null);
+
+        return RecoveryTaskReviewResponse.builder()
+                .taskId(state.getTaskId())
+                .projectId(state.getProjectId())
+                .sprintId(state.getSprintId())
+                .taskTitle(task != null ? task.getTitle() : "Task #" + state.getTaskId())
+                .taskStatus(task != null && task.getStatus() != null ? task.getStatus().name() : null)
+                .priority(task != null && task.getPriority() != null ? task.getPriority().name() : null)
+                .deadline(task != null ? task.getDeadline() : null)
+                .assigneeId(task != null && task.getPrimaryAssignee() != null ? task.getPrimaryAssignee().getId() : null)
+                .assigneeName(task != null ? resolveDisplayName(task.getPrimaryAssignee()) : "Unassigned")
+                .riskLevel(state.getCurrentRiskLevel())
+                .slaScore(state.getCurrentScore())
+                .overdueDays(state.getOverdueDays())
+                .riskCategories(parseStringList(state.getCategoriesJson()))
+                .reasons(parseStringList(state.getReasonsJson()))
+                .recommendedAction(state.getRecommendedAction())
+                .evaluatedAt(state.getEvaluatedAt())
+                .activePlan(activePlan)
+                .planHistory(history)
+                .build();
+    }
+
     private List<RecoveryPlanStatus> parseStatusFilters(List<String> statuses) {
         if (statuses == null || statuses.isEmpty()) {
             return Arrays.asList(RecoveryPlanStatus.values());
@@ -809,6 +1129,73 @@ public class RecoveryPlanService {
     private RecoveryPlanResponse getLatestActivePlan(Long projectId, Long taskId, List<RecoveryPlanStatus> activeStatuses) {
         RecoveryPlan plan = recoveryPlanRepository.findTopByProjectIdAndTaskIdAndStatusInOrderByCreatedAtDesc(projectId, taskId, activeStatuses)
                 .orElseThrow(() -> new BusinessException("Active recovery plan exists but could not be fetched"));
+        return mapToResponse(plan);
+    }
+
+    @Transactional
+    public RecoveryPlanResponse updatePlan(Long projectId, Long planId, Long currentUserId, UpdateRecoveryPlanRequest request) {
+        ensureLeaderOrMentor(projectId, currentUserId);
+
+        RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
+
+        if (!plan.getProjectId().equals(projectId)) {
+            throw new BusinessException("Recovery plan does not belong to the project");
+        }
+
+        if (plan.getStatus() != RecoveryPlanStatus.PENDING_APPROVAL) {
+            throw new BusinessException("Only pending recovery plans can be edited");
+        }
+
+        if (request == null) {
+            throw new BusinessException("Recovery plan update payload is required");
+        }
+
+        String summary = request.getSummary() != null ? request.getSummary().trim() : "";
+        if (summary.isBlank()) {
+            throw new BusinessException("Recovery plan summary is required");
+        }
+        plan.setSummary(summary);
+
+        Map<Long, UpdateRecoveryPlanRequest.ActionUpdate> updatesById = request.getActions() == null
+                ? Map.of()
+                : request.getActions().stream()
+                .filter(update -> update != null && update.getId() != null)
+                .collect(Collectors.toMap(UpdateRecoveryPlanRequest.ActionUpdate::getId, update -> update, (left, right) -> right));
+
+        List<RecoveryPlanAction> actions = recoveryPlanActionRepository.findByRecoveryPlanIdOrderByCreatedAtAsc(planId);
+        for (RecoveryPlanAction action : actions) {
+            UpdateRecoveryPlanRequest.ActionUpdate update = updatesById.get(action.getId());
+            if (update == null) {
+                continue;
+            }
+            if (action.getStatus() != RecoveryPlanActionStatus.PENDING) {
+                throw new BusinessException("Only pending recovery plan actions can be edited");
+            }
+
+            String message = update.getMessage() != null ? update.getMessage().trim() : "";
+            if (message.isBlank()) {
+                throw new BusinessException("Recovery action message is required");
+            }
+            RecoveryActionType updatedActionType = parseActionType(update.getActionType());
+            if (updatedActionType != null && ALLOWED_AI_ACTION_TYPES.contains(updatedActionType)) {
+                action.setActionType(updatedActionType);
+                action.setTargetUserId(resolveTargetUserId(
+                        taskRepository.findWithDetailsById(action.getTaskId()).orElse(null),
+                        updatedActionType));
+            }
+            action.setMessage(message);
+            action.setPriority(parsePriority(update.getPriority(), action.getPriority() != null ? action.getPriority() : RecoveryActionPriority.MEDIUM));
+            action.setPayloadJson(mergeEditableActionPayload(action, update, message));
+        }
+
+        recoveryPlanActionRepository.saveAll(actions);
+        plan = recoveryPlanRepository.save(plan);
+
+        recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_UPDATED,
+                RecoveryPlanStatus.PENDING_APPROVAL.name(), RecoveryPlanStatus.PENDING_APPROVAL.name(),
+                "Recovery plan edited before approval", null);
+
         return mapToResponse(plan);
     }
 
@@ -847,68 +1234,7 @@ public class RecoveryPlanService {
 
         plan = recoveryPlanRepository.save(plan);
 
-        // RLHF: send APPROVE signal - fire-and-forget
-        mlServiceClient.sendRecoverySignal(
-                plan.getId(), "APPROVE", null, null,
-                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
-                plan.getSummary(), null);
-
         return mapToResponse(plan);
-    }
-
-    @Transactional
-    public RecoveryPlanResponse rejectPlan(Long projectId, Long planId, Long currentUserId, String reason) {
-        ensureLeaderOrMentor(projectId, currentUserId);
-
-        String trimmedReason = reason == null || reason.isBlank() ? null : reason.trim();
-        String rejectionMessage = trimmedReason == null
-                ? "Recovery plan rejected without a reason"
-                : "Recovery plan rejected: " + trimmedReason;
-
-        RecoveryPlan plan = recoveryPlanRepository.findByIdForUpdate(planId)
-                .orElseThrow(() -> new ResourceNotFoundException("Recovery plan not found"));
-
-        if (!plan.getProjectId().equals(projectId)) {
-            throw new BusinessException("Recovery plan does not belong to the project");
-        }
-
-        if (plan.getStatus() != RecoveryPlanStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Only pending recovery plans can be rejected");
-        }
-
-        plan.setStatus(RecoveryPlanStatus.REJECTED);
-        plan.setRejectedBy(currentUserId);
-        plan.setRejectedAt(LocalDateTime.now());
-        plan.setRejectReason(trimmedReason);
-
-        recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_REJECTED,
-                RecoveryPlanStatus.PENDING_APPROVAL.name(), RecoveryPlanStatus.REJECTED.name(),
-                rejectionMessage, null);
-
-        List<RecoveryPlanAction> actions = recoveryPlanActionRepository.findByRecoveryPlanIdOrderByCreatedAtAsc(planId);
-        if (actions != null) {
-            for (RecoveryPlanAction action : actions) {
-                if (action.getStatus() == RecoveryPlanActionStatus.PENDING) {
-                    action.setStatus(RecoveryPlanActionStatus.SKIPPED);
-                    action.setResultMessage(trimmedReason == null
-                            ? "Plan rejected without a reason"
-                            : "Plan rejected: " + trimmedReason);
-                }
-            }
-            recoveryPlanActionRepository.saveAll(actions);
-        }
-
-        plan = recoveryPlanRepository.save(plan);
-
-        // RLHF: send REJECT signal - fire-and-forget
-        mlServiceClient.sendRecoverySignal(
-                plan.getId(), "REJECT", null, null,
-                plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
-                plan.getSummary(), trimmedReason);
-
-        // Keep the rejected plan for audit history and immediately prepare an
-        // alternative plan for the next leader review.
-        return generateFollowUpPlan(projectId, plan.getTaskId(), plan.getId(), true);
     }
 
     @Transactional
@@ -1057,13 +1383,6 @@ public class RecoveryPlanService {
                 plan.setGateResult(verdict.result());
                 plan.setGateReason(verdict.reason());
 
-                // RLHF: send GATE_RESULT signal - fire-and-forget
-                mlServiceClient.sendRecoverySignal(
-                        plan.getId(), "GATE_RESULT",
-                        plan.getScoreBeforeExecution(), plan.getScoreAfterExecution(),
-                        plan.getRiskLevel(), parseCategoryList(plan.getRiskCategoriesJson()),
-                        null, null);
-
                 if ("FAILED".equals(verdict.result())) {
                     plan.setStatus(RecoveryPlanStatus.DECLINED);
                     recordAuditLog(plan, null, null, RecoveryPlanAuditEventType.PLAN_FAILED,
@@ -1071,7 +1390,6 @@ public class RecoveryPlanService {
                             verdict.reason(), null);
                     recoveryPlanRepository.save(plan);
                     notifyLeadersPlanIneffective(task, plan);
-                    autoGenerateFollowUpPlan(plan.getProjectId(), plan.getTaskId(), plan.getId());
                 } else {
                     recoveryPlanRepository.save(plan);
                 }

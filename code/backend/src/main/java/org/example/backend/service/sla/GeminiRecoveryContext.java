@@ -21,4 +21,5 @@ public class GeminiRecoveryContext {
     private Integer lastScoreBefore;
     private Integer lastScoreAfter;
     private boolean followUp;
+    private List<AiRecoveryMemberCandidate> memberCandidates;
 }

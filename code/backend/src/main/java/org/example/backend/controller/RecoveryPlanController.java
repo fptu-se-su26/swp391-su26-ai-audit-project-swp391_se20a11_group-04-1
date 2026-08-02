@@ -5,7 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.example.backend.dto.ApiResponse;
 import org.example.backend.dto.RecoveryPlanAuditLogResponse;
 import org.example.backend.dto.RecoveryPlanResponse;
-import org.example.backend.dto.RejectRecoveryPlanRequest;
+import org.example.backend.dto.RecoveryTaskReviewResponse;
+import org.example.backend.dto.UpdateRecoveryPlanRequest;
 import org.example.backend.exception.CustomException;
 import org.example.backend.service.sla.RecoveryPlanService;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,43 @@ public class RecoveryPlanController {
         return ResponseEntity.ok(ApiResponse.success(response, "Recovery plans retrieved successfully"));
     }
 
+    @GetMapping("/projects/{projectId}/recovery-tasks")
+    public ResponseEntity<ApiResponse<List<RecoveryTaskReviewResponse>>> getProjectRecoveryTasks(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) Long sprintId,
+            HttpSession session) {
+
+        Long userId = requireUser(session);
+        List<RecoveryTaskReviewResponse> response = recoveryPlanService.getProjectRecoveryTasks(projectId, sprintId, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Recovery tasks retrieved successfully"));
+    }
+
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
+    @PostMapping("/projects/{projectId}/recovery-plans/generate")
+    public ResponseEntity<ApiResponse<List<RecoveryPlanResponse>>> generateProjectRecoveryPlans(
+            @PathVariable Long projectId,
+            @RequestParam(required = false) Long sprintId,
+            HttpSession session) {
+
+        Long userId = requireUser(session);
+        List<RecoveryPlanResponse> response = recoveryPlanService.generateForProject(projectId, sprintId, userId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Recovery plans generated successfully"));
+    }
+
+    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
+    @PatchMapping("/projects/{projectId}/recovery-plans/{planId}")
+    public ResponseEntity<ApiResponse<RecoveryPlanResponse>> updateRecoveryPlan(
+            @PathVariable Long projectId,
+            @PathVariable Long planId,
+            @RequestBody UpdateRecoveryPlanRequest request,
+            HttpSession session) {
+
+        Long userId = requireUser(session);
+
+        RecoveryPlanResponse response = recoveryPlanService.updatePlan(projectId, planId, userId, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Recovery plan updated successfully"));
+    }
+
     @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
     @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/approve")
     public ResponseEntity<ApiResponse<RecoveryPlanResponse>> approveRecoveryPlan(
@@ -77,21 +115,6 @@ public class RecoveryPlanController {
         
         RecoveryPlanResponse response = recoveryPlanService.approvePlan(projectId, planId, userId);
         return ResponseEntity.ok(ApiResponse.success(response, "Recovery plan approved successfully"));
-    }
-
-    @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")
-    @PatchMapping("/projects/{projectId}/recovery-plans/{planId}/reject")
-    public ResponseEntity<ApiResponse<RecoveryPlanResponse>> rejectRecoveryPlan(
-            @PathVariable Long projectId,
-            @PathVariable Long planId,
-            @RequestBody RejectRecoveryPlanRequest request,
-            HttpSession session) {
-        
-        Long userId = requireUser(session);
-        String reason = request != null ? request.getReason() : null;
-        
-        RecoveryPlanResponse response = recoveryPlanService.rejectPlan(projectId, planId, userId, reason);
-        return ResponseEntity.ok(ApiResponse.success(response, "Recovery plan rejected successfully"));
     }
 
     @PreAuthorize("@projectSecurity.isLeaderOrMentor(#projectId)")

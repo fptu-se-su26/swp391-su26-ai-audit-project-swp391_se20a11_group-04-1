@@ -11,5 +11,7 @@ public interface RecoveryPlanActionRepository extends JpaRepository<RecoveryPlan
 
     List<RecoveryPlanAction> findByRecoveryPlanIdOrderByCreatedAtAsc(Long planId);
 
+    void deleteByRecoveryPlanId(Long recoveryPlanId);
+
     boolean existsByIdempotencyKey(String idempotencyKey);
 }

@@ -13,4 +13,6 @@ public class AiRecoveryAction {
     private List<String> checklistItems;
     private Long recommendedAssigneeId;
     private String recommendedAssigneeName;
+    private String recommendedReason;
+    private List<String> notRecommendedAssignees;
 }
