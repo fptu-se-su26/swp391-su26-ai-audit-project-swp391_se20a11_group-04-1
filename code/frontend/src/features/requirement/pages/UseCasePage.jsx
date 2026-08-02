@@ -10,6 +10,7 @@ import UseCaseFormModal from '../components/UseCaseFormModal';
 import RequirementSelectionModal from '../components/RequirementSelectionModal';
 import AiUseCaseGenerationModal from '../components/AiUseCaseGenerationModal';
 import AiUseCaseSetupModal from '../components/AiUseCaseSetupModal';
+import AiModulePlanModal from '../components/AiModulePlanModal';
 import ApproveUseCaseModal from '../components/ApproveUseCaseModal';
 import RejectUseCaseModal from '../components/RejectUseCaseModal';
 import AIGenerationProgressModal from '../components/AIGenerationProgressModal';
@@ -62,6 +63,7 @@ const UseCasePage = () => {
   // AI modals
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isModulePlanModalOpen, setIsModulePlanModalOpen] = useState(false);
   const [generationId, setGenerationId] = useState(null);
   const [approveModalData, setApproveModalData] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -270,18 +272,18 @@ const UseCasePage = () => {
 
   const handleGenerateAI = async (setupParams) => {
     setIsAiSetupModalOpen(false);
-    
+
     setGeneratingCount(selectedReqIdsForAi.length);
     setGenerating(true);
-    
+
     abortControllerRef.current = new AbortController();
     pendingGenerationIdRef.current = null;
-    
+
     try {
       const startTime = Date.now();
       const response = await useCaseService.generateUseCases(
-        activeProject.id, 
-        { 
+        activeProject.id,
+        {
           requirementIds: selectedReqIdsForAi,
           ...setupParams
         },
@@ -289,13 +291,20 @@ const UseCasePage = () => {
       );
       pendingGenerationIdRef.current = response.generationId;
       await waitForUseCaseGeneration(response.generationId, abortControllerRef.current.signal);
-      
+
       const elapsed = Date.now() - startTime;
       if (elapsed < 12000 && !abortControllerRef.current.signal.aborted) {
-         await wait(12000 - elapsed, abortControllerRef.current.signal);
+        await wait(12000 - elapsed, abortControllerRef.current.signal);
       }
+
       setGenerationId(response.generationId);
-      setIsAiModalOpen(true);
+
+      // Route to correct review modal based on mode
+      if (setupParams.generationMode === 'AUTO_PROJECT_MODULES_ONLY') {
+        setIsModulePlanModalOpen(true);
+      } else {
+        setIsAiModalOpen(true);
+      }
     } catch (error) {
       if (error.name === 'CanceledError' || error.message === 'canceled') {
         console.log('Generation request canceled by user');
@@ -433,15 +442,19 @@ const UseCasePage = () => {
                 </button>
               </div>
 
-            {/* Group 3: Generate Usecase */}
+    {/* Group 3: Generate Usecase */}
             <button
               type="button"
-              className={`h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center transition-colors text-[14px] shadow-sm ${!isLeader ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary-fixed'}`}
-              onClick={() => isLeader && handleGenerateAISetup(allRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id))}
-              disabled={!isLeader}
-              title={!isLeader ? "Only Project Leader can generate use cases" : ""}
+              className={`h-[44px] px-5 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center transition-colors text-[14px] shadow-sm hover:bg-secondary-fixed`}
+              onClick={() => handleGenerateAISetup(
+                isLeader
+                  ? allRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id)
+                  : myRequirements.filter(req => req.status !== 'CLOSED').map(req => req.id)
+              )}
+              title="Generate Use Cases with AI"
             >
-              Generate Usecase
+              <span className="material-symbols-outlined text-[16px] mr-1.5">auto_awesome</span>
+              Generate
             </button>
 
             {/* Group 4: Add Use Case */}
@@ -599,6 +612,19 @@ const UseCasePage = () => {
         onClose={() => setIsAiSetupModalOpen(false)}
         projectId={activeProject?.id}
         onGenerate={handleGenerateAI}
+        isLeader={isLeader}
+        projectMembers={activeProject?.members || []}
+        currentUserId={userId}
+      />
+      <AiModulePlanModal
+        isOpen={isModulePlanModalOpen}
+        onClose={() => setIsModulePlanModalOpen(false)}
+        generationId={generationId}
+        projectId={activeProject?.id}
+        onSuccess={() => {
+          setIsModulePlanModalOpen(false);
+          handleRefresh();
+        }}
       />
       <AiUseCaseGenerationModal
         isOpen={isAiModalOpen}

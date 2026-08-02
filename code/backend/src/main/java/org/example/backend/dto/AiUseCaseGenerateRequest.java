@@ -14,6 +14,7 @@ public class AiUseCaseGenerateRequest {
     public enum GenerationMode {
         MODULE,
         PROJECT,
-        AUTO_PROJECT
+        AUTO_PROJECT,
+        AUTO_PROJECT_MODULES_ONLY  // Cluster requirements into modules + assign members, no UC generation
     }
 }

@@ -13,4 +13,7 @@ public class GeneratedModuleDraft {
     private List<Long> requirementIds;
     private Double confidence;
     private String rationale;
+    // Suggested member to assign (populated during AUTO_PROJECT_MODULES_ONLY)
+    private Long suggestedAssigneeId;
+    private String suggestedAssigneeName;
 }

@@ -365,6 +365,10 @@ public class AiGenerationService {
             return buildAutoProjectPayload(context, request, userId, cacheFingerprint);
         }
 
+        if (org.example.backend.dto.AiUseCaseGenerateRequest.GenerationMode.AUTO_PROJECT_MODULES_ONLY.equals(request.getGenerationMode())) {
+            return buildModulePlanPayload(context, request, userId, cacheFingerprint);
+        }
+
         // ---- Standard MODULE mode ----
         sendProgress(userId, 4, "AI Phase 1b: Discovering Actors and Goals...");
         org.example.backend.dto.ai.ActorDiscoveryResult discoveryResult = actorDiscoveryService.discoverActorsAndGoals(context, request.getAllowProposedActors());
@@ -506,6 +510,64 @@ public class AiGenerationService {
 
         org.example.backend.dto.ai.UseCaseValidationResult validation = useCaseGenerationValidator.validate(payload);
         payload.setValidationSummary(validation);
+
+        return new UseCaseGenerationBuildResult(objectMapper.valueToTree(payload), cacheFingerprint);
+    }
+
+    /**
+     * AUTO_PROJECT_MODULES_ONLY: cluster requirements into modules, suggest assignees, no UC generation.
+     * Leader reviews the module plan, edits assignees, then approves to create BusinessModules.
+     */
+    private UseCaseGenerationBuildResult buildModulePlanPayload(
+            org.example.backend.dto.ai.UseCaseGenerationContext baseContext,
+            org.example.backend.dto.AiUseCaseGenerateRequest request,
+            Long userId,
+            String cacheFingerprint) {
+
+        sendProgress(userId, 3, "AI: Discovering and clustering Business Modules...");
+        org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult =
+                moduleDiscoveryService.discoverModules(baseContext);
+
+        List<org.example.backend.dto.ai.GeneratedModuleDraft> modules = moduleDiscoveryResult.getModules();
+
+        // Auto-assign members: distribute modules round-robin across non-leader project members
+        List<org.example.backend.entity.ProjectMember> members = projectMemberRepository.findByProjectId(
+                baseContext.getProject().getId());
+        // Filter to non-leader members (they do the work)
+        List<org.example.backend.entity.ProjectMember> assignableMembers = members.stream()
+                .filter(m -> m.getRole() != null && !m.getRole().getName().toUpperCase().contains("LEADER"))
+                .collect(java.util.stream.Collectors.toList());
+
+        // If no non-leader members, use all members
+        if (assignableMembers.isEmpty()) {
+            assignableMembers = new java.util.ArrayList<>(members);
+        }
+
+        if (!assignableMembers.isEmpty()) {
+            for (int i = 0; i < modules.size(); i++) {
+                org.example.backend.entity.ProjectMember assignedMember =
+                        assignableMembers.get(i % assignableMembers.size());
+                org.example.backend.entity.UserAccount user = assignedMember.getUser();
+                if (user != null) {
+                    modules.get(i).setSuggestedAssigneeId(user.getId());
+                    modules.get(i).setSuggestedAssigneeName(
+                            user.getUsername() != null ? user.getUsername() : user.getEmail());
+                }
+            }
+        }
+
+        sendProgress(userId, 8, "Module plan ready for review...");
+
+        // Build a lightweight payload — no UCs, just modules
+        org.example.backend.dto.ai.UseCaseGenerationPayload payload = new org.example.backend.dto.ai.UseCaseGenerationPayload();
+        payload.setSchemaVersion("modules-only");
+        payload.setGenerationMode(request.getGenerationMode().name());
+        payload.setPromptVersion(org.example.backend.service.ai.usecase.UseCaseGenerationFingerprintService.PROMPT_VERSION);
+        payload.setModules(modules);
+        payload.setUseCases(new java.util.ArrayList<>());
+        payload.setExistingActorsUsed(new java.util.ArrayList<>());
+        payload.setProposedActors(new java.util.ArrayList<>());
+        payload.setActorGoalMatrix(new java.util.ArrayList<>());
 
         return new UseCaseGenerationBuildResult(objectMapper.valueToTree(payload), cacheFingerprint);
     }
@@ -1144,6 +1206,9 @@ public class AiGenerationService {
 
         if ("3.0".equals(schemaVersion)) {
             approveUseCaseGenerationV3(staging, request, project, user, userId);
+        } else if ("modules-only".equals(schemaVersion)) {
+            // Plan Modules Only: create BusinessModules with assignees, no UCs
+            approveModulePlanOnly(staging, modifiedPayload, project, user);
         } else {
             // Legacy / schema 2.0 path
             List<Integer> selectedIndices = request.getSelectedIndices();
@@ -1467,6 +1532,49 @@ public class AiGenerationService {
             }
         }
         return actorRefToEntity;
+    }
+
+    private void approveModulePlanOnly(AiGenerationStaging staging, JsonNode modifiedPayload, Project project, UserAccount approver) {
+        JsonNode modulesNode = modifiedPayload.has("modules") ? modifiedPayload.get("modules") : objectMapper.createArrayNode();
+
+        java.util.Set<String> forbiddenNames = java.util.Set.of("general", "core", "main", "system", "system management", "fallback module");
+        java.util.List<org.example.backend.entity.BusinessModule> existing = businessModuleRepository.findByProjectId(project.getId());
+
+        for (JsonNode moduleDraft : modulesNode) {
+            String moduleName = moduleDraft.has("name") ? moduleDraft.get("name").asText("").trim() : "";
+            if (moduleName.isEmpty()) continue;
+
+            // Skip forbidden names for new modules
+            if (forbiddenNames.contains(moduleName.toLowerCase(java.util.Locale.ROOT))) continue;
+
+            // Find or create
+            String normalizedNew = moduleName.toLowerCase(java.util.Locale.ROOT);
+            org.example.backend.entity.BusinessModule moduleEntity = existing.stream()
+                    .filter(m -> m.getName().trim().toLowerCase(java.util.Locale.ROOT).equals(normalizedNew))
+                    .findFirst().orElse(null);
+
+            if (moduleEntity == null) {
+                moduleEntity = org.example.backend.entity.BusinessModule.builder()
+                        .project(project)
+                        .name(moduleName)
+                        .description(moduleDraft.has("description") ? moduleDraft.get("description").asText() : null)
+                        .priority(moduleDraft.has("priority") ? moduleDraft.get("priority").asText("MEDIUM") : "MEDIUM")
+                        .build();
+            }
+
+            // Set assignee from suggestedAssigneeId (user may have edited in UI)
+            Long assigneeId = null;
+            if (moduleDraft.has("suggestedAssigneeId") && !moduleDraft.get("suggestedAssigneeId").isNull()) {
+                assigneeId = moduleDraft.get("suggestedAssigneeId").asLong();
+            }
+            if (assigneeId != null && assigneeId > 0) {
+                userRepository.findById(assigneeId).ifPresent(moduleEntity::setAssignee);
+            }
+
+            businessModuleRepository.save(moduleEntity);
+        }
+
+        log.info("Module plan approved: created/updated {} modules for project {}", modulesNode.size(), project.getId());
     }
 
     private void approveUseCaseGenerationLegacy(AiGenerationStaging staging, List<Integer> selectedIndices, JsonNode modifiedPayload, Project project, UserAccount user) {
