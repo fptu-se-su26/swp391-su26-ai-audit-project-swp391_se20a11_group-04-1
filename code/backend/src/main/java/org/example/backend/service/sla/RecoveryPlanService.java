@@ -18,6 +18,7 @@ import org.example.backend.repository.RecoveryPlanActionRepository;
 import org.example.backend.repository.RecoveryPlanAuditLogRepository;
 import org.example.backend.repository.UserAccountRepository;
 import org.example.backend.service.NotificationService;
+import org.example.backend.service.ml.MlServiceClient;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.example.backend.repository.RecoveryPlanRepository;
 import org.example.backend.repository.TaskRepository;
@@ -72,6 +73,7 @@ public class RecoveryPlanService {
     private final ObjectMapper objectMapper;
     private final List<RecoveryActionExecutor> executorList;
     private final GeminiRecoveryService geminiRecoveryService;
+    private final MlServiceClient mlServiceClient;
 
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -745,6 +747,18 @@ public class RecoveryPlanService {
     }
 
     private AiRecoveryResult generateGeminiRecoveryPlan(AiRecoveryContext context) {
+        if (mlServiceClient != null) {
+            try {
+                AiRecoveryResult mlResult = mlServiceClient.generateRecoveryPlan(context);
+                if (mlResult != null && hasUsableAiSelectedActions(mlResult)) {
+                    log.info("Successfully generated AI recovery plan via ML Service RAG gateway");
+                    return mlResult;
+                }
+            } catch (Exception ex) {
+                log.warn("ML Service RAG gateway unavailable or failed, falling back to direct Gemini: {}", ex.getMessage());
+            }
+        }
+
         GeminiRecoveryResult geminiResult = geminiRecoveryService.generateContent(GeminiRecoveryContext.builder()
                 .taskTitle(context.getTaskTitle())
                 .taskDescription(context.getTaskDescription())
