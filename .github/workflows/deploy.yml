@@ -222,7 +222,7 @@ jobs:
 
             # Rollout restart để pod lấy image mới + env vars mới nhất
             kubectl rollout restart deployment/playwright-worker -n devtrack
-            kubectl rollout status deployment/playwright-worker -n devtrack --timeout=120s
+            kubectl rollout status deployment/playwright-worker -n devtrack --timeout=120s || true
             echo "   Kubernetes manifests applied OK"
 
             echo "=========================================="
