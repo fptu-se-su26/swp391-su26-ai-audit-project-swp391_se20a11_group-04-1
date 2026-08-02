@@ -38,6 +38,9 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
     @Autowired
     private org.example.backend.repository.ProjectDiagramRepository projectDiagramRepository;
 
+    @Autowired
+    private org.example.backend.repository.RequirementRepository requirementRepository;
+
     private void checkProjectPermission(Project project, Long userId) {
         boolean isLeader = project.getMembers().stream()
             .anyMatch(m -> m.getUser().getId().equals(userId) && m.getRole() != null && m.getRole().getName().toUpperCase().contains("LEADER"));
@@ -134,23 +137,29 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
             throw new BadRequestException("Module does not belong to specified project");
         }
         checkProjectPermission(module.getProject(), userId);
-        
-        // 1. Unlink all Use Cases from this module
-        List<org.example.backend.entity.UseCase> useCases = useCaseRepository.findByBusinessModuleId(id);
-        for (org.example.backend.entity.UseCase uc : useCases) {
-            uc.setBusinessModule(null);
-            useCaseRepository.save(uc);
+
+        // 1. Unlink all Requirements from this module (set module_id = NULL)
+        List<org.example.backend.entity.Requirement> requirements = requirementRepository.findByBusinessModuleId(id);
+        for (org.example.backend.entity.Requirement req : requirements) {
+            req.setBusinessModule(null);
+            requirementRepository.save(req);
         }
 
-        // 2. Delete all Tasks associated with this module
+        // 2. Delete all Use Cases in this module (cascade delete, not just unlink)
+        List<org.example.backend.entity.UseCase> useCases = useCaseRepository.findByBusinessModuleId(id);
+        if (!useCases.isEmpty()) {
+            useCaseRepository.deleteAll(useCases);
+        }
+
+        // 3. Delete all Tasks associated with this module
         List<org.example.backend.entity.Task> tasks = taskRepository.findByBusinessModuleId(id);
         if (!tasks.isEmpty()) {
             taskRepository.deleteAll(tasks);
         }
-        
-        // 3. Delete ProjectDiagrams associated with this module
+
+        // 4. Delete ProjectDiagrams associated with this module
         projectDiagramRepository.deleteByModuleId(id);
-        
+
         businessModuleRepository.delete(module);
     }
 

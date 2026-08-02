@@ -24,6 +24,8 @@ public interface RequirementRepository extends JpaRepository<Requirement, Long>,
 
     List<Requirement> findByProjectId(Long projectId);
     
+    List<Requirement> findByBusinessModuleId(Long moduleId);
+    
     java.util.Optional<Requirement> findByProjectIdAndReqCode(Long projectId, String reqCode);
 
     List<Requirement> findTop10ByProjectIdAndIsDeletedFalseOrderByCreatedAtDesc(Long projectId);
