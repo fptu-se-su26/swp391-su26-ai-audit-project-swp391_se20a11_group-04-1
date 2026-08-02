@@ -90,24 +90,24 @@ const GroupedUseCaseList = ({
 
   const groupedUseCases = useMemo(() => {
     const groups = {};
-    
+
     modules.forEach(m => {
+      // Ensure moduleId is always a clean number/string, never an object
+      const cleanId = m.id != null ? parseInt(String(m.id), 10) : 'unknown';
       groups[m.name] = {
         moduleName: m.name,
-        moduleId: m.id,
+        moduleId: isNaN(cleanId) ? 'unknown' : cleanId,
         useCases: []
       };
     });
 
     useCases.forEach(uc => {
       const moduleName = uc.moduleName || 'General Module';
-      const moduleId = uc.moduleId || 'unknown';
+      const rawId = uc.moduleId;
+      const cleanId = rawId != null ? parseInt(String(rawId), 10) : NaN;
+      const moduleId = isNaN(cleanId) ? 'unknown' : cleanId;
       if (!groups[moduleName]) {
-        groups[moduleName] = {
-          moduleName,
-          moduleId,
-          useCases: []
-        };
+        groups[moduleName] = { moduleName, moduleId, useCases: [] };
       }
       groups[moduleName].useCases.push(uc);
     });
