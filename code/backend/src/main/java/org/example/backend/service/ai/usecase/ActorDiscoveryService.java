@@ -171,10 +171,22 @@ public class ActorDiscoveryService {
         }
 
         if (root.has("actorGoalMatrix") && root.get("actorGoalMatrix").isArray()) {
+            // Build ref -> name map from both proposed and existing actors
+            java.util.Map<String, String> refToName = new java.util.HashMap<>();
+            result.getProposedActors().forEach(a -> {
+                if (a.getTemporaryId() != null) refToName.put(a.getTemporaryId(), a.getName());
+            });
+            result.getExistingActorsUsed().forEach(a -> {
+                if (a.getTemporaryId() != null) refToName.put(a.getTemporaryId(), a.getName());
+            });
+
             for (JsonNode node : root.get("actorGoalMatrix")) {
                 ActorGoal goal = new ActorGoal();
                 goal.setGoalId(node.has("goalId") ? node.get("goalId").asText() : null);
-                goal.setActorRef(node.has("actorRef") ? node.get("actorRef").asText() : null);
+                String ref = node.has("actorRef") ? node.get("actorRef").asText() : null;
+                goal.setActorRef(ref);
+                // Resolve actor name so DetailedUseCaseGenerationService can show it in the prompt
+                goal.setActorName(ref != null ? refToName.getOrDefault(ref, ref) : null);
                 goal.setGoal(node.has("goal") ? node.get("goal").asText() : null);
                 if (node.has("requirementIds") && node.get("requirementIds").isArray()) {
                     List<Long> ids = new ArrayList<>();
@@ -229,6 +241,11 @@ public class ActorDiscoveryService {
             ActorGoal goal = new ActorGoal();
             goal.setGoalId("GOAL-" + String.format("%03d", goalCounter++));
             goal.setActorRef(defaultActorRef);
+            // Set actorName from existing/proposed actors
+            String defaultActorName = result.getExistingActorsUsed().isEmpty()
+                    ? "User"
+                    : result.getExistingActorsUsed().get(0).getName();
+            goal.setActorName(defaultActorName);
             goal.setGoal(r.getTitle());
             goal.setRequirementIds(List.of(r.getId()));
             result.getActorGoalMatrix().add(goal);

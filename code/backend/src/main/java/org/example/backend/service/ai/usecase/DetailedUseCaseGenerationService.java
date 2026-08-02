@@ -67,11 +67,16 @@ public class DetailedUseCaseGenerationService {
             sb.append("MODULE: ").append(context.getTargetModule().getName()).append("\n\n");
         }
 
-        // Actor refs
-        sb.append("AVAILABLE ACTOR REFERENCES:\n");
-        // We don't have the full discovery result here, but goals reference actorRefs
-        goals.stream().map(ActorGoal::getActorRef).distinct().forEach(ref ->
-                sb.append("  - ").append(ref).append("\n"));
+        // Actor refs — show ref AND name so AI knows which actor name to associate
+        sb.append("AVAILABLE ACTOR REFERENCES (use EXACTLY these refs in actors array):\n");
+        goals.stream()
+            .collect(java.util.stream.Collectors.toMap(
+                ActorGoal::getActorRef,
+                g -> g.getActorName() != null ? g.getActorName() : g.getActorRef(),
+                (a, b) -> a,
+                java.util.LinkedHashMap::new))
+            .forEach((ref, name) ->
+                sb.append("  ").append(ref).append(" → ").append(name).append("\n"));
         sb.append("\n");
 
         // Goals to generate for
