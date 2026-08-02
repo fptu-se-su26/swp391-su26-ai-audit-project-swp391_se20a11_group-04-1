@@ -4,8 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.example.backend.config.GeminiProperties;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -17,43 +18,61 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GeminiRecoveryService {
 
-    @Value("${gemini.api.key:}")
-    private String apiKey;
-
-    @Value("${gemini.api.url:}")
-    private String endpoint;
+    private static final String DEFAULT_GENERATE_CONTENT_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final GeminiProperties geminiProperties;
 
     public GeminiRecoveryResult generateContent(GeminiRecoveryContext context) {
-        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
+        String targetUrl = normalizeTargetUrl(geminiProperties.getUrl());
+        List<String> keys = geminiProperties.getKeys();
+
+        if (keys == null || keys.isEmpty() || targetUrl == null || targetUrl.isBlank()) {
+            log.warn("Gemini API keys or URL not configured.");
             return null;
         }
 
-        try {
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(Map.of(
-                            "parts", List.of(Map.of("text", buildPrompt(context)))
-                    ))
-            );
+        String prompt = buildPrompt(context);
 
-            String separator = endpoint.contains("?") ? "&" : "?";
-            Map<?, ?> response = restTemplate.postForObject(
-                    endpoint + separator + "key=" + apiKey,
-                    requestBody,
-                    Map.class
-            );
-
-            String rawText = extractText(response);
-            if (rawText == null || rawText.isBlank()) {
-                return null;
+        for (String apiKey : keys) {
+            if (apiKey == null || apiKey.isBlank() || "disabled".equalsIgnoreCase(apiKey.trim()) || "replace_me".equalsIgnoreCase(apiKey.trim())) {
+                continue;
             }
-            return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
-        } catch (Exception ex) {
-            log.warn("Gemini recovery content generation failed, using fallback text: {}", ex.getMessage());
-            return null;
+
+            try {
+                Map<String, Object> requestBody = Map.of(
+                        "contents", List.of(Map.of(
+                                "parts", List.of(Map.of("text", prompt))
+                        ))
+                );
+
+                String separator = targetUrl.contains("?") ? "&" : "?";
+                String requestUrl = targetUrl + separator + "key=" + apiKey.trim();
+
+                Map<?, ?> response = restTemplate.postForObject(
+                        requestUrl,
+                        requestBody,
+                        Map.class
+                );
+
+                String rawText = extractText(response);
+                if (rawText != null && !rawText.isBlank()) {
+                    return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
+                }
+            } catch (HttpStatusCodeException httpEx) {
+                log.warn("Gemini recovery generation failed with key ending in {} [HTTP {}]: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)),
+                        httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
+            } catch (Exception ex) {
+                log.warn("Gemini recovery generation attempt failed with key ending in {}: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)), ex.getMessage());
+            }
         }
+
+        log.warn("All Gemini API keys failed for recovery content generation.");
+        return null;
     }
 
     /**
@@ -65,29 +84,57 @@ public class GeminiRecoveryService {
             GeminiRecoveryContext context,
             List<Map<String, Object>> similarPlans) {
 
-        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
-            return null;
-        }
-        try {
-            String prompt = buildPrompt(context) + buildRagSection(similarPlans);
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(Map.of(
-                            "parts", List.of(Map.of("text", prompt))
-                    ))
-            );
-            String separator = endpoint.contains("?") ? "&" : "?";
-            Map<?, ?> response = restTemplate.postForObject(
-                    endpoint + separator + "key=" + apiKey,
-                    requestBody,
-                    Map.class
-            );
-            String rawText = extractText(response);
-            if (rawText == null || rawText.isBlank()) return null;
-            return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
-        } catch (Exception ex) {
-            log.warn("Gemini RAG generation failed, falling back to base Gemini: {}", ex.getMessage());
+        String targetUrl = normalizeTargetUrl(geminiProperties.getUrl());
+        List<String> keys = geminiProperties.getKeys();
+
+        if (keys == null || keys.isEmpty() || targetUrl == null || targetUrl.isBlank()) {
             return generateContent(context);
         }
+
+        String prompt = buildPrompt(context) + buildRagSection(similarPlans);
+
+        for (String apiKey : keys) {
+            if (apiKey == null || apiKey.isBlank() || "disabled".equalsIgnoreCase(apiKey.trim()) || "replace_me".equalsIgnoreCase(apiKey.trim())) {
+                continue;
+            }
+
+            try {
+                Map<String, Object> requestBody = Map.of(
+                        "contents", List.of(Map.of(
+                                "parts", List.of(Map.of("text", prompt))
+                        ))
+                );
+                String separator = targetUrl.contains("?") ? "&" : "?";
+                String requestUrl = targetUrl + separator + "key=" + apiKey.trim();
+
+                Map<?, ?> response = restTemplate.postForObject(
+                        requestUrl,
+                        requestBody,
+                        Map.class
+                );
+                String rawText = extractText(response);
+                if (rawText != null && !rawText.isBlank()) {
+                    return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
+                }
+            } catch (Exception ex) {
+                log.warn("Gemini RAG generation failed with key ending in {}: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)), ex.getMessage());
+            }
+        }
+
+        return generateContent(context);
+    }
+
+    private String normalizeTargetUrl(String configuredUrl) {
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            return DEFAULT_GENERATE_CONTENT_URL;
+        }
+        String targetUrl = configuredUrl.trim();
+        if (targetUrl.contains("/models/gemini-2.5-flash:")) {
+            log.warn("Configured Gemini model gemini-2.5-flash is unavailable for this API key. Using gemini-3.6-flash instead.");
+            return targetUrl.replace("/models/gemini-2.5-flash:", "/models/gemini-3.6-flash:");
+        }
+        return targetUrl;
     }
 
     private String buildRagSection(List<Map<String, Object>> plans) {
