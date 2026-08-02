@@ -40,4 +40,4 @@ spec:
       # Chỉ bắt đầu scale khi lag >= 1 message thực sự
       # Tránh scale up khi offset = '-' (group mới, chưa có committed offset)
       activationLagThreshold: "1"
-      offsetResetPolicy: earliest
+      offsetResetPolicy: latest
