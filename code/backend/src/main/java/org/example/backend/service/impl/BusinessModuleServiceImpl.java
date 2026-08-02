@@ -41,10 +41,18 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
     @Autowired
     private org.example.backend.repository.RequirementRepository requirementRepository;
 
+    @Autowired
+    private org.example.backend.repository.ProjectMemberRepository projectMemberRepository;
+
     private void checkProjectPermission(Project project, Long userId) {
-        boolean isLeader = project.getMembers().stream()
-            .anyMatch(m -> m.getUser().getId().equals(userId) && m.getRole() != null && m.getRole().getName().toUpperCase().contains("LEADER"));
-        if (!isLeader) {
+        // Use DB query instead of lazy-loading project.getMembers() to avoid proxy issues
+        java.util.Optional<org.example.backend.entity.ProjectMember> member =
+                projectMemberRepository.findByProjectIdAndUserId(project.getId(), userId);
+        if (member.isEmpty()) {
+            throw new BadRequestException("Only project leader can manage modules");
+        }
+        String roleName = member.get().getRole() != null ? member.get().getRole().getName().toUpperCase() : "";
+        if (!roleName.contains("LEADER")) {
             throw new BadRequestException("Only project leader can manage modules");
         }
     }
