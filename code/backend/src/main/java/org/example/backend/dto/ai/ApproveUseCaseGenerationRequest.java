@@ -13,6 +13,8 @@ public class ApproveUseCaseGenerationRequest {
     private List<String> selectedUseCaseIds;
     private List<Integer> selectedIndices; // Legacy compatibility
     
+    // Use Object to accept both Map and Array from frontend
+    // Will be converted to JsonNode in service layer
     @NotNull
-    private JsonNode modifiedPayload;
+    private Object modifiedPayload;
 }

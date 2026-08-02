@@ -169,8 +169,9 @@ public class UseCaseGenerationValidator {
             throw new IllegalArgumentException("Modified payload cannot be null");
         }
         
-        // getModifiedPayload() returns JsonNode
-        com.fasterxml.jackson.databind.JsonNode payloadNode = request.getModifiedPayload();
+        // Convert Object to JsonNode for processing
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.JsonNode payloadNode = mapper.valueToTree(request.getModifiedPayload());
         String schemaVersion = payloadNode.has("schemaVersion") ? payloadNode.get("schemaVersion").asText() : "2.0";
                 
         if ("3.0".equals(schemaVersion)) {
