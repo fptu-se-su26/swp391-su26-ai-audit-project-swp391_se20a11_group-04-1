@@ -206,7 +206,7 @@ const AiUseCaseSetupModal = ({
 
                 {/* Card: full gen */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                     leaderMode === 'full'
                       ? 'border-[#1E707D] bg-[#1E707D]/5'
                       : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -218,23 +218,21 @@ const AiUseCaseSetupModal = ({
                     value="full"
                     checked={leaderMode === 'full'}
                     onChange={() => setLeaderMode('full')}
-                    className="mt-0.5 text-[#1E707D] focus:ring-[#1E707D]"
+                    className="text-[#1E707D] focus:ring-[#1E707D] shrink-0"
                   />
-                  <div className="flex-1">
+                  <span className="material-symbols-outlined text-[18px] text-[#1E707D] shrink-0">layers</span>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-[#1E707D]">layers</span>
-                      <span className="font-semibold text-sm text-gray-800">Generate Modules + Use Cases</span>
-                      <span className="text-[10px] bg-[#1E707D] text-white px-1.5 py-0.5 rounded font-bold">Recommended</span>
+                      <span className="font-semibold text-sm text-gray-800">Modules + Use Cases</span>
+                      <span className="text-[10px] bg-[#1E707D] text-white px-1.5 py-0.5 rounded font-bold shrink-0">Recommended</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      AI clusters requirements into Business Modules, assigns team members, then generates detailed Use Cases for each module — all in one step.
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">AI clusters reqs into modules then generates UCs</p>
                   </div>
                 </label>
 
                 {/* Card: plan modules only */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                     leaderMode === 'plan'
                       ? 'border-amber-500 bg-amber-50'
                       : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -246,25 +244,18 @@ const AiUseCaseSetupModal = ({
                     value="plan"
                     checked={leaderMode === 'plan'}
                     onChange={() => setLeaderMode('plan')}
-                    className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                    className="text-amber-500 focus:ring-amber-400 shrink-0"
                   />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-amber-500">view_kanban</span>
-                      <span className="font-semibold text-sm text-gray-800">Plan Modules Only</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                      AI clusters requirements into Business Modules and suggests a member assignee for each. You review and adjust assignments before approving — no Use Cases are generated yet.
-                    </p>
-                    <p className="text-xs text-amber-600 mt-1.5 font-medium">
-                      ↳ After approval, each member can generate Use Cases for their own module.
-                    </p>
+                  <span className="material-symbols-outlined text-[18px] text-amber-500 shrink-0">view_kanban</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm text-gray-800">Plan Modules Only</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Create modules &amp; assign members — no UCs yet</p>
                   </div>
                 </label>
 
                 {/* Card: single module */}
                 <label
-                  className={`flex items-start gap-3.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                     leaderMode === 'module'
                       ? 'border-indigo-500 bg-indigo-50'
                       : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -276,16 +267,12 @@ const AiUseCaseSetupModal = ({
                     value="module"
                     checked={leaderMode === 'module'}
                     onChange={() => setLeaderMode('module')}
-                    className="mt-0.5 text-indigo-500 focus:ring-indigo-400"
+                    className="text-indigo-500 focus:ring-indigo-400 shrink-0"
                   />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px] text-indigo-500">folder_special</span>
-                      <span className="font-semibold text-sm text-gray-800">Generate for a Specific Module</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select one existing module and generate Use Cases for it specifically.
-                    </p>
+                  <span className="material-symbols-outlined text-[18px] text-indigo-500 shrink-0">folder_special</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-sm text-gray-800">Specific Module</span>
+                    <p className="text-xs text-gray-400 mt-0.5">Generate Use Cases for one existing module</p>
                   </div>
                 </label>
 
