@@ -1,208 +1,269 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import useTestCaseStore from '../stores/useTestCaseStore'
 import { C, T } from '../utils/theme'
 
-const getRiskColor = (level) => {
-  switch (level) {
-    case 'LOW': return { color: C.success, bg: C.successBg }
-    case 'MEDIUM': return { color: C.warning, bg: C.warningBg }
-    case 'HIGH': return { color: '#EA580C', bg: '#FFF7ED' } // Orange
-    case 'CRITICAL': return { color: C.danger, bg: C.dangerBg }
-    default: return { color: C.textSec, bg: C.borderLt }
-  }
+const riskColors = {
+  LOW:      { color: C.success,  bg: C.successBg  },
+  MEDIUM:   { color: C.warning,  bg: C.warningBg  },
+  HIGH:     { color: '#EA580C',  bg: '#FFF7ED'    },
+  CRITICAL: { color: C.danger,   bg: C.dangerBg   },
 }
 
+const EXECUTION_STATE = {
+  all_run: { label: 'Executed', color: C.success   },
+  partial: { label: 'Partial',  color: C.warning   },
+  not_run: { label: 'Not Run',  color: C.textMuted },
+}
+
+function getExecState(req) {
+  const total = req.testCaseCount || 0
+  if (total === 0) return EXECUTION_STATE.not_run
+  const notRun = req.notRunCount || 0
+  if (notRun === 0) return EXECUTION_STATE.all_run
+  if (notRun < total) return EXECUTION_STATE.partial
+  return EXECUTION_STATE.not_run
+}
+
+const RISK_OPTIONS = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+const COV_OPTIONS  = [
+  { value: 'all',    label: 'All'    },
+  { value: 'high',   label: '≥ 70%' },
+  { value: 'medium', label: '30–69%'},
+  { value: 'low',    label: '< 30%' },
+]
+
 export default function RequirementExplorer() {
-  const { requirementsTree, selectedRequirementId, selectRequirement, isLoading } = useTestCaseStore()
+  const { requirementsTree, selectedRequirementId, selectRequirement } = useTestCaseStore()
+
+  // Use a local loading flag tied specifically to the requirements tree.
+  // The store's `isLoading` reflects test-case fetching and would incorrectly
+  // show skeleton on every row-click; we track first-load ourselves.
+  const [reqsLoading, setReqsLoading] = useState(true)
+  const prevTreeLenRef = useRef(-1)
+
+  useEffect(() => {
+    if (requirementsTree.length !== prevTreeLenRef.current) {
+      prevTreeLenRef.current = requirementsTree.length
+      setReqsLoading(false)
+    }
+  }, [requirementsTree])
+
   const [searchTerm, setSearchTerm] = useState('')
+  const [riskFilter, setRiskFilter] = useState('ALL')
+  const [covFilter,  setCovFilter]  = useState('all')
 
   const filteredTree = useMemo(() => {
-    if (!searchTerm) return requirementsTree
-    return requirementsTree.filter(req => 
-      req.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (req.reqCode && req.reqCode.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-  }, [requirementsTree, searchTerm])
+    return requirementsTree.filter(req => {
+      const matchSearch =
+        !searchTerm ||
+        req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (req.reqCode && req.reqCode.toLowerCase().includes(searchTerm.toLowerCase()))
 
-  const projectStats = useMemo(() => {
-    if (!requirementsTree.length) return { reqs: 0, highRisk: 0, cov: 0, pass: 0 }
-    const reqs = requirementsTree.length
-    const highRisk = requirementsTree.filter(r => r.riskLevel === 'CRITICAL' || r.riskLevel === 'HIGH').length
-    const avgCov = Math.round(requirementsTree.reduce((sum, r) => sum + r.coveragePercent, 0) / reqs)
-    const avgPass = Math.round(requirementsTree.reduce((sum, r) => sum + r.passRate, 0) / reqs)
-    return { reqs, highRisk, cov: avgCov, pass: avgPass }
-  }, [requirementsTree])
+      const matchRisk = riskFilter === 'ALL' || req.riskLevel === riskFilter
+
+      const cov = req.coveragePercent || 0
+      const matchCov =
+        covFilter === 'all'    ? true :
+        covFilter === 'high'   ? cov >= 70 :
+        covFilter === 'medium' ? (cov >= 30 && cov < 70) :
+        covFilter === 'low'    ? cov < 30 : true
+
+      return matchSearch && matchRisk && matchCov
+    })
+  }, [requirementsTree, searchTerm, riskFilter, covFilter])
 
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-      background: C.bg, borderRight: `1px solid ${C.border}`,
-      boxShadow: T.shadow.sm, fontFamily: T.font
+      background: C.surface, borderRight: `1px solid ${C.border}`,
+      fontFamily: T.font,
     }}>
-      <div style={{ padding: '24px 16px 16px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        
-        {/* Project Overview */}
-        <div>
-          <h2 style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Project Overview
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ background: C.surface, padding: '12px', borderRadius: T.radius.md, border: `1px solid ${C.border}`, boxShadow: T.shadow.sm }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.textSec }}>Requirements</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.textPri, marginTop: 4 }}>{projectStats.reqs}</div>
-            </div>
-            <div style={{ background: C.surface, padding: '12px', borderRadius: T.radius.md, border: `1px solid ${C.border}`, boxShadow: T.shadow.sm }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.danger }}>High Risk</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.danger, marginTop: 4 }}>{projectStats.highRisk}</div>
-            </div>
-            <div style={{ background: C.surface, padding: '12px', borderRadius: T.radius.md, border: `1px solid ${C.border}`, boxShadow: T.shadow.sm }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.textSec }}>Coverage</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.primary, marginTop: 4 }}>{projectStats.cov}%</div>
-            </div>
-            <div style={{ background: C.surface, padding: '12px', borderRadius: T.radius.md, border: `1px solid ${C.border}`, boxShadow: T.shadow.sm }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.success }}>Pass Rate</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.success, marginTop: 4 }}>{projectStats.pass}%</div>
-            </div>
-          </div>
+      {/* ── Header ── */}
+      <div style={{ padding: '18px 14px 10px', borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: C.textPri, margin: 0 }}>Requirements</h2>
+          <span style={{
+            fontSize: 11, fontWeight: 700,
+            padding: '2px 8px', borderRadius: 12,
+            background: C.primaryLt, color: C.primary,
+          }}>
+            {filteredTree.length}
+          </span>
         </div>
 
-        {/* Requirements Explorer */}
-        <div>
-          <h2 style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Requirements Explorer
-          </h2>
-          <div style={{ position: 'relative' }}>
-            <span className="material-symbols-outlined" style={{
-              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-              fontSize: 16, color: C.textMuted, pointerEvents: 'none',
-            }}>search</span>
-            <input
-              type="text"
-              placeholder="Search requirements..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+        {/* Search */}
+        <div style={{ position: 'relative', marginBottom: 8 }}>
+          <span className="material-symbols-outlined" style={{
+            position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 15, color: C.textMuted, pointerEvents: 'none',
+          }}>search</span>
+          <input
+            type="text"
+            placeholder="Search requirements..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%', padding: '7px 10px 7px 30px',
+              background: C.bg, border: `1px solid ${C.border}`,
+              borderRadius: 8, fontSize: 12, color: C.textPri, outline: 'none',
+              fontFamily: T.font, transition: T.transition.default,
+              boxSizing: 'border-box',
+            }}
+            onFocus={e => { e.target.style.borderColor = C.primary; e.target.style.boxShadow = `0 0 0 2px ${C.primaryLt}` }}
+            onBlur={e => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none' }}
+          />
+        </div>
+
+        {/* Filter row */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <select
+              value={riskFilter}
+              onChange={e => setRiskFilter(e.target.value)}
               style={{
-                width: '100%', padding: '10px 12px 10px 36px',
-                background: C.surface, border: `1px solid ${C.border}`,
-                borderRadius: T.radius.md, fontSize: 13, color: C.textPri, outline: 'none',
-                fontFamily: T.font, transition: T.transition.default,
-                boxShadow: T.shadow.sm
+                width: '100%', appearance: 'none', WebkitAppearance: 'none',
+                padding: '5px 24px 5px 8px', fontSize: 11, fontWeight: 500,
+                background: C.bg, border: `1px solid ${C.border}`,
+                borderRadius: 6, color: C.textSec, cursor: 'pointer',
+                outline: 'none', fontFamily: T.font,
               }}
-              onFocus={e => { e.target.style.borderColor = C.primary; e.target.style.boxShadow = `0 0 0 2px ${C.primaryLt}` }}
-              onBlur={e => { e.target.style.borderColor = C.border; e.target.style.boxShadow = T.shadow.sm }}
-            />
+            >
+              {RISK_OPTIONS.map(r => <option key={r} value={r}>{r === 'ALL' ? 'All Risk' : r}</option>)}
+            </select>
+            <span className="material-symbols-outlined" style={{
+              position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)',
+              fontSize: 13, color: C.textMuted, pointerEvents: 'none',
+            }}>expand_more</span>
+          </div>
+
+          <div style={{ position: 'relative', flex: 1 }}>
+            <select
+              value={covFilter}
+              onChange={e => setCovFilter(e.target.value)}
+              style={{
+                width: '100%', appearance: 'none', WebkitAppearance: 'none',
+                padding: '5px 24px 5px 8px', fontSize: 11, fontWeight: 500,
+                background: C.bg, border: `1px solid ${C.border}`,
+                borderRadius: 6, color: C.textSec, cursor: 'pointer',
+                outline: 'none', fontFamily: T.font,
+              }}
+            >
+              {COV_OPTIONS.map(o => <option key={o.value} value={o.value}>Cov: {o.label}</option>)}
+            </select>
+            <span className="material-symbols-outlined" style={{
+              position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)',
+              fontSize: 13, color: C.textMuted, pointerEvents: 'none',
+            }}>expand_more</span>
           </div>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 24px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {isLoading ? (
-          /* Loading Skeleton */
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ padding: '16px', borderRadius: T.radius.md, background: C.surface, border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ height: 14, width: '70%', background: C.borderLt, borderRadius: 4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
-              <div style={{ height: 12, width: '90%', background: C.borderLt, borderRadius: 4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
-              <div style={{ height: 12, width: '40%', background: C.borderLt, borderRadius: 4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
-            </div>
-          ))
-        ) : (
-          filteredTree.map(req => {
-            const isSelected = selectedRequirementId === req.id
-            const risk = getRiskColor(req.riskLevel)
-            
-            return (
-              <div 
-                key={req.id} 
-                onClick={() => selectRequirement(req.id)}
-                onMouseEnter={e => {
-                  if (!isSelected) {
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                    e.currentTarget.style.boxShadow = T.shadow.md
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isSelected) {
-                    e.currentTarget.style.transform = 'translateY(0)'
-                    e.currentTarget.style.boxShadow = T.shadow.sm
-                  }
-                }}
-                style={{
-                  padding: '16px', borderRadius: T.radius.md, cursor: 'pointer',
-                  background: isSelected ? C.primaryLt : C.surface,
-                  border: `1px solid ${isSelected ? C.primary : C.border}`,
-                  boxShadow: isSelected ? T.shadow.md : T.shadow.sm,
-                  display: 'flex', flexDirection: 'column', gap: 10,
-                  transition: T.transition.default, transform: 'translateY(0)'
-                }}
-              >
-                {/* Line 1 - Title */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: 1 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: risk.color, flexShrink: 0, marginTop: 4 }}></div>
-                    <div style={{ 
-                      fontSize: 13, fontWeight: 700, 
-                      color: isSelected ? C.primaryDark : C.textPri,
-                      lineHeight: 1.3
-                    }}>
-                      {req.reqCode || `REQ-${req.id}`} {req.title}
-                    </div>
-                  </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: isSelected ? C.primary : C.textMuted }}>chevron_right</span>
-                </div>
-
-                {/* Line 2 - Stats */}
-                <div style={{ fontSize: 11, color: C.textSec, fontWeight: 500, paddingLeft: 16 }}>
-                  {req.testCaseCount} Test Cases · {Math.round((req.acTotal * req.coveragePercent)/100) || 0}/{req.acTotal} AC Covered
-                </div>
-
-                {/* Line 3 - Progress Bars */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 16, marginTop: 4 }}>
-                  {/* Coverage */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, width: 50 }}>Coverage</span>
-                    <div style={{ flex: 1, height: 6, background: C.borderLt, borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${req.coveragePercent}%`, height: '100%', background: C.primary, borderRadius: 3 }}></div>
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.textPri, width: 28, textAlign: 'right' }}>{req.coveragePercent}%</span>
-                  </div>
-                  {/* Pass Rate */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, width: 50 }}>Pass Rate</span>
-                    <div style={{ flex: 1, height: 6, background: C.borderLt, borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${req.passRate}%`, height: '100%', background: C.success, borderRadius: 3 }}></div>
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.textPri, width: 28, textAlign: 'right' }}>{req.passRate}%</span>
-                  </div>
-                </div>
-
-                {/* Line 4 - Risk Badge */}
-                <div style={{ paddingLeft: 16, marginTop: 4 }}>
-                  <span style={{ 
-                    display: 'inline-flex', alignItems: 'center', gap: 4, 
-                    padding: '2px 8px', borderRadius: 4, background: risk.bg, 
-                    color: risk.color, fontSize: 10, fontWeight: 700, border: `1px solid ${risk.color}40`, letterSpacing: '0.05em' 
-                  }}>
-                    {req.riskLevel === 'HIGH' || req.riskLevel === 'CRITICAL' ? <span className="material-symbols-outlined" style={{ fontSize: 12 }}>warning</span> : null}
-                    {req.riskLevel} RISK
-                  </span>
-                </div>
+      {/* ── List ── */}
+      <div style={{
+        flex: 1, overflowY: 'auto',
+        padding: '8px 10px 16px',
+        display: 'flex', flexDirection: 'column', gap: 6,
+      }}>
+        {reqsLoading
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{
+                padding: '12px', borderRadius: 8,
+                background: C.bg, border: `1px solid ${C.border}`,
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                <div style={{ height: 12, width: '70%', background: C.borderLt, borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
+                <div style={{ height: 10, width: '90%', background: C.borderLt, borderRadius: 4, animation: 'pulse 1.5s infinite' }} />
               </div>
-            )
-          })
-        )}
-        {!isLoading && filteredTree.length === 0 && (
-          <div style={{ padding: '20px', textAlign: 'center', color: C.textMuted, fontSize: 13 }}>
-            No requirements found
+            ))
+          : filteredTree.map(req => {
+              const isSelected = selectedRequirementId === req.id
+              const risk    = riskColors[req.riskLevel] || { color: C.textSec, bg: C.borderLt }
+              const exec    = getExecState(req)
+              const acTotal   = req.acTotal || 0
+              const acCovered = acTotal > 0 ? Math.round((acTotal * (req.coveragePercent || 0)) / 100) : 0
+              const cov       = req.coveragePercent || 0
+
+              return (
+                <div
+                  key={req.id}
+                  onClick={() => selectRequirement(isSelected ? null : req.id)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    background: isSelected ? C.primaryLt : C.surface,
+                    border: `1px solid ${isSelected ? C.primary : C.border}`,
+                    borderLeft: `3px solid ${isSelected ? C.primary : 'transparent'}`,
+                    transition: T.transition.default,
+                    display: 'flex', flexDirection: 'column', gap: 7,
+                  }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = C.bg }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = C.surface }}
+                >
+                  {/* Row 1: code + title + risk badge */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isSelected ? C.primaryDark : C.primary }}>
+                        {req.reqCode || `REQ-${req.id}`}
+                      </span>
+                      <div style={{
+                        fontSize: 12, fontWeight: 600,
+                        color: isSelected ? C.primaryDark : C.textPri,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        marginTop: 1,
+                      }}>
+                        {req.title}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, flexShrink: 0,
+                      padding: '2px 6px', borderRadius: 4,
+                      background: risk.bg, color: risk.color,
+                      border: `1px solid ${risk.color}40`,
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                    }}>
+                      {req.riskLevel}
+                    </span>
+                  </div>
+
+                  {/* Row 2: stats */}
+                  <div style={{ fontSize: 11, color: C.textSec, fontWeight: 500, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span>{req.testCaseCount} test{req.testCaseCount !== 1 ? 's' : ''}</span>
+                    <span style={{ color: C.border }}>·</span>
+                    <span>{acCovered}/{acTotal} AC</span>
+                    <span style={{ color: C.border }}>·</span>
+                    <span style={{ color: exec.color, fontWeight: 600 }}>{exec.label}</span>
+                  </div>
+
+                  {/* Row 3: coverage bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, background: C.borderLt, borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${cov}%`, height: '100%',
+                        background: cov >= 70 ? C.success : cov >= 30 ? C.warning : C.danger,
+                        borderRadius: 2,
+                        transition: T.transition.slow,
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.textSec, width: 28, textAlign: 'right' }}>
+                      {cov}%
+                    </span>
+                  </div>
+                </div>
+              )
+            })
+        }
+
+        {!reqsLoading && filteredTree.length === 0 && (
+          <div style={{ padding: 20, textAlign: 'center', color: C.textMuted, fontSize: 12 }}>
+            No requirements match your filters.
           </div>
         )}
-        <style>{`
-          @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
-          }
-        `}</style>
       </div>
+
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      `}</style>
     </div>
   )
 }

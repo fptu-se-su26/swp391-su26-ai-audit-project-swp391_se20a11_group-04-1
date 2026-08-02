@@ -1,41 +1,48 @@
 /**
- * StatusBadge — Hiển thị trạng thái test case (Pass / Fail / Not Run / Blocked)
- * Mapping màu sắc theo thiết kế testcase.html
+ * StatusBadge — compact status pill for test cases.
+ * NOT_RUN: neutral gray-blue
+ * PASS:    green
+ * FAIL:    red
+ * BLOCKED: amber
  */
 const statusConfig = {
   PASS: {
     label: 'Pass',
-    bgClass: 'bg-secondary-container',
-    textClass: 'text-on-secondary-container',
-    dotClass: 'bg-[#D7EEF1]',
+    style: { background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' },
+    dot: '#059669',
   },
   FAIL: {
     label: 'Fail',
-    bgClass: 'bg-error-container',
-    textClass: 'text-on-error-container',
-    dotClass: 'bg-error',
+    style: { background: '#FEF2F2', color: '#EF4444', border: '1px solid #FECACA' },
+    dot: '#EF4444',
   },
   NOT_RUN: {
     label: 'Not Run',
-    bgClass: 'bg-surface-variant',
-    textClass: 'text-on-surface-variant',
-    dotClass: 'bg-outline',
+    style: { background: '#F8FAFC', color: '#64748B', border: '1px solid #CBD5E1' },
+    dot: '#94A3B8',
   },
   BLOCKED: {
     label: 'Blocked',
-    bgClass: 'bg-tertiary-fixed',
-    textClass: 'text-on-tertiary-fixed',
-    dotClass: 'bg-tertiary',
+    style: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' },
+    dot: '#D97706',
   },
 }
 
 export default function StatusBadge({ status }) {
-  const config = statusConfig[status] || statusConfig.NOT_RUN
-
+  const cfg = statusConfig[status] || statusConfig.NOT_RUN
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bgClass} ${config.textClass}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dotClass}`}></span>
-      {config.label}
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 9px', borderRadius: 20,
+      fontSize: 11, fontWeight: 600, lineHeight: 1,
+      whiteSpace: 'nowrap',
+      ...cfg.style,
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: cfg.dot, flexShrink: 0,
+      }} />
+      {cfg.label}
     </span>
   )
 }

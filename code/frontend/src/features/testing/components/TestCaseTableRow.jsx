@@ -1,14 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import StatusBadge from './StatusBadge'
-import useTestCaseStore from '../stores/useTestCaseStore'
 import { C, T } from '../utils/theme'
 
 export default function TestCaseTableRow({ testCase, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const menuRef = useRef(null)
-  const { openDrawer } = useTestCaseStore()
   const navigate = useNavigate()
   const { projectId = '1' } = useParams()
 
