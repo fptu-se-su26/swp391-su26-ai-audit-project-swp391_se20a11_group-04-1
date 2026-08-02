@@ -341,7 +341,7 @@ const GroupedUseCaseList = ({
                 {isLeader && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                      {group.moduleId !== 'unknown' && (
-                       <button title="Edit Module" onClick={() => setEditingModule(modules.find(m => m.id === group.moduleId))} className="p-1 flex items-center text-gray-400 hover:text-[#1E707D] rounded hover:bg-gray-100 transition-colors">
+                       <button title="Edit Module" onClick={() => setEditingModule(modules.find(m => String(m.id) === String(group.moduleId)))} className="p-1 flex items-center text-gray-400 hover:text-[#1E707D] rounded hover:bg-gray-100 transition-colors">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                        </button>
                      )}
@@ -349,10 +349,11 @@ const GroupedUseCaseList = ({
                        title="Delete Module"
                        onClick={() => {
                          if (group.moduleId === 'unknown') {
-                           // General Module: confirm deleting all unassigned UCs
                            setDeletingModule({ id: 'unknown', name: 'General Module', isGeneral: true });
                          } else {
-                           setDeletingModule(modules.find(m => m.id === group.moduleId));
+                           const found = modules.find(m => String(m.id) === String(group.moduleId));
+                           if (!found) { toast.error('Module not found'); return; }
+                           setDeletingModule(found);
                          }
                          setDeleteMode('confirm');
                        }}
@@ -433,28 +434,32 @@ const GroupedUseCaseList = ({
         }}
       />
 
-      {/* Delete Module choice dialog — replaces the old single ConfirmModal */}
+      {/* Delete Module compact choice dialog */}
       {deletingModule && deleteMode === 'confirm' && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-red-600 text-[20px]">delete_forever</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Delete Module</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    {deletingModule.isGeneral
-                      ? 'What do you want to do with the unassigned Use Cases?'
-                      : `What do you want to do with Use Cases in "${deletingModule.name}"?`}
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
+              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-red-500 text-[18px]">delete</span>
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-800 text-sm leading-tight truncate">
+                  Delete "{deletingModule.name}"
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {deletingModule.isGeneral ? 'Choose what to do with unassigned Use Cases' : 'Choose what to do with its Use Cases'}
+                </p>
+              </div>
+              <button onClick={() => { setDeletingModule(null); setDeleteMode(null); }} className="text-gray-400 hover:text-gray-600 shrink-0">
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
             </div>
 
-            <div className="p-5 space-y-3">
-              {/* Option 1: Delete UCs too */}
+            {/* Options */}
+            <div className="px-4 pb-4 space-y-2">
+              {/* Delete UCs too */}
               <button
                 onClick={async () => {
                   setDeleteMode(null);
@@ -462,34 +467,28 @@ const GroupedUseCaseList = ({
                     if (deletingModule.isGeneral) {
                       const generalUCs = useCases.filter(uc => !uc.moduleId || uc.moduleName === 'General Module');
                       await Promise.all(generalUCs.map(uc => useCaseService.deleteUseCase(uc.id, activeProject.id)));
-                      toast.success(`Deleted ${generalUCs.length} Use Case(s) from General Module`);
+                      toast.success(`Deleted ${generalUCs.length} Use Case(s)`);
                     } else {
                       await businessModuleService.deleteModule(activeProject.id, deletingModule.id);
-                      toast.success('Module and its Use Cases deleted');
+                      toast.success('Module deleted');
                     }
                     businessModuleService.getModulesByProject(activeProject.id).then(mods => setModules(mods || []));
                     if (onRefresh) onRefresh();
                   } catch (err) {
                     console.error(err);
                     toast.error(err.response?.data?.message || 'Failed to delete');
-                  } finally {
-                    setDeletingModule(null);
-                  }
+                  } finally { setDeletingModule(null); }
                 }}
-                className="w-full flex items-start gap-3 p-3.5 rounded-xl border-2 border-red-200 bg-red-50 hover:border-red-400 hover:bg-red-100 transition-all text-left"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 hover:border-red-300 transition-all text-left"
               >
-                <span className="material-symbols-outlined text-red-500 text-[20px] mt-0.5 shrink-0">delete_sweep</span>
+                <span className="material-symbols-outlined text-red-500 text-[18px] shrink-0">delete_sweep</span>
                 <div>
-                  <p className="font-semibold text-red-700 text-sm">Delete all Use Cases</p>
-                  <p className="text-xs text-red-500 mt-0.5">
-                    {deletingModule.isGeneral
-                      ? 'Permanently delete all unassigned Use Cases. Cannot be undone.'
-                      : 'Delete module and all its Use Cases permanently. Cannot be undone.'}
-                  </p>
+                  <p className="text-sm font-semibold text-red-700 leading-none">Delete all Use Cases</p>
+                  <p className="text-[11px] text-red-400 mt-0.5">Cannot be undone</p>
                 </div>
               </button>
 
-              {/* Option 2: Keep UCs in General (only for real modules, not General itself) */}
+              {/* Keep in General (only for real modules) */}
               {!deletingModule.isGeneral && (
                 <button
                   onClick={async () => {
@@ -500,38 +499,31 @@ const GroupedUseCaseList = ({
                         useCaseService.updateUseCase(uc.id, {
                           ...uc,
                           requirementId: uc.requirement?.id || uc.requirementId || null,
-                          moduleId: null,
-                          moduleName: null,
+                          moduleId: null, moduleName: null,
                         }, activeProject.id)
                       ));
                       await businessModuleService.deleteModule(activeProject.id, deletingModule.id);
-                      toast.success('Module deleted. Use Cases moved to General Module.');
+                      toast.success('Module deleted, Use Cases kept in General');
                       businessModuleService.getModulesByProject(activeProject.id).then(mods => setModules(mods || []));
                       if (onRefresh) onRefresh();
                     } catch (err) {
                       console.error(err);
-                      toast.error(err.response?.data?.message || 'Failed to delete module');
-                    } finally {
-                      setDeletingModule(null);
-                    }
+                      toast.error(err.response?.data?.message || 'Failed');
+                    } finally { setDeletingModule(null); }
                   }}
-                  className="w-full flex items-start gap-3 p-3.5 rounded-xl border-2 border-gray-200 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 transition-all text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-all text-left"
                 >
-                  <span className="material-symbols-outlined text-gray-500 text-[20px] mt-0.5 shrink-0">move_down</span>
+                  <span className="material-symbols-outlined text-gray-500 text-[18px] shrink-0">move_down</span>
                   <div>
-                    <p className="font-semibold text-gray-700 text-sm">Keep Use Cases in General Module</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Move all Use Cases to General Module, then delete this module.
-                    </p>
+                    <p className="text-sm font-semibold text-gray-700 leading-none">Move to General Module</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Keep Use Cases, remove module</p>
                   </div>
                 </button>
               )}
-            </div>
 
-            <div className="px-5 pb-5 flex justify-end">
               <button
                 onClick={() => { setDeletingModule(null); setDeleteMode(null); }}
-                className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="w-full text-center py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
               >
                 Cancel
               </button>
