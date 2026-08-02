@@ -31,24 +31,27 @@ public class ActorReferenceMergeService {
             payload.setExistingActorsUsed(new ArrayList<>(canonicalExistingActors.values()));
         }
 
-        // 2. Process Proposed Actors (Merge by normalized name)
+        // 2. Process Proposed Actors (Merge by normalized name → stable canonical ref)
         if (payload.getProposedActors() != null) {
             for (DiscoveredActor proposed : payload.getProposedActors()) {
                 String normalizedName = normalizeActorName(proposed.getName());
                 if (normalizedName.isEmpty()) continue;
-                
+
+                // Use name-based hash as canonical ref so same actor across modules merges correctly
                 String shortHash = DigestUtils.md5DigestAsHex(normalizedName.getBytes()).substring(0, 8).toUpperCase();
                 String canonicalRef = "ACTOR-AI-" + shortHash;
-                
+
+                // Record ALL previous ref formats → canonical
+                // This handles ACTOR-NEW-001, ACTOR-AI-001, or any hash the AI used
                 if (proposed.getTemporaryId() != null) {
                     oldRefToCanonicalRef.put(proposed.getTemporaryId(), canonicalRef);
                 }
-                
+
                 if (!canonicalProposedActors.containsKey(canonicalRef)) {
                     proposed.setTemporaryId(canonicalRef);
                     canonicalProposedActors.put(canonicalRef, proposed);
                 } else {
-                    // Merge evidence requirements
+                    // Merge evidence requirements from duplicate actors across modules
                     DiscoveredActor canonical = canonicalProposedActors.get(canonicalRef);
                     if (proposed.getEvidenceRequirementIds() != null) {
                         Set<Long> mergedReqs = new HashSet<>();
@@ -63,11 +66,31 @@ public class ActorReferenceMergeService {
             payload.setProposedActors(new ArrayList<>(canonicalProposedActors.values()));
         }
 
+        // 2b. Build name lookup for canonical refs (used to update actorName on goals)
+        Map<String, String> canonicalRefToName = new HashMap<>();
+        if (payload.getExistingActorsUsed() != null) {
+            payload.getExistingActorsUsed().forEach(a -> {
+                if (a.getTemporaryId() != null && a.getName() != null)
+                    canonicalRefToName.put(a.getTemporaryId(), a.getName());
+            });
+        }
+        if (payload.getProposedActors() != null) {
+            payload.getProposedActors().forEach(a -> {
+                if (a.getTemporaryId() != null && a.getName() != null)
+                    canonicalRefToName.put(a.getTemporaryId(), a.getName());
+            });
+        }
+
         // 3. Remap all nested structures
         if (payload.getActorGoalMatrix() != null) {
             for (ActorGoal goal : payload.getActorGoalMatrix()) {
-                if (goal.getActorRef() != null && oldRefToCanonicalRef.containsKey(goal.getActorRef())) {
-                    goal.setActorRef(oldRefToCanonicalRef.get(goal.getActorRef()));
+                if (goal.getActorRef() != null) {
+                    String canonical = oldRefToCanonicalRef.getOrDefault(goal.getActorRef(), goal.getActorRef());
+                    goal.setActorRef(canonical);
+                    // Update actorName to match canonical ref
+                    if (canonicalRefToName.containsKey(canonical)) {
+                        goal.setActorName(canonicalRefToName.get(canonical));
+                    }
                 }
             }
         }
@@ -76,26 +99,26 @@ public class ActorReferenceMergeService {
             for (GeneratedUseCaseDraft uc : payload.getUseCases()) {
                 if (uc.getActors() != null) {
                     for (GeneratedUseCaseActorRef aRef : uc.getActors()) {
-                        if (aRef.getActorRef() != null && oldRefToCanonicalRef.containsKey(aRef.getActorRef())) {
-                            aRef.setActorRef(oldRefToCanonicalRef.get(aRef.getActorRef()));
+                        if (aRef.getActorRef() != null) {
+                            aRef.setActorRef(oldRefToCanonicalRef.getOrDefault(aRef.getActorRef(), aRef.getActorRef()));
                         }
                     }
                 }
-                
+
                 if (uc.getMainFlow() != null && uc.getMainFlow().getSteps() != null) {
                     for (StructuredMainFlow.MainStep step : uc.getMainFlow().getSteps()) {
-                        if (step.getActorRef() != null && oldRefToCanonicalRef.containsKey(step.getActorRef())) {
-                            step.setActorRef(oldRefToCanonicalRef.get(step.getActorRef()));
+                        if (step.getActorRef() != null) {
+                            step.setActorRef(oldRefToCanonicalRef.getOrDefault(step.getActorRef(), step.getActorRef()));
                         }
                     }
                 }
-                
+
                 if (uc.getAlternativeFlows() != null && uc.getAlternativeFlows().getFlows() != null) {
                     for (StructuredAlternativeFlow.AltFlow altFlow : uc.getAlternativeFlows().getFlows()) {
                         if (altFlow.getSteps() != null) {
                             for (StructuredAlternativeFlow.AltStep step : altFlow.getSteps()) {
-                                if (step.getActorRef() != null && oldRefToCanonicalRef.containsKey(step.getActorRef())) {
-                                    step.setActorRef(oldRefToCanonicalRef.get(step.getActorRef()));
+                                if (step.getActorRef() != null) {
+                                    step.setActorRef(oldRefToCanonicalRef.getOrDefault(step.getActorRef(), step.getActorRef()));
                                 }
                             }
                         }
