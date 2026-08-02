@@ -1272,19 +1272,48 @@ public class AiGenerationService {
             uc.setBusinessModule(moduleEntity);
 
             // Main flow: store as JSON string
-            if (ucNode.has("mainFlow") && ucNode.get("mainFlow").isObject()) {
-                try { uc.setMainFlow(objectMapper.writeValueAsString(ucNode.get("mainFlow"))); } catch (Exception e) { uc.setMainFlow("{}"); }
-            } else if (ucNode.has("mainSuccessScenario")) {
-                java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
-                flowMap.put("steps", java.util.List.of(ucNode.get("mainSuccessScenario").asText()));
-                try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
+            if (ucNode.has("mainFlow") && !ucNode.get("mainFlow").isNull()) {
+                JsonNode mainFlowNode = ucNode.get("mainFlow");
+                if (mainFlowNode.isObject() || mainFlowNode.isArray()) {
+                    try { uc.setMainFlow(objectMapper.writeValueAsString(mainFlowNode)); } catch (Exception e) { uc.setMainFlow("{}"); }
+                } else if (mainFlowNode.isTextual()) {
+                    // User edited the text — wrap as legacy steps
+                    java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
+                    flowMap.put("steps", java.util.List.of(mainFlowNode.asText()));
+                    try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
+                } else {
+                    uc.setMainFlow("{}");
+                }
+            } else if (ucNode.has("mainSuccessScenario") && !ucNode.get("mainSuccessScenario").isNull()) {
+                String scenarioText = ucNode.get("mainSuccessScenario").asText();
+                if (!scenarioText.isBlank()) {
+                    java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
+                    flowMap.put("steps", java.util.List.of(scenarioText));
+                    try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
+                } else {
+                    uc.setMainFlow("{}");
+                }
             } else {
                 uc.setMainFlow("{}");
             }
 
             // Alternative flows
-            if (ucNode.has("alternativeFlows") && ucNode.get("alternativeFlows").isObject()) {
-                try { uc.setAlternativeFlow(objectMapper.writeValueAsString(ucNode.get("alternativeFlows"))); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+            if (ucNode.has("alternativeFlows") && !ucNode.get("alternativeFlows").isNull()) {
+                JsonNode altFlowNode = ucNode.get("alternativeFlows");
+                if (altFlowNode.isObject() || altFlowNode.isArray()) {
+                    try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altFlowNode)); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+                } else if (altFlowNode.isTextual()) {
+                    String altText = altFlowNode.asText();
+                    if (!altText.isBlank()) {
+                        java.util.Map<String, Object> altMap = new java.util.HashMap<>();
+                        altMap.put("flows", java.util.List.of(java.util.Map.of("id", "AF-1", "condition", altText, "steps", java.util.List.of())));
+                        try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+                    } else {
+                        uc.setAlternativeFlow("{}");
+                    }
+                } else {
+                    uc.setAlternativeFlow("{}");
+                }
             } else {
                 uc.setAlternativeFlow("{}");
             }

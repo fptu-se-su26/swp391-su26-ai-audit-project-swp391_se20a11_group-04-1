@@ -138,6 +138,12 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
             
             const allActorsInfo = [...(payloadData?.proposedActors || []), ...(payloadData?.existingActorsUsed || [])];
             
+            // Build ref -> name map for flow display
+            const refToName = {};
+            allActorsInfo.forEach(a => {
+              if (a.temporaryId && a.name) refToName[a.temporaryId] = a.name;
+            });
+            
             ucList = ucList.map(uc => {
               let primaryActorsStr = uc?.primaryActors || '';
               if (!primaryActorsStr && uc?.actors && uc.actors.length > 0) {
@@ -154,8 +160,12 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
               return {
                 ...(uc || {}),
                 isDuplicate: uc?.name ? existingNames.has(uc.name.trim().toLowerCase()) : false,
-                mainSuccessScenario: normalizeFlowToText(uc?.mainSuccessScenario || uc?.mainFlow || uc?.mainFlows),
-                alternativeFlows: normalizeFlowToText(uc?.alternativeFlows || uc?.alternativeFlow),
+                // Keep original structured objects for approve round-trip
+                _mainFlowRaw: uc?.mainFlow || uc?.mainFlows || null,
+                _alternativeFlowsRaw: uc?.alternativeFlows || uc?.alternativeFlow || null,
+                // Normalized text for display in textarea
+                mainSuccessScenario: normalizeFlowToText(uc?.mainSuccessScenario || uc?.mainFlow || uc?.mainFlows, refToName),
+                alternativeFlows: normalizeFlowToText(uc?.alternativeFlows || uc?.alternativeFlow, refToName),
                 primaryActors: primaryActorsStr
               };
             });
@@ -444,7 +454,28 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
     try {
       let requestPayload = {};
       if (fullPayload && fullPayload.schemaVersion === "3.0") {
-         const updatedPayload = { ...fullPayload, useCases };
+         // Restore structured mainFlow/alternativeFlows from raw before sending to backend
+         const restoredUseCases = useCases.map(uc => {
+           if (!uc) return uc;
+           const restored = { ...uc };
+           // Restore original structured mainFlow if available
+           if (uc._mainFlowRaw && typeof uc._mainFlowRaw === 'object') {
+             restored.mainFlow = uc._mainFlowRaw;
+           } else if (uc.mainSuccessScenario && !uc.mainFlow) {
+             // User edited text — keep as string fallback, backend handles it
+             restored.mainSuccessScenario = uc.mainSuccessScenario;
+           }
+           // Restore original alternativeFlows if available
+           if (uc._alternativeFlowsRaw && typeof uc._alternativeFlowsRaw === 'object') {
+             restored.alternativeFlows = uc._alternativeFlowsRaw;
+           }
+           // Remove internal tracking fields
+           delete restored._mainFlowRaw;
+           delete restored._alternativeFlowsRaw;
+           return restored;
+         });
+
+         const updatedPayload = { ...fullPayload, useCases: restoredUseCases };
          updatedPayload.modules = moduleDefs.map(md => ({
             temporaryId: md.moduleRef || md.moduleName,
             name: md.moduleName,
