@@ -21,7 +21,7 @@ jobs:
           port: 22
           script_stop: true
           timeout: 10m
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             echo "=========================================="
             echo "   BẮT ĐẦU TRIỂN KHAI CODE MỚI TRÊN VPS   "
@@ -207,7 +207,7 @@ jobs:
               echo "   Detected ${LAG_UNKNOWN} partitions with uninitialized offset, resetting to latest..."
               # Scale down để group inactive, reset offset, scale lại
               kubectl scale deployment playwright-worker -n devtrack --replicas=0
-              sleep 70
+              sleep 10
               docker compose -f docker-compose.dev.yml exec -T kafka \
                 /opt/kafka/bin/kafka-consumer-groups.sh \
                 --bootstrap-server localhost:9092 \
