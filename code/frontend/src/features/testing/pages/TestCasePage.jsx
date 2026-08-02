@@ -211,23 +211,58 @@ export default function TestCasePage() {
      RENDER
   ════════════════════════════════════════════ */
   return (
+    /*
+     * HEIGHT STRATEGY
+     * MainLayout <main> has padding: 28px top + 32px bottom = 60px total vertical padding.
+     * That <main> only has minHeight:100vh, NOT a fixed height, so height:'100%' on this
+     * component resolves to 'auto' and the page grows with content.
+     *
+     * Fix: give this root a definite height equal to the available viewport after
+     * subtracting MainLayout's vertical padding.  Use 100dvh so it tracks the visible
+     * viewport on mobile browsers too.  overflow:hidden stops the document from growing.
+     */
     <div style={{
-      display: 'flex', height: '100%', overflow: 'hidden',
-      background: '#F8FAFC', fontFamily: T.font,
+      display: 'flex',
+      height: 'calc(100dvh - 60px)',
+      maxHeight: 'calc(100dvh - 60px)',
+      minHeight: 0,
+      overflow: 'hidden',
+      background: '#F8FAFC',
+      fontFamily: T.font,
     }}>
 
       {/* ── Left Explorer ── */}
+      {/*
+       * minHeight:0 is required so this flex child can shrink below its content size.
+       * Without it the child refuses to shrink and forces the parent to grow.
+       */}
       <div style={{
-        width: 320, flexShrink: 0, height: '100%', overflow: 'hidden',
+        width: 320,
+        flexShrink: 0,
+        height: '100%',
+        minHeight: 0,
+        overflow: 'hidden',
         borderRight: `1px solid ${C.border}`,
       }}>
         <RequirementExplorer />
       </div>
 
       {/* ── Main content ── */}
+      {/*
+       * minHeight:0 + height:100% gives this flex child a definite height so it can
+       * scroll internally.  overflowX:hidden prevents horizontal blowout.
+       */}
       <div style={{
-        flex: 1, display: 'flex', flexDirection: 'column',
-        overflowY: 'auto', minWidth: 0, padding: '24px 28px',
+        flex: 1,
+        height: '100%',
+        minHeight: 0,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        overscrollBehavior: 'contain',
+        padding: '24px 28px',
         gap: 16,
       }}>
 
