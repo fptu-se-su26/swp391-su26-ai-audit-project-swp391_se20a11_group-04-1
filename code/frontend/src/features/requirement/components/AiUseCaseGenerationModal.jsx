@@ -137,7 +137,6 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
             const existingNames = new Set((existingUcs || []).map(u => u.name.trim().toLowerCase()));
             
             const allActorsInfo = [...(payloadData?.proposedActors || []), ...(payloadData?.existingActorsUsed || [])];
-            
             // Build ref -> name map for flow display
             const refToName = {};
             allActorsInfo.forEach(a => {
