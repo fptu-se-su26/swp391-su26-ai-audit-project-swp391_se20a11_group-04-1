@@ -1,5 +1,24 @@
 import React from 'react';
 
+/**
+ * Normalize a single step to displayable string.
+ * Handles both:
+ *   - Plain string: "1. [Actor] action"
+ *   - StructuredMainFlow.MainStep: {step, actorRef, actorAction, systemResponse}
+ */
+const stepToText = (step) => {
+  if (!step) return '';
+  if (typeof step === 'string') return step;
+  if (typeof step === 'object') {
+    const stepNum = step.step ? `${step.step}. ` : '';
+    const actor = step.actorRef ? `[${step.actorRef}] ` : '';
+    const action = step.actorAction || step.action || '';
+    const sysResp = step.systemResponse ? `\n   → System: ${step.systemResponse}` : '';
+    return `${stepNum}${actor}${action}${sysResp}`;
+  }
+  return String(step);
+};
+
 const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
   const steps = Array.isArray(mainFlow?.steps) ? mainFlow.steps : [];
 
@@ -45,7 +64,7 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
                   <div className="flex-1 flex gap-2 items-start mt-[-4px]">
                     <input
                       type="text"
-                      value={step}
+                      value={typeof step === 'string' ? step : stepToText(step)}
                       onChange={(e) => handleStepChange(index, e.target.value)}
                       placeholder={`Step ${index + 1} description...`}
                       className="flex-1 px-3 py-1.5 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-md transition-all"
@@ -60,7 +79,7 @@ const UseCaseMainFlow = ({ mainFlow, isEditing, onFlowChange }) => {
                     </button>
                   </div>
                 ) : (
-                  <div className="whitespace-pre-wrap">{step}</div>
+                  <div className="whitespace-pre-wrap">{stepToText(step)}</div>
                 )}
               </div>
             ))}

@@ -1325,8 +1325,23 @@ public class AiGenerationService {
             UseCase uc = new UseCase();
             uc.setProjectId(project.getId());
             uc.setName(ucNode.has("name") ? ucNode.get("name").asText() : "AI Use Case");
-            uc.setPrecondition(ucNode.has("precondition") ? ucNode.get("precondition").asText() : "");
-            uc.setPostcondition(ucNode.has("postcondition") ? ucNode.get("postcondition").asText() : "");
+
+            // precondition — use AI value or generate reasonable default
+            String precondition = ucNode.has("precondition") ? ucNode.get("precondition").asText("").trim() : "";
+            if (precondition.isEmpty()) {
+                precondition = "The user is authenticated and has the necessary permissions to perform this action.";
+            }
+            uc.setPrecondition(precondition);
+
+            // postcondition — use AI value or generate reasonable default
+            String postcondition = ucNode.has("postcondition") ? ucNode.get("postcondition").asText("").trim() : "";
+            if (postcondition.isEmpty()) {
+                String ucName = ucNode.has("name") ? ucNode.get("name").asText("") : "";
+                postcondition = ucName.isBlank()
+                    ? "The requested operation has been completed successfully."
+                    : "The '" + ucName + "' operation has been completed and the system state has been updated accordingly.";
+            }
+            uc.setPostcondition(postcondition);
             uc.setStatus(org.example.backend.entity.UseCaseStatus.DRAFT);
             uc.setProjectSubId(nextSubId);
             uc.setCode(org.example.backend.constant.UseCaseConstants.CODE_PREFIX + project.getId() + org.example.backend.constant.UseCaseConstants.CODE_INFIX + nextSubId);
@@ -1336,24 +1351,17 @@ public class AiGenerationService {
             uc.setSourceGenerationId(staging.getGenerationId());
             uc.setBusinessModule(moduleEntity);
 
-            // Main flow: store as JSON string
+            // Main flow: convert StructuredMainFlow to storage-friendly { steps: string[] }
             if (ucNode.has("mainFlow") && !ucNode.get("mainFlow").isNull()) {
                 JsonNode mainFlowNode = ucNode.get("mainFlow");
-                if (mainFlowNode.isObject() || mainFlowNode.isArray()) {
-                    try { uc.setMainFlow(objectMapper.writeValueAsString(mainFlowNode)); } catch (Exception e) { uc.setMainFlow("{}"); }
-                } else if (mainFlowNode.isTextual()) {
-                    // User edited the text — wrap as legacy steps
-                    java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
-                    flowMap.put("steps", java.util.List.of(mainFlowNode.asText()));
-                    try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
-                } else {
-                    uc.setMainFlow("{}");
-                }
+                try {
+                    uc.setMainFlow(objectMapper.writeValueAsString(normalizeMainFlowForStorage(mainFlowNode)));
+                } catch (Exception e) { uc.setMainFlow("{}"); }
             } else if (ucNode.has("mainSuccessScenario") && !ucNode.get("mainSuccessScenario").isNull()) {
                 String scenarioText = ucNode.get("mainSuccessScenario").asText();
                 if (!scenarioText.isBlank()) {
                     java.util.Map<String, Object> flowMap = new java.util.HashMap<>();
-                    flowMap.put("steps", java.util.List.of(scenarioText));
+                    flowMap.put("steps", splitTextToStepList(scenarioText));
                     try { uc.setMainFlow(objectMapper.writeValueAsString(flowMap)); } catch (Exception e) { uc.setMainFlow("{}"); }
                 } else {
                     uc.setMainFlow("{}");
@@ -1362,23 +1370,17 @@ public class AiGenerationService {
                 uc.setMainFlow("{}");
             }
 
-            // Alternative flows
+            // Alternative flows: convert StructuredAlternativeFlow to storage-friendly { flows: [{condition, branchFromStep, steps: string[]}] }
             if (ucNode.has("alternativeFlows") && !ucNode.get("alternativeFlows").isNull()) {
                 JsonNode altFlowNode = ucNode.get("alternativeFlows");
-                if (altFlowNode.isObject() || altFlowNode.isArray()) {
-                    try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altFlowNode)); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
-                } else if (altFlowNode.isTextual()) {
-                    String altText = altFlowNode.asText();
-                    if (!altText.isBlank()) {
-                        java.util.Map<String, Object> altMap = new java.util.HashMap<>();
-                        altMap.put("flows", java.util.List.of(java.util.Map.of("id", "AF-1", "condition", altText, "steps", java.util.List.of())));
-                        try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
-                    } else {
-                        uc.setAlternativeFlow("{}");
-                    }
-                } else {
-                    uc.setAlternativeFlow("{}");
-                }
+                try {
+                    uc.setAlternativeFlow(objectMapper.writeValueAsString(normalizeAltFlowForStorage(altFlowNode)));
+                } catch (Exception e) { uc.setAlternativeFlow("{}"); }
+            } else if (ucNode.has("alternativeFlowsText") && !ucNode.get("alternativeFlowsText").asText().isBlank()) {
+                String altText = ucNode.get("alternativeFlowsText").asText();
+                java.util.Map<String, Object> altMap = new java.util.HashMap<>();
+                altMap.put("flows", java.util.List.of(java.util.Map.of("condition", altText, "branchFromStep", 1, "steps", java.util.List.of())));
+                try { uc.setAlternativeFlow(objectMapper.writeValueAsString(altMap)); } catch (Exception e) { uc.setAlternativeFlow("{}"); }
             } else {
                 uc.setAlternativeFlow("{}");
             }
@@ -1532,6 +1534,124 @@ public class AiGenerationService {
             }
         }
         return actorRefToEntity;
+    }
+
+    /**
+     * Convert StructuredMainFlow { steps: [{step, actorRef, actorAction, systemResponse}] }
+     * into storage-friendly { steps: string[] } that UseCaseMainFlow.jsx can render.
+     * Also handles legacy { steps: string[] } — passes through unchanged.
+     */
+    private java.util.Map<String, Object> normalizeMainFlowForStorage(JsonNode mainFlowNode) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        if (mainFlowNode == null || mainFlowNode.isNull()) {
+            result.put("steps", java.util.List.of());
+            return result;
+        }
+        // Textual: wrap as single step
+        if (mainFlowNode.isTextual()) {
+            result.put("steps", splitTextToStepList(mainFlowNode.asText()));
+            return result;
+        }
+        // Object with steps array
+        JsonNode stepsNode = mainFlowNode.has("steps") ? mainFlowNode.get("steps") : mainFlowNode;
+        if (stepsNode != null && stepsNode.isArray()) {
+            java.util.List<String> steps = new java.util.ArrayList<>();
+            for (JsonNode stepNode : stepsNode) {
+                if (stepNode.isTextual()) {
+                    steps.add(stepNode.asText());
+                } else if (stepNode.isObject()) {
+                    // StructuredMainFlow.MainStep: {step, actorRef, actorAction, systemResponse}
+                    int stepNum = stepNode.has("step") ? stepNode.get("step").asInt() : (steps.size() + 1);
+                    String actorRef = stepNode.has("actorRef") ? stepNode.get("actorRef").asText("") : "";
+                    String actorAction = stepNode.has("actorAction") ? stepNode.get("actorAction").asText("") : "";
+                    String systemResponse = stepNode.has("systemResponse") ? stepNode.get("systemResponse").asText("") : "";
+                    // Format: "N. [ActorRef] actorAction"  + "   → System: systemResponse"
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(stepNum).append(". ");
+                    if (!actorRef.isBlank()) sb.append("[").append(actorRef).append("] ");
+                    sb.append(actorAction);
+                    steps.add(sb.toString());
+                    if (!systemResponse.isBlank()) {
+                        steps.add("   → System: " + systemResponse);
+                    }
+                }
+            }
+            result.put("steps", steps);
+        } else {
+            result.put("steps", java.util.List.of());
+        }
+        return result;
+    }
+
+    /**
+     * Convert StructuredAlternativeFlow { flows: [{id, triggerStep, condition, steps: [{step, actorRef, action}]}] }
+     * into storage-friendly { flows: [{condition, branchFromStep, steps: string[]}] }
+     * that UseCaseAlternativeFlows.jsx can render.
+     */
+    private java.util.Map<String, Object> normalizeAltFlowForStorage(JsonNode altFlowNode) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        if (altFlowNode == null || altFlowNode.isNull()) {
+            result.put("flows", java.util.List.of());
+            return result;
+        }
+        if (altFlowNode.isTextual()) {
+            String text = altFlowNode.asText();
+            result.put("flows", text.isBlank() ? java.util.List.of() :
+                java.util.List.of(java.util.Map.of("condition", text, "branchFromStep", 1, "steps", java.util.List.of())));
+            return result;
+        }
+        JsonNode flowsNode = altFlowNode.has("flows") ? altFlowNode.get("flows") : altFlowNode;
+        if (flowsNode != null && flowsNode.isArray()) {
+            java.util.List<java.util.Map<String, Object>> flows = new java.util.ArrayList<>();
+            for (JsonNode flowNode : flowsNode) {
+                java.util.Map<String, Object> flowMap = new java.util.LinkedHashMap<>();
+                // Condition
+                String condition = flowNode.has("condition") ? flowNode.get("condition").asText("") : "";
+                if (condition.isBlank() && flowNode.has("id")) condition = flowNode.get("id").asText("");
+                flowMap.put("condition", condition);
+                // Branch step — use triggerStep or branchFromStep
+                int branchStep = 1;
+                if (flowNode.has("triggerStep")) branchStep = flowNode.get("triggerStep").asInt(1);
+                else if (flowNode.has("branchFromStep")) branchStep = flowNode.get("branchFromStep").asInt(1);
+                flowMap.put("branchFromStep", branchStep);
+                // Steps
+                java.util.List<String> steps = new java.util.ArrayList<>();
+                JsonNode stepsNode = flowNode.has("steps") ? flowNode.get("steps") : null;
+                if (stepsNode != null && stepsNode.isArray()) {
+                    for (JsonNode s : stepsNode) {
+                        if (s.isTextual()) {
+                            steps.add(s.asText());
+                        } else if (s.isObject()) {
+                            // AltStep: {step, actorRef, action}
+                            String actorRef = s.has("actorRef") ? s.get("actorRef").asText("") : "";
+                            String action = s.has("action") ? s.get("action").asText("") :
+                                            (s.has("actorAction") ? s.get("actorAction").asText("") : "");
+                            StringBuilder sb = new StringBuilder();
+                            if (!actorRef.isBlank()) sb.append("[").append(actorRef).append("] ");
+                            sb.append(action);
+                            steps.add(sb.toString());
+                        }
+                    }
+                }
+                flowMap.put("steps", steps);
+                flows.add(flowMap);
+            }
+            result.put("flows", flows);
+        } else {
+            result.put("flows", java.util.List.of());
+        }
+        return result;
+    }
+
+    /** Split multiline text into a list of non-blank lines */
+    private java.util.List<String> splitTextToStepList(String text) {
+        if (text == null || text.isBlank()) return java.util.List.of();
+        java.util.List<String> steps = new java.util.ArrayList<>();
+        for (String line : text.split("\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.isBlank()) steps.add(trimmed);
+        }
+        return steps.isEmpty() ? java.util.List.of(text.trim()) : steps;
     }
 
     private void approveModulePlanOnly(AiGenerationStaging staging, JsonNode modifiedPayload, Project project, UserAccount approver) {

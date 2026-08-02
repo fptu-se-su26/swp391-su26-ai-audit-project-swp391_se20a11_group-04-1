@@ -40,6 +40,18 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
     return text.replace(/\*\*/g, '').replace(/^\s*\*\s*/, '').trim();
   };
 
+  // Normalize a step to displayable string (handles both string and structured object)
+  const stepToText = (step) => {
+    if (!step) return '';
+    if (typeof step === 'string') return stripMarkdown(step);
+    if (typeof step === 'object') {
+      const actor = step.actorRef ? `[${step.actorRef}] ` : '';
+      const action = step.action || step.actorAction || '';
+      return stripMarkdown(`${actor}${action}`);
+    }
+    return String(step);
+  };
+
   const flowLabels = useMemo(
     () => computeFlowLabels(flows, totalMainSteps),
     [flows, totalMainSteps]
@@ -150,7 +162,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                         <span className="text-on-surface-variant text-sm mt-1 shrink-0">•</span>
                         <input
                           type="text"
-                          value={stripMarkdown(step)}
+                          value={stepToText(step)}
                           onChange={(e) => handleStepChange(index, stepIndex, e.target.value)}
                           placeholder="Step description"
                           className="flex-1 px-3 py-1 border border-outline-variant rounded-lg bg-surface-container-lowest focus:border-[#1E707D] focus:ring-1 focus:ring-[#1E707D] outline-none text-body-sm transition-all"
@@ -180,7 +192,7 @@ const UseCaseAlternativeFlows = ({ alternativeFlow, mainFlow, isEditing, onFlowC
                   </h3>
                   <div className="space-y-1 font-body-md text-body-md text-on-surface ml-2">
                     {(Array.isArray(flow.steps) ? flow.steps : []).map((step, idx) => (
-                      <div key={idx} className="whitespace-pre-wrap">{stripMarkdown(step)}</div>
+                      <div key={idx} className="whitespace-pre-wrap">{stepToText(step)}</div>
                     ))}
                   </div>
                 </>
