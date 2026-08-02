@@ -169,8 +169,10 @@ public class UseCaseGenerationValidator {
             throw new IllegalArgumentException("Modified payload cannot be null");
         }
         
-        String schemaVersion = request.getModifiedPayload().has("schemaVersion") ? 
-                request.getModifiedPayload().get("schemaVersion").asText() : "2.0";
+        // getModifiedPayload() returns Map<String, Object> — use Map API
+        java.util.Map<String, Object> payloadMap = request.getModifiedPayload();
+        Object svObj = payloadMap.get("schemaVersion");
+        String schemaVersion = (svObj != null) ? svObj.toString() : "2.0";
                 
         if ("3.0".equals(schemaVersion)) {
             if (request.getSelectedModuleRefs() == null || request.getSelectedUseCaseIds() == null) {

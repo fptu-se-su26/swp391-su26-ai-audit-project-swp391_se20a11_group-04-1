@@ -1138,7 +1138,7 @@ public class AiGenerationService {
                 .orElseThrow(() -> new BusinessException("User not found: " + userId));
 
         // 4. Validate request (schema version, limits)
-        JsonNode modifiedPayload = request.getModifiedPayload();
+        JsonNode modifiedPayload = objectMapper.valueToTree(request.getModifiedPayload());
         String schemaVersion = modifiedPayload.has("schemaVersion") ? modifiedPayload.get("schemaVersion").asText() : "2.0";
         useCaseGenerationValidator.validateApproveRequest(request, null);
 
@@ -1157,7 +1157,7 @@ public class AiGenerationService {
     }
 
     private void approveUseCaseGenerationV3(AiGenerationStaging staging, org.example.backend.dto.ai.ApproveUseCaseGenerationRequest request, Project project, UserAccount user, Long userId) {
-        JsonNode modifiedPayload = request.getModifiedPayload();
+        JsonNode modifiedPayload = objectMapper.valueToTree(request.getModifiedPayload());
         List<String> selectedModuleRefs = request.getSelectedModuleRefs();
         List<String> selectedUseCaseIds = request.getSelectedUseCaseIds();
 
