@@ -25,6 +25,10 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectId(Long projectId);
     List<Task> findByBusinessModuleId(Long businessModuleId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE tasks SET use_case_id = NULL WHERE use_case_id IN :ucIds", nativeQuery = true)
+    void unlinkUseCaseIds(@Param("ucIds") java.util.List<Long> ucIds);
+
     long countByProjectId(Long projectId);
 
     List<Task> findByParentId(Long parentId);
