@@ -148,6 +148,11 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
         // 2. Delete all Use Cases in this module (cascade delete, not just unlink)
         List<org.example.backend.entity.UseCase> useCases = useCaseRepository.findByBusinessModuleId(id);
         if (!useCases.isEmpty()) {
+            // Clear ManyToMany join table requirement_use_cases before deleting UCs
+            for (org.example.backend.entity.UseCase uc : useCases) {
+                uc.getRequirements().clear();
+                useCaseRepository.save(uc);
+            }
             useCaseRepository.deleteAll(useCases);
         }
 
