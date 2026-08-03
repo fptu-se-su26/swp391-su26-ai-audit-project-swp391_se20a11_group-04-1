@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Wand2, CheckCircle2, XCircle, AlertCircle, PlayCircle } from 'lucide-react';
 import taskService from '../services/taskService';
 import RecoveryEvidenceModal from '@features/sla/components/RecoveryEvidenceModal';
-import { AiRecoverySummary } from '@features/sla/components/AiRecoverySummary';
 import { toast } from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -50,8 +49,6 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
   const [riskLevel, setRiskLevel] = useState(null);
   const [plan, setPlan] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [showRejectInput, setShowRejectInput] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
 
   useEffect(() => {
@@ -109,25 +106,6 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
       toast.success('Recovery plan approved');
     } catch (error) {
       toast.error(extractErrorMessage(error, 'Failed to approve plan'));
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!rejectReason.trim()) {
-      toast.error('Reject reason is required');
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const updatedPlan = await taskService.rejectRecoveryPlan(projectId, plan.id, rejectReason);
-      setPlan(updatedPlan);
-      setShowRejectInput(false);
-      setRejectReason('');
-      toast.success('Recovery plan rejected');
-    } catch (error) {
-      toast.error(extractErrorMessage(error, 'Failed to reject plan'));
     } finally {
       setActionLoading(false);
     }
@@ -196,11 +174,6 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-800 line-clamp-1">{action.actionType.replace(/_/g, ' ')}</p>
                 <p className="text-gray-500 whitespace-pre-wrap break-words">{action.resultMessage || action.message}</p>
-                {payload.rationale && (
-                  <p className="mt-1 text-[11px] text-gray-500">
-                    Reason: <span className="font-medium text-gray-700">{payload.rationale}</span>
-                  </p>
-                )}
                 {Array.isArray(payload.checklistItems) && payload.checklistItems.length > 0 && (
                   <ul className="mt-1 list-disc pl-4 text-[11px] text-gray-500 space-y-0.5">
                     {payload.checklistItems.slice(0, 3).map((item, index) => (
@@ -210,8 +183,17 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
                 )}
                 {payload.recommendedAssigneeName && (
                   <p className="mt-1 text-[11px] text-[#1E707D] font-semibold">
-                    Suggested owner: {payload.recommendedAssigneeName}
+                    Nên giao: {payload.recommendedAssigneeName}
+                    {payload.recommendedReason ? ` - ${payload.recommendedReason}` : ''}
                   </p>
+                )}
+                {Array.isArray(payload.notRecommendedAssignees) && payload.notRecommendedAssignees.length > 0 && (
+                  <div className="mt-1 text-[11px] text-amber-700">
+                    <p className="font-semibold">Không nên giao:</p>
+                    {payload.notRecommendedAssignees.slice(0, 2).map((item, index) => (
+                      <p key={`${action.id}-avoid-${index}`}>{item}</p>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -343,10 +325,9 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
           {plan.status === 'PENDING_APPROVAL' && (
             <>
               <div className="mb-2">
-                <AiRecoverySummary 
-                  planDetailsJson={plan.planDetailsJson} 
-                  fallbackSummary={plan.summary} 
-                />
+                <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-100 shadow-sm">
+                  {plan.summary || 'Review this recovery plan before approval.'}
+                </p>
               </div>
               {renderEvidence()}
               <div className="flex justify-between items-center text-xs font-medium text-gray-500 mb-1">
@@ -356,51 +337,13 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
               
               {isLeader && (
                 <div className="mt-3 flex flex-col gap-2">
-                  {!showRejectInput ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleApprove}
-                        disabled={actionLoading}
-                        className="flex-1 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => setShowRejectInput(true)}
-                        disabled={actionLoading}
-                        className="flex-1 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded transition-colors disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <input
-                        type="text"
-                        placeholder="Reason for rejection..."
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        className="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-red-500"
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleReject}
-                          disabled={actionLoading || !rejectReason.trim()}
-                          className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
-                        >
-                          Confirm Reject
-                        </button>
-                        <button
-                          onClick={() => setShowRejectInput(false)}
-                          disabled={actionLoading}
-                          className="py-1.5 px-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded transition-colors disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <button
+                    onClick={handleApprove}
+                    disabled={actionLoading}
+                    className="w-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
+                  >
+                    Approve
+                  </button>
                 </div>
               )}
             </>
@@ -448,26 +391,6 @@ export default function RecoveryPlanPanel({ projectId, taskId, isLeader, compact
               )}
             </>
           )}
-
-          {plan.status === 'REJECTED' && (
-            <>
-              <div className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 mb-2 shadow-sm">
-                <span className="font-semibold">Reason:</span>
-                <p className="text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{plan.rejectReason}</p>
-              </div>
-              {isLeader && (
-                <button
-                  onClick={handleGenerate}
-                  disabled={actionLoading}
-                  className="mt-2 flex items-center justify-center gap-1 w-full py-1.5 px-3 bg-[#1E707D] hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors disabled:opacity-50"
-                >
-                  <Wand2 className="w-4 h-4" />
-                  Generate New Plan
-                </button>
-              )}
-            </>
-          )}
-
           {renderAuditLogs()}
           <RecoveryEvidenceModal plan={evidenceOpen ? plan : null} onClose={() => setEvidenceOpen(false)} />
         </div>

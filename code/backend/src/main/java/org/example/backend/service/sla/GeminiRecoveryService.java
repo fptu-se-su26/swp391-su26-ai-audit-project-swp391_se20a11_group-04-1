@@ -4,8 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.example.backend.config.GeminiProperties;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -15,46 +16,63 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Deprecated(forRemoval = false)
 public class GeminiRecoveryService {
 
-    @Value("${gemini.api.key:}")
-    private String apiKey;
-
-    @Value("${gemini.api.url:}")
-    private String endpoint;
+    private static final String DEFAULT_GENERATE_CONTENT_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final GeminiProperties geminiProperties;
 
     public GeminiRecoveryResult generateContent(GeminiRecoveryContext context) {
-        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
+        String targetUrl = normalizeTargetUrl(geminiProperties.getUrl());
+        List<String> keys = geminiProperties.getKeys();
+
+        if (keys == null || keys.isEmpty() || targetUrl == null || targetUrl.isBlank()) {
+            log.warn("Gemini API keys or URL not configured.");
             return null;
         }
 
-        try {
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(Map.of(
-                            "parts", List.of(Map.of("text", buildPrompt(context)))
-                    ))
-            );
+        String prompt = buildPrompt(context);
 
-            String separator = endpoint.contains("?") ? "&" : "?";
-            Map<?, ?> response = restTemplate.postForObject(
-                    endpoint + separator + "key=" + apiKey,
-                    requestBody,
-                    Map.class
-            );
-
-            String rawText = extractText(response);
-            if (rawText == null || rawText.isBlank()) {
-                return null;
+        for (String apiKey : keys) {
+            if (apiKey == null || apiKey.isBlank() || "disabled".equalsIgnoreCase(apiKey.trim()) || "replace_me".equalsIgnoreCase(apiKey.trim())) {
+                continue;
             }
-            return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
-        } catch (Exception ex) {
-            log.warn("Gemini recovery content generation failed, using fallback text: {}", ex.getMessage());
-            return null;
+
+            try {
+                Map<String, Object> requestBody = Map.of(
+                        "contents", List.of(Map.of(
+                                "parts", List.of(Map.of("text", prompt))
+                        ))
+                );
+
+                String separator = targetUrl.contains("?") ? "&" : "?";
+                String requestUrl = targetUrl + separator + "key=" + apiKey.trim();
+
+                Map<?, ?> response = restTemplate.postForObject(
+                        requestUrl,
+                        requestBody,
+                        Map.class
+                );
+
+                String rawText = extractText(response);
+                if (rawText != null && !rawText.isBlank()) {
+                    return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
+                }
+            } catch (HttpStatusCodeException httpEx) {
+                log.warn("Gemini recovery generation failed with key ending in {} [HTTP {}]: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)),
+                        httpEx.getStatusCode(), httpEx.getResponseBodyAsString());
+            } catch (Exception ex) {
+                log.warn("Gemini recovery generation attempt failed with key ending in {}: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)), ex.getMessage());
+            }
         }
+
+        log.warn("All Gemini API keys failed for recovery content generation.");
+        return null;
     }
 
     /**
@@ -66,29 +84,57 @@ public class GeminiRecoveryService {
             GeminiRecoveryContext context,
             List<Map<String, Object>> similarPlans) {
 
-        if (apiKey == null || apiKey.isBlank() || endpoint == null || endpoint.isBlank()) {
-            return null;
-        }
-        try {
-            String prompt = buildPrompt(context) + buildRagSection(similarPlans);
-            Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(Map.of(
-                            "parts", List.of(Map.of("text", prompt))
-                    ))
-            );
-            String separator = endpoint.contains("?") ? "&" : "?";
-            Map<?, ?> response = restTemplate.postForObject(
-                    endpoint + separator + "key=" + apiKey,
-                    requestBody,
-                    Map.class
-            );
-            String rawText = extractText(response);
-            if (rawText == null || rawText.isBlank()) return null;
-            return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
-        } catch (Exception ex) {
-            log.warn("Gemini RAG generation failed, falling back to base Gemini: {}", ex.getMessage());
+        String targetUrl = normalizeTargetUrl(geminiProperties.getUrl());
+        List<String> keys = geminiProperties.getKeys();
+
+        if (keys == null || keys.isEmpty() || targetUrl == null || targetUrl.isBlank()) {
             return generateContent(context);
         }
+
+        String prompt = buildPrompt(context) + buildRagSection(similarPlans);
+
+        for (String apiKey : keys) {
+            if (apiKey == null || apiKey.isBlank() || "disabled".equalsIgnoreCase(apiKey.trim()) || "replace_me".equalsIgnoreCase(apiKey.trim())) {
+                continue;
+            }
+
+            try {
+                Map<String, Object> requestBody = Map.of(
+                        "contents", List.of(Map.of(
+                                "parts", List.of(Map.of("text", prompt))
+                        ))
+                );
+                String separator = targetUrl.contains("?") ? "&" : "?";
+                String requestUrl = targetUrl + separator + "key=" + apiKey.trim();
+
+                Map<?, ?> response = restTemplate.postForObject(
+                        requestUrl,
+                        requestBody,
+                        Map.class
+                );
+                String rawText = extractText(response);
+                if (rawText != null && !rawText.isBlank()) {
+                    return objectMapper.readValue(stripJsonFence(rawText), GeminiRecoveryResult.class);
+                }
+            } catch (Exception ex) {
+                log.warn("Gemini RAG generation failed with key ending in {}: {}",
+                        apiKey.substring(Math.max(0, apiKey.length() - 4)), ex.getMessage());
+            }
+        }
+
+        return generateContent(context);
+    }
+
+    private String normalizeTargetUrl(String configuredUrl) {
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            return DEFAULT_GENERATE_CONTENT_URL;
+        }
+        String targetUrl = configuredUrl.trim();
+        if (targetUrl.contains("/models/gemini-2.5-flash:")) {
+            log.warn("Configured Gemini model gemini-2.5-flash is unavailable for this API key. Using gemini-3.6-flash instead.");
+            return targetUrl.replace("/models/gemini-2.5-flash:", "/models/gemini-3.6-flash:");
+        }
+        return targetUrl;
     }
 
     private String buildRagSection(List<Map<String, Object>> plans) {
@@ -121,53 +167,69 @@ public class GeminiRecoveryService {
 
     private String buildPrompt(GeminiRecoveryContext context) {
         return String.format("""
-                You are an Agile Coach inside a student software project management system.
-                Write concise Vietnamese recovery-plan content for a task with SLA risk.
-                Tone: supportive, practical, non-judgmental. Do not compute SLA score.
-                Use only the provided backend context.
+                You are a Senior Technical Lead and Agile Coach in a student software project management system.
+                Write a specific, highly contextual, and practical Vietnamese recovery plan for a task facing SLA risk.
+                Tone: constructive, precise, professional, and actionable.
 
                 Task context:
                 - Task title: %s
+                - Task description: %s
+                - Blocked reason: %s
+                - Open checklist items: %s
+                - Subtasks: %s
                 - Risk level: %s
                 - Current SLA score: %s
                 - SLA categories: %s
                 - Overdue days: %d
                 - Assignee active task count: %d
-                - Reasons: %s
+                - SLA Risk reasons: %s
                 - Is follow-up after failed plan: %s
                 - Previous plan count for this task: %d
                 - Previous actions: %s
                 - Previous effectiveness: %s
                 - Last score before/after execution: %s -> %s
+                - Member candidates for reassignment: %s
 
-                Choose 1 to 4 actions from this exact whitelist only:
+                Choose 1 to 3 actions from this exact whitelist only:
                 [NOTIFY_ASSIGNEE, ESCALATE_LEADER, ASK_BLOCKER_UPDATE,
                  CREATE_RECOVERY_CHECKLIST, SCHEDULE_FOLLOW_UP, SUGGEST_SPLIT_TASK, SUGGEST_REASSIGN]
 
                 Decision guidance:
-                - If a previous notify-only plan failed, prefer escalation/checklist/reassign instead of repeating notify only.
-                - If assignee active task count is high, consider SUGGEST_REASSIGN or SUGGEST_SPLIT_TASK.
-                - If blocked, include ASK_BLOCKER_UPDATE.
-                - Keep important project changes under human approval; only propose actions.
+                - Tailor recommendations directly to the task's title, description, and blocked reason.
+                - If task is BLOCKED, include ASK_BLOCKER_UPDATE or ESCALATE_LEADER with specific questions about the blocker.
+                - If task scope is large or overdue, consider SUGGEST_SPLIT_TASK with concrete sub-task breakdown ideas.
+                - If assignee active task count is high, consider SUGGEST_REASSIGN from the Member candidates list.
+                - For CREATE_RECOVERY_CHECKLIST, create 2 to 4 concrete, actionable checklist steps tailored to this specific task.
+
+                Writing rules:
+                - summary: 1-2 clear sentences in Vietnamese (max 45 words) summarizing the core problem and specific resolution strategy.
+                - selectedActions: 1 to 3 actions.
+                - action message: 1-2 actionable sentences in Vietnamese (max 40 words) explaining specifically what to do for this task.
+                - checklistItems: only for CREATE_RECOVERY_CHECKLIST, 2-4 items, max 15 Vietnamese words each.
+                - For SUGGEST_REASSIGN: set recommendedAssigneeId, recommendedAssigneeName, recommendedReason (max 20 words), notRecommendedAssignees.
 
                 Return plain JSON only, no markdown:
                 {
                   "summary": "...",
-                  "notifyMessage": "...",
-                  "escalateMessage": "...",
-                  "evidenceMessage": "...",
-                  "blockerMessage": "...",
-                  "checklistMessage": "...",
                   "selectedActions": [
                     {
                       "actionType": "ESCALATE_LEADER",
                       "priority": "HIGH",
-                      "message": "..."
+                      "message": "...",
+                      "checklistItems": ["..."],
+                      "recommendedAssigneeId": 1,
+                      "recommendedAssigneeName": "...",
+                      "recommendedReason": "...",
+                      "notRecommendedAssignees": ["..."]
                     }
                   ]
                 }
                 """,
                 safe(context.getTaskTitle()),
+                safe(context.getTaskDescription()),
+                safe(context.getBlockedReason()),
+                String.join("; ", nullToEmpty(context.getOpenChecklistItems())),
+                String.join("; ", nullToEmpty(context.getSubTaskTitles())),
                 safe(context.getRiskLevel()),
                 context.getSlaScore() == null ? "unknown" : context.getSlaScore().toString(),
                 String.join(", ", nullToEmpty(context.getCategories())),
@@ -179,8 +241,26 @@ public class GeminiRecoveryService {
                 String.join(", ", nullToEmpty(context.getPreviousActions())),
                 safe(context.getPreviousEffectiveness()),
                 context.getLastScoreBefore() == null ? "unknown" : context.getLastScoreBefore().toString(),
-                context.getLastScoreAfter() == null ? "unknown" : context.getLastScoreAfter().toString()
+                context.getLastScoreAfter() == null ? "unknown" : context.getLastScoreAfter().toString(),
+                formatMemberCandidates(context.getMemberCandidates())
         );
+    }
+
+    private String formatMemberCandidates(List<AiRecoveryMemberCandidate> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return "none";
+        }
+        return candidates.stream()
+                .limit(6)
+                .map(candidate -> String.format(
+                        "id=%s, name=%s, role=%s, activeTasks=%d, overdueTasks=%d, currentOwner=%s",
+                        candidate.getUserId(),
+                        safe(candidate.getDisplayName()),
+                        safe(candidate.getRoleName()),
+                        candidate.getActiveTaskCount(),
+                        candidate.getOverdueTaskCount(),
+                        candidate.isCurrentAssignee()))
+                .collect(Collectors.joining(" | "));
     }
 
     private String extractText(Map<?, ?> response) {

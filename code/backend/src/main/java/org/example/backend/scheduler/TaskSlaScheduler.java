@@ -78,7 +78,7 @@ public class TaskSlaScheduler {
     private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
 
-    @Value("${app.sla.recovery-backfill-enabled:true}")
+    @Value("${app.sla.recovery-backfill-enabled:false}")
     private boolean recoveryBackfillEnabled;
 
     @Value("${app.sla.recovery-backfill-max-per-run:3}")
@@ -210,50 +210,8 @@ public class TaskSlaScheduler {
         }
     }
 
-    @Scheduled(
-            initialDelayString = "${app.sla.recovery-backfill-initial-delay-ms:60000}",
-            fixedDelayString = "${app.sla.recovery-backfill-delay-ms:600000}")
     public void backfillRecoveryPlansForRiskTasks() {
-        if (!recoveryBackfillEnabled) {
-            return;
-        }
-
-        SchedulerRunLog runLog = schedulerRunLogService.start("RECOVERY_PLAN_BACKFILL");
-        try {
-            int batchSize = Math.max(1, Math.min(recoveryBackfillMaxPerRun, SLA_BATCH_SIZE));
-            List<TaskSlaState> states = taskSlaStateRepository.findRecoveryPlanBackfillCandidates(
-                    RECOVERY_BACKFILL_RISK_LEVELS,
-                    TaskStatus.DONE,
-                    PageRequest.of(0, batchSize, Sort.by("evaluatedAt").descending()));
-
-            int scanned = 0;
-            int created = 0;
-            for (TaskSlaState state : states) {
-                scanned++;
-                Long projectId = state.getProjectId();
-                Long taskId = state.getTaskId();
-                if (projectId == null || taskId == null) {
-                    continue;
-                }
-                if (recoveryPlanRepository.existsByProjectIdAndTaskIdAndStatusIn(
-                        projectId, taskId, ACTIVE_RECOVERY_PLAN_STATUSES)) {
-                    continue;
-                }
-
-                try {
-                    recoveryPlanService.autoGenerateForTask(projectId, taskId);
-                    created++;
-                } catch (Exception ex) {
-                    log.warn("Failed to backfill recovery plan for task {}: {}", taskId, ex.getMessage());
-                }
-            }
-
-            schedulerRunLogService.finish(runLog, scanned, created, 0);
-            log.info("Recovery plan backfill completed. Scanned: {}, Created: {}", scanned, created);
-        } catch (Exception ex) {
-            log.error("RECOVERY_PLAN_BACKFILL failed", ex);
-            schedulerRunLogService.fail(runLog, ex);
-        }
+        log.debug("Recovery plan backfill is disabled. Plans are generated only by leader action.");
     }
 
     // --- Private helpers ---

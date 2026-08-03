@@ -9,6 +9,10 @@ import java.util.List;
 @Builder
 public class GeminiRecoveryContext {
     private String taskTitle;
+    private String taskDescription;
+    private String blockedReason;
+    private List<String> openChecklistItems;
+    private List<String> subTaskTitles;
     private String riskLevel;
     private List<String> categories;
     private List<String> reasons;
@@ -21,4 +25,5 @@ public class GeminiRecoveryContext {
     private Integer lastScoreBefore;
     private Integer lastScoreAfter;
     private boolean followUp;
+    private List<AiRecoveryMemberCandidate> memberCandidates;
 }

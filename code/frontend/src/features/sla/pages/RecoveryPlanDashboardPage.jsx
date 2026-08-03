@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import useProjectStore from '@store/useProjectStore'
@@ -6,7 +6,6 @@ import { useProjectRole } from '@/hooks/useProjectRole'
 import { sprintService } from '@features/sprint/services/sprintService'
 import { recoveryPlanService } from '../services/recoveryPlanService'
 import RecoveryEvidenceModal from '../components/RecoveryEvidenceModal'
-import { AiRecoverySummary } from '../components/AiRecoverySummary'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 
@@ -20,51 +19,27 @@ const STATUS_STYLES = {
   DECLINED: 'bg-orange-50 text-orange-700 border-orange-200',
 }
 
-const GENERATION_MODE_STYLES = {
-  AI_GENERATED: {
-    label: 'AI generated',
-    icon: 'auto_awesome',
-    className: 'bg-blue-50 text-blue-700 border-blue-200',
-  },
-  AI_FAILED_FALLBACK: {
-    label: 'AI fallback',
-    icon: 'shield',
-    className: 'bg-amber-50 text-amber-700 border-amber-200',
-  },
-  RULE_FALLBACK: {
-    label: 'Rule fallback',
-    icon: 'rule',
-    className: 'bg-slate-50 text-slate-700 border-slate-200',
-  },
+const RISK_STYLES = {
+  BREACH: { badge: 'bg-red-50 text-red-700 border-red-200', rail: 'bg-red-500', icon: 'warning', label: 'Breach' },
+  WARNING: { badge: 'bg-amber-50 text-amber-700 border-amber-200', rail: 'bg-amber-500', icon: 'priority_high', label: 'Warning' },
 }
 
 const TABS = [
-  { id: 'ALL', label: 'All', statuses: '' },
-  { id: 'PENDING', label: 'Pending Review', statuses: 'PENDING_APPROVAL' },
-  { id: 'APPROVED', label: 'Approved', statuses: 'APPROVED' },
-  { id: 'DONE', label: 'Closed', statuses: 'EXECUTED,FAILED,DECLINED,REJECTED' },
+  { id: 'ALL', label: 'All' },
+  { id: 'NO_PLAN', label: 'Needs Plan' },
+  { id: 'PENDING', label: 'Pending' },
+  { id: 'APPROVED', label: 'Approved' },
 ]
 
-const RISK_STYLES = {
-  BREACH: {
-    badge: 'bg-red-50 text-red-700 border-red-200',
-    rail: 'bg-red-500',
-    icon: 'warning',
-    label: 'Breach',
-  },
-  CRITICAL: {
-    badge: 'bg-orange-50 text-orange-700 border-orange-200',
-    rail: 'bg-orange-500',
-    icon: 'report',
-    label: 'Critical',
-  },
-  AT_RISK: {
-    badge: 'bg-amber-50 text-amber-700 border-amber-200',
-    rail: 'bg-amber-500',
-    icon: 'priority_high',
-    label: 'At risk',
-  },
-}
+const ACTION_TYPES = [
+  'NOTIFY_ASSIGNEE',
+  'ESCALATE_LEADER',
+  'ASK_BLOCKER_UPDATE',
+  'CREATE_RECOVERY_CHECKLIST',
+  'SCHEDULE_FOLLOW_UP',
+  'SUGGEST_SPLIT_TASK',
+  'SUGGEST_REASSIGN',
+]
 
 const parseActionPayload = (payload) => {
   if (!payload) return {}
@@ -77,6 +52,10 @@ const parseActionPayload = (payload) => {
 }
 
 const labelize = (value) => String(value || 'N/A').replace(/_/g, ' ')
+
+const normalizeStringList = (items) => Array.isArray(items)
+  ? items.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim())
+  : []
 
 const formatDateTime = (value) => {
   if (!value) return 'N/A'
@@ -91,7 +70,14 @@ const formatDateTime = (value) => {
   })
 }
 
-const getRiskStyle = (riskLevel) => RISK_STYLES[riskLevel] || RISK_STYLES.AT_RISK
+const formatDate = (value) => {
+  if (!value) return 'No deadline'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('vi-VN')
+}
+
+const getRiskStyle = (riskLevel) => RISK_STYLES[riskLevel] || RISK_STYLES.WARNING
 
 const getActionIcon = (actionType) => {
   const icons = {
@@ -99,12 +85,19 @@ const getActionIcon = (actionType) => {
     CREATE_RECOVERY_CHECKLIST: 'checklist',
     ASK_BLOCKER_UPDATE: 'chat_info',
     SUGGEST_SPLIT_TASK: 'call_split',
-    REASSIGN_OWNER: 'person_add',
+    SUGGEST_REASSIGN: 'person_add',
+    NOTIFY_ASSIGNEE: 'notifications_active',
+    SCHEDULE_FOLLOW_UP: 'event_repeat',
   }
   return icons[actionType] || 'task_alt'
 }
 
-const getActionPayload = (action) => parseActionPayload(action?.payload)
+const isFallbackPlan = (plan) => {
+  if (!plan) return false
+  return plan.generatedSource === 'RULE'
+    || plan.generationMode === 'RULE_FALLBACK'
+    || plan.generationMode === 'AI_FAILED_FALLBACK'
+}
 
 const Badge = ({ children, className = '', icon }) => (
   <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-black uppercase ${className}`}>
@@ -130,12 +123,10 @@ const EmptyState = ({ loading }) => (
       {loading ? 'progress_activity' : 'shield_question'}
     </span>
     <h3 className="mt-4 text-xl font-black text-on-surface">
-      {loading ? 'Loading recovery plans' : 'No recovery plans found'}
+      {loading ? 'Loading recovery tasks' : 'No risky tasks found'}
     </h3>
     <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
-      {loading
-        ? 'Checking the latest SLA recovery proposals for this project.'
-        : 'Try another sprint or status filter. New plans appear when risky tasks are detected.'}
+      {loading ? 'Checking tasks that need recovery review.' : 'Try another sprint or refresh SLA data.'}
     </p>
   </section>
 )
@@ -150,174 +141,255 @@ export default function RecoveryPlanDashboardPage() {
   const [sprints, setSprints] = useState([])
   const [selectedSprintId, setSelectedSprintId] = useState('')
   const [activeTab, setActiveTab] = useState('ALL')
-  const [plans, setPlans] = useState([])
+  const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
-  const [rejectingPlanId, setRejectingPlanId] = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
+  const [generatingTaskId, setGeneratingTaskId] = useState(null)
   const [evidencePlan, setEvidencePlan] = useState(null)
+  const [selectedTask, setSelectedTask] = useState(null)
   const [selectedPlan, setSelectedPlan] = useState(null)
+  const [editingPlan, setEditingPlan] = useState(false)
+  const [savingPlan, setSavingPlan] = useState(false)
+  const [editDraft, setEditDraft] = useState({ summary: '', actions: [] })
 
   useEffect(() => {
-    if (activeProject?.id) {
-      sprintService.getSprints(activeProject.id).then(data => {
-        const list = Array.isArray(data) ? data : []
-        setSprints(list)
-        if (list.length) {
-          const active = list.find(s => s.status === 'ACTIVE')
-          setSelectedSprintId(active ? active.id : '')
-        }
-      })
-    }
+    if (!activeProject?.id) return
+    sprintService.getSprints(activeProject.id).then(data => {
+      const list = Array.isArray(data) ? data : []
+      setSprints(list)
+      const active = list.find(s => s.status === 'ACTIVE')
+      setSelectedSprintId(active ? active.id : '')
+    })
   }, [activeProject?.id])
 
-  const loadPlans = async () => {
+  const loadTasks = async () => {
     if (!activeProject?.id) return
     setLoading(true)
     try {
-      const tabConfig = TABS.find(t => t.id === activeTab)
-      const data = await recoveryPlanService.getProjectRecoveryPlans(activeProject.id, {
+      const data = await recoveryPlanService.getProjectRecoveryTasks(activeProject.id, {
         sprintId: selectedSprintId || undefined,
-        status: tabConfig.statuses || undefined,
       })
       const list = Array.isArray(data) ? data : []
-      setPlans(list)
+      setTasks(list)
 
       const taskIdFromUrl = searchParams.get('taskId')
-      if (taskIdFromUrl && !selectedPlan) {
-        // Automatically open the modal for the requested task if it's in the current list
-        // And it hasn't been selected yet
-        const planForTask = list.find(p => String(p.taskId) === taskIdFromUrl)
-        if (planForTask) {
-          setSelectedPlan(planForTask)
-        } else {
-          // If the plan is not in the current list (e.g., might be in a different tab or sprint)
-          // We can try to fetch it specifically or at least show a toast
-          // For now, let's just attempt to select if found in current filtered list.
-        }
+      if (taskIdFromUrl && !selectedTask) {
+        const task = list.find(item => String(item.taskId) === taskIdFromUrl)
+        if (task) openTaskDetails(task)
       }
     } catch (err) {
-      toast.error('Failed to load recovery plans')
+      toast.error('Failed to load recovery tasks')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadPlans()
-  }, [activeProject?.id, selectedSprintId, activeTab])
+    loadTasks()
+  }, [activeProject?.id, selectedSprintId])
 
-  const handleApprove = async (planId) => {
+  const buildEditDraft = (plan) => ({
+    summary: plan?.summary || '',
+    actions: (Array.isArray(plan?.actions) ? plan.actions : []).map(action => {
+      const payload = parseActionPayload(action.payload)
+      return {
+        id: action.id,
+        actionType: action.actionType,
+        priority: action.priority || 'MEDIUM',
+        message: action.message || payload.actionDetails || payload.rationale || '',
+        checklistItems: normalizeStringList(payload.checklistItems),
+        recommendedAssigneeId: payload.recommendedAssigneeId || '',
+        recommendedAssigneeName: payload.recommendedAssigneeName || '',
+        recommendedReason: payload.recommendedReason || '',
+        notRecommendedAssignees: normalizeStringList(payload.notRecommendedAssignees),
+      }
+    }),
+  })
+
+  const syncTaskPlan = (taskId, plan) => {
+    setTasks(current => current.map(task => {
+      if (task.taskId !== taskId) return task
+      const history = Array.isArray(task.planHistory) ? task.planHistory : []
+      const nextHistory = [plan, ...history.filter(item => item.id !== plan.id)]
+      return { ...task, activePlan: plan, planHistory: nextHistory }
+    }))
+    setSelectedTask(current => {
+      if (!current || current.taskId !== taskId) return current
+      const history = Array.isArray(current.planHistory) ? current.planHistory : []
+      const nextHistory = [plan, ...history.filter(item => item.id !== plan.id)]
+      return { ...current, activePlan: plan, planHistory: nextHistory }
+    })
+  }
+
+  const openTaskDetails = (task) => {
+    const plan = task.activePlan || null
+    setSelectedTask(task)
+    setSelectedPlan(plan)
+    setEditingPlan(false)
+    setEditDraft(buildEditDraft(plan))
+  }
+
+  const handleGenerateTaskPlan = async (task) => {
+    if (!activeProject?.id || !task?.taskId || generatingTaskId) return
+    setGeneratingTaskId(task.taskId)
     try {
-      await recoveryPlanService.approveRecoveryPlan(activeProject.id, planId)
+      const plan = await recoveryPlanService.generateRecoveryPlan(activeProject.id, task.taskId)
+      toast.success('Plan generated')
+      setSelectedPlan(plan)
+      setEditDraft(buildEditDraft(plan))
+      syncTaskPlan(task.taskId, plan)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate plan')
+    } finally {
+      setGeneratingTaskId(null)
+    }
+  }
+
+  const handleApprove = async (plan) => {
+    if (!plan) return
+    try {
+      const updated = await recoveryPlanService.approveRecoveryPlan(activeProject.id, plan.id)
       toast.success('Plan approved')
-      setSelectedPlan(null)
-      loadPlans()
+      setSelectedPlan(updated)
+      syncTaskPlan(updated.taskId, updated)
     } catch (err) {
       toast.error('Failed to approve plan')
     }
   }
 
-  const handleExecute = async (planId) => {
+  const handleExecute = async (plan) => {
+    if (!plan) return
     try {
-      await recoveryPlanService.executeRecoveryPlan(activeProject.id, planId)
-      toast.success('Execution started')
-      setSelectedPlan(null)
-      loadPlans()
+      const updated = await recoveryPlanService.executeRecoveryPlan(activeProject.id, plan.id)
+      toast.success('Plan executed')
+      setSelectedPlan(updated)
+      syncTaskPlan(updated.taskId, updated)
+      await loadTasks()
     } catch (err) {
       toast.error('Failed to execute plan')
     }
   }
 
-  const handleReject = async (planId) => {
+  const updateDraftAction = (actionId, patch) => {
+    setEditDraft(current => ({
+      ...current,
+      actions: current.actions.map(action => (
+        action.id === actionId ? { ...action, ...patch } : action
+      )),
+    }))
+  }
+
+  const updateDraftChecklistItem = (actionId, index, value) => {
+    setEditDraft(current => ({
+      ...current,
+      actions: current.actions.map(action => {
+        if (action.id !== actionId) return action
+        const checklistItems = [...(action.checklistItems || [])]
+        checklistItems[index] = value
+        return { ...action, checklistItems }
+      }),
+    }))
+  }
+
+  const handleSavePlan = async () => {
+    if (!selectedPlan || savingPlan) return
+    setSavingPlan(true)
     try {
-      const followUpPlan = await recoveryPlanService.rejectRecoveryPlan(activeProject.id, planId, rejectReason.trim() || null)
-      toast.success(followUpPlan?.followUp ? 'Plan rejected and a new follow-up plan was created' : 'Plan rejected')
-      setRejectingPlanId(null)
-      setRejectReason('')
-      setSelectedPlan(null)
-      loadPlans()
+      const updatedPlan = await recoveryPlanService.updateRecoveryPlan(activeProject.id, selectedPlan.id, {
+        summary: editDraft.summary,
+        actions: editDraft.actions.map(action => ({
+          id: action.id,
+          actionType: action.actionType,
+          priority: action.priority,
+          message: action.message,
+          checklistItems: action.checklistItems,
+          recommendedAssigneeId: action.recommendedAssigneeId || null,
+          recommendedAssigneeName: action.recommendedAssigneeName,
+          recommendedReason: action.recommendedReason,
+          notRecommendedAssignees: action.notRecommendedAssignees,
+        })),
+      })
+      toast.success('Plan updated')
+      setSelectedPlan(updatedPlan)
+      setEditDraft(buildEditDraft(updatedPlan))
+      syncTaskPlan(updatedPlan.taskId, updatedPlan)
+      setEditingPlan(false)
     } catch (err) {
-      toast.error('Failed to reject plan')
+      toast.error(err.response?.data?.message || 'Failed to update plan')
+    } finally {
+      setSavingPlan(false)
     }
   }
 
-  const resolveGenerationMode = (plan) => plan.generationMode || (plan.generatedSource === 'AI' ? 'AI_GENERATED' : 'RULE_FALLBACK')
+  const stats = useMemo(() => ({
+    total: tasks.length,
+    noPlan: tasks.filter(task => !task.activePlan).length,
+    pending: tasks.filter(task => task.activePlan?.status === 'PENDING_APPROVAL').length,
+    approved: tasks.filter(task => task.activePlan?.status === 'APPROVED').length,
+  }), [tasks])
 
-  const renderGenerationBadge = (plan) => {
-    const mode = resolveGenerationMode(plan)
-    const config = GENERATION_MODE_STYLES[mode] || GENERATION_MODE_STYLES.RULE_FALLBACK
-    return (
-      <Badge icon={config.icon} className={config.className}>
-        {config.label}
-      </Badge>
-    )
-  }
-
-  const planStats = useMemo(() => ({
-    pending: plans.filter(p => p.status === 'PENDING_APPROVAL').length,
-    approved: plans.filter(p => p.status === 'APPROVED').length,
-    closed: plans.filter(p => ['EXECUTED', 'FAILED', 'DECLINED', 'REJECTED'].includes(p.status)).length,
-    noEvidence: plans.filter(p => !p.evidenceSnapshotId).length,
-  }), [plans])
+  const filteredTasks = useMemo(() => tasks.filter(task => {
+    if (activeTab === 'NO_PLAN') return !task.activePlan
+    if (activeTab === 'PENDING') return task.activePlan?.status === 'PENDING_APPROVAL'
+    if (activeTab === 'APPROVED') return task.activePlan?.status === 'APPROVED'
+    return true
+  }), [tasks, activeTab])
 
   const tabCount = (tabId) => {
-    if (tabId === 'PENDING') return planStats.pending
-    if (tabId === 'APPROVED') return planStats.approved
-    if (tabId === 'DONE') return planStats.closed
-    return plans.length
+    if (tabId === 'NO_PLAN') return stats.noPlan
+    if (tabId === 'PENDING') return stats.pending
+    if (tabId === 'APPROVED') return stats.approved
+    return stats.total
   }
 
-  const renderPlanActions = (plan, compact = false) => {
-    const actions = Array.isArray(plan.actions) ? plan.actions : []
+  const renderPlanActions = (plan) => {
+    const actions = Array.isArray(plan?.actions) ? plan.actions : []
     if (!actions.length) {
       return (
         <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant">
-          No recovery actions attached to this plan yet.
+          No actions yet.
         </div>
       )
     }
 
     return (
       <div className="space-y-3">
-        {actions.slice(0, compact ? 2 : actions.length).map((action) => {
-          const payload = getActionPayload(action)
-          const checklist = Array.isArray(payload.checklistItems) ? payload.checklistItems : []
-          const owner = payload.recommendedAssigneeName || payload.assigneeName
+        {actions.map(action => {
+          const payload = parseActionPayload(action.payload)
+          const checklist = normalizeStringList(payload.checklistItems)
+          const notRecommended = normalizeStringList(payload.notRecommendedAssignees)
           return (
             <div key={action.id || action.actionType} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
+                  <span className="material-symbols-outlined text-[18px]">{getActionIcon(action.actionType)}</span>
+                </span>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
-                      <span className="material-symbols-outlined text-[18px]">{getActionIcon(action.actionType)}</span>
-                    </span>
-                    <div>
-                      <p className="text-sm font-black text-on-surface">{labelize(action.actionType)}</p>
-                      <p className="text-xs text-on-surface-variant">{labelize(action.priority)} priority</p>
+                  <p className="text-sm font-black text-on-surface">{labelize(action.actionType)}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-on-surface">
+                {action.message || 'No action message provided.'}
+              </p>
+
+              {action.actionType === 'SUGGEST_REASSIGN' && (
+                <div className="mt-3 rounded-xl border border-primary/15 bg-primary-fixed/30 p-3 text-sm">
+                  <p className="font-black text-on-surface">Should assign: {payload.recommendedAssigneeName || 'No suggestion'}</p>
+                  {payload.recommendedReason && <p className="mt-1 text-on-surface-variant">Reason: {payload.recommendedReason}</p>}
+                  {notRecommended.length > 0 && (
+                    <div className="mt-2">
+                      <p className="font-black text-on-surface">Should not assign</p>
+                      <div className="mt-1 space-y-1 text-on-surface-variant">
+                        {notRecommended.map((item, index) => <p key={`${action.id}-avoid-${index}`}>{item}</p>)}
+                      </div>
                     </div>
-                  </div>
-                  <p className="mt-3 text-sm leading-relaxed text-on-surface-variant">
-                    {action.message || 'No action message provided.'}
-                  </p>
-                  {owner && (
-                    <p className="mt-2 text-xs text-on-surface-variant">
-                      Suggested owner: <span className="font-bold text-on-surface">{owner}</span>
-                    </p>
                   )}
                 </div>
-                <Badge className="bg-surface text-on-surface-variant border-outline-variant">
-                  {labelize(action.status)}
-                </Badge>
-              </div>
-              {payload.rationale && (
-                <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs leading-relaxed text-on-surface-variant">
-                  {payload.rationale}
-                </p>
               )}
-              {checklist.length > 0 && !compact && (
+
+              {checklist.length > 0 && (
                 <div className="mt-3 grid gap-2">
                   {checklist.map((item, index) => (
-                    <div key={`${action.id}-check-${index}`} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                    <div key={`${action.id}-check-${index}`} className="flex items-start gap-2 text-sm text-on-surface-variant">
                       <span className="material-symbols-outlined mt-0.5 text-[15px] text-primary">check_box_outline_blank</span>
                       <span>{item}</span>
                     </div>
@@ -327,31 +399,151 @@ export default function RecoveryPlanDashboardPage() {
             </div>
           )
         })}
-        {compact && actions.length > 2 && (
-          <p className="text-xs font-bold text-on-surface-variant">+{actions.length - 2} more actions in details</p>
-        )}
       </div>
     )
   }
 
-  const renderPlanCard = (plan) => {
-    const riskStyle = getRiskStyle(plan.riskLevel)
-    const actions = Array.isArray(plan.actions) ? plan.actions : []
-    const latestLog = Array.isArray(plan.auditLogs) && plan.auditLogs.length > 0
-      ? plan.auditLogs[plan.auditLogs.length - 1]
-      : null
-    const summary = plan.summary?.length > 150 ? `${plan.summary.slice(0, 150)}...` : plan.summary
+  const renderEditablePlanActions = () => (
+    <div className="space-y-3">
+      {editDraft.actions.map(action => (
+        <div key={action.id} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
+                <span className="material-symbols-outlined text-[18px]">{getActionIcon(action.actionType)}</span>
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-on-surface">{labelize(action.actionType)}</p>
+                <p className="text-xs text-on-surface-variant">Edit before approval</p>
+              </div>
+            </div>
+            <select
+              value={action.actionType}
+              onChange={(event) => updateDraftAction(action.id, { actionType: event.target.value })}
+              className="rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary"
+            >
+              {ACTION_TYPES.map(type => (
+                <option key={type} value={type}>{labelize(type)}</option>
+              ))}
+            </select>
+          </div>
+
+          <textarea
+            value={action.message}
+            onChange={(event) => updateDraftAction(action.id, { message: event.target.value })}
+            rows={3}
+            className="mt-3 w-full resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm leading-relaxed text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+
+          {action.actionType === 'CREATE_RECOVERY_CHECKLIST' && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase text-on-surface-variant">Checklist</p>
+                <button
+                  type="button"
+                  onClick={() => updateDraftAction(action.id, { checklistItems: [...(action.checklistItems || []), ''] })}
+                  className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+                >
+                  Add item
+                </button>
+              </div>
+              {(action.checklistItems || []).map((item, index) => (
+                <div key={`${action.id}-edit-check-${index}`} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={item}
+                    onChange={(event) => updateDraftChecklistItem(action.id, index, event.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateDraftAction(action.id, {
+                      checklistItems: (action.checklistItems || []).filter((_, itemIndex) => itemIndex !== index),
+                    })}
+                    className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
+                    aria-label="Remove checklist item"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {action.actionType === 'SUGGEST_REASSIGN' && (
+            <div className="mt-3 space-y-3 rounded-xl border border-primary/15 bg-primary-fixed/20 p-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-on-surface-variant">Should assign</span>
+                  <input
+                    type="text"
+                    value={action.recommendedAssigneeName || ''}
+                    onChange={(event) => updateDraftAction(action.id, { recommendedAssigneeName: event.target.value })}
+                    className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-black uppercase text-on-surface-variant">Reason</span>
+                  <input
+                    type="text"
+                    value={action.recommendedReason || ''}
+                    onChange={(event) => updateDraftAction(action.id, { recommendedReason: event.target.value })}
+                    className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-black uppercase text-on-surface-variant">Should not assign</p>
+                  <button
+                    type="button"
+                    onClick={() => updateDraftAction(action.id, { notRecommendedAssignees: [...(action.notRecommendedAssignees || []), ''] })}
+                    className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+                  >
+                    Add
+                  </button>
+                </div>
+                {(action.notRecommendedAssignees || []).map((item, index) => (
+                  <div key={`${action.id}-edit-avoid-${index}`} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(event) => {
+                        const next = [...(action.notRecommendedAssignees || [])]
+                        next[index] = event.target.value
+                        updateDraftAction(action.id, { notRecommendedAssignees: next })
+                      }}
+                      className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateDraftAction(action.id, {
+                        notRecommendedAssignees: (action.notRecommendedAssignees || []).filter((_, itemIndex) => itemIndex !== index),
+                      })}
+                      className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
+                      aria-label="Remove reassignment note"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderTaskCard = (task) => {
+    const riskStyle = getRiskStyle(task.riskLevel)
+    const activePlan = task.activePlan
+    const historyCount = Array.isArray(task.planHistory) ? task.planHistory.length : 0
 
     return (
       <Card
-        key={plan.id}
-        style={{
-          padding: 0,
-          overflow: 'hidden',
-          borderRadius: 14,
-          boxShadow: '0 8px 20px rgba(15, 23, 42, 0.05)',
-        }}
-        className="group"
+        key={task.taskId}
+        style={{ padding: 0, overflow: 'hidden', borderRadius: 14, boxShadow: '0 8px 20px rgba(15, 23, 42, 0.05)' }}
       >
         <div className="grid grid-cols-[4px_1fr]">
           <div className={riskStyle.rail}></div>
@@ -361,107 +553,53 @@ export default function RecoveryPlanDashboardPage() {
                 <div className="flex flex-col gap-2 md:flex-row md:items-center">
                   <button
                     type="button"
-                    onClick={() => navigate(`/projects/${projectId}/task-board?taskId=${plan.taskId}`)}
+                    onClick={() => navigate(`/projects/${projectId}/task-board?taskId=${task.taskId}`)}
                     className="shrink-0 text-left text-base font-black tracking-tight text-on-surface hover:text-primary"
                   >
-                    Task #{plan.taskId}
+                    Task #{task.taskId}
                   </button>
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <Badge icon={riskStyle.icon} className={riskStyle.badge}>{riskStyle.label}</Badge>
-                    <Badge className={STATUS_STYLES[plan.status] || 'bg-slate-50 text-slate-700 border-slate-200'}>
-                      {labelize(plan.status)}
-                    </Badge>
-                    {plan.priority && (
-                      <Badge className="bg-surface-container-low text-on-surface-variant border-outline-variant">
-                        {labelize(plan.priority)} priority
+                    {activePlan ? (
+                      <Badge className={STATUS_STYLES[activePlan.status] || 'bg-slate-50 text-slate-700 border-slate-200'}>
+                        {labelize(activePlan.status)}
                       </Badge>
+                    ) : (
+                      <Badge className="bg-slate-50 text-slate-700 border-slate-200">No plan</Badge>
                     )}
-                    {renderGenerationBadge(plan)}
-                    <span className="text-[11px] font-bold text-on-surface-variant">
-                      {formatDateTime(plan.createdAt)}
-                    </span>
                   </div>
                 </div>
-
-                <p className="mt-2 line-clamp-1 max-w-5xl text-xs leading-relaxed text-on-surface-variant">
-                  {summary || 'No summary was generated for this recovery plan.'}
+                <p className="mt-2 line-clamp-1 max-w-5xl text-sm font-semibold text-on-surface">
+                  {task.taskTitle || `Task #${task.taskId}`}
                 </p>
-
+                <p className="mt-1 line-clamp-1 max-w-5xl text-xs leading-relaxed text-on-surface-variant">
+                  {activePlan?.summary || task.recommendedAction || 'Open details to create a plan for this task.'}
+                </p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-on-surface-variant">
                   <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">fact_check</span>
-                    {plan.evidenceSnapshotId ? `Evidence #${plan.evidenceSnapshotId}` : 'Missing evidence'}
+                    <span className="material-symbols-outlined text-[14px]">person</span>
+                    {task.assigneeName || 'Unassigned'}
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">task_alt</span>
-                    {actions.length} actions
+                    <span className="material-symbols-outlined text-[14px]">event</span>
+                    {formatDate(task.deadline)}
                   </span>
-                  <span className="inline-flex min-w-0 max-w-[220px] items-center gap-1">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">monitoring</span>
+                    Score {task.slaScore ?? '-'}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
                     <span className="material-symbols-outlined text-[14px]">history</span>
-                    <span className="truncate">{labelize(latestLog?.eventType || 'Created')}</span>
+                    {historyCount} plan{historyCount === 1 ? '' : 's'}
                   </span>
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                <Button variant="outline" onClick={() => setSelectedPlan(plan)} style={{ height: 32, padding: '0 10px', borderRadius: 9, fontSize: 12 }}>
-                  <span className="material-symbols-outlined text-[15px]">open_in_new</span>
-                  Details
-                </Button>
-                {plan.evidenceSnapshotId && (
-                  <Button variant="outline" onClick={() => setEvidencePlan(plan)} style={{ height: 32, padding: '0 10px', borderRadius: 9, fontSize: 12 }}>
-                    <span className="material-symbols-outlined text-[15px]">fact_check</span>
-                    Evidence
-                  </Button>
-                )}
-                {isLeader && plan.status === 'PENDING_APPROVAL' && rejectingPlanId !== plan.id && (
-                  <>
-                    <Button variant="outline" onClick={() => setRejectingPlanId(plan.id)} style={{ height: 32, padding: '0 10px', borderRadius: 9, fontSize: 12 }}>
-                      Reject
-                    </Button>
-                    <Button variant="primary" onClick={() => handleApprove(plan.id)} style={{ height: 32, padding: '0 10px', borderRadius: 9, fontSize: 12 }}>
-                      Approve
-                    </Button>
-                  </>
-                )}
-                {isLeader && plan.status === 'APPROVED' && (
-                  <Button variant="primary" onClick={() => handleExecute(plan.id)} style={{ height: 32, padding: '0 10px', borderRadius: 9, fontSize: 12 }}>
-                    <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-                    Execute
-                  </Button>
-                )}
-              </div>
+              <Button variant="outline" onClick={() => openTaskDetails(task)} style={{ height: 36, padding: '0 12px', borderRadius: 9, fontSize: 13 }}>
+                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                Details
+              </Button>
             </div>
-
-            {rejectingPlanId === plan.id && (
-              <div className="mt-5 flex flex-col gap-2 rounded-xl border border-red-100 bg-red-50 p-3 sm:flex-row sm:items-center">
-                <input
-                  type="text"
-                  placeholder="Reason for rejecting this plan (optional)"
-                  value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
-                  className="min-w-[240px] flex-1 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-on-surface outline-none focus:border-error focus:ring-1 focus:ring-error"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRejectingPlanId(null)
-                    setRejectReason('')
-                  }}
-                  className="rounded-lg px-3 py-2 text-sm font-semibold text-on-surface-variant hover:bg-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleReject(plan.id)}
-                  className="rounded-lg bg-error px-3 py-2 text-sm font-semibold text-on-error hover:bg-error/90"
-                >
-                  Confirm Reject
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </Card>
@@ -485,10 +623,10 @@ export default function RecoveryPlanDashboardPage() {
             </div>
             <h1 className="flex items-center gap-3 text-2xl font-black tracking-tight text-on-surface md:text-3xl">
               <span className="material-symbols-outlined text-3xl text-primary">health_and_safety</span>
-              Recovery Plans
+              Recovery Tasks
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
-              Review risky tasks, inspect suggested actions, and approve the plan before it changes the task board.
+              Open a risky task, create one plan when needed, then edit and approve it.
             </p>
           </div>
 
@@ -505,7 +643,7 @@ export default function RecoveryPlanDashboardPage() {
                 </option>
               ))}
             </select>
-            <Button variant="outline" onClick={loadPlans}>
+            <Button variant="outline" onClick={loadTasks}>
               <span className="material-symbols-outlined text-lg">refresh</span>
               Refresh
             </Button>
@@ -513,10 +651,10 @@ export default function RecoveryPlanDashboardPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Pending Review" value={planStats.pending} icon="rate_review" helper="Plans waiting for leader action" tone="text-amber-600" />
-          <MetricCard label="Approved" value={planStats.approved} icon="verified" helper="Ready to execute" tone="text-blue-600" />
-          <MetricCard label="Closed" value={planStats.closed} icon="task_alt" helper="Executed, rejected, or declined" tone="text-emerald-600" />
-          <MetricCard label="Missing Evidence" value={planStats.noEvidence} icon="fact_check" helper="Need evidence before review" tone="text-slate-600" />
+          <MetricCard label="Risky Tasks" value={stats.total} icon="warning" helper="Tasks needing recovery review" tone="text-red-600" />
+          <MetricCard label="Needs Plan" value={stats.noPlan} icon="add_task" helper="No active plan yet" tone="text-slate-600" />
+          <MetricCard label="Pending" value={stats.pending} icon="rate_review" helper="Waiting for approval" tone="text-amber-600" />
+          <MetricCard label="Approved" value={stats.approved} icon="verified" helper="Ready to execute" tone="text-blue-600" />
         </section>
 
         <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-2">
@@ -541,39 +679,47 @@ export default function RecoveryPlanDashboardPage() {
           </div>
         </section>
 
-        {loading && plans.length === 0 ? (
+        {loading && tasks.length === 0 ? (
           <EmptyState loading />
-        ) : plans.length === 0 ? (
+        ) : filteredTasks.length === 0 ? (
           <EmptyState />
         ) : (
           <section className="space-y-4">
-            {plans.map(renderPlanCard)}
+            {filteredTasks.map(renderTaskCard)}
           </section>
         )}
       </div>
 
-      {selectedPlan && (
+      {selectedTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b border-outline-variant px-5 py-4">
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <Badge icon={getRiskStyle(selectedPlan.riskLevel).icon} className={getRiskStyle(selectedPlan.riskLevel).badge}>
-                    {getRiskStyle(selectedPlan.riskLevel).label}
+                  <Badge icon={getRiskStyle(selectedTask.riskLevel).icon} className={getRiskStyle(selectedTask.riskLevel).badge}>
+                    {getRiskStyle(selectedTask.riskLevel).label}
                   </Badge>
-                  <Badge className={STATUS_STYLES[selectedPlan.status] || 'bg-slate-50 text-slate-700 border-slate-200'}>
-                    {labelize(selectedPlan.status)}
-                  </Badge>
-                  {renderGenerationBadge(selectedPlan)}
+                  {selectedPlan ? (
+                    <Badge className={STATUS_STYLES[selectedPlan.status] || 'bg-slate-50 text-slate-700 border-slate-200'}>
+                      {labelize(selectedPlan.status)}
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-slate-50 text-slate-700 border-slate-200">No plan</Badge>
+                  )}
                 </div>
-                <h2 className="text-2xl font-black text-on-surface">Task #{selectedPlan.taskId}</h2>
-                <p className="mt-1 text-sm text-on-surface-variant">{formatDateTime(selectedPlan.createdAt)}</p>
+                <h2 className="text-2xl font-black text-on-surface">Task #{selectedTask.taskId}</h2>
+                <p className="mt-1 text-sm text-on-surface-variant">{selectedTask.taskTitle}</p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedPlan(null)}
+                onClick={() => {
+                  setSelectedTask(null)
+                  setSelectedPlan(null)
+                  setEditingPlan(false)
+                  setEditDraft({ summary: '', actions: [] })
+                }}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container"
-                aria-label="Close recovery plan detail"
+                aria-label="Close recovery task detail"
               >
                 <span className="material-symbols-outlined text-[22px]">close</span>
               </button>
@@ -583,15 +729,14 @@ export default function RecoveryPlanDashboardPage() {
               <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
                 <div className="space-y-5">
                   <section>
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Why this plan matters</p>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Task reason</p>
                     <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
-                      <AiRecoverySummary 
-                        planDetailsJson={selectedPlan.planDetailsJson} 
-                        fallbackSummary={selectedPlan.summary} 
-                      />
-                      {Array.isArray(selectedPlan.riskCategories) && selectedPlan.riskCategories.length > 0 && (
+                      <p className="text-sm leading-relaxed text-on-surface">
+                        {normalizeStringList(selectedTask.reasons).join(' ') || selectedTask.recommendedAction || 'This task is currently risky.'}
+                      </p>
+                      {Array.isArray(selectedTask.riskCategories) && selectedTask.riskCategories.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {selectedPlan.riskCategories.map(category => (
+                          {selectedTask.riskCategories.map(category => (
                             <span key={category} className="rounded-md bg-surface px-2.5 py-1 text-xs font-bold text-on-surface-variant">
                               {labelize(category)}
                             </span>
@@ -601,16 +746,64 @@ export default function RecoveryPlanDashboardPage() {
                     </div>
                   </section>
 
-                  <section>
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Proposed actions</p>
-                    {renderPlanActions(selectedPlan)}
-                  </section>
+                  {selectedPlan ? (
+                    <>
+                      <section>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Plan summary</p>
+                        <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
+                          {editingPlan ? (
+                            <textarea
+                              value={editDraft.summary}
+                              onChange={(event) => setEditDraft(current => ({ ...current, summary: event.target.value }))}
+                              rows={4}
+                              className="w-full resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm leading-relaxed text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            />
+                          ) : (
+                            <p className="text-sm leading-relaxed text-on-surface">{selectedPlan.summary || 'No summary.'}</p>
+                          )}
+                        </div>
+                      </section>
 
-                  {selectedPlan.gateReason && (
-                    <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant">
-                      <span className="font-black text-on-surface">Gate note: </span>
-                      {selectedPlan.gateReason}
+                      <section>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Proposed actions</p>
+                        {editingPlan ? renderEditablePlanActions() : renderPlanActions(selectedPlan)}
+                      </section>
+                    </>
+                  ) : (
+                    <section className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest p-6 text-center">
+                      <span className="material-symbols-outlined text-4xl text-primary">auto_awesome</span>
+                      <h3 className="mt-2 text-lg font-black text-on-surface">No plan for this task yet</h3>
+                      <p className="mt-1 text-sm text-on-surface-variant">Generate a plan only for this task when you are ready.</p>
                     </section>
+                  )}
+
+                  {Array.isArray(selectedTask.planHistory) && selectedTask.planHistory.length > 0 && (
+                    <details className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
+                      <summary className="cursor-pointer text-sm font-black text-on-surface">
+                        Plan history ({selectedTask.planHistory.length})
+                      </summary>
+                      <div className="mt-3 space-y-2">
+                        {selectedTask.planHistory.map(plan => (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPlan(plan)
+                              setEditingPlan(false)
+                              setEditDraft(buildEditDraft(plan))
+                            }}
+                            className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm ${
+                              selectedPlan?.id === plan.id
+                                ? 'border-primary bg-primary-fixed/30 text-on-surface'
+                                : 'border-outline-variant bg-surface text-on-surface-variant hover:bg-surface-container'
+                            }`}
+                          >
+                            <span className="font-bold">{labelize(plan.status)}</span>
+                            <span className="truncate">{formatDateTime(plan.createdAt)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                   )}
                 </div>
 
@@ -619,68 +812,93 @@ export default function RecoveryPlanDashboardPage() {
                     <p className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant">Decision pack</p>
                     <div className="mt-3 space-y-3">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-on-surface-variant">Evidence</span>
-                        <span className="text-sm font-black text-on-surface">
-                          {selectedPlan.evidenceSnapshotId ? `#${selectedPlan.evidenceSnapshotId}` : 'Missing'}
-                        </span>
+                        <span className="text-sm text-on-surface-variant">Assignee</span>
+                        <span className="text-sm font-black text-on-surface">{selectedTask.assigneeName || 'Unassigned'}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-on-surface-variant">Score</span>
-                        <span className="text-sm font-black text-on-surface">
-                          {selectedPlan.scoreBeforeExecution != null || selectedPlan.scoreAfterExecution != null
-                            ? `${selectedPlan.scoreBeforeExecution ?? '-'} -> ${selectedPlan.scoreAfterExecution ?? '-'}`
-                            : 'Tracking'}
-                        </span>
+                        <span className="text-sm font-black text-on-surface">{selectedTask.slaScore ?? '-'}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-on-surface-variant">Gate</span>
-                        <span className="text-sm font-black text-on-surface">{labelize(selectedPlan.gateResult || 'Pending')}</span>
+                        <span className="text-sm text-on-surface-variant">Deadline</span>
+                        <span className="text-sm font-black text-on-surface">{formatDate(selectedTask.deadline)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-on-surface-variant">Actions</span>
-                        <span className="text-sm font-black text-on-surface">
-                          {Array.isArray(selectedPlan.actions) ? selectedPlan.actions.length : 0}
-                        </span>
+                        <span className="text-sm text-on-surface-variant">History</span>
+                        <span className="text-sm font-black text-on-surface">{selectedTask.planHistory?.length || 0}</span>
                       </div>
                     </div>
                   </div>
-
-                  {selectedPlan.rejectReason && (
-                    <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
-                      <span className="font-black">Reject reason: </span>
-                      {selectedPlan.rejectReason}
-                    </div>
-                  )}
                 </aside>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-lowest px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-on-surface-variant">
-                Open the task board to inspect ownership, dates, and current SLA state before executing.
+                New AI plan is created only when you click Generate Plan here.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
-                {selectedPlan.evidenceSnapshotId && (
+                {selectedPlan?.evidenceSnapshotId && (
                   <Button variant="outline" onClick={() => setEvidencePlan(selectedPlan)}>
                     <span className="material-symbols-outlined text-lg">fact_check</span>
                     Evidence
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/tasks/${selectedPlan.taskId}`)}>
+                <Button variant="outline" onClick={() => navigate(`/projects/${projectId}/tasks/${selectedTask.taskId}`)}>
                   Open Task
                 </Button>
-                {isLeader && selectedPlan.status === 'PENDING_APPROVAL' && rejectingPlanId !== selectedPlan.id && (
-                  <>
-                    <Button variant="outline" onClick={() => setRejectingPlanId(selectedPlan.id)}>
-                      Reject
-                    </Button>
-                    <Button variant="primary" onClick={() => handleApprove(selectedPlan.id)}>
-                      Approve Plan
-                    </Button>
-                  </>
+                {isLeader && !selectedPlan && (
+                  <Button variant="primary" onClick={() => handleGenerateTaskPlan(selectedTask)} disabled={generatingTaskId === selectedTask.taskId}>
+                    <span className={`material-symbols-outlined text-lg ${generatingTaskId === selectedTask.taskId ? 'animate-spin' : ''}`}>
+                      {generatingTaskId === selectedTask.taskId ? 'progress_activity' : 'auto_awesome'}
+                    </span>
+                    {generatingTaskId === selectedTask.taskId ? 'Generating...' : 'Generate Plan'}
+                  </Button>
                 )}
-                {isLeader && selectedPlan.status === 'APPROVED' && (
-                  <Button variant="primary" onClick={() => handleExecute(selectedPlan.id)}>
+                {isLeader && selectedPlan?.status === 'PENDING_APPROVAL' && (
+                  <Button variant="primary" onClick={() => handleGenerateTaskPlan(selectedTask)} disabled={generatingTaskId === selectedTask.taskId}>
+                    <span className={`material-symbols-outlined text-lg ${generatingTaskId === selectedTask.taskId ? 'animate-spin' : ''}`}>
+                      {generatingTaskId === selectedTask.taskId ? 'progress_activity' : 'auto_awesome'}
+                    </span>
+                    {generatingTaskId === selectedTask.taskId ? 'Regenerating...' : 'Regenerate AI Plan'}
+                  </Button>
+                )}
+                {isLeader && selectedPlan?.status === 'PENDING_APPROVAL' && (
+                  editingPlan ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingPlan(false)
+                          setEditDraft(buildEditDraft(selectedPlan))
+                        }}
+                      >
+                        Cancel Edit
+                      </Button>
+                      <Button variant="primary" onClick={handleSavePlan} disabled={savingPlan}>
+                        {savingPlan ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditDraft(buildEditDraft(selectedPlan))
+                          setEditingPlan(true)
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-lg">edit</span>
+                        Edit Plan
+                      </Button>
+                      <Button variant="primary" onClick={() => handleApprove(selectedPlan)}>
+                        Approve Plan
+                      </Button>
+                    </>
+                  )
+                )}
+                {isLeader && selectedPlan?.status === 'APPROVED' && (
+                  <Button variant="primary" onClick={() => handleExecute(selectedPlan)}>
                     <span className="material-symbols-outlined text-lg">play_arrow</span>
                     Execute Plan
                   </Button>

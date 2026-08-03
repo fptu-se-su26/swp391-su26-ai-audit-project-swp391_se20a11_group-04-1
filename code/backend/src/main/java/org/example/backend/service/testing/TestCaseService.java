@@ -185,6 +185,7 @@ public class TestCaseService {
 
         // Replace steps: xóa cũ, thêm mới
         testStepRepository.deleteAllByTestCaseId(testCaseId);
+        testStepRepository.flush(); // ensure deletes are committed before inserting new steps
         tc.getSteps().clear();
         tc.getSteps().addAll(buildSteps(request.getSteps(), tc));
 

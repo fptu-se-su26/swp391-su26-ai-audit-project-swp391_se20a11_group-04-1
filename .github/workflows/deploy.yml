@@ -1,4 +1,3 @@
-
 name: DevTrack CI/CD Pipeline
 
 on:
@@ -21,8 +20,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script_stop: true
-          timeout: 30m
-          command_timeout: 60m
+          timeout: 10m
+          command_timeout: 30m
           script: |
             echo "=========================================="
             echo "   BẮT ĐẦU TRIỂN KHAI CODE MỚI TRÊN VPS   "
@@ -199,16 +198,12 @@ jobs:
             LAG_UNKNOWN=$(docker compose -f docker-compose.dev.yml exec -T kafka \
               /opt/kafka/bin/kafka-consumer-groups.sh \
               --bootstrap-server localhost:9092 \
-              --describe --group playwright-service-group 2>/dev/null \
-              | grep "test-run-jobs" | awk '{print $6}' | grep -c "^-$" 2>/dev/null || echo "0")
-            # Ensure LAG_UNKNOWN is a clean integer (strip whitespace/newlines)
-            LAG_UNKNOWN=$(echo "${LAG_UNKNOWN}" | tr -d '[:space:]' | head -1)
-            LAG_UNKNOWN=${LAG_UNKNOWN:-0}
-            if echo "${LAG_UNKNOWN}" | grep -qE '^[0-9]+$' && [ "${LAG_UNKNOWN}" -gt 0 ]; then
+              --describe --group playwright-service-group 2>/dev/null | grep "test-run-jobs" | awk '{print $6}' | grep -c "^-$" || echo "0")
+            if [ "${LAG_UNKNOWN:-0}" -gt 0 ]; then
               echo "   Detected ${LAG_UNKNOWN} partitions with uninitialized offset, resetting to latest..."
               # Scale down để group inactive, reset offset, scale lại
               kubectl scale deployment playwright-worker -n devtrack --replicas=0
-              sleep 10
+              sleep 70
               docker compose -f docker-compose.dev.yml exec -T kafka \
                 /opt/kafka/bin/kafka-consumer-groups.sh \
                 --bootstrap-server localhost:9092 \
@@ -222,7 +217,7 @@ jobs:
 
             # Rollout restart để pod lấy image mới + env vars mới nhất
             kubectl rollout restart deployment/playwright-worker -n devtrack
-            kubectl rollout status deployment/playwright-worker -n devtrack --timeout=120s || true
+            kubectl rollout status deployment/playwright-worker -n devtrack --timeout=120s
             echo "   Kubernetes manifests applied OK"
 
             echo "=========================================="
