@@ -986,6 +986,17 @@ public class ProjectServiceImpl implements ProjectService {
                 throw new BadRequestException("Loại dự án không hợp lệ: " + request.getType());
             }
         }
+        if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+            try {
+                ProjectStatus newStatus = ProjectStatus.valueOf(request.getStatus().trim().toUpperCase());
+                if (newStatus == ProjectStatus.ARCHIVED) {
+                    throw new BadRequestException("Vui lòng sử dụng chức năng Đóng dự án để lưu trữ (ARCHIVED).");
+                }
+                project.setStatus(newStatus);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Trạng thái dự án không hợp lệ: " + request.getStatus());
+            }
+        }
         if (request.getStartDate() != null) {
             try {
                 project.setStartDate(java.time.LocalDate.parse(request.getStartDate()));

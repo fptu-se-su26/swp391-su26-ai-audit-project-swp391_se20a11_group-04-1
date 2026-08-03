@@ -120,11 +120,6 @@ export const taskService = {
     return unwrap(response)
   },
 
-  rejectRecoveryPlan: async (projectId, planId, reason) => {
-    const response = await axiosInstance.patch(`/v1/projects/${projectId}/recovery-plans/${planId}/reject`, { reason })
-    return unwrap(response)
-  },
-
   executeRecoveryPlan: async (projectId, planId) => {
     const response = await axiosInstance.patch(`/v1/projects/${projectId}/recovery-plans/${planId}/execute`)
     return unwrap(response)

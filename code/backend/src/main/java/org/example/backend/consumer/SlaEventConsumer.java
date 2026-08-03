@@ -4,20 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.backend.entity.TaskSlaState;
-import org.example.backend.repository.TaskSlaStateRepository;
-import org.example.backend.service.sla.RecoveryPlanService;
 import org.example.backend.service.sla.SlaStateService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.Executor;
 
 @Slf4j
 @Component
@@ -27,12 +20,6 @@ public class SlaEventConsumer {
 
     private final ObjectMapper objectMapper;
     private final SlaStateService slaStateService;
-    private final TaskSlaStateRepository taskSlaStateRepository;
-    private final RecoveryPlanService recoveryPlanService;
-
-    @Autowired
-    @Qualifier("slaJobExecutor")
-    private Executor slaJobExecutor;
 
     @KafkaListener(
             topics = {"devtrack.task.events", "devtrack.sla.events"},
@@ -47,7 +34,6 @@ public class SlaEventConsumer {
         log.info("Received event payload from Kafka: {}", payload);
         try {
             JsonNode jsonNode = objectMapper.readTree(payload);
-
             String eventType = jsonNode.has("eventType") ? jsonNode.get("eventType").asText() : "UNKNOWN";
 
             Long taskId = null;
@@ -73,30 +59,9 @@ public class SlaEventConsumer {
             }
 
             slaStateService.evaluateAndPersist(taskId, eventType);
-            // Fire-and-forget: chạy trong slaJobExecutor để không block Kafka consumer thread
-            final Long finalTaskId = taskId;
-            slaJobExecutor.execute(() -> maybeAutoGenerateRecoveryPlan(finalTaskId));
         } catch (Exception ex) {
             log.error("Failed to process SLA event from Kafka. Payload: {}", payload, ex);
             throw new RuntimeException("Error processing SLA event from Kafka. Payload: " + payload, ex);
-        }
-    }
-
-    private void maybeAutoGenerateRecoveryPlan(Long taskId) {
-        try {
-            TaskSlaState state = taskSlaStateRepository.findById(taskId).orElse(null);
-            if (state == null) {
-                return;
-            }
-
-            String riskLevel = state.getCurrentRiskLevel();
-            if (!"WARNING".equalsIgnoreCase(riskLevel) && !"BREACH".equalsIgnoreCase(riskLevel)) {
-                return;
-            }
-
-            recoveryPlanService.autoGenerateForTask(state.getProjectId(), taskId);
-        } catch (Exception ex) {
-            log.warn("AI background recovery plan generation skipped for task {}: {}", taskId, ex.getMessage());
         }
     }
 

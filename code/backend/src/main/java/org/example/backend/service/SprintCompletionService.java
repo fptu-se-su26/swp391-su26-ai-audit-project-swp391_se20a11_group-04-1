@@ -55,7 +55,16 @@ public class SprintCompletionService {
         }
         Sprint sprint = sprintOpt.get();
 
-        if (sprintCompletionSummaryRepository.findBySprintId(sprintId).isPresent()) {
+        boolean isUserTriggered = triggeredBy != null && triggeredBy.startsWith("USER_");
+
+        if (isUserTriggered) {
+            sprintCompletionSummaryRepository.findBySprintId(sprintId)
+                    .ifPresent(existing -> {
+                        sprintCompletionSummaryRepository.delete(existing);
+                        sprintCompletionSummaryRepository.flush();
+                        log.info("Deleted existing SprintCompletionSummary for regenerate, sprintId: {}", sprintId);
+                    });
+        } else if (sprintCompletionSummaryRepository.findBySprintId(sprintId).isPresent()) {
             log.info("SprintCompletionSummary already exists for sprintId: {}", sprintId);
             return;
         }
@@ -69,9 +78,22 @@ public class SprintCompletionService {
         int overdueTasks = 0;
         int penalizedTasks = 0;
 
+        List<String> riskyTaskDetails = new ArrayList<>();
         LocalDate today = LocalDate.now();
 
         for (Task task : tasks) {
+            boolean isOverdue = task.getStatus() != TaskStatus.DONE && task.getDeadline() != null && task.getDeadline().isBefore(today);
+            boolean isPenalized = task.isOverduePenaltyApplied();
+            if (isOverdue || isPenalized || task.getStatus() == TaskStatus.BLOCKED) {
+                String assigneeName = task.getPrimaryAssignee() != null ?
+                    (task.getPrimaryAssignee().getProfile() != null && task.getPrimaryAssignee().getProfile().getFullName() != null
+                        ? task.getPrimaryAssignee().getProfile().getFullName()
+                        : task.getPrimaryAssignee().getUsername()) : "Unassigned";
+                riskyTaskDetails.add(String.format("Task #%d '%s' [%s] - Assignee: %s, Status: %s%s",
+                        task.getId(), task.getTitle(), task.getPriority(), assigneeName, task.getStatus(),
+                        isPenalized ? " (Penalized)" : (isOverdue ? " (Overdue)" : "")));
+            }
+
             if (task.getStatus() == TaskStatus.DONE) {
                 completedTasks++;
                 if (task.getCompletedAt() != null && task.getDeadline() != null &&
@@ -176,7 +198,7 @@ public class SprintCompletionService {
 
         String aiSprintNarrative = geminiSprintNarrativeService.generateNarrative(
                 sprint.getName(), sprint.getProject().getName(), sprint.getGoal(), totalTasks, completedTasks, completedOnTime,
-                overdueTasks, penalizedTasks, tasksByAssignee.size(), redMembers, memberSummaries);
+                overdueTasks, penalizedTasks, tasksByAssignee.size(), redMembers, memberSummaries, riskyTaskDetails);
         log.info("Gemini narrative result: {}", aiSprintNarrative == null ? "NULL (fallback)" : "OK");
 
         if (aiSprintNarrative == null) {
@@ -212,8 +234,6 @@ public class SprintCompletionService {
         sprintCompletionSummaryRepository.save(summary);
         webSocketBroadcastService.broadcastSprintAiDone(sprint.getProject().getId(), sprintId);
         log.info("SprintCompletionSummary generated for sprint {}: {}/{} tasks done", sprintId, completedTasks, totalTasks);
-
-        boolean isUserTriggered = triggeredBy != null && triggeredBy.startsWith("USER_");
 
         if (!isUserTriggered) {
             String notifTitle = String.format("Sprint %s đã kết thúc", sprint.getName());

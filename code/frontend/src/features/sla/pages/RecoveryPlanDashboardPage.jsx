@@ -193,6 +193,7 @@ export default function RecoveryPlanDashboardPage() {
       const payload = parseActionPayload(action.payload)
       return {
         id: action.id,
+        _tempId: null,
         actionType: action.actionType,
         priority: action.priority || 'MEDIUM',
         message: action.message || payload.actionDetails || payload.rationale || '',
@@ -269,20 +270,49 @@ export default function RecoveryPlanDashboardPage() {
     }
   }
 
-  const updateDraftAction = (actionId, patch) => {
+  const updateDraftAction = (actionKey, patch) => {
     setEditDraft(current => ({
       ...current,
       actions: current.actions.map(action => (
-        action.id === actionId ? { ...action, ...patch } : action
+        (action.id ?? action._tempId) === actionKey ? { ...action, ...patch } : action
       )),
     }))
   }
 
-  const updateDraftChecklistItem = (actionId, index, value) => {
+  const addNewDraftAction = () => {
+    const tempId = Date.now()
+    setEditDraft(current => ({
+      ...current,
+      actions: [
+        ...current.actions,
+        {
+          id: null,
+          _tempId: tempId,
+          actionType: 'NOTIFY_ASSIGNEE',
+          priority: 'MEDIUM',
+          message: '',
+          checklistItems: [],
+          recommendedAssigneeId: '',
+          recommendedAssigneeName: '',
+          recommendedReason: '',
+          notRecommendedAssignees: [],
+        },
+      ],
+    }))
+  }
+
+  const removeDraftAction = (actionKey) => {
+    setEditDraft(current => ({
+      ...current,
+      actions: current.actions.filter(action => (action.id ?? action._tempId) !== actionKey),
+    }))
+  }
+
+  const updateDraftChecklistItem = (actionKey, index, value) => {
     setEditDraft(current => ({
       ...current,
       actions: current.actions.map(action => {
-        if (action.id !== actionId) return action
+        if ((action.id ?? action._tempId) !== actionKey) return action
         const checklistItems = [...(action.checklistItems || [])]
         checklistItems[index] = value
         return { ...action, checklistItems }
@@ -297,7 +327,8 @@ export default function RecoveryPlanDashboardPage() {
       const updatedPlan = await recoveryPlanService.updateRecoveryPlan(activeProject.id, selectedPlan.id, {
         summary: editDraft.summary,
         actions: editDraft.actions.map(action => ({
-          id: action.id,
+          id: action.id || null,
+          newAction: action.id === null,
           actionType: action.actionType,
           priority: action.priority,
           message: action.message,
@@ -403,137 +434,240 @@ export default function RecoveryPlanDashboardPage() {
     )
   }
 
-  const renderEditablePlanActions = () => (
-    <div className="space-y-3">
-      {editDraft.actions.map(action => (
-        <div key={action.id} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
-                <span className="material-symbols-outlined text-[18px]">{getActionIcon(action.actionType)}</span>
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-black text-on-surface">{labelize(action.actionType)}</p>
-                <p className="text-xs text-on-surface-variant">Edit before approval</p>
-              </div>
-            </div>
-            <select
-              value={action.actionType}
-              onChange={(event) => updateDraftAction(action.id, { actionType: event.target.value })}
-              className="rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary"
-            >
-              {ACTION_TYPES.map(type => (
-                <option key={type} value={type}>{labelize(type)}</option>
-              ))}
-            </select>
-          </div>
+  const getReasonLabel = (candidate) => {
+    if (candidate.recommended === false) return 'Không gợi ý'
+    if (candidate.recommendedReason) {
+      const r = String(candidate.recommendedReason).toLowerCase()
+      if (r.includes('overload') || r.includes('nhiều task')) return 'Ít task'
+      if (r.includes('available') || r.includes('rảnh')) return 'Có thời gian'
+      if (r.includes('skill') || r.includes('kỹ năng')) return 'Phù hợp kỹ năng'
+      if (r.includes('overdue') || r.includes('quá hạn') === false) return 'Không quá hạn'
+      // Short: first 3 words
+      return candidate.recommendedReason.split(' ').slice(0, 3).join(' ')
+    }
+    if (candidate.activeTaskCount !== undefined && candidate.activeTaskCount <= 2) return 'Ít task'
+    if (candidate.overdueTaskCount === 0) return 'Không quá hạn'
+    return 'Khả dụng'
+  }
 
-          <textarea
-            value={action.message}
-            onChange={(event) => updateDraftAction(action.id, { message: event.target.value })}
-            rows={3}
-            className="mt-3 w-full resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm leading-relaxed text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-          />
-
-          {action.actionType === 'CREATE_RECOVERY_CHECKLIST' && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase text-on-surface-variant">Checklist</p>
-                <button
-                  type="button"
-                  onClick={() => updateDraftAction(action.id, { checklistItems: [...(action.checklistItems || []), ''] })}
-                  className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
-                >
-                  Add item
-                </button>
-              </div>
-              {(action.checklistItems || []).map((item, index) => (
-                <div key={`${action.id}-edit-check-${index}`} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={item}
-                    onChange={(event) => updateDraftChecklistItem(action.id, index, event.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => updateDraftAction(action.id, {
-                      checklistItems: (action.checklistItems || []).filter((_, itemIndex) => itemIndex !== index),
-                    })}
-                    className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
-                    aria-label="Remove checklist item"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
-                  </button>
+  const renderEditablePlanActions = () => {
+    const candidates = Array.isArray(selectedPlan?.memberCandidates) ? selectedPlan.memberCandidates : []
+    return (
+      <div className="space-y-3">
+        {editDraft.actions.map(action => {
+          const actionKey = action.id ?? action._tempId
+          const isNewAction = action.id === null
+          return (
+            <div key={actionKey} className={`rounded-xl border bg-surface-container-lowest p-4 ${isNewAction ? 'border-primary/40 bg-primary-fixed/10' : 'border-outline-variant'}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-primary">
+                    <span className="material-symbols-outlined text-[18px]">{getActionIcon(action.actionType)}</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-on-surface">{labelize(action.actionType)}</p>
+                    <p className="text-xs text-on-surface-variant">{isNewAction ? 'New action' : 'Edit before approval'}</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {action.actionType === 'SUGGEST_REASSIGN' && (
-            <div className="mt-3 space-y-3 rounded-xl border border-primary/15 bg-primary-fixed/20 p-3">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-on-surface-variant">Should assign</span>
-                  <input
-                    type="text"
-                    value={action.recommendedAssigneeName || ''}
-                    onChange={(event) => updateDraftAction(action.id, { recommendedAssigneeName: event.target.value })}
-                    className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-on-surface-variant">Reason</span>
-                  <input
-                    type="text"
-                    value={action.recommendedReason || ''}
-                    onChange={(event) => updateDraftAction(action.id, { recommendedReason: event.target.value })}
-                    className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
-                  />
-                </label>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs font-black uppercase text-on-surface-variant">Should not assign</p>
-                  <button
-                    type="button"
-                    onClick={() => updateDraftAction(action.id, { notRecommendedAssignees: [...(action.notRecommendedAssignees || []), ''] })}
-                    className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+                <div className="flex items-center gap-2">
+                  <select
+                    value={action.actionType}
+                    onChange={(event) => updateDraftAction(actionKey, { actionType: event.target.value })}
+                    className="rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm font-bold text-on-surface outline-none focus:border-primary"
                   >
-                    Add
-                  </button>
-                </div>
-                {(action.notRecommendedAssignees || []).map((item, index) => (
-                  <div key={`${action.id}-edit-avoid-${index}`} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(event) => {
-                        const next = [...(action.notRecommendedAssignees || [])]
-                        next[index] = event.target.value
-                        updateDraftAction(action.id, { notRecommendedAssignees: next })
-                      }}
-                      className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
-                    />
+                    {ACTION_TYPES.map(type => (
+                      <option key={type} value={type}>{labelize(type)}</option>
+                    ))}
+                  </select>
+                  {isNewAction && (
                     <button
                       type="button"
-                      onClick={() => updateDraftAction(action.id, {
-                        notRecommendedAssignees: (action.notRecommendedAssignees || []).filter((_, itemIndex) => itemIndex !== index),
-                      })}
-                      className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
-                      aria-label="Remove reassignment note"
+                      onClick={() => removeDraftAction(actionKey)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-600"
+                      aria-label="Remove action"
                     >
-                      <span className="material-symbols-outlined text-[18px]">close</span>
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <textarea
+                value={action.message}
+                onChange={(event) => updateDraftAction(actionKey, { message: event.target.value })}
+                rows={3}
+                className="mt-3 w-full resize-y rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm leading-relaxed text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+
+              {action.actionType === 'CREATE_RECOVERY_CHECKLIST' && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase text-on-surface-variant">Checklist</p>
+                    <button
+                      type="button"
+                      onClick={() => updateDraftAction(actionKey, { checklistItems: [...(action.checklistItems || []), ''] })}
+                      className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+                    >
+                      Add item
                     </button>
                   </div>
-                ))}
-              </div>
+                  {(action.checklistItems || []).map((item, index) => (
+                    <div key={`${actionKey}-edit-check-${index}`} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={item}
+                        onChange={(event) => updateDraftChecklistItem(actionKey, index, event.target.value)}
+                        className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateDraftAction(actionKey, {
+                          checklistItems: (action.checklistItems || []).filter((_, itemIndex) => itemIndex !== index),
+                        })}
+                        className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
+                        aria-label="Remove checklist item"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {action.actionType === 'SUGGEST_REASSIGN' && (
+                <div className="mt-3 space-y-3">
+                  {/* AI candidate cards */}
+                  {candidates.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-black uppercase text-on-surface-variant">AI Priority Suggestions</p>
+                      <div className="flex flex-wrap gap-2">
+                        {candidates.map((candidate, ci) => {
+                          const name = candidate.displayName || candidate.recommendedAssigneeName || ''
+                          if (!name) return null
+                          const isSelected = action.recommendedAssigneeName === name
+                          const isRecommended = candidate.recommended !== false
+                          const reasonLabel = getReasonLabel(candidate)
+                          const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                          return (
+                            <button
+                              key={`cand-${ci}`}
+                              type="button"
+                              disabled={!isRecommended}
+                              onClick={() => isRecommended && updateDraftAction(actionKey, {
+                                recommendedAssigneeName: name,
+                                recommendedAssigneeId: candidate.userId || '',
+                                recommendedReason: candidate.recommendedReason || reasonLabel,
+                              })}
+                              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary text-on-primary shadow-sm'
+                                  : isRecommended
+                                    ? 'border-primary/30 bg-primary-fixed/20 text-on-surface hover:border-primary hover:bg-primary-fixed/40'
+                                    : 'cursor-not-allowed border-outline-variant bg-surface opacity-50 text-on-surface-variant'
+                              }`}
+                            >
+                              <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
+                                isSelected ? 'bg-white/20 text-white' : 'bg-primary-fixed text-primary'
+                              }`}>
+                                {initials}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block truncate font-bold leading-tight">{name}</span>
+                                <span className={`block text-[10px] font-semibold leading-tight ${
+                                  isSelected ? 'text-white/80' : isRecommended ? 'text-primary' : 'text-on-surface-variant'
+                                }`}>
+                                  {reasonLabel}
+                                </span>
+                              </span>
+                              {isSelected && (
+                                <span className="material-symbols-outlined ml-auto shrink-0 text-[16px] text-white">check_circle</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-primary/15 bg-primary-fixed/20 p-3 space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="text-xs font-black uppercase text-on-surface-variant">Should assign</span>
+                        <input
+                          type="text"
+                          value={action.recommendedAssigneeName || ''}
+                          onChange={(event) => updateDraftAction(actionKey, { recommendedAssigneeName: event.target.value })}
+                          className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-black uppercase text-on-surface-variant">Reason</span>
+                        <input
+                          type="text"
+                          value={action.recommendedReason || ''}
+                          onChange={(event) => updateDraftAction(actionKey, { recommendedReason: event.target.value })}
+                          placeholder="e.g. Ít task, có thời gian"
+                          className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                        />
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-black uppercase text-on-surface-variant">Should not assign</p>
+                        <button
+                          type="button"
+                          onClick={() => updateDraftAction(actionKey, { notRecommendedAssignees: [...(action.notRecommendedAssignees || []), ''] })}
+                          className="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {(action.notRecommendedAssignees || []).map((item, index) => (
+                        <div key={`${actionKey}-edit-avoid-${index}`} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={(event) => {
+                              const next = [...(action.notRecommendedAssignees || [])]
+                              next[index] = event.target.value
+                              updateDraftAction(actionKey, { notRecommendedAssignees: next })
+                            }}
+                            className="min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateDraftAction(actionKey, {
+                              notRecommendedAssignees: (action.notRecommendedAssignees || []).filter((_, itemIndex) => itemIndex !== index),
+                            })}
+                            className="rounded-lg px-2 text-on-surface-variant hover:bg-surface"
+                            aria-label="Remove reassignment note"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">close</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
+          )
+        })}
+
+        {/* Add action button */}
+        {editDraft.actions.length < 6 && (
+          <button
+            type="button"
+            onClick={addNewDraftAction}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary-fixed/10 px-4 py-3 text-sm font-bold text-primary transition-colors hover:border-primary hover:bg-primary-fixed/20"
+          >
+            <span className="material-symbols-outlined text-[18px]">add_circle</span>
+            Add Action
+          </button>
+        )}
+      </div>
+    )
+  }
 
   const renderTaskCard = (task) => {
     const riskStyle = getRiskStyle(task.riskLevel)

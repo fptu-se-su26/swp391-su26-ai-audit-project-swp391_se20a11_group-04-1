@@ -81,6 +81,7 @@ public class ProjectResponse {
         private String name;
         private String description;
         private String type; // WEB_APP, MOBILE, DATABASE, RESEARCH, OTHER
+        private String status; // PLANNING, ACTIVE, IN_REVIEW
         private String startDate; // "yyyy-MM-dd" string to avoid Jackson 3 LocalDate issues
         private String deadline;  // "yyyy-MM-dd" string
         private Integer maxMembers;

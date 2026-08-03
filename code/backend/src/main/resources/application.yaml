@@ -114,6 +114,7 @@ internal:
 gemini:
   api-key: ${GEMINI_API_KEY:}
   api:
+    key: ${GEMINI_API_KEY:}
     keys: ${GEMINI_API_KEY:}
     url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent}
 

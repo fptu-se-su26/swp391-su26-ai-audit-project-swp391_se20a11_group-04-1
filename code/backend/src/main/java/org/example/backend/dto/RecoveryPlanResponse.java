@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -37,4 +38,7 @@ public class RecoveryPlanResponse {
     private LocalDateTime updatedAt;
     private List<RecoveryPlanActionResponse> actions;
     private List<RecoveryPlanAuditLogResponse> auditLogs;
+    /** Member candidates for reassignment, parsed from AI plan details. Each entry contains:
+     *  userId, displayName, activeTaskCount, overdueTaskCount, currentAssignee, recommendedReason */
+    private List<Map<String, Object>> memberCandidates;
 }

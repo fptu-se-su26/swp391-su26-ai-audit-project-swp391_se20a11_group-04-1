@@ -51,6 +51,7 @@ export default function ProjectSettingsPage() {
   const [draftName,        setDraftName]        = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftType,        setDraftType]        = useState('WEB_APP')
+  const [draftStatus,      setDraftStatus]      = useState('PLANNING')
   const [draftStartDate,   setDraftStartDate]   = useState('')
   const [draftDeadline,    setDraftDeadline]    = useState('')
   const [draftMaxMembers,  setDraftMaxMembers]  = useState(10)
@@ -92,6 +93,7 @@ export default function ProjectSettingsPage() {
       setDraftName(activeProject.title || '')
       setDraftDescription(activeProject.description || '')
       setDraftType(activeProject.type || 'WEB_APP')
+      setDraftStatus(activeProject.status || 'PLANNING')
       setDraftStartDate(toDateInput(activeProject.startDate))
       setDraftDeadline(toDateInput(activeProject.deadline))
       setDraftMaxMembers(activeProject.maxMembers || 10)
@@ -186,6 +188,7 @@ export default function ProjectSettingsPage() {
         name:          draftName.trim(),
         description:   draftDescription,
         type:          draftType,
+        status:        draftStatus,
         startDate:     draftStartDate || null,
         deadline:      draftDeadline  || null,
         maxMembers:    Number(draftMaxMembers),
@@ -267,6 +270,7 @@ export default function ProjectSettingsPage() {
               draftName={draftName}          setDraftName={(v) => { setDraftName(v); markDirty() }}
               draftDescription={draftDescription} setDraftDescription={(v) => { setDraftDescription(v); markDirty() }}
               draftType={draftType}          setDraftType={(v) => { setDraftType(v); markDirty() }}
+              draftStatus={draftStatus}      setDraftStatus={(v) => { setDraftStatus(v); markDirty() }}
               draftStartDate={draftStartDate} setDraftStartDate={(v) => { setDraftStartDate(v); markDirty() }}
               draftDeadline={draftDeadline}  setDraftDeadline={(v) => { setDraftDeadline(v); markDirty() }}
               draftMaxMembers={draftMaxMembers} setDraftMaxMembers={(v) => { setDraftMaxMembers(v); markDirty() }}
@@ -361,7 +365,8 @@ function CoverHeader({ project, cover, theme, canEdit, uploading, onFileClick, o
 // ═══════════════════════════════════════════════════════════════
 function GeneralTab({
   draftName, setDraftName, draftDescription, setDraftDescription,
-  draftType, setDraftType, draftStartDate, setDraftStartDate,
+  draftType, setDraftType, draftStatus, setDraftStatus,
+  draftStartDate, setDraftStartDate,
   draftDeadline, setDraftDeadline, draftMaxMembers, setDraftMaxMembers,
   initialCover, draftCover, setDraftCover, draftTheme,
   customHex, hexError, onApplyTheme, onHexInput,
@@ -384,6 +389,7 @@ function GeneralTab({
           draftName={draftName} setDraftName={setDraftName}
           draftDescription={draftDescription} setDraftDescription={setDraftDescription}
           draftType={draftType} setDraftType={setDraftType}
+          draftStatus={draftStatus} setDraftStatus={setDraftStatus}
           draftStartDate={draftStartDate} setDraftStartDate={setDraftStartDate}
           draftDeadline={draftDeadline} setDraftDeadline={setDraftDeadline}
           draftMaxMembers={draftMaxMembers} setDraftMaxMembers={setDraftMaxMembers}
@@ -540,7 +546,7 @@ function AppearanceCard({ initialCover, draftCover, setDraftCover, draftTheme, c
 // ═══════════════════════════════════════════════════════════════
 // BASIC INFO CARD
 // ═══════════════════════════════════════════════════════════════
-function BasicInfoCard({ draftName, setDraftName, draftDescription, setDraftDescription, draftType, setDraftType, draftStartDate, setDraftStartDate, draftDeadline, setDraftDeadline, draftMaxMembers, setDraftMaxMembers, canEdit, saving, onSave, isDirty }) {
+function BasicInfoCard({ draftName, setDraftName, draftDescription, setDraftDescription, draftType, setDraftType, draftStatus, setDraftStatus, draftStartDate, setDraftStartDate, draftDeadline, setDraftDeadline, draftMaxMembers, setDraftMaxMembers, canEdit, saving, onSave, isDirty }) {
   const inputCls = 'w-full rounded-xl bg-surface-container-low border-none px-4 py-2.5 text-sm font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-[rgba(30,112,125,0.25)] disabled:opacity-50 disabled:cursor-not-allowed'
   const labelCls = 'text-xs font-bold uppercase tracking-wider text-on-surface-variant block mb-1.5'
 
@@ -557,8 +563,8 @@ function BasicInfoCard({ draftName, setDraftName, draftDescription, setDraftDesc
       </div>
 
       <form onSubmit={onSave} className="space-y-4">
-        {/* Name + Type */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Name + Type + Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Project Name <span className="text-danger">*</span></label>
             <input type="text" value={draftName} onChange={(e) => setDraftName(e.target.value)} disabled={!canEdit} required className={inputCls} placeholder="My Project" />
@@ -567,6 +573,14 @@ function BasicInfoCard({ draftName, setDraftName, draftDescription, setDraftDesc
             <label className={labelCls}>Project Type</label>
             <select value={draftType} onChange={(e) => setDraftType(e.target.value)} disabled={!canEdit} className={inputCls + ' cursor-pointer'}>
               {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Project Status</label>
+            <select value={draftStatus} onChange={(e) => setDraftStatus(e.target.value)} disabled={!canEdit} className={inputCls + ' cursor-pointer'}>
+              <option value="PLANNING">Planning (Kế hoạch)</option>
+              <option value="ACTIVE">Active (Hoạt động)</option>
+              <option value="IN_REVIEW">In Review (Đánh giá)</option>
             </select>
           </div>
         </div>

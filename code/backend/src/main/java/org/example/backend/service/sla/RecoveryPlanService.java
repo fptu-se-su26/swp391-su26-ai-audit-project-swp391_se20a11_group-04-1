@@ -1207,6 +1207,44 @@ public class RecoveryPlanService {
         }
 
         recoveryPlanActionRepository.saveAll(actions);
+
+        // Handle new actions added by leader during edit
+        if (request.getActions() != null) {
+            List<RecoveryPlanAction> newActions = new ArrayList<>();
+            int existingCount = recoveryPlanActionRepository.findByRecoveryPlanIdOrderByCreatedAtAsc(planId).size();
+            int addedCount = 0;
+            for (UpdateRecoveryPlanRequest.ActionUpdate update : request.getActions()) {
+                if (!update.isNewAction()) continue;
+                if (existingCount + addedCount >= 6) {
+                    log.warn("Max action limit (6) reached for plan {}, skipping additional new actions", planId);
+                    break;
+                }
+                RecoveryActionType newActionType = parseActionType(update.getActionType());
+                if (newActionType == null || !ALLOWED_AI_ACTION_TYPES.contains(newActionType)) {
+                    log.warn("Ignoring unsupported new action type: {}", update.getActionType());
+                    continue;
+                }
+                String newMessage = update.getMessage() != null ? update.getMessage().trim() : defaultMessageForAction(newActionType);
+                if (newMessage.isBlank()) newMessage = defaultMessageForAction(newActionType);
+                RecoveryPlanAction newAction = RecoveryPlanAction.builder()
+                        .recoveryPlan(plan)
+                        .projectId(plan.getProjectId())
+                        .taskId(plan.getTaskId())
+                        .actionType(newActionType)
+                        .status(RecoveryPlanActionStatus.PENDING)
+                        .priority(parsePriority(update.getPriority(), RecoveryActionPriority.MEDIUM))
+                        .message(newMessage)
+                        .payloadJson(mergeEditableActionPayload(
+                                RecoveryPlanAction.builder().actionType(newActionType).build(), update, newMessage))
+                        .build();
+                newActions.add(newAction);
+                addedCount++;
+            }
+            if (!newActions.isEmpty()) {
+                recoveryPlanActionRepository.saveAll(newActions);
+            }
+        }
+
         plan = recoveryPlanRepository.save(plan);
 
         recordAuditLog(plan, null, currentUserId, RecoveryPlanAuditEventType.PLAN_UPDATED,
@@ -1574,11 +1612,62 @@ public class RecoveryPlanService {
                 .updatedAt(plan.getUpdatedAt())
                 .actions(actionResponses)
                 .auditLogs(auditLogs)
+                .memberCandidates(parseMemberCandidatesFromPlanDetails(plan.getPlanDetailsJson()))
                 .build();
     }
 
     private String resolveEffectivenessStatus(RecoveryPlan plan) {
         return plan.getGateResult();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseMemberCandidatesFromPlanDetails(String planDetailsJson) {
+        if (planDetailsJson == null || planDetailsJson.isBlank()) return List.of();
+        try {
+            Map<String, Object> details = objectMapper.readValue(planDetailsJson, new TypeReference<Map<String, Object>>() {});
+            // AiRecoveryContext stores memberCandidates at the top level of selectedPlan or context
+            // The full AiRecoveryResult is stored; memberCandidates come from AiRecoveryContext which
+            // is part of context used to generate, not the result itself.
+            // We re-expose what we have: the AI result's selectedPlan actions may include reassign info.
+            // For the frontend display we return the parsed selectedPlan.actions reassign candidates.
+            Object selectedPlan = details.get("selectedPlan");
+            if (selectedPlan instanceof Map<?, ?> planMap) {
+                Object actions = planMap.get("actions");
+                if (actions instanceof List<?> actionList) {
+                    List<Map<String, Object>> candidates = new ArrayList<>();
+                    for (Object actionObj : actionList) {
+                        if (!(actionObj instanceof Map<?, ?> rawMap)) continue;
+                        Map<String, Object> actionMap = (Map<String, Object>) rawMap;
+                        String actionType = String.valueOf(actionMap.getOrDefault("actionType", ""));
+                        if (!"SUGGEST_REASSIGN".equals(actionType)) continue;
+                        // Build a candidate from the AI action fields
+                        Map<String, Object> candidate = new HashMap<>();
+                        candidate.put("displayName", actionMap.getOrDefault("recommendedAssigneeName", ""));
+                        candidate.put("userId", actionMap.getOrDefault("recommendedAssigneeId", null));
+                        candidate.put("recommendedReason", actionMap.getOrDefault("recommendedReason", ""));
+                        candidate.put("recommended", true);
+                        if (!String.valueOf(candidate.get("displayName")).isBlank()) {
+                            candidates.add(candidate);
+                        }
+                        // Also add notRecommended assignees for UI display
+                        Object notRec = actionMap.get("notRecommendedAssignees");
+                        if (notRec instanceof List<?> notRecList) {
+                            for (Object name : notRecList) {
+                                Map<String, Object> notRecCandidate = new HashMap<>();
+                                notRecCandidate.put("displayName", String.valueOf(name));
+                                notRecCandidate.put("recommended", false);
+                                notRecCandidate.put("recommendedReason", "Not recommended by AI");
+                                candidates.add(notRecCandidate);
+                            }
+                        }
+                    }
+                    return candidates;
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("Could not parse memberCandidates from planDetailsJson: {}", ex.getMessage());
+        }
+        return List.of();
     }
 
     private String resolvePlanPriority(List<RecoveryPlanAction> actions) {

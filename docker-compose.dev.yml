@@ -120,6 +120,8 @@ services:
       - "8001:8001"
     networks:
       - devtrack-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # ─── 7. ARCHITECTURE PARSER ──────────────────────────────
   architecture-parser:

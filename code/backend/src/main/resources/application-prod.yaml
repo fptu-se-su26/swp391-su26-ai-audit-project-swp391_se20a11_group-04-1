@@ -3,6 +3,11 @@ server:
   forward-headers-strategy: framework
 
 spring:
+  mongodb:
+    host: ${SPRING_DATA_MONGODB_HOST:mongodb}
+    port: ${SPRING_DATA_MONGODB_PORT:27017}
+    database: ${MONGODB_DATABASE:devtrack_ai}
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/dev_track_ai}
     username: ${SPRING_DATASOURCE_USERNAME:devtrack}
@@ -14,7 +19,9 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:redis}
       port: ${SPRING_DATA_REDIS_PORT:6379}
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://mongodb:27017/devtrack_ai?serverSelectionTimeoutMS=500}
+      host: ${SPRING_DATA_MONGODB_HOST:mongodb}
+      port: ${SPRING_DATA_MONGODB_PORT:27017}
+      database: ${MONGODB_DATABASE:devtrack_ai}
 
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
@@ -64,6 +71,11 @@ ml:
     timeout-ms: ${ML_SERVICE_TIMEOUT_MS:5000}
 
 management:
+  health:
+    mail:
+      enabled: false
+    mongo:
+      enabled: false
   endpoint:
     health:
       show-details: never

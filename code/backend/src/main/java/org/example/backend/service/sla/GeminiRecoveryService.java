@@ -196,7 +196,8 @@ public class GeminiRecoveryService {
 
                 Decision guidance:
                 - Tailor recommendations directly to the task's title, description, and blocked reason.
-                - If task is BLOCKED, include ASK_BLOCKER_UPDATE or ESCALATE_LEADER with specific questions about the blocker.
+                - Do NOT select ESCALATE_LEADER since the Project Leader is the person creating and approving this recovery plan.
+                - If task is BLOCKED, use ASK_BLOCKER_UPDATE to require the assignee to clarify the exact blocker and resolution steps.
                 - If task scope is large or overdue, consider SUGGEST_SPLIT_TASK with concrete sub-task breakdown ideas.
                 - If assignee active task count is high, consider SUGGEST_REASSIGN from the Member candidates list.
                 - For CREATE_RECOVERY_CHECKLIST, create 2 to 4 concrete, actionable checklist steps tailored to this specific task.

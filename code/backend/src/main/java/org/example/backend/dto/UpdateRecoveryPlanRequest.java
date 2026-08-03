@@ -23,5 +23,7 @@ public class UpdateRecoveryPlanRequest {
         private String recommendedAssigneeName;
         private String recommendedReason;
         private List<String> notRecommendedAssignees;
+        /** If true, this is a new action to be created (id is ignored). */
+        private boolean newAction;
     }
 }
