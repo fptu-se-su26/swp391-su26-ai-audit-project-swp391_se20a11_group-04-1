@@ -228,26 +228,10 @@ const UseCasePage = () => {
 
   const handleGenerateAISetup = async (selectedIds) => {
     if (!selectedIds || selectedIds.length === 0) {
-      toast.error("Không tìm thấy Requirement nào! Vui lòng tạo Requirement trước khi tự động sinh Use Case.");
+      toast.error("No Requirements found! Please create Requirements before generating Use Cases.");
       return;
     }
-
-    // Check for existing PENDING result first — no need to regenerate
-    try {
-      const pendingList = await useCaseService.getPendingUseCaseGenerations(activeProject.id);
-      if (pendingList && pendingList.length > 0) {
-        const latest = pendingList[0];
-        if (latest.generationId) {
-          toast.success("Tìm thấy kết quả AI sẵn có, đang hiển thị...");
-          setGenerationId(latest.generationId);
-          setIsAiModalOpen(true);
-          return;
-        }
-      }
-    } catch (e) {
-      // ignore — proceed to setup modal
-    }
-
+    // Luôn mở setup modal trước để user chọn mode
     setSelectedReqIdsForAi(selectedIds);
     setIsAiSetupModalOpen(true);
   };
@@ -333,10 +317,17 @@ const UseCasePage = () => {
     setGenerating(false);
   };
 
+  const [moduleRefreshTrigger, setModuleRefreshTrigger] = useState(0);
+
   const handleRefresh = (silent = false) => {
     fetchUseCases(!silent);
     fetchAllUseCases();
     fetchDiagramData();
+  };
+
+  const handleRefreshWithModules = (silent = false) => {
+    handleRefresh(silent);
+    setModuleRefreshTrigger(t => t + 1);
   };
 
   const handleDeleteUseCase = (id) => {
@@ -552,8 +543,9 @@ const UseCasePage = () => {
                   onReject={handleRejectUseCase}
                   isDraftView={isDraftView}
                   hasFilters={!!(searchTerm || statusFilter || reqFilter)}
-                  pagination={null} // Grouped view shows all items at once, no pagination
+                  pagination={null}
                   onPageChange={setCurrentPage}
+                  moduleRefreshTrigger={moduleRefreshTrigger}
                 />
               ) : (
                 <UseCaseList 
@@ -615,7 +607,9 @@ const UseCasePage = () => {
         isLeader={isLeader}
         projectMembers={activeProject?.members || []}
         currentUserId={userId}
+        hasExistingUCs={allUseCases.length > 0}
       />
+
       <AiModulePlanModal
         isOpen={isModulePlanModalOpen}
         onClose={() => setIsModulePlanModalOpen(false)}
@@ -623,7 +617,7 @@ const UseCasePage = () => {
         projectId={activeProject?.id}
         onSuccess={() => {
           setIsModulePlanModalOpen(false);
-          handleRefresh();
+          handleRefreshWithModules();
         }}
       />
       <AiUseCaseGenerationModal

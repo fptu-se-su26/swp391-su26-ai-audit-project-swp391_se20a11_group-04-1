@@ -20,6 +20,10 @@ public interface AiGenerationStagingRepository extends JpaRepository<AiGeneratio
     java.util.Optional<AiGenerationStaging> findFirstByFileHashOrderByCreatedAtDesc(String fileHash);
     
     java.util.Optional<AiGenerationStaging> findFirstByFileHashAndProjectIdAndStageOrderByCreatedAtDesc(String fileHash, Long projectId, AiStage stage);
+
+    // Tìm staging UC đã CONFIRMED theo fingerprint (fileHash dùng để lưu cacheFingerprint cho UC)
+    java.util.Optional<AiGenerationStaging> findFirstByFileHashAndProjectIdAndStageAndStatusOrderByCreatedAtDesc(
+        String fileHash, Long projectId, AiStage stage, AiGenerationStatus status);
     
     boolean existsByRequirementIdAndStatus(Long requirementId, AiGenerationStatus status);
     

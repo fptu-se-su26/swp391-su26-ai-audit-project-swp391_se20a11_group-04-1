@@ -25,4 +25,9 @@ UseCaseRepository extends JpaRepository<UseCase, Long>, JpaSpecificationExecutor
     long countByProjectId(Long projectId);
     boolean existsByBusinessModuleId(Long businessModuleId);
     java.util.List<UseCase> findByBusinessModuleId(Long businessModuleId);
+
+    // Null FK module_id trực tiếp trong DB trước khi soft-delete UC (tránh FK violation khi xóa module)
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE use_cases SET module_id = NULL WHERE module_id = :moduleId", nativeQuery = true)
+    void unlinkModuleId(@Param("moduleId") Long moduleId);
 }

@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class GeminiServiceImpl implements GeminiService, LlmProvider {
 
     private static final String DEFAULT_GENERATE_CONTENT_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -184,9 +184,13 @@ public class GeminiServiceImpl implements GeminiService, LlmProvider {
         }
 
         String targetUrl = configuredUrl.trim();
-        if (targetUrl.contains("/models/gemini-2.5-flash:")) {
-            log.warn("Configured Gemini model gemini-2.5-flash is unavailable for this API key. Using gemini-3.6-flash instead.");
-            return targetUrl.replace("/models/gemini-2.5-flash:", "/models/gemini-3.6-flash:");
+        // Các model cũ/không còn hỗ trợ → tự động chuyển sang gemini-2.0-flash
+        if (targetUrl.contains("/models/gemini-2.5-flash:") ||
+            targetUrl.contains("/models/gemini-1.5-flash:") ||
+            targetUrl.contains("/models/gemini-1.0-pro:") ||
+            targetUrl.contains("/models/gemini-pro:")) {
+            log.warn("Configured Gemini model is unavailable. Falling back to gemini-2.0-flash.");
+            return targetUrl.replaceAll("/models/gemini-[^:]+:", "/models/gemini-2.0-flash:");
         }
         return targetUrl;
     }

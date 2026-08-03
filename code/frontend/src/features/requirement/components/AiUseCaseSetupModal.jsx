@@ -21,6 +21,7 @@ const AiUseCaseSetupModal = ({
   isLeader = false,
   projectMembers = [],
   currentUserId,
+  hasExistingUCs = false, // true nếu project đã có UC → auto-suggest regenerateMissingOnly
 }) => {
   // ── leader mode selection ──────────────────────────────────────────────────
   // 'plan'   → AUTO_PROJECT_MODULES_ONLY
@@ -64,15 +65,15 @@ const AiUseCaseSetupModal = ({
     return () => { document.body.style.overflow = 'unset'; };
   }, [isOpen]);
 
-  // Reset on open
+  // Reset on open — auto-check regenerateMissingOnly nếu đã có UC
   useEffect(() => {
     if (isOpen) {
       setLeaderMode('full');
       setModuleId('');
       setAllowProposedActors(true);
-      setRegenerateMissingOnly(false);
+      setRegenerateMissingOnly(hasExistingUCs); // auto-check nếu có UC rồi
     }
-  }, [isOpen]);
+  }, [isOpen, hasExistingUCs]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -151,6 +152,7 @@ const AiUseCaseSetupModal = ({
           />
           <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-snug">
             Only generate missing Use Cases
+            {hasExistingUCs && <span className="ml-1.5 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-semibold">Recommended</span>}
             <span className="block text-xs text-gray-400 font-normal mt-0.5">
               Skip requirements that already have Use Cases
             </span>

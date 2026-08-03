@@ -25,7 +25,19 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
   const [moduleDefs, setModuleDefs] = useState([]);
   const [existingUseCases, setExistingUseCases] = useState([]);
   
+  const [discarding, setDiscarding] = useState(false);
   const activeMembers = projectMembers;
+
+  const handleDiscardAndClose = async () => {
+    setDiscarding(true);
+    try {
+      if (generationId) {
+        await useCaseService.cancelGeneration(generationId);
+      }
+    } catch (_) {}
+    setDiscarding(false);
+    onClose();
+  };
 
   const handleScrollOnDrag = (e) => {
     if (!e.clientY) return;
@@ -213,7 +225,23 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
           setSelectedIndices(new Set(validIndices));
 
           // If AI produced nothing new → close and notify parent
-          if (validIndices.length === 0 && ucList.length === 0) {
+          // Chỉ trigger onFullyCovered khi ucList thực sự có UC nhưng tất cả đều là duplicate
+          // Không trigger khi ucList rỗng hoàn toàn (payload lỗi/failed)
+          if (ucList.length === 0) {
+            // Check payload có phải là generation lỗi không
+            const isFailed = payloadData?.status === 'FAILED' || payloadData?.error;
+            if (isFailed) {
+              toast.error(payloadData?.message || payloadData?.error || 'Generation failed. Please try again.');
+            } else {
+              // Thực sự không có UC nào được gen ra
+              onClose();
+              onFullyCovered?.();
+            }
+            setLoading(false);
+            return;
+          }
+          if (validIndices.length === 0 && ucList.length > 0) {
+            // Có UC nhưng tất cả đều là duplicate
             onClose();
             onFullyCovered?.();
           }
@@ -747,6 +775,16 @@ const AiUseCaseGenerationModal = ({ isOpen, onClose, generationId, onSuccess, on
                   </button>
                 </div>
               )}
+              <button
+                type="button"
+                onClick={handleDiscardAndClose}
+                disabled={discarding}
+                title="Discard this result and generate again"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-orange-600 hover:bg-orange-50 border border-orange-200 hover:border-orange-300 transition-all disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[15px]">refresh</span>
+                Re-generate
+              </button>
               <button type="button" onClick={onClose} className="w-10 h-10 rounded-full hover:bg-surface-variant flex items-center justify-center text-on-surface-variant transition-colors">
                 <span className="material-symbols-outlined text-[24px]">close</span>
               </button>

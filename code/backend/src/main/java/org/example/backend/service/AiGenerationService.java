@@ -312,7 +312,40 @@ public class AiGenerationService {
         try {
             Project project = projectRepository.findById(projectId)
                     .orElseThrow(() -> new RuntimeException("Project not found with ID: " + projectId));
-            UseCaseGenerationBuildResult result = buildUseCaseGenerationPayload(project, request, userId);
+
+            // ── CACHE CHECK: tính fingerprint trước, nếu khớp với CONFIRMED cũ → reuse (fake delay) ──
+            sendProgress(userId, 1, "Building Generation Context...");
+            org.example.backend.dto.ai.UseCaseGenerationContext ctx = 
+                useCaseGenerationContextBuilder.buildContext(project, request.getModuleId(), request.getRequirementIds());
+            String fingerprint = useCaseGenerationFingerprintService.generateFingerprint(
+                ctx, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
+
+            java.util.Optional<AiGenerationStaging> cachedStaging = stagingRepository
+                .findFirstByFileHashAndProjectIdAndStageAndStatusOrderByCreatedAtDesc(
+                    fingerprint, projectId, AiStage.USE_CASE, AiGenerationStatus.CONFIRMED);
+
+            if (cachedStaging.isPresent() && cachedStaging.get().getPayload() != null) {
+                log.info("UC generation {} matched cached fingerprint. Restoring from cache.", generationId);
+                sendProgress(userId, 2, "Cache hit! Verifying previous results...");
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                sendProgress(userId, 4, "Rebuilding use case structure...");
+                try { Thread.sleep(4000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                sendProgress(userId, 6, "Restoring previous AI results...");
+                try { Thread.sleep(3000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
+                boolean success = aiGenerationStagingService.updateStatusAndPayloadIf(
+                    generationId,
+                    AiGenerationStatus.PROCESSING,
+                    AiGenerationStatus.PENDING,
+                    cachedStaging.get().getPayload(),
+                    fingerprint
+                );
+                if (success) sendProgress(userId, 7, "Done!");
+                return;
+            }
+            // ── END CACHE CHECK ──
+
+            UseCaseGenerationBuildResult result = buildUseCaseGenerationPayload(project, request, userId, ctx, fingerprint);
 
             boolean success = aiGenerationStagingService.updateStatusAndPayloadIf(
                     generationId, 
@@ -348,6 +381,11 @@ public class AiGenerationService {
     private UseCaseGenerationBuildResult buildUseCaseGenerationPayload(Project project, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId) {
         sendProgress(userId, 1, "Building Generation Context...");
         org.example.backend.dto.ai.UseCaseGenerationContext context = useCaseGenerationContextBuilder.buildContext(project, request.getModuleId(), request.getRequirementIds());
+        return buildUseCaseGenerationPayload(project, request, userId, context, null);
+    }
+
+    private UseCaseGenerationBuildResult buildUseCaseGenerationPayload(Project project, org.example.backend.dto.AiUseCaseGenerateRequest request, Long userId,
+            org.example.backend.dto.ai.UseCaseGenerationContext context, String precomputedFingerprint) {
 
         // GAP ANALYSIS FILTERING
         if (Boolean.TRUE.equals(request.getRegenerateMissingOnly())) {
@@ -359,7 +397,8 @@ public class AiGenerationService {
         }
 
         sendProgress(userId, 2, "Checking Cache...");
-        String cacheFingerprint = useCaseGenerationFingerprintService.generateFingerprint(context, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
+        String cacheFingerprint = precomputedFingerprint != null ? precomputedFingerprint
+            : useCaseGenerationFingerprintService.generateFingerprint(context, request.getGenerationMode().name(), request.getAllowProposedActors(), request.getRegenerateMissingOnly());
 
         if (org.example.backend.dto.AiUseCaseGenerateRequest.GenerationMode.AUTO_PROJECT.equals(request.getGenerationMode())) {
             return buildAutoProjectPayload(context, request, userId, cacheFingerprint);
@@ -405,8 +444,8 @@ public class AiGenerationService {
     }
 
     /**
-     * AUTO_PROJECT mode: discover modules first, then run actor discovery + UC generation
-     * PER MODULE so AI gets focused context (5-8 reqs max) instead of 50 reqs at once.
+     * AUTO_PROJECT mode: nếu project đã có modules trong DB → dùng luôn, không discover lại.
+     * Chỉ discover khi project chưa có module nào.
      */
     private UseCaseGenerationBuildResult buildAutoProjectPayload(
             org.example.backend.dto.ai.UseCaseGenerationContext baseContext,
@@ -414,8 +453,52 @@ public class AiGenerationService {
             Long userId,
             String cacheFingerprint) {
 
-        sendProgress(userId, 3, "AI Phase 1a: Discovering Business Modules...");
-        org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult = moduleDiscoveryService.discoverModules(baseContext);
+        List<org.example.backend.dto.ai.GeneratedModuleDraft> modules;
+
+        // Nếu project đã có modules trong DB → map sang GeneratedModuleDraft (không discover lại)
+        List<org.example.backend.entity.BusinessModule> existingDbModules = baseContext.getProjectModules();
+        if (existingDbModules != null && !existingDbModules.isEmpty()) {
+            sendProgress(userId, 3, "Using existing " + existingDbModules.size() + " modules from project...");
+            // Build req ID set for fast lookup
+            java.util.Set<Long> reqIdSet = baseContext.getModuleRequirements().stream()
+                    .map(org.example.backend.entity.Requirement::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            modules = existingDbModules.stream().map(m -> {
+                org.example.backend.dto.ai.GeneratedModuleDraft draft = new org.example.backend.dto.ai.GeneratedModuleDraft();
+                draft.setTemporaryId("MODULE-DB-" + m.getId());
+                draft.setName(m.getName());
+                draft.setDescription(m.getDescription());
+                draft.setPriority(m.getPriority() != null ? m.getPriority() : "MEDIUM");
+                draft.setExistingModuleId(m.getId()); // ← đảm bảo backend dùng đúng module DB
+                // Map requirements đã thuộc module này
+                List<Long> modReqIds = baseContext.getModuleRequirements().stream()
+                        .filter(r -> r.getBusinessModule() != null && r.getBusinessModule().getId().equals(m.getId()))
+                        .map(org.example.backend.entity.Requirement::getId)
+                        .collect(java.util.stream.Collectors.toList());
+                draft.setRequirementIds(modReqIds);
+                return draft;
+            }).collect(java.util.stream.Collectors.toList());
+
+            // Requirements chưa có module → gom vào một draft "General"
+            List<Long> unassignedReqIds = baseContext.getModuleRequirements().stream()
+                    .filter(r -> r.getBusinessModule() == null)
+                    .map(org.example.backend.entity.Requirement::getId)
+                    .collect(java.util.stream.Collectors.toList());
+            if (!unassignedReqIds.isEmpty()) {
+                org.example.backend.dto.ai.GeneratedModuleDraft general = new org.example.backend.dto.ai.GeneratedModuleDraft();
+                general.setTemporaryId("MODULE-GENERAL");
+                general.setName("General Module");
+                general.setDescription("Unassigned requirements");
+                general.setPriority("MEDIUM");
+                general.setRequirementIds(unassignedReqIds);
+                modules.add(general);
+            }
+        } else {
+            sendProgress(userId, 3, "AI Phase 1a: Discovering Business Modules...");
+            org.example.backend.dto.ai.ModuleDiscoveryResult moduleDiscoveryResult = moduleDiscoveryService.discoverModules(baseContext);
+            modules = moduleDiscoveryResult.getModules();
+        }
 
         List<org.example.backend.dto.ai.GeneratedUseCaseDraft> allUseCases = new ArrayList<>();
         List<org.example.backend.dto.ai.DiscoveredActor> allExistingActors = new ArrayList<>();
@@ -428,7 +511,6 @@ public class AiGenerationService {
             reqById.put(r.getId(), r);
         }
 
-        List<org.example.backend.dto.ai.GeneratedModuleDraft> modules = moduleDiscoveryResult.getModules();
         int totalModules = modules.size();
 
         for (int modIdx = 0; modIdx < totalModules; modIdx++) {
@@ -549,9 +631,14 @@ public class AiGenerationService {
                         assignableMembers.get(i % assignableMembers.size());
                 org.example.backend.entity.UserAccount user = assignedMember.getUser();
                 if (user != null) {
-                    modules.get(i).setSuggestedAssigneeId(user.getId());
-                    modules.get(i).setSuggestedAssigneeName(
-                            user.getUsername() != null ? user.getUsername() : user.getEmail());
+                    // Load user eagerly bằng ID để tránh LazyInitializationException
+                    // (assignedMember.getUser() có thể là Hibernate proxy chưa init)
+                    org.example.backend.entity.UserAccount loadedUser = userRepository.findById(user.getId()).orElse(null);
+                    if (loadedUser != null) {
+                        modules.get(i).setSuggestedAssigneeId(loadedUser.getId());
+                        modules.get(i).setSuggestedAssigneeName(
+                                loadedUser.getUsername() != null ? loadedUser.getUsername() : loadedUser.getEmail());
+                    }
                 }
             }
         }

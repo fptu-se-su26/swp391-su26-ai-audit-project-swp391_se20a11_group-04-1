@@ -168,6 +168,11 @@ public class BusinessModuleServiceImpl implements BusinessModuleService {
                 useCaseRepository.save(uc);
             }
 
+            // 2d. CRITICAL: null FK module_id trực tiếp trong DB TRƯỚC khi soft-delete.
+            //     @SQLDelete chỉ set is_deleted=true (row vẫn còn), module_id vẫn trỏ vào
+            //     business_modules → FK violation khi DELETE module. Phải null trước.
+            useCaseRepository.unlinkModuleId(id);
+
             useCaseRepository.deleteAll(useCases);
         }
 

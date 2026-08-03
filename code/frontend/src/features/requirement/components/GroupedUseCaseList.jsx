@@ -65,7 +65,8 @@ const GroupedUseCaseList = ({
   hasFilters,
   currentUserId,
   projectMembers = [],
-  onAddUseCase
+  onAddUseCase,
+  moduleRefreshTrigger = 0
 }) => {
   const { activeProject } = useProjectStore();
   const [modules, setModules] = useState([]); // BusinessModules from backend
@@ -81,7 +82,7 @@ const GroupedUseCaseList = ({
     businessModuleService.getModulesByProject(activeProject.id)
       .then(mods => setModules(mods || []))
       .catch(() => {});
-  }, [activeProject?.id, useCases]); // refresh modules when useCases change (or trigger refresh)
+  }, [activeProject?.id, useCases, moduleRefreshTrigger]); // refresh modules khi useCases thay đổi hoặc trigger từ parent
 
   const getModulePriority = (moduleId) => {
     const task = modules.find(m => String(m.id) === String(moduleId));
@@ -212,7 +213,7 @@ const GroupedUseCaseList = ({
   };
 
 
-  if (!useCases || useCases.length === 0) {
+  if ((!useCases || useCases.length === 0) && modules.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-dashed border-gray-300">
         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
@@ -465,9 +466,15 @@ const GroupedUseCaseList = ({
                   setDeleteMode(null);
                   try {
                     if (deletingModule.isGeneral) {
-                      const generalUCs = useCases.filter(uc => !uc.moduleId || uc.moduleName === 'General Module');
-                      await Promise.all(generalUCs.map(uc => useCaseService.deleteUseCase(uc.id, activeProject.id)));
-                      toast.success(`Deleted ${generalUCs.length} Use Case(s)`);
+                      // Fetch ALL UCs for project (including addedFromDiagram ones) to avoid missing any
+                      const allProjectUCs = await useCaseService.getAllUseCases(activeProject.id);
+                      const generalUCs = allProjectUCs.filter(uc => !uc.moduleId);
+                      if (generalUCs.length === 0) {
+                        toast.success('No Use Cases to delete');
+                      } else {
+                        await Promise.all(generalUCs.map(uc => useCaseService.deleteUseCase(uc.id, activeProject.id)));
+                        toast.success(`Deleted ${generalUCs.length} Use Case(s)`);
+                      }
                     } else {
                       await businessModuleService.deleteModule(activeProject.id, deletingModule.id);
                       toast.success('Module deleted');

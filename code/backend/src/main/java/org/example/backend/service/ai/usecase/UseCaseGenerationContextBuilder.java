@@ -50,13 +50,13 @@ public class UseCaseGenerationContextBuilder {
             if (!r.getProject().getId().equals(project.getId())) {
                 throw new RuntimeException("Requirement " + r.getId() + " does not belong to this project");
             }
-            if (targetModule != null && r.getBusinessModule() != null && !r.getBusinessModule().getId().equals(moduleId)) {
-                throw new RuntimeException("Requirement " + r.getId() + " belongs to a different module");
-            }
+            // NOTE: Bỏ check "belongs to different module" vì khi gen AUTO_PROJECT,
+            // frontend gửi tất cả req IDs, nhiều req đã có module khác → không nên block
         }
 
         List<ProjectActor> existingActors = projectActorRepository.findByProjectIdAndIsDeletedFalse(project.getId());
         List<UseCase> existingUseCases = useCaseRepository.findByProjectId(project.getId());
+        List<BusinessModule> projectModules = businessModuleRepository.findByProjectOrderByCreatedAtAsc(project);
 
         return UseCaseGenerationContext.builder()
                 .project(project)
@@ -64,7 +64,8 @@ public class UseCaseGenerationContextBuilder {
                 .moduleRequirements(reqs)
                 .existingActors(existingActors)
                 .existingUseCases(existingUseCases)
-                .contextPriorities(List.of()) // Add actual logic to fetch domain priorities
+                .contextPriorities(List.of())
+                .projectModules(projectModules)
                 .build();
     }
 }

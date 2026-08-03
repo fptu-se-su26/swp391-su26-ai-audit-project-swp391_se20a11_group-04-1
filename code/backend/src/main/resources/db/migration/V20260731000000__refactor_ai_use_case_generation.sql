@@ -20,6 +20,7 @@ SET module_id = (
     WHERE ruc.requirement_id = r.id AND u.is_deleted = false AND u.module_id IS NOT NULL
     GROUP BY u.module_id
     HAVING COUNT(DISTINCT u.module_id) = 1
+    LIMIT 1
 )
 WHERE r.module_id IS NULL;
 
